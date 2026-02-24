@@ -252,6 +252,73 @@ export type Database = {
           },
         ]
       }
+      flussi_compagnia: {
+        Row: {
+          api_endpoint: string | null
+          api_response: string | null
+          compagnia_id: string | null
+          created_at: string
+          created_by: string | null
+          formato: string
+          id: string
+          payload_output: string | null
+          periodo: string
+          stato: string
+          tipo_flusso: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_response?: string | null
+          compagnia_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          formato?: string
+          id?: string
+          payload_output?: string | null
+          periodo: string
+          stato?: string
+          tipo_flusso?: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_response?: string | null
+          compagnia_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          formato?: string
+          id?: string
+          payload_output?: string | null
+          periodo?: string
+          stato?: string
+          tipo_flusso?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flussi_compagnia_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flussi_compagnia_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flussi_compagnia_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incroci_bancari: {
         Row: {
           created_at: string | null
