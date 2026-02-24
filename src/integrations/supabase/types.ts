@@ -706,6 +706,105 @@ export type Database = {
           },
         ]
       }
+      portafoglio_incassi: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          descrizione: string
+          id: string
+          importo_atteso: number
+          periodicita: string
+          prossima_scadenza: string
+          stato: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          descrizione: string
+          id?: string
+          importo_atteso?: number
+          periodicita?: string
+          prossima_scadenza: string
+          stato?: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          descrizione?: string
+          id?: string
+          importo_atteso?: number
+          periodicita?: string
+          prossima_scadenza?: string
+          stato?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portafoglio_incassi_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portafoglio_incassi_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portafoglio_incassi_eventi: {
+        Row: {
+          created_at: string
+          data_scadenza: string
+          esito: string
+          estratto_id: string | null
+          id: string
+          importo_atteso: number
+          note: string | null
+          portafoglio_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_scadenza: string
+          esito?: string
+          estratto_id?: string | null
+          id?: string
+          importo_atteso?: number
+          note?: string | null
+          portafoglio_id: string
+        }
+        Update: {
+          created_at?: string
+          data_scadenza?: string
+          esito?: string
+          estratto_id?: string | null
+          id?: string
+          importo_atteso?: number
+          note?: string | null
+          portafoglio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portafoglio_incassi_eventi_estratto_id_fkey"
+            columns: ["estratto_id"]
+            isOneToOne: false
+            referencedRelation: "estratti_conto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portafoglio_incassi_eventi_portafoglio_id_fkey"
+            columns: ["portafoglio_id"]
+            isOneToOne: false
+            referencedRelation: "portafoglio_incassi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       privacy_consensi: {
         Row: {
           cliente_id: string

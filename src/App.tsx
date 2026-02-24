@@ -32,6 +32,8 @@ import NoteRestituzioneList from "./pages/NoteRestituzioneList";
 import NotaRestituzioneDetail from "./pages/NotaRestituzioneDetail";
 import SpedizioniList from "./pages/SpedizioniList";
 import ReportIVA from "./pages/ReportIVA";
+import PortafoglioList from "./pages/PortafoglioList";
+import PortafoglioDetail from "./pages/PortafoglioDetail";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -85,6 +87,8 @@ const App = () => (
               <Route path="/matrice-provvigioni" element={<MatriceProvvigioni />} />
               <Route path="/template-ruoli" element={<GestioneTemplateRuoli />} />
               <Route path="/report-iva" element={<ReportIVA />} />
+              <Route path="/portafoglio" element={<PortafoglioList />} />
+              <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
               <Route path="/crea-utente" element={<CreaNuovoUtente />} />
             </Route>
             <Route path="*" element={<NotFound />} />
