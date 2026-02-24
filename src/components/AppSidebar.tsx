@@ -13,6 +13,10 @@ import {
   Settings,
   FileStack,
   UserPlus,
+  Building2,
+  Tag,
+  Package,
+  Grid3X3,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +40,10 @@ const allMenuItems: SidebarItem[] = [
   { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
+  { label: "Compagnie", path: "/compagnie", icon: Building2, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Categorie", path: "/categorie", icon: Tag, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Prodotti", path: "/prodotti", icon: Package, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Matrice Provvigioni", path: "/matrice-provvigioni", icon: Grid3X3, permissionKey: "provvigioni", adminOnly: true },
   { label: "Impostazioni", path: "/impostazioni", icon: Settings, permissionKey: "impostazioni" },
   { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack, permissionKey: "impostazioni", adminOnly: true },
   { label: "Crea Utente", path: "/crea-utente", icon: UserPlus, permissionKey: "impostazioni", adminOnly: true },
