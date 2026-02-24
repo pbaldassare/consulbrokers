@@ -36,6 +36,8 @@ import PortafoglioList from "./pages/PortafoglioList";
 import PortafoglioDetail from "./pages/PortafoglioDetail";
 import FlussiCompagnieList from "./pages/FlussiCompagnieList";
 import FlussoCompagniaDetail from "./pages/FlussoCompagniaDetail";
+import PagamentiProvvigioniList from "./pages/PagamentiProvvigioniList";
+import PagamentoProvvigioneDetail from "./pages/PagamentoProvvigioneDetail";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -93,6 +95,8 @@ const App = () => (
               <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
               <Route path="/flussi-compagnie" element={<FlussiCompagnieList />} />
               <Route path="/flussi-compagnie/:id" element={<FlussoCompagniaDetail />} />
+              <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
+              <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
               <Route path="/crea-utente" element={<CreaNuovoUtente />} />
             </Route>
             <Route path="*" element={<NotFound />} />

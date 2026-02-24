@@ -1,0 +1,358 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAttivita } from "@/lib/logAttivita";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { Plus, Download, FileText, DollarSign, Users, Calendar } from "lucide-react";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+
+const PagamentiProvvigioniList = () => {
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [periodoDa, setPeriodoDa] = useState("");
+  const [periodoA, setPeriodoA] = useState("");
+  const [metodo, setMetodo] = useState("bonifico");
+  const [riferimento, setRiferimento] = useState("");
+  const [note, setNote] = useState("");
+  const [selectedProvvigioni, setSelectedProvvigioni] = useState<string[]>([]);
+
+  // Fetch distinte
+  const { data: distinte = [], isLoading } = useQuery({
+    queryKey: ["pagamenti_provvigioni"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pagamenti_provvigioni")
+        .select("*, pagato_a:profiles!pagamenti_provvigioni_pagato_a_user_id_fkey(nome, cognome)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch users with unpaid commissions
+  const { data: utenti = [] } = useQuery({
+    queryKey: ["utenti_provvigioni"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome")
+        .eq("attivo", true)
+        .order("cognome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch unpaid commissions for selected user + period
+  const { data: provvigioniNonPagate = [] } = useQuery({
+    queryKey: ["provvigioni_non_pagate", selectedUser, periodoDa, periodoA],
+    enabled: !!selectedUser && !!periodoDa && !!periodoA,
+    queryFn: async () => {
+      let q = supabase
+        .from("provvigioni_generate")
+        .select("*, titolo:titoli(numero_titolo, premio_lordo, data_incasso, prodotto:prodotti(nome_prodotto))")
+        .eq("user_id", selectedUser)
+        .eq("pagata", false);
+      if (periodoDa) q = q.gte("calcolata_il", periodoDa);
+      if (periodoA) q = q.lte("calcolata_il", periodoA + "T23:59:59");
+      const { data, error } = await q.order("calcolata_il", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const createDistinta = useMutation({
+    mutationFn: async () => {
+      if (selectedProvvigioni.length === 0) throw new Error("Seleziona almeno una provvigione");
+      const righeSelezionate = provvigioniNonPagate.filter((p: any) => selectedProvvigioni.includes(p.id));
+      const totale = righeSelezionate.reduce((s: number, p: any) => s + (p.importo_provvigione || 0), 0);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non autenticato");
+
+      // Get user's ufficio
+      const { data: profile } = await supabase.from("profiles").select("ufficio_id").eq("id", selectedUser).single();
+
+      const { data: distinta, error: e1 } = await supabase
+        .from("pagamenti_provvigioni")
+        .insert({
+          pagato_a_user_id: selectedUser,
+          ufficio_id: profile?.ufficio_id || null,
+          periodo_da: periodoDa,
+          periodo_a: periodoA,
+          totale_importo: totale,
+          metodo,
+          riferimento: riferimento || null,
+          note: note || null,
+          creato_da: user.id,
+        })
+        .select()
+        .single();
+      if (e1) throw e1;
+
+      // Insert rows
+      const righe = righeSelezionate.map((p: any) => ({
+        pagamento_id: distinta.id,
+        provvigione_id: p.id,
+        importo: p.importo_provvigione || 0,
+      }));
+      const { error: e2 } = await supabase.from("pagamenti_provvigioni_righe").insert(righe);
+      if (e2) throw e2;
+
+      // Mark as paid
+      const { error: e3 } = await supabase
+        .from("provvigioni_generate")
+        .update({ pagata: true })
+        .in("id", selectedProvvigioni);
+      if (e3) throw e3;
+
+      await logAttivita({
+        azione: "creazione_distinta_provvigioni",
+        entita_tipo: "pagamenti_provvigioni",
+        entita_id: distinta.id,
+        dettagli_json: { righe: selectedProvvigioni.length, totale },
+      });
+
+      return distinta;
+    },
+    onSuccess: (distinta) => {
+      toast.success("Distinta creata con successo");
+      queryClient.invalidateQueries({ queryKey: ["pagamenti_provvigioni"] });
+      queryClient.invalidateQueries({ queryKey: ["provvigioni_non_pagate"] });
+      setDialogOpen(false);
+      resetForm();
+      navigate(`/pagamenti-provvigioni/${distinta.id}`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const resetForm = () => {
+    setSelectedUser("");
+    setPeriodoDa("");
+    setPeriodoA("");
+    setMetodo("bonifico");
+    setRiferimento("");
+    setNote("");
+    setSelectedProvvigioni([]);
+  };
+
+  const toggleAll = () => {
+    if (selectedProvvigioni.length === provvigioniNonPagate.length) {
+      setSelectedProvvigioni([]);
+    } else {
+      setSelectedProvvigioni(provvigioniNonPagate.map((p: any) => p.id));
+    }
+  };
+
+  const totaleSelezionato = provvigioniNonPagate
+    .filter((p: any) => selectedProvvigioni.includes(p.id))
+    .reduce((s: number, p: any) => s + (p.importo_provvigione || 0), 0);
+
+  const totaleDistinte = distinte.reduce((s: number, d: any) => s + (d.totale_importo || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Pagamenti Provvigioni</h1>
+          <p className="text-muted-foreground text-sm">Gestione distinte pagamento provvigioni</p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" />Nuova Distinta</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Crea Distinta Pagamento</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Utente</Label>
+                  <Select value={selectedUser} onValueChange={(v) => { setSelectedUser(v); setSelectedProvvigioni([]); }}>
+                    <SelectTrigger><SelectValue placeholder="Seleziona utente" /></SelectTrigger>
+                    <SelectContent>
+                      {utenti.map((u: any) => (
+                        <SelectItem key={u.id} value={u.id}>{u.cognome} {u.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Metodo</Label>
+                  <Select value={metodo} onValueChange={setMetodo}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bonifico">Bonifico</SelectItem>
+                      <SelectItem value="contanti">Contanti</SelectItem>
+                      <SelectItem value="altro">Altro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Periodo Da</Label>
+                  <Input type="date" value={periodoDa} onChange={(e) => setPeriodoDa(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Periodo A</Label>
+                  <Input type="date" value={periodoA} onChange={(e) => setPeriodoA(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Riferimento (CRO/TRN)</Label>
+                  <Input value={riferimento} onChange={(e) => setRiferimento(e.target.value)} placeholder="Opzionale" />
+                </div>
+                <div>
+                  <Label>Note</Label>
+                  <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={1} />
+                </div>
+              </div>
+
+              {selectedUser && periodoDa && periodoA && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Provvigioni non pagate ({provvigioniNonPagate.length})</h3>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium">Totale selezionato: €{totaleSelezionato.toFixed(2)}</span>
+                      <Button variant="outline" size="sm" onClick={toggleAll}>
+                        {selectedProvvigioni.length === provvigioniNonPagate.length ? "Deseleziona tutte" : "Seleziona tutte"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="border rounded-lg max-h-60 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-10"></TableHead>
+                          <TableHead>Titolo</TableHead>
+                          <TableHead>Prodotto</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead className="text-right">%</TableHead>
+                          <TableHead className="text-right">Importo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {provvigioniNonPagate.map((p: any) => (
+                          <TableRow key={p.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedProvvigioni.includes(p.id)}
+                                onCheckedChange={(c) =>
+                                  setSelectedProvvigioni(c ? [...selectedProvvigioni, p.id] : selectedProvvigioni.filter((x) => x !== p.id))
+                                }
+                              />
+                            </TableCell>
+                            <TableCell>{p.titolo?.numero_titolo || "-"}</TableCell>
+                            <TableCell>{p.titolo?.prodotto?.nome_prodotto || "-"}</TableCell>
+                            <TableCell>{p.calcolata_il ? format(new Date(p.calcolata_il), "dd/MM/yyyy") : "-"}</TableCell>
+                            <TableCell className="text-right">{p.percentuale}%</TableCell>
+                            <TableCell className="text-right font-medium">€{(p.importo_provvigione || 0).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {provvigioniNonPagate.length === 0 && (
+                          <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessuna provvigione non pagata nel periodo</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
+                <Button onClick={() => createDistinta.mutate()} disabled={selectedProvvigioni.length === 0 || createDistinta.isPending}>
+                  {createDistinta.isPending ? "Creazione..." : `Crea Distinta (€${totaleSelezionato.toFixed(2)})`}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* KPI */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Distinte Totali</CardTitle>
+            <FileText className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><p className="text-2xl font-bold">{distinte.length}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Totale Pagato</CardTitle>
+            <DollarSign className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><p className="text-2xl font-bold">€{totaleDistinte.toFixed(2)}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Beneficiari</CardTitle>
+            <Users className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><p className="text-2xl font-bold">{new Set(distinte.map((d: any) => d.pagato_a_user_id)).size}</p></CardContent>
+        </Card>
+      </div>
+
+      {/* Lista distinte */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Beneficiario</TableHead>
+                <TableHead>Periodo</TableHead>
+                <TableHead>Metodo</TableHead>
+                <TableHead>Riferimento</TableHead>
+                <TableHead className="text-right">Importo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {distinte.map((d: any) => (
+                <TableRow
+                  key={d.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/pagamenti-provvigioni/${d.id}`)}
+                >
+                  <TableCell>{format(new Date(d.created_at), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>{d.pagato_a?.cognome} {d.pagato_a?.nome}</TableCell>
+                  <TableCell className="text-sm">
+                    {format(new Date(d.periodo_da), "dd/MM/yy")} - {format(new Date(d.periodo_a), "dd/MM/yy")}
+                  </TableCell>
+                  <TableCell><Badge variant="outline">{d.metodo}</Badge></TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{d.riferimento || "-"}</TableCell>
+                  <TableCell className="text-right font-semibold">€{(d.totale_importo || 0).toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+              {distinte.length === 0 && !isLoading && (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessuna distinta creata</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default PagamentiProvvigioniList;
