@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { logAttivita } from "@/lib/logAttivita";
-import { ArrowLeft, FileCode, Send, Copy, Download } from "lucide-react";
+import { ArrowLeft, FileCode, Send, Copy, Download, Clock } from "lucide-react";
 import { format } from "date-fns";
+import TimelineTab from "@/components/TimelineTab";
 
 const statoBadge: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   bozza: "secondary",
@@ -44,7 +45,6 @@ const FlussoCompagniaDetail = () => {
       const dataInizio = `${anno}-${mese}-01`;
       const nextMonth = parseInt(mese) === 12 ? `${parseInt(anno) + 1}-01-01` : `${anno}-${String(parseInt(mese) + 1).padStart(2, "0")}-01`;
 
-      // Fetch movimenti contabili del periodo
       const { data: movimenti } = await supabase
         .from("movimenti_contabili")
         .select("*")
@@ -52,7 +52,6 @@ const FlussoCompagniaDetail = () => {
         .gte("data_movimento", dataInizio)
         .lt("data_movimento", nextMonth);
 
-      // Fetch titoli incassati del periodo
       const { data: titoli } = await supabase
         .from("titoli")
         .select("*, prodotti(nome_prodotto, compagnia_id)")
@@ -120,7 +119,7 @@ const FlussoCompagniaDetail = () => {
       if (error) throw error;
     },
     onSuccess: async () => {
-      await logAttivita({ azione: "errore_flusso", entita_tipo: "flussi_compagnia", entita_id: id! });
+      await logAttivita({ azione: "errore_flusso", entita_tipo: "flussi_compagnia", entita_id: id!, severity: "critical" });
       queryClient.invalidateQueries({ queryKey: ["flussi_compagnia", id] });
       toast({ title: "Flusso segnato come errore", variant: "destructive" });
     },
@@ -163,7 +162,6 @@ const FlussoCompagniaDetail = () => {
         <Badge variant={statoBadge[flusso.stato] || "secondary"} className="capitalize text-sm px-3 py-1">{flusso.stato}</Badge>
       </div>
 
-      {/* Info card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="pt-6">
           <p className="text-xs text-muted-foreground">Compagnia</p>
@@ -179,7 +177,6 @@ const FlussoCompagniaDetail = () => {
         </CardContent></Card>
       </div>
 
-      {/* Actions */}
       <Card>
         <CardContent className="pt-6 flex flex-wrap gap-3">
           {flusso.stato === "bozza" && (
@@ -207,21 +204,44 @@ const FlussoCompagniaDetail = () => {
         </CardContent>
       </Card>
 
-      {/* Payload */}
-      <Card>
-        <CardHeader><CardTitle>Payload Output</CardTitle></CardHeader>
-        <CardContent>
-          {flusso.payload_output ? (
-            <pre className="bg-muted p-4 rounded-lg overflow-auto max-h-[500px] text-xs font-mono whitespace-pre-wrap">
-              {flusso.payload_output}
-            </pre>
-          ) : (
-            <p className="text-center py-8 text-muted-foreground">
-              Nessun payload generato. Clicca "Genera" per creare il contenuto.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="payload">
+        <TabsList>
+          <TabsTrigger value="payload"><FileCode className="w-4 h-4 mr-1" />Payload</TabsTrigger>
+          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
+        </TabsList>
+        <TabsContent value="payload">
+          <Card>
+            <CardContent className="pt-6">
+              {flusso.payload_output ? (
+                <pre className="bg-muted p-4 rounded-lg overflow-auto max-h-[500px] text-xs font-mono whitespace-pre-wrap">
+                  {flusso.payload_output}
+                </pre>
+              ) : (
+                <p className="text-center py-8 text-muted-foreground">
+                  Nessun payload generato. Clicca "Genera" per creare il contenuto.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="timeline">
+          <Card>
+            <CardContent className="pt-6">
+              <TimelineTab entitaTipo="flussi_compagnia" entitaId={id!} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {(flusso.api_endpoint || flusso.api_response) && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Info API (predisposizione)</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {flusso.api_endpoint && <div><span className="text-muted-foreground">Endpoint:</span> {flusso.api_endpoint}</div>}
+            {flusso.api_response && <div><span className="text-muted-foreground">Response:</span> <pre className="text-xs bg-muted p-2 rounded mt-1">{flusso.api_response}</pre></div>}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

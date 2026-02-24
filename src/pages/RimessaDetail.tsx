@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, FileText, Code, Clock, Send, AlertTriangle } from "lucide-react";
+import TimelineTab from "@/components/TimelineTab";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -47,20 +48,7 @@ const RimessaDetail = () => {
     enabled: !!id,
   });
 
-  const { data: logs = [] } = useQuery({
-    queryKey: ["logs_rimessa", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("log_attivita")
-        .select("*")
-        .eq("entita_tipo", "rimessa_premi")
-        .eq("entita_id", id!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
+  // Timeline is now rendered by TimelineTab component
 
   const generateXmlMutation = useMutation({
     mutationFn: async () => {
@@ -163,7 +151,7 @@ const RimessaDetail = () => {
         <TabsList>
           <TabsTrigger value="titoli"><FileText className="w-4 h-4 mr-1" />Titoli ({dettagli.length})</TabsTrigger>
           <TabsTrigger value="xml"><Code className="w-4 h-4 mr-1" />XML</TabsTrigger>
-          <TabsTrigger value="log"><Clock className="w-4 h-4 mr-1" />Log ({logs.length})</TabsTrigger>
+          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
         </TabsList>
 
         <TabsContent value="titoli">
@@ -210,20 +198,10 @@ const RimessaDetail = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="log">
+        <TabsContent value="timeline">
           <Card>
-            <CardContent className="pt-6 space-y-3">
-              {logs.map((l: any) => (
-                <div key={l.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <Clock className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{l.azione}</p>
-                    {l.dettagli_json && <p className="text-xs text-muted-foreground mt-1">{JSON.stringify(l.dettagli_json)}</p>}
-                    <p className="text-xs text-muted-foreground">{l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm", { locale: it }) : ""}</p>
-                  </div>
-                </div>
-              ))}
-              {logs.length === 0 && <p className="text-center text-muted-foreground text-sm">Nessuna attività</p>}
+            <CardContent className="pt-6">
+              <TimelineTab entitaTipo="rimessa_premi" entitaId={id!} />
             </CardContent>
           </Card>
         </TabsContent>

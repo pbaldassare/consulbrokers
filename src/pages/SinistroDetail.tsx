@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
+import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
@@ -69,20 +70,13 @@ export default function SinistroDetail() {
     },
   });
 
-  const { data: logs } = useQuery({
-    queryKey: ["sinistro-logs", id],
-    queryFn: async () => {
-      const { data } = await supabase.from("log_attivita").select("*, profiles:user_id(nome, cognome)")
-        .eq("entita_tipo", "sinistro").eq("entita_id", id!).order("created_at", { ascending: false });
-      return data || [];
-    },
-  });
+  // Timeline is now rendered by TimelineTab component
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["sinistro", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-checklist", id] });
     qc.invalidateQueries({ queryKey: ["sinistro-eventi", id] });
-    qc.invalidateQueries({ queryKey: ["sinistro-logs", id] });
+    qc.invalidateQueries({ queryKey: ["timeline", "sinistro", id] });
   };
 
   const toggleChecklist = async (item: any) => {
@@ -171,7 +165,7 @@ export default function SinistroDetail() {
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="log">Log Attività</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
         <TabsContent value="checklist" className="space-y-4">
@@ -265,20 +259,8 @@ export default function SinistroDetail() {
           <ChatTab entitaTipo="sinistro" entitaId={id!} />
         </TabsContent>
 
-        <TabsContent value="log">
-          <div className="space-y-2">
-            {logs?.map((l: any) => (
-              <div key={l.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <span className="font-medium">{l.azione}</span>
-                  {l.profiles && <span className="text-muted-foreground ml-2">— {l.profiles.nome} {l.profiles.cognome}</span>}
-                </div>
-                <span className="text-sm text-muted-foreground">{format(new Date(l.created_at), "dd/MM/yyyy HH:mm")}</span>
-              </div>
-            ))}
-            {!logs?.length && <p className="text-center text-muted-foreground py-4">Nessun log</p>}
-          </div>
+        <TabsContent value="timeline">
+          <TimelineTab entitaTipo="sinistro" entitaId={id!} />
         </TabsContent>
       </Tabs>
     </div>

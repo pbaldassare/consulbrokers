@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileText, Percent, Clock } from "lucide-react";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
+import TimelineTab from "@/components/TimelineTab";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -52,20 +53,7 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
-  const { data: logs = [] } = useQuery({
-    queryKey: ["logs_titolo", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("log_attivita")
-        .select("*")
-        .eq("entita_tipo", "titolo")
-        .eq("entita_id", id!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
+  // Timeline is now rendered by TimelineTab component
 
   const changeStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
@@ -155,7 +143,7 @@ const TitoloDetail = () => {
           <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
           <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="log"><Clock className="w-4 h-4 mr-1" />Log ({logs.length})</TabsTrigger>
+          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
         </TabsList>
         <TabsContent value="provvigioni">
           <Card>
@@ -192,24 +180,10 @@ const TitoloDetail = () => {
         <TabsContent value="chat">
           <Card><CardContent className="pt-6"><ChatTab entitaTipo="titolo" entitaId={id!} /></CardContent></Card>
         </TabsContent>
-        <TabsContent value="log">
+        <TabsContent value="timeline">
           <Card>
-            <CardContent className="pt-6 space-y-3">
-              {logs.map((l: any) => (
-                <div key={l.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <Clock className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{l.azione}</p>
-                    {l.dettagli_json && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {typeof l.dettagli_json === "object" ? JSON.stringify(l.dettagli_json) : l.dettagli_json}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">{l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm", { locale: it }) : ""}</p>
-                  </div>
-                </div>
-              ))}
-              {logs.length === 0 && <p className="text-center text-muted-foreground text-sm">Nessuna attività registrata</p>}
+            <CardContent className="pt-6">
+              <TimelineTab entitaTipo="titolo" entitaId={id!} />
             </CardContent>
           </Card>
         </TabsContent>
