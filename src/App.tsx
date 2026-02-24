@@ -16,6 +16,8 @@ import CompagnieList from "./pages/CompagnieList";
 import CategorieList from "./pages/CategorieList";
 import ProdottiList from "./pages/ProdottiList";
 import MatriceProvvigioni from "./pages/MatriceProvvigioni";
+import TitoliList from "./pages/TitoliList";
+import TitoloDetail from "./pages/TitoloDetail";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -45,7 +47,8 @@ const App = () => (
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
               <Route path="/trattative" element={<TrattativeList />} />
-              <Route path="/titoli" element={<PlaceholderPage title="Titoli" description="Gestione dei titoli assicurativi" icon={FileText} />} />
+              <Route path="/titoli" element={<TitoliList />} />
+              <Route path="/titoli/:id" element={<TitoloDetail />} />
               <Route path="/sinistri" element={<PlaceholderPage title="Sinistri" description="Gestione pratiche sinistri" icon={AlertTriangle} />} />
               <Route path="/contabilita" element={<PlaceholderPage title="Contabilità Ufficio" description="Gestione contabile dell'ufficio" icon={Calculator} />} />
               <Route path="/cfo" element={<PlaceholderPage title="Area CFO" description="Dashboard direzionale e reportistica" icon={BarChart3} />} />
