@@ -495,6 +495,63 @@ export type Database = {
           },
         ]
       }
+      notifiche: {
+        Row: {
+          created_at: string
+          destinatario_id: string
+          entita_id: string | null
+          entita_tipo: string | null
+          id: string
+          letto: boolean
+          messaggio: string
+          priorita: string
+          tipo: string
+          titolo: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          destinatario_id: string
+          entita_id?: string | null
+          entita_tipo?: string | null
+          id?: string
+          letto?: boolean
+          messaggio: string
+          priorita?: string
+          tipo: string
+          titolo: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          destinatario_id?: string
+          entita_id?: string | null
+          entita_tipo?: string | null
+          id?: string
+          letto?: boolean
+          messaggio?: string
+          priorita?: string
+          tipo?: string
+          titolo?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifiche_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifiche_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       privacy_consensi: {
         Row: {
           cliente_id: string
