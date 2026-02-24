@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.gestione-sinistri]
 verify_jwt = false
+
+[functions.parse-bank-document]
+verify_jwt = false
+
+[functions.match-bank-rows]
+verify_jwt = false
