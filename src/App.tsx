@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import RoleGuard from "./components/RoleGuard";
 import MainLayout from "./components/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
@@ -40,6 +41,7 @@ import PagamentiProvvigioniList from "./pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "./pages/PagamentoProvvigioneDetail";
 import ReportPage from "./pages/ReportPage";
 import ImpostazioniPage from "./pages/ImpostazioniPage";
+import BackupExport from "./pages/BackupExport";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -86,12 +88,12 @@ const App = () => (
               <Route path="/spedizioni" element={<SpedizioniList />} />
               <Route path="/notifiche" element={<NotifichePage />} />
               <Route path="/privacy" element={<PrivacyConsensi />} />
-              <Route path="/impostazioni" element={<ImpostazioniPage />} />
-              <Route path="/compagnie" element={<CompagnieList />} />
-              <Route path="/categorie" element={<CategorieList />} />
-              <Route path="/prodotti" element={<ProdottiList />} />
-              <Route path="/matrice-provvigioni" element={<MatriceProvvigioni />} />
-              <Route path="/template-ruoli" element={<GestioneTemplateRuoli />} />
+              <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
+              <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
+              <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
+              <Route path="/prodotti" element={<RoleGuard allowedRoles={["admin"]}><ProdottiList /></RoleGuard>} />
+              <Route path="/matrice-provvigioni" element={<RoleGuard allowedRoles={["admin"]}><MatriceProvvigioni /></RoleGuard>} />
+              <Route path="/template-ruoli" element={<RoleGuard allowedRoles={["admin"]}><GestioneTemplateRuoli /></RoleGuard>} />
               <Route path="/report-iva" element={<ReportIVA />} />
               <Route path="/portafoglio" element={<PortafoglioList />} />
               <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
@@ -100,7 +102,8 @@ const App = () => (
               <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
               <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
               <Route path="/report" element={<ReportPage />} />
-              <Route path="/crea-utente" element={<CreaNuovoUtente />} />
+              <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
+              <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

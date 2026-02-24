@@ -2,6 +2,7 @@ import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import GlobalSearch from "./GlobalSearch";
 import NotificheDropdown from "./NotificheDropdown";
+import { Badge } from "./ui/badge";
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -18,6 +19,8 @@ const ROLE_LABELS: Record<string, string> = {
 
 const Topbar = ({ onToggleSidebar }: TopbarProps) => {
   const { profile, signOut } = useAuth();
+  const appEnv = import.meta.env.VITE_APP_ENV || "DEV";
+  const isDev = appEnv !== "PROD";
 
   const displayName = profile
     ? `${profile.nome || ""} ${profile.cognome || ""}`.trim() || profile.email || "Utente"
@@ -36,7 +39,12 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
         <Menu className="w-5 h-5" />
       </button>
 
-      <GlobalSearch />
+      <div className="flex items-center gap-3">
+        <GlobalSearch />
+        <Badge variant={isDev ? "destructive" : "default"} className="text-[10px] px-2 py-0.5 uppercase tracking-wider">
+          {appEnv}
+        </Badge>
+      </div>
 
       <div className="flex items-center gap-4">
         <NotificheDropdown />

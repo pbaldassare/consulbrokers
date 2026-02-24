@@ -23,6 +23,7 @@ import {
   Bell,
   Receipt,
   ArrowRightLeft,
+  HardDrive,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +64,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Impostazioni", path: "/impostazioni", icon: Settings, permissionKey: "impostazioni" },
   { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack, permissionKey: "impostazioni", adminOnly: true },
   { label: "Crea Utente", path: "/crea-utente", icon: UserPlus, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Backup & Export", path: "/backup-export", icon: HardDrive, permissionKey: "impostazioni", adminOnly: true },
 ];
 
 interface AppSidebarProps {
