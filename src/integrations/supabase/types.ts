@@ -14,16 +14,179 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      log_attivita: {
+        Row: {
+          azione: string | null
+          created_at: string | null
+          dettagli_json: Json | null
+          entita_id: string | null
+          entita_tipo: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          azione?: string | null
+          created_at?: string | null
+          dettagli_json?: Json | null
+          entita_id?: string | null
+          entita_tipo?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          azione?: string | null
+          created_at?: string | null
+          dettagli_json?: Json | null
+          entita_id?: string | null
+          entita_tipo?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_attivita_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          attivo: boolean | null
+          cognome: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          nome: string | null
+          ruolo: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          cognome?: string | null
+          created_at?: string | null
+          email?: string | null
+          id: string
+          nome?: string | null
+          ruolo?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          cognome?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          ruolo?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ruoli_template: {
+        Row: {
+          created_at: string | null
+          descrizione: string | null
+          id: string
+          nome_template: string | null
+          permessi_json: Json | null
+          ruolo_base: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descrizione?: string | null
+          id?: string
+          nome_template?: string | null
+          permessi_json?: Json | null
+          ruolo_base?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descrizione?: string | null
+          id?: string
+          nome_template?: string | null
+          permessi_json?: Json | null
+          ruolo_base?: string | null
+        }
+        Relationships: []
+      }
+      uffici: {
+        Row: {
+          attivo: boolean | null
+          codice_ufficio: string | null
+          created_at: string | null
+          id: string
+          nome_ufficio: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice_ufficio?: string | null
+          created_at?: string | null
+          id?: string
+          nome_ufficio: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice_ufficio?: string | null
+          created_at?: string | null
+          id?: string
+          nome_ufficio?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_my_ufficio_id: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "admin"
+        | "ufficio"
+        | "produttore"
+        | "contabilita"
+        | "cfo"
+        | "cliente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +313,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "admin",
+        "ufficio",
+        "produttore",
+        "contabilita",
+        "cfo",
+        "cliente",
+      ],
+    },
   },
 } as const
