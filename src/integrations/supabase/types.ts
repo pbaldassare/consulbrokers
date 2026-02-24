@@ -319,6 +319,62 @@ export type Database = {
           },
         ]
       }
+      impostazioni_sistema: {
+        Row: {
+          chiave: string
+          descrizione: string | null
+          id: string
+          updated_at: string
+          valore_json: Json
+        }
+        Insert: {
+          chiave: string
+          descrizione?: string | null
+          id?: string
+          updated_at?: string
+          valore_json?: Json
+        }
+        Update: {
+          chiave?: string
+          descrizione?: string | null
+          id?: string
+          updated_at?: string
+          valore_json?: Json
+        }
+        Relationships: []
+      }
+      impostazioni_ufficio: {
+        Row: {
+          chiave: string
+          id: string
+          ufficio_id: string
+          updated_at: string
+          valore_json: Json
+        }
+        Insert: {
+          chiave: string
+          id?: string
+          ufficio_id: string
+          updated_at?: string
+          valore_json?: Json
+        }
+        Update: {
+          chiave?: string
+          id?: string
+          ufficio_id?: string
+          updated_at?: string
+          valore_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "impostazioni_ufficio_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incroci_bancari: {
         Row: {
           created_at: string | null

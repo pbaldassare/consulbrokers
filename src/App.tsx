@@ -39,6 +39,7 @@ import FlussoCompagniaDetail from "./pages/FlussoCompagniaDetail";
 import PagamentiProvvigioniList from "./pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "./pages/PagamentoProvvigioneDetail";
 import ReportPage from "./pages/ReportPage";
+import ImpostazioniPage from "./pages/ImpostazioniPage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -85,7 +86,7 @@ const App = () => (
               <Route path="/spedizioni" element={<SpedizioniList />} />
               <Route path="/notifiche" element={<NotifichePage />} />
               <Route path="/privacy" element={<PrivacyConsensi />} />
-              <Route path="/impostazioni" element={<PlaceholderPage title="Impostazioni" description="Configurazione del sistema" icon={Settings} />} />
+              <Route path="/impostazioni" element={<ImpostazioniPage />} />
               <Route path="/compagnie" element={<CompagnieList />} />
               <Route path="/categorie" element={<CategorieList />} />
               <Route path="/prodotti" element={<ProdottiList />} />
