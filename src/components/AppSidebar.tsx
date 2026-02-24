@@ -20,6 +20,7 @@ import {
   Landmark,
   Search,
   Bell,
+  Receipt,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +46,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Anomalie KO", path: "/anomalie-ko", icon: Search, permissionKey: "contabilita" },
   { label: "Note Restituzione", path: "/note-restituzione", icon: FileStack, permissionKey: "contabilita" },
   { label: "Spedizioni", path: "/spedizioni", icon: Package, permissionKey: "contabilita" },
+  { label: "Report IVA", path: "/report-iva", icon: Receipt, permissionKey: "contabilita" },
   { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
