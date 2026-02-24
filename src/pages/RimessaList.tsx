@@ -14,7 +14,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import ServerPagination from "@/components/ServerPagination";
 
+const PAGE_SIZE = 25;
 const statiRimessa = ["bozza", "pronta", "inviata", "errore"];
 
 const RimessaList = () => {
@@ -27,6 +29,7 @@ const RimessaList = () => {
   const [ufficioId, setUfficioId] = useState("");
   const [filtroStato, setFiltroStato] = useState("all");
   const [filtroCompagnia, setFiltroCompagnia] = useState("all");
+  const [page, setPage] = useState(0);
 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_attive"],
@@ -46,33 +49,31 @@ const RimessaList = () => {
     },
   });
 
-  const { data: rimesse = [], isLoading } = useQuery({
-    queryKey: ["rimessa_premi"],
+  const { data: rimesseResult, isLoading } = useQuery({
+    queryKey: ["rimessa_premi", page, filtroStato, filtroCompagnia],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("rimessa_premi")
-        .select("*, compagnie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
-        .order("data_creazione", { ascending: false });
+        .select("*, compagnie(nome), uffici(nome_ufficio), profiles(nome, cognome)", { count: "exact" });
+
+      if (filtroStato !== "all") q = q.eq("stato", filtroStato);
+      if (filtroCompagnia !== "all") q = q.eq("compagnia_id", filtroCompagnia);
+
+      const { data, error, count } = await q
+        .order("data_creazione", { ascending: false })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
-      return data;
+      return { data: data || [], count: count || 0 };
     },
   });
 
-  const filtered = rimesse.filter((r: any) => {
-    if (filtroStato !== "all" && r.stato !== filtroStato) return false;
-    if (filtroCompagnia !== "all" && r.compagnia_id !== filtroCompagnia) return false;
-    return true;
-  });
+  const rimesse = rimesseResult?.data || [];
+  const totalCount = rimesseResult?.count || 0;
 
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
-        body: {
-          action: "crea",
-          compagnia_id: compagniaId,
-          ufficio_id: ufficioId || null,
-          created_by: user?.id,
-        },
+        body: { action: "crea", compagnia_id: compagniaId, ufficio_id: ufficioId || null, created_by: user?.id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -80,9 +81,7 @@ const RimessaList = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
-      setOpen(false);
-      setCompagniaId("");
-      setUfficioId("");
+      setOpen(false); setCompagniaId(""); setUfficioId("");
       toast({ title: `Rimessa creata con ${data.titoli_count} titoli` });
     },
     onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
@@ -133,14 +132,14 @@ const RimessaList = () => {
       </div>
 
       <div className="flex gap-4">
-        <Select value={filtroStato} onValueChange={setFiltroStato}>
+        <Select value={filtroStato} onValueChange={(v) => { setFiltroStato(v); setPage(0); }}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Stato" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti gli stati</SelectItem>
             {statiRimessa.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
+        <Select value={filtroCompagnia} onValueChange={(v) => { setFiltroCompagnia(v); setPage(0); }}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Compagnia" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutte le compagnie</SelectItem>
@@ -150,34 +149,37 @@ const RimessaList = () => {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="w-5 h-5" />Rimesse ({filtered.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="w-5 h-5" />Rimesse ({totalCount})</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? <p className="text-muted-foreground">Caricamento...</p> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Compagnia</TableHead>
-                  <TableHead>Ufficio</TableHead>
-                  <TableHead>Totale €</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Creata da</TableHead>
-                  <TableHead>Data</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((r: any) => (
-                  <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
-                    <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
-                    <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
-                    <TableCell className="font-mono">€ {r.totale_importi?.toFixed(2) ?? "0.00"}</TableCell>
-                    <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
-                    <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
-                    <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Compagnia</TableHead>
+                    <TableHead>Ufficio</TableHead>
+                    <TableHead>Totale €</TableHead>
+                    <TableHead>Stato</TableHead>
+                    <TableHead>Creata da</TableHead>
+                    <TableHead>Data</TableHead>
                   </TableRow>
-                ))}
-                {filtered.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nessuna rimessa</TableCell></TableRow>}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rimesse.map((r: any) => (
+                    <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
+                      <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
+                      <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
+                      <TableCell className="font-mono">€ {r.totale_importi?.toFixed(2) ?? "0.00"}</TableCell>
+                      <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
+                      <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
+                      <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                  {rimesse.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nessuna rimessa</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            </>
           )}
         </CardContent>
       </Card>

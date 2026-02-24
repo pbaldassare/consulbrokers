@@ -271,6 +271,39 @@ export type Database = {
           },
         ]
       }
+      log_attivita_archivio: {
+        Row: {
+          archiviato_il: string | null
+          azione: string | null
+          created_at: string | null
+          dettagli_json: Json | null
+          entita_id: string | null
+          entita_tipo: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          archiviato_il?: string | null
+          azione?: string | null
+          created_at?: string | null
+          dettagli_json?: Json | null
+          entita_id?: string | null
+          entita_tipo?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          archiviato_il?: string | null
+          azione?: string | null
+          created_at?: string | null
+          dettagli_json?: Json | null
+          entita_id?: string | null
+          entita_tipo?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       matrice_provvigioni: {
         Row: {
           attiva: boolean | null
@@ -522,6 +555,7 @@ export type Database = {
           nome: string | null
           permessi_json: Json | null
           ruolo: string | null
+          search_vector: unknown
           ufficio_id: string | null
           updated_at: string | null
         }
@@ -534,6 +568,7 @@ export type Database = {
           nome?: string | null
           permessi_json?: Json | null
           ruolo?: string | null
+          search_vector?: unknown
           ufficio_id?: string | null
           updated_at?: string | null
         }
@@ -546,6 +581,7 @@ export type Database = {
           nome?: string | null
           permessi_json?: Json | null
           ruolo?: string | null
+          search_vector?: unknown
           ufficio_id?: string | null
           updated_at?: string | null
         }
@@ -569,6 +605,7 @@ export type Database = {
           id: string
           nome: string | null
           note: string | null
+          search_vector: unknown
           stato: string
           telefono: string | null
           ufficio_id: string | null
@@ -583,6 +620,7 @@ export type Database = {
           id?: string
           nome?: string | null
           note?: string | null
+          search_vector?: unknown
           stato?: string
           telefono?: string | null
           ufficio_id?: string | null
@@ -597,6 +635,7 @@ export type Database = {
           id?: string
           nome?: string | null
           note?: string | null
+          search_vector?: unknown
           stato?: string
           telefono?: string | null
           ufficio_id?: string | null
@@ -805,6 +844,7 @@ export type Database = {
           id: string
           numero_sinistro: string | null
           responsabile_id: string | null
+          search_vector: unknown
           stato: string
           titolo_id: string | null
           ufficio_id: string | null
@@ -820,6 +860,7 @@ export type Database = {
           id?: string
           numero_sinistro?: string | null
           responsabile_id?: string | null
+          search_vector?: unknown
           stato?: string
           titolo_id?: string | null
           ufficio_id?: string | null
@@ -835,6 +876,7 @@ export type Database = {
           id?: string
           numero_sinistro?: string | null
           responsabile_id?: string | null
+          search_vector?: unknown
           stato?: string
           titolo_id?: string | null
           ufficio_id?: string | null
@@ -963,6 +1005,7 @@ export type Database = {
           premio_lordo: number | null
           prodotto_id: string | null
           produttore_id: string | null
+          search_vector: unknown
           stato: string
           ufficio_id: string | null
           updated_at: string | null
@@ -978,6 +1021,7 @@ export type Database = {
           premio_lordo?: number | null
           prodotto_id?: string | null
           produttore_id?: string | null
+          search_vector?: unknown
           stato?: string
           ufficio_id?: string | null
           updated_at?: string | null
@@ -993,6 +1037,7 @@ export type Database = {
           premio_lordo?: number | null
           prodotto_id?: string | null
           produttore_id?: string | null
+          search_vector?: unknown
           stato?: string
           ufficio_id?: string | null
           updated_at?: string | null
@@ -1172,6 +1217,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      refresh_cfo_kpi: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role:
