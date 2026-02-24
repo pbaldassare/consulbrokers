@@ -21,6 +21,7 @@ import {
   Search,
   Bell,
   Receipt,
+  ArrowRightLeft,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +49,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Spedizioni", path: "/spedizioni", icon: Package, permissionKey: "contabilita" },
   { label: "Report IVA", path: "/report-iva", icon: Receipt, permissionKey: "contabilita" },
   { label: "Portafoglio Incassi", path: "/portafoglio", icon: Landmark, permissionKey: "contabilita" },
+  { label: "Flussi Compagnie", path: "/flussi-compagnie", icon: ArrowRightLeft, permissionKey: "contabilita" },
   { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
