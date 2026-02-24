@@ -1,96 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 98%;
+    --foreground: 210 20% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 20% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 210 20% 16%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 199 58% 22%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 200 20% 95%;
+    --secondary-foreground: 199 58% 22%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 15% 96%;
+    --muted-foreground: 215 14% 50%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 170 55% 42%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 199 58% 22%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Custom tokens */
+    --sidebar-width: 240px;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-foreground: 210 15% 35%;
+    --sidebar-active: 199 58% 22%;
+    --sidebar-active-foreground: 0 0% 100%;
+    --sidebar-hover: 200 20% 96%;
+    --sidebar-border: 214 20% 92%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --topbar-bg: 0 0% 100%;
+    --topbar-border: 214 20% 92%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --kpi-green-bg: 145 40% 95%;
+    --kpi-green-border: 160 45% 80%;
+    --kpi-green-text: 160 60% 35%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --kpi-blue-bg: 205 50% 95%;
+    --kpi-blue-border: 205 45% 80%;
+    --kpi-blue-text: 205 60% 35%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --kpi-yellow-bg: 45 60% 95%;
+    --kpi-yellow-border: 45 50% 80%;
+    --kpi-yellow-text: 40 60% 35%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --kpi-orange-bg: 25 60% 95%;
+    --kpi-orange-border: 25 50% 80%;
+    --kpi-orange-text: 20 60% 35%;
 
-    --sidebar-border: 220 13% 91%;
+    --kpi-teal-bg: 175 40% 95%;
+    --kpi-teal-border: 175 45% 75%;
+    --kpi-teal-text: 175 60% 30%;
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --badge-green-bg: 160 55% 40%;
+    --badge-green-fg: 0 0% 100%;
+
+    --badge-blue-bg: 199 58% 22%;
+    --badge-blue-fg: 0 0% 100%;
+
+    --badge-orange-bg: 30 80% 55%;
+    --badge-orange-fg: 0 0% 100%;
+
+    --badge-yellow-bg: 45 80% 55%;
+    --badge-yellow-fg: 0 0% 100%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
+    --background: 210 20% 8%;
+    --foreground: 210 15% 90%;
+    --card: 210 18% 12%;
+    --card-foreground: 210 15% 90%;
+    --popover: 210 18% 12%;
+    --popover-foreground: 210 15% 90%;
+    --primary: 199 58% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 18% 18%;
+    --secondary-foreground: 210 15% 85%;
+    --muted: 210 15% 18%;
+    --muted-foreground: 215 14% 60%;
+    --accent: 170 50% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 210 15% 22%;
+    --input: 210 15% 22%;
+    --ring: 199 58% 45%;
   }
 }
 
@@ -98,8 +108,8 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
   }
 }
