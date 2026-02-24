@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.incrocio-bancario]
 verify_jwt = false
+
+[functions.gestione-sinistri]
+verify_jwt = false

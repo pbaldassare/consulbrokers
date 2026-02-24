@@ -634,6 +634,163 @@ export type Database = {
         }
         Relationships: []
       }
+      sinistri: {
+        Row: {
+          cliente_id: string | null
+          compagnia_id: string | null
+          created_at: string | null
+          data_apertura: string
+          data_chiusura: string | null
+          descrizione: string | null
+          id: string
+          numero_sinistro: string | null
+          responsabile_id: string | null
+          stato: string
+          titolo_id: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          data_apertura?: string
+          data_chiusura?: string | null
+          descrizione?: string | null
+          id?: string
+          numero_sinistro?: string | null
+          responsabile_id?: string | null
+          stato?: string
+          titolo_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          data_apertura?: string
+          data_chiusura?: string | null
+          descrizione?: string | null
+          id?: string
+          numero_sinistro?: string | null
+          responsabile_id?: string | null
+          stato?: string
+          titolo_id?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinistri_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_responsabile_id_fkey"
+            columns: ["responsabile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sinistro_checklist: {
+        Row: {
+          completato: boolean | null
+          created_at: string | null
+          descrizione: string
+          id: string
+          obbligatorio: boolean | null
+          sinistro_id: string
+        }
+        Insert: {
+          completato?: boolean | null
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          obbligatorio?: boolean | null
+          sinistro_id: string
+        }
+        Update: {
+          completato?: boolean | null
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          obbligatorio?: boolean | null
+          sinistro_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinistro_checklist_sinistro_id_fkey"
+            columns: ["sinistro_id"]
+            isOneToOne: false
+            referencedRelation: "sinistri"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sinistro_eventi: {
+        Row: {
+          created_at: string | null
+          data_scadenza: string
+          id: string
+          note: string | null
+          sinistro_id: string
+          stato: string
+          tipo_evento: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_scadenza: string
+          id?: string
+          note?: string | null
+          sinistro_id: string
+          stato?: string
+          tipo_evento: string
+        }
+        Update: {
+          created_at?: string | null
+          data_scadenza?: string
+          id?: string
+          note?: string | null
+          sinistro_id?: string
+          stato?: string
+          tipo_evento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinistro_eventi_sinistro_id_fkey"
+            columns: ["sinistro_id"]
+            isOneToOne: false
+            referencedRelation: "sinistri"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       titoli: {
         Row: {
           cliente_id: string | null
