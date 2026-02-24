@@ -1256,6 +1256,41 @@ export type Database = {
           },
         ]
       }
+      report_salvati: {
+        Row: {
+          created_at: string
+          creato_da: string
+          filtri_json: Json | null
+          id: string
+          nome: string
+          tipo_report: string
+        }
+        Insert: {
+          created_at?: string
+          creato_da: string
+          filtri_json?: Json | null
+          id?: string
+          nome: string
+          tipo_report?: string
+        }
+        Update: {
+          created_at?: string
+          creato_da?: string
+          filtri_json?: Json | null
+          id?: string
+          nome?: string
+          tipo_report?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_salvati_creato_da_fkey"
+            columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rimessa_dettaglio: {
         Row: {
           id: string
@@ -1832,6 +1867,43 @@ export type Database = {
         Returns: boolean
       }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
+      report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
+      report_contabilita: {
+        Args: {
+          _categoria?: string
+          _data_a?: string
+          _data_da?: string
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
+      report_provvigioni_produttore: {
+        Args: {
+          _data_a?: string
+          _data_da?: string
+          _solo_non_pagate?: boolean
+          _user_id?: string
+        }
+        Returns: Json
+      }
+      report_sinistri: {
+        Args: {
+          _data_a?: string
+          _data_da?: string
+          _stato?: string
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
+      report_titoli_incassati: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:
