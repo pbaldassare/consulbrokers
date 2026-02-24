@@ -108,7 +108,7 @@ const AdminDashboard = () => (
       <SummaryCard label="Utenti Attivi" value="0" sub="Totale nel sistema" icon={Users} variant="blue" />
       <SummaryCard label="Polizze Attive" value="0" sub="In gestione" icon={FileText} variant="green" />
       <SummaryCard label="Sinistri Aperti" value="0" sub="Da gestire" icon={ClipboardList} variant="orange" />
-      <SummaryCard label="Alert Sistema" value="0" sub="Da verificare" icon={AlertCircle} variant="yellow" />
+      <SummaryCard label="Anomalie Critiche" value="0" sub="Da risolvere" icon={AlertCircle} variant="yellow" />
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard label="Raccolta Premi" value="€ 0" sub="Anno corrente" variant="green" icon={TrendingUp} />

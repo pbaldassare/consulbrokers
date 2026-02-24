@@ -28,6 +28,7 @@ import SinistroDetail from "./pages/SinistroDetail";
 import PrivacyConsensi from "./pages/PrivacyConsensi";
 import BancaImport from "./pages/BancaImport";
 import AnomalieKO from "./pages/AnomalieKO";
+import AnomalieList from "./pages/AnomalieList";
 import NotifichePage from "./pages/NotifichePage";
 import NoteRestituzioneList from "./pages/NoteRestituzioneList";
 import NotaRestituzioneDetail from "./pages/NotaRestituzioneDetail";
@@ -106,6 +107,7 @@ const App = () => (
               <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
               <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
               <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
+              <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

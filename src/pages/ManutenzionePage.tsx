@@ -5,7 +5,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle } from "lucide-react";
+import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface JobResult {
@@ -82,13 +82,36 @@ const ManutenzionePage = () => {
     },
   });
 
-  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending;
+  const runQuality = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("run_data_quality_checks" as any);
+      if (error) throw error;
+      await logAttivita({
+        azione: "controllo_qualita_dati",
+        entita_tipo: "manutenzione",
+        entita_id: "00000000-0000-0000-0000-000000000000",
+        dettagli_json: data as any,
+      });
+      return data;
+    },
+    onSuccess: (data: any) => {
+      setResults(prev => [...prev, { label: "Controlli Qualità Dati", result: data }]);
+      toast({ title: "Controlli qualità completati", description: `${data?.totale_nuove || 0} nuove anomalie` });
+    },
+    onError: (e: any) => {
+      setResults(prev => [...prev, { label: "Controlli Qualità Dati", result: null, error: e.message }]);
+      toast({ title: "Errore", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending;
 
   const runAll = async () => {
     setResults([]);
     await refreshKpi.mutateAsync().catch(() => {});
     await checkScadenze.mutateAsync().catch(() => {});
     await archiviaNotifiche.mutateAsync().catch(() => {});
+    await runQuality.mutateAsync().catch(() => {});
   };
 
   return (
@@ -145,6 +168,23 @@ const ManutenzionePage = () => {
             </p>
             <Button size="sm" onClick={() => archiviaNotifiche.mutate()} disabled={isAnyRunning}>
               {archiviaNotifiche.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Bell className="w-4 h-4 mr-1" />}
+              Esegui
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> Controlli Qualità Dati
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Esegui tutti i controlli di data quality e genera anomalie per incongruenze trovate.
+            </p>
+            <Button size="sm" onClick={() => runQuality.mutate()} disabled={isAnyRunning}>
+              {runQuality.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ShieldCheck className="w-4 h-4 mr-1" />}
               Esegui
             </Button>
           </CardContent>
