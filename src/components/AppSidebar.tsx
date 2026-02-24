@@ -19,6 +19,7 @@ import {
   Grid3X3,
   Landmark,
   Search,
+  Bell,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +43,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" },
   { label: "Import Banca", path: "/banca-import", icon: Landmark, permissionKey: "contabilita" },
   { label: "Anomalie KO", path: "/anomalie-ko", icon: Search, permissionKey: "contabilita" },
+  { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
   { label: "Compagnie", path: "/compagnie", icon: Building2, permissionKey: "impostazioni", adminOnly: true },
