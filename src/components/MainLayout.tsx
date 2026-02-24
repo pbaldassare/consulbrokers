@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  useInactivityTimeout();
 
   return (
     <div className="min-h-screen bg-background">
