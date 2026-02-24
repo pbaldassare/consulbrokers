@@ -28,6 +28,9 @@ import PrivacyConsensi from "./pages/PrivacyConsensi";
 import BancaImport from "./pages/BancaImport";
 import AnomalieKO from "./pages/AnomalieKO";
 import NotifichePage from "./pages/NotifichePage";
+import NoteRestituzioneList from "./pages/NoteRestituzioneList";
+import NotaRestituzioneDetail from "./pages/NotaRestituzioneDetail";
+import SpedizioniList from "./pages/SpedizioniList";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -69,6 +72,9 @@ const App = () => (
               <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
               <Route path="/banca-import" element={<BancaImport />} />
               <Route path="/anomalie-ko" element={<AnomalieKO />} />
+              <Route path="/note-restituzione" element={<NoteRestituzioneList />} />
+              <Route path="/note-restituzione/:id" element={<NotaRestituzioneDetail />} />
+              <Route path="/spedizioni" element={<SpedizioniList />} />
               <Route path="/notifiche" element={<NotifichePage />} />
               <Route path="/privacy" element={<PrivacyConsensi />} />
               <Route path="/impostazioni" element={<PlaceholderPage title="Impostazioni" description="Configurazione del sistema" icon={Settings} />} />

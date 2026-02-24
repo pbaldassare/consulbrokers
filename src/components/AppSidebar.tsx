@@ -43,6 +43,8 @@ const allMenuItems: SidebarItem[] = [
   { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" },
   { label: "Import Banca", path: "/banca-import", icon: Landmark, permissionKey: "contabilita" },
   { label: "Anomalie KO", path: "/anomalie-ko", icon: Search, permissionKey: "contabilita" },
+  { label: "Note Restituzione", path: "/note-restituzione", icon: FileStack, permissionKey: "contabilita" },
+  { label: "Spedizioni", path: "/spedizioni", icon: Package, permissionKey: "contabilita" },
   { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },

@@ -495,6 +495,110 @@ export type Database = {
           },
         ]
       }
+      note_restituzione: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          created_by: string | null
+          flag_json: Json | null
+          id: string
+          note: string | null
+          stato: string
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          flag_json?: Json | null
+          id?: string
+          note?: string | null
+          stato?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          flag_json?: Json | null
+          id?: string
+          note?: string | null
+          stato?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_restituzione_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_restituzione_dettaglio: {
+        Row: {
+          created_at: string | null
+          id: string
+          nota_id: string
+          prodotto_id: string | null
+          titolo_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nota_id: string
+          prodotto_id?: string | null
+          titolo_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nota_id?: string
+          prodotto_id?: string | null
+          titolo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_restituzione_dettaglio_nota_id_fkey"
+            columns: ["nota_id"]
+            isOneToOne: false
+            referencedRelation: "note_restituzione"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_dettaglio_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_dettaglio_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifiche: {
         Row: {
           created_at: string
@@ -1119,6 +1223,67 @@ export type Database = {
             columns: ["sinistro_id"]
             isOneToOne: false
             referencedRelation: "sinistri"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spedizioni_cartacee: {
+        Row: {
+          corriere: string | null
+          created_at: string | null
+          created_by: string | null
+          data_spedizione: string
+          id: string
+          nota_id: string | null
+          stato: string
+          tipo_spedizione: string
+          tracking_code: string | null
+          ufficio_id: string | null
+        }
+        Insert: {
+          corriere?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_spedizione?: string
+          id?: string
+          nota_id?: string | null
+          stato?: string
+          tipo_spedizione?: string
+          tracking_code?: string | null
+          ufficio_id?: string | null
+        }
+        Update: {
+          corriere?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_spedizione?: string
+          id?: string
+          nota_id?: string | null
+          stato?: string
+          tipo_spedizione?: string
+          tracking_code?: string | null
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spedizioni_cartacee_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spedizioni_cartacee_nota_id_fkey"
+            columns: ["nota_id"]
+            isOneToOne: false
+            referencedRelation: "note_restituzione"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spedizioni_cartacee_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
             referencedColumns: ["id"]
           },
         ]
