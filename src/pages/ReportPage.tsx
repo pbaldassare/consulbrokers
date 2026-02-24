@@ -183,6 +183,8 @@ const ReportPage = () => {
     return [];
   };
 
+  const MAX_ROWS = 5000;
+
   const genera = async () => {
     setLoading(true);
     try {
@@ -195,7 +197,13 @@ const ReportPage = () => {
       });
       const { data, error } = await supabase.rpc(config.rpcName as any, params as any);
       if (error) throw error;
-      setRisultati(Array.isArray(data) ? data : data ? JSON.parse(data) : []);
+      const parsed = Array.isArray(data) ? data : data ? JSON.parse(data) : [];
+      if (parsed.length >= MAX_ROWS) {
+        toast.error(`Troppi risultati (${parsed.length}+). Restringi i filtri per ottenere dati più precisi.`);
+        setRisultati(parsed.slice(0, MAX_ROWS));
+      } else {
+        setRisultati(parsed);
+      }
     } catch (e: any) {
       toast.error(e.message);
       setRisultati([]);
