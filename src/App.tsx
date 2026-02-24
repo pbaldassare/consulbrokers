@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MainLayout from "./components/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
+import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
+import CreaNuovoUtente from "./pages/CreaNuovoUtente";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -41,6 +43,8 @@ const App = () => (
             <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
             <Route path="/privacy" element={<PlaceholderPage title="Privacy & Consensi" description="Gestione privacy e consensi clienti" icon={Shield} />} />
             <Route path="/impostazioni" element={<PlaceholderPage title="Impostazioni" description="Configurazione del sistema" icon={Settings} />} />
+            <Route path="/template-ruoli" element={<GestioneTemplateRuoli />} />
+            <Route path="/crea-utente" element={<CreaNuovoUtente />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

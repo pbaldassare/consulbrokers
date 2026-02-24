@@ -11,6 +11,8 @@ import {
   Mail,
   Shield,
   Settings,
+  FileStack,
+  UserPlus,
   LucideIcon,
 } from "lucide-react";
 
@@ -32,6 +34,8 @@ const menuItems: SidebarItem[] = [
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield },
   { label: "Impostazioni", path: "/impostazioni", icon: Settings },
+  { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack },
+  { label: "Crea Utente", path: "/crea-utente", icon: UserPlus },
 ];
 
 interface AppSidebarProps {

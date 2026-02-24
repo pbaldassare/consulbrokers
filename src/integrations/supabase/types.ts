@@ -60,6 +60,7 @@ export type Database = {
           email: string | null
           id: string
           nome: string | null
+          permessi_json: Json | null
           ruolo: string | null
           ufficio_id: string | null
           updated_at: string | null
@@ -71,6 +72,7 @@ export type Database = {
           email?: string | null
           id: string
           nome?: string | null
+          permessi_json?: Json | null
           ruolo?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
@@ -82,6 +84,7 @@ export type Database = {
           email?: string | null
           id?: string
           nome?: string | null
+          permessi_json?: Json | null
           ruolo?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
