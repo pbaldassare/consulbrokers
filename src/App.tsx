@@ -38,6 +38,7 @@ import FlussiCompagnieList from "./pages/FlussiCompagnieList";
 import FlussoCompagniaDetail from "./pages/FlussoCompagniaDetail";
 import PagamentiProvvigioniList from "./pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "./pages/PagamentoProvvigioneDetail";
+import ReportPage from "./pages/ReportPage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -97,6 +98,7 @@ const App = () => (
               <Route path="/flussi-compagnie/:id" element={<FlussoCompagniaDetail />} />
               <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
               <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
+              <Route path="/report" element={<ReportPage />} />
               <Route path="/crea-utente" element={<CreaNuovoUtente />} />
             </Route>
             <Route path="*" element={<NotFound />} />
