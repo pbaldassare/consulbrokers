@@ -773,6 +773,109 @@ export type Database = {
           },
         ]
       }
+      pagamenti_provvigioni: {
+        Row: {
+          created_at: string
+          creato_da: string
+          id: string
+          metodo: string
+          note: string | null
+          pagato_a_user_id: string
+          periodo_a: string
+          periodo_da: string
+          riferimento: string | null
+          totale_importo: number
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          creato_da: string
+          id?: string
+          metodo?: string
+          note?: string | null
+          pagato_a_user_id: string
+          periodo_a: string
+          periodo_da: string
+          riferimento?: string | null
+          totale_importo?: number
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          creato_da?: string
+          id?: string
+          metodo?: string
+          note?: string | null
+          pagato_a_user_id?: string
+          periodo_a?: string
+          periodo_da?: string
+          riferimento?: string | null
+          totale_importo?: number
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamenti_provvigioni_creato_da_fkey"
+            columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamenti_provvigioni_pagato_a_user_id_fkey"
+            columns: ["pagato_a_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamenti_provvigioni_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pagamenti_provvigioni_righe: {
+        Row: {
+          created_at: string
+          id: string
+          importo: number
+          pagamento_id: string
+          provvigione_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          importo?: number
+          pagamento_id: string
+          provvigione_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          importo?: number
+          pagamento_id?: string
+          provvigione_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamenti_provvigioni_righe_pagamento_id_fkey"
+            columns: ["pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "pagamenti_provvigioni"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamenti_provvigioni_righe_provvigione_id_fkey"
+            columns: ["provvigione_id"]
+            isOneToOne: false
+            referencedRelation: "provvigioni_generate"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portafoglio_incassi: {
         Row: {
           cliente_id: string | null

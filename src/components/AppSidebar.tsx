@@ -56,6 +56,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Compagnie", path: "/compagnie", icon: Building2, permissionKey: "impostazioni", adminOnly: true },
   { label: "Categorie", path: "/categorie", icon: Tag, permissionKey: "impostazioni", adminOnly: true },
   { label: "Prodotti", path: "/prodotti", icon: Package, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: Percent, permissionKey: "provvigioni" },
   { label: "Matrice Provvigioni", path: "/matrice-provvigioni", icon: Grid3X3, permissionKey: "provvigioni", adminOnly: true },
   { label: "Impostazioni", path: "/impostazioni", icon: Settings, permissionKey: "impostazioni" },
   { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack, permissionKey: "impostazioni", adminOnly: true },
