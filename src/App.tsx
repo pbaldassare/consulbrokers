@@ -18,6 +18,8 @@ import ProdottiList from "./pages/ProdottiList";
 import MatriceProvvigioni from "./pages/MatriceProvvigioni";
 import TitoliList from "./pages/TitoliList";
 import TitoloDetail from "./pages/TitoloDetail";
+import RimessaList from "./pages/RimessaList";
+import RimessaDetail from "./pages/RimessaDetail";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -53,7 +55,8 @@ const App = () => (
               <Route path="/contabilita" element={<PlaceholderPage title="Contabilità Ufficio" description="Gestione contabile dell'ufficio" icon={Calculator} />} />
               <Route path="/cfo" element={<PlaceholderPage title="Area CFO" description="Dashboard direzionale e reportistica" icon={BarChart3} />} />
               <Route path="/provvigioni" element={<PlaceholderPage title="Provvigioni" description="Gestione provvigioni agenti" icon={Percent} />} />
-              <Route path="/rimessa-premi" element={<PlaceholderPage title="Rimessa Premi" description="Gestione rimessa premi alle compagnie" icon={Send} />} />
+              <Route path="/rimessa-premi" element={<RimessaList />} />
+              <Route path="/rimessa-premi/:id" element={<RimessaDetail />} />
               <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
               <Route path="/privacy" element={<PlaceholderPage title="Privacy & Consensi" description="Gestione privacy e consensi clienti" icon={Shield} />} />
               <Route path="/impostazioni" element={<PlaceholderPage title="Impostazioni" description="Configurazione del sistema" icon={Settings} />} />

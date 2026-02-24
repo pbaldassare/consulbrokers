@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.calcola-provvigioni]
 verify_jwt = false
+
+[functions.gestione-rimessa]
+verify_jwt = false
