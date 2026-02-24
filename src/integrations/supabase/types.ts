@@ -945,6 +945,30 @@ export type Database = {
           },
         ]
       }
+      performance_log: {
+        Row: {
+          created_at: string
+          dettagli_json: Json | null
+          durata_ms: number
+          id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          dettagli_json?: Json | null
+          durata_ms: number
+          id?: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          dettagli_json?: Json | null
+          durata_ms?: number
+          id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       portafoglio_incassi: {
         Row: {
           cliente_id: string | null
@@ -1869,6 +1893,27 @@ export type Database = {
         }
         Relationships: []
       }
+      upload_rate_limit: {
+        Row: {
+          conteggio: number
+          id: string
+          ora_riferimento: string
+          user_id: string
+        }
+        Insert: {
+          conteggio?: number
+          id?: string
+          ora_riferimento?: string
+          user_id: string
+        }
+        Update: {
+          conteggio?: number
+          id?: string
+          ora_riferimento?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1889,9 +1934,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      cfo_kpi_mensili: {
+        Row: {
+          entrate: number | null
+          ko_banca: number | null
+          mese: string | null
+          premi_incassati: number | null
+          provvigioni_generate: number | null
+          provvigioni_pagate: number | null
+          saldo: number | null
+          sinistri_aperti: number | null
+          ufficio_id: string | null
+          uscite: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_entrate_uscite_mensili: {
         Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
         Returns: Json
@@ -1936,6 +1996,7 @@ export type Database = {
         Returns: boolean
       }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
+      refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
       report_contabilita: {
         Args: {
@@ -1973,6 +2034,7 @@ export type Database = {
         }
         Returns: Json
       }
+      segna_eventi_sinistri_scaduti: { Args: never; Returns: Json }
     }
     Enums: {
       app_role:

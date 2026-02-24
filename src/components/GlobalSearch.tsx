@@ -71,6 +71,7 @@ export default function GlobalSearch() {
   const search = useCallback(async (q: string) => {
     if (q.length < 2) { setResults([]); return; }
     setLoading(true);
+    const t0 = performance.now();
 
     // Check NLP mappings first
     const lowerQ = q.toLowerCase().trim();
@@ -83,19 +84,30 @@ export default function GlobalSearch() {
       }
     }
 
+    const useFts = q.length >= 3;
     const like = `%${q}%`;
     const allResults: SearchResult[] = [];
 
-    // Parallel queries
-    const [clienti, prospect, titoli, sinistri, compagnie, prodotti, trattative, rimesse] = await Promise.all([
-      supabase.from("profiles").select("id, nome, cognome, email, ruolo").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
-      supabase.from("prospect").select("id, nome, cognome, email, stato").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
-      supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").or(`numero_titolo.ilike.${like},stato.ilike.${like}`).limit(5),
-      supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").or(`numero_sinistro.ilike.${like},descrizione.ilike.${like}`).limit(5),
+    // Build FTS query string (simple: join words with &)
+    const tsQuery = q.trim().split(/\s+/).filter(Boolean).join(" & ");
+
+    // Parallel queries — use FTS where available, fallback to LIKE
+    const [clienti, prospect, titoli, sinistri, compagnie, prodotti, trattative] = await Promise.all([
+      useFts
+        ? supabase.from("profiles").select("id, nome, cognome, email, ruolo").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
+        : supabase.from("profiles").select("id, nome, cognome, email, ruolo").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
+      useFts
+        ? supabase.from("prospect").select("id, nome, cognome, email, stato").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
+        : supabase.from("prospect").select("id, nome, cognome, email, stato").or(`nome.ilike.${like},cognome.ilike.${like},email.ilike.${like}`).limit(5),
+      useFts
+        ? supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
+        : supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo").or(`numero_titolo.ilike.${like},stato.ilike.${like}`).limit(5),
+      useFts
+        ? supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
+        : supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").or(`numero_sinistro.ilike.${like},descrizione.ilike.${like}`).limit(5),
       supabase.from("compagnie").select("id, nome, codice").or(`nome.ilike.${like},codice.ilike.${like}`).limit(5),
       supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto").or(`nome_prodotto.ilike.${like},codice_prodotto.ilike.${like}`).limit(5),
       supabase.from("trattative").select("id, prodotto, compagnia, stato").or(`prodotto.ilike.${like},compagnia.ilike.${like}`).limit(5),
-      supabase.from("rimessa_premi").select("id, stato, totale_importi").limit(5),
     ]);
 
     clienti.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: `${c.nome || ""} ${c.cognome || ""}`.trim(), sottotitolo: `${c.email || ""} · ${c.ruolo || ""}`, categoria: "clienti", link: `/prospect/${c.id}` }));
@@ -109,8 +121,9 @@ export default function GlobalSearch() {
     setResults(allResults);
     setLoading(false);
 
-    // Log search
-    logAttivita({ azione: "ricerca_globale", entita_tipo: "ricerca", entita_id: "global", dettagli_json: { query: q, risultati: allResults.length } });
+    const durata = Math.round(performance.now() - t0);
+    // Fire-and-forget perf log
+    logAttivita({ azione: "ricerca_globale", entita_tipo: "ricerca", entita_id: "global", dettagli_json: { query: q, risultati: allResults.length, durata_ms: durata, fts: useFts } });
   }, []);
 
   useEffect(() => {

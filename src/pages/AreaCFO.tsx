@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   BarChart3, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Percent,
-  CreditCard, FileText, Download,
+  CreditCard, FileText, Download, RefreshCw, Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -58,6 +58,7 @@ const AreaCFO = () => {
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: profiles = [] } = useQuery({
@@ -77,6 +78,7 @@ const AreaCFO = () => {
       if (error) throw error;
       return data as any;
     },
+    staleTime: 60_000,
   });
 
   // Charts
@@ -87,6 +89,7 @@ const AreaCFO = () => {
       if (error) throw error;
       return (data as any) || [];
     },
+    staleTime: 60_000,
   });
 
   const { data: premiCompagnia = [] } = useQuery({
@@ -99,6 +102,7 @@ const AreaCFO = () => {
       if (error) throw error;
       return (data as any) || [];
     },
+    staleTime: 60_000,
   });
 
   const { data: redditUfficio = [] } = useQuery({
@@ -197,11 +201,33 @@ const AreaCFO = () => {
 
   const fmt = (n: number) => `€ ${(n || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const refreshKpiMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("refresh_cfo_kpi_mensili" as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cfo_kpi"] });
+      queryClient.invalidateQueries({ queryKey: ["cfo_entrate_uscite"] });
+      queryClient.invalidateQueries({ queryKey: ["cfo_premi_compagnia"] });
+      queryClient.invalidateQueries({ queryKey: ["cfo_redditivita"] });
+      queryClient.invalidateQueries({ queryKey: ["cfo_provvigioni_mensili"] });
+      toast({ title: "KPI aggiornati" });
+    },
+    onError: (e: any) => toast({ title: "Errore refresh", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Area CFO</h1>
-        <p className="text-muted-foreground">Dashboard direzionale e reportistica aggregata</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Area CFO</h1>
+          <p className="text-muted-foreground">Dashboard direzionale e reportistica aggregata</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refreshKpiMutation.mutate()} disabled={refreshKpiMutation.isPending}>
+          {refreshKpiMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+          Aggiorna KPI
+        </Button>
       </div>
 
       {/* Filtri globali */}

@@ -42,6 +42,7 @@ import PagamentoProvvigioneDetail from "./pages/PagamentoProvvigioneDetail";
 import ReportPage from "./pages/ReportPage";
 import ImpostazioniPage from "./pages/ImpostazioniPage";
 import BackupExport from "./pages/BackupExport";
+import ManutenzionePage from "./pages/ManutenzionePage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -104,6 +105,7 @@ const App = () => (
               <Route path="/report" element={<ReportPage />} />
               <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
               <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
+              <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
