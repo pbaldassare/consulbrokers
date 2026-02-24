@@ -306,6 +306,47 @@ export type Database = {
           },
         ]
       }
+      iva_registri: {
+        Row: {
+          created_at: string
+          id: string
+          imponibile: number
+          iva: number
+          note: string | null
+          periodo: string
+          totale: number
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          imponibile?: number
+          iva?: number
+          note?: string | null
+          periodo: string
+          totale?: number
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          imponibile?: number
+          iva?: number
+          note?: string | null
+          periodo?: string
+          totale?: number
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "iva_registri_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       log_attivita: {
         Row: {
           azione: string | null
@@ -444,6 +485,9 @@ export type Database = {
           descrizione: string | null
           id: string
           importo: number
+          iva_aliquota: number | null
+          iva_imponibile: number | null
+          iva_importo: number | null
           riferimento_id: string | null
           riferimento_tipo: string | null
           stato: string
@@ -458,6 +502,9 @@ export type Database = {
           descrizione?: string | null
           id?: string
           importo: number
+          iva_aliquota?: number | null
+          iva_imponibile?: number | null
+          iva_importo?: number | null
           riferimento_id?: string | null
           riferimento_tipo?: string | null
           stato?: string
@@ -472,6 +519,9 @@ export type Database = {
           descrizione?: string | null
           id?: string
           importo?: number
+          iva_aliquota?: number | null
+          iva_imponibile?: number | null
+          iva_importo?: number | null
           riferimento_id?: string | null
           riferimento_tipo?: string | null
           stato?: string
