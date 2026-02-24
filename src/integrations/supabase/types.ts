@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      anomalie_sistema: {
+        Row: {
+          created_at: string
+          data_risoluzione: string | null
+          descrizione: string
+          entita_id: string
+          entita_tipo: string
+          gravita: string
+          id: string
+          note_risoluzione: string | null
+          risolta_da: string | null
+          stato: string
+          tipo: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_risoluzione?: string | null
+          descrizione: string
+          entita_id: string
+          entita_tipo: string
+          gravita?: string
+          id?: string
+          note_risoluzione?: string | null
+          risolta_da?: string | null
+          stato?: string
+          tipo: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_risoluzione?: string | null
+          descrizione?: string
+          entita_id?: string
+          entita_tipo?: string
+          gravita?: string
+          id?: string
+          note_risoluzione?: string | null
+          risolta_da?: string | null
+          stato?: string
+          tipo?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anomalie_sistema_risolta_da_fkey"
+            columns: ["risolta_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anomalie_sistema_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banca_documenti: {
         Row: {
           created_at: string | null
@@ -2034,6 +2094,7 @@ export type Database = {
         }
         Returns: Json
       }
+      run_data_quality_checks: { Args: never; Returns: Json }
       segna_eventi_sinistri_scaduti: { Args: never; Returns: Json }
     }
     Enums: {
