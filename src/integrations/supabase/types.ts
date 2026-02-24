@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      banca_documenti: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          error_message: string | null
+          id: string
+          nome_file: string
+          path_storage: string
+          righe_estratte: number | null
+          stato: string
+          tipo_documento: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          nome_file: string
+          path_storage: string
+          righe_estratte?: number | null
+          stato?: string
+          tipo_documento: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          nome_file?: string
+          path_storage?: string
+          righe_estratte?: number | null
+          stato?: string
+          tipo_documento?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banca_documenti_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "banca_documenti_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorie_prodotto: {
         Row: {
           created_at: string | null
@@ -149,6 +203,8 @@ export type Database = {
           created_at: string | null
           data_operazione: string
           descrizione: string | null
+          documento_id: string | null
+          hash_riga: string | null
           id: string
           importo: number
           saldo: number | null
@@ -159,6 +215,8 @@ export type Database = {
           created_at?: string | null
           data_operazione?: string
           descrizione?: string | null
+          documento_id?: string | null
+          hash_riga?: string | null
           id?: string
           importo: number
           saldo?: number | null
@@ -169,6 +227,8 @@ export type Database = {
           created_at?: string | null
           data_operazione?: string
           descrizione?: string | null
+          documento_id?: string | null
+          hash_riga?: string | null
           id?: string
           importo?: number
           saldo?: number | null
@@ -176,6 +236,13 @@ export type Database = {
           ufficio_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "estratti_conto_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "banca_documenti"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "estratti_conto_ufficio_id_fkey"
             columns: ["ufficio_id"]
@@ -192,6 +259,8 @@ export type Database = {
           esito: string
           estratto_id: string | null
           id: string
+          matching_metodo: string | null
+          matching_score: number | null
           movimento_id: string | null
           note: string | null
           verificato: boolean | null
@@ -202,6 +271,8 @@ export type Database = {
           esito: string
           estratto_id?: string | null
           id?: string
+          matching_metodo?: string | null
+          matching_score?: number | null
           movimento_id?: string | null
           note?: string | null
           verificato?: boolean | null
@@ -212,6 +283,8 @@ export type Database = {
           esito?: string
           estratto_id?: string | null
           id?: string
+          matching_metodo?: string | null
+          matching_score?: number | null
           movimento_id?: string | null
           note?: string | null
           verificato?: boolean | null
