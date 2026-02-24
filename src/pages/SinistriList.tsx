@@ -13,7 +13,9 @@ import { Plus, AlertTriangle, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import ServerPagination from "@/components/ServerPagination";
 
+const PAGE_SIZE = 25;
 const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "chiuso", "respinto"];
 
 const statoBadge: Record<string, string> = {
@@ -31,18 +33,23 @@ export default function SinistriList() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ numero_sinistro: "", descrizione: "", compagnia_id: "", titolo_id: "" });
+  const [page, setPage] = useState(0);
 
-  const { data: sinistri, refetch } = useQuery({
-    queryKey: ["sinistri", filtroStato, filtroCompagnia],
+  const { data: sinistriResult, refetch } = useQuery({
+    queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],
     queryFn: async () => {
-      let q = supabase.from("sinistri").select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome)");
+      let q = supabase.from("sinistri").select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome)", { count: "exact" });
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
-      const { data, error } = await q.order("created_at", { ascending: false });
+      if (search) q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
+      const { data, error, count } = await q.order("created_at", { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
-      return data;
+      return { data: data || [], count: count || 0 };
     },
   });
+
+  const sinistri = sinistriResult?.data || [];
+  const totalCount = sinistriResult?.count || 0;
 
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie"],
@@ -55,11 +62,15 @@ export default function SinistriList() {
   const { data: eventiScaduti } = useQuery({
     queryKey: ["eventi-scaduti"],
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase.from("sinistro_eventi").select("id").eq("stato", "scaduto");
       return data?.length || 0;
     },
   });
+
+  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setPage(0);
+  };
 
   const handleCrea = async () => {
     try {
@@ -84,10 +95,6 @@ export default function SinistriList() {
       toast.error(e.message);
     }
   };
-
-  const filtered = sinistri?.filter((s: any) =>
-    !search || s.numero_sinistro?.toLowerCase().includes(search.toLowerCase()) || s.descrizione?.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-6">
@@ -138,16 +145,16 @@ export default function SinistriList() {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Cerca..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
         </div>
-        <Select value={filtroStato} onValueChange={setFiltroStato}>
+        <Select value={filtroStato} onValueChange={handleFilterChange(setFiltroStato)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             {statiSinistro.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
+        <Select value={filtroCompagnia} onValueChange={handleFilterChange(setFiltroCompagnia)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutte le compagnie</SelectItem>
@@ -169,7 +176,7 @@ export default function SinistriList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered?.map((s: any) => (
+            {sinistri.map((s: any) => (
               <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
                 <TableCell>
@@ -181,11 +188,14 @@ export default function SinistriList() {
                 <TableCell className="max-w-xs truncate">{s.descrizione || "—"}</TableCell>
               </TableRow>
             ))}
-            {!filtered?.length && (
+            {!sinistri.length && (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
+        <div className="p-4">
+          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+        </div>
       </div>
     </div>
   );

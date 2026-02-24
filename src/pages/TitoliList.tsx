@@ -15,7 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import ServerPagination from "@/components/ServerPagination";
 
+const PAGE_SIZE = 25;
 const statiTitolo = ["creato", "incassato", "stornato", "annullato"];
 
 const TitoliList = () => {
@@ -24,6 +26,7 @@ const TitoliList = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
   // Form
   const [numeroTitolo, setNumeroTitolo] = useState("");
@@ -70,25 +73,33 @@ const TitoliList = () => {
     },
   });
 
-  const { data: titoli = [], isLoading } = useQuery({
-    queryKey: ["titoli"],
+  const { data: titoliResult, isLoading } = useQuery({
+    queryKey: ["titoli", page, filtroProdotto, filtroStato, filtroUfficio, filtroProduttore],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome), cliente:profiles!titoli_cliente_id_fkey(nome, cognome)")
-        .order("created_at", { ascending: false });
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome), cliente:profiles!titoli_cliente_id_fkey(nome, cognome)", { count: "exact" });
+
+      if (filtroProdotto !== "all") q = q.eq("prodotto_id", filtroProdotto);
+      if (filtroStato !== "all") q = q.eq("stato", filtroStato);
+      if (filtroUfficio !== "all") q = q.eq("ufficio_id", filtroUfficio);
+      if (filtroProduttore !== "all") q = q.eq("produttore_id", filtroProduttore);
+
+      const { data, error, count } = await q
+        .order("created_at", { ascending: false })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
-      return data;
+      return { data: data || [], count: count || 0 };
     },
   });
 
-  const filtered = titoli.filter((t: any) => {
-    if (filtroProdotto !== "all" && t.prodotto_id !== filtroProdotto) return false;
-    if (filtroStato !== "all" && t.stato !== filtroStato) return false;
-    if (filtroUfficio !== "all" && t.ufficio_id !== filtroUfficio) return false;
-    if (filtroProduttore !== "all" && t.produttore_id !== filtroProduttore) return false;
-    return true;
-  });
+  const titoli = titoliResult?.data || [];
+  const totalCount = titoliResult?.count || 0;
+
+  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setPage(0);
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -107,16 +118,12 @@ const TitoliList = () => {
       const { data, error } = await supabase.from("titoli").insert(payload).select().single();
       if (error) throw error;
 
-      // Log
       if (user) {
         await logAttivita({ azione: "creazione_titolo", entita_tipo: "titolo", entita_id: data.id, dettagli_json: { stato } });
       }
 
-      // Se incassato, calcola provvigioni
       if (stato === "incassato") {
-        await supabase.functions.invoke("calcola-provvigioni", {
-          body: { titolo_id: data.id },
-        });
+        await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: data.id } });
       }
 
       return data;
@@ -131,16 +138,9 @@ const TitoliList = () => {
   });
 
   const resetForm = () => {
-    setNumeroTitolo("");
-    setClienteId("");
-    setProdottoId("");
-    setUfficioId("");
-    setProduttoreId("");
-    setPremioLordo("");
-    setImportoIncassato("");
-    setDataIncasso("");
-    setStato("creato");
-    setNote("");
+    setNumeroTitolo(""); setClienteId(""); setProdottoId(""); setUfficioId("");
+    setProduttoreId(""); setPremioLordo(""); setImportoIncassato(""); setDataIncasso("");
+    setStato("creato"); setNote("");
   };
 
   const statoBadgeVariant = (s: string) => {
@@ -216,30 +216,29 @@ const TitoliList = () => {
         </Dialog>
       </div>
 
-      {/* Filtri */}
       <div className="flex flex-wrap gap-4">
-        <Select value={filtroProdotto} onValueChange={setFiltroProdotto}>
+        <Select value={filtroProdotto} onValueChange={handleFilterChange(setFiltroProdotto)}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Prodotto" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti i prodotti</SelectItem>
             {prodotti.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_prodotto}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroStato} onValueChange={setFiltroStato}>
+        <Select value={filtroStato} onValueChange={handleFilterChange(setFiltroStato)}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Stato" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti gli stati</SelectItem>
             {statiTitolo.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
+        <Select value={filtroUfficio} onValueChange={handleFilterChange(setFiltroUfficio)}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ufficio" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti gli uffici</SelectItem>
             {uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroProduttore} onValueChange={setFiltroProduttore}>
+        <Select value={filtroProduttore} onValueChange={handleFilterChange(setFiltroProduttore)}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Produttore" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti i produttori</SelectItem>
@@ -249,38 +248,41 @@ const TitoliList = () => {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Titoli ({filtered.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Titoli ({totalCount})</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? <p className="text-muted-foreground">Caricamento...</p> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>N. Titolo</TableHead>
-                  <TableHead>Prodotto</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Produttore</TableHead>
-                  <TableHead>Premio €</TableHead>
-                  <TableHead>Incassato €</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Data</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((t: any) => (
-                  <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${t.id}`)}>
-                    <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
-                    <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
-                    <TableCell>{t.cliente ? `${t.cliente.nome} ${t.cliente.cognome}` : "—"}</TableCell>
-                    <TableCell>{t.produttore ? `${t.produttore.nome} ${t.produttore.cognome}` : "—"}</TableCell>
-                    <TableCell className="font-mono">{t.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="font-mono">{t.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell><Badge variant={statoBadgeVariant(t.stato)}>{t.stato}</Badge></TableCell>
-                    <TableCell>{t.data_incasso || "—"}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>N. Titolo</TableHead>
+                    <TableHead>Prodotto</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Produttore</TableHead>
+                    <TableHead>Premio €</TableHead>
+                    <TableHead>Incassato €</TableHead>
+                    <TableHead>Stato</TableHead>
+                    <TableHead>Data</TableHead>
                   </TableRow>
-                ))}
-                {filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessun titolo</TableCell></TableRow>}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {titoli.map((t: any) => (
+                    <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${t.id}`)}>
+                      <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
+                      <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
+                      <TableCell>{t.cliente ? `${t.cliente.nome} ${t.cliente.cognome}` : "—"}</TableCell>
+                      <TableCell>{t.produttore ? `${t.produttore.nome} ${t.produttore.cognome}` : "—"}</TableCell>
+                      <TableCell className="font-mono">{t.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
+                      <TableCell className="font-mono">{t.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
+                      <TableCell><Badge variant={statoBadgeVariant(t.stato)}>{t.stato}</Badge></TableCell>
+                      <TableCell>{t.data_incasso || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                  {titoli.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessun titolo</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            </>
           )}
         </CardContent>
       </Card>
