@@ -812,6 +812,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cfo_entrate_uscite_mensili: {
+        Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
+        Returns: Json
+      }
+      cfo_kpi: {
+        Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
+        Returns: Json
+      }
+      cfo_premi_per_compagnia: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
+      cfo_provvigioni_mensili: {
+        Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
+        Returns: Json
+      }
+      cfo_provvigioni_non_pagate: { Args: never; Returns: Json }
+      cfo_redditivita_ufficio: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
+      cfo_report_titoli: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _produttore_id?: string
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
       get_my_ufficio_id: { Args: never; Returns: string }
       has_role: {
         Args: {
