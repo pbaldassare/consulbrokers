@@ -2,3 +2,6 @@ project_id = "zbjmnnlojxprlogbnxef"
 
 [functions.create-user]
 verify_jwt = false
+
+[functions.calcola-provvigioni]
+verify_jwt = false

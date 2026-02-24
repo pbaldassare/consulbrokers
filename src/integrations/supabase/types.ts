@@ -310,6 +310,51 @@ export type Database = {
           },
         ]
       }
+      provvigioni_generate: {
+        Row: {
+          calcolata_il: string | null
+          id: string
+          importo_provvigione: number | null
+          pagata: boolean | null
+          percentuale: number | null
+          titolo_id: string
+          user_id: string | null
+        }
+        Insert: {
+          calcolata_il?: string | null
+          id?: string
+          importo_provvigione?: number | null
+          pagata?: boolean | null
+          percentuale?: number | null
+          titolo_id: string
+          user_id?: string | null
+        }
+        Update: {
+          calcolata_il?: string | null
+          id?: string
+          importo_provvigione?: number | null
+          pagata?: boolean | null
+          percentuale?: number | null
+          titolo_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provvigioni_generate_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_generate_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ruoli_template: {
         Row: {
           created_at: string | null
@@ -336,6 +381,83 @@ export type Database = {
           ruolo_base?: string | null
         }
         Relationships: []
+      }
+      titoli: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          data_incasso: string | null
+          id: string
+          importo_incassato: number | null
+          note: string | null
+          numero_titolo: string | null
+          premio_lordo: number | null
+          prodotto_id: string | null
+          produttore_id: string | null
+          stato: string
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_incasso?: string | null
+          id?: string
+          importo_incassato?: number | null
+          note?: string | null
+          numero_titolo?: string | null
+          premio_lordo?: number | null
+          prodotto_id?: string | null
+          produttore_id?: string | null
+          stato?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_incasso?: string | null
+          id?: string
+          importo_incassato?: number | null
+          note?: string | null
+          numero_titolo?: string | null
+          premio_lordo?: number | null
+          prodotto_id?: string | null
+          produttore_id?: string | null
+          stato?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_produttore_id_fkey"
+            columns: ["produttore_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trattative: {
         Row: {
