@@ -355,6 +355,109 @@ export type Database = {
           },
         ]
       }
+      rimessa_dettaglio: {
+        Row: {
+          id: string
+          importo: number | null
+          rimessa_id: string
+          titolo_id: string | null
+        }
+        Insert: {
+          id?: string
+          importo?: number | null
+          rimessa_id: string
+          titolo_id?: string | null
+        }
+        Update: {
+          id?: string
+          importo?: number | null
+          rimessa_id?: string
+          titolo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rimessa_dettaglio_rimessa_id_fkey"
+            columns: ["rimessa_id"]
+            isOneToOne: false
+            referencedRelation: "rimessa_premi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_dettaglio_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rimessa_premi: {
+        Row: {
+          api_endpoint: string | null
+          api_response: string | null
+          compagnia_id: string | null
+          created_at: string | null
+          created_by: string | null
+          data_creazione: string | null
+          id: string
+          stato: string
+          totale_importi: number | null
+          ufficio_id: string | null
+          updated_at: string | null
+          xml_output: string | null
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_response?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_creazione?: string | null
+          id?: string
+          stato?: string
+          totale_importi?: number | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          xml_output?: string | null
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_response?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_creazione?: string | null
+          id?: string
+          stato?: string
+          totale_importi?: number | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          xml_output?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rimessa_premi_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_premi_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_premi_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ruoli_template: {
         Row: {
           created_at: string | null
