@@ -12,6 +12,10 @@ import CreaNuovoUtente from "./pages/CreaNuovoUtente";
 import ProspectList from "./pages/ProspectList";
 import ProspectDetail from "./pages/ProspectDetail";
 import TrattativeList from "./pages/TrattativeList";
+import CompagnieList from "./pages/CompagnieList";
+import CategorieList from "./pages/CategorieList";
+import ProdottiList from "./pages/ProdottiList";
+import MatriceProvvigioni from "./pages/MatriceProvvigioni";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -50,6 +54,10 @@ const App = () => (
               <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
               <Route path="/privacy" element={<PlaceholderPage title="Privacy & Consensi" description="Gestione privacy e consensi clienti" icon={Shield} />} />
               <Route path="/impostazioni" element={<PlaceholderPage title="Impostazioni" description="Configurazione del sistema" icon={Settings} />} />
+              <Route path="/compagnie" element={<CompagnieList />} />
+              <Route path="/categorie" element={<CategorieList />} />
+              <Route path="/prodotti" element={<ProdottiList />} />
+              <Route path="/matrice-provvigioni" element={<MatriceProvvigioni />} />
               <Route path="/template-ruoli" element={<GestioneTemplateRuoli />} />
               <Route path="/crea-utente" element={<CreaNuovoUtente />} />
             </Route>

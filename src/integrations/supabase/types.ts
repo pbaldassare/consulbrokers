@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      categorie_prodotto: {
+        Row: {
+          created_at: string | null
+          descrizione: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string | null
+          descrizione?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string | null
+          descrizione?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      compagnie: {
+        Row: {
+          attiva: boolean | null
+          codice: string | null
+          created_at: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          attiva?: boolean | null
+          codice?: string | null
+          created_at?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          attiva?: boolean | null
+          codice?: string | null
+          created_at?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       log_attivita: {
         Row: {
           azione: string | null
@@ -48,6 +93,112 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matrice_provvigioni: {
+        Row: {
+          attiva: boolean | null
+          created_at: string | null
+          id: string
+          percentuale_provvigione: number
+          prodotto_id: string
+          ruolo: string | null
+          tipo_calcolo: string
+          ufficio_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attiva?: boolean | null
+          created_at?: string | null
+          id?: string
+          percentuale_provvigione: number
+          prodotto_id: string
+          ruolo?: string | null
+          tipo_calcolo?: string
+          ufficio_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attiva?: boolean | null
+          created_at?: string | null
+          id?: string
+          percentuale_provvigione?: number
+          prodotto_id?: string
+          ruolo?: string | null
+          tipo_calcolo?: string
+          ufficio_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matrice_provvigioni_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matrice_provvigioni_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matrice_provvigioni_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prodotti: {
+        Row: {
+          attivo: boolean | null
+          categoria_id: string | null
+          codice_prodotto: string | null
+          compagnia_id: string | null
+          created_at: string | null
+          id: string
+          multititolo: boolean | null
+          nome_prodotto: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          categoria_id?: string | null
+          codice_prodotto?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          id?: string
+          multititolo?: boolean | null
+          nome_prodotto: string
+        }
+        Update: {
+          attivo?: boolean | null
+          categoria_id?: string | null
+          codice_prodotto?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          id?: string
+          multititolo?: boolean | null
+          nome_prodotto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prodotti_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorie_prodotto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prodotti_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
             referencedColumns: ["id"]
           },
         ]
