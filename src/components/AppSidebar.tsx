@@ -15,27 +15,30 @@ import {
   UserPlus,
   LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SidebarItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  permissionKey: string;
+  adminOnly?: boolean;
 }
 
-const menuItems: SidebarItem[] = [
-  { label: "Dashboard", path: "/", icon: LayoutDashboard },
-  { label: "Prospect & Trattative", path: "/prospect", icon: Users },
-  { label: "Titoli", path: "/titoli", icon: FileText },
-  { label: "Sinistri", path: "/sinistri", icon: AlertTriangle },
-  { label: "Contabilità Ufficio", path: "/contabilita", icon: Calculator },
-  { label: "Area CFO", path: "/cfo", icon: BarChart3 },
-  { label: "Provvigioni", path: "/provvigioni", icon: Percent },
-  { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send },
-  { label: "Comunicazioni", path: "/comunicazioni", icon: Mail },
-  { label: "Privacy & Consensi", path: "/privacy", icon: Shield },
-  { label: "Impostazioni", path: "/impostazioni", icon: Settings },
-  { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack },
-  { label: "Crea Utente", path: "/crea-utente", icon: UserPlus },
+const allMenuItems: SidebarItem[] = [
+  { label: "Dashboard", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" },
+  { label: "Prospect & Trattative", path: "/prospect", icon: Users, permissionKey: "prospect" },
+  { label: "Titoli", path: "/titoli", icon: FileText, permissionKey: "titoli" },
+  { label: "Sinistri", path: "/sinistri", icon: AlertTriangle, permissionKey: "sinistri" },
+  { label: "Contabilità Ufficio", path: "/contabilita", icon: Calculator, permissionKey: "contabilita" },
+  { label: "Area CFO", path: "/cfo", icon: BarChart3, permissionKey: "cfo_area" },
+  { label: "Provvigioni", path: "/provvigioni", icon: Percent, permissionKey: "provvigioni" },
+  { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" },
+  { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
+  { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
+  { label: "Impostazioni", path: "/impostazioni", icon: Settings, permissionKey: "impostazioni" },
+  { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Crea Utente", path: "/crea-utente", icon: UserPlus, permissionKey: "impostazioni", adminOnly: true },
 ];
 
 interface AppSidebarProps {
@@ -44,6 +47,13 @@ interface AppSidebarProps {
 }
 
 const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
+  const { hasPermission, isAdmin } = useAuth();
+
+  const visibleItems = allMenuItems.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false;
+    return hasPermission(item.permissionKey);
+  });
+
   return (
     <aside
       className={`fixed left-0 top-0 h-screen bg-card border-r border-sidebar-border z-30 transition-all duration-200 flex flex-col ${
@@ -65,7 +75,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {menuItems.map((item) => (
+        {visibleItems.map((item) => (
           <RouterNavLink
             key={item.path}
             to={item.path}
