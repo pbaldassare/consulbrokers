@@ -17,6 +17,8 @@ import {
   Tag,
   Package,
   Grid3X3,
+  Landmark,
+  Search,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +40,8 @@ const allMenuItems: SidebarItem[] = [
   { label: "Area CFO", path: "/cfo", icon: BarChart3, permissionKey: "cfo_area" },
   { label: "Provvigioni", path: "/provvigioni", icon: Percent, permissionKey: "provvigioni" },
   { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" },
+  { label: "Import Banca", path: "/banca-import", icon: Landmark, permissionKey: "contabilita" },
+  { label: "Anomalie KO", path: "/anomalie-ko", icon: Search, permissionKey: "contabilita" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
   { label: "Compagnie", path: "/compagnie", icon: Building2, permissionKey: "impostazioni", adminOnly: true },
