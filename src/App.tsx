@@ -24,6 +24,7 @@ import ContabilitaUfficio from "./pages/ContabilitaUfficio";
 import AreaCFO from "./pages/AreaCFO";
 import SinistriList from "./pages/SinistriList";
 import SinistroDetail from "./pages/SinistroDetail";
+import PrivacyConsensi from "./pages/PrivacyConsensi";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -63,7 +64,7 @@ const App = () => (
               <Route path="/rimessa-premi" element={<RimessaList />} />
               <Route path="/rimessa-premi/:id" element={<RimessaDetail />} />
               <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
-              <Route path="/privacy" element={<PlaceholderPage title="Privacy & Consensi" description="Gestione privacy e consensi clienti" icon={Shield} />} />
+              <Route path="/privacy" element={<PrivacyConsensi />} />
               <Route path="/impostazioni" element={<PlaceholderPage title="Impostazioni" description="Configurazione del sistema" icon={Settings} />} />
               <Route path="/compagnie" element={<CompagnieList />} />
               <Route path="/categorie" element={<CategorieList />} />
