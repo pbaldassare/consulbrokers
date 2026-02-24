@@ -1,0 +1,267 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAttivita } from "@/lib/logAttivita";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { Settings, Building2, Save, Loader2 } from "lucide-react";
+
+interface ImpostazioneSistema {
+  id: string;
+  chiave: string;
+  valore_json: unknown;
+  descrizione: string | null;
+  updated_at: string;
+}
+
+interface ImpostazioneUfficio {
+  id: string;
+  ufficio_id: string;
+  chiave: string;
+  valore_json: unknown;
+  updated_at: string;
+}
+
+interface Ufficio {
+  id: string;
+  nome_ufficio: string;
+}
+
+const PARAM_CONFIG: Record<string, { label: string; type: "string" | "number"; min?: number; max?: number }> = {
+  password_default: { label: "Password di default", type: "string" },
+  giorni_tolleranza_matching_banca: { label: "Giorni tolleranza matching banca", type: "number", min: 0, max: 30 },
+  soglia_score_ok: { label: "Soglia score OK", type: "number", min: 0, max: 100 },
+  soglia_score_verifica: { label: "Soglia score verifica", type: "number", min: 0, max: 100 },
+  limiti_upload_file_mb: { label: "Limite upload file (MB)", type: "number", min: 1, max: 100 },
+  giorni_alert_eventi_sinistri: { label: "Giorni alert eventi sinistri", type: "number", min: 1, max: 90 },
+};
+
+const ImpostazioniPage = () => {
+  const { isAdmin, profile } = useAuth();
+  const [sistemaSettings, setSistemaSettings] = useState<ImpostazioneSistema[]>([]);
+  const [ufficioSettings, setUfficioSettings] = useState<ImpostazioneUfficio[]>([]);
+  const [uffici, setUffici] = useState<Ufficio[]>([]);
+  const [selectedUfficio, setSelectedUfficio] = useState<string>("");
+  const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
+  const [editedUfficioValues, setEditedUfficioValues] = useState<Record<string, unknown>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchSistema();
+    if (isAdmin) fetchUffici();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    const uffId = isAdmin ? selectedUfficio : profile?.ufficio_id;
+    if (uffId) fetchUfficioSettings(uffId);
+  }, [selectedUfficio, isAdmin, profile]);
+
+  const fetchSistema = async () => {
+    const { data } = await supabase.from("impostazioni_sistema").select("*").order("chiave");
+    if (data) {
+      setSistemaSettings(data as ImpostazioneSistema[]);
+      const vals: Record<string, unknown> = {};
+      data.forEach((s: ImpostazioneSistema) => { vals[s.chiave] = s.valore_json; });
+      setEditedValues(vals);
+    }
+    setLoading(false);
+  };
+
+  const fetchUffici = async () => {
+    const { data } = await supabase.from("uffici").select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
+    if (data) setUffici(data);
+  };
+
+  const fetchUfficioSettings = async (ufficioId: string) => {
+    const { data } = await supabase.from("impostazioni_ufficio").select("*").eq("ufficio_id", ufficioId);
+    if (data) {
+      setUfficioSettings(data as ImpostazioneUfficio[]);
+      const vals: Record<string, unknown> = {};
+      data.forEach((s: ImpostazioneUfficio) => { vals[s.chiave] = s.valore_json; });
+      setEditedUfficioValues(vals);
+    }
+  };
+
+  const saveSistema = async () => {
+    setSaving(true);
+    try {
+      for (const setting of sistemaSettings) {
+        const newVal = editedValues[setting.chiave];
+        if (JSON.stringify(newVal) !== JSON.stringify(setting.valore_json)) {
+          await supabase.from("impostazioni_sistema").update({ valore_json: newVal as any }).eq("id", setting.id);
+        }
+      }
+      await logAttivita({
+        azione: "modifica_impostazioni",
+        entita_tipo: "impostazioni_sistema",
+        entita_id: "sistema",
+        dettagli_json: { valori: editedValues },
+      });
+      toast.success("Impostazioni di sistema salvate");
+      fetchSistema();
+    } catch {
+      toast.error("Errore nel salvataggio");
+    }
+    setSaving(false);
+  };
+
+  const saveUfficio = async () => {
+    const ufficioId = isAdmin ? selectedUfficio : profile?.ufficio_id;
+    if (!ufficioId) return;
+    setSaving(true);
+    try {
+      for (const [chiave, valore] of Object.entries(editedUfficioValues)) {
+        const existing = ufficioSettings.find((s) => s.chiave === chiave);
+        if (existing) {
+          await supabase.from("impostazioni_ufficio").update({ valore_json: valore as any }).eq("id", existing.id);
+        } else {
+          await supabase.from("impostazioni_ufficio").insert({ ufficio_id: ufficioId, chiave, valore_json: valore as any });
+        }
+      }
+      await logAttivita({
+        azione: "modifica_impostazioni",
+        entita_tipo: "impostazioni_ufficio",
+        entita_id: ufficioId,
+        dettagli_json: { valori: editedUfficioValues },
+      });
+      toast.success("Impostazioni ufficio salvate");
+      fetchUfficioSettings(ufficioId);
+    } catch {
+      toast.error("Errore nel salvataggio");
+    }
+    setSaving(false);
+  };
+
+  const renderField = (chiave: string, value: unknown, onChange: (chiave: string, val: unknown) => void) => {
+    const config = PARAM_CONFIG[chiave];
+    const label = config?.label || chiave;
+    const type = config?.type || "string";
+
+    return (
+      <div key={chiave} className="flex flex-col gap-1.5">
+        <Label className="text-sm font-medium">{label}</Label>
+        <Input
+          type={type === "number" ? "number" : "text"}
+          value={typeof value === "string" ? value : String(value ?? "")}
+          min={config?.min}
+          max={config?.max}
+          onChange={(e) => {
+            const v = type === "number" ? Number(e.target.value) : e.target.value;
+            onChange(chiave, v);
+          }}
+        />
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Settings className="w-6 h-6" /> Impostazioni
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">Configurazione parametri di sistema e ufficio</p>
+      </div>
+
+      <Tabs defaultValue={isAdmin ? "sistema" : "ufficio"}>
+        <TabsList>
+          {isAdmin && <TabsTrigger value="sistema">Sistema</TabsTrigger>}
+          <TabsTrigger value="ufficio">Ufficio</TabsTrigger>
+        </TabsList>
+
+        {isAdmin && (
+          <TabsContent value="sistema">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Parametri di Sistema</CardTitle>
+                <CardDescription>Configurazione globale dell'applicazione (solo admin)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sistemaSettings.map((s) =>
+                    renderField(s.chiave, editedValues[s.chiave], (chiave, val) =>
+                      setEditedValues((prev) => ({ ...prev, [chiave]: val }))
+                    )
+                  )}
+                </div>
+                <div className="flex justify-end pt-2">
+                  <Button onClick={saveSistema} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    Salva parametri sistema
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        <TabsContent value="ufficio">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building2 className="w-5 h-5" /> Parametri Ufficio
+              </CardTitle>
+              <CardDescription>Override dei parametri di sistema per ufficio specifico</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isAdmin && (
+                <div className="max-w-xs">
+                  <Label>Seleziona ufficio</Label>
+                  <Select value={selectedUfficio} onValueChange={setSelectedUfficio}>
+                    <SelectTrigger><SelectValue placeholder="Scegli ufficio..." /></SelectTrigger>
+                    <SelectContent>
+                      {uffici.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {(isAdmin ? selectedUfficio : profile?.ufficio_id) ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.keys(PARAM_CONFIG).map((chiave) =>
+                      renderField(
+                        chiave,
+                        editedUfficioValues[chiave] ?? editedValues[chiave] ?? "",
+                        (k, val) => setEditedUfficioValues((prev) => ({ ...prev, [k]: val }))
+                      )
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    I valori vuoti ereditano le impostazioni di sistema.
+                  </p>
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={saveUfficio} disabled={saving}>
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      Salva parametri ufficio
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">Seleziona un ufficio per configurarne i parametri.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default ImpostazioniPage;
