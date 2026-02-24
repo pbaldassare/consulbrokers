@@ -47,6 +47,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Note Restituzione", path: "/note-restituzione", icon: FileStack, permissionKey: "contabilita" },
   { label: "Spedizioni", path: "/spedizioni", icon: Package, permissionKey: "contabilita" },
   { label: "Report IVA", path: "/report-iva", icon: Receipt, permissionKey: "contabilita" },
+  { label: "Portafoglio Incassi", path: "/portafoglio", icon: Landmark, permissionKey: "contabilita" },
   { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" },
   { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "comunicazioni" },
   { label: "Privacy & Consensi", path: "/privacy", icon: Shield, permissionKey: "privacy" },
