@@ -9,6 +9,9 @@ import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
 import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
 import CreaNuovoUtente from "./pages/CreaNuovoUtente";
+import ProspectList from "./pages/ProspectList";
+import ProspectDetail from "./pages/ProspectDetail";
+import TrattativeList from "./pages/TrattativeList";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -35,7 +38,9 @@ const App = () => (
           <Routes>
             <Route element={<MainLayout />}>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/prospect" element={<PlaceholderPage title="Prospect & Trattative" description="Gestione prospect e trattative commerciali" icon={Users} />} />
+              <Route path="/prospect" element={<ProspectList />} />
+              <Route path="/prospect/:id" element={<ProspectDetail />} />
+              <Route path="/trattative" element={<TrattativeList />} />
               <Route path="/titoli" element={<PlaceholderPage title="Titoli" description="Gestione dei titoli assicurativi" icon={FileText} />} />
               <Route path="/sinistri" element={<PlaceholderPage title="Sinistri" description="Gestione pratiche sinistri" icon={AlertTriangle} />} />
               <Route path="/contabilita" element={<PlaceholderPage title="Contabilità Ufficio" description="Gestione contabile dell'ufficio" icon={Calculator} />} />

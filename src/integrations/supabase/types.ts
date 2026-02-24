@@ -99,6 +99,66 @@ export type Database = {
           },
         ]
       }
+      prospect: {
+        Row: {
+          assegnato_a: string | null
+          cognome: string | null
+          created_at: string | null
+          email: string | null
+          fonte: string | null
+          id: string
+          nome: string | null
+          note: string | null
+          stato: string
+          telefono: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assegnato_a?: string | null
+          cognome?: string | null
+          created_at?: string | null
+          email?: string | null
+          fonte?: string | null
+          id?: string
+          nome?: string | null
+          note?: string | null
+          stato?: string
+          telefono?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assegnato_a?: string | null
+          cognome?: string | null
+          created_at?: string | null
+          email?: string | null
+          fonte?: string | null
+          id?: string
+          nome?: string | null
+          note?: string | null
+          stato?: string
+          telefono?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_assegnato_a_fkey"
+            columns: ["assegnato_a"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ruoli_template: {
         Row: {
           created_at: string | null
@@ -125,6 +185,60 @@ export type Database = {
           ruolo_base?: string | null
         }
         Relationships: []
+      }
+      trattative: {
+        Row: {
+          compagnia: string | null
+          created_at: string | null
+          created_by: string | null
+          data_chiusura: string | null
+          id: string
+          premio_previsto: number | null
+          prodotto: string | null
+          prospect_id: string | null
+          stato: string
+          updated_at: string | null
+        }
+        Insert: {
+          compagnia?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_chiusura?: string | null
+          id?: string
+          premio_previsto?: number | null
+          prodotto?: string | null
+          prospect_id?: string | null
+          stato?: string
+          updated_at?: string | null
+        }
+        Update: {
+          compagnia?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_chiusura?: string | null
+          id?: string
+          premio_previsto?: number | null
+          prodotto?: string | null
+          prospect_id?: string | null
+          stato?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trattative_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattative_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospect"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       uffici: {
         Row: {
