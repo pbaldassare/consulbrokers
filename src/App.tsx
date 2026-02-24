@@ -20,6 +20,7 @@ import TitoliList from "./pages/TitoliList";
 import TitoloDetail from "./pages/TitoloDetail";
 import RimessaList from "./pages/RimessaList";
 import RimessaDetail from "./pages/RimessaDetail";
+import ContabilitaUfficio from "./pages/ContabilitaUfficio";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -52,7 +53,7 @@ const App = () => (
               <Route path="/titoli" element={<TitoliList />} />
               <Route path="/titoli/:id" element={<TitoloDetail />} />
               <Route path="/sinistri" element={<PlaceholderPage title="Sinistri" description="Gestione pratiche sinistri" icon={AlertTriangle} />} />
-              <Route path="/contabilita" element={<PlaceholderPage title="Contabilità Ufficio" description="Gestione contabile dell'ufficio" icon={Calculator} />} />
+              <Route path="/contabilita" element={<ContabilitaUfficio />} />
               <Route path="/cfo" element={<PlaceholderPage title="Area CFO" description="Dashboard direzionale e reportistica" icon={BarChart3} />} />
               <Route path="/provvigioni" element={<PlaceholderPage title="Provvigioni" description="Gestione provvigioni agenti" icon={Percent} />} />
               <Route path="/rimessa-premi" element={<RimessaList />} />

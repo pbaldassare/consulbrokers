@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.gestione-rimessa]
 verify_jwt = false
+
+[functions.incrocio-bancario]
+verify_jwt = false
