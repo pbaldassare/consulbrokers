@@ -422,6 +422,8 @@ export type Database = {
           entita_id: string | null
           entita_tipo: string | null
           id: string
+          severity: string
+          ufficio_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -431,6 +433,8 @@ export type Database = {
           entita_id?: string | null
           entita_tipo?: string | null
           id?: string
+          severity?: string
+          ufficio_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -440,9 +444,18 @@ export type Database = {
           entita_id?: string | null
           entita_tipo?: string | null
           id?: string
+          severity?: string
+          ufficio_id?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "log_attivita_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "log_attivita_user_id_fkey"
             columns: ["user_id"]

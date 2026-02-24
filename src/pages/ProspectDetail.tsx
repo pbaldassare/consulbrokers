@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
+import TimelineTab from "@/components/TimelineTab";
 
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo" },
@@ -85,36 +86,7 @@ const ProspectDetail = () => {
     enabled: !!id,
   });
 
-  const { data: timeline } = useQuery({
-    queryKey: ["log_attivita", "prospect", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("log_attivita")
-        .select("*")
-        .eq("entita_tipo", "prospect")
-        .eq("entita_id", id!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-
-      // Also get trattativa logs for this prospect's trattative
-      if (trattative?.length) {
-        const trattativeIds = trattative.map((t) => t.id);
-        const { data: trattativeLogs } = await supabase
-          .from("log_attivita")
-          .select("*")
-          .eq("entita_tipo", "trattativa")
-          .in("entita_id", trattativeIds)
-          .order("created_at", { ascending: false });
-        
-        const all = [...(data || []), ...(trattativeLogs || [])];
-        all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        return all;
-      }
-
-      return data;
-    },
-    enabled: !!id && trattative !== undefined,
-  });
+  const trattativeIds = trattative?.map((t) => t.id) || [];
 
   const updateStatoMutation = useMutation({
     mutationFn: async (newStato: string) => {
@@ -354,40 +326,11 @@ const ProspectDetail = () => {
             <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
               <Clock className="w-4 h-4" />Timeline Attività
             </h3>
-            {!timeline?.length ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">Nessuna attività registrata</div>
-            ) : (
-              <div className="space-y-4">
-                {timeline.map((log) => {
-                  const IconComp = AZIONE_ICONS[log.azione] || Clock;
-                  const details = log.dettagli_json as Record<string, unknown> | null;
-                  return (
-                    <div key={log.id} className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <IconComp className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">
-                          {log.azione.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                        </p>
-                        {details && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {details.stato_precedente && details.nuovo_stato
-                              ? `${details.stato_precedente} → ${details.nuovo_stato}`
-                              : details.prodotto
-                              ? `${details.prodotto} - ${details.compagnia || ""}`
-                              : JSON.stringify(details)}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(log.created_at), "dd MMM yyyy HH:mm", { locale: it })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <TimelineTab
+              entitaTipo="prospect"
+              entitaId={id!}
+              extraEntities={trattativeIds.length ? [{ tipo: "trattativa", ids: trattativeIds }] : undefined}
+            />
           </Card>
         </div>
       </div>
