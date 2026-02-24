@@ -59,6 +59,95 @@ export type Database = {
         }
         Relationships: []
       }
+      estratti_conto: {
+        Row: {
+          created_at: string | null
+          data_operazione: string
+          descrizione: string | null
+          id: string
+          importo: number
+          saldo: number | null
+          stato: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_operazione?: string
+          descrizione?: string | null
+          id?: string
+          importo: number
+          saldo?: number | null
+          stato?: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_operazione?: string
+          descrizione?: string | null
+          id?: string
+          importo?: number
+          saldo?: number | null
+          stato?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estratti_conto_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      incroci_bancari: {
+        Row: {
+          created_at: string | null
+          differenza: number | null
+          esito: string
+          estratto_id: string | null
+          id: string
+          movimento_id: string | null
+          note: string | null
+          verificato: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          differenza?: number | null
+          esito: string
+          estratto_id?: string | null
+          id?: string
+          movimento_id?: string | null
+          note?: string | null
+          verificato?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          differenza?: number | null
+          esito?: string
+          estratto_id?: string | null
+          id?: string
+          movimento_id?: string | null
+          note?: string | null
+          verificato?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incroci_bancari_estratto_id_fkey"
+            columns: ["estratto_id"]
+            isOneToOne: false
+            referencedRelation: "estratti_conto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incroci_bancari_movimento_id_fkey"
+            columns: ["movimento_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_contabili"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       log_attivita: {
         Row: {
           azione: string | null
@@ -151,6 +240,66 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimenti_contabili: {
+        Row: {
+          categoria: string | null
+          created_at: string | null
+          created_by: string | null
+          data_movimento: string
+          descrizione: string | null
+          id: string
+          importo: number
+          riferimento_id: string | null
+          riferimento_tipo: string | null
+          stato: string
+          tipo: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_movimento?: string
+          descrizione?: string | null
+          id?: string
+          importo: number
+          riferimento_id?: string | null
+          riferimento_tipo?: string | null
+          stato?: string
+          tipo: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_movimento?: string
+          descrizione?: string | null
+          id?: string
+          importo?: number
+          riferimento_id?: string | null
+          riferimento_tipo?: string | null
+          stato?: string
+          tipo?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_contabili_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_contabili_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
             referencedColumns: ["id"]
           },
         ]
