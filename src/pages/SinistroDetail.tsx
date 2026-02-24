@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
+import DocumentiTab from "@/components/DocumentiTab";
+import ChatTab from "@/components/ChatTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
@@ -167,6 +169,8 @@ export default function SinistroDetail() {
         <TabsList>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
+          <TabsTrigger value="documenti">Documenti</TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="log">Log Attività</TabsTrigger>
         </TabsList>
 
@@ -251,6 +255,14 @@ export default function SinistroDetail() {
               {!eventi?.length && <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">Nessun evento</TableCell></TableRow>}
             </TableBody>
           </Table>
+        </TabsContent>
+
+        <TabsContent value="documenti">
+          <DocumentiTab entitaTipo="sinistro" entitaId={id!} bucketName="documenti_sinistri" />
+        </TabsContent>
+
+        <TabsContent value="chat">
+          <ChatTab entitaTipo="sinistro" entitaId={id!} />
         </TabsContent>
 
         <TabsContent value="log">

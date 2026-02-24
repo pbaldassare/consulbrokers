@@ -35,6 +35,44 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messaggi: {
+        Row: {
+          created_at: string | null
+          entita_id: string
+          entita_tipo: string
+          id: string
+          letto: boolean | null
+          messaggio: string
+          mittente_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entita_id: string
+          entita_tipo: string
+          id?: string
+          letto?: boolean | null
+          messaggio: string
+          mittente_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entita_id?: string
+          entita_tipo?: string
+          id?: string
+          letto?: boolean | null
+          messaggio?: string
+          mittente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messaggi_mittente_id_fkey"
+            columns: ["mittente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compagnie: {
         Row: {
           attiva: boolean | null
@@ -58,6 +96,53 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      documenti: {
+        Row: {
+          bucket_name: string
+          caricato_da: string | null
+          categoria: string | null
+          created_at: string | null
+          entita_id: string
+          entita_tipo: string
+          id: string
+          nome_file: string
+          path_storage: string
+          visibile_al_cliente: boolean | null
+        }
+        Insert: {
+          bucket_name?: string
+          caricato_da?: string | null
+          categoria?: string | null
+          created_at?: string | null
+          entita_id: string
+          entita_tipo: string
+          id?: string
+          nome_file: string
+          path_storage: string
+          visibile_al_cliente?: boolean | null
+        }
+        Update: {
+          bucket_name?: string
+          caricato_da?: string | null
+          categoria?: string | null
+          created_at?: string | null
+          entita_id?: string
+          entita_tipo?: string
+          id?: string
+          nome_file?: string
+          path_storage?: string
+          visibile_al_cliente?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documenti_caricato_da_fkey"
+            columns: ["caricato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       estratti_conto: {
         Row: {
