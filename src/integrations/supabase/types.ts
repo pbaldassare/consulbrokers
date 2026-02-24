@@ -304,6 +304,81 @@ export type Database = {
           },
         ]
       }
+      privacy_consensi: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          data_consenso: string
+          fonte: string | null
+          id: string
+          informativa_id: string | null
+          stato: string
+          tipo_consenso: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          data_consenso?: string
+          fonte?: string | null
+          id?: string
+          informativa_id?: string | null
+          stato: string
+          tipo_consenso: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          data_consenso?: string
+          fonte?: string | null
+          id?: string
+          informativa_id?: string | null
+          stato?: string
+          tipo_consenso?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "privacy_consensi_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "privacy_consensi_informativa_id_fkey"
+            columns: ["informativa_id"]
+            isOneToOne: false
+            referencedRelation: "privacy_informative"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      privacy_informative: {
+        Row: {
+          attiva: boolean | null
+          contenuto: string | null
+          created_at: string | null
+          id: string
+          titolo: string
+          versione: string
+        }
+        Insert: {
+          attiva?: boolean | null
+          contenuto?: string | null
+          created_at?: string | null
+          id?: string
+          titolo: string
+          versione: string
+        }
+        Update: {
+          attiva?: boolean | null
+          contenuto?: string | null
+          created_at?: string | null
+          id?: string
+          titolo?: string
+          versione?: string
+        }
+        Relationships: []
+      }
       prodotti: {
         Row: {
           attivo: boolean | null
@@ -999,6 +1074,10 @@ export type Database = {
           _ufficio_id?: string
         }
         Returns: Json
+      }
+      check_consenso_marketing: {
+        Args: { _cliente_id: string }
+        Returns: boolean
       }
       get_my_ufficio_id: { Args: never; Returns: string }
       has_role: {
