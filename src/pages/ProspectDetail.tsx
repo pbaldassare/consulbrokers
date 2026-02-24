@@ -6,6 +6,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +20,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import DocumentiTab from "@/components/DocumentiTab";
+import ChatTab from "@/components/ChatTab";
 
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo" },
@@ -388,6 +391,19 @@ const ProspectDetail = () => {
           </Card>
         </div>
       </div>
+      {/* Documenti e Chat */}
+      <Tabs defaultValue="documenti">
+        <TabsList>
+          <TabsTrigger value="documenti">Documenti</TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
+        </TabsList>
+        <TabsContent value="documenti">
+          <Card className="p-5"><DocumentiTab entitaTipo="prospect" entitaId={id!} /></Card>
+        </TabsContent>
+        <TabsContent value="chat">
+          <Card className="p-5"><ChatTab entitaTipo="prospect" entitaId={id!} /></Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, FileText, Percent, Clock } from "lucide-react";
+import DocumentiTab from "@/components/DocumentiTab";
+import ChatTab from "@/components/ChatTab";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -151,7 +153,9 @@ const TitoloDetail = () => {
       <Tabs defaultValue="provvigioni">
         <TabsList>
           <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
-          <TabsTrigger value="log"><Clock className="w-4 h-4 mr-1" />Log Attività ({logs.length})</TabsTrigger>
+          <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsTrigger value="log"><Clock className="w-4 h-4 mr-1" />Log ({logs.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="provvigioni">
           <Card>
@@ -181,6 +185,12 @@ const TitoloDetail = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="documenti">
+          <Card><CardContent className="pt-6"><DocumentiTab entitaTipo="titolo" entitaId={id!} bucketName="documenti_titoli" /></CardContent></Card>
+        </TabsContent>
+        <TabsContent value="chat">
+          <Card><CardContent className="pt-6"><ChatTab entitaTipo="titolo" entitaId={id!} /></CardContent></Card>
         </TabsContent>
         <TabsContent value="log">
           <Card>
