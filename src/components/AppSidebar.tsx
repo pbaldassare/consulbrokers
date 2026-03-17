@@ -76,6 +76,10 @@ const sidebarEntries: SidebarEntry[] = [
   // HOME
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
 
+  // PROSPECT & TRATTATIVE (standalone)
+  { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Trattative", path: "/trattative", icon: ArrowRightLeft, permissionKey: "titoli" } },
+
   // ARCHIVI
   {
     type: "group",
@@ -84,7 +88,6 @@ const sidebarEntries: SidebarEntry[] = [
       icon: FolderOpen,
       permissionKey: "dashboard",
       children: [
-        { label: "Anagrafiche Clienti", path: "/prospect", icon: Users },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
         { label: "Categorie", path: "/categorie", icon: Tag },
         { label: "Prodotti", path: "/prodotti", icon: Package },
@@ -105,7 +108,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
         { label: "Regolazioni", path: "/portafoglio/regolazioni", icon: ClipboardList },
         { label: "Documentale", path: "/portafoglio/documentale", icon: FileText },
-        { label: "Trattative", path: "/trattative", icon: ArrowRightLeft },
         { label: "Rientro Documenti", path: "/portafoglio/rientro-documenti", icon: FileCheck },
         { label: "Import Titoli (Excel)", path: "/portafoglio/import-titoli", icon: FileUp },
       ],
