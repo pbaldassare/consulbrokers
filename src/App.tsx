@@ -111,6 +111,7 @@ const App = () => (
               <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
               <Route path="/report" element={<ReportPage />} />
               <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
+              <Route path="/gestione-utenti" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtenti /></RoleGuard>} />
               <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
               <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
               <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
