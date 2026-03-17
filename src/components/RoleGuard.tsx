@@ -6,12 +6,11 @@ import { logAttivita } from "@/lib/logAttivita";
 interface RoleGuardProps {
   children: ReactNode;
   allowedRoles: string[];
-  /** Optional permission key to check via permessi_json */
   permissionKey?: string;
 }
 
 const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) => {
-  const { profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
   const isAllowed =
@@ -21,6 +20,10 @@ const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) =>
 
   useEffect(() => {
     if (loading) return;
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
     if (!isAllowed) {
       logAttivita({
         azione: "accesso_non_autorizzato_bloccato",
@@ -34,10 +37,10 @@ const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) =>
       });
       navigate("/", { replace: true });
     }
-  }, [loading, isAllowed, navigate, profile]);
+  }, [loading, user, isAllowed, navigate, profile]);
 
   if (loading) return null;
-  if (!isAllowed) return null;
+  if (!user || !isAllowed) return null;
 
   return <>{children}</>;
 };

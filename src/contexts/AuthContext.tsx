@@ -50,25 +50,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else {
       setProfile(null);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (_event === "SIGNED_OUT") {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
-          // Use setTimeout to avoid Supabase auth deadlock
           setTimeout(() => fetchProfile(currentUser.id), 0);
         } else {
           setProfile(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
-    // Then check existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
@@ -84,13 +88,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
   };
 
   const hasPermission = (key: string): boolean => {
     if (!profile) return false;
-    // Admin has all permissions
     if (profile.ruolo === "admin") return true;
     if (!profile.permessi_json) return false;
     return profile.permessi_json[key] === true;

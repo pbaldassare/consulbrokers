@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import RoleGuard from "./components/RoleGuard";
+import AuthGuard from "./components/AuthGuard";
 import MainLayout from "./components/MainLayout";
+import LoginPage from "./pages/LoginPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
 import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
@@ -68,7 +71,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route element={<MainLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
