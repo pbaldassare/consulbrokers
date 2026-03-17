@@ -60,6 +60,24 @@ import {
   Mail,
   Shield,
   Settings,
+  Printer,
+  BookOpen,
+  ClipboardList,
+  FileCheck,
+  FileUp,
+  FilePlus,
+  Clock,
+  CalendarCheck,
+  Bell,
+  CheckSquare,
+  Building2,
+  ListChecks,
+  FileOutput,
+  FileStack,
+  Import,
+  ArrowRightLeft,
+  Landmark,
+  Search,
 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -75,20 +93,66 @@ const App = () => (
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
+              {/* HOME */}
               <Route path="/" element={<Dashboard />} />
+
+              {/* ARCHIVI */}
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
-              <Route path="/trattative" element={<TrattativeList />} />
+              <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
+              <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
+              <Route path="/prodotti" element={<RoleGuard allowedRoles={["admin"]}><ProdottiList /></RoleGuard>} />
+
+              {/* PORTAFOGLIO */}
               <Route path="/titoli" element={<TitoliList />} />
               <Route path="/titoli/:id" element={<TitoloDetail />} />
+              <Route path="/portafoglio/estrazioni-stampe" element={<PlaceholderPage title="Estrazioni e Stampe" description="Estrazione dati e stampa polizze" icon={Printer} />} />
+              <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
+              <Route path="/portafoglio/regolazioni" element={<PlaceholderPage title="Regolazioni" description="Regolazioni premio polizze" icon={ClipboardList} />} />
+              <Route path="/portafoglio/documentale" element={<PlaceholderPage title="Documentale" description="Archivio documentale polizze" icon={FileText} />} />
+              <Route path="/trattative" element={<TrattativeList />} />
+              <Route path="/portafoglio/rientro-documenti" element={<PlaceholderPage title="Rientro Documenti" description="Gestione rientro documenti dalle compagnie" icon={FileCheck} />} />
+              <Route path="/portafoglio/import-titoli" element={<PlaceholderPage title="Import Titoli (Excel)" description="Importazione massiva titoli da file Excel" icon={FileUp} />} />
+
+              {/* SINISTRI */}
               <Route path="/sinistri" element={<SinistriList />} />
               <Route path="/sinistri/:id" element={<SinistroDetail />} />
+              <Route path="/sinistri/apertura" element={<PlaceholderPage title="Apertura Sinistro" description="Apertura nuovo sinistro" icon={FilePlus} />} />
+              <Route path="/sinistri/prescrizioni" element={<PlaceholderPage title="Prescrizioni" description="Gestione prescrizioni sinistri" icon={Clock} />} />
+              <Route path="/sinistri/scadenze" element={<PlaceholderPage title="Scadenze Sinistri" description="Scadenziario sinistri" icon={CalendarCheck} />} />
+              <Route path="/sinistri/report-sir" element={<PlaceholderPage title="Report Sanitario SIR" description="Report sanitario sinistri" icon={FileText} />} />
+
+              {/* CONTABILITÀ */}
               <Route path="/contabilita" element={<ContabilitaUfficio />} />
+              <Route path="/contabilita/avvisi-incasso" element={<PlaceholderPage title="Avvisi Incasso" description="Gestione avvisi di incasso" icon={Bell} />} />
+              <Route path="/contabilita/chiusura-giornaliera" element={<PlaceholderPage title="Chiusura Giornaliera" description="Chiusura giornaliera di cassa" icon={CheckSquare} />} />
+              <Route path="/contabilita/ec-clienti" element={<PlaceholderPage title="E/C Clienti" description="Estratto conto clienti" icon={Users} />} />
+              <Route path="/contabilita/ec-compagnia" element={<PlaceholderPage title="E/C Compagnia" description="Estratto conto compagnie" icon={Building2} />} />
+              <Route path="/contabilita/ec-produttori" element={<PlaceholderPage title="E/C Produttori" description="Estratto conto produttori" icon={Percent} />} />
+              <Route path="/contabilita/stampa-primanota" element={<PlaceholderPage title="Stampa Primanota" description="Stampa movimenti di primanota" icon={Printer} />} />
+              <Route path="/contabilita/check-primanota" element={<PlaceholderPage title="Check Primanota" description="Verifica e quadratura primanota" icon={ListChecks} />} />
+              <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
+
+              {/* CONT. GENERALE */}
+              <Route path="/cont-generale/anagrafiche" element={<PlaceholderPage title="Anagrafiche" description="Anagrafiche contabilità generale" icon={Users} />} />
+              <Route path="/cont-generale/primanota" element={<PlaceholderPage title="Primanota" description="Primanota contabilità generale" icon={FileText} />} />
+              <Route path="/cont-generale/elab-periodiche" element={<PlaceholderPage title="Elaborazioni Periodiche" description="Elaborazioni periodiche contabili" icon={CalendarCheck} />} />
+              <Route path="/cont-generale/fornitori" element={<PlaceholderPage title="Fornitori" description="Gestione fornitori" icon={Building2} />} />
+              <Route path="/cont-generale/clienti" element={<PlaceholderPage title="Clienti" description="Gestione clienti contabilità" icon={Users} />} />
+              <Route path="/cont-generale/elab-annuali" element={<PlaceholderPage title="Elaborazioni Annuali" description="Elaborazioni annuali e chiusure" icon={ClipboardList} />} />
+              <Route path="/cont-generale/dichiarativi" element={<PlaceholderPage title="Dichiarativi" description="Gestione dichiarativi fiscali" icon={FileStack} />} />
+
+              {/* FATTURAPA */}
+              <Route path="/fatturapa/anagrafiche" element={<PlaceholderPage title="Anagrafiche FatturaPA" description="Anagrafiche per fatturazione elettronica" icon={Users} />} />
+              <Route path="/fatturapa/gestione" element={<PlaceholderPage title="Gestione FatturaPA" description="Gestione fatture elettroniche" icon={Settings} />} />
+              <Route path="/fatturapa/intermediazione" element={<PlaceholderPage title="Intermediazione" description="Gestione intermediazione fatture" icon={ArrowRightLeft} />} />
+              <Route path="/fatturapa/import-fatture" element={<PlaceholderPage title="Import Fatture Acquisto" description="Importazione fatture di acquisto" icon={Import} />} />
+
+              {/* EXTRA STANDALONE */}
               <Route path="/cfo" element={<AreaCFO />} />
               <Route path="/provvigioni" element={<PlaceholderPage title="Provvigioni" description="Gestione provvigioni agenti" icon={Percent} />} />
               <Route path="/rimessa-premi" element={<RimessaList />} />
               <Route path="/rimessa-premi/:id" element={<RimessaDetail />} />
-              <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
               <Route path="/banca-import" element={<BancaImport />} />
               <Route path="/anomalie-ko" element={<AnomalieKO />} />
               <Route path="/note-restituzione" element={<NoteRestituzioneList />} />
@@ -96,12 +160,6 @@ const App = () => (
               <Route path="/spedizioni" element={<SpedizioniList />} />
               <Route path="/notifiche" element={<NotifichePage />} />
               <Route path="/privacy" element={<PrivacyConsensi />} />
-              <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
-              <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
-              <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
-              <Route path="/prodotti" element={<RoleGuard allowedRoles={["admin"]}><ProdottiList /></RoleGuard>} />
-              <Route path="/matrice-provvigioni" element={<RoleGuard allowedRoles={["admin"]}><MatriceProvvigioni /></RoleGuard>} />
-              <Route path="/template-ruoli" element={<RoleGuard allowedRoles={["admin"]}><GestioneTemplateRuoli /></RoleGuard>} />
               <Route path="/report-iva" element={<ReportIVA />} />
               <Route path="/portafoglio" element={<PortafoglioList />} />
               <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
@@ -110,6 +168,12 @@ const App = () => (
               <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
               <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
               <Route path="/report" element={<ReportPage />} />
+              <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
+
+              {/* SISTEMA (admin) */}
+              <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
+              <Route path="/matrice-provvigioni" element={<RoleGuard allowedRoles={["admin"]}><MatriceProvvigioni /></RoleGuard>} />
+              <Route path="/template-ruoli" element={<RoleGuard allowedRoles={["admin"]}><GestioneTemplateRuoli /></RoleGuard>} />
               <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
               <Route path="/gestione-utenti" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtenti /></RoleGuard>} />
               <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
