@@ -71,7 +71,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route element={<MainLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
