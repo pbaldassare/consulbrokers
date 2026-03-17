@@ -76,6 +76,10 @@ const sidebarEntries: SidebarEntry[] = [
   // HOME
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
 
+  // PROSPECT & TRATTATIVE (standalone)
+  { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Trattative", path: "/trattative", icon: ArrowRightLeft, permissionKey: "titoli" } },
+
   // ARCHIVI
   {
     type: "group",
