@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, FileCode, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
 import { useToast } from "@/hooks/use-toast";
@@ -33,8 +33,28 @@ function toCsv(rows: Record<string, unknown>[]): string {
   return lines.join("\n");
 }
 
-function downloadBlob(csv: string, filename: string) {
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+function escapeXml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function toXml(rows: Record<string, unknown>[], tableName: string): string {
+  const date = new Date().toISOString().slice(0, 10);
+  const lines = [`<?xml version="1.0" encoding="UTF-8"?>`, `<export table="${tableName}" date="${date}" count="${rows.length}">`];
+  for (const row of rows) {
+    lines.push("  <row>");
+    for (const [key, val] of Object.entries(row)) {
+      const s = val == null ? "" : String(val);
+      lines.push(`    <${key}>${escapeXml(s)}</${key}>`);
+    }
+    lines.push("  </row>");
+  }
+  lines.push("</export>");
+  return lines.join("\n");
+}
+
+function downloadBlob(content: string, filename: string, mimeType: string) {
+  const bom = mimeType.includes("csv") ? "\uFEFF" : "";
+  const blob = new Blob([bom + content], { type: `${mimeType};charset=utf-8;` });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -43,29 +63,36 @@ function downloadBlob(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+type Format = "csv" | "xml";
+
 const BackupExport = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleExport = async (def: ExportDef) => {
-    setLoading(def.table);
+  const handleExport = async (def: ExportDef, format: Format) => {
+    const key = `${def.table}_${format}`;
+    setLoading(key);
     try {
-      const cols = def.columns;
-      const { data, error } = await supabase.from(def.table).select(cols).limit(10000);
+      const { data, error } = await supabase.from(def.table).select(def.columns).limit(10000);
       if (error) throw error;
       if (!data?.length) {
         toast({ title: "Nessun dato", description: `La tabella ${def.label} è vuota.` });
         return;
       }
-      const csv = toCsv(data as unknown as Record<string, unknown>[]);
-      downloadBlob(csv, `${def.table}_${new Date().toISOString().slice(0, 10)}.csv`);
+      const rows = data as unknown as Record<string, unknown>[];
+      const dateStr = new Date().toISOString().slice(0, 10);
+      if (format === "csv") {
+        downloadBlob(toCsv(rows), `${def.table}_${dateStr}.csv`, "text/csv");
+      } else {
+        downloadBlob(toXml(rows, def.table), `${def.table}_${dateStr}.xml`, "application/xml");
+      }
       await logAttivita({
         azione: "export_dati",
         entita_tipo: def.table,
         entita_id: "00000000-0000-0000-0000-000000000000",
-        dettagli_json: { righe: data.length },
+        dettagli_json: { righe: data.length, formato: format },
       });
-      toast({ title: "Export completato", description: `${data.length} righe esportate.` });
+      toast({ title: "Export completato", description: `${data.length} righe esportate in ${format.toUpperCase()}.` });
     } catch (e: any) {
       toast({ title: "Errore export", description: e.message, variant: "destructive" });
     } finally {
@@ -77,7 +104,7 @@ const BackupExport = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Backup & Export</h1>
       <p className="text-muted-foreground text-sm">
-        Il backup del database è gestito automaticamente da Supabase. Qui puoi esportare i dati delle tabelle critiche in formato CSV.
+        Il backup del database è gestito automaticamente da Supabase. Qui puoi esportare i dati delle tabelle critiche in formato CSV o XML.
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -90,18 +117,33 @@ const BackupExport = () => {
               <p className="text-xs text-muted-foreground mb-3">
                 Tabella: <code className="bg-muted px-1 rounded">{def.table}</code>
               </p>
-              <Button
-                size="sm"
-                onClick={() => handleExport(def)}
-                disabled={!!loading}
-              >
-                {loading === def.table ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                ) : (
-                  <Download className="w-4 h-4 mr-1" />
-                )}
-                Esporta CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => handleExport(def, "csv")}
+                  disabled={!!loading}
+                >
+                  {loading === `${def.table}_csv` ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-1" />
+                  )}
+                  Esporta CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleExport(def, "xml")}
+                  disabled={!!loading}
+                >
+                  {loading === `${def.table}_xml` ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <FileCode className="w-4 h-4 mr-1" />
+                  )}
+                  Esporta XML
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
