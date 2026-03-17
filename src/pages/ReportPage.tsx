@@ -335,11 +335,11 @@ const ReportPage = () => {
                     />
                   )}
                   {f.type === "select" && (
-                    <Select value={filtri[f.key] || ""} onValueChange={(v) => setFiltri({ ...filtri, [f.key]: v || undefined })}>
+                    <Select value={filtri[f.key] || "all"} onValueChange={(v) => setFiltri({ ...filtri, [f.key]: v === "all" ? undefined : v })}>
                       <SelectTrigger><SelectValue placeholder="Tutti" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Tutti</SelectItem>
-                        {getSelectOptions(f.key).map((o: any) => (
+                        <SelectItem value="all">Tutti</SelectItem>
+                        {getSelectOptions(f.key).filter((o: any) => o.value).map((o: any) => (
                           <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                         ))}
                       </SelectContent>
