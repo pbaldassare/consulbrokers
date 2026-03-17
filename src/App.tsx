@@ -47,6 +47,7 @@ import ReportPage from "./pages/ReportPage";
 import ImpostazioniPage from "./pages/ImpostazioniPage";
 import BackupExport from "./pages/BackupExport";
 import ManutenzionePage from "./pages/ManutenzionePage";
+import GestioneUtenti from "./pages/GestioneUtenti";
 import NotFound from "./pages/NotFound";
 import {
   Users,
