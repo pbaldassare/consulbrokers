@@ -214,7 +214,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const Dashboard = () => {
   const { profile } = useAuth();
-  const ruolo = profile?.ruolo || "admin";
+  const ruolo = profile?.ruolo || "";
   const displayName = profile
     ? `${profile.nome || ""} ${profile.cognome || ""}`.trim() || profile.email || "Utente"
     : "Utente";
