@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the caller is authenticated and is admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Non autenticato" }), {
@@ -25,7 +24,6 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
-    // Verify caller identity with anon client
     const anonClient = createClient(supabaseUrl, anonKey);
     const {
       data: { user: caller },
@@ -39,7 +37,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if caller is admin using service role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roles } = await adminClient
       .from("user_roles")
@@ -54,8 +51,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse request body
-    const { nome, cognome, email, ruolo, ufficio_id, permessi_json } = await req.json();
+    const { nome, cognome, email, ruolo, ufficio_id, permessi_json, password } = await req.json();
 
     if (!email || !nome || !cognome || !ruolo) {
       return new Response(
@@ -64,12 +60,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const tempPassword = "Temp123!";
+    const userPassword = password || "Temp123!";
 
-    // 1. Create auth user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
-      password: tempPassword,
+      password: userPassword,
       email_confirm: true,
     });
 
@@ -82,7 +77,6 @@ Deno.serve(async (req) => {
 
     const newUserId = newUser.user.id;
 
-    // 2. Create profile
     const { error: profileError } = await adminClient.from("profiles").insert({
       id: newUserId,
       nome,
@@ -95,7 +89,6 @@ Deno.serve(async (req) => {
     });
 
     if (profileError) {
-      // Rollback: delete auth user
       await adminClient.auth.admin.deleteUser(newUserId);
       return new Response(JSON.stringify({ error: `Errore creazione profilo: ${profileError.message}` }), {
         status: 400,
@@ -103,7 +96,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Assign role in user_roles
     const { error: roleError } = await adminClient.from("user_roles").insert({
       user_id: newUserId,
       role: ruolo,
@@ -113,7 +105,6 @@ Deno.serve(async (req) => {
       console.error("Error assigning role:", roleError.message);
     }
 
-    // 4. Log activity
     const { error: logError } = await adminClient.from("log_attivita").insert({
       user_id: caller.id,
       azione: "creazione_utente",
@@ -130,7 +121,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         user_id: newUserId,
-        message: "Utente creato con successo. Password temporanea generata.",
+        message: "Utente creato con successo.",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

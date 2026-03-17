@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.match-bank-rows]
 verify_jwt = false
+
+[functions.seed-users]
+verify_jwt = false

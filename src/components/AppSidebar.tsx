@@ -66,6 +66,7 @@ const allMenuItems: SidebarItem[] = [
   { label: "Impostazioni", path: "/impostazioni", icon: Settings, permissionKey: "impostazioni" },
   { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack, permissionKey: "impostazioni", adminOnly: true },
   { label: "Crea Utente", path: "/crea-utente", icon: UserPlus, permissionKey: "impostazioni", adminOnly: true },
+  { label: "Gestione Utenti", path: "/gestione-utenti", icon: Users, permissionKey: "impostazioni", adminOnly: true },
   { label: "Backup & Export", path: "/backup-export", icon: HardDrive, permissionKey: "impostazioni", adminOnly: true },
   { label: "Manutenzione", path: "/manutenzione", icon: Wrench, permissionKey: "impostazioni", adminOnly: true },
 ];
