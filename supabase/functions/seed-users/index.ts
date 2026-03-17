@@ -7,12 +7,12 @@ const corsHeaders = {
 };
 
 const USERS = [
-  { nome: "Admin", cognome: "Consul", email: "admin@consul.ite", ruolo: "admin" },
-  { nome: "Ufficio", cognome: "Consul", email: "ufficio@consul.ite", ruolo: "ufficio" },
-  { nome: "Produttore", cognome: "Consul", email: "produttore@consul.ite", ruolo: "produttore" },
-  { nome: "Contabilita", cognome: "Consul", email: "contabilita@consul.ite", ruolo: "contabilita" },
-  { nome: "CFO", cognome: "Consul", email: "cfo@consul.ite", ruolo: "cfo" },
-  { nome: "Cliente", cognome: "Consul", email: "cliente@consul.ite", ruolo: "cliente" },
+  { nome: "Admin", cognome: "Consul", email: "admin@consul.it", ruolo: "admin" },
+  { nome: "Ufficio", cognome: "Consul", email: "ufficio@consul.it", ruolo: "ufficio" },
+  { nome: "Produttore", cognome: "Consul", email: "produttore@consul.it", ruolo: "produttore" },
+  { nome: "Contabilita", cognome: "Consul", email: "contabilita@consul.it", ruolo: "contabilita" },
+  { nome: "CFO", cognome: "Consul", email: "cfo@consul.it", ruolo: "cfo" },
+  { nome: "Cliente", cognome: "Consul", email: "cliente@consul.it", ruolo: "cliente" },
 ];
 
 Deno.serve(async (req) => {
@@ -28,7 +28,29 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const u of USERS) {
-      // Check if user already exists
+      const oldEmail = u.email.replace("@consul.it", "@consul.ite");
+
+      // Check if user exists with OLD email (@consul.ite)
+      const { data: oldProfiles } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("email", oldEmail)
+        .limit(1);
+
+      if (oldProfiles && oldProfiles.length > 0) {
+        const userId = oldProfiles[0].id;
+
+        // Update email in profiles
+        await adminClient.from("profiles").update({ email: u.email }).eq("id", userId);
+
+        // Update email in auth.users
+        await adminClient.auth.admin.updateUserById(userId, { email: u.email });
+
+        results.push({ email: u.email, status: "migrated_from_old_email", user_id: userId });
+        continue;
+      }
+
+      // Check if user already exists with NEW email
       const { data: existingProfiles } = await adminClient
         .from("profiles")
         .select("id")
@@ -40,6 +62,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Create new user
       const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
         email: u.email,
         password,
