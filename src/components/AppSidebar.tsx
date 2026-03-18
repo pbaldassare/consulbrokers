@@ -209,6 +209,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
+        { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
       ],
     },
   },
