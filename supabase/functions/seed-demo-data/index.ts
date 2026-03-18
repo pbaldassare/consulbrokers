@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
     const matrice = prodottoIds.map(pid => ({
       prodotto_id: pid,
       percentuale_provvigione: rf(5, 25),
-      tipo_calcolo: pick(['sul_premio', 'sul_netto']),
+      tipo_calcolo: pick(['percentuale', 'fisso']),
       attiva: true,
       ufficio_id: pick(uIds),
     }));
