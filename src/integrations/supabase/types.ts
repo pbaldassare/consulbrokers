@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      anagrafiche_professionali: {
+        Row: {
+          albo_numero: string | null
+          attivo: boolean | null
+          cap: string | null
+          cellulare: string | null
+          citta: string | null
+          codice_fiscale: string | null
+          cognome: string | null
+          compagnia_id: string | null
+          created_at: string | null
+          email: string | null
+          fax: string | null
+          id: string
+          indirizzo: string | null
+          nome: string | null
+          note: string | null
+          partita_iva: string | null
+          pec: string | null
+          provincia: string | null
+          ragione_sociale: string | null
+          specializzazione: string | null
+          telefono: string | null
+          tipo: string
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          albo_numero?: string | null
+          attivo?: boolean | null
+          cap?: string | null
+          cellulare?: string | null
+          citta?: string | null
+          codice_fiscale?: string | null
+          cognome?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string
+          indirizzo?: string | null
+          nome?: string | null
+          note?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          provincia?: string | null
+          ragione_sociale?: string | null
+          specializzazione?: string | null
+          telefono?: string | null
+          tipo: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          albo_numero?: string | null
+          attivo?: boolean | null
+          cap?: string | null
+          cellulare?: string | null
+          citta?: string | null
+          codice_fiscale?: string | null
+          cognome?: string | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string
+          indirizzo?: string | null
+          nome?: string | null
+          note?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          provincia?: string | null
+          ragione_sociale?: string | null
+          specializzazione?: string | null
+          telefono?: string | null
+          tipo?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anagrafiche_professionali_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anagrafiche_professionali_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       anomalie_sistema: {
         Row: {
           created_at: string
