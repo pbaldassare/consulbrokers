@@ -51,6 +51,7 @@ import ManutenzionePage from "./pages/ManutenzionePage";
 import GestioneUtenti from "./pages/GestioneUtenti";
 import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import GestionePolizzePage from "./pages/GestionePolizzePage";
+import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
