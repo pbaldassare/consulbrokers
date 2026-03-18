@@ -206,6 +206,45 @@ Deno.serve(async (req) => {
     const { error: errFI } = await supabase.from("filiali").upsert(filiali, { onConflict: "codice" });
     if (errFI) throw errFI;
 
+    // 8) Compagnie
+    const compagnieData = [
+      { nome: "ALLIANZ S.p.A.", codice: "ALL", gruppo_compagnia: "ALLIANZ", attiva: true },
+      { nome: "AXA ASSICURAZIONI", codice: "AXA", gruppo_compagnia: "AXA", attiva: true },
+      { nome: "GENERALI ITALIA S.p.A.", codice: "GEN", gruppo_compagnia: "GENERALI", attiva: true },
+      { nome: "UNIPOL SAI", codice: "UNI", gruppo_compagnia: "UNIPOL", attiva: true },
+      { nome: "REALE MUTUA", codice: "RLM", gruppo_compagnia: "REALE MUTUA", attiva: true },
+      { nome: "ZURICH INSURANCE", codice: "ZUR", gruppo_compagnia: "ZURICH", attiva: true },
+      { nome: "CATTOLICA ASSICURAZIONI", codice: "CAT", gruppo_compagnia: "CATTOLICA", attiva: true },
+      { nome: "VITTORIA ASSICURAZIONI", codice: "VIT", gruppo_compagnia: "VITTORIA", attiva: true },
+      { nome: "SARA ASSICURAZIONI", codice: "SAR", gruppo_compagnia: "SARA ASSICURAZIONI", attiva: true },
+      { nome: "HDI ASSICURAZIONI", codice: "HDI", gruppo_compagnia: "HDI ASSICURAZIONI", attiva: true },
+      { nome: "AMISSIMA ASSICURAZIONI", codice: "AMI", gruppo_compagnia: "AMISSIMA", attiva: true },
+      { nome: "ITAS MUTUA", codice: "ITA", gruppo_compagnia: "ITAS MUTUA", attiva: true },
+      { nome: "LLOYD'S OF LONDON", codice: "LLO", gruppo_compagnia: "LLOYD'S", attiva: true },
+      { nome: "GROUPAMA ASSICURAZIONI", codice: "GRP", gruppo_compagnia: "GROUPAMA", attiva: true },
+      { nome: "HELVETIA ITALIA", codice: "HEL", gruppo_compagnia: "HELVETIA", attiva: true },
+    ];
+    const { error: errCO } = await supabase.from("compagnie").upsert(compagnieData, { onConflict: "codice", ignoreDuplicates: false });
+    if (errCO) throw errCO;
+
+    // 9) Categorie Prodotto
+    const categorieData = [
+      { nome: "Auto" },
+      { nome: "Vita" },
+      { nome: "Infortuni e Malattia" },
+      { nome: "Incendio e Danni" },
+      { nome: "RC Professionale" },
+      { nome: "RC Generale" },
+      { nome: "Cauzioni" },
+      { nome: "Trasporti" },
+      { nome: "Multirischi" },
+      { nome: "Tutela Legale" },
+      { nome: "Previdenza" },
+      { nome: "Assistenza" },
+    ];
+    const { error: errCA } = await supabase.from("categorie_prodotto").upsert(categorieData, { onConflict: "nome" });
+    if (errCA) throw errCA;
+
     return new Response(JSON.stringify({
       success: true,
       counts: {
@@ -216,6 +255,8 @@ Deno.serve(async (req) => {
         tipi_mandatario: tipiMand.length,
         tipi_rinnovo: tipiRinn.length,
         filiali: filiali.length,
+        compagnie: compagnieData.length,
+        categorie_prodotto: categorieData.length,
       }
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
