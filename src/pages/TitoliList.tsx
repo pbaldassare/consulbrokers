@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText } from "lucide-react";
+import { Plus, Search, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import ServerPagination from "@/components/ServerPagination";
@@ -27,8 +27,9 @@ const TitoliList = () => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const [searched, setSearched] = useState(false);
 
-  // Form
+  // Form nuovo titolo
   const [numeroTitolo, setNumeroTitolo] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [prodottoId, setProdottoId] = useState("");
@@ -40,11 +41,23 @@ const TitoliList = () => {
   const [stato, setStato] = useState("creato");
   const [note, setNote] = useState("");
 
-  // Filtri
-  const [filtroProdotto, setFiltroProdotto] = useState("all");
-  const [filtroStato, setFiltroStato] = useState("all");
-  const [filtroUfficio, setFiltroUfficio] = useState("all");
+  // Filtri ricerca polizze
+  const [filtroCliente, setFiltroCliente] = useState("");
+  const [filtroAE, setFiltroAE] = useState("");
+  const [filtroPolizza, setFiltroPolizza] = useState("");
+  const [filtroStato, setFiltroStato] = useState("attive");
+  const [filtroGruppoRamo, setFiltroGruppoRamo] = useState("all");
+  const [filtroCompagnia, setFiltroCompagnia] = useState("all");
+  const [filtroRamo, setFiltroRamo] = useState("all");
+  const [filtroTargaTelaio, setFiltroTargaTelaio] = useState("");
+  const [filtroCigRif, setFiltroCigRif] = useState("");
+  const [filtroScadenzaDal, setFiltroScadenzaDal] = useState("");
+  const [filtroScadenzaAl, setFiltroScadenzaAl] = useState("");
+  const [filtroGruppoStatistico, setFiltroGruppoStatistico] = useState("all");
   const [filtroProduttore, setFiltroProduttore] = useState("all");
+
+  // Applied filters (only search on CERCA click)
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
 
   const { data: prodotti = [] } = useQuery({
     queryKey: ["prodotti_attivi"],
@@ -52,6 +65,14 @@ const TitoliList = () => {
       const { data, error } = await supabase.from("prodotti").select("id, nome_prodotto, compagnia_id, compagnie(nome)").eq("attivo", true).order("nome_prodotto");
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: compagnie = [] } = useQuery({
+    queryKey: ["compagnie_select"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_statistico").eq("attiva", true).order("nome");
+      return data || [];
     },
   });
 
@@ -73,17 +94,46 @@ const TitoliList = () => {
     },
   });
 
+  const { data: accountExecutives = [] } = useQuery({
+    queryKey: ["ae_list"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, codice, ragione_sociale, cognome, nome")
+        .eq("tipo", "account_executive")
+        .eq("attivo", true)
+        .order("codice");
+      return data || [];
+    },
+  });
+
   const { data: titoliResult, isLoading } = useQuery({
-    queryKey: ["titoli", page, filtroProdotto, filtroStato, filtroUfficio, filtroProduttore],
+    queryKey: ["titoli", page, appliedFilters],
+    enabled: searched,
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome), cliente:profiles!titoli_cliente_id_fkey(nome, cognome)", { count: "exact" });
+        .select("*, prodotti(nome_prodotto, compagnia_id, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome), cliente:profiles!titoli_cliente_id_fkey(nome, cognome)", { count: "exact" });
 
-      if (filtroProdotto !== "all") q = q.eq("prodotto_id", filtroProdotto);
-      if (filtroStato !== "all") q = q.eq("stato", filtroStato);
-      if (filtroUfficio !== "all") q = q.eq("ufficio_id", filtroUfficio);
-      if (filtroProduttore !== "all") q = q.eq("produttore_id", filtroProduttore);
+      if (appliedFilters.cliente) {
+        // Search by cliente name - we filter client-side after fetch or use ilike
+      }
+      if (appliedFilters.polizza) {
+        q = q.ilike("numero_titolo", `%${appliedFilters.polizza}%`);
+      }
+      if (appliedFilters.stato && appliedFilters.stato !== "all") {
+        if (appliedFilters.stato === "attive") {
+          q = q.in("stato", ["creato", "incassato"]);
+        } else {
+          q = q.eq("stato", appliedFilters.stato);
+        }
+      }
+      if (appliedFilters.compagnia && appliedFilters.compagnia !== "all") {
+        q = q.eq("prodotti.compagnia_id", appliedFilters.compagnia);
+      }
+      if (appliedFilters.produttore && appliedFilters.produttore !== "all") {
+        q = q.eq("produttore_id", appliedFilters.produttore);
+      }
 
       const { data, error, count } = await q
         .order("created_at", { ascending: false })
@@ -96,9 +146,24 @@ const TitoliList = () => {
   const titoli = titoliResult?.data || [];
   const totalCount = titoliResult?.count || 0;
 
-  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
-    setter(v);
+  const handleCerca = () => {
+    setAppliedFilters({
+      cliente: filtroCliente,
+      ae: filtroAE,
+      polizza: filtroPolizza,
+      stato: filtroStato,
+      gruppoRamo: filtroGruppoRamo,
+      compagnia: filtroCompagnia,
+      ramo: filtroRamo,
+      targaTelaio: filtroTargaTelaio,
+      cigRif: filtroCigRif,
+      scadenzaDal: filtroScadenzaDal,
+      scadenzaAl: filtroScadenzaAl,
+      gruppoStatistico: filtroGruppoStatistico,
+      produttore: filtroProduttore,
+    });
     setPage(0);
+    setSearched(true);
   };
 
   const createMutation = useMutation({
@@ -117,15 +182,12 @@ const TitoliList = () => {
       };
       const { data, error } = await supabase.from("titoli").insert(payload).select().single();
       if (error) throw error;
-
       if (user) {
         await logAttivita({ azione: "creazione_titolo", entita_tipo: "titolo", entita_id: data.id, dettagli_json: { stato } });
       }
-
       if (stato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: data.id } });
       }
-
       return data;
     },
     onSuccess: () => {
@@ -152,12 +214,16 @@ const TitoliList = () => {
     }
   };
 
+  // Gruppi statistici unici dalle compagnie
+  const gruppiStatistici = [...new Set(compagnie.map(c => c.gruppo_statistico).filter(Boolean))].sort();
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Titoli</h1>
-          <p className="text-muted-foreground">Gestione titoli assicurativi — logica per cassa</p>
+          <h1 className="text-2xl font-bold text-foreground">Elenco Polizze</h1>
+          <p className="text-sm text-muted-foreground">Ricerca polizze nel portafoglio</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -216,47 +282,141 @@ const TitoliList = () => {
         </Dialog>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <Select value={filtroProdotto} onValueChange={handleFilterChange(setFiltroProdotto)}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Prodotto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tutti i prodotti</SelectItem>
-            {prodotti.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_prodotto}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroStato} onValueChange={handleFilterChange(setFiltroStato)}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Stato" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tutti gli stati</SelectItem>
-            {statiTitolo.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroUfficio} onValueChange={handleFilterChange(setFiltroUfficio)}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ufficio" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tutti gli uffici</SelectItem>
-            {uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroProduttore} onValueChange={handleFilterChange(setFiltroProduttore)}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Produttore" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tutti i produttori</SelectItem>
-            {profiles.filter((p) => p.ruolo === "produttore").map((p) => <SelectItem key={p.id} value={p.id}>{p.nome} {p.cognome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-
+      {/* PARAMETRI RICERCA */}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Titoli ({totalCount})</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Parametri Ricerca</CardTitle>
+        </CardHeader>
         <CardContent>
-          {isLoading ? <p className="text-muted-foreground">Caricamento...</p> : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3">
+            {/* Riga 1 */}
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Cliente</Label>
+              <Input value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)} placeholder="Nome o codice..." className="flex-1" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">A/E</Label>
+              <Select value={filtroAE} onValueChange={setFiltroAE}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Tutti" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti</SelectItem>
+                  {accountExecutives.map((ae) => (
+                    <SelectItem key={ae.id} value={ae.id}>
+                      {ae.codice ? `${ae.codice} - ` : ""}{ae.ragione_sociale || ae.cognome || ae.nome || "—"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 lg:justify-end">
+              <Button onClick={handleCerca} className="px-8">
+                <Search className="w-4 h-4 mr-2" />CERCA
+              </Button>
+            </div>
+
+            {/* Riga 2 */}
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Polizza</Label>
+              <Input value={filtroPolizza} onChange={(e) => setFiltroPolizza(e.target.value)} placeholder="Numero polizza..." className="flex-1" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Stato</Label>
+              <Select value={filtroStato} onValueChange={setFiltroStato}>
+                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="attive">Solo Attive</SelectItem>
+                  <SelectItem value="all">Tutti gli stati</SelectItem>
+                  {statiTitolo.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div />
+
+            {/* Riga 3 */}
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Gruppo Ramo</Label>
+              <Select value={filtroGruppoRamo} onValueChange={setFiltroGruppoRamo}>
+                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti i rami</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Compagnia</Label>
+              <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Tutte" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutte le compagnie</SelectItem>
+                  {compagnie.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.codice ? `${c.codice} - ` : ""}{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div />
+
+            {/* Riga 4 */}
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Ramo</Label>
+              <Select value={filtroRamo} onValueChange={setFiltroRamo}>
+                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti i rami</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Targa/Telaio</Label>
+              <Input value={filtroTargaTelaio} onChange={(e) => setFiltroTargaTelaio(e.target.value)} className="w-32" />
+              <Label className="text-sm shrink-0 ml-2">CIG/Rif.Cl.</Label>
+              <Input value={filtroCigRif} onChange={(e) => setFiltroCigRif(e.target.value)} className="flex-1" />
+            </div>
+            <div />
+
+            {/* Riga 5 */}
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Scadenza dal</Label>
+              <Input type="date" value={filtroScadenzaDal} onChange={(e) => setFiltroScadenzaDal(e.target.value)} className="w-36" />
+              <span className="text-sm text-muted-foreground">al</span>
+              <Input type="date" value={filtroScadenzaAl} onChange={(e) => setFiltroScadenzaAl(e.target.value)} className="w-36" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="w-28 text-right text-sm shrink-0">Gruppo Stat.</Label>
+              <Select value={filtroGruppoStatistico} onValueChange={setFiltroGruppoStatistico}>
+                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti i gruppi</SelectItem>
+                  {gruppiStatistici.map((g) => <SelectItem key={g!} value={g!}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* DETTAGLIO */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Dettaglio {searched && `(${totalCount} risultati)`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!searched ? (
+            <p className="text-center text-muted-foreground py-12">Imposta i parametri di ricerca e premi CERCA per visualizzare i risultati</p>
+          ) : isLoading ? (
+            <p className="text-center text-muted-foreground py-8">Caricamento...</p>
+          ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>N. Titolo</TableHead>
+                    <TableHead>N. Polizza</TableHead>
                     <TableHead>Prodotto</TableHead>
+                    <TableHead>Compagnia</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Produttore</TableHead>
                     <TableHead>Premio €</TableHead>
@@ -267,18 +427,21 @@ const TitoliList = () => {
                 </TableHeader>
                 <TableBody>
                   {titoli.map((t: any) => (
-                    <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${t.id}`)}>
+                    <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${t.id}`)}>
                       <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
                       <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
-                      <TableCell>{t.cliente ? `${t.cliente.nome} ${t.cliente.cognome}` : "—"}</TableCell>
-                      <TableCell>{t.produttore ? `${t.produttore.nome} ${t.produttore.cognome}` : "—"}</TableCell>
+                      <TableCell className="text-sm">{t.prodotti?.compagnie?.nome || "—"}</TableCell>
+                      <TableCell>{t.cliente ? `${t.cliente.cognome || ""} ${t.cliente.nome || ""}`.trim() : "—"}</TableCell>
+                      <TableCell>{t.produttore ? `${t.produttore.cognome || ""} ${t.produttore.nome || ""}`.trim() : "—"}</TableCell>
                       <TableCell className="font-mono">{t.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
                       <TableCell className="font-mono">{t.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
                       <TableCell><Badge variant={statoBadgeVariant(t.stato)}>{t.stato}</Badge></TableCell>
                       <TableCell>{t.data_incasso || "—"}</TableCell>
                     </TableRow>
                   ))}
-                  {titoli.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessun titolo</TableCell></TableRow>}
+                  {titoli.length === 0 && (
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessun risultato trovato</TableCell></TableRow>
+                  )}
                 </TableBody>
               </Table>
               <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
