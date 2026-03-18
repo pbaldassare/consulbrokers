@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       { id: uuid(), nome_ufficio: 'Filiale Firenze', codice_ufficio: 'DEMO-FIR', attivo: true },
       { id: uuid(), nome_ufficio: 'Punto Vendita Bologna', codice_ufficio: 'DEMO-BOL', attivo: true },
     ];
-    await batchInsert(db, 'uffici', ufficiData);
+    await batchInsert(db, 'uffici', ufficiData, 50, 'codice_ufficio');
     const uIds = ufficiData.map(u => u.id);
     R.uffici = ufficiData.length;
 
