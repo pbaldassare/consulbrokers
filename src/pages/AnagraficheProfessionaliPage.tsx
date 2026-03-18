@@ -147,11 +147,14 @@ const AnagraficheProfessionaliPage = () => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (
+      (item.codice?.toLowerCase().includes(s)) ||
       (item.cognome?.toLowerCase().includes(s)) ||
       (item.nome?.toLowerCase().includes(s)) ||
+      (item.nome_breve?.toLowerCase().includes(s)) ||
       (item.ragione_sociale?.toLowerCase().includes(s)) ||
       (item.email?.toLowerCase().includes(s)) ||
-      (item.citta?.toLowerCase().includes(s))
+      (item.citta?.toLowerCase().includes(s)) ||
+      (item.referente_nome?.toLowerCase().includes(s))
     );
   });
 
