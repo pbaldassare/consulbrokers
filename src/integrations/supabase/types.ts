@@ -21,6 +21,7 @@ export type Database = {
           cap: string | null
           cellulare: string | null
           citta: string | null
+          codice: string | null
           codice_fiscale: string | null
           cognome: string | null
           compagnia_id: string | null
@@ -30,11 +31,14 @@ export type Database = {
           id: string
           indirizzo: string | null
           nome: string | null
+          nome_breve: string | null
           note: string | null
           partita_iva: string | null
           pec: string | null
           provincia: string | null
           ragione_sociale: string | null
+          referente_email: string | null
+          referente_nome: string | null
           specializzazione: string | null
           telefono: string | null
           tipo: string
@@ -47,6 +51,7 @@ export type Database = {
           cap?: string | null
           cellulare?: string | null
           citta?: string | null
+          codice?: string | null
           codice_fiscale?: string | null
           cognome?: string | null
           compagnia_id?: string | null
@@ -56,11 +61,14 @@ export type Database = {
           id?: string
           indirizzo?: string | null
           nome?: string | null
+          nome_breve?: string | null
           note?: string | null
           partita_iva?: string | null
           pec?: string | null
           provincia?: string | null
           ragione_sociale?: string | null
+          referente_email?: string | null
+          referente_nome?: string | null
           specializzazione?: string | null
           telefono?: string | null
           tipo: string
@@ -73,6 +81,7 @@ export type Database = {
           cap?: string | null
           cellulare?: string | null
           citta?: string | null
+          codice?: string | null
           codice_fiscale?: string | null
           cognome?: string | null
           compagnia_id?: string | null
@@ -82,11 +91,14 @@ export type Database = {
           id?: string
           indirizzo?: string | null
           nome?: string | null
+          nome_breve?: string | null
           note?: string | null
           partita_iva?: string | null
           pec?: string | null
           provincia?: string | null
           ragione_sociale?: string | null
+          referente_email?: string | null
+          referente_nome?: string | null
           specializzazione?: string | null
           telefono?: string | null
           tipo?: string
