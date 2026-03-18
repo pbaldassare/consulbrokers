@@ -17,6 +17,7 @@ import ProspectList from "./pages/ProspectList";
 import ProspectDetail from "./pages/ProspectDetail";
 import TrattativeList from "./pages/TrattativeList";
 import CompagnieList from "./pages/CompagnieList";
+import ClientiList from "./pages/ClientiList";
 import CategorieList from "./pages/CategorieList";
 import ProdottiList from "./pages/ProdottiList";
 import MatriceProvvigioni from "./pages/MatriceProvvigioni";
@@ -99,6 +100,7 @@ const App = () => (
               {/* ARCHIVI */}
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
+              <Route path="/archivi/clienti" element={<ClientiList />} />
               <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
               <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
               <Route path="/prodotti" element={<RoleGuard allowedRoles={["admin"]}><ProdottiList /></RoleGuard>} />
