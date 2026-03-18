@@ -56,6 +56,7 @@ import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
 import DuplicazionePolizzaPage from "./pages/DuplicazionePolizzaPage";
 import ConfermaEmittendePage from "./pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "./pages/RinnoviPolizzaPage";
+import StornoPolizzaPage from "./pages/StornoPolizzaPage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
@@ -123,7 +124,7 @@ const App = () => (
               <Route path="/portafoglio/duplicazione" element={<DuplicazionePolizzaPage />} />
               <Route path="/portafoglio/conferma-emittende" element={<ConfermaEmittendePage />} />
               <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
-              <Route path="/portafoglio/storno" element={<PlaceholderPage title="Storno" description="Storno polizze" icon={ArrowRightLeft} />} />
+              <Route path="/portafoglio/storno" element={<StornoPolizzaPage />} />
               <Route path="/portafoglio/diff-provvigionali" element={<PlaceholderPage title="Differenze Provvigionali" description="Gestione differenze provvigionali" icon={Percent} />} />
               <Route path="/portafoglio/sospensione" element={<PlaceholderPage title="Sospensione" description="Sospensione polizze" icon={Clock} />} />
               <Route path="/portafoglio/riattivazione" element={<PlaceholderPage title="Riattivazione" description="Riattivazione polizze sospese" icon={CheckSquare} />} />
