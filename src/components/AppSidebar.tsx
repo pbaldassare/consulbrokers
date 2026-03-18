@@ -89,6 +89,7 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "dashboard",
       children: [
         { label: "Clienti", path: "/archivi/clienti", icon: Users },
+        { label: "Anagrafiche", path: "/archivi/anagrafiche", icon: Briefcase },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
         { label: "Categorie", path: "/categorie", icon: Tag },
         { label: "Prodotti", path: "/prodotti", icon: Package },

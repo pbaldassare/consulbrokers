@@ -49,6 +49,7 @@ import ImpostazioniPage from "./pages/ImpostazioniPage";
 import BackupExport from "./pages/BackupExport";
 import ManutenzionePage from "./pages/ManutenzionePage";
 import GestioneUtenti from "./pages/GestioneUtenti";
+import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
