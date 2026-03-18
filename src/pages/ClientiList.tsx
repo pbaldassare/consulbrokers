@@ -218,7 +218,7 @@ const ClientiList = () => {
                       </Select>
                     </div>
                   </div>
-                  <div><Label>Indirizzo Sede</Label><Input value={indirizzoSede} onChange={(e) => setIndirizzoSede(e.target.value)} /></div>
+                  <div><Label>Indirizzo Sede</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
                   <div className="grid grid-cols-3 gap-4">
                     <div><Label>CAP</Label><Input value={capSede} onChange={(e) => setCapSede(e.target.value)} maxLength={5} /></div>
                     <div><Label>Città</Label><Input value={cittaSede} onChange={(e) => setCittaSede(e.target.value)} /></div>
