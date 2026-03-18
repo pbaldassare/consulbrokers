@@ -303,24 +303,87 @@ export type Database = {
       compagnie: {
         Row: {
           attiva: boolean | null
+          cap: string | null
           codice: string | null
+          codice_fiscale: string | null
+          comune: string | null
           created_at: string | null
+          fax: string | null
+          gruppo_compagnia: string | null
+          gruppo_statistico: string | null
+          iban: string | null
           id: string
+          indirizzo: string | null
+          intestato_a: string | null
+          mail: string | null
+          mail_avvisi: string | null
+          mail_ec: string | null
           nome: string
+          nome_segue: string | null
+          partita_iva: string | null
+          pec: string | null
+          percentuale_ra: number | null
+          provincia: string | null
+          stato: string | null
+          telefono: string | null
+          tipo_mandatario: string | null
+          ultima_scadenza_polizza: string | null
         }
         Insert: {
           attiva?: boolean | null
+          cap?: string | null
           codice?: string | null
+          codice_fiscale?: string | null
+          comune?: string | null
           created_at?: string | null
+          fax?: string | null
+          gruppo_compagnia?: string | null
+          gruppo_statistico?: string | null
+          iban?: string | null
           id?: string
+          indirizzo?: string | null
+          intestato_a?: string | null
+          mail?: string | null
+          mail_avvisi?: string | null
+          mail_ec?: string | null
           nome: string
+          nome_segue?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          percentuale_ra?: number | null
+          provincia?: string | null
+          stato?: string | null
+          telefono?: string | null
+          tipo_mandatario?: string | null
+          ultima_scadenza_polizza?: string | null
         }
         Update: {
           attiva?: boolean | null
+          cap?: string | null
           codice?: string | null
+          codice_fiscale?: string | null
+          comune?: string | null
           created_at?: string | null
+          fax?: string | null
+          gruppo_compagnia?: string | null
+          gruppo_statistico?: string | null
+          iban?: string | null
           id?: string
+          indirizzo?: string | null
+          intestato_a?: string | null
+          mail?: string | null
+          mail_avvisi?: string | null
+          mail_ec?: string | null
           nome?: string
+          nome_segue?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          percentuale_ra?: number | null
+          provincia?: string | null
+          stato?: string | null
+          telefono?: string | null
+          tipo_mandatario?: string | null
+          ultima_scadenza_polizza?: string | null
         }
         Relationships: []
       }
