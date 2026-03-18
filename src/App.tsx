@@ -120,7 +120,7 @@ const App = () => (
               <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
               <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
               <Route path="/portafoglio/duplicazione" element={<DuplicazionePolizzaPage />} />
-              <Route path="/portafoglio/conferma-emittende" element={<PlaceholderPage title="Conferma Emittende" description="Conferma emittende polizze" icon={FileCheck} />} />
+              <Route path="/portafoglio/conferma-emittende" element={<ConfermaEmittendePage />} />
               <Route path="/portafoglio/rinnovi" element={<PlaceholderPage title="Rinnovi" description="Gestione rinnovi polizze" icon={CalendarCheck} />} />
               <Route path="/portafoglio/storno" element={<PlaceholderPage title="Storno" description="Storno polizze" icon={ArrowRightLeft} />} />
               <Route path="/portafoglio/diff-provvigionali" element={<PlaceholderPage title="Differenze Provvigionali" description="Gestione differenze provvigionali" icon={Percent} />} />
