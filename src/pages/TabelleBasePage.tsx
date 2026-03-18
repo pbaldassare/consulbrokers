@@ -11,12 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, FolderTree, GitBranch } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-/* ────────── Gruppi Ramo ────────── */
+/* ────────── Generic CRUD Tab ────────── */
 
-const GruppiRamoTab = () => {
+interface SimpleLookupTabProps {
+  tableName: string;
+  title: string;
+  queryKey: string;
+}
+
+const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) => {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -24,36 +30,31 @@ const GruppiRamoTab = () => {
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
 
-  const { data: gruppi = [], isLoading } = useQuery({
-    queryKey: ["gruppi-ramo"],
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: [queryKey],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("gruppi_ramo")
+        .from(tableName as any)
         .select("*")
         .order("codice");
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
   const save = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const { error } = await supabase
-          .from("gruppi_ramo")
-          .update({ codice, descrizione })
-          .eq("id", editing.id);
+        const { error } = await (supabase.from(tableName as any) as any).update({ codice, descrizione }).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("gruppi_ramo")
-          .insert({ codice, descrizione });
+        const { error } = await (supabase.from(tableName as any) as any).insert({ codice, descrizione });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["gruppi-ramo"] });
-      toast({ title: editing ? "Gruppo aggiornato" : "Gruppo creato" });
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: editing ? `${title} aggiornato` : `${title} creato` });
       closeDialog();
     },
     onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
@@ -61,20 +62,20 @@ const GruppiRamoTab = () => {
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await supabase.from("gruppi_ramo").update({ attivo }).eq("id", id);
+      const { error } = await (supabase.from(tableName as any) as any).update({ attivo }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["gruppi-ramo"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [queryKey] }),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("gruppi_ramo").delete().eq("id", id);
+      const { error } = await (supabase.from(tableName as any) as any).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["gruppi-ramo"] });
-      toast({ title: "Gruppo eliminato" });
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: `${title} eliminato` });
     },
     onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
   });
@@ -86,8 +87,8 @@ const GruppiRamoTab = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg flex items-center gap-2"><FolderTree className="w-5 h-5" /> Gruppi Ramo</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo Gruppo</Button>
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
       </CardHeader>
       <CardContent>
         <Table>
@@ -102,18 +103,18 @@ const GruppiRamoTab = () => {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : gruppi.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessun gruppo ramo inserito</TableCell></TableRow>
-            ) : gruppi.map((g) => (
-              <TableRow key={g.id}>
-                <TableCell className="font-mono font-semibold">{g.codice}</TableCell>
-                <TableCell>{g.descrizione}</TableCell>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessun elemento inserito</TableCell></TableRow>
+            ) : items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
+                <TableCell>{item.descrizione}</TableCell>
                 <TableCell className="text-center">
-                  <Switch checked={g.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: g.id, attivo: v })} />
+                  <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
                 </TableCell>
                 <TableCell className="text-right space-x-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(g)}><Pencil className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => remove.mutate(g.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -122,10 +123,10 @@ const GruppiRamoTab = () => {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Modifica Gruppo Ramo" : "Nuovo Gruppo Ramo"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? `Modifica ${title}` : `Nuovo ${title}`}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. AUTO" /></div>
-              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Rami Auto" /></div>
+              <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 01" /></div>
+              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Descrizione..." /></div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={closeDialog}>Annulla</Button>
@@ -140,7 +141,7 @@ const GruppiRamoTab = () => {
   );
 };
 
-/* ────────── Rami ────────── */
+/* ────────── Rami Tab (with gruppo_ramo_id relation) ────────── */
 
 const RamiTab = () => {
   const { toast } = useToast();
@@ -173,7 +174,7 @@ const RamiTab = () => {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload = { codice, descrizione, gruppo_ramo_id: gruppoId || null };
+      const payload = { codice, descrizione, gruppo_ramo_id: gruppoId && gruppoId !== "none" ? gruppoId : null };
       if (editing) {
         const { error } = await supabase.from("rami").update(payload).eq("id", editing.id);
         if (error) throw error;
@@ -217,7 +218,7 @@ const RamiTab = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg flex items-center gap-2"><GitBranch className="w-5 h-5" /> Rami</CardTitle>
+        <CardTitle className="text-lg">Rami</CardTitle>
         <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo Ramo</Button>
       </CardHeader>
       <CardContent>
@@ -226,7 +227,7 @@ const RamiTab = () => {
             <TableRow>
               <TableHead className="w-32">Codice</TableHead>
               <TableHead>Descrizione</TableHead>
-              <TableHead>Gruppo</TableHead>
+              <TableHead>Gruppo Ramo</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
             </TableRow>
@@ -293,23 +294,42 @@ const RamiTab = () => {
 
 /* ────────── Page ────────── */
 
+const tabConfig = [
+  { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
+  { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
+  { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
+  { value: "gruppi_compagnia", label: "Gruppi Compagnia", tableName: "gruppi_compagnia", queryKey: "gruppi-compagnia-lookup", title: "Gruppo Compagnia" },
+  { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },
+  { value: "tipi_rinnovo", label: "Tipi Rinnovo", tableName: "tipi_rinnovo", queryKey: "tipi-rinnovo", title: "Tipo Rinnovo" },
+  { value: "filiali", label: "Filiali", tableName: "filiali", queryKey: "filiali-lookup", title: "Filiale" },
+];
+
 const TabelleBasePage = () => {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Tabelle di Base</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Gestione delle tabelle di lookup utilizzate nei filtri e nei form (Rami, Gruppi Ramo, ecc.)
+          Gestione delle tabelle di lookup utilizzate nei filtri e nei form
         </p>
       </div>
 
-      <Tabs defaultValue="gruppi" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="gruppi">Gruppi Ramo</TabsTrigger>
-          <TabsTrigger value="rami">Rami</TabsTrigger>
+      <Tabs defaultValue="gruppi_ramo" className="space-y-4">
+        <TabsList className="flex-wrap h-auto gap-1">
+          {tabConfig.map((t) => (
+            <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="gruppi"><GruppiRamoTab /></TabsContent>
-        <TabsContent value="rami"><RamiTab /></TabsContent>
+
+        {tabConfig.map((t) => (
+          <TabsContent key={t.value} value={t.value}>
+            {t.custom ? (
+              <RamiTab />
+            ) : (
+              <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );
