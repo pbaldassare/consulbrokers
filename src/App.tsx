@@ -51,6 +51,7 @@ import ManutenzionePage from "./pages/ManutenzionePage";
 import GestioneUtenti from "./pages/GestioneUtenti";
 import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import GestionePolizzePage from "./pages/GestionePolizzePage";
+import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -122,7 +123,12 @@ const App = () => (
               <Route path="/portafoglio/sospensione" element={<PlaceholderPage title="Sospensione" description="Sospensione polizze" icon={Clock} />} />
               <Route path="/portafoglio/riattivazione" element={<PlaceholderPage title="Riattivazione" description="Riattivazione polizze sospese" icon={CheckSquare} />} />
               <Route path="/portafoglio/doc-precontrattuale" element={<PlaceholderPage title="Doc. Precontrattuale" description="Documentazione precontrattuale" icon={ClipboardList} />} />
-              <Route path="/portafoglio/estrazioni-stampe" element={<PlaceholderPage title="Estrazioni e Stampe" description="Estrazione dati e stampa polizze" icon={Printer} />} />
+              <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
+              <Route path="/portafoglio/estrazioni/per-cliente" element={<PlaceholderPage title="Portafoglio per Cliente" description="Estrazione portafoglio raggruppato per cliente" icon={Users} />} />
+              <Route path="/portafoglio/estrazioni/per-compagnia" element={<PlaceholderPage title="Portafoglio per Compagnia" description="Estrazione portafoglio per compagnia" icon={Building2} />} />
+              <Route path="/portafoglio/estrazioni/premi-provvigioni" element={<PlaceholderPage title="Premi e Provvigioni" description="Riepilogo premi e provvigioni" icon={Percent} />} />
+              <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PlaceholderPage title="Premi Scoperti e Garantiti" description="Report premi scoperti e garantiti" icon={Shield} />} />
+              <Route path="/portafoglio/estrazioni/ec-clienti" element={<PlaceholderPage title="E/C Clienti" description="Estratto conto clienti" icon={FileText} />} />
               <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
               <Route path="/portafoglio/regolazioni" element={<PlaceholderPage title="Regolazioni" description="Regolazioni premio polizze" icon={ClipboardList} />} />
               <Route path="/portafoglio/documentale" element={<PlaceholderPage title="Documentale" description="Archivio documentale polizze" icon={FileText} />} />
