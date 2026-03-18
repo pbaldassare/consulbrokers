@@ -40,9 +40,10 @@ import {
   ListChecks,
   DollarSign,
   CalendarCheck,
-  FileOutput,
-  Import,
-  ArrowRightLeft,
+   FileOutput,
+   Import,
+   ArrowRightLeft,
+   Database,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
