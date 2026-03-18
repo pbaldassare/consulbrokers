@@ -119,6 +119,7 @@ const AnagraficheProfessionaliPage = () => {
         albo_numero: form.albo_numero || null,
         referente_nome: form.referente_nome || null,
         referente_email: form.referente_email || null,
+        studio_ufficio: form.studio_ufficio || null,
         note: form.note || null,
         ufficio_id: profile?.ufficio_id || null,
       };
