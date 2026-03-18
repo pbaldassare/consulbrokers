@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Building2, Search } from "lucide-react";
+import { Plus, Building2, Search, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -51,8 +51,14 @@ const CompagnieList = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [form, setForm] = useState<CompagniaForm>(emptyForm);
+
+  // Anagrafica filters
+  const [searchNome, setSearchNome] = useState("");
+  const [searchCodice, setSearchCodice] = useState("");
+
+  // Sinistri filters
+  const [searchSinistri, setSearchSinistri] = useState("");
 
   const setField = (key: keyof CompagniaForm, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -112,15 +118,17 @@ const CompagnieList = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["compagnie"] }),
   });
 
-  const filtered = compagnie.filter((c) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      c.nome?.toLowerCase().includes(s) ||
-      c.codice?.toLowerCase().includes(s) ||
-      (c as any).gruppo_compagnia?.toLowerCase().includes(s) ||
-      (c as any).comune?.toLowerCase().includes(s)
-    );
+  // Anagrafica filtered list
+  const filteredAnagrafica = compagnie.filter((c: any) => {
+    const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase());
+    const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
+    return matchNome && matchCodice;
+  });
+
+  // Sinistri filtered list
+  const filteredSinistri = compagnie.filter((c: any) => {
+    if (!searchSinistri) return true;
+    return c.nome?.toLowerCase().includes(searchSinistri.toLowerCase());
   });
 
   const Field = ({ label, field, placeholder }: { label: string; field: keyof CompagniaForm; placeholder?: string }) => (
@@ -220,72 +228,183 @@ const CompagnieList = () => {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Cerca per nome, codice, gruppo, comune..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      {/* Main page tabs */}
+      <Tabs defaultValue="anagrafica" className="w-full">
+        <TabsList>
+          <TabsTrigger value="anagrafica" className="gap-2">
+            <Building2 className="w-4 h-4" />Anagrafica Compagnia
+          </TabsTrigger>
+          <TabsTrigger value="sinistri" className="gap-2">
+            <ShieldAlert className="w-4 h-4" />Compagnie Sinistri
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="w-5 h-5" />Lista Compagnie ({filtered.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-muted-foreground">Caricamento...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Codice</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Gruppo</TableHead>
-                  <TableHead>Comune</TableHead>
-                  <TableHead>Prov</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Attiva</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c: any) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
-                    <TableCell className="font-medium">{c.nome}</TableCell>
-                    <TableCell>{c.gruppo_compagnia || "—"}</TableCell>
-                    <TableCell>{c.comune || "—"}</TableCell>
-                    <TableCell>{c.provincia || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={c.stato === "Operativo" ? "default" : "secondary"}>
-                        {c.stato || (c.attiva ? "Operativo" : "Non operativo")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={c.attiva ?? true}
-                        onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      Nessuna compagnia trovata
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        {/* === ANAGRAFICA COMPAGNIA === */}
+        <TabsContent value="anagrafica" className="space-y-4 mt-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-end gap-4">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Specificare il nome, anche parziale (vuoto = tutto)</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cerca per nome..."
+                      value={searchNome}
+                      onChange={(e) => setSearchNome(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <div className="w-40 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Oppure il codice iniziale</Label>
+                  <Input
+                    placeholder="Codice..."
+                    value={searchCodice}
+                    onChange={(e) => setSearchCodice(e.target.value)}
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => { setSearchNome(""); setSearchCodice(""); }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="w-5 h-5" />Elenco ({filteredAnagrafica.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <p className="text-muted-foreground">Caricamento...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Codice</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Gruppo</TableHead>
+                      <TableHead>Comune</TableHead>
+                      <TableHead>Prov</TableHead>
+                      <TableHead>Stato</TableHead>
+                      <TableHead>Attiva</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAnagrafica.map((c: any) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
+                        <TableCell className="font-medium">{c.nome}</TableCell>
+                        <TableCell>{c.gruppo_compagnia || "—"}</TableCell>
+                        <TableCell>{c.comune || "—"}</TableCell>
+                        <TableCell>{c.provincia || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={c.stato === "Operativo" ? "default" : "secondary"}>
+                            {c.stato || (c.attiva ? "Operativo" : "Non operativo")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={c.attiva ?? true}
+                            onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredAnagrafica.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                          Nessuna compagnia trovata
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* === COMPAGNIE SINISTRI === */}
+        <TabsContent value="sinistri" className="space-y-4 mt-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-end gap-4">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Specificare il nome (anche parziale)</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cerca compagnia..."
+                      value={searchSinistri}
+                      onChange={(e) => setSearchSinistri(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <Button variant="secondary" onClick={() => setSearchSinistri("")}>
+                  Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldAlert className="w-5 h-5" />Indirizzi Compagnia per Ufficio Sinistri ({filteredSinistri.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <p className="text-muted-foreground">Caricamento...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Codice</TableHead>
+                      <TableHead>Nome Compagnia</TableHead>
+                      <TableHead>Indirizzo</TableHead>
+                      <TableHead>CAP</TableHead>
+                      <TableHead>Comune</TableHead>
+                      <TableHead>Prov</TableHead>
+                      <TableHead>Telefono</TableHead>
+                      <TableHead>PEC</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSinistri.map((c: any) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
+                        <TableCell className="font-medium">{c.nome}</TableCell>
+                        <TableCell>{c.indirizzo || "—"}</TableCell>
+                        <TableCell>{c.cap || "—"}</TableCell>
+                        <TableCell>{c.comune || "—"}</TableCell>
+                        <TableCell>{c.provincia || "—"}</TableCell>
+                        <TableCell>{c.telefono || "—"}</TableCell>
+                        <TableCell className="text-sm">{c.pec || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredSinistri.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
+                          Nessuna compagnia trovata
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
