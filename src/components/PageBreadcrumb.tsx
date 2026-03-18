@@ -120,6 +120,18 @@ const PageBreadcrumb = () => {
       <Button
         variant="ghost"
         size="sm"
+        onClick={() => navigate("/")}
+        className="h-8 px-2 text-muted-foreground hover:text-foreground"
+      >
+        <Home className="w-4 h-4 mr-1" />
+        Home
+      </Button>
+
+      <div className="h-4 w-px bg-border" />
+
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => navigate(-1)}
         className="h-8 px-2 text-muted-foreground hover:text-foreground"
       >
@@ -131,19 +143,9 @@ const PageBreadcrumb = () => {
 
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              className="cursor-pointer flex items-center gap-1"
-              onClick={() => navigate("/")}
-            >
-              <Home className="w-3.5 h-3.5" />
-              Home
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-
-          {crumbs.map((crumb) => (
+          {crumbs.map((crumb, i) => (
             <span key={crumb.path} className="contents">
-              <BreadcrumbSeparator />
+              {i > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem>
                 {crumb.isLast ? (
                   <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
