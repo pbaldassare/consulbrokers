@@ -16,29 +16,45 @@ export type Database = {
     Tables: {
       anagrafiche_professionali: {
         Row: {
+          abi: string | null
           albo_numero: string | null
+          annullato: boolean | null
           attivo: boolean | null
+          banca_riga1: string | null
+          banca_riga2: string | null
+          banca_riga3: string | null
+          cab: string | null
           cap: string | null
           cellulare: string | null
           citta: string | null
           codice: string | null
           codice_fiscale: string | null
+          codice_fornitore: string | null
           cognome: string | null
           compagnia_id: string | null
           created_at: string | null
           email: string | null
           fax: string | null
+          iban: string | null
           id: string
           indirizzo: string | null
+          intestatario_cc: string | null
+          iscrizione_rui: string | null
           nome: string | null
           nome_breve: string | null
+          nome_rui: string | null
           note: string | null
+          numero_rui: string | null
           partita_iva: string | null
           pec: string | null
+          percentuale_base: number | null
+          percentuale_ra: number | null
           provincia: string | null
           ragione_sociale: string | null
           referente_email: string | null
           referente_nome: string | null
+          sezione_rui: string | null
+          sigla: string | null
           specializzazione: string | null
           studio_ufficio: string | null
           telefono: string | null
@@ -47,29 +63,45 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          abi?: string | null
           albo_numero?: string | null
+          annullato?: boolean | null
           attivo?: boolean | null
+          banca_riga1?: string | null
+          banca_riga2?: string | null
+          banca_riga3?: string | null
+          cab?: string | null
           cap?: string | null
           cellulare?: string | null
           citta?: string | null
           codice?: string | null
           codice_fiscale?: string | null
+          codice_fornitore?: string | null
           cognome?: string | null
           compagnia_id?: string | null
           created_at?: string | null
           email?: string | null
           fax?: string | null
+          iban?: string | null
           id?: string
           indirizzo?: string | null
+          intestatario_cc?: string | null
+          iscrizione_rui?: string | null
           nome?: string | null
           nome_breve?: string | null
+          nome_rui?: string | null
           note?: string | null
+          numero_rui?: string | null
           partita_iva?: string | null
           pec?: string | null
+          percentuale_base?: number | null
+          percentuale_ra?: number | null
           provincia?: string | null
           ragione_sociale?: string | null
           referente_email?: string | null
           referente_nome?: string | null
+          sezione_rui?: string | null
+          sigla?: string | null
           specializzazione?: string | null
           studio_ufficio?: string | null
           telefono?: string | null
@@ -78,29 +110,45 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          abi?: string | null
           albo_numero?: string | null
+          annullato?: boolean | null
           attivo?: boolean | null
+          banca_riga1?: string | null
+          banca_riga2?: string | null
+          banca_riga3?: string | null
+          cab?: string | null
           cap?: string | null
           cellulare?: string | null
           citta?: string | null
           codice?: string | null
           codice_fiscale?: string | null
+          codice_fornitore?: string | null
           cognome?: string | null
           compagnia_id?: string | null
           created_at?: string | null
           email?: string | null
           fax?: string | null
+          iban?: string | null
           id?: string
           indirizzo?: string | null
+          intestatario_cc?: string | null
+          iscrizione_rui?: string | null
           nome?: string | null
           nome_breve?: string | null
+          nome_rui?: string | null
           note?: string | null
+          numero_rui?: string | null
           partita_iva?: string | null
           pec?: string | null
+          percentuale_base?: number | null
+          percentuale_ra?: number | null
           provincia?: string | null
           ragione_sociale?: string | null
           referente_email?: string | null
           referente_nome?: string | null
+          sezione_rui?: string | null
+          sigla?: string | null
           specializzazione?: string | null
           studio_ufficio?: string | null
           telefono?: string | null
