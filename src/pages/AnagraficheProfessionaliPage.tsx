@@ -286,7 +286,9 @@ const AnagraficheProfessionaliPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} placeholder="Es. 51" /></div>
                   <div><Label>Nome Breve</Label><Input value={form.nome_breve} onChange={(e) => setForm({ ...form, nome_breve: e.target.value })} placeholder="Es. STUDIO, ISPETTORATO..." /></div>
-                  <div><Label>Nome Completo</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+                  <div><Label>Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
+                  <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+                  <div><Label>Studio / Ufficio</Label><Input value={form.studio_ufficio} onChange={(e) => setForm({ ...form, studio_ufficio: e.target.value })} placeholder="Es. Studio Legale, Ufficio Peritale..." /></div>
                   <div>
                     <Label>Compagnia</Label>
                     <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
