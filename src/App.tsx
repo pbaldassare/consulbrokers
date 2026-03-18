@@ -110,6 +110,7 @@ const App = () => (
               {/* PORTAFOGLIO */}
               <Route path="/titoli" element={<TitoliList />} />
               <Route path="/titoli/:id" element={<TitoloDetail />} />
+              <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
               <Route path="/portafoglio/immissione" element={<PlaceholderPage title="Immissione Polizza" description="Immissione nuova polizza nel portafoglio" icon={FilePlus} />} />
               <Route path="/portafoglio/appendici" element={<PlaceholderPage title="Appendici" description="Gestione appendici di polizza" icon={FileText} />} />
               <Route path="/portafoglio/duplicazione" element={<PlaceholderPage title="Duplicazione Polizza" description="Duplicazione polizza esistente" icon={FileStack} />} />
