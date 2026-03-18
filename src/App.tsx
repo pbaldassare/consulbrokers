@@ -51,6 +51,7 @@ import ManutenzionePage from "./pages/ManutenzionePage";
 import GestioneUtenti from "./pages/GestioneUtenti";
 import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import GestionePolizzePage from "./pages/GestionePolizzePage";
+import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
@@ -113,7 +114,7 @@ const App = () => (
               <Route path="/titoli" element={<TitoliList />} />
               <Route path="/titoli/:id" element={<TitoloDetail />} />
               <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
-              <Route path="/portafoglio/immissione" element={<PlaceholderPage title="Immissione Polizza" description="Immissione nuova polizza nel portafoglio" icon={FilePlus} />} />
+              <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
               <Route path="/portafoglio/appendici" element={<PlaceholderPage title="Appendici" description="Gestione appendici di polizza" icon={FileText} />} />
               <Route path="/portafoglio/duplicazione" element={<PlaceholderPage title="Duplicazione Polizza" description="Duplicazione polizza esistente" icon={FileStack} />} />
               <Route path="/portafoglio/conferma-emittende" element={<PlaceholderPage title="Conferma Emittende" description="Conferma emittende polizze" icon={FileCheck} />} />
