@@ -78,62 +78,65 @@ Deno.serve(async (req) => {
     const uIds = ufficiData.map(u => u.id);
     R.uffici = ufficiData.length;
 
-    // ==================== 2. PROFILES (staff + clients) ====================
-    const staffData = [
-      { n: 'Marco', c: 'Bianchi', r: 'produttore' },
-      { n: 'Laura', c: 'Conti', r: 'produttore' },
-      { n: 'Giuseppe', c: 'Ferrara', r: 'produttore' },
-      { n: 'Francesca', c: 'Moretti', r: 'ufficio' },
-      { n: 'Roberto', c: 'Galli', r: 'ufficio' },
-      { n: 'Enrico', c: 'Martinelli', r: 'produttore' },
-      { n: 'Paola', c: 'Serra', r: 'produttore' },
-      { n: 'Simone', c: 'Cattaneo', r: 'contabilita' },
-      { n: 'Elena', c: 'Marchetti', r: 'produttore' },
-      { n: 'Davide', c: 'Fontana', r: 'produttore' },
-      { n: 'Chiara', c: 'Rinaldi', r: 'ufficio' },
-      { n: 'Fabio', c: 'Monti', r: 'cfo' },
+    // ==================== 2. PROFILES via auth.admin.createUser ====================
+    const allUsers = [
+      // Staff
+      { n:'Marco',c:'Bianchi',r:'produttore',e:'marco.bianchi@consul-demo.it'},
+      { n:'Laura',c:'Conti',r:'produttore',e:'laura.conti@consul-demo.it'},
+      { n:'Giuseppe',c:'Ferrara',r:'produttore',e:'giuseppe.ferrara@consul-demo.it'},
+      { n:'Francesca',c:'Moretti',r:'ufficio',e:'francesca.moretti@consul-demo.it'},
+      { n:'Roberto',c:'Galli',r:'ufficio',e:'roberto.galli@consul-demo.it'},
+      { n:'Enrico',c:'Martinelli',r:'produttore',e:'enrico.martinelli@consul-demo.it'},
+      { n:'Paola',c:'Serra',r:'produttore',e:'paola.serra@consul-demo.it'},
+      { n:'Simone',c:'Cattaneo',r:'contabilita',e:'simone.cattaneo@consul-demo.it'},
+      { n:'Elena',c:'Marchetti',r:'produttore',e:'elena.marchetti@consul-demo.it'},
+      { n:'Davide',c:'Fontana',r:'produttore',e:'davide.fontana@consul-demo.it'},
+      { n:'Chiara',c:'Rinaldi',r:'ufficio',e:'chiara.rinaldi@consul-demo.it'},
+      { n:'Fabio',c:'Monti',r:'cfo',e:'fabio.monti@consul-demo.it'},
     ];
-
-    const staffProfiles: any[] = [];
-    const staffRoles: any[] = [];
-    for (const s of staffData) {
-      const id = uuid();
-      staffProfiles.push({
-        id, nome: s.n, cognome: s.c,
-        email: `${s.n.toLowerCase()}.${s.c.toLowerCase()}@consul-demo.it`,
-        ruolo: s.r, attivo: true, ufficio_id: pick(uIds),
-      });
-      staffRoles.push({ user_id: id, role: s.r });
-    }
-    const prodIds = staffProfiles.filter(p => p.ruolo === 'produttore').map(p => p.id);
-    const allStaffIds = staffProfiles.map(p => p.id);
-
-    // Client profiles (80) for titoli FK references
-    const clientProfiles: any[] = [];
-    const clientIds: string[] = [];
-    for (let i = 0; i < 80; i++) {
+    // 25 client users
+    for (let i = 0; i < 25; i++) {
       const male = Math.random() > 0.45;
       const nome = pick(male ? NM : NF);
       const cognome = pick(COG);
-      const id = uuid();
-      clientIds.push(id);
-      clientProfiles.push({
-        id, nome, cognome,
-        email: `${nome.toLowerCase()}.${cognome.toLowerCase()}.${i}@demo-cliente.it`,
-        ruolo: 'cliente', attivo: true, ufficio_id: pick(uIds),
-      });
+      allUsers.push({ n: nome, c: cognome, r: 'cliente', e: `cliente.demo.${i}@consul-demo.it` });
     }
 
-    await batchInsert(db, 'profiles', [...staffProfiles, ...clientProfiles]);
-    R.profiles = staffProfiles.length + clientProfiles.length;
+    const createdIds: string[] = [];
+    const staffIds: string[] = [];
+    const prodIds: string[] = [];
+    const clientIds: string[] = [];
 
-    // Roles
-    const allRoles = [
-      ...staffRoles,
-      ...clientIds.map(id => ({ user_id: id, role: 'cliente' })),
-    ];
-    await batchInsert(db, 'user_roles', allRoles);
-    R.user_roles = allRoles.length;
+    for (const u of allUsers) {
+      // Check if email already exists
+      const { data: existing } = await db.from('profiles').select('id').eq('email', u.e).limit(1);
+      if (existing && existing.length > 0) {
+        const id = existing[0].id;
+        createdIds.push(id);
+        if (u.r !== 'cliente') { staffIds.push(id); if (u.r === 'produttore') prodIds.push(id); }
+        else clientIds.push(id);
+        continue;
+      }
+      const { data: newUser, error: authErr } = await db.auth.admin.createUser({
+        email: u.e, password: 'DemoTest123!', email_confirm: true,
+      });
+      if (authErr) { console.error(`Auth skip ${u.e}: ${authErr.message}`); continue; }
+      const id = newUser.user.id;
+      createdIds.push(id);
+      if (u.r !== 'cliente') { staffIds.push(id); if (u.r === 'produttore') prodIds.push(id); }
+      else clientIds.push(id);
+
+      await db.from('profiles').insert({
+        id, nome: u.n, cognome: u.c, email: u.e,
+        ruolo: u.r, attivo: true, ufficio_id: pick(uIds),
+      });
+      await db.from('user_roles').insert({ user_id: id, role: u.r });
+    }
+
+    const allStaffIds = staffIds.length > 0 ? staffIds : ['62a676ea-93d2-4a58-9dee-3189f3fba692'];
+    if (prodIds.length === 0) prodIds.push('aed93cfd-12ba-4f28-9d5c-efe39935aa94');
+    if (clientIds.length === 0) clientIds.push('d2364de7-7548-463e-9a67-ecbf68b9aee1');
+    R.profiles = createdIds.length;
 
     // ==================== 3. CLIENTI (CRM - 160) ====================
     const clientiData: any[] = [];
