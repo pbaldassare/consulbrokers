@@ -28,7 +28,9 @@ type TipoAnagrafica = typeof TIPI[number]["value"];
 interface Anagrafica {
   id: string;
   tipo: string;
+  codice: string | null;
   nome: string | null;
+  nome_breve: string | null;
   cognome: string | null;
   ragione_sociale: string | null;
   codice_fiscale: string | null;
@@ -45,16 +47,20 @@ interface Anagrafica {
   compagnia_id: string | null;
   specializzazione: string | null;
   albo_numero: string | null;
+  referente_nome: string | null;
+  referente_email: string | null;
   note: string | null;
   attivo: boolean | null;
   ufficio_id: string | null;
 }
 
 const emptyForm = {
-  nome: "", cognome: "", ragione_sociale: "", codice_fiscale: "", partita_iva: "",
+  codice: "", nome: "", nome_breve: "", cognome: "", ragione_sociale: "",
+  codice_fiscale: "", partita_iva: "",
   email: "", pec: "", telefono: "", cellulare: "", fax: "",
   indirizzo: "", cap: "", citta: "", provincia: "",
-  compagnia_id: "", specializzazione: "", albo_numero: "", note: "",
+  compagnia_id: "", specializzazione: "", albo_numero: "",
+  referente_nome: "", referente_email: "", note: "",
 };
 
 const AnagraficheProfessionaliPage = () => {
@@ -91,7 +97,9 @@ const AnagraficheProfessionaliPage = () => {
     mutationFn: async () => {
       const payload: Record<string, unknown> = {
         tipo: activeTab,
+        codice: form.codice || null,
         nome: form.nome || null,
+        nome_breve: form.nome_breve || null,
         cognome: form.cognome || null,
         ragione_sociale: form.ragione_sociale || null,
         codice_fiscale: form.codice_fiscale || null,
@@ -108,6 +116,8 @@ const AnagraficheProfessionaliPage = () => {
         compagnia_id: form.compagnia_id || null,
         specializzazione: form.specializzazione || null,
         albo_numero: form.albo_numero || null,
+        referente_nome: form.referente_nome || null,
+        referente_email: form.referente_email || null,
         note: form.note || null,
         ufficio_id: profile?.ufficio_id || null,
       };
@@ -137,11 +147,14 @@ const AnagraficheProfessionaliPage = () => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (
+      (item.codice?.toLowerCase().includes(s)) ||
       (item.cognome?.toLowerCase().includes(s)) ||
       (item.nome?.toLowerCase().includes(s)) ||
+      (item.nome_breve?.toLowerCase().includes(s)) ||
       (item.ragione_sociale?.toLowerCase().includes(s)) ||
       (item.email?.toLowerCase().includes(s)) ||
-      (item.citta?.toLowerCase().includes(s))
+      (item.citta?.toLowerCase().includes(s)) ||
+      (item.referente_nome?.toLowerCase().includes(s))
     );
   });
 
@@ -182,12 +195,12 @@ const AnagraficheProfessionaliPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cognome</TableHead>
+                    <TableHead>Codice</TableHead>
+                    <TableHead>Nome Breve / Compagnia</TableHead>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Telefono</TableHead>
-                    <TableHead>Città</TableHead>
-                    <TableHead>Specializzazione</TableHead>
+                    <TableHead>Indirizzo</TableHead>
+                    <TableHead>Tel/Fax/Cell</TableHead>
+                    <TableHead>Attenzione di / Mail</TableHead>
                     <TableHead className="text-center">Attivo</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -197,19 +210,31 @@ const AnagraficheProfessionaliPage = () => {
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun {t.label.slice(0, -1).toLowerCase()} trovato</TableCell></TableRow>
                   ) : (
-                    filtered.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.cognome || "—"}</TableCell>
-                        <TableCell>{item.nome || "—"}</TableCell>
-                        <TableCell>{item.email || "—"}</TableCell>
-                        <TableCell>{item.telefono || item.cellulare || "—"}</TableCell>
-                        <TableCell>{item.citta || "—"}</TableCell>
-                        <TableCell>{item.specializzazione || "—"}</TableCell>
-                        <TableCell className="text-center">
-                          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    filtered.map((item) => {
+                      const compName = compagnie.find((c) => c.id === item.compagnia_id)?.nome;
+                      const addressParts = [item.indirizzo, [item.cap, item.citta].filter(Boolean).join("  "), item.provincia].filter(Boolean);
+                      const phoneParts = [item.telefono, item.fax ? `Fax: ${item.fax}` : null, item.cellulare ? `Cell: ${item.cellulare}` : null].filter(Boolean);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.codice || "—"}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">{item.nome_breve || "—"}</div>
+                            {compName && <div className="text-xs text-muted-foreground">{compName}</div>}
+                          </TableCell>
+                          <TableCell>{item.nome || [item.cognome, item.nome].filter(Boolean).join(" ") || "—"}</TableCell>
+                          <TableCell className="text-sm">{addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
+                          <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
+                          <TableCell>
+                            {item.referente_nome && <div className="font-medium text-sm">{item.referente_nome}</div>}
+                            {item.referente_email && <div className="text-xs text-muted-foreground">{item.referente_email}</div>}
+                            {!item.referente_nome && !item.referente_email && "—"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -234,13 +259,9 @@ const AnagraficheProfessionaliPage = () => {
 
               <TabsContent value="dati" className="space-y-3 mt-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
-                  <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-                  <div><Label>Ragione Sociale</Label><Input value={form.ragione_sociale} onChange={(e) => setForm({ ...form, ragione_sociale: e.target.value })} /></div>
-                  <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value })} /></div>
-                  <div><Label>Partita IVA</Label><Input value={form.partita_iva} onChange={(e) => setForm({ ...form, partita_iva: e.target.value })} /></div>
-                  <div><Label>N° Albo</Label><Input value={form.albo_numero} onChange={(e) => setForm({ ...form, albo_numero: e.target.value })} /></div>
-                  <div><Label>Specializzazione</Label><Input value={form.specializzazione} onChange={(e) => setForm({ ...form, specializzazione: e.target.value })} /></div>
+                  <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} placeholder="Es. 51" /></div>
+                  <div><Label>Nome Breve</Label><Input value={form.nome_breve} onChange={(e) => setForm({ ...form, nome_breve: e.target.value })} placeholder="Es. STUDIO, ISPETTORATO..." /></div>
+                  <div><Label>Nome Completo</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
                   <div>
                     <Label>Compagnia</Label>
                     <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
@@ -250,16 +271,26 @@ const AnagraficheProfessionaliPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value })} /></div>
+                  <div><Label>Partita IVA</Label><Input value={form.partita_iva} onChange={(e) => setForm({ ...form, partita_iva: e.target.value })} /></div>
+                  <div><Label>N° Albo</Label><Input value={form.albo_numero} onChange={(e) => setForm({ ...form, albo_numero: e.target.value })} /></div>
+                  <div><Label>Specializzazione</Label><Input value={form.specializzazione} onChange={(e) => setForm({ ...form, specializzazione: e.target.value })} /></div>
                 </div>
               </TabsContent>
 
               <TabsContent value="contatti" className="space-y-3 mt-3">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Contatti diretti</p>
                 <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
+                  <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
+                  <div><Label>Cellulare</Label><Input value={form.cellulare} onChange={(e) => setForm({ ...form, cellulare: e.target.value })} /></div>
                   <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                   <div><Label>PEC</Label><Input type="email" value={form.pec} onChange={(e) => setForm({ ...form, pec: e.target.value })} /></div>
-                  <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
-                  <div><Label>Cellulare</Label><Input value={form.cellulare} onChange={(e) => setForm({ ...form, cellulare: e.target.value })} /></div>
-                  <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
+                </div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Attenzione di (referente)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Nome Referente</Label><Input value={form.referente_nome} onChange={(e) => setForm({ ...form, referente_nome: e.target.value })} placeholder="Es. ROSSI MARIO" /></div>
+                  <div><Label>Email Referente</Label><Input type="email" value={form.referente_email} onChange={(e) => setForm({ ...form, referente_email: e.target.value })} /></div>
                 </div>
               </TabsContent>
 
