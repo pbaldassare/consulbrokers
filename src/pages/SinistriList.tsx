@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, AlertTriangle, Search } from "lucide-react";
+import { Plus, AlertTriangle, Search, FileText, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -32,8 +32,15 @@ export default function SinistriList() {
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ numero_sinistro: "", descrizione: "", compagnia_id: "", titolo_id: "" });
   const [page, setPage] = useState(0);
+
+  // Wizard: step 1 = search polizza, step 2 = fill sinistro details
+  const [step, setStep] = useState<1 | 2>(1);
+  const [polizzaSearch, setPolizzaSearch] = useState({ cliente: "", numero: "", compagnia: "" });
+  const [polizzaResults, setPolizzaResults] = useState<any[]>([]);
+  const [polizzaLoading, setPolizzaLoading] = useState(false);
+  const [selectedPolizza, setSelectedPolizza] = useState<any>(null);
+  const [form, setForm] = useState({ numero_sinistro: "", descrizione: "" });
 
   const { data: sinistriResult, refetch } = useQuery({
     queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],
@@ -54,7 +61,7 @@ export default function SinistriList() {
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true);
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -72,28 +79,83 @@ export default function SinistriList() {
     setPage(0);
   };
 
+  const searchPolizze = async () => {
+    setPolizzaLoading(true);
+    try {
+      let q = supabase.from("titoli").select(`
+        id, numero_titolo, premio_lordo, stato, created_at,
+        prodotti(nome_prodotto, compagnie(id, nome)),
+        profiles!titoli_cliente_id_fkey(nome, cognome)
+      `).eq("stato", "attivo").limit(50);
+
+      if (polizzaSearch.numero) {
+        q = q.ilike("numero_titolo", `%${polizzaSearch.numero}%`);
+      }
+
+      const { data, error } = await q.order("created_at", { ascending: false });
+      if (error) throw error;
+
+      let results = data || [];
+
+      // Client-side filter for cliente name
+      if (polizzaSearch.cliente) {
+        const term = polizzaSearch.cliente.toLowerCase();
+        results = results.filter((t: any) => {
+          const p = t.profiles;
+          if (!p) return false;
+          return `${p.nome || ""} ${p.cognome || ""}`.toLowerCase().includes(term);
+        });
+      }
+
+      // Client-side filter for compagnia (nested join)
+      if (polizzaSearch.compagnia) {
+        results = results.filter((t: any) => t.prodotti?.compagnie?.id === polizzaSearch.compagnia);
+      }
+
+      setPolizzaResults(results);
+    } catch (e: any) {
+      toast.error("Errore ricerca: " + e.message);
+    } finally {
+      setPolizzaLoading(false);
+    }
+  };
+
+  const selectPolizza = (polizza: any) => {
+    setSelectedPolizza(polizza);
+    setStep(2);
+  };
+
   const handleCrea = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const compagniaId = selectedPolizza?.prodotti?.compagnie?.id || null;
       const { data, error } = await supabase.functions.invoke("gestione-sinistri", {
         body: {
           azione: "crea",
           numero_sinistro: form.numero_sinistro,
           descrizione: form.descrizione,
-          compagnia_id: form.compagnia_id || null,
-          titolo_id: form.titolo_id || null,
+          compagnia_id: compagniaId,
+          titolo_id: selectedPolizza?.id || null,
           user_id: user?.id,
         },
       });
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
       toast.success("Sinistro creato");
-      setDialogOpen(false);
-      setForm({ numero_sinistro: "", descrizione: "", compagnia_id: "", titolo_id: "" });
+      resetDialog();
       refetch();
     } catch (e: any) {
       toast.error(e.message);
     }
+  };
+
+  const resetDialog = () => {
+    setDialogOpen(false);
+    setStep(1);
+    setPolizzaSearch({ cliente: "", numero: "", compagnia: "" });
+    setPolizzaResults([]);
+    setSelectedPolizza(null);
+    setForm({ numero_sinistro: "", descrizione: "" });
   };
 
   return (
@@ -111,32 +173,136 @@ export default function SinistriList() {
               ⚠ {eventiScaduti} eventi scaduti
             </Badge>
           )}
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetDialog(); else setDialogOpen(true); }}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-1" /> Nuovo Sinistro</Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Nuovo Sinistro</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Numero Sinistro</Label>
-                  <Input value={form.numero_sinistro} onChange={e => setForm({ ...form, numero_sinistro: e.target.value })} />
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {step === 1 ? "1. Seleziona Polizza" : "2. Dati Sinistro"}
+                </DialogTitle>
+                <DialogDescription>
+                  {step === 1
+                    ? "Cerca e seleziona la polizza su cui aprire il sinistro"
+                    : "Compila i dati del sinistro per la polizza selezionata"}
+                </DialogDescription>
+              </DialogHeader>
+
+              {step === 1 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Cliente</Label>
+                      <Input
+                        placeholder="Nome / Cognome"
+                        value={polizzaSearch.cliente}
+                        onChange={e => setPolizzaSearch({ ...polizzaSearch, cliente: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">N° Polizza</Label>
+                      <Input
+                        placeholder="Numero polizza"
+                        value={polizzaSearch.numero}
+                        onChange={e => setPolizzaSearch({ ...polizzaSearch, numero: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Compagnia</Label>
+                      <Select
+                        value={polizzaSearch.compagnia || "all"}
+                        onValueChange={v => setPolizzaSearch({ ...polizzaSearch, compagnia: v === "all" ? "" : v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Tutte" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tutte</SelectItem>
+                          {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button onClick={searchPolizze} disabled={polizzaLoading} className="w-full">
+                    <Search className="h-4 w-4 mr-2" />
+                    {polizzaLoading ? "Ricerca..." : "Cerca Polizze"}
+                  </Button>
+
+                  {polizzaResults.length > 0 ? (
+                    <div className="border rounded-lg max-h-[40vh] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>N° Polizza</TableHead>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Prodotto</TableHead>
+                            <TableHead>Compagnia</TableHead>
+                            <TableHead>Premio</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {polizzaResults.map((t: any) => (
+                            <TableRow
+                              key={t.id}
+                              className="cursor-pointer hover:bg-accent/50"
+                              onClick={() => selectPolizza(t)}
+                            >
+                              <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
+                              <TableCell>{t.profiles ? `${t.profiles.nome || ""} ${t.profiles.cognome || ""}`.trim() || "—" : "—"}</TableCell>
+                              <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
+                              <TableCell>{t.prodotti?.compagnie?.nome || "—"}</TableCell>
+                              <TableCell>{t.premio_lordo ? `€ ${Number(t.premio_lordo).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
+                              <TableCell>
+                                <Button size="sm" variant="outline">
+                                  <CheckCircle2 className="h-4 w-4 mr-1" /> Seleziona
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground text-sm py-6">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      Usa i filtri e clicca "Cerca Polizze" per trovare la polizza
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <Label>Compagnia</Label>
-                  <Select value={form.compagnia_id} onValueChange={v => setForm({ ...form, compagnia_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
-                    <SelectContent>
-                      {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-4">
+                  {selectedPolizza && (
+                    <div className="bg-muted/50 rounded-lg p-4 space-y-1">
+                      <p className="text-sm font-semibold">Polizza selezionata</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        <span className="text-muted-foreground">N° Polizza:</span>
+                        <span className="font-medium">{selectedPolizza.numero_titolo || "—"}</span>
+                        <span className="text-muted-foreground">Cliente:</span>
+                        <span>{selectedPolizza.profiles ? `${selectedPolizza.profiles.nome || ""} ${selectedPolizza.profiles.cognome || ""}`.trim() : "—"}</span>
+                        <span className="text-muted-foreground">Prodotto:</span>
+                        <span>{selectedPolizza.prodotti?.nome_prodotto || "—"}</span>
+                        <span className="text-muted-foreground">Compagnia:</span>
+                        <span>{selectedPolizza.prodotti?.compagnie?.nome || "—"}</span>
+                      </div>
+                      <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => setStep(1)}>
+                        ← Cambia polizza
+                      </Button>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label>Numero Sinistro</Label>
+                    <Input value={form.numero_sinistro} onChange={e => setForm({ ...form, numero_sinistro: e.target.value })} placeholder="Es. SIN-2026-001" />
+                  </div>
+                  <div>
+                    <Label>Descrizione</Label>
+                    <Textarea value={form.descrizione} onChange={e => setForm({ ...form, descrizione: e.target.value })} rows={4} placeholder="Descrivi l'evento..." />
+                  </div>
+                  <Button onClick={handleCrea} className="w-full">Crea Sinistro</Button>
                 </div>
-                <div>
-                  <Label>Descrizione</Label>
-                  <Textarea value={form.descrizione} onChange={e => setForm({ ...form, descrizione: e.target.value })} />
-                </div>
-                <Button onClick={handleCrea} className="w-full">Crea Sinistro</Button>
-              </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>
