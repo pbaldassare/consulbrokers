@@ -49,10 +49,11 @@ const fakePhone = () => `${pick(['338','339','340','347','348','349','366','388'
 const fakeDate = (yf: number, yt: number) => `${ri(yf,yt)}-${pad(ri(1,12),2)}-${pad(ri(1,28),2)}`;
 
 // Batch insert helper
-async function batchInsert(db: any, table: string, data: any[], batchSize = 50) {
+async function batchInsert(db: any, table: string, data: any[], batchSize = 50, onConflict?: string) {
   for (let i = 0; i < data.length; i += batchSize) {
     const batch = data.slice(i, i + batchSize);
-    const { error } = await db.from(table).insert(batch);
+    const opts = onConflict ? { onConflict, ignoreDuplicates: true } : {};
+    const { error } = await db.from(table).upsert(batch, opts);
     if (error) throw new Error(`${table} batch ${i}: ${error.message}`);
   }
   return data.length;
