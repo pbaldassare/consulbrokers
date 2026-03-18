@@ -28,7 +28,9 @@ type TipoAnagrafica = typeof TIPI[number]["value"];
 interface Anagrafica {
   id: string;
   tipo: string;
+  codice: string | null;
   nome: string | null;
+  nome_breve: string | null;
   cognome: string | null;
   ragione_sociale: string | null;
   codice_fiscale: string | null;
@@ -45,16 +47,20 @@ interface Anagrafica {
   compagnia_id: string | null;
   specializzazione: string | null;
   albo_numero: string | null;
+  referente_nome: string | null;
+  referente_email: string | null;
   note: string | null;
   attivo: boolean | null;
   ufficio_id: string | null;
 }
 
 const emptyForm = {
-  nome: "", cognome: "", ragione_sociale: "", codice_fiscale: "", partita_iva: "",
+  codice: "", nome: "", nome_breve: "", cognome: "", ragione_sociale: "",
+  codice_fiscale: "", partita_iva: "",
   email: "", pec: "", telefono: "", cellulare: "", fax: "",
   indirizzo: "", cap: "", citta: "", provincia: "",
-  compagnia_id: "", specializzazione: "", albo_numero: "", note: "",
+  compagnia_id: "", specializzazione: "", albo_numero: "",
+  referente_nome: "", referente_email: "", note: "",
 };
 
 const AnagraficheProfessionaliPage = () => {
