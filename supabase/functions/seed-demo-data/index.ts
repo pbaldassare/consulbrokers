@@ -67,16 +67,18 @@ Deno.serve(async (req) => {
     const R: Record<string, number> = {};
 
     // ==================== 1. UFFICI ====================
-    const ufficiData = [
-      { id: uuid(), nome_ufficio: 'Sede Centrale Roma', codice_ufficio: 'DEMO-ROMA', attivo: true },
-      { id: uuid(), nome_ufficio: 'Filiale Milano', codice_ufficio: 'DEMO-MIL', attivo: true },
-      { id: uuid(), nome_ufficio: 'Agenzia Napoli', codice_ufficio: 'DEMO-NAP', attivo: true },
-      { id: uuid(), nome_ufficio: 'Filiale Firenze', codice_ufficio: 'DEMO-FIR', attivo: true },
-      { id: uuid(), nome_ufficio: 'Punto Vendita Bologna', codice_ufficio: 'DEMO-BOL', attivo: true },
-    ];
-    await batchInsert(db, 'uffici', ufficiData, 50, 'codice_ufficio');
-    const uIds = ufficiData.map(u => u.id);
-    R.uffici = ufficiData.length;
+    const ufficiCodes = ['DEMO-ROMA','DEMO-MIL','DEMO-NAP','DEMO-FIR','DEMO-BOL'];
+    const ufficiNomi = ['Sede Centrale Roma','Filiale Milano','Agenzia Napoli','Filiale Firenze','Punto Vendita Bologna'];
+    for (let i = 0; i < ufficiCodes.length; i++) {
+      const { data: ex } = await db.from('uffici').select('id').eq('codice_ufficio', ufficiCodes[i]).limit(1);
+      if (!ex || ex.length === 0) {
+        await db.from('uffici').insert({ nome_ufficio: ufficiNomi[i], codice_ufficio: ufficiCodes[i], attivo: true });
+      }
+    }
+    const { data: ufficiRows } = await db.from('uffici').select('id').eq('attivo', true);
+    const uIds = (ufficiRows || []).map((u: any) => u.id);
+    if (uIds.length === 0) throw new Error('Nessun ufficio trovato');
+    R.uffici = uIds.length;
 
     // ==================== 2. PROFILES via auth.admin.createUser ====================
     const allUsers = [
