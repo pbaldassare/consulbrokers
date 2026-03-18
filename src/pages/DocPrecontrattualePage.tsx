@@ -1,0 +1,415 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Search } from "lucide-react";
+
+const DocPrecontrattualePage = () => {
+  const navigate = useNavigate();
+
+  // Contratto intermediato
+  const [codiceCliente, setCodiceCliente] = useState("");
+  const [polizza, setPolizza] = useState("");
+  const [appendice, setAppendice] = useState("");
+  const [riferimento, setRiferimento] = useState("");
+  const [codiceCompagnia, setCodiceCompagnia] = useState("");
+  const [indirizzo, setIndirizzo] = useState("");
+  const [cap, setCap] = useState("");
+  const [citta, setCitta] = useState("");
+  const [provincia, setProvincia] = useState("");
+  const [nazione, setNazione] = useState("Italia");
+  const [gruppo, setGruppo] = useState("");
+  const [ramo, setRamo] = useState("");
+  const [codiceFiscale, setCodiceFiscale] = useState("");
+  const [partitaIva, setPartitaIva] = useState("");
+
+  // Intermediario RUI
+  const [intermediario, setIntermediario] = useState("");
+  const [sede, setSede] = useState("Sede");
+  const [nomeCognomeRui, setNomeCognomeRui] = useState("");
+  const [sezioneRui, setSezioneRui] = useState("");
+  const [numeroRui, setNumeroRui] = useState("");
+  const [dataIscrizione, setDataIscrizione] = useState("");
+  const [indirizzoRui, setIndirizzoRui] = useState("");
+  const [capRui, setCapRui] = useState("");
+  const [cittaRui, setCittaRui] = useState("");
+  const [provinciaRui, setProvinciaRui] = useState("");
+  const [emailRui, setEmailRui] = useState("");
+  const [telRui, setTelRui] = useState("");
+  const [qualitaDi, setQualitaDi] = useState("Ditta individuale");
+
+  // Sezione I
+  const [modelloDistribuzione, setModelloDistribuzione] = useState("L'intermediario agisce su incarico del cliente");
+  const [collaborazioneAltri, setCollaborazioneAltri] = useState(false);
+
+  // Sezione II
+  const [sezioneII, setSezioneII] = useState("consulenza_imparziale");
+
+  // Sezione III
+  const [tipoRemunerazione, setTipoRemunerazione] = useState("Commissione inclusa nel premio assicurativo");
+
+  // Sezione IV
+  const [sezioneIV, setSezioneIV] = useState("patrimonio_autonomo");
+  const [fideiussione, setFideiussione] = useState(false);
+  const [pagamentoNonLiberatorio, setPagamentoNonLiberatorio] = useState(false);
+
+  const { data: clienteData } = useQuery({
+    queryKey: ["cliente-lookup-doc", codiceCliente],
+    queryFn: async () => {
+      if (!codiceCliente || codiceCliente.length < 2) return null;
+      const { data } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, partita_iva")
+        .or(`codice_fiscale.ilike.%${codiceCliente}%,partita_iva.ilike.%${codiceCliente}%`)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: codiceCliente.length >= 2,
+  });
+
+  const { data: compagniaData } = useQuery({
+    queryKey: ["compagnia-lookup-doc", codiceCompagnia],
+    queryFn: async () => {
+      if (!codiceCompagnia || codiceCompagnia.length < 2) return null;
+      const { data } = await supabase
+        .from("compagnie")
+        .select("id, nome, codice")
+        .or(`codice.ilike.%${codiceCompagnia}%,nome.ilike.%${codiceCompagnia}%`)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: codiceCompagnia.length >= 2,
+  });
+
+  const { data: aeList } = useQuery({
+    queryKey: ["ae-list-doc"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, codice, cognome, nome, sigla, sezione_rui, numero_rui, iscrizione_rui, nome_rui, indirizzo, cap, citta, provincia, email, telefono")
+        .eq("tipo", "account_executive")
+        .eq("attivo", true)
+        .order("cognome");
+      return data || [];
+    },
+  });
+
+  const handleConferma = () => {
+    console.log("Doc precontrattuale:", {
+      codiceCliente, polizza, appendice, riferimento, codiceCompagnia,
+      modelloDistribuzione, collaborazioneAltri, sezioneII, tipoRemunerazione, sezioneIV,
+    });
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Documentazione Precontrattuale</h1>
+        <p className="text-sm text-muted-foreground mt-1">Generazione documentazione precontrattuale</p>
+      </div>
+
+      {/* CONTRATTO INTERMEDIATO */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Contratto Intermediato</legend>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          {/* Colonna sinistra */}
+          <div className="space-y-4">
+            <div className="flex items-end gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="cliente-doc">Cliente</Label>
+                <div className="relative">
+                  <Input id="cliente-doc" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice" className="max-w-[150px]" />
+                  <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+                </div>
+              </div>
+              {clienteData && (
+                <p className="text-sm text-foreground pb-2">
+                  {clienteData.ragione_sociale || `${clienteData.cognome} ${clienteData.nome}`}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="indirizzo-doc">Indirizzo</Label>
+              <Input id="indirizzo-doc" value={indirizzo} onChange={(e) => setIndirizzo(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <div className="space-y-1.5 w-[80px]">
+                <Label htmlFor="cap-doc">CAP</Label>
+                <Input id="cap-doc" value={cap} onChange={(e) => setCap(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="citta-doc">Città</Label>
+                <Input id="citta-doc" value={citta} onChange={(e) => setCitta(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 w-[60px]">
+                <Label htmlFor="prov-doc">Prov</Label>
+                <Input id="prov-doc" value={provincia} onChange={(e) => setProvincia(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5 max-w-[250px]">
+              <Label>Nazione</Label>
+              <select value={nazione} onChange={(e) => setNazione(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="Italia">Italia</option>
+                <option value="Altro">Altro</option>
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="cf-doc">Codice Fiscale</Label>
+                <Input id="cf-doc" value={codiceFiscale} onChange={(e) => setCodiceFiscale(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="piva-doc">Partita IVA</Label>
+                <Input id="piva-doc" value={partitaIva} onChange={(e) => setPartitaIva(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          {/* Colonna destra */}
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="polizza-doc">Polizza</Label>
+                <Input id="polizza-doc" value={polizza} onChange={(e) => setPolizza(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 w-[80px]">
+                <Label htmlFor="app-doc">App</Label>
+                <Input id="app-doc" value={appendice} onChange={(e) => setAppendice(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rif-doc">Riferimento</Label>
+              <Input id="rif-doc" value={riferimento} onChange={(e) => setRiferimento(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="comp-doc">Compagnia</Label>
+              <div className="relative max-w-[200px]">
+                <Input id="comp-doc" value={codiceCompagnia} onChange={(e) => setCodiceCompagnia(e.target.value)} placeholder="Codice" />
+                <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+              </div>
+              {compagniaData && <p className="text-xs text-muted-foreground">{compagniaData.nome}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Gruppo</Label>
+              <select value={gruppo} onChange={(e) => setGruppo(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="">— Seleziona —</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ramo</Label>
+              <select value={ramo} onChange={(e) => setRamo(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="">— Seleziona —</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* INTERMEDIARIO ISCRITTO AL RUI */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Intermediario Iscritto al RUI</legend>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Intermediario</Label>
+              <select value={intermediario} onChange={(e) => {
+                setIntermediario(e.target.value);
+                const ae = aeList?.find((a) => a.id === e.target.value);
+                if (ae) {
+                  setNomeCognomeRui(ae.nome_rui || `${ae.cognome || ""} ${ae.nome || ""}`);
+                  setSezioneRui(ae.sezione_rui || "");
+                  setNumeroRui(ae.numero_rui || "");
+                  setDataIscrizione(ae.iscrizione_rui || "");
+                  setIndirizzoRui(ae.indirizzo || "");
+                  setCapRui(ae.cap || "");
+                  setCittaRui(ae.citta || "");
+                  setProvinciaRui(ae.provincia || "");
+                  setEmailRui(ae.email || "");
+                  setTelRui(ae.telefono || "");
+                }
+              }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="">— Seleziona —</option>
+                {aeList?.map((ae) => (
+                  <option key={ae.id} value={ae.id}>{ae.sigla || ae.codice} - {ae.cognome} {ae.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sede</Label>
+              <select value={sede} onChange={(e) => setSede(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="Sede">Sede</option>
+                <option value="Filiale">Filiale</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nome-rui">Nome e Cognome</Label>
+              <Input id="nome-rui" value={nomeCognomeRui} onChange={(e) => setNomeCognomeRui(e.target.value)} />
+            </div>
+            <div className="flex gap-2 items-end">
+              <div className="space-y-1.5 w-[100px]">
+                <Label>Sezione</Label>
+                <select value={sezioneRui} onChange={(e) => setSezioneRui(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="">-</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                </select>
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="num-rui">Numero</Label>
+                <Input id="num-rui" value={numeroRui} onChange={(e) => setNumeroRui(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 w-[130px]">
+                <Label htmlFor="data-iscr">Data Iscr.</Label>
+                <Input id="data-iscr" value={dataIscrizione} onChange={(e) => setDataIscrizione(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="ind-rui">Indirizzo</Label>
+              <Input id="ind-rui" value={indirizzoRui} onChange={(e) => setIndirizzoRui(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <div className="space-y-1.5 w-[80px]">
+                <Label htmlFor="cap-rui">CAP</Label>
+                <Input id="cap-rui" value={capRui} onChange={(e) => setCapRui(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="citta-rui">Città</Label>
+                <Input id="citta-rui" value={cittaRui} onChange={(e) => setCittaRui(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 w-[60px]">
+                <Label htmlFor="prov-rui">Prov</Label>
+                <Input id="prov-rui" value={provinciaRui} onChange={(e) => setProvinciaRui(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="email-rui">E-mail</Label>
+                <Input id="email-rui" value={emailRui} onChange={(e) => setEmailRui(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 w-[140px]">
+                <Label htmlFor="tel-rui">Tel</Label>
+                <Input id="tel-rui" value={telRui} onChange={(e) => setTelRui(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>In qualità di</Label>
+              <select value={qualitaDi} onChange={(e) => setQualitaDi(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="Ditta individuale">Ditta individuale</option>
+                <option value="Società di persone">Società di persone</option>
+                <option value="Società di capitali">Società di capitali</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* SEZIONE I */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Sezione I – Modello di Distribuzione</legend>
+        <Textarea
+          value={modelloDistribuzione}
+          onChange={(e) => setModelloDistribuzione(e.target.value)}
+          rows={3}
+        />
+        <div className="flex items-center gap-2">
+          <Checkbox id="collab-altri" checked={collaborazioneAltri} onCheckedChange={(v) => setCollaborazioneAltri(!!v)} />
+          <Label htmlFor="collab-altri" className="font-semibold cursor-pointer">Collaborazione con altri intermediari</Label>
+        </div>
+      </fieldset>
+
+      {/* SEZIONE II */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Sezione II – Informazioni sull'Attività di Distribuzione e Consulenza</legend>
+        <RadioGroup value={sezioneII} onValueChange={setSezioneII} className="space-y-3">
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="consulenza_119ter_c3" id="sez2-a" className="mt-1" />
+            <Label htmlFor="sez2-a" className="font-normal cursor-pointer leading-snug">
+              L'intermediario fornisce una consulenza ai sensi dell'art. 119-ter comma 3 del Codice delle Assicurazioni.
+            </Label>
+          </div>
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="consulenza_imparziale" id="sez2-b" className="mt-1" />
+            <Label htmlFor="sez2-b" className="font-normal cursor-pointer leading-snug">
+              L'intermediario informa che ha fornito una consulenza fondata su un'analisi imparziale e personale ai sensi dell'articolo 119-ter, comma 4, del Codice in quanto fondata sull'analisi di un numero sufficiente di prodotti assicurativi disponibili sul mercato.
+            </Label>
+          </div>
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="distribuzione_obblighi" id="sez2-c" className="mt-1" />
+            <Label htmlFor="sez2-c" className="font-normal cursor-pointer leading-snug">
+              L'intermediario informa che distribuisce contratti in assenza di obblighi contrattuali che impongano loro di offrire esclusivamente i contratti di una o più imprese di assicurazione.
+            </Label>
+          </div>
+        </RadioGroup>
+      </fieldset>
+
+      {/* SEZIONE III */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Sezione III – Informazioni Relative alle Remunerazioni</legend>
+        <div className="flex items-center gap-3">
+          <Label>Tipo</Label>
+          <select value={tipoRemunerazione} onChange={(e) => setTipoRemunerazione(e.target.value)}
+            className="flex h-10 w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <option value="Commissione inclusa nel premio assicurativo">Commissione inclusa nel premio assicurativo</option>
+            <option value="Onorario a carico del cliente">Onorario a carico del cliente</option>
+            <option value="Altro tipo di remunerazione">Altro tipo di remunerazione</option>
+          </select>
+        </div>
+      </fieldset>
+
+      {/* SEZIONE IV */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Sezione IV – Informazioni sul Pagamento dei Premi</legend>
+        <RadioGroup value={sezioneIV} onValueChange={setSezioneIV} className="space-y-3">
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="patrimonio_autonomo" id="sez4-a" className="mt-1" />
+            <Label htmlFor="sez4-a" className="font-normal cursor-pointer leading-snug">
+              I premi pagati dal contraente agli intermediari e le somme destinate ai risarcimenti o ai pagamenti dovuti alle imprese di assicurazione, se regolati per il tramite dell'intermediario costituiscono patrimonio autonomo e separato dal patrimonio dell'intermediario stesso.
+            </Label>
+          </div>
+          <div className="flex items-start gap-2">
+            <RadioGroupItem value="fideiussione_117" id="sez4-b" className="mt-1" />
+            <Label htmlFor="sez4-b" className="font-normal cursor-pointer leading-snug">
+              Ha costituito ai sensi dell'art. 117 comma 3 bis del Codice delle Assicurazioni una fideiussione a garanzia della capacità finanziaria richiesta dalla stessa norma, pari al 4% dei premi incassati, con un minimo di € 18.750,00.
+            </Label>
+          </div>
+        </RadioGroup>
+        <div className="flex items-start gap-2 pt-1">
+          <Checkbox id="pag-non-lib" checked={pagamentoNonLiberatorio} onCheckedChange={(v) => setPagamentoNonLiberatorio(!!v)} className="mt-1" />
+          <Label htmlFor="pag-non-lib" className="font-normal cursor-pointer leading-snug">
+            Il pagamento dei premi all'intermediario o a un suo collaboratore non ha effetto liberatorio ai sensi dell'art. 118 del Codice.
+          </Label>
+        </div>
+      </fieldset>
+
+      {/* ACTIONS */}
+      <div className="flex justify-between pt-2">
+        <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => console.log("Tutti gli allegati")}>Tutti gli Allegati</Button>
+          <Button onClick={handleConferma}>Conferma</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DocPrecontrattualePage;
