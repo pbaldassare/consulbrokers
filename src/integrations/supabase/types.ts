@@ -187,6 +187,119 @@ export type Database = {
           },
         ]
       }
+      clienti: {
+        Row: {
+          attivo: boolean | null
+          cap_residenza: string | null
+          cap_sede: string | null
+          citta_residenza: string | null
+          citta_sede: string | null
+          codice_fiscale: string | null
+          codice_fiscale_azienda: string | null
+          codice_sdi: string | null
+          cognome: string | null
+          created_at: string | null
+          data_nascita: string | null
+          email: string | null
+          forma_giuridica: string | null
+          id: string
+          indirizzo_residenza: string | null
+          indirizzo_sede: string | null
+          luogo_nascita: string | null
+          nome: string | null
+          note: string | null
+          partita_iva: string | null
+          pec: string | null
+          provincia_residenza: string | null
+          provincia_sede: string | null
+          ragione_sociale: string | null
+          referente_cognome: string | null
+          referente_email: string | null
+          referente_nome: string | null
+          referente_telefono: string | null
+          telefono: string | null
+          tipo_cliente: string
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          cap_residenza?: string | null
+          cap_sede?: string | null
+          citta_residenza?: string | null
+          citta_sede?: string | null
+          codice_fiscale?: string | null
+          codice_fiscale_azienda?: string | null
+          codice_sdi?: string | null
+          cognome?: string | null
+          created_at?: string | null
+          data_nascita?: string | null
+          email?: string | null
+          forma_giuridica?: string | null
+          id?: string
+          indirizzo_residenza?: string | null
+          indirizzo_sede?: string | null
+          luogo_nascita?: string | null
+          nome?: string | null
+          note?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          provincia_residenza?: string | null
+          provincia_sede?: string | null
+          ragione_sociale?: string | null
+          referente_cognome?: string | null
+          referente_email?: string | null
+          referente_nome?: string | null
+          referente_telefono?: string | null
+          telefono?: string | null
+          tipo_cliente?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          cap_residenza?: string | null
+          cap_sede?: string | null
+          citta_residenza?: string | null
+          citta_sede?: string | null
+          codice_fiscale?: string | null
+          codice_fiscale_azienda?: string | null
+          codice_sdi?: string | null
+          cognome?: string | null
+          created_at?: string | null
+          data_nascita?: string | null
+          email?: string | null
+          forma_giuridica?: string | null
+          id?: string
+          indirizzo_residenza?: string | null
+          indirizzo_sede?: string | null
+          luogo_nascita?: string | null
+          nome?: string | null
+          note?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          provincia_residenza?: string | null
+          provincia_sede?: string | null
+          ragione_sociale?: string | null
+          referente_cognome?: string | null
+          referente_email?: string | null
+          referente_nome?: string | null
+          referente_telefono?: string | null
+          telefono?: string | null
+          tipo_cliente?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clienti_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compagnie: {
         Row: {
           attiva: boolean | null
