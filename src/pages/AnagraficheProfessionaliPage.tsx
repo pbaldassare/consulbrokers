@@ -111,7 +111,7 @@ const AnagraficheProfessionaliPage = () => {
         note: form.note || null,
         ufficio_id: profile?.ufficio_id || null,
       };
-      const { error } = await supabase.from("anagrafiche_professionali").insert(payload);
+      const { error } = await supabase.from("anagrafiche_professionali").insert([payload as any]);
       if (error) throw error;
     },
     onSuccess: () => {
