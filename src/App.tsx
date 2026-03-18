@@ -132,7 +132,7 @@ const App = () => (
               <Route path="/portafoglio/diff-provvigionali" element={<DiffProvvigioniPage />} />
               <Route path="/portafoglio/sospensione" element={<SospensionePolizzaPage />} />
               <Route path="/portafoglio/riattivazione" element={<RiattivazionePolizzaPage />} />
-              <Route path="/portafoglio/doc-precontrattuale" element={<PlaceholderPage title="Doc. Precontrattuale" description="Documentazione precontrattuale" icon={ClipboardList} />} />
+              <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
               <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
               <Route path="/portafoglio/estrazioni/per-cliente" element={<PlaceholderPage title="Portafoglio per Cliente" description="Estrazione portafoglio raggruppato per cliente" icon={Users} />} />
               <Route path="/portafoglio/estrazioni/per-compagnia" element={<PlaceholderPage title="Portafoglio per Compagnia" description="Estrazione portafoglio per compagnia" icon={Building2} />} />
