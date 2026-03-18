@@ -49,6 +49,7 @@ interface Anagrafica {
   albo_numero: string | null;
   referente_nome: string | null;
   referente_email: string | null;
+  studio_ufficio: string | null;
   note: string | null;
   attivo: boolean | null;
   ufficio_id: string | null;
@@ -60,7 +61,7 @@ const emptyForm = {
   email: "", pec: "", telefono: "", cellulare: "", fax: "",
   indirizzo: "", cap: "", citta: "", provincia: "",
   compagnia_id: "", specializzazione: "", albo_numero: "",
-  referente_nome: "", referente_email: "", note: "",
+  referente_nome: "", referente_email: "", studio_ufficio: "", note: "",
 };
 
 const AnagraficheProfessionaliPage = () => {
