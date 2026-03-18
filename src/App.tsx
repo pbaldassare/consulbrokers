@@ -28,6 +28,7 @@ import RimessaDetail from "./pages/RimessaDetail";
 import ContabilitaUfficio from "./pages/ContabilitaUfficio";
 import AreaCFO from "./pages/AreaCFO";
 import SinistriList from "./pages/SinistriList";
+import DiffProvvigioniPage from "./pages/DiffProvvigioniPage";
 import SinistroDetail from "./pages/SinistroDetail";
 import PrivacyConsensi from "./pages/PrivacyConsensi";
 import BancaImport from "./pages/BancaImport";
@@ -125,7 +126,7 @@ const App = () => (
               <Route path="/portafoglio/conferma-emittende" element={<ConfermaEmittendePage />} />
               <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
               <Route path="/portafoglio/storno" element={<StornoPolizzaPage />} />
-              <Route path="/portafoglio/diff-provvigionali" element={<PlaceholderPage title="Differenze Provvigionali" description="Gestione differenze provvigionali" icon={Percent} />} />
+              <Route path="/portafoglio/diff-provvigionali" element={<DiffProvvigioniPage />} />
               <Route path="/portafoglio/sospensione" element={<PlaceholderPage title="Sospensione" description="Sospensione polizze" icon={Clock} />} />
               <Route path="/portafoglio/riattivazione" element={<PlaceholderPage title="Riattivazione" description="Riattivazione polizze sospese" icon={CheckSquare} />} />
               <Route path="/portafoglio/doc-precontrattuale" element={<PlaceholderPage title="Doc. Precontrattuale" description="Documentazione precontrattuale" icon={ClipboardList} />} />
