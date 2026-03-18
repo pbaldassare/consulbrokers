@@ -56,6 +56,7 @@ import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
 import DuplicazionePolizzaPage from "./pages/DuplicazionePolizzaPage";
 import ConfermaEmittendePage from "./pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "./pages/RinnoviPolizzaPage";
+import StornoPolizzaPage from "./pages/StornoPolizzaPage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
