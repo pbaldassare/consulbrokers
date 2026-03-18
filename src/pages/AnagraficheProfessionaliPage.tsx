@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, UserCheck, Scale, Briefcase, Eye, Users } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
@@ -468,7 +469,7 @@ const AnagraficheProfessionaliPage = () => {
           </TabsContent>
           <TabsContent value="indirizzo" className="space-y-3 mt-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><Label>Indirizzo</Label><Input value={form.indirizzo} onChange={(e) => setForm({ ...form, indirizzo: e.target.value })} /></div>
+              <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
               <div><Label>Località</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
               <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
               <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
@@ -540,7 +541,7 @@ const AnagraficheProfessionaliPage = () => {
         </TabsContent>
         <TabsContent value="indirizzo" className="space-y-3 mt-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2"><Label>Indirizzo</Label><Input value={form.indirizzo} onChange={(e) => setForm({ ...form, indirizzo: e.target.value })} /></div>
+            <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
             <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
             <div><Label>Città</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
             <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>

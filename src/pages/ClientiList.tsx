@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Users, Building2, Search, User } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
@@ -184,7 +185,7 @@ const ClientiList = () => {
                     <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
                   </div>
                   <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
-                  <div><Label>Indirizzo Residenza</Label><Input value={indirizzoResidenza} onChange={(e) => setIndirizzoResidenza(e.target.value)} /></div>
+                  <div><Label>Indirizzo Residenza</Label><AddressAutocomplete value={indirizzoResidenza} onChange={setIndirizzoResidenza} onSelect={(c) => { setCapResidenza(c.cap); setCittaResidenza(c.citta); setProvinciaResidenza(c.provincia); }} /></div>
                   <div className="grid grid-cols-3 gap-4">
                     <div><Label>CAP</Label><Input value={capResidenza} onChange={(e) => setCapResidenza(e.target.value)} maxLength={5} /></div>
                     <div><Label>Città</Label><Input value={cittaResidenza} onChange={(e) => setCittaResidenza(e.target.value)} /></div>
@@ -217,7 +218,7 @@ const ClientiList = () => {
                       </Select>
                     </div>
                   </div>
-                  <div><Label>Indirizzo Sede</Label><Input value={indirizzoSede} onChange={(e) => setIndirizzoSede(e.target.value)} /></div>
+                  <div><Label>Indirizzo Sede</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
                   <div className="grid grid-cols-3 gap-4">
                     <div><Label>CAP</Label><Input value={capSede} onChange={(e) => setCapSede(e.target.value)} maxLength={5} /></div>
                     <div><Label>Città</Label><Input value={cittaSede} onChange={(e) => setCittaSede(e.target.value)} /></div>
