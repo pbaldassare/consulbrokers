@@ -53,6 +53,7 @@ import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import GestionePolizzePage from "./pages/GestionePolizzePage";
 import AppendiciPolizzaPage from "./pages/AppendiciPolizzaPage";
 import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
+import DuplicazionePolizzaPage from "./pages/DuplicazionePolizzaPage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
