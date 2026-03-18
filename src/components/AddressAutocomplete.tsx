@@ -21,6 +21,12 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
 }
 
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
 
@@ -50,8 +56,8 @@ function loadGoogleMapsScript(): Promise<void> {
   return googleScriptPromise;
 }
 
-function extractAddressComponents(place: google.maps.places.PlaceResult): AddressComponents {
-  const components = place.address_components || [];
+function extractAddressComponents(place: any): AddressComponents {
+  const components: any[] = place.address_components || [];
   let street_number = "";
   let route = "";
   let cap = "";
@@ -59,7 +65,7 @@ function extractAddressComponents(place: google.maps.places.PlaceResult): Addres
   let provincia = "";
 
   for (const c of components) {
-    const types = c.types;
+    const types: string[] = c.types;
     if (types.includes("street_number")) street_number = c.long_name;
     else if (types.includes("route")) route = c.long_name;
     else if (types.includes("postal_code")) cap = c.long_name;
@@ -83,7 +89,7 @@ const AddressAutocomplete = ({
   disabled,
 }: AddressAutocompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const autocompleteRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -116,7 +122,6 @@ const AddressAutocomplete = ({
     initAutocomplete();
   }, [initAutocomplete]);
 
-  // Cleanup pac-container on unmount
   useEffect(() => {
     return () => {
       document.querySelectorAll(".pac-container").forEach((el) => el.remove());
