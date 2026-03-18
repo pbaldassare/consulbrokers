@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.seed-lookup-tables]
 verify_jwt = false
+
+[functions.seed-demo-data]
+verify_jwt = false
