@@ -49,6 +49,7 @@ import ImpostazioniPage from "./pages/ImpostazioniPage";
 import BackupExport from "./pages/BackupExport";
 import ManutenzionePage from "./pages/ManutenzionePage";
 import GestioneUtenti from "./pages/GestioneUtenti";
+import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -101,6 +102,7 @@ const App = () => (
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
               <Route path="/archivi/clienti" element={<ClientiList />} />
+              <Route path="/archivi/anagrafiche" element={<AnagraficheProfessionaliPage />} />
               <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
               <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
               <Route path="/prodotti" element={<RoleGuard allowedRoles={["admin"]}><ProdottiList /></RoleGuard>} />
