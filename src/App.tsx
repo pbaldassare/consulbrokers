@@ -31,6 +31,7 @@ import SinistriList from "./pages/SinistriList";
 import DiffProvvigioniPage from "./pages/DiffProvvigioniPage";
 import SospensionePolizzaPage from "./pages/SospensionePolizzaPage";
 import RiattivazionePolizzaPage from "./pages/RiattivazionePolizzaPage";
+import DocPrecontrattualePage from "./pages/DocPrecontrattualePage";
 import SinistroDetail from "./pages/SinistroDetail";
 import PrivacyConsensi from "./pages/PrivacyConsensi";
 import BancaImport from "./pages/BancaImport";
