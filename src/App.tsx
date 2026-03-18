@@ -110,6 +110,16 @@ const App = () => (
               {/* PORTAFOGLIO */}
               <Route path="/titoli" element={<TitoliList />} />
               <Route path="/titoli/:id" element={<TitoloDetail />} />
+              <Route path="/portafoglio/immissione" element={<PlaceholderPage title="Immissione Polizza" description="Immissione nuova polizza nel portafoglio" icon={FilePlus} />} />
+              <Route path="/portafoglio/appendici" element={<PlaceholderPage title="Appendici" description="Gestione appendici di polizza" icon={FileText} />} />
+              <Route path="/portafoglio/duplicazione" element={<PlaceholderPage title="Duplicazione Polizza" description="Duplicazione polizza esistente" icon={FileStack} />} />
+              <Route path="/portafoglio/conferma-emittende" element={<PlaceholderPage title="Conferma Emittende" description="Conferma emittende polizze" icon={FileCheck} />} />
+              <Route path="/portafoglio/rinnovi" element={<PlaceholderPage title="Rinnovi" description="Gestione rinnovi polizze" icon={CalendarCheck} />} />
+              <Route path="/portafoglio/storno" element={<PlaceholderPage title="Storno" description="Storno polizze" icon={ArrowRightLeft} />} />
+              <Route path="/portafoglio/diff-provvigionali" element={<PlaceholderPage title="Differenze Provvigionali" description="Gestione differenze provvigionali" icon={Percent} />} />
+              <Route path="/portafoglio/sospensione" element={<PlaceholderPage title="Sospensione" description="Sospensione polizze" icon={Clock} />} />
+              <Route path="/portafoglio/riattivazione" element={<PlaceholderPage title="Riattivazione" description="Riattivazione polizze sospese" icon={CheckSquare} />} />
+              <Route path="/portafoglio/doc-precontrattuale" element={<PlaceholderPage title="Doc. Precontrattuale" description="Documentazione precontrattuale" icon={ClipboardList} />} />
               <Route path="/portafoglio/estrazioni-stampe" element={<PlaceholderPage title="Estrazioni e Stampe" description="Estrazione dati e stampa polizze" icon={Printer} />} />
               <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
               <Route path="/portafoglio/regolazioni" element={<PlaceholderPage title="Regolazioni" description="Regolazioni premio polizze" icon={ClipboardList} />} />
