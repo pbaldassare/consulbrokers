@@ -54,6 +54,7 @@ import GestionePolizzePage from "./pages/GestionePolizzePage";
 import AppendiciPolizzaPage from "./pages/AppendiciPolizzaPage";
 import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
 import DuplicazionePolizzaPage from "./pages/DuplicazionePolizzaPage";
+import ConfermaEmittendePage from "./pages/ConfermaEmittendePage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
 import NotFound from "./pages/NotFound";
 import {
