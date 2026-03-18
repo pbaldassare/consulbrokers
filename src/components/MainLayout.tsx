@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
+import PageBreadcrumb from "./PageBreadcrumb";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 const MainLayout = () => {
@@ -18,6 +19,7 @@ const MainLayout = () => {
       >
         <Topbar onToggleSidebar={() => setCollapsed(!collapsed)} />
         <main className="p-6">
+          <PageBreadcrumb />
           <Outlet />
         </main>
       </div>
