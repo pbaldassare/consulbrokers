@@ -647,6 +647,30 @@ export type Database = {
           },
         ]
       }
+      filiali: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
       flussi_compagnia: {
         Row: {
           api_endpoint: string | null
@@ -714,7 +738,55 @@ export type Database = {
           },
         ]
       }
+      gruppi_compagnia: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
       gruppi_ramo: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      gruppi_statistici: {
         Row: {
           attivo: boolean
           codice: string
@@ -2188,6 +2260,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tipi_mandatario: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      tipi_rinnovo: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
       }
       titoli: {
         Row: {
