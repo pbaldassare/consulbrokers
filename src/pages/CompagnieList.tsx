@@ -171,7 +171,14 @@ const CompagnieList = () => {
               </TabsContent>
 
               <TabsContent value="sede" className="space-y-3 mt-4">
-                <Field label="Indirizzo" field="indirizzo" />
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Indirizzo</Label>
+                  <AddressAutocomplete
+                    value={form.indirizzo}
+                    onChange={(v) => setField("indirizzo", v)}
+                    onSelect={(c) => { setField("cap", c.cap); setField("comune", c.citta); setField("provincia", c.provincia); }}
+                  />
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <Field label="CAP" field="cap" />
                   <Field label="Comune" field="comune" />
