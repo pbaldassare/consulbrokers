@@ -284,7 +284,7 @@ const DocPrecontrattualePage = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="ind-rui">Indirizzo</Label>
-              <Input id="ind-rui" value={indirizzoRui} onChange={(e) => setIndirizzoRui(e.target.value)} />
+              <AddressAutocomplete id="ind-rui" value={indirizzoRui} onChange={setIndirizzoRui} onSelect={(c) => { setCapRui(c.cap); setCittaRui(c.citta); setProvinciaRui(c.provincia); }} />
             </div>
             <div className="flex gap-2">
               <div className="space-y-1.5 w-[80px]">
