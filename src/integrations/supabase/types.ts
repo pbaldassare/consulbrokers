@@ -714,6 +714,30 @@ export type Database = {
           },
         ]
       }
+      gruppi_ramo: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
       impostazioni_sistema: {
         Row: {
           chiave: string
@@ -1740,6 +1764,41 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rami: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          gruppo_ramo_id: string | null
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          gruppo_ramo_id?: string | null
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          gruppo_ramo_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rami_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
             referencedColumns: ["id"]
           },
         ]
