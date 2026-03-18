@@ -169,23 +169,39 @@ Deno.serve(async (req) => {
 
     // 6) Tipi Rinnovo
     const tipiRinn = [
-      { codice: "TAC", descrizione: "TACITO RINNOVO" },
-      { codice: "ANN", descrizione: "ANNUALE" },
-      { codice: "SEM", descrizione: "SEMESTRALE" },
-      { codice: "TRI", descrizione: "TRIMESTRALE" },
-      { codice: "MEN", descrizione: "MENSILE" },
-      { codice: "UNA", descrizione: "UNA TANTUM" },
-      { codice: "PLU", descrizione: "PLURIENNALE" },
-      { codice: "TEM", descrizione: "TEMPORANEA" },
+      { codice: "ANN-SCA", descrizione: "Annullare alla scadenza" },
+      { codice: "CES-RIS", descrizione: "Cessato rischio (vendita)" },
+      { codice: "COP-PRO", descrizione: "Copertura provvisoria" },
+      { codice: "EME-RIN", descrizione: "EMESSO RINNOVO" },
+      { codice: "POL-DIS", descrizione: "Polizza disdetta" },
+      { codice: "POL-SOS", descrizione: "Polizza Sostituita" },
+      { codice: "RIF-SCA", descrizione: "Riformare alla scadenza" },
+      { codice: "SVI", descrizione: "Svincolo" },
+      { codice: "TAC", descrizione: "Tacito rinnovo" },
+      { codice: "TAC-MOD", descrizione: "Tacito rinnovo (da modif)" },
+      { codice: "TRA-CBD", descrizione: "Trasferita a CBDigital" },
     ];
     const { error: errTR } = await supabase.from("tipi_rinnovo").upsert(tipiRinn, { onConflict: "codice" });
     if (errTR) throw errTR;
 
     // 7) Filiali
     const filiali = [
-      { codice: "SEDE", descrizione: "SEDE PRINCIPALE" },
-      { codice: "FIL1", descrizione: "FILIALE 1" },
-      { codice: "FIL2", descrizione: "FILIALE 2" },
+      { codice: "SEDE", descrizione: "Sede" },
+      { codice: "AMB-DEMO", descrizione: "AMBIENTE DEMO" },
+      { codice: "ASL-PUG", descrizione: "ASL PUGLIA" },
+      { codice: "ASP-SIC", descrizione: "ASP SICILIA" },
+      { codice: "CAVS-ME", descrizione: "CAVS MESSINA" },
+      { codice: "CM-NAP", descrizione: "Città Metropolitana di Napoli" },
+      { codice: "FIL-A1", descrizione: "Filiale A1" },
+      { codice: "SEDI-SI", descrizione: "Sedi Sicilia" },
+      { codice: "UF-PAR", descrizione: "Ufficio di Parma" },
+      { codice: "UF-CAU", descrizione: "Ufficio Cauzioni" },
+      { codice: "UF-BER", descrizione: "Ufficio di Bergamo" },
+      { codice: "UF-BOL", descrizione: "Ufficio di Bologna" },
+      { codice: "UF-CAM", descrizione: "Ufficio di Campobasso" },
+      { codice: "UF-CAT", descrizione: "Ufficio di Catania" },
+      { codice: "UF-FIR", descrizione: "Ufficio di Firenze" },
+      { codice: "UF-GEN", descrizione: "Ufficio di Genova" },
     ];
     const { error: errFI } = await supabase.from("filiali").upsert(filiali, { onConflict: "codice" });
     if (errFI) throw errFI;
