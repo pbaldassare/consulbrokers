@@ -116,7 +116,7 @@ const App = () => (
               <Route path="/titoli/:id" element={<TitoloDetail />} />
               <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
               <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
-              <Route path="/portafoglio/appendici" element={<PlaceholderPage title="Appendici" description="Gestione appendici di polizza" icon={FileText} />} />
+              <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
               <Route path="/portafoglio/duplicazione" element={<PlaceholderPage title="Duplicazione Polizza" description="Duplicazione polizza esistente" icon={FileStack} />} />
               <Route path="/portafoglio/conferma-emittende" element={<PlaceholderPage title="Conferma Emittende" description="Conferma emittende polizze" icon={FileCheck} />} />
               <Route path="/portafoglio/rinnovi" element={<PlaceholderPage title="Rinnovi" description="Gestione rinnovi polizze" icon={CalendarCheck} />} />
