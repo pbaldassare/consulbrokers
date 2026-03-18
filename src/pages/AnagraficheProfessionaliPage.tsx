@@ -195,12 +195,12 @@ const AnagraficheProfessionaliPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cognome</TableHead>
+                    <TableHead>Codice</TableHead>
+                    <TableHead>Nome Breve / Compagnia</TableHead>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Telefono</TableHead>
-                    <TableHead>Città</TableHead>
-                    <TableHead>Specializzazione</TableHead>
+                    <TableHead>Indirizzo</TableHead>
+                    <TableHead>Tel/Fax/Cell</TableHead>
+                    <TableHead>Attenzione di / Mail</TableHead>
                     <TableHead className="text-center">Attivo</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -210,19 +210,31 @@ const AnagraficheProfessionaliPage = () => {
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun {t.label.slice(0, -1).toLowerCase()} trovato</TableCell></TableRow>
                   ) : (
-                    filtered.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.cognome || "—"}</TableCell>
-                        <TableCell>{item.nome || "—"}</TableCell>
-                        <TableCell>{item.email || "—"}</TableCell>
-                        <TableCell>{item.telefono || item.cellulare || "—"}</TableCell>
-                        <TableCell>{item.citta || "—"}</TableCell>
-                        <TableCell>{item.specializzazione || "—"}</TableCell>
-                        <TableCell className="text-center">
-                          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    filtered.map((item) => {
+                      const compName = compagnie.find((c) => c.id === item.compagnia_id)?.nome;
+                      const addressParts = [item.indirizzo, [item.cap, item.citta].filter(Boolean).join("  "), item.provincia].filter(Boolean);
+                      const phoneParts = [item.telefono, item.fax ? `Fax: ${item.fax}` : null, item.cellulare ? `Cell: ${item.cellulare}` : null].filter(Boolean);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.codice || "—"}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">{item.nome_breve || "—"}</div>
+                            {compName && <div className="text-xs text-muted-foreground">{compName}</div>}
+                          </TableCell>
+                          <TableCell>{item.nome || [item.cognome, item.nome].filter(Boolean).join(" ") || "—"}</TableCell>
+                          <TableCell className="text-sm">{addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
+                          <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
+                          <TableCell>
+                            {item.referente_nome && <div className="font-medium text-sm">{item.referente_nome}</div>}
+                            {item.referente_email && <div className="text-xs text-muted-foreground">{item.referente_email}</div>}
+                            {!item.referente_nome && !item.referente_email && "—"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
