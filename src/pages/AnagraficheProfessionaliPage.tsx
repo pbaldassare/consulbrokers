@@ -191,58 +191,81 @@ const AnagraficheProfessionaliPage = () => {
           <Badge variant="secondary">{filtered.length} risultati</Badge>
         </div>
 
-        {TIPI.map((t) => (
-          <TabsContent key={t.value} value={t.value}>
-            <div className="border border-border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Codice</TableHead>
-                    <TableHead>Nome Breve / Compagnia</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Indirizzo</TableHead>
-                    <TableHead>Tel/Fax/Cell</TableHead>
-                    <TableHead>Attenzione di / Mail</TableHead>
-                    <TableHead className="text-center">Attivo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
-                  ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun {t.label.slice(0, -1).toLowerCase()} trovato</TableCell></TableRow>
-                  ) : (
-                    filtered.map((item) => {
-                      const compName = compagnie.find((c) => c.id === item.compagnia_id)?.nome;
-                      const addressParts = [item.indirizzo, [item.cap, item.citta].filter(Boolean).join("  "), item.provincia].filter(Boolean);
-                      const phoneParts = [item.telefono, item.fax ? `Fax: ${item.fax}` : null, item.cellulare ? `Cell: ${item.cellulare}` : null].filter(Boolean);
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.codice || "—"}</TableCell>
-                          <TableCell>
-                            <div className="font-medium">{item.nome_breve || "—"}</div>
-                            {compName && <div className="text-xs text-muted-foreground">{compName}</div>}
-                          </TableCell>
-                          <TableCell>{item.nome || [item.cognome, item.nome].filter(Boolean).join(" ") || "—"}</TableCell>
-                          <TableCell className="text-sm">{addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
-                          <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
-                          <TableCell>
-                            {item.referente_nome && <div className="font-medium text-sm">{item.referente_nome}</div>}
-                            {item.referente_email && <div className="text-xs text-muted-foreground">{item.referente_email}</div>}
-                            {!item.referente_nome && !item.referente_email && "—"}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-        ))}
+        {TIPI.map((t) => {
+          // Liquidatori: colonne legacy | Periti/Legali: colonne con Nominativo + Studio/Ufficio
+          const isPeritiLegali = t.value === "perito" || t.value === "legale";
+          const colCount = isPeritiLegali ? 7 : 7;
+
+          return (
+            <TabsContent key={t.value} value={t.value}>
+              <div className="border border-border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Codice / Nome Breve</TableHead>
+                      <TableHead>{isPeritiLegali ? "Nominativo" : "Nome"}</TableHead>
+                      {isPeritiLegali && <TableHead>Studio/Ufficio</TableHead>}
+                      <TableHead>{isPeritiLegali ? "Indirizzo / Località / Mail" : "Indirizzo"}</TableHead>
+                      <TableHead>Contatti</TableHead>
+                      {!isPeritiLegali && <TableHead>Attenzione di / Mail</TableHead>}
+                      {!isPeritiLegali && <TableHead>Compagnia</TableHead>}
+                      <TableHead className="text-center">Attivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+                    ) : filtered.length === 0 ? (
+                      <TableRow><TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">Nessun risultato trovato</TableCell></TableRow>
+                    ) : (
+                      filtered.map((item) => {
+                        const compName = compagnie.find((c) => c.id === item.compagnia_id)?.nome;
+                        const addressParts = [item.indirizzo, [item.cap, item.citta].filter(Boolean).join("  "), item.provincia].filter(Boolean);
+                        const phoneParts = [
+                          item.telefono ? `Tel ${item.telefono}` : null,
+                          item.fax ? `Fax ${item.fax}` : null,
+                          item.cellulare ? `Mob ${item.cellulare}` : null,
+                        ].filter(Boolean);
+
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div className="font-medium">{item.codice || "—"}</div>
+                              <div className="text-xs text-muted-foreground">{item.nome_breve || ""}</div>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {isPeritiLegali
+                                ? [item.cognome, item.nome].filter(Boolean).join(" ") || item.nome || "—"
+                                : item.nome || "—"}
+                            </TableCell>
+                            {isPeritiLegali && <TableCell>{item.studio_ufficio || "—"}</TableCell>}
+                            <TableCell className="text-sm">
+                              {addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : ""}
+                              {isPeritiLegali && item.email && <div className="text-xs text-muted-foreground mt-0.5">{item.email}</div>}
+                              {!addressParts.length && !(isPeritiLegali && item.email) && "—"}
+                            </TableCell>
+                            <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
+                            {!isPeritiLegali && (
+                              <TableCell>
+                                {item.referente_nome && <div className="font-medium text-sm">{item.referente_nome}</div>}
+                                {item.referente_email && <div className="text-xs text-muted-foreground">{item.referente_email}</div>}
+                                {!item.referente_nome && !item.referente_email && "—"}
+                              </TableCell>
+                            )}
+                            {!isPeritiLegali && <TableCell className="text-sm">{compName || "—"}</TableCell>}
+                            <TableCell className="text-center">
+                              <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       {/* Dialog Nuovo */}
