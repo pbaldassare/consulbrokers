@@ -97,7 +97,9 @@ const AnagraficheProfessionaliPage = () => {
     mutationFn: async () => {
       const payload: Record<string, unknown> = {
         tipo: activeTab,
+        codice: form.codice || null,
         nome: form.nome || null,
+        nome_breve: form.nome_breve || null,
         cognome: form.cognome || null,
         ragione_sociale: form.ragione_sociale || null,
         codice_fiscale: form.codice_fiscale || null,
@@ -114,6 +116,8 @@ const AnagraficheProfessionaliPage = () => {
         compagnia_id: form.compagnia_id || null,
         specializzazione: form.specializzazione || null,
         albo_numero: form.albo_numero || null,
+        referente_nome: form.referente_nome || null,
+        referente_email: form.referente_email || null,
         note: form.note || null,
         ufficio_id: profile?.ufficio_id || null,
       };
