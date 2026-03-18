@@ -130,7 +130,7 @@ const App = () => (
               <Route path="/portafoglio/storno" element={<StornoPolizzaPage />} />
               <Route path="/portafoglio/diff-provvigionali" element={<DiffProvvigioniPage />} />
               <Route path="/portafoglio/sospensione" element={<SospensionePolizzaPage />} />
-              <Route path="/portafoglio/riattivazione" element={<PlaceholderPage title="Riattivazione" description="Riattivazione polizze sospese" icon={CheckSquare} />} />
+              <Route path="/portafoglio/riattivazione" element={<RiattivazionePolizzaPage />} />
               <Route path="/portafoglio/doc-precontrattuale" element={<PlaceholderPage title="Doc. Precontrattuale" description="Documentazione precontrattuale" icon={ClipboardList} />} />
               <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
               <Route path="/portafoglio/estrazioni/per-cliente" element={<PlaceholderPage title="Portafoglio per Cliente" description="Estrazione portafoglio raggruppato per cliente" icon={Users} />} />
