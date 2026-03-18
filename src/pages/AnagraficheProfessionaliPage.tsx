@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, UserCheck, Scale, Briefcase, Eye, Users } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
