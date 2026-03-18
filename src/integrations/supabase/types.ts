@@ -40,6 +40,7 @@ export type Database = {
           referente_email: string | null
           referente_nome: string | null
           specializzazione: string | null
+          studio_ufficio: string | null
           telefono: string | null
           tipo: string
           ufficio_id: string | null
@@ -70,6 +71,7 @@ export type Database = {
           referente_email?: string | null
           referente_nome?: string | null
           specializzazione?: string | null
+          studio_ufficio?: string | null
           telefono?: string | null
           tipo: string
           ufficio_id?: string | null
@@ -100,6 +102,7 @@ export type Database = {
           referente_email?: string | null
           referente_nome?: string | null
           specializzazione?: string | null
+          studio_ufficio?: string | null
           telefono?: string | null
           tipo?: string
           ufficio_id?: string | null
