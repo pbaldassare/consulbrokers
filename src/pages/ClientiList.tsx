@@ -167,6 +167,7 @@ const ClientiList = () => {
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
+    scannedFilesRef.current = [];
   };
 
   const filtered = clienti.filter((c) => {
