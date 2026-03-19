@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ScanLine, Upload, Loader2, CheckCircle2, X } from "lucide-react";
 
-export type DocumentType = "carta_identita" | "tessera_sanitaria" | "visura_camerale" | "copia_polizza";
+export type DocumentType = "carta_identita" | "tessera_sanitaria" | "visura_camerale" | "copia_polizza" | "perizia" | "referto_medico";
 
 const DOC_LABELS: Record<DocumentType, string> = {
   carta_identita: "Carta d'Identità",
   tessera_sanitaria: "Tessera Sanitaria",
   visura_camerale: "Visura Camerale",
   copia_polizza: "Copia Polizza",
+  perizia: "Perizia",
+  referto_medico: "Referto Medico",
 };
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];

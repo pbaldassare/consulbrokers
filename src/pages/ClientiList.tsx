@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -400,7 +402,7 @@ const ClientiList = () => {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((c) => (
-                      <TableRow key={c.id}>
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.cognome || "—"}</TableCell>
                         <TableCell>{c.nome || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.codice_fiscale || "—"}</TableCell>
@@ -451,7 +453,7 @@ const ClientiList = () => {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((c) => (
-                      <TableRow key={c.id}>
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.codice_sdi || "—"}</TableCell>

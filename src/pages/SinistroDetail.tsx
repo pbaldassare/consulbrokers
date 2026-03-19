@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
+import AiDocumentScanner from "@/components/AiDocumentScanner";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -251,7 +252,69 @@ export default function SinistroDetail() {
           </Table>
         </TabsContent>
 
-        <TabsContent value="documenti">
+        <TabsContent value="documenti" className="space-y-4">
+          {/* AI Scanner per perizie e referti medici */}
+          {!isChiuso && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Scansione AI Documenti Sinistro</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  <AiDocumentScanner
+                    documentType="perizia"
+                    onFileReady={async (file) => {
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        const path = `sinistro/${id}/${Date.now()}_${file.name}`;
+                        const { error: uploadErr } = await supabase.storage.from("documenti_sinistri").upload(path, file);
+                        if (uploadErr) throw uploadErr;
+                        await supabase.from("documenti").insert({
+                          nome_file: file.name,
+                          path_storage: path,
+                          bucket_name: "documenti_sinistri",
+                          entita_tipo: "sinistro",
+                          entita_id: id!,
+                          caricato_da: user?.id,
+                          categoria: "perizia",
+                        });
+                        toast.success("Perizia salvata nei documenti");
+                        qc.invalidateQueries({ queryKey: ["documenti", "sinistro", id] });
+                      } catch (err: any) {
+                        toast.error("Errore salvataggio: " + err.message);
+                      }
+                    }}
+                    onExtracted={() => {}}
+                  />
+                  <AiDocumentScanner
+                    documentType="referto_medico"
+                    onFileReady={async (file) => {
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        const path = `sinistro/${id}/${Date.now()}_${file.name}`;
+                        const { error: uploadErr } = await supabase.storage.from("documenti_sinistri").upload(path, file);
+                        if (uploadErr) throw uploadErr;
+                        await supabase.from("documenti").insert({
+                          nome_file: file.name,
+                          path_storage: path,
+                          bucket_name: "documenti_sinistri",
+                          entita_tipo: "sinistro",
+                          entita_id: id!,
+                          caricato_da: user?.id,
+                          categoria: "referto_medico",
+                        });
+                        toast.success("Referto medico salvato nei documenti");
+                        qc.invalidateQueries({ queryKey: ["documenti", "sinistro", id] });
+                      } catch (err: any) {
+                        toast.error("Errore salvataggio: " + err.message);
+                      }
+                    }}
+                    onExtracted={() => {}}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <DocumentiTab entitaTipo="sinistro" entitaId={id!} bucketName="documenti_sinistri" />
         </TabsContent>
 

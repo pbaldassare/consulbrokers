@@ -87,6 +87,44 @@ const TOOL_SCHEMAS: Record<string, { name: string; description: string; paramete
       additionalProperties: false,
     },
   },
+  perizia: {
+    name: "extract_perizia",
+    description: "Extract data from an insurance expertise/appraisal report (Perizia)",
+    parameters: {
+      type: "object",
+      properties: {
+        numero_perizia: { type: "string", description: "Report number" },
+        data_perizia: { type: "string", description: "Report date YYYY-MM-DD" },
+        perito: { type: "string", description: "Expert/appraiser name" },
+        descrizione_danno: { type: "string", description: "Damage description" },
+        importo_stimato: { type: "number", description: "Estimated damage amount" },
+        esito: { type: "string", description: "Outcome/result of the appraisal" },
+        numero_sinistro: { type: "string", description: "Related claim number" },
+        note: { type: "string", description: "Additional notes" },
+      },
+      required: ["descrizione_danno"],
+      additionalProperties: false,
+    },
+  },
+  referto_medico: {
+    name: "extract_referto_medico",
+    description: "Extract data from a medical report (Referto Medico)",
+    parameters: {
+      type: "object",
+      properties: {
+        data_referto: { type: "string", description: "Report date YYYY-MM-DD" },
+        struttura: { type: "string", description: "Medical facility name" },
+        medico: { type: "string", description: "Doctor name" },
+        diagnosi: { type: "string", description: "Diagnosis" },
+        prognosi_giorni: { type: "number", description: "Prognosis in days" },
+        tipo_lesione: { type: "string", description: "Type of injury" },
+        invalidita_percentuale: { type: "number", description: "Disability percentage if specified" },
+        note: { type: "string", description: "Additional notes" },
+      },
+      required: ["diagnosi"],
+      additionalProperties: false,
+    },
+  },
 };
 
 const SYSTEM_PROMPTS: Record<string, string> = {
@@ -94,6 +132,8 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   tessera_sanitaria: `Sei un esperto in OCR di documenti italiani. Analizza questa immagine di una Tessera Sanitaria / Carta del Codice Fiscale e estrai i dati visibili. Il codice fiscale è il dato principale (16 caratteri alfanumerici). Restituisci le date in formato YYYY-MM-DD.`,
   visura_camerale: `Sei un esperto in analisi di documenti camerali italiani. Analizza questa Visura Camerale e estrai tutti i dati societari rilevanti: ragione sociale, P.IVA, codice fiscale, forma giuridica, sede legale, PEC, codice SDI, rappresentante legale. Restituisci le date in formato YYYY-MM-DD. La forma giuridica va normalizzata (SRL, SRLS, SPA, SNC, SAS, ditta_individuale, cooperativa, altro).`,
   copia_polizza: `Sei un esperto in documenti assicurativi italiani. Analizza questa copia di polizza assicurativa e estrai: numero polizza, compagnia, prodotto/ramo, contraente, codice fiscale, premio annuo, date di effetto e scadenza. Gli importi vanno in formato numerico (es: 1234.56). Le date in formato YYYY-MM-DD.`,
+  perizia: `Sei un esperto in documenti assicurativi italiani. Analizza questa perizia/relazione tecnica e estrai: numero perizia, data, perito incaricato, descrizione del danno, importo stimato, esito e eventuale numero sinistro di riferimento. Gli importi vanno in formato numerico. Le date in formato YYYY-MM-DD.`,
+  referto_medico: `Sei un esperto in documenti medico-legali italiani. Analizza questo referto medico e estrai: data referto, struttura sanitaria, medico, diagnosi, prognosi in giorni, tipo di lesione, eventuale percentuale di invalidità e note. Le date in formato YYYY-MM-DD.`,
 };
 
 Deno.serve(async (req) => {
