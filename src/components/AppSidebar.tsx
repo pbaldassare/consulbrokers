@@ -1,5 +1,7 @@
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
   Users,
@@ -9,7 +11,7 @@ import {
   BarChart3,
   Percent,
   Send,
-  Mail,
+  MessageSquare,
   Shield,
   Settings,
   FileStack,
@@ -40,10 +42,10 @@ import {
   ListChecks,
   DollarSign,
   CalendarCheck,
-   FileOutput,
-   Import,
-   ArrowRightLeft,
-   Database,
+  FileOutput,
+  Import,
+  ArrowRightLeft,
+  Database,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -67,6 +69,7 @@ interface SidebarSingleItem {
   icon: LucideIcon;
   permissionKey: string;
   adminOnly?: boolean;
+  hasBadge?: boolean;
 }
 
 type SidebarEntry =
@@ -77,9 +80,10 @@ const sidebarEntries: SidebarEntry[] = [
   // HOME
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
 
-  // PROSPECT & TRATTATIVE (standalone)
+  // PROSPECT, TRATTATIVE & COMUNICAZIONI (standalone, high visibility)
   { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Trattative", path: "/trattative", icon: ArrowRightLeft, permissionKey: "titoli" } },
+  { type: "single", item: { label: "Comunicazioni", path: "/comunicazioni", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
 
   // ARCHIVI
   {
@@ -220,7 +224,6 @@ const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Provvigioni", path: "/provvigioni", icon: Percent, permissionKey: "provvigioni" } },
   { type: "single", item: { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign, permissionKey: "provvigioni" } },
   { type: "single", item: { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" } },
-  { type: "single", item: { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
 ];
 
@@ -230,9 +233,36 @@ interface AppSidebarProps {
 }
 
 const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, user } = useAuth();
   const location = useLocation();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  // Fetch unread message count for the badge
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["chat_unread_count", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      // Get channels the user belongs to
+      const { data: channels } = await supabase
+        .from("chat_canali_membri")
+        .select("canale_id")
+        .eq("user_id", user.id);
+      if (!channels?.length) return 0;
+      const channelIds = channels.map((c) => c.canale_id);
+
+      // Count messages not sent by the user (simple unread proxy)
+      const { count } = await supabase
+        .from("chat_messaggi_interni")
+        .select("id", { count: "exact", head: true })
+        .in("canale_id", channelIds)
+        .neq("mittente_id", user.id)
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+      return count || 0;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30000,
+  });
 
   // Auto-open the group that contains the current route
   useEffect(() => {
@@ -307,7 +337,17 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                 }
               >
                 <item.icon className="w-[18px] h-[18px] shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && (
+                  <span className="flex-1">{item.label}</span>
+                )}
+                {/* Unread badge for Comunicazioni */}
+                {item.hasBadge && unreadCount > 0 && (
+                  <span className={`inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none ${
+                    collapsed ? "absolute top-0.5 right-0.5 w-4 h-4" : "ml-auto min-w-[18px] h-[18px] px-1"
+                  }`}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </RouterNavLink>
             );
           }
