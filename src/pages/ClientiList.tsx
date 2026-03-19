@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
