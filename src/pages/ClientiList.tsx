@@ -235,6 +235,7 @@ const ClientiList = () => {
                   />
                   <AiDocumentScanner
                     documentType="tessera_sanitaria"
+                    onFileReady={handleFileReady}
                     onExtracted={(data) => {
                       if (data.codice_fiscale) setCodiceFiscale((data.codice_fiscale as string).toUpperCase());
                       if (data.nome) setNome(data.nome as string);
