@@ -61,6 +61,7 @@ import GestioneUtenti from "./pages/GestioneUtenti";
 import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import GestionePolizzePage from "./pages/GestionePolizzePage";
 import TabelleBasePage from "./pages/TabelleBasePage";
+import GestioneUfficiPage from "./pages/GestioneUfficiPage";
 import AppendiciPolizzaPage from "./pages/AppendiciPolizzaPage";
 import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
 import DuplicazionePolizzaPage from "./pages/DuplicazionePolizzaPage";
