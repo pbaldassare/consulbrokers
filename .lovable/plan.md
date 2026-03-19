@@ -1,61 +1,42 @@
 
 
-## Piano: Creare E/C Clienti, E/C Compagnia, E/C Produttori sotto Contabilita
+## Piano: Gestione Uffici e Collegati
 
 ### Situazione attuale
-- Le 3 rotte `/contabilita/ec-clienti`, `/contabilita/ec-compagnia`, `/contabilita/ec-produttori` sono tutte PlaceholderPage
-- Esiste gia un E/C Clienti sotto Estrazioni (`/portafoglio/estrazioni/ec-clienti`) che possiamo usare come base
-- Il database ha gia tutte le tabelle necessarie: `titoli`, `clienti`, `compagnie`, `prodotti`, `provvigioni_generate`, `profiles`, `anagrafiche_professionali`
+- La tabella `uffici` esiste nel DB con campi: `id`, `nome_ufficio`, `codice_ufficio`, `attivo`, `created_at`
+- Non esiste nessuna pagina per gestire gli uffici
+- Molte tabelle hanno `ufficio_id` come FK: `profiles`, `clienti`, `titoli`, `movimenti_contabili`, `sinistri`, `anagrafiche_professionali`, `note_restituzione`, ecc.
+- La pagina Tabelle di Base gestisce lookup semplici (codice/descrizione) ma gli uffici hanno una struttura piu ricca
 
 ### Cosa creeremo
 
-#### 1. E/C Clienti (`src/pages/contabilita/ECClientiContabPage.tsx`)
-Ispirato allo screenshot del legacy — filtri specifici:
-- **Cliente**: ricerca per codice/nome (Combobox searchable)
-- **Specialista (A/E)**: select da `anagrafiche_professionali` tipo `account_executive`
-- **Produttore**: select da `profiles`
-- **Competenza dal/al**: date range (scadenza premio)
-- **Scadenza Premio dal/al**: date range
-- **Non pagati al**: data limite
-- **Valuta**: select (default EURO)
-- **Situazione**: radio Tutti / Scoperti / Garantiti
-- **Pag. diretto Compagnia**: radio Tutti / Si / No
-- **Ufficio**: select
+#### Pagina `GestioneUfficiPage` sotto Sistema
+Pagina standalone accessibile da sidebar (sezione Sistema, solo admin) con:
 
-Tabella risultati: elenco clienti con premi non pagati, raggruppati per cliente con totali dare/avere/saldo. Click per espandere dettaglio titoli.
-KPI cards: N. Clienti, Totale Dare, Totale Avere, Saldo.
-Export CSV + Stampa.
+**Vista principale — Lista Uffici**
+- Tabella con: Codice, Nome Ufficio, N. Utenti, N. Clienti, Stato (attivo/disattivo), Azioni
+- Bottone "Nuovo Ufficio"
+- I conteggi utenti/clienti saranno calcolati con query aggregate su `profiles` e `clienti`
 
-#### 2. E/C Compagnia (`src/pages/contabilita/ECCompagniaContabPage.tsx`)
-- Filtri: Compagnia (searchable), Periodo, Ufficio, Produttore
-- Tabella: compagnia, codice, localita, mail, valuta, lordo, provvigioni, altre operazioni
-- Raggruppamento per compagnia con totali premi lordi e provvigioni
-- KPI cards: N. Compagnie, Totale Lordo, Totale Provvigioni, Saldo
-- Export CSV
+**Dialog Crea/Modifica Ufficio**
+- Campi: Codice Ufficio, Nome Ufficio, Attivo (switch)
 
-#### 3. E/C Produttori (`src/pages/contabilita/ECProduttoriContabPage.tsx`)
-Ispirato allo screenshot "Estratto Conto Produttore":
-- Filtri: Produttori (Con Estratto Conto / Tutti), ricerca per nome, Data limite incassi
-- **Parametri di Stampa**: Descrizione Periodo, Data Estratto Conto, Data Valuta
-- Tabella: codice, nome produttore, localita, fax, mail, valuta, lordo, provvigioni, altre operazioni
-- Dati da `anagrafiche_professionali` tipo `account_executive` + `corrispondente` JOIN con `titoli` e `provvigioni_generate`
-- KPI cards: N. Produttori, Totale Lordo, Totale Provvigioni
-- Export CSV (dettaglio + riepilogo)
+**Dettaglio Ufficio (espandibile o click)**
+Al click su un ufficio, sezione dettaglio con tab:
+- **Utenti collegati**: lista `profiles` con `ufficio_id` = ufficio selezionato (nome, cognome, ruolo, email)
+- **Clienti collegati**: lista `clienti` con `ufficio_id` = ufficio selezionato (cognome, nome, tipo_cliente)
+- **Anagrafiche Professionali**: lista `anagrafiche_professionali` con `ufficio_id` = ufficio selezionato (tipo, cognome, nome)
+- **Impostazioni Ufficio**: link rapido alle impostazioni specifiche dell'ufficio
 
-#### 4. Aggiornare App.tsx
-Sostituire i 3 PlaceholderPage con i nuovi componenti.
-
-### Componente filtri
-Riutilizzeremo `EstrazioniFilters` esistente dove possibile, ma per E/C Clienti e E/C Produttori i filtri sono piu specifici (radio buttons Situazione, Pag. diretto, parametri di stampa), quindi ogni pagina avra i propri filtri inline usando gli stessi componenti UI (Combobox, Calendar, RadioGroup).
+Ogni tab mostrera conteggio e tabella read-only (la riassegnazione si fa dalle rispettive pagine di gestione).
 
 ### File coinvolti
 
 | Azione | File |
 |--------|------|
-| Creare | `src/pages/contabilita/ECClientiContabPage.tsx` |
-| Creare | `src/pages/contabilita/ECCompagniaContabPage.tsx` |
-| Creare | `src/pages/contabilita/ECProduttoriContabPage.tsx` |
-| Modificare | `src/App.tsx` — sostituire 3 PlaceholderPage |
+| Creare | `src/pages/GestioneUfficiPage.tsx` |
+| Modificare | `src/App.tsx` — aggiungere rotta `/gestione-uffici` |
+| Modificare | `src/components/AppSidebar.tsx` — aggiungere link in sezione Sistema |
 
-Nessuna migration necessaria — tutti i dati sono gia nel database.
+Nessuna migration necessaria — la tabella `uffici` e tutte le relazioni esistono gia.
 
