@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
+import DocumentalePage from "./pages/DocumentalePage";
 import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
 import CreaNuovoUtente from "./pages/CreaNuovoUtente";
 import ProspectList from "./pages/ProspectList";
