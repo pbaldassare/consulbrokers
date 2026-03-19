@@ -127,6 +127,7 @@ const ImmissionePolizzaPage = () => {
 
         <AiDocumentScanner
           documentType="copia_polizza"
+          onFileReady={(file) => { scannedFileRef.current = file; }}
           onExtracted={(data) => {
             if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
           }}
