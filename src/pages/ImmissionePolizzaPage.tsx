@@ -123,6 +123,13 @@ const ImmissionePolizzaPage = () => {
           Polizza
         </legend>
 
+        <AiDocumentScanner
+          documentType="copia_polizza"
+          onExtracted={(data) => {
+            if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
+          }}
+        />
+
         <div className="flex items-end gap-4 flex-wrap">
           <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
             <Label htmlFor="numero-polizza">Numero</Label>

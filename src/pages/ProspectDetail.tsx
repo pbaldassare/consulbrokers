@@ -23,6 +23,7 @@ import { it } from "date-fns/locale";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
+import AiDocumentScanner from "@/components/AiDocumentScanner";
 
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo" },
