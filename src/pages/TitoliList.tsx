@@ -32,6 +32,8 @@ const TitoliList = () => {
   // Form nuovo titolo
   const [numeroTitolo, setNumeroTitolo] = useState("");
   const [clienteId, setClienteId] = useState("");
+  const [clienteAnagraficaId, setClienteAnagraficaId] = useState("");
+  const [clienteAnagraficaSearch, setClienteAnagraficaSearch] = useState("");
   const [prodottoId, setProdottoId] = useState("");
   const [ufficioId, setUfficioId] = useState("");
   const [produttoreId, setProduttoreId] = useState("");
