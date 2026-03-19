@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
+import AiDocumentScanner from "@/components/AiDocumentScanner";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -121,6 +122,13 @@ const ImmissionePolizzaPage = () => {
         <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">
           Polizza
         </legend>
+
+        <AiDocumentScanner
+          documentType="copia_polizza"
+          onExtracted={(data) => {
+            if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
+          }}
+        />
 
         <div className="flex items-end gap-4 flex-wrap">
           <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">

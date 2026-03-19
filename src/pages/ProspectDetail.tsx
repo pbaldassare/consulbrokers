@@ -23,6 +23,7 @@ import { it } from "date-fns/locale";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
+import AiDocumentScanner from "@/components/AiDocumentScanner";
 
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo" },
@@ -224,7 +225,25 @@ const ProspectDetail = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Info card */}
           <Card className="p-5 space-y-4">
-            <h3 className="font-semibold text-foreground">Dati Anagrafici</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Dati Anagrafici</h3>
+              <AiDocumentScanner
+                documentType="carta_identita"
+                label="Scansiona Documento"
+                onExtracted={async (data) => {
+                  const updates: Record<string, unknown> = {};
+                  if (data.nome) updates.nome = data.nome;
+                  if (data.cognome) updates.cognome = data.cognome;
+                  if (data.codice_fiscale) updates.note = `CF: ${data.codice_fiscale}`;
+                  if (Object.keys(updates).length > 0) {
+                    updates.updated_at = new Date().toISOString();
+                    await supabase.from("prospect").update(updates).eq("id", id!);
+                    queryClient.invalidateQueries({ queryKey: ["prospect", id] });
+                    toast({ title: "Dati aggiornati dal documento" });
+                  }
+                }}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 text-muted-foreground" />
