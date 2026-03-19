@@ -65,6 +65,11 @@ import ConfermaEmittendePage from "./pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "./pages/RinnoviPolizzaPage";
 import StornoPolizzaPage from "./pages/StornoPolizzaPage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
+import PortafoglioPerClientePage from "./pages/estrazioni/PortafoglioPerClientePage";
+import PortafoglioPerCompagniaPage from "./pages/estrazioni/PortafoglioPerCompagniaPage";
+import PremiProvvigioniPage from "./pages/estrazioni/PremiProvvigioniPage";
+import PremiScopertiGarantitiPage from "./pages/estrazioni/PremiScopertiGarantitiPage";
+import ECClientiPage from "./pages/estrazioni/ECClientiPage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
