@@ -1,42 +1,31 @@
 
 
-## Piano: Gestione Uffici e Collegati
+## Piano: Collegare Produttori agli Uffici
 
 ### Situazione attuale
-- La tabella `uffici` esiste nel DB con campi: `id`, `nome_ufficio`, `codice_ufficio`, `attivo`, `created_at`
-- Non esiste nessuna pagina per gestire gli uffici
-- Molte tabelle hanno `ufficio_id` come FK: `profiles`, `clienti`, `titoli`, `movimenti_contabili`, `sinistri`, `anagrafiche_professionali`, `note_restituzione`, ecc.
-- La pagina Tabelle di Base gestisce lookup semplici (codice/descrizione) ma gli uffici hanno una struttura piu ricca
+- La tabella `anagrafiche_professionali` ha gia il campo `ufficio_id` ma viene assegnato automaticamente dall'utente loggato (`profile?.ufficio_id`) senza possibilita di sceglierlo
+- La pagina `GestioneUfficiPage` mostra le anagrafiche collegate ma non ha un tab dedicato ai "Produttori" (AE + Corrispondenti)
+- La pagina `AnagraficheProfessionaliPage` non mostra un selettore ufficio nel form di creazione
 
-### Cosa creeremo
+### Cosa faremo
 
-#### Pagina `GestioneUfficiPage` sotto Sistema
-Pagina standalone accessibile da sidebar (sezione Sistema, solo admin) con:
+#### 1. Aggiungere selettore Ufficio nel form AnagraficheProfessionali
+Nel dialog di creazione anagrafica, aggiungere un campo `Select` "Ufficio" obbligatorio per i tipi `account_executive` e `corrispondente`. L'admin potra scegliere qualsiasi ufficio; gli utenti ufficio vedranno solo il proprio (preselezionato).
 
-**Vista principale — Lista Uffici**
-- Tabella con: Codice, Nome Ufficio, N. Utenti, N. Clienti, Stato (attivo/disattivo), Azioni
-- Bottone "Nuovo Ufficio"
-- I conteggi utenti/clienti saranno calcolati con query aggregate su `profiles` e `clienti`
+#### 2. Aggiungere tab "Produttori" in GestioneUfficiPage
+Nel dettaglio ufficio, aggiungere un quarto tab "Produttori" che mostra le anagrafiche di tipo `account_executive` e `corrispondente` collegate a quell'ufficio, con possibilita di:
+- Vedere codice, nome, tipo, sigla, email
+- Riassegnare un produttore a un altro ufficio (select inline)
 
-**Dialog Crea/Modifica Ufficio**
-- Campi: Codice Ufficio, Nome Ufficio, Attivo (switch)
+#### 3. Aggiornare i conteggi nella lista uffici
+Aggiungere una colonna "N. Produttori" nella tabella principale degli uffici, contando le anagrafiche di tipo AE + corrispondente.
 
-**Dettaglio Ufficio (espandibile o click)**
-Al click su un ufficio, sezione dettaglio con tab:
-- **Utenti collegati**: lista `profiles` con `ufficio_id` = ufficio selezionato (nome, cognome, ruolo, email)
-- **Clienti collegati**: lista `clienti` con `ufficio_id` = ufficio selezionato (cognome, nome, tipo_cliente)
-- **Anagrafiche Professionali**: lista `anagrafiche_professionali` con `ufficio_id` = ufficio selezionato (tipo, cognome, nome)
-- **Impostazioni Ufficio**: link rapido alle impostazioni specifiche dell'ufficio
-
-Ogni tab mostrera conteggio e tabella read-only (la riassegnazione si fa dalle rispettive pagine di gestione).
-
-### File coinvolti
+### Dettagli tecnici
 
 | Azione | File |
 |--------|------|
-| Creare | `src/pages/GestioneUfficiPage.tsx` |
-| Modificare | `src/App.tsx` — aggiungere rotta `/gestione-uffici` |
-| Modificare | `src/components/AppSidebar.tsx` — aggiungere link in sezione Sistema |
+| Modificare | `src/pages/AnagraficheProfessionaliPage.tsx` — aggiungere Select ufficio nel form, rendere obbligatorio per AE/corrispondente |
+| Modificare | `src/pages/GestioneUfficiPage.tsx` — tab Produttori nel dettaglio, colonna N. Produttori nella lista, riassegnazione ufficio |
 
-Nessuna migration necessaria — la tabella `uffici` e tutte le relazioni esistono gia.
+Nessuna migration necessaria — `ufficio_id` esiste gia in `anagrafiche_professionali`.
 
