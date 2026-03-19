@@ -130,6 +130,21 @@ const TitoloDetail = () => {
         <Card>
           <CardHeader><CardTitle>Soggetti</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
+            {t.cliente_anagrafica && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Cliente Anagrafica</span>
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-sm"
+                  onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)}
+                >
+                  {t.cliente_anagrafica.tipo_cliente === "privato"
+                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                    : t.cliente_anagrafica.ragione_sociale || "—"}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground">Cliente</span><span>{t.cliente ? `${t.cliente.nome} ${t.cliente.cognome}` : "—"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Produttore</span><span>{t.produttore ? `${t.produttore.nome} ${t.produttore.cognome}` : "—"}</span></div>
             {t.note && <div className="pt-2 border-t"><span className="text-muted-foreground">Note:</span> {t.note}</div>}
