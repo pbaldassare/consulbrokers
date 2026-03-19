@@ -173,7 +173,57 @@ const ClientiList = () => {
                     <SelectItem value="azienda">Azienda</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+               </div>
+
+              {/* AI Document Scanner */}
+              {tipoCliente === "privato" ? (
+                <div className="flex flex-wrap gap-2">
+                  <AiDocumentScanner
+                    documentType="carta_identita"
+                    onExtracted={(data) => {
+                      if (data.nome) setNome(data.nome as string);
+                      if (data.cognome) setCognome(data.cognome as string);
+                      if (data.codice_fiscale) setCodiceFiscale((data.codice_fiscale as string).toUpperCase());
+                      if (data.data_nascita) setDataNascita(data.data_nascita as string);
+                      if (data.luogo_nascita) setLuogoNascita(data.luogo_nascita as string);
+                      if (data.indirizzo) setIndirizzoResidenza(data.indirizzo as string);
+                      if (data.cap) setCapResidenza(data.cap as string);
+                      if (data.citta) setCittaResidenza(data.citta as string);
+                      if (data.provincia) setProvinciaResidenza((data.provincia as string).toUpperCase());
+                    }}
+                  />
+                  <AiDocumentScanner
+                    documentType="tessera_sanitaria"
+                    onExtracted={(data) => {
+                      if (data.codice_fiscale) setCodiceFiscale((data.codice_fiscale as string).toUpperCase());
+                      if (data.nome) setNome(data.nome as string);
+                      if (data.cognome) setCognome(data.cognome as string);
+                      if (data.data_nascita) setDataNascita(data.data_nascita as string);
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <AiDocumentScanner
+                    documentType="visura_camerale"
+                    onExtracted={(data) => {
+                      if (data.ragione_sociale) setRagioneSociale(data.ragione_sociale as string);
+                      if (data.partita_iva) setPartitaIva(data.partita_iva as string);
+                      if (data.codice_fiscale) setCodiceFiscaleAzienda((data.codice_fiscale as string).toUpperCase());
+                      if (data.codice_sdi) setCodiceSdi(data.codice_sdi as string);
+                      if (data.forma_giuridica) {
+                        const fg = (data.forma_giuridica as string).toLowerCase().replace(/\s/g, "_");
+                        setFormaGiuridica(fg);
+                      }
+                      if (data.indirizzo_sede) setIndirizzoSede(data.indirizzo_sede as string);
+                      if (data.cap) setCapSede(data.cap as string);
+                      if (data.citta) setCittaSede(data.citta as string);
+                      if (data.provincia) setProvinciaSede((data.provincia as string).toUpperCase());
+                      if (data.pec) setPec(data.pec as string);
+                    }}
+                  />
+                </div>
+              )}
 
               {tipoCliente === "privato" ? (
                 <>
