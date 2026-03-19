@@ -19,6 +19,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 interface AiDocumentScannerProps {
   documentType: DocumentType;
   onExtracted: (data: Record<string, unknown>) => void;
+  onFileReady?: (file: File, documentType: DocumentType) => void;
   label?: string;
   className?: string;
 }
