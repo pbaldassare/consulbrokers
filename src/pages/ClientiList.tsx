@@ -248,6 +248,7 @@ const ClientiList = () => {
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="visura_camerale"
+                    onFileReady={handleFileReady}
                     onExtracted={(data) => {
                       if (data.ragione_sociale) setRagioneSociale(data.ragione_sociale as string);
                       if (data.partita_iva) setPartitaIva(data.partita_iva as string);
