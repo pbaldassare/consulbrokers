@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Upload, Download, Trash2, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -26,10 +27,35 @@ const BUCKET_MAP: Record<string, string> = {
   rimessa: "documenti_generali",
 };
 
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "bmp"];
+
+function DocumentThumbnail({ bucketName, pathStorage, nomeFile }: { bucketName: string; pathStorage: string; nomeFile: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const ext = nomeFile.split(".").pop()?.toLowerCase() || "";
+  const isImage = IMAGE_EXTENSIONS.includes(ext);
+  const isPdf = ext === "pdf";
+
+  useEffect(() => {
+    if (!isImage) return;
+    supabase.storage.from(bucketName).createSignedUrl(pathStorage, 3600).then(({ data }) => {
+      if (data?.signedUrl) setUrl(data.signedUrl);
+    });
+  }, [bucketName, pathStorage, isImage]);
+
+  if (isImage && url) {
+    return <img src={url} alt={nomeFile} className="w-10 h-10 rounded object-cover border border-border" />;
+  }
+  if (isPdf) {
+    return <FileText className="h-8 w-8 text-red-500" />;
+  }
+  return <FileText className="h-8 w-8 text-muted-foreground" />;
+}
+
 export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnly = false }: DocumentiTabProps) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
 
   const { data: documenti } = useQuery({
@@ -45,7 +71,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
     },
   });
 
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,10 +85,8 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const path = `${entitaTipo}/${entitaId}/${Date.now()}_${file.name}`;
-
       const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, file);
       if (uploadErr) throw uploadErr;
-
       const { error: insertErr } = await supabase.from("documenti").insert({
         nome_file: file.name,
         path_storage: path,
@@ -72,7 +96,6 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
         caricato_da: user?.id,
       });
       if (insertErr) throw insertErr;
-
       await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: entitaId, dettagli_json: { nome_file: file.name } });
       toast.success("Documento caricato");
       qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
@@ -120,6 +143,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-16"></TableHead>
             <TableHead>Nome File</TableHead>
             <TableHead>Caricato da</TableHead>
             <TableHead>Data</TableHead>
@@ -130,7 +154,10 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
         <TableBody>
           {documenti?.map((doc: any) => (
             <TableRow key={doc.id}>
-              <TableCell className="font-medium flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" />{doc.nome_file}</TableCell>
+              <TableCell>
+                <DocumentThumbnail bucketName={doc.bucket_name} pathStorage={doc.path_storage} nomeFile={doc.nome_file} />
+              </TableCell>
+              <TableCell className="font-medium">{doc.nome_file}</TableCell>
               <TableCell>{doc.profiles ? `${doc.profiles.nome} ${doc.profiles.cognome}` : "—"}</TableCell>
               <TableCell>{format(new Date(doc.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
               <TableCell>
@@ -138,13 +165,33 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
               </TableCell>
               <TableCell className="flex gap-1">
                 <Button size="icon" variant="ghost" onClick={() => handleDownload(doc)}><Download className="h-4 w-4" /></Button>
-                {!readOnly && <Button size="icon" variant="ghost" onClick={() => handleDelete(doc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                {!readOnly && <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(doc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </TableCell>
             </TableRow>
           ))}
-          {!documenti?.length && <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
+          {!documenti?.length && <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Nessun documento</TableCell></TableRow>}
         </TableBody>
       </Table>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare il documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare "{deleteTarget?.nome_file}"? L'azione è irreversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { handleDelete(deleteTarget); setDeleteTarget(null); }}
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
