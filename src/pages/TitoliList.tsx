@@ -217,7 +217,8 @@ const TitoliList = () => {
   });
 
   const resetForm = () => {
-    setNumeroTitolo(""); setClienteId(""); setProdottoId(""); setUfficioId("");
+    setNumeroTitolo(""); setClienteId(""); setClienteAnagraficaId(""); setClienteAnagraficaSearch("");
+    setProdottoId(""); setUfficioId("");
     setProduttoreId(""); setPremioLordo(""); setImportoIncassato(""); setDataIncasso("");
     setStato("creato"); setNote("");
   };
