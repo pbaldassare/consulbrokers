@@ -65,6 +65,11 @@ import ConfermaEmittendePage from "./pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "./pages/RinnoviPolizzaPage";
 import StornoPolizzaPage from "./pages/StornoPolizzaPage";
 import EstrazioniStampePage from "./pages/EstrazioniStampePage";
+import PortafoglioPerClientePage from "./pages/estrazioni/PortafoglioPerClientePage";
+import PortafoglioPerCompagniaPage from "./pages/estrazioni/PortafoglioPerCompagniaPage";
+import PremiProvvigioniPage from "./pages/estrazioni/PremiProvvigioniPage";
+import PremiScopertiGarantitiPage from "./pages/estrazioni/PremiScopertiGarantitiPage";
+import ECClientiPage from "./pages/estrazioni/ECClientiPage";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -138,11 +143,11 @@ const App = () => (
               <Route path="/portafoglio/riattivazione" element={<RiattivazionePolizzaPage />} />
               <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
               <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
-              <Route path="/portafoglio/estrazioni/per-cliente" element={<PlaceholderPage title="Portafoglio per Cliente" description="Estrazione portafoglio raggruppato per cliente" icon={Users} />} />
-              <Route path="/portafoglio/estrazioni/per-compagnia" element={<PlaceholderPage title="Portafoglio per Compagnia" description="Estrazione portafoglio per compagnia" icon={Building2} />} />
-              <Route path="/portafoglio/estrazioni/premi-provvigioni" element={<PlaceholderPage title="Premi e Provvigioni" description="Riepilogo premi e provvigioni" icon={Percent} />} />
-              <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PlaceholderPage title="Premi Scoperti e Garantiti" description="Report premi scoperti e garantiti" icon={Shield} />} />
-              <Route path="/portafoglio/estrazioni/ec-clienti" element={<PlaceholderPage title="E/C Clienti" description="Estratto conto clienti" icon={FileText} />} />
+              <Route path="/portafoglio/estrazioni/per-cliente" element={<PortafoglioPerClientePage />} />
+              <Route path="/portafoglio/estrazioni/per-compagnia" element={<PortafoglioPerCompagniaPage />} />
+              <Route path="/portafoglio/estrazioni/premi-provvigioni" element={<PremiProvvigioniPage />} />
+              <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PremiScopertiGarantitiPage />} />
+              <Route path="/portafoglio/estrazioni/ec-clienti" element={<ECClientiPage />} />
               <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
               <Route path="/portafoglio/regolazioni" element={<PlaceholderPage title="Regolazioni" description="Regolazioni premio polizze" icon={ClipboardList} />} />
               <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
