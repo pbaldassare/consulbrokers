@@ -54,7 +54,6 @@ interface Anagrafica {
   note: string | null;
   attivo: boolean | null;
   ufficio_id: string | null;
-  // Account Executive fields
   sigla: string | null;
   banca_riga1: string | null;
   banca_riga2: string | null;
@@ -64,7 +63,6 @@ interface Anagrafica {
   numero_rui: string | null;
   sezione_rui: string | null;
   annullato: boolean | null;
-  // Corrispondenti fields
   percentuale_base: number | null;
   codice_fornitore: string | null;
   percentuale_ra: number | null;
@@ -81,6 +79,7 @@ const emptyForm = {
   indirizzo: "", cap: "", citta: "", provincia: "",
   compagnia_id: "", specializzazione: "", albo_numero: "",
   referente_nome: "", referente_email: "", studio_ufficio: "", note: "",
+  ufficio_id: "",
   // AE
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
   nome_rui: "", iscrizione_rui: "", numero_rui: "", sezione_rui: "",
@@ -119,8 +118,28 @@ const AnagraficheProfessionaliPage = () => {
     },
   });
 
+  const { data: ufficiList = [] } = useQuery({
+    queryKey: ["uffici_select"],
+    queryFn: async () => {
+      const { data } = await supabase.from("uffici" as any).select("id, nome_ufficio, codice_ufficio").eq("attivo", true).order("nome_ufficio");
+      return (data || []) as unknown as { id: string; nome_ufficio: string; codice_ufficio: string }[];
+    },
+  });
+
+  const isAE = activeTab === "account_executive";
+  const isCorr = activeTab === "corrispondente";
+  const isProduttore = isAE || isCorr;
+
   const createMutation = useMutation({
     mutationFn: async () => {
+      const resolvedUfficioId = isProduttore
+        ? (form.ufficio_id || profile?.ufficio_id || null)
+        : (profile?.ufficio_id || null);
+
+      if (isProduttore && !resolvedUfficioId) {
+        throw new Error("Selezionare un ufficio per il produttore");
+      }
+
       const payload: Record<string, unknown> = {
         tipo: activeTab,
         codice: form.codice || null,
@@ -146,8 +165,7 @@ const AnagraficheProfessionaliPage = () => {
         referente_email: form.referente_email || null,
         studio_ufficio: form.studio_ufficio || null,
         note: form.note || null,
-        ufficio_id: profile?.ufficio_id || null,
-        // AE fields
+        ufficio_id: resolvedUfficioId,
         sigla: form.sigla || null,
         banca_riga1: form.banca_riga1 || null,
         banca_riga2: form.banca_riga2 || null,
@@ -156,7 +174,6 @@ const AnagraficheProfessionaliPage = () => {
         iscrizione_rui: form.iscrizione_rui || null,
         numero_rui: form.numero_rui || null,
         sezione_rui: form.sezione_rui || null,
-        // Corrispondenti fields
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
@@ -205,8 +222,6 @@ const AnagraficheProfessionaliPage = () => {
 
   const tipoLabel = TIPI.find((t) => t.value === activeTab)?.label || "";
   const isPeritiLegali = activeTab === "perito" || activeTab === "legale";
-  const isAE = activeTab === "account_executive";
-  const isCorr = activeTab === "corrispondente";
   const isLiquidatore = activeTab === "liquidatore";
 
   const renderTableHeaders = () => {
@@ -249,7 +264,6 @@ const AnagraficheProfessionaliPage = () => {
         </TableRow>
       );
     }
-    // Liquidatori (default)
     return (
       <TableRow>
         <TableHead>Codice / Nome Breve</TableHead>
@@ -399,102 +413,130 @@ const AnagraficheProfessionaliPage = () => {
     );
   };
 
+  const renderUfficioSelect = () => {
+    if (!isProduttore) return null;
+    const isAdminUser = profile?.ruolo === "admin";
+    return (
+      <div className="mb-4">
+        <Label>Ufficio *</Label>
+        <Select
+          value={form.ufficio_id || (profile?.ufficio_id ?? "")}
+          onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
+          disabled={!isAdminUser}
+        >
+          <SelectTrigger><SelectValue placeholder="Seleziona ufficio..." /></SelectTrigger>
+          <SelectContent>
+            {ufficiList.map((u) => (
+              <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
   const renderFormFields = () => {
     if (isAE) {
       return (
-        <Tabs defaultValue="dati">
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="dati">Dati</TabsTrigger>
-            <TabsTrigger value="rui">RUI & Banca</TabsTrigger>
-            <TabsTrigger value="contatti">Contatti & Note</TabsTrigger>
-          </TabsList>
-          <TabsContent value="dati" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
-              <div><Label>Sigla</Label><Input value={form.sigla} onChange={(e) => setForm({ ...form, sigla: e.target.value })} /></div>
-              <div className="col-span-2"><Label>Descrizione (Ragione Sociale)</Label><Input value={form.ragione_sociale} onChange={(e) => setForm({ ...form, ragione_sociale: e.target.value })} /></div>
-              <div><Label>Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
-              <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-            </div>
-          </TabsContent>
-          <TabsContent value="rui" className="space-y-3 mt-3">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Dati RUI</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
-              <div><Label>Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
-              <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
-              <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
-            </div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Dati Bancari</p>
-            <div className="grid grid-cols-1 gap-3">
-              <div><Label>Banca (riga 1)</Label><Input value={form.banca_riga1} onChange={(e) => setForm({ ...form, banca_riga1: e.target.value })} /></div>
-              <div><Label>Banca (riga 2)</Label><Input value={form.banca_riga2} onChange={(e) => setForm({ ...form, banca_riga2: e.target.value })} /></div>
-              <div><Label>Banca (riga 3)</Label><Input value={form.banca_riga3} onChange={(e) => setForm({ ...form, banca_riga3: e.target.value })} /></div>
-            </div>
-          </TabsContent>
-          <TabsContent value="contatti" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
-              <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            </div>
-            <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-          </TabsContent>
-        </Tabs>
+        <>
+          {renderUfficioSelect()}
+          <Tabs defaultValue="dati">
+            <TabsList className="grid grid-cols-3">
+              <TabsTrigger value="dati">Dati</TabsTrigger>
+              <TabsTrigger value="rui">RUI & Banca</TabsTrigger>
+              <TabsTrigger value="contatti">Contatti & Note</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dati" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
+                <div><Label>Sigla</Label><Input value={form.sigla} onChange={(e) => setForm({ ...form, sigla: e.target.value })} /></div>
+                <div className="col-span-2"><Label>Descrizione (Ragione Sociale)</Label><Input value={form.ragione_sociale} onChange={(e) => setForm({ ...form, ragione_sociale: e.target.value })} /></div>
+                <div><Label>Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
+                <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="rui" className="space-y-3 mt-3">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Dati RUI</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
+                <div><Label>Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
+                <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Dati Bancari</p>
+              <div className="grid grid-cols-1 gap-3">
+                <div><Label>Banca (riga 1)</Label><Input value={form.banca_riga1} onChange={(e) => setForm({ ...form, banca_riga1: e.target.value })} /></div>
+                <div><Label>Banca (riga 2)</Label><Input value={form.banca_riga2} onChange={(e) => setForm({ ...form, banca_riga2: e.target.value })} /></div>
+                <div><Label>Banca (riga 3)</Label><Input value={form.banca_riga3} onChange={(e) => setForm({ ...form, banca_riga3: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="contatti" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
+                <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              </div>
+              <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
+            </TabsContent>
+          </Tabs>
+        </>
       );
     }
 
     if (isCorr) {
       return (
-        <Tabs defaultValue="dati">
-          <TabsList className="grid grid-cols-4">
-            <TabsTrigger value="dati">Dati</TabsTrigger>
-            <TabsTrigger value="indirizzo">Indirizzo</TabsTrigger>
-            <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
-            <TabsTrigger value="banca">Banca</TabsTrigger>
-          </TabsList>
-          <TabsContent value="dati" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
-              <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
-              <div className="col-span-2"><Label>Descrizione (Ragione Sociale)</Label><Input value={form.ragione_sociale} onChange={(e) => setForm({ ...form, ragione_sociale: e.target.value })} /></div>
-              <div><Label>Azienda o Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
-              <div><Label>Segue o Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
-              <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
-              <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div><Label>RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
-            </div>
-          </TabsContent>
-          <TabsContent value="indirizzo" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
-              <div><Label>Località</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
-              <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
-              <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
-            </div>
-            <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-          </TabsContent>
-          <TabsContent value="provvigioni" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>% Base</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
-              <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
-            </div>
-          </TabsContent>
-          <TabsContent value="banca" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
-              <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
-              <div className="col-span-2"><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
-              <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
-            </div>
-          </TabsContent>
-        </Tabs>
+        <>
+          {renderUfficioSelect()}
+          <Tabs defaultValue="dati">
+            <TabsList className="grid grid-cols-4">
+              <TabsTrigger value="dati">Dati</TabsTrigger>
+              <TabsTrigger value="indirizzo">Indirizzo</TabsTrigger>
+              <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
+              <TabsTrigger value="banca">Banca</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dati" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
+                <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
+                <div className="col-span-2"><Label>Descrizione (Ragione Sociale)</Label><Input value={form.ragione_sociale} onChange={(e) => setForm({ ...form, ragione_sociale: e.target.value })} /></div>
+                <div><Label>Azienda o Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
+                <div><Label>Segue o Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
+                <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
+                <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                <div><Label>RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="indirizzo" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
+                <div><Label>Località</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
+                <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
+                <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
+              </div>
+              <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
+            </TabsContent>
+            <TabsContent value="provvigioni" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>% Base</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="banca" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
+                <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
+                <div className="col-span-2"><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
+                <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
       );
     }
 
-    // Liquidatori, Periti, Legali — form originale
+    // Liquidatori, Periti, Legali
     return (
       <Tabs defaultValue="dati">
         <TabsList className="grid grid-cols-3">
@@ -601,7 +643,6 @@ const AnagraficheProfessionaliPage = () => {
         ))}
       </Tabs>
 
-      {/* Dialog Nuovo */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
