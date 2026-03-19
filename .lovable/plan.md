@@ -1,84 +1,51 @@
 
 
-## Piano: Chat Interna Aziendale Strutturata
+## Piano: Restyling Grafico Area CFO
 
-### Situazione attuale
-- Esiste solo `ChatTab` usata come tab contestuale (su sinistri, titoli, prospect) con `chat_messaggi` legata a `entita_tipo`/`entita_id`
-- La tabella `chat_messaggi` ha: `id`, `entita_tipo`, `entita_id`, `mittente_id`, `messaggio`, `letto`, `created_at`
-- Ruoli disponibili: `admin`, `ufficio`, `produttore`, `contabilita`, `cfo`, `cliente`
-- La rotta `/comunicazioni` e un PlaceholderPage
-- La tabella `notifiche` esiste gia con `destinatario_id`, `letto`, `priorita`, `tipo`
+### Problemi attuali
+- KPI cards troppo compresse in 7 colonne, testo piccolo e difficile da leggere
+- Filtri senza bordi visivi chiari, layout piatto
+- Grafici senza padding/spacing adeguato
+- Mancano icone colorate e indicatori visivi per dare gerarchia ai dati
+- Tabelle report e pagamenti senza stile distintivo
 
-### Architettura proposta
+### Cosa faremo
 
-Due livelli di chat separati:
+#### 1. Header migliorato
+- Titolo con icona BarChart3 colorata accent, sottotitolo con stile più elegante
+- Bottone "Aggiorna KPI" con stile primary invece di outline
 
-**Livello 1 — Chat Interna Aziendale** (nuova pagina `/comunicazioni`)
-- Solo utenti interni (admin, ufficio, produttore, contabilita, cfo)
-- Clienti NON vedono questa chat
+#### 2. Filtri globali ridisegnati
+- Card con bordo sinistro accent colorato e background leggero
+- Label più visibili, input con dimensioni coerenti
+- Bottone Reset con icona
 
-**Livello 2 — Chat Contestuale Clienti** (gia esistente in ChatTab)
-- Rimane invariata, legata a entita (sinistro, titolo, prospect)
+#### 3. KPI Cards ristrutturate
+- Da 7 colonne compresse a grid 2-3-4 responsive (2 col mobile, 3 tablet, 4 desktop)
+- Ogni card con icona colorata su sfondo circolare (bg-primary/10, bg-accent/10, bg-destructive/10)
+- Valore più grande (text-2xl), label sopra con font-medium
+- Colori differenziati per tipo: entrate verde/accent, uscite rosso, provvigioni primary, alert warning
 
-### Nuove tabelle DB (migration)
+#### 4. Tabs con stile migliorato
+- TabsList con background più definito
+- Tab content con spacing uniforme
 
-**`chat_canali`** — Canali/conversazioni interne
-- `id`, `nome`, `tipo` (diretto | gruppo | broadcast), `creato_da`, `created_at`, `ufficio_id`
+#### 5. Grafici con card migliorate
+- CardHeader con bordo inferiore leggero separator
+- Altezza grafici aumentata (280→320px)
+- Tooltip con formattazione italiana migliorata
 
-**`chat_canali_membri`** — Membri di ogni canale
-- `id`, `canale_id`, `user_id`, `ruolo_canale` (membro | admin), `created_at`
-
-**`chat_messaggi_interni`** — Messaggi della chat interna
-- `id`, `canale_id`, `mittente_id`, `messaggio`, `tipo_messaggio` (testo | conferma_lettura), `richiedi_conferma`, `created_at`
-
-**`chat_conferme_lettura`** — Conferme di lettura per messaggi con richiesta
-- `id`, `messaggio_id`, `user_id`, `confermato`, `confermato_at`, `created_at`
-
-### Pagina Comunicazioni (`/comunicazioni`)
-
-**Sidebar sinistra**: Lista canali con filtri
-- Filtro per tipo: Tutti / Diretti / Gruppi / Broadcast
-- Ricerca utente per nome
-- Bottone "Nuova Conversazione" con dialog:
-  - Seleziona destinatario singolo (chat diretta)
-  - Seleziona multipli utenti (gruppo)
-  - Filtro per ruolo: admin, ufficio, produttore, contabilita, cfo
-  - Filtro per ufficio
-
-**Area centrale**: Chat attiva
-- Messaggi con avatar, nome, data/ora
-- Input messaggio con bottone invio
-- Per admin: checkbox "Richiedi conferma di lettura" prima dell'invio
-
-**Conferma lettura (solo admin)**:
-- Quando admin invia con `richiedi_conferma=true`, i destinatari vedono un popup/banner con "Conferma lettura" + pulsante
-- Admin vede lo stato conferme: chi ha confermato, chi no, con timestamp
-- Badge su messaggio con contatore conferme (es. "3/5 confermato")
-
-### Filtri disponibili
-
-- **Per utente singolo**: ricerca per nome/cognome nel dialog nuova conversazione
-- **Per classe di utenti (ruolo)**: select ruolo → mostra tutti gli utenti di quel ruolo → broadcast/gruppo
-- **Per ufficio**: filtra utenti per ufficio di appartenenza
-
-### RLS Policies
-
-- `chat_canali`: utente vede solo canali di cui e membro (via `chat_canali_membri`)
-- `chat_messaggi_interni`: utente vede solo messaggi dei canali di cui e membro
-- `chat_conferme_lettura`: utente puo inserire/vedere solo le proprie conferme; admin vede tutte quelle dei propri messaggi
-- Cliente (`app_role = 'cliente'`) escluso da tutte le policy interne
+#### 6. Tabelle report e pagamenti
+- Header tabella con background muted
+- Righe con hover più evidente
+- Badge stato con colori semantici
+- Bottoni azione con variante accent
 
 ### File coinvolti
 
 | Azione | File |
 |--------|------|
-| Migration | 4 nuove tabelle + RLS policies |
-| Creare | `src/pages/ComunicazioniPage.tsx` — pagina principale chat interna |
-| Creare | `src/components/chat/CanaliSidebar.tsx` — lista canali con filtri |
-| Creare | `src/components/chat/ChatArea.tsx` — area messaggi e input |
-| Creare | `src/components/chat/NuovaConversazioneDialog.tsx` — dialog creazione canale |
-| Creare | `src/components/chat/ConfermaLetturaPopup.tsx` — popup conferma per destinatari |
-| Creare | `src/components/chat/ConfermeStatus.tsx` — stato conferme per admin |
-| Modificare | `src/App.tsx` — sostituire PlaceholderPage con ComunicazioniPage |
-| Modificare | `src/components/AppSidebar.tsx` — assicurare link Comunicazioni visibile |
+| Modificare | `src/pages/AreaCFO.tsx` — restyling completo layout, KPI, grafici, tabelle |
+
+Nessuna modifica al backend o alle query, solo UI/UX.
 
