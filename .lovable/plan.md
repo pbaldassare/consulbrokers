@@ -1,31 +1,84 @@
 
 
-## Piano: Collegare Produttori agli Uffici
+## Piano: Chat Interna Aziendale Strutturata
 
 ### Situazione attuale
-- La tabella `anagrafiche_professionali` ha gia il campo `ufficio_id` ma viene assegnato automaticamente dall'utente loggato (`profile?.ufficio_id`) senza possibilita di sceglierlo
-- La pagina `GestioneUfficiPage` mostra le anagrafiche collegate ma non ha un tab dedicato ai "Produttori" (AE + Corrispondenti)
-- La pagina `AnagraficheProfessionaliPage` non mostra un selettore ufficio nel form di creazione
+- Esiste solo `ChatTab` usata come tab contestuale (su sinistri, titoli, prospect) con `chat_messaggi` legata a `entita_tipo`/`entita_id`
+- La tabella `chat_messaggi` ha: `id`, `entita_tipo`, `entita_id`, `mittente_id`, `messaggio`, `letto`, `created_at`
+- Ruoli disponibili: `admin`, `ufficio`, `produttore`, `contabilita`, `cfo`, `cliente`
+- La rotta `/comunicazioni` e un PlaceholderPage
+- La tabella `notifiche` esiste gia con `destinatario_id`, `letto`, `priorita`, `tipo`
 
-### Cosa faremo
+### Architettura proposta
 
-#### 1. Aggiungere selettore Ufficio nel form AnagraficheProfessionali
-Nel dialog di creazione anagrafica, aggiungere un campo `Select` "Ufficio" obbligatorio per i tipi `account_executive` e `corrispondente`. L'admin potra scegliere qualsiasi ufficio; gli utenti ufficio vedranno solo il proprio (preselezionato).
+Due livelli di chat separati:
 
-#### 2. Aggiungere tab "Produttori" in GestioneUfficiPage
-Nel dettaglio ufficio, aggiungere un quarto tab "Produttori" che mostra le anagrafiche di tipo `account_executive` e `corrispondente` collegate a quell'ufficio, con possibilita di:
-- Vedere codice, nome, tipo, sigla, email
-- Riassegnare un produttore a un altro ufficio (select inline)
+**Livello 1 — Chat Interna Aziendale** (nuova pagina `/comunicazioni`)
+- Solo utenti interni (admin, ufficio, produttore, contabilita, cfo)
+- Clienti NON vedono questa chat
 
-#### 3. Aggiornare i conteggi nella lista uffici
-Aggiungere una colonna "N. Produttori" nella tabella principale degli uffici, contando le anagrafiche di tipo AE + corrispondente.
+**Livello 2 — Chat Contestuale Clienti** (gia esistente in ChatTab)
+- Rimane invariata, legata a entita (sinistro, titolo, prospect)
 
-### Dettagli tecnici
+### Nuove tabelle DB (migration)
+
+**`chat_canali`** — Canali/conversazioni interne
+- `id`, `nome`, `tipo` (diretto | gruppo | broadcast), `creato_da`, `created_at`, `ufficio_id`
+
+**`chat_canali_membri`** — Membri di ogni canale
+- `id`, `canale_id`, `user_id`, `ruolo_canale` (membro | admin), `created_at`
+
+**`chat_messaggi_interni`** — Messaggi della chat interna
+- `id`, `canale_id`, `mittente_id`, `messaggio`, `tipo_messaggio` (testo | conferma_lettura), `richiedi_conferma`, `created_at`
+
+**`chat_conferme_lettura`** — Conferme di lettura per messaggi con richiesta
+- `id`, `messaggio_id`, `user_id`, `confermato`, `confermato_at`, `created_at`
+
+### Pagina Comunicazioni (`/comunicazioni`)
+
+**Sidebar sinistra**: Lista canali con filtri
+- Filtro per tipo: Tutti / Diretti / Gruppi / Broadcast
+- Ricerca utente per nome
+- Bottone "Nuova Conversazione" con dialog:
+  - Seleziona destinatario singolo (chat diretta)
+  - Seleziona multipli utenti (gruppo)
+  - Filtro per ruolo: admin, ufficio, produttore, contabilita, cfo
+  - Filtro per ufficio
+
+**Area centrale**: Chat attiva
+- Messaggi con avatar, nome, data/ora
+- Input messaggio con bottone invio
+- Per admin: checkbox "Richiedi conferma di lettura" prima dell'invio
+
+**Conferma lettura (solo admin)**:
+- Quando admin invia con `richiedi_conferma=true`, i destinatari vedono un popup/banner con "Conferma lettura" + pulsante
+- Admin vede lo stato conferme: chi ha confermato, chi no, con timestamp
+- Badge su messaggio con contatore conferme (es. "3/5 confermato")
+
+### Filtri disponibili
+
+- **Per utente singolo**: ricerca per nome/cognome nel dialog nuova conversazione
+- **Per classe di utenti (ruolo)**: select ruolo → mostra tutti gli utenti di quel ruolo → broadcast/gruppo
+- **Per ufficio**: filtra utenti per ufficio di appartenenza
+
+### RLS Policies
+
+- `chat_canali`: utente vede solo canali di cui e membro (via `chat_canali_membri`)
+- `chat_messaggi_interni`: utente vede solo messaggi dei canali di cui e membro
+- `chat_conferme_lettura`: utente puo inserire/vedere solo le proprie conferme; admin vede tutte quelle dei propri messaggi
+- Cliente (`app_role = 'cliente'`) escluso da tutte le policy interne
+
+### File coinvolti
 
 | Azione | File |
 |--------|------|
-| Modificare | `src/pages/AnagraficheProfessionaliPage.tsx` — aggiungere Select ufficio nel form, rendere obbligatorio per AE/corrispondente |
-| Modificare | `src/pages/GestioneUfficiPage.tsx` — tab Produttori nel dettaglio, colonna N. Produttori nella lista, riassegnazione ufficio |
-
-Nessuna migration necessaria — `ufficio_id` esiste gia in `anagrafiche_professionali`.
+| Migration | 4 nuove tabelle + RLS policies |
+| Creare | `src/pages/ComunicazioniPage.tsx` — pagina principale chat interna |
+| Creare | `src/components/chat/CanaliSidebar.tsx` — lista canali con filtri |
+| Creare | `src/components/chat/ChatArea.tsx` — area messaggi e input |
+| Creare | `src/components/chat/NuovaConversazioneDialog.tsx` — dialog creazione canale |
+| Creare | `src/components/chat/ConfermaLetturaPopup.tsx` — popup conferma per destinatari |
+| Creare | `src/components/chat/ConfermeStatus.tsx` — stato conferme per admin |
+| Modificare | `src/App.tsx` — sostituire PlaceholderPage con ComunicazioniPage |
+| Modificare | `src/components/AppSidebar.tsx` — assicurare link Comunicazioni visibile |
 
