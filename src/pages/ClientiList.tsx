@@ -51,6 +51,41 @@ const ClientiList = () => {
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [pec, setPec] = useState("");
+  const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
+
+  const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
+    scannedFilesRef.current.push({ file, documentType });
+  }, []);
+
+  const uploadScannedFiles = useCallback(async (clienteId: string) => {
+    const files = scannedFilesRef.current;
+    if (files.length === 0) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || null;
+
+    for (const { file, documentType } of files) {
+      const ts = Date.now();
+      const path = `cliente/${clienteId}/${ts}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("documenti_clienti")
+        .upload(path, file);
+      if (uploadErr) {
+        console.error("Upload error:", uploadErr);
+        continue;
+      }
+      await supabase.from("documenti").insert({
+        nome_file: file.name,
+        path_storage: path,
+        bucket_name: "documenti_clienti",
+        entita_tipo: "cliente",
+        entita_id: clienteId,
+        caricato_da: userId,
+        categoria: documentType,
+      });
+    }
+    scannedFilesRef.current = [];
+  }, []);
 
   const { data: clienti = [], isLoading } = useQuery({
     queryKey: ["clienti"],
