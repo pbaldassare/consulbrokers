@@ -24,7 +24,7 @@ interface AiDocumentScannerProps {
   className?: string;
 }
 
-const AiDocumentScanner = ({ documentType, onExtracted, label, className = "" }: AiDocumentScannerProps) => {
+const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, className = "" }: AiDocumentScannerProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
