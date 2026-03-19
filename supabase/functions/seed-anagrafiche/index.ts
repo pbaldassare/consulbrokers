@@ -251,9 +251,9 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < records.length; i += batchSize) {
       const batch = records.slice(i, i + batchSize);
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from("anagrafiche_professionali")
-        .upsert(batch, { onConflict: "codice,tipo", ignoreDuplicates: true });
+        .insert(batch);
       
       if (error) {
         errors.push(`Batch ${Math.floor(i/batchSize)+1}: ${error.message}`);
