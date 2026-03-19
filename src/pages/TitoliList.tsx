@@ -259,7 +259,37 @@ const TitoliList = () => {
                 </Select>
               </div>
               <div>
-                <Label>Cliente</Label>
+                <Label>Cliente Anagrafica</Label>
+                <Input
+                  placeholder="Cerca per nome, cognome, ragione sociale..."
+                  value={clienteAnagraficaSearch}
+                  onChange={(e) => { setClienteAnagraficaSearch(e.target.value); setClienteAnagraficaId(""); }}
+                />
+                {clientiAnagraficaSearch.length > 0 && !clienteAnagraficaId && (
+                  <div className="border rounded-md mt-1 max-h-40 overflow-y-auto">
+                    {clientiAnagraficaSearch.map((c: any) => (
+                      <div
+                        key={c.id}
+                        className="px-3 py-2 cursor-pointer hover:bg-muted text-sm"
+                        onClick={() => {
+                          setClienteAnagraficaId(c.id);
+                          const name = c.tipo_cliente === "privato"
+                            ? `${c.cognome || ""} ${c.nome || ""}`.trim()
+                            : c.ragione_sociale || "—";
+                          setClienteAnagraficaSearch(name);
+                        }}
+                      >
+                        {c.tipo_cliente === "privato"
+                          ? `${c.cognome || ""} ${c.nome || ""}`.trim()
+                          : c.ragione_sociale || "—"}
+                        <span className="text-muted-foreground ml-2">({c.tipo_cliente === "privato" ? "Privato" : "Azienda"})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label>Cliente (profilo utente)</Label>
                 <Select value={clienteId} onValueChange={setClienteId}>
                   <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
                   <SelectContent>{profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome} {p.cognome}</SelectItem>)}</SelectContent>
