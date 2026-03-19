@@ -19,6 +19,7 @@ import ProspectDetail from "./pages/ProspectDetail";
 import TrattativeList from "./pages/TrattativeList";
 import CompagnieList from "./pages/CompagnieList";
 import ClientiList from "./pages/ClientiList";
+import ClienteDetail from "./pages/ClienteDetail";
 import CategorieList from "./pages/CategorieList";
 import ProdottiList from "./pages/ProdottiList";
 import MatriceProvvigioni from "./pages/MatriceProvvigioni";
