@@ -210,6 +210,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
+        { label: "Gestione Uffici", path: "/gestione-uffici", icon: Building2 },
       ],
     },
   },

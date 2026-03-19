@@ -61,6 +61,7 @@ import GestioneUtenti from "./pages/GestioneUtenti";
 import AnagraficheProfessionaliPage from "./pages/AnagraficheProfessionaliPage";
 import GestionePolizzePage from "./pages/GestionePolizzePage";
 import TabelleBasePage from "./pages/TabelleBasePage";
+import GestioneUfficiPage from "./pages/GestioneUfficiPage";
 import AppendiciPolizzaPage from "./pages/AppendiciPolizzaPage";
 import ImmissionePolizzaPage from "./pages/ImmissionePolizzaPage";
 import DuplicazionePolizzaPage from "./pages/DuplicazionePolizzaPage";
@@ -223,6 +224,7 @@ const App = () => (
               <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
               <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
               <Route path="/tabelle-base" element={<RoleGuard allowedRoles={["admin"]}><TabelleBasePage /></RoleGuard>} />
+              <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
               <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
