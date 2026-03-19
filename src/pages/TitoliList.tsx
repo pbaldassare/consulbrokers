@@ -32,6 +32,8 @@ const TitoliList = () => {
   // Form nuovo titolo
   const [numeroTitolo, setNumeroTitolo] = useState("");
   const [clienteId, setClienteId] = useState("");
+  const [clienteAnagraficaId, setClienteAnagraficaId] = useState("");
+  const [clienteAnagraficaSearch, setClienteAnagraficaSearch] = useState("");
   const [prodottoId, setProdottoId] = useState("");
   const [ufficioId, setUfficioId] = useState("");
   const [produttoreId, setProduttoreId] = useState("");
@@ -92,6 +94,20 @@ const TitoliList = () => {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: clientiAnagraficaSearch = [] } = useQuery({
+    queryKey: ["clienti_anagrafica_search", clienteAnagraficaSearch],
+    queryFn: async () => {
+      if (clienteAnagraficaSearch.length < 2) return [];
+      const { data } = await supabase
+        .from("clienti")
+        .select("id, tipo_cliente, nome, cognome, ragione_sociale, codice_fiscale")
+        .or(`cognome.ilike.%${clienteAnagraficaSearch}%,nome.ilike.%${clienteAnagraficaSearch}%,ragione_sociale.ilike.%${clienteAnagraficaSearch}%,codice_fiscale.ilike.%${clienteAnagraficaSearch}%`)
+        .limit(10);
+      return data || [];
+    },
+    enabled: clienteAnagraficaSearch.length >= 2,
   });
 
   const { data: accountExecutives = [] } = useQuery({
@@ -171,6 +187,7 @@ const TitoliList = () => {
       const payload: any = {
         numero_titolo: numeroTitolo || null,
         cliente_id: clienteId || null,
+        cliente_anagrafica_id: clienteAnagraficaId || null,
         prodotto_id: prodottoId || null,
         ufficio_id: ufficioId || null,
         produttore_id: produttoreId || null,
@@ -200,7 +217,8 @@ const TitoliList = () => {
   });
 
   const resetForm = () => {
-    setNumeroTitolo(""); setClienteId(""); setProdottoId(""); setUfficioId("");
+    setNumeroTitolo(""); setClienteId(""); setClienteAnagraficaId(""); setClienteAnagraficaSearch("");
+    setProdottoId(""); setUfficioId("");
     setProduttoreId(""); setPremioLordo(""); setImportoIncassato(""); setDataIncasso("");
     setStato("creato"); setNote("");
   };
@@ -241,7 +259,37 @@ const TitoliList = () => {
                 </Select>
               </div>
               <div>
-                <Label>Cliente</Label>
+                <Label>Cliente Anagrafica</Label>
+                <Input
+                  placeholder="Cerca per nome, cognome, ragione sociale..."
+                  value={clienteAnagraficaSearch}
+                  onChange={(e) => { setClienteAnagraficaSearch(e.target.value); setClienteAnagraficaId(""); }}
+                />
+                {clientiAnagraficaSearch.length > 0 && !clienteAnagraficaId && (
+                  <div className="border rounded-md mt-1 max-h-40 overflow-y-auto">
+                    {clientiAnagraficaSearch.map((c: any) => (
+                      <div
+                        key={c.id}
+                        className="px-3 py-2 cursor-pointer hover:bg-muted text-sm"
+                        onClick={() => {
+                          setClienteAnagraficaId(c.id);
+                          const name = c.tipo_cliente === "privato"
+                            ? `${c.cognome || ""} ${c.nome || ""}`.trim()
+                            : c.ragione_sociale || "—";
+                          setClienteAnagraficaSearch(name);
+                        }}
+                      >
+                        {c.tipo_cliente === "privato"
+                          ? `${c.cognome || ""} ${c.nome || ""}`.trim()
+                          : c.ragione_sociale || "—"}
+                        <span className="text-muted-foreground ml-2">({c.tipo_cliente === "privato" ? "Privato" : "Azienda"})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label>Cliente (profilo utente)</Label>
                 <Select value={clienteId} onValueChange={setClienteId}>
                   <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
                   <SelectContent>{profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome} {p.cognome}</SelectItem>)}</SelectContent>

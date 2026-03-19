@@ -459,6 +459,48 @@ export type Database = {
           },
         ]
       }
+      clienti_relazioni: {
+        Row: {
+          cliente_collegato_id: string
+          cliente_id: string
+          created_at: string | null
+          id: string
+          note: string | null
+          tipo_relazione: string
+        }
+        Insert: {
+          cliente_collegato_id: string
+          cliente_id: string
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          tipo_relazione?: string
+        }
+        Update: {
+          cliente_collegato_id?: string
+          cliente_id?: string
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          tipo_relazione?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clienti_relazioni_cliente_collegato_id_fkey"
+            columns: ["cliente_collegato_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clienti_relazioni_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compagnie: {
         Row: {
           attiva: boolean | null
@@ -2415,6 +2457,7 @@ export type Database = {
       }
       titoli: {
         Row: {
+          cliente_anagrafica_id: string | null
           cliente_id: string | null
           created_at: string | null
           data_incasso: string | null
@@ -2431,6 +2474,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           created_at?: string | null
           data_incasso?: string | null
@@ -2447,6 +2491,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           created_at?: string | null
           data_incasso?: string | null
@@ -2463,6 +2508,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_cliente_anagrafica_id_fkey"
+            columns: ["cliente_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_cliente_id_fkey"
             columns: ["cliente_id"]
