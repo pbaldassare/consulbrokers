@@ -117,6 +117,7 @@ const App = () => (
               <Route path="/prospect" element={<ProspectList />} />
               <Route path="/prospect/:id" element={<ProspectDetail />} />
               <Route path="/archivi/clienti" element={<ClientiList />} />
+              <Route path="/archivi/clienti/:id" element={<ClienteDetail />} />
               <Route path="/archivi/anagrafiche" element={<AnagraficheProfessionaliPage />} />
               <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
               <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
