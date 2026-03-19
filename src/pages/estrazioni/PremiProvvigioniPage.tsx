@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -5,28 +6,42 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, DollarSign, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
+import { format } from "date-fns";
 
 const PremiProvvigioniPage = () => {
   const navigate = useNavigate();
+  const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
   const [filtroPagata, setFiltroPagata] = useState<string>("tutte");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["premi-provvigioni"],
+    queryKey: ["premi-provvigioni", filters],
     queryFn: async () => {
-      const { data: provvigioni, error } = await supabase
+      let query = supabase
         .from("provvigioni_generate")
         .select(`
           id, percentuale, importo_provvigione, pagata, calcolata_il,
-          titoli!inner(numero_titolo, premio_lordo, importo_incassato, stato,
-            clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale)),
+          titoli!inner(numero_titolo, premio_lordo, importo_incassato, stato, ufficio_id, produttore_id, data_incasso,
+            clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale),
+            prodotti(compagnia_id)),
           profiles!provvigioni_generate_user_id_fkey(nome, cognome)
         `)
         .order("calcolata_il", { ascending: false });
 
+      if (filters.dateFrom) query = query.gte("titoli.data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
+      if (filters.dateTo) query = query.lte("titoli.data_incasso", format(filters.dateTo, "yyyy-MM-dd"));
+      if (filters.ufficio_id) query = query.eq("titoli.ufficio_id", filters.ufficio_id);
+      if (filters.produttore_id) query = query.eq("titoli.produttore_id", filters.produttore_id);
+
+      const { data: provvigioni, error } = await query;
       if (error) throw error;
-      return provvigioni || [];
+
+      let results = provvigioni || [];
+      if (filters.compagnia_id) {
+        results = results.filter((p: any) => (p.titoli as any)?.prodotti?.compagnia_id === filters.compagnia_id);
+      }
+      return results;
     },
   });
 
@@ -38,7 +53,6 @@ const PremiProvvigioniPage = () => {
 
   const totPremi = filtered.reduce((s: number, p: any) => s + (Number(p.titoli?.importo_incassato) || 0), 0);
   const totProvvigioni = filtered.reduce((s: number, p: any) => s + (Number(p.importo_provvigione) || 0), 0);
-
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const getCliente = (t: any) => {
@@ -62,18 +76,25 @@ const PremiProvvigioniPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/estrazioni-stampe")}>
-          <ArrowLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/estrazioni-stampe")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <DollarSign className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Premi e Provvigioni</h1>
+            <p className="text-sm text-muted-foreground">Riepilogo premi e provvigioni per advisor</p>
+          </div>
+        </div>
+        <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta CSV
         </Button>
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <DollarSign className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Premi e Provvigioni</h1>
-          <p className="text-sm text-muted-foreground">Riepilogo premi e provvigioni per advisor</p>
-        </div>
       </div>
+
+      <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showProduttore showCompagnia />
 
       <div className="flex items-center gap-3">
         <Select value={filtroPagata} onValueChange={setFiltroPagata}>
@@ -87,9 +108,10 @@ const PremiProvvigioniPage = () => {
           </SelectContent>
         </Select>
         <div className="flex-1" />
-        <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
-        </Button>
+        <div className="flex gap-4 text-sm">
+          <span className="text-muted-foreground">Tot. Incassato: <strong>{fmt(totPremi)}</strong></span>
+          <span className="text-muted-foreground">Tot. Provvigioni: <strong>{fmt(totProvvigioni)}</strong></span>
+        </div>
       </div>
 
       <div className="border rounded-lg">
