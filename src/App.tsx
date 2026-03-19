@@ -213,7 +213,7 @@ const App = () => (
               <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
               <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
               <Route path="/report" element={<ReportPage />} />
-              <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
+              <Route path="/comunicazioni" element={<ComunicazioniPage />} />
 
               {/* SISTEMA (admin) */}
               <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
