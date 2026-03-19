@@ -187,6 +187,7 @@ const TitoliList = () => {
       const payload: any = {
         numero_titolo: numeroTitolo || null,
         cliente_id: clienteId || null,
+        cliente_anagrafica_id: clienteAnagraficaId || null,
         prodotto_id: prodottoId || null,
         ufficio_id: ufficioId || null,
         produttore_id: produttoreId || null,
