@@ -308,6 +308,129 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_canali: {
+        Row: {
+          created_at: string | null
+          creato_da: string | null
+          id: string
+          nome: string | null
+          tipo: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          creato_da?: string | null
+          id?: string
+          nome?: string | null
+          tipo?: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          creato_da?: string | null
+          id?: string
+          nome?: string | null
+          tipo?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_canali_creato_da_fkey"
+            columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_canali_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_canali_membri: {
+        Row: {
+          canale_id: string
+          created_at: string | null
+          id: string
+          ruolo_canale: string
+          user_id: string
+        }
+        Insert: {
+          canale_id: string
+          created_at?: string | null
+          id?: string
+          ruolo_canale?: string
+          user_id: string
+        }
+        Update: {
+          canale_id?: string
+          created_at?: string | null
+          id?: string
+          ruolo_canale?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_canali_membri_canale_id_fkey"
+            columns: ["canale_id"]
+            isOneToOne: false
+            referencedRelation: "chat_canali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_canali_membri_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_conferme_lettura: {
+        Row: {
+          confermato: boolean | null
+          confermato_at: string | null
+          created_at: string | null
+          id: string
+          messaggio_id: string
+          user_id: string
+        }
+        Insert: {
+          confermato?: boolean | null
+          confermato_at?: string | null
+          created_at?: string | null
+          id?: string
+          messaggio_id: string
+          user_id: string
+        }
+        Update: {
+          confermato?: boolean | null
+          confermato_at?: string | null
+          created_at?: string | null
+          id?: string
+          messaggio_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conferme_lettura_messaggio_id_fkey"
+            columns: ["messaggio_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messaggi_interni"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_conferme_lettura_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messaggi: {
         Row: {
           created_at: string | null
@@ -339,6 +462,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "chat_messaggi_mittente_id_fkey"
+            columns: ["mittente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messaggi_interni: {
+        Row: {
+          canale_id: string
+          created_at: string | null
+          id: string
+          messaggio: string
+          mittente_id: string
+          richiedi_conferma: boolean | null
+          tipo_messaggio: string
+        }
+        Insert: {
+          canale_id: string
+          created_at?: string | null
+          id?: string
+          messaggio: string
+          mittente_id: string
+          richiedi_conferma?: boolean | null
+          tipo_messaggio?: string
+        }
+        Update: {
+          canale_id?: string
+          created_at?: string | null
+          id?: string
+          messaggio?: string
+          mittente_id?: string
+          richiedi_conferma?: boolean | null
+          tipo_messaggio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messaggi_interni_canale_id_fkey"
+            columns: ["canale_id"]
+            isOneToOne: false
+            referencedRelation: "chat_canali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messaggi_interni_mittente_id_fkey"
             columns: ["mittente_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2723,6 +2891,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_channel_member: {
+        Args: { _canale_id: string; _user_id: string }
         Returns: boolean
       }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
