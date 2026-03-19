@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   BarChart3, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Percent,
-  CreditCard, FileText, Download, RefreshCw, Loader2,
+  CreditCard, FileText, Download, RefreshCw, Loader2, RotateCcw, Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -24,6 +25,29 @@ const COLORS = [
   "hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
   "hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(var(--accent))",
 ];
+
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  iconBg: string;
+}
+
+const KpiCard = ({ label, value, icon, iconBg }: KpiCardProps) => (
+  <Card className="hover:shadow-md transition-shadow">
+    <CardContent className="p-5">
+      <div className="flex items-center gap-3">
+        <div className={`flex items-center justify-center w-10 h-10 rounded-full shrink-0 ${iconBg}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground truncate">{label}</p>
+          <p className="text-xl font-bold font-mono mt-0.5 truncate">{value}</p>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
 
 const AreaCFO = () => {
   const { toast } = useToast();
@@ -217,168 +241,251 @@ const AreaCFO = () => {
     onError: (e: any) => toast({ title: "Errore refresh", description: e.message, variant: "destructive" }),
   });
 
+  const tooltipFormatter = (v: number) => fmt(v);
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Area CFO</h1>
-          <p className="text-muted-foreground">Dashboard direzionale e reportistica aggregata</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+            <BarChart3 className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Area CFO</h1>
+            <p className="text-sm text-muted-foreground">Dashboard direzionale e reportistica aggregata</p>
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refreshKpiMutation.mutate()} disabled={refreshKpiMutation.isPending}>
-          {refreshKpiMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+        <Button onClick={() => refreshKpiMutation.mutate()} disabled={refreshKpiMutation.isPending}>
+          {refreshKpiMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
           Aggiorna KPI
         </Button>
       </div>
 
       {/* Filtri globali */}
-      <Card>
-        <CardContent className="pt-6 flex flex-wrap gap-4 items-end">
-          <div><Label className="text-xs">Da</Label><Input type="date" value={dataDa} onChange={(e) => setDataDa(e.target.value)} className="w-[160px]" /></div>
-          <div><Label className="text-xs">A</Label><Input type="date" value={dataA} onChange={(e) => setDataA(e.target.value)} className="w-[160px]" /></div>
-          <div>
-            <Label className="text-xs">Ufficio</Label>
-            <Select value={ufficioId} onValueChange={setUfficioId}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tutti</SelectItem>{uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}</SelectContent>
-            </Select>
+      <Card className="border-l-4 border-l-primary">
+        <CardContent className="py-4 px-5">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Data Da</Label>
+              <Input type="date" value={dataDa} onChange={(e) => setDataDa(e.target.value)} className="w-[160px]" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Data A</Label>
+              <Input type="date" value={dataA} onChange={(e) => setDataA(e.target.value)} className="w-[160px]" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Ufficio</Label>
+              <Select value={ufficioId} onValueChange={setUfficioId}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti</SelectItem>
+                  {uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setDataDa(""); setDataA(""); setUfficioId("all"); }}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Reset
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => { setDataDa(""); setDataA(""); setUfficioId("all"); }}>Reset</Button>
         </CardContent>
       </Card>
 
       {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><DollarSign className="w-3 h-3" />Premi Incassati</div><p className="text-lg font-bold font-mono mt-1">{fmt(kpi?.totale_premi_incassati)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><Percent className="w-3 h-3" />Provv. Generate</div><p className="text-lg font-bold font-mono mt-1">{fmt(kpi?.totale_provvigioni_generate)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><CreditCard className="w-3 h-3" />Provv. Pagate</div><p className="text-lg font-bold font-mono mt-1">{fmt(kpi?.totale_provvigioni_pagate)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingUp className="w-3 h-3" />Entrate</div><p className="text-lg font-bold font-mono mt-1">{fmt(kpi?.totale_entrate)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="w-3 h-3" />Uscite</div><p className="text-lg font-bold font-mono mt-1">{fmt(kpi?.totale_uscite)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><AlertTriangle className="w-3 h-3" />Incroci KO</div><p className="text-lg font-bold mt-1">{kpi?.incroci_ko ?? 0}</p></CardContent></Card>
-        <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-1 text-xs text-muted-foreground"><FileText className="w-3 h-3" />Sinistri Aperti</div><p className="text-lg font-bold mt-1">{kpi?.sinistri_aperti ?? 0}</p></CardContent></Card>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <KpiCard
+          label="Premi Incassati"
+          value={fmt(kpi?.totale_premi_incassati)}
+          icon={<DollarSign className="w-5 h-5 text-primary" />}
+          iconBg="bg-primary/10"
+        />
+        <KpiCard
+          label="Provvigioni Generate"
+          value={fmt(kpi?.totale_provvigioni_generate)}
+          icon={<Percent className="w-5 h-5 text-chart-2" />}
+          iconBg="bg-accent/10"
+        />
+        <KpiCard
+          label="Provvigioni Pagate"
+          value={fmt(kpi?.totale_provvigioni_pagate)}
+          icon={<CreditCard className="w-5 h-5 text-chart-3" />}
+          iconBg="bg-secondary"
+        />
+        <KpiCard
+          label="Entrate"
+          value={fmt(kpi?.totale_entrate)}
+          icon={<TrendingUp className="w-5 h-5 text-primary" />}
+          iconBg="bg-primary/10"
+        />
+        <KpiCard
+          label="Uscite"
+          value={fmt(kpi?.totale_uscite)}
+          icon={<TrendingDown className="w-5 h-5 text-destructive" />}
+          iconBg="bg-destructive/10"
+        />
+        <KpiCard
+          label="Incroci KO"
+          value={kpi?.incroci_ko ?? 0}
+          icon={<AlertTriangle className="w-5 h-5 text-destructive" />}
+          iconBg="bg-destructive/10"
+        />
+        <KpiCard
+          label="Sinistri Aperti"
+          value={kpi?.sinistri_aperti ?? 0}
+          icon={<Activity className="w-5 h-5 text-chart-4" />}
+          iconBg="bg-accent/10"
+        />
       </div>
 
       <Tabs defaultValue="grafici">
-        <TabsList>
-          <TabsTrigger value="grafici"><BarChart3 className="w-4 h-4 mr-1" />Grafici</TabsTrigger>
-          <TabsTrigger value="report"><FileText className="w-4 h-4 mr-1" />Report</TabsTrigger>
-          <TabsTrigger value="pagamenti"><CreditCard className="w-4 h-4 mr-1" />Pagamenti Provvigioni</TabsTrigger>
+        <TabsList className="bg-muted/80">
+          <TabsTrigger value="grafici"><BarChart3 className="w-4 h-4 mr-1.5" />Grafici</TabsTrigger>
+          <TabsTrigger value="report"><FileText className="w-4 h-4 mr-1.5" />Report</TabsTrigger>
+          <TabsTrigger value="pagamenti"><CreditCard className="w-4 h-4 mr-1.5" />Pagamenti Provvigioni</TabsTrigger>
         </TabsList>
 
         {/* GRAFICI */}
-        <TabsContent value="grafici" className="space-y-6">
+        <TabsContent value="grafici" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Entrate vs Uscite */}
             <Card>
-              <CardHeader><CardTitle className="text-sm">Entrate vs Uscite (Mensile)</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Entrate vs Uscite (Mensile)</CardTitle>
+              </CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
                 {entrateUscite.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <BarChart data={entrateUscite}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="mese" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip formatter={tooltipFormatter} />
                       <Legend />
-                      <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" />
-                      <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" />
+                      <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-10">Nessun dato disponibile</p>}
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
               </CardContent>
             </Card>
 
             {/* Premi per Compagnia */}
             <Card>
-              <CardHeader><CardTitle className="text-sm">Premi per Compagnia</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Premi per Compagnia</CardTitle>
+              </CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
                 {premiCompagnia.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
-                      <Pie data={premiCompagnia} dataKey="totale" nameKey="compagnia" cx="50%" cy="50%" outerRadius={100} label={({ compagnia, percent }) => `${compagnia} ${(percent * 100).toFixed(0)}%`}>
+                      <Pie data={premiCompagnia} dataKey="totale" nameKey="compagnia" cx="50%" cy="50%" outerRadius={110} label={({ compagnia, percent }) => `${compagnia} ${(percent * 100).toFixed(0)}%`}>
                         {premiCompagnia.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip formatter={(v: number) => fmt(v)} />
+                      <Tooltip formatter={tooltipFormatter} />
                     </PieChart>
                   </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-10">Nessun dato disponibile</p>}
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
               </CardContent>
             </Card>
 
             {/* Redditività per Ufficio */}
             <Card>
-              <CardHeader><CardTitle className="text-sm">Redditività per Ufficio</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Redditività per Ufficio</CardTitle>
+              </CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
                 {redditUfficio.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <BarChart data={redditUfficio}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="ufficio" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip formatter={tooltipFormatter} />
                       <Legend />
-                      <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" />
-                      <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" />
-                      <Bar dataKey="margine" fill="hsl(var(--chart-3))" name="Margine" />
+                      <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="margine" fill="hsl(var(--chart-3))" name="Margine" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-10">Nessun dato disponibile</p>}
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
               </CardContent>
             </Card>
 
             {/* Andamento Provvigioni */}
             <Card>
-              <CardHeader><CardTitle className="text-sm">Andamento Provvigioni (Mensile)</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Andamento Provvigioni (Mensile)</CardTitle>
+              </CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
                 {provvMensili.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <LineChart data={provvMensili}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="mese" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip formatter={tooltipFormatter} />
                       <Legend />
-                      <Line type="monotone" dataKey="totale" stroke="hsl(var(--primary))" name="Totale" strokeWidth={2} />
-                      <Line type="monotone" dataKey="pagate" stroke="hsl(var(--chart-3))" name="Pagate" />
-                      <Line type="monotone" dataKey="non_pagate" stroke="hsl(var(--destructive))" name="Non Pagate" />
+                      <Line type="monotone" dataKey="totale" stroke="hsl(var(--primary))" name="Totale" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="pagate" stroke="hsl(var(--chart-3))" name="Pagate" dot={false} />
+                      <Line type="monotone" dataKey="non_pagate" stroke="hsl(var(--destructive))" name="Non Pagate" dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-10">Nessun dato disponibile</p>}
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
         {/* REPORT */}
-        <TabsContent value="report" className="space-y-4">
+        <TabsContent value="report" className="space-y-4 mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Genera Report Titoli</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Genera Report Titoli</CardTitle>
+            </CardHeader>
+            <Separator />
+            <CardContent className="pt-4 space-y-4">
               <div className="flex flex-wrap gap-4 items-end">
-                <div>
-                  <Label className="text-xs">Compagnia</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Compagnia</Label>
                   <Select value={compagniaId} onValueChange={setCompagniaId}>
                     <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">Tutte</SelectItem>{compagnie.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      <SelectItem value="all">Tutte</SelectItem>
+                      {compagnie.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label className="text-xs">Produttore</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Produttore</Label>
                   <Select value={produttoreId} onValueChange={setProduttoreId}>
                     <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">Tutti</SelectItem>{profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome} {p.cognome}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      <SelectItem value="all">Tutti</SelectItem>
+                      {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome} {p.cognome}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={generateReport} disabled={reportLoading}>{reportLoading ? "Generando..." : "Genera Report"}</Button>
+                <Button onClick={generateReport} disabled={reportLoading}>
+                  {reportLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
+                  {reportLoading ? "Generando..." : "Genera Report"}
+                </Button>
                 {reportData && reportData.length > 0 && (
-                  <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-2" />Esporta CSV</Button>
+                  <Button variant="outline" onClick={exportCSV}>
+                    <Download className="w-4 h-4 mr-2" />Esporta CSV
+                  </Button>
                 )}
               </div>
 
               {reportData && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="bg-muted/50">
                         <TableHead>N. Titolo</TableHead>
                         <TableHead>Stato</TableHead>
                         <TableHead>Prodotto</TableHead>
@@ -393,20 +500,28 @@ const AreaCFO = () => {
                     </TableHeader>
                     <TableBody>
                       {reportData.map((r: any, i: number) => (
-                        <TableRow key={i}>
+                        <TableRow key={i} className="hover:bg-muted/30">
                           <TableCell className="font-medium">{r.numero_titolo || "—"}</TableCell>
-                          <TableCell><Badge variant="outline">{r.stato}</Badge></TableCell>
+                          <TableCell>
+                            <Badge variant={r.stato === "incassato" ? "default" : "secondary"} className="text-xs">
+                              {r.stato}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{r.prodotto || "—"}</TableCell>
                           <TableCell>{r.compagnia || "—"}</TableCell>
                           <TableCell>{r.ufficio || "—"}</TableCell>
                           <TableCell>{r.produttore || "—"}</TableCell>
                           <TableCell>{r.cliente || "—"}</TableCell>
-                          <TableCell className="font-mono">{r.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
-                          <TableCell className="font-mono">{r.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
+                          <TableCell className="font-mono text-right">{r.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
+                          <TableCell className="font-mono text-right">{r.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
                           <TableCell>{r.data_incasso || "—"}</TableCell>
                         </TableRow>
                       ))}
-                      {reportData.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nessun risultato</TableCell></TableRow>}
+                      {reportData.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun risultato</TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -416,35 +531,47 @@ const AreaCFO = () => {
         </TabsContent>
 
         {/* PAGAMENTI PROVVIGIONI */}
-        <TabsContent value="pagamenti">
+        <TabsContent value="pagamenti" className="mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Provvigioni Non Pagate per Utente</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Utente</TableHead>
-                    <TableHead>N. Provvigioni</TableHead>
-                    <TableHead>Totale Non Pagato €</TableHead>
-                    <TableHead>Azioni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {provvNonPagate.map((p: any) => (
-                    <TableRow key={p.user_id}>
-                      <TableCell className="font-medium">{p.nome} {p.cognome}</TableCell>
-                      <TableCell>{p.num_provvigioni}</TableCell>
-                      <TableCell className="font-mono font-bold">{fmt(p.totale_non_pagato)}</TableCell>
-                      <TableCell>
-                        <Button size="sm" onClick={() => pagaMutation.mutate(p.user_id)} disabled={pagaMutation.isPending}>
-                          Segna come pagate
-                        </Button>
-                      </TableCell>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Provvigioni Non Pagate per Utente</CardTitle>
+            </CardHeader>
+            <Separator />
+            <CardContent className="pt-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>Utente</TableHead>
+                      <TableHead>N. Provvigioni</TableHead>
+                      <TableHead>Totale Non Pagato €</TableHead>
+                      <TableHead>Azioni</TableHead>
                     </TableRow>
-                  ))}
-                  {provvNonPagate.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nessuna provvigione da pagare</TableCell></TableRow>}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {provvNonPagate.map((p: any) => (
+                      <TableRow key={p.user_id} className="hover:bg-muted/30">
+                        <TableCell className="font-medium">{p.nome} {p.cognome}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">{p.num_provvigioni}</Badge>
+                        </TableCell>
+                        <TableCell className="font-mono font-bold text-destructive">{fmt(p.totale_non_pagato)}</TableCell>
+                        <TableCell>
+                          <Button size="sm" onClick={() => pagaMutation.mutate(p.user_id)} disabled={pagaMutation.isPending}>
+                            <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                            Segna come pagate
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {provvNonPagate.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessuna provvigione da pagare</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
