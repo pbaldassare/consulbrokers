@@ -19,11 +19,12 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 interface AiDocumentScannerProps {
   documentType: DocumentType;
   onExtracted: (data: Record<string, unknown>) => void;
+  onFileReady?: (file: File, documentType: DocumentType) => void;
   label?: string;
   className?: string;
 }
 
-const AiDocumentScanner = ({ documentType, onExtracted, label, className = "" }: AiDocumentScannerProps) => {
+const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, className = "" }: AiDocumentScannerProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -63,6 +64,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, label, className = "" }:
       if (!data?.data) throw new Error("Nessun dato estratto");
 
       onExtracted(data.data);
+      onFileReady?.(file, documentType);
       setLastResult("success");
       setIsExpanded(false);
       toast({ title: "Dati estratti con successo", description: `Documento ${DOC_LABELS[documentType]} elaborato` });

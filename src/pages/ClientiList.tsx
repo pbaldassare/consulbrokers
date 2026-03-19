@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Users, Building2, Search, User } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
+import type { DocumentType } from "@/components/AiDocumentScanner";
 import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
@@ -50,6 +51,41 @@ const ClientiList = () => {
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [pec, setPec] = useState("");
+  const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
+
+  const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
+    scannedFilesRef.current.push({ file, documentType });
+  }, []);
+
+  const uploadScannedFiles = useCallback(async (clienteId: string) => {
+    const files = scannedFilesRef.current;
+    if (files.length === 0) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || null;
+
+    for (const { file, documentType } of files) {
+      const ts = Date.now();
+      const path = `cliente/${clienteId}/${ts}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("documenti_clienti")
+        .upload(path, file);
+      if (uploadErr) {
+        console.error("Upload error:", uploadErr);
+        continue;
+      }
+      await supabase.from("documenti").insert({
+        nome_file: file.name,
+        path_storage: path,
+        bucket_name: "documenti_clienti",
+        entita_tipo: "cliente",
+        entita_id: clienteId,
+        caricato_da: userId,
+        categoria: documentType,
+      });
+    }
+    scannedFilesRef.current = [];
+  }, []);
 
   const { data: clienti = [], isLoading } = useQuery({
     queryKey: ["clienti"],
@@ -104,10 +140,14 @@ const ClientiList = () => {
         payload.referente_telefono = referenteTelefono || null;
         payload.referente_email = referenteEmail || null;
       }
-      const { error } = await supabase.from("clienti").insert(payload as any);
+      const { data, error } = await supabase.from("clienti").insert(payload as any).select("id").single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      if (data?.id) {
+        await uploadScannedFiles(data.id);
+      }
       queryClient.invalidateQueries({ queryKey: ["clienti"] });
       toast({ title: "Cliente creato con successo" });
       resetForm();
@@ -127,6 +167,7 @@ const ClientiList = () => {
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
+    scannedFilesRef.current = [];
   };
 
   const filtered = clienti.filter((c) => {
@@ -180,6 +221,7 @@ const ClientiList = () => {
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="carta_identita"
+                    onFileReady={handleFileReady}
                     onExtracted={(data) => {
                       if (data.nome) setNome(data.nome as string);
                       if (data.cognome) setCognome(data.cognome as string);
@@ -194,6 +236,7 @@ const ClientiList = () => {
                   />
                   <AiDocumentScanner
                     documentType="tessera_sanitaria"
+                    onFileReady={handleFileReady}
                     onExtracted={(data) => {
                       if (data.codice_fiscale) setCodiceFiscale((data.codice_fiscale as string).toUpperCase());
                       if (data.nome) setNome(data.nome as string);
@@ -206,6 +249,7 @@ const ClientiList = () => {
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="visura_camerale"
+                    onFileReady={handleFileReady}
                     onExtracted={(data) => {
                       if (data.ragione_sociale) setRagioneSociale(data.ragione_sociale as string);
                       if (data.partita_iva) setPartitaIva(data.partita_iva as string);

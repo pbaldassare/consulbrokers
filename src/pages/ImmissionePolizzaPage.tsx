@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
+import type { DocumentType } from "@/components/AiDocumentScanner";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const ImmissionePolizzaPage = () => {
   const [appendice, setAppendice] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
+  const scannedFileRef = useRef<File | null>(null);
 
   // Lookup A/E dal codice cliente
   const { data: clienteData } = useQuery({
@@ -125,6 +127,7 @@ const ImmissionePolizzaPage = () => {
 
         <AiDocumentScanner
           documentType="copia_polizza"
+          onFileReady={(file) => { scannedFileRef.current = file; }}
           onExtracted={(data) => {
             if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
           }}
