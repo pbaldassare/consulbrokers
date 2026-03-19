@@ -402,7 +402,7 @@ const ClientiList = () => {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((c) => (
-                      <TableRow key={c.id}>
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.cognome || "—"}</TableCell>
                         <TableCell>{c.nome || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.codice_fiscale || "—"}</TableCell>
