@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, DollarSign, Download } from "lucide-react";
+import { ArrowLeft, DollarSign, Download, TrendingUp, Wallet, Percent } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
@@ -53,6 +54,8 @@ const PremiProvvigioniPage = () => {
 
   const totPremi = filtered.reduce((s: number, p: any) => s + (Number(p.titoli?.importo_incassato) || 0), 0);
   const totProvvigioni = filtered.reduce((s: number, p: any) => s + (Number(p.importo_provvigione) || 0), 0);
+  const totPremioLordo = filtered.reduce((s: number, p: any) => s + (Number(p.titoli?.premio_lordo) || 0), 0);
+  const mediaPerc = filtered.length > 0 ? filtered.reduce((s: number, p: any) => s + (Number(p.percentuale) || 0), 0) / filtered.length : 0;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const getCliente = (t: any) => {
@@ -74,6 +77,13 @@ const PremiProvvigioniPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  const kpiCards = [
+    { label: "Totale Premi", value: fmt(totPremioLordo), icon: TrendingUp, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
+    { label: "Totale Incassato", value: fmt(totPremi), icon: Wallet, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
+    { label: "Totale Provvigioni", value: fmt(totProvvigioni), icon: DollarSign, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
+    { label: "% Media Provvigione", value: `${mediaPerc.toFixed(1)}%`, icon: Percent, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -94,6 +104,22 @@ const PremiProvvigioniPage = () => {
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiCards.map((kpi) => (
+          <Card key={kpi.label}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.color)}>
+                <kpi.icon className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                <p className="text-lg font-bold">{isLoading ? "..." : kpi.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showProduttore showCompagnia />
 
       <div className="flex items-center gap-3">
@@ -107,11 +133,6 @@ const PremiProvvigioniPage = () => {
             <SelectItem value="non_pagate">Solo non pagate</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex-1" />
-        <div className="flex gap-4 text-sm">
-          <span className="text-muted-foreground">Tot. Incassato: <strong>{fmt(totPremi)}</strong></span>
-          <span className="text-muted-foreground">Tot. Provvigioni: <strong>{fmt(totProvvigioni)}</strong></span>
-        </div>
       </div>
 
       <div className="border rounded-lg">
@@ -170,5 +191,9 @@ const PremiProvvigioniPage = () => {
     </div>
   );
 };
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
+}
 
 export default PremiProvvigioniPage;

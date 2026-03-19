@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Download, ShieldCheck, ShieldAlert, FileText, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
@@ -53,8 +54,10 @@ const PremiScopertiGarantitiPage = () => {
     return true;
   });
 
-  const totScoperti = filtered.filter((t: any) => t.classificazione === "scoperto").reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
-  const totGarantiti = filtered.filter((t: any) => t.classificazione === "garantito").reduce((s: number, t: any) => s + (Number(t.importo_incassato) || 0), 0);
+  const garantiti = filtered.filter((t: any) => t.classificazione === "garantito");
+  const scoperti = filtered.filter((t: any) => t.classificazione === "scoperto");
+  const totGarantiti = garantiti.reduce((s: number, t: any) => s + (Number(t.importo_incassato) || 0), 0);
+  const totScoperti = scoperti.reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const exportCSV = () => {
@@ -65,6 +68,13 @@ const PremiScopertiGarantitiPage = () => {
     const a = document.createElement("a"); a.href = url; a.download = "premi_scoperti_garantiti.csv"; a.click();
     URL.revokeObjectURL(url);
   };
+
+  const kpiCards = [
+    { label: "N. Garantiti", value: garantiti.length.toString(), icon: ShieldCheck, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
+    { label: "N. Scoperti", value: scoperti.length.toString(), icon: ShieldAlert, color: "text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400" },
+    { label: "Totale Garantito", value: fmt(totGarantiti), icon: TrendingUp, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
+    { label: "Totale Scoperto", value: fmt(totScoperti), icon: FileText, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -86,6 +96,22 @@ const PremiScopertiGarantitiPage = () => {
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiCards.map((kpi) => (
+          <Card key={kpi.label}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.color)}>
+                <kpi.icon className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                <p className="text-lg font-bold">{isLoading ? "..." : kpi.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showCompagnia />
 
       <div className="flex items-center gap-3">
@@ -99,11 +125,6 @@ const PremiScopertiGarantitiPage = () => {
             <SelectItem value="garantiti">Solo garantiti</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex-1" />
-        <div className="flex gap-4 text-sm">
-          <span className="text-muted-foreground">Scoperti: <strong className="text-destructive">{fmt(totScoperti)}</strong></span>
-          <span className="text-muted-foreground">Garantiti: <strong className="text-green-600">{fmt(totGarantiti)}</strong></span>
-        </div>
       </div>
 
       <div className="border rounded-lg">
@@ -143,5 +164,9 @@ const PremiScopertiGarantitiPage = () => {
     </div>
   );
 };
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
+}
 
 export default PremiScopertiGarantitiPage;
