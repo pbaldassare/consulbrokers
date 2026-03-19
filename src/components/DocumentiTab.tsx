@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, Download, Trash2, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -29,7 +30,7 @@ const BUCKET_MAP: Record<string, string> = {
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif", "bmp"];
 
-function DocumentThumbnail({ bucketName, pathStorage, nomeFile }: { bucketName: string; pathStorage: string; nomeFile: string }) {
+function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick }: { bucketName: string; pathStorage: string; nomeFile: string; onClick: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const ext = nomeFile.split(".").pop()?.toLowerCase() || "";
   const isImage = IMAGE_EXTENSIONS.includes(ext);
@@ -37,18 +38,26 @@ function DocumentThumbnail({ bucketName, pathStorage, nomeFile }: { bucketName: 
 
   useEffect(() => {
     if (!isImage) return;
-    supabase.storage.from(bucketName).createSignedUrl(pathStorage, 3600).then(({ data }) => {
-      if (data?.signedUrl) setUrl(data.signedUrl);
+    let revoke: string | null = null;
+    supabase.storage.from(bucketName).download(pathStorage).then(({ data }) => {
+      if (data) {
+        const blobUrl = URL.createObjectURL(data);
+        revoke = blobUrl;
+        setUrl(blobUrl);
+      }
     });
+    return () => { if (revoke) URL.revokeObjectURL(revoke); };
   }, [bucketName, pathStorage, isImage]);
 
+  const base = "cursor-pointer hover:opacity-80 transition-opacity";
+
   if (isImage && url) {
-    return <img src={url} alt={nomeFile} className="w-10 h-10 rounded object-cover border border-border" />;
+    return <img src={url} alt={nomeFile} className={`w-10 h-10 rounded object-cover border border-border ${base}`} onClick={onClick} />;
   }
   if (isPdf) {
-    return <FileText className="h-8 w-8 text-red-500" />;
+    return <FileText className={`h-8 w-8 text-red-500 ${base}`} onClick={onClick} />;
   }
-  return <FileText className="h-8 w-8 text-muted-foreground" />;
+  return <FileText className={`h-8 w-8 text-muted-foreground ${base}`} onClick={onClick} />;
 }
 
 export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnly = false }: DocumentiTabProps) {
@@ -56,6 +65,8 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [previewDoc, setPreviewDoc] = useState<any>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
 
   const { data: documenti } = useQuery({
@@ -130,6 +141,32 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
     qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
   };
 
+  const openPreview = async (doc: any) => {
+    const ext = doc.nome_file.split(".").pop()?.toLowerCase() || "";
+    const isImage = IMAGE_EXTENSIONS.includes(ext);
+    const isPdf = ext === "pdf";
+
+    if (!isImage && !isPdf) {
+      handleDownload(doc);
+      return;
+    }
+
+    const { data, error } = await supabase.storage.from(doc.bucket_name).download(doc.path_storage);
+    if (error) { toast.error(error.message); return; }
+    const blobUrl = URL.createObjectURL(data);
+    setPreviewUrl(blobUrl);
+    setPreviewDoc(doc);
+  };
+
+  const closePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPreviewDoc(null);
+  };
+
+  const previewExt = previewDoc?.nome_file?.split(".")?.pop()?.toLowerCase() || "";
+  const previewIsImage = IMAGE_EXTENSIONS.includes(previewExt);
+
   return (
     <div className="space-y-4">
       {!readOnly && (
@@ -155,15 +192,16 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
           {documenti?.map((doc: any) => (
             <TableRow key={doc.id}>
               <TableCell>
-                <DocumentThumbnail bucketName={doc.bucket_name} pathStorage={doc.path_storage} nomeFile={doc.nome_file} />
+                <DocumentThumbnail bucketName={doc.bucket_name} pathStorage={doc.path_storage} nomeFile={doc.nome_file} onClick={() => openPreview(doc)} />
               </TableCell>
-              <TableCell className="font-medium">{doc.nome_file}</TableCell>
+              <TableCell className="font-medium cursor-pointer hover:underline" onClick={() => openPreview(doc)}>{doc.nome_file}</TableCell>
               <TableCell>{doc.profiles ? `${doc.profiles.nome} ${doc.profiles.cognome}` : "—"}</TableCell>
               <TableCell>{format(new Date(doc.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
               <TableCell>
                 <Switch checked={doc.visibile_al_cliente} onCheckedChange={() => toggleVisibilita(doc)} disabled={readOnly} />
               </TableCell>
               <TableCell className="flex gap-1">
+                <Button size="icon" variant="ghost" onClick={() => openPreview(doc)}><Eye className="h-4 w-4" /></Button>
                 <Button size="icon" variant="ghost" onClick={() => handleDownload(doc)}><Download className="h-4 w-4" /></Button>
                 {!readOnly && <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(doc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </TableCell>
@@ -173,6 +211,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
         </TableBody>
       </Table>
 
+      {/* Dialog conferma eliminazione */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -192,6 +231,23 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog anteprima documento */}
+      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && closePreview()}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{previewDoc?.nome_file}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center overflow-auto max-h-[75vh]">
+            {previewIsImage && previewUrl && (
+              <img src={previewUrl} alt={previewDoc?.nome_file} className="max-w-full max-h-[70vh] object-contain rounded" />
+            )}
+            {!previewIsImage && previewUrl && (
+              <iframe src={previewUrl} className="w-full h-[70vh] rounded border border-border" title={previewDoc?.nome_file} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
