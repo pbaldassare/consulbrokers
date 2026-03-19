@@ -1,35 +1,49 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Download, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
+import { format } from "date-fns";
 
 const PremiScopertiGarantitiPage = () => {
   const navigate = useNavigate();
+  const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
   const [filtroTipo, setFiltroTipo] = useState<string>("tutti");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["premi-scoperti-garantiti"],
+    queryKey: ["premi-scoperti-garantiti", filters],
     queryFn: async () => {
-      const { data: titoli, error } = await supabase
+      let query = supabase
         .from("titoli")
         .select(`
-          id, numero_titolo, stato, premio_lordo, importo_incassato,
+          id, numero_titolo, stato, premio_lordo, importo_incassato, ufficio_id, data_incasso,
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale),
-          prodotti!inner(nome_prodotto, compagnie!inner(nome))
+          prodotti!inner(nome_prodotto, compagnia_id, compagnie!inner(nome))
         `);
 
+      if (filters.dateFrom) query = query.gte("data_incasso", format(filters.dateFrom, "yyyy-MM-dd"));
+      if (filters.dateTo) query = query.lte("data_incasso", format(filters.dateTo, "yyyy-MM-dd"));
+      if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
+
+      const { data: titoli, error } = await query;
       if (error) throw error;
-      return (titoli || []).map((t: any) => ({
+
+      let results = (titoli || []).map((t: any) => ({
         ...t,
         classificazione: t.stato === "incassato" ? "garantito" : "scoperto",
         compagnia: t.prodotti?.compagnie?.nome || "—",
         cliente: t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim() || "—",
       }));
+
+      if (filters.compagnia_id) {
+        results = results.filter((t: any) => (t.prodotti as any)?.compagnia_id === filters.compagnia_id);
+      }
+      return results;
     },
   });
 
@@ -41,7 +55,6 @@ const PremiScopertiGarantitiPage = () => {
 
   const totScoperti = filtered.filter((t: any) => t.classificazione === "scoperto").reduce((s: number, t: any) => s + (Number(t.premio_lordo) || 0), 0);
   const totGarantiti = filtered.filter((t: any) => t.classificazione === "garantito").reduce((s: number, t: any) => s + (Number(t.importo_incassato) || 0), 0);
-
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const exportCSV = () => {
@@ -55,18 +68,25 @@ const PremiScopertiGarantitiPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/estrazioni-stampe")}>
-          <ArrowLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/estrazioni-stampe")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Premi Scoperti e Garantiti</h1>
+            <p className="text-sm text-muted-foreground">Analisi premi in base allo stato di incasso</p>
+          </div>
+        </div>
+        <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
+          <Download className="mr-2 h-4 w-4" /> Esporta CSV
         </Button>
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <ShieldCheck className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Premi Scoperti e Garantiti</h1>
-          <p className="text-sm text-muted-foreground">Analisi premi in base allo stato di incasso</p>
-        </div>
       </div>
+
+      <EstrazioniFilters filters={filters} onChange={setFilters} showUfficio showCompagnia />
 
       <div className="flex items-center gap-3">
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>
@@ -84,9 +104,6 @@ const PremiScopertiGarantitiPage = () => {
           <span className="text-muted-foreground">Scoperti: <strong className="text-destructive">{fmt(totScoperti)}</strong></span>
           <span className="text-muted-foreground">Garantiti: <strong className="text-green-600">{fmt(totGarantiti)}</strong></span>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-          <Download className="mr-2 h-4 w-4" /> Esporta CSV
-        </Button>
       </div>
 
       <div className="border rounded-lg">
