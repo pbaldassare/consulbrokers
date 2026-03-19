@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Users, Building2, Search, User } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
+import type { DocumentType } from "@/components/AiDocumentScanner";
 import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
