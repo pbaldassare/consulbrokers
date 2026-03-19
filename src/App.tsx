@@ -11,6 +11,9 @@ import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
+import ECClientiContabPage from "./pages/contabilita/ECClientiContabPage";
+import ECCompagniaContabPage from "./pages/contabilita/ECCompagniaContabPage";
+import ECProduttoriContabPage from "./pages/contabilita/ECProduttoriContabPage";
 import DocumentalePage from "./pages/DocumentalePage";
 import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
 import CreaNuovoUtente from "./pages/CreaNuovoUtente";
@@ -167,9 +170,9 @@ const App = () => (
               <Route path="/contabilita" element={<ContabilitaUfficio />} />
               <Route path="/contabilita/avvisi-incasso" element={<PlaceholderPage title="Avvisi Incasso" description="Gestione avvisi di incasso" icon={Bell} />} />
               <Route path="/contabilita/chiusura-giornaliera" element={<PlaceholderPage title="Chiusura Giornaliera" description="Chiusura giornaliera di cassa" icon={CheckSquare} />} />
-              <Route path="/contabilita/ec-clienti" element={<PlaceholderPage title="E/C Clienti" description="Estratto conto clienti" icon={Users} />} />
-              <Route path="/contabilita/ec-compagnia" element={<PlaceholderPage title="E/C Compagnia" description="Estratto conto compagnie" icon={Building2} />} />
-              <Route path="/contabilita/ec-produttori" element={<PlaceholderPage title="E/C Produttori" description="Estratto conto produttori" icon={Percent} />} />
+              <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
+              <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
+              <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
               <Route path="/contabilita/stampa-primanota" element={<PlaceholderPage title="Stampa Primanota" description="Stampa movimenti di primanota" icon={Printer} />} />
               <Route path="/contabilita/check-primanota" element={<PlaceholderPage title="Check Primanota" description="Verifica e quadratura primanota" icon={ListChecks} />} />
               <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
