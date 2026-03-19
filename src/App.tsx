@@ -8,6 +8,7 @@ import RoleGuard from "./components/RoleGuard";
 import AuthGuard from "./components/AuthGuard";
 import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/LoginPage";
+import ComunicazioniPage from "./pages/ComunicazioniPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
@@ -213,7 +214,7 @@ const App = () => (
               <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
               <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
               <Route path="/report" element={<ReportPage />} />
-              <Route path="/comunicazioni" element={<PlaceholderPage title="Comunicazioni" description="Centro comunicazioni e notifiche" icon={Mail} />} />
+              <Route path="/comunicazioni" element={<ComunicazioniPage />} />
 
               {/* SISTEMA (admin) */}
               <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
