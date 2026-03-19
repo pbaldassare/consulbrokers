@@ -220,6 +220,7 @@ const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Provvigioni", path: "/provvigioni", icon: Percent, permissionKey: "provvigioni" } },
   { type: "single", item: { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign, permissionKey: "provvigioni" } },
   { type: "single", item: { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" } },
+  { type: "single", item: { label: "Comunicazioni", path: "/comunicazioni", icon: Mail, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
 ];
 
