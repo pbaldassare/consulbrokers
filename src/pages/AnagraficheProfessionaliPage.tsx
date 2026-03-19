@@ -122,7 +122,7 @@ const AnagraficheProfessionaliPage = () => {
     queryKey: ["uffici_select"],
     queryFn: async () => {
       const { data } = await supabase.from("uffici" as any).select("id, nome_ufficio, codice_ufficio").eq("attivo", true).order("nome_ufficio");
-      return (data || []) as { id: string; nome_ufficio: string; codice_ufficio: string }[];
+      return (data || []) as unknown as { id: string; nome_ufficio: string; codice_ufficio: string }[];
     },
   });
 
