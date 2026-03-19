@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
+import AiDocumentScanner from "@/components/AiDocumentScanner";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
