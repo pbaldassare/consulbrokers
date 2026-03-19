@@ -64,6 +64,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, clas
       if (!data?.data) throw new Error("Nessun dato estratto");
 
       onExtracted(data.data);
+      onFileReady?.(file, documentType);
       setLastResult("success");
       setIsExpanded(false);
       toast({ title: "Dati estratti con successo", description: `Documento ${DOC_LABELS[documentType]} elaborato` });
