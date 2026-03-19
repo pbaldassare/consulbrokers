@@ -140,10 +140,14 @@ const ClientiList = () => {
         payload.referente_telefono = referenteTelefono || null;
         payload.referente_email = referenteEmail || null;
       }
-      const { error } = await supabase.from("clienti").insert(payload as any);
+      const { data, error } = await supabase.from("clienti").insert(payload as any).select("id").single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      if (data?.id) {
+        await uploadScannedFiles(data.id);
+      }
       queryClient.invalidateQueries({ queryKey: ["clienti"] });
       toast({ title: "Cliente creato con successo" });
       resetForm();
