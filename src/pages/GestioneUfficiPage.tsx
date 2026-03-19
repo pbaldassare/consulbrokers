@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Plus, Users, Briefcase, Settings, Pencil } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Ufficio {
   id: string;
@@ -28,7 +29,6 @@ const GestioneUfficiPage = () => {
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
   const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", attivo: true });
 
-  // Fetch uffici
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
     queryFn: async () => {
@@ -41,40 +41,38 @@ const GestioneUfficiPage = () => {
     },
   });
 
-  // Fetch counts per ufficio
   const { data: counts = {} } = useQuery({
     queryKey: ["uffici-counts"],
     queryFn: async () => {
       const [profilesRes, clientiRes, anagRes] = await Promise.all([
         supabase.from("profiles").select("ufficio_id"),
         supabase.from("clienti").select("ufficio_id"),
-        supabase.from("anagrafiche_professionali").select("ufficio_id"),
+        supabase.from("anagrafiche_professionali").select("ufficio_id, tipo"),
       ]);
 
-      const result: Record<string, { utenti: number; clienti: number; anagrafiche: number }> = {};
+      const result: Record<string, { utenti: number; clienti: number; anagrafiche: number; produttori: number }> = {};
+      const initEntry = (uid: string) => {
+        if (!result[uid]) result[uid] = { utenti: 0, clienti: 0, anagrafiche: 0, produttori: 0 };
+      };
       (profilesRes.data || []).forEach((p: any) => {
-        if (p.ufficio_id) {
-          if (!result[p.ufficio_id]) result[p.ufficio_id] = { utenti: 0, clienti: 0, anagrafiche: 0 };
-          result[p.ufficio_id].utenti++;
-        }
+        if (p.ufficio_id) { initEntry(p.ufficio_id); result[p.ufficio_id].utenti++; }
       });
       (clientiRes.data || []).forEach((c: any) => {
-        if (c.ufficio_id) {
-          if (!result[c.ufficio_id]) result[c.ufficio_id] = { utenti: 0, clienti: 0, anagrafiche: 0 };
-          result[c.ufficio_id].clienti++;
-        }
+        if (c.ufficio_id) { initEntry(c.ufficio_id); result[c.ufficio_id].clienti++; }
       });
       (anagRes.data || []).forEach((a: any) => {
         if (a.ufficio_id) {
-          if (!result[a.ufficio_id]) result[a.ufficio_id] = { utenti: 0, clienti: 0, anagrafiche: 0 };
+          initEntry(a.ufficio_id);
           result[a.ufficio_id].anagrafiche++;
+          if (a.tipo === "account_executive" || a.tipo === "corrispondente") {
+            result[a.ufficio_id].produttori++;
+          }
         }
       });
       return result;
     },
   });
 
-  // Upsert mutation
   const upsertMutation = useMutation({
     mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; attivo: boolean }) => {
       if (data.id) {
@@ -135,14 +133,12 @@ const GestioneUfficiPage = () => {
         <Button onClick={openCreateDialog}><Plus className="w-4 h-4 mr-2" /> Nuovo Ufficio</Button>
       </div>
 
-      {/* KPI */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Totale Uffici</p><p className="text-2xl font-bold text-foreground">{uffici.length}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Attivi</p><p className="text-2xl font-bold text-primary">{uffici.filter(u => u.attivo).length}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Disattivi</p><p className="text-2xl font-bold text-destructive">{uffici.filter(u => !u.attivo).length}</p></CardContent></Card>
       </div>
 
-      {/* Lista Uffici */}
       <Card>
         <CardHeader><CardTitle>Elenco Uffici</CardTitle></CardHeader>
         <CardContent>
@@ -156,6 +152,7 @@ const GestioneUfficiPage = () => {
                   <TableHead>Nome Ufficio</TableHead>
                   <TableHead className="text-center">Utenti</TableHead>
                   <TableHead className="text-center">Clienti</TableHead>
+                  <TableHead className="text-center">Produttori</TableHead>
                   <TableHead className="text-center">Anagrafiche</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Azioni</TableHead>
@@ -172,6 +169,7 @@ const GestioneUfficiPage = () => {
                     <TableCell className="font-medium">{u.nome_ufficio}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.utenti || 0}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.clienti || 0}</TableCell>
+                    <TableCell className="text-center">{counts[u.id]?.produttori || 0}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.anagrafiche || 0}</TableCell>
                     <TableCell>
                       <Badge variant={u.attivo ? "default" : "secondary"}>
@@ -186,7 +184,7 @@ const GestioneUfficiPage = () => {
                   </TableRow>
                 ))}
                 {uffici.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun ufficio trovato</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nessun ufficio trovato</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -194,10 +192,8 @@ const GestioneUfficiPage = () => {
         </CardContent>
       </Card>
 
-      {/* Dettaglio Ufficio Selezionato */}
-      {selectedUfficio && <UfficioDetail ufficio={selectedUfficio} />}
+      {selectedUfficio && <UfficioDetail ufficio={selectedUfficio} uffici={uffici} />}
 
-      {/* Dialog Crea/Modifica */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -229,8 +225,9 @@ const GestioneUfficiPage = () => {
   );
 };
 
-// Sub-component: detail tabs for selected ufficio
-const UfficioDetail = ({ ufficio }: { ufficio: Ufficio }) => {
+const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[] }) => {
+  const queryClient = useQueryClient();
+
   const { data: utenti = [] } = useQuery({
     queryKey: ["ufficio-utenti", ufficio.id],
     queryFn: async () => {
@@ -255,6 +252,32 @@ const UfficioDetail = ({ ufficio }: { ufficio: Ufficio }) => {
     },
   });
 
+  const { data: produttori = [] } = useQuery({
+    queryKey: ["ufficio-produttori", ufficio.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, tipo, cognome, nome, codice, sigla, email, ragione_sociale")
+        .eq("ufficio_id", ufficio.id)
+        .in("tipo", ["account_executive", "corrispondente"]);
+      return data || [];
+    },
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: async ({ id, newUfficioId }: { id: string; newUfficioId: string }) => {
+      const { error } = await supabase.from("anagrafiche_professionali").update({ ufficio_id: newUfficioId }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ufficio-produttori"] });
+      queryClient.invalidateQueries({ queryKey: ["ufficio-anagrafiche"] });
+      queryClient.invalidateQueries({ queryKey: ["uffici-counts"] });
+      toast.success("Produttore riassegnato");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -268,19 +291,15 @@ const UfficioDetail = ({ ufficio }: { ufficio: Ufficio }) => {
           <TabsList>
             <TabsTrigger value="utenti"><Users className="w-4 h-4 mr-1" /> Utenti ({utenti.length})</TabsTrigger>
             <TabsTrigger value="clienti"><Users className="w-4 h-4 mr-1" /> Clienti ({clienti.length})</TabsTrigger>
+            <TabsTrigger value="produttori"><UserCheck className="w-4 h-4 mr-1" /> Produttori ({produttori.length})</TabsTrigger>
             <TabsTrigger value="anagrafiche"><Briefcase className="w-4 h-4 mr-1" /> Anagrafiche ({anagrafiche.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="utenti">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Cognome</TableHead>
-                  <TableHead>Ruolo</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow>
+                <TableHead>Nome</TableHead><TableHead>Cognome</TableHead><TableHead>Ruolo</TableHead><TableHead>Email</TableHead>
+              </TableRow></TableHeader>
               <TableBody>
                 {utenti.map((u: any) => (
                   <TableRow key={u.id}>
@@ -297,13 +316,9 @@ const UfficioDetail = ({ ufficio }: { ufficio: Ufficio }) => {
 
           <TabsContent value="clienti">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cognome/Ragione Sociale</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow>
+                <TableHead>Cognome/Ragione Sociale</TableHead><TableHead>Nome</TableHead><TableHead>Tipo</TableHead>
+              </TableRow></TableHeader>
               <TableBody>
                 {clienti.map((c: any) => (
                   <TableRow key={c.id}>
@@ -317,17 +332,46 @@ const UfficioDetail = ({ ufficio }: { ufficio: Ufficio }) => {
             </Table>
           </TabsContent>
 
+          <TabsContent value="produttori">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Codice</TableHead><TableHead>Tipo</TableHead><TableHead>Nominativo</TableHead><TableHead>Sigla</TableHead><TableHead>Email</TableHead><TableHead>Riassegna a</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {produttori.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-mono">{p.codice || "—"}</TableCell>
+                    <TableCell><Badge variant="outline">{p.tipo === "account_executive" ? "AE" : "Corr."}</Badge></TableCell>
+                    <TableCell className="font-medium">{p.ragione_sociale || [p.cognome, p.nome].filter(Boolean).join(" ") || "—"}</TableCell>
+                    <TableCell>{p.sigla || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{p.email || "—"}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={ufficio.id}
+                        onValueChange={(v) => {
+                          if (v !== ufficio.id) reassignMutation.mutate({ id: p.id, newUfficioId: v });
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {uffici.filter(u => u.attivo).map((u) => (
+                            <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {produttori.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-4">Nessun produttore collegato</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
           <TabsContent value="anagrafiche">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Codice</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Cognome</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow>
+                <TableHead>Codice</TableHead><TableHead>Tipo</TableHead><TableHead>Cognome</TableHead><TableHead>Nome</TableHead><TableHead>Email</TableHead>
+              </TableRow></TableHeader>
               <TableBody>
                 {anagrafiche.map((a: any) => (
                   <TableRow key={a.id}>
