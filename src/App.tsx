@@ -8,6 +8,7 @@ import RoleGuard from "./components/RoleGuard";
 import AuthGuard from "./components/AuthGuard";
 import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/LoginPage";
+import ComunicazioniPage from "./pages/ComunicazioniPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
