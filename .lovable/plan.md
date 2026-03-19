@@ -1,86 +1,72 @@
 
 
-## Piano: Popolare Estrazioni e Stampe con dati e pagine funzionanti
+## Piano: Componente Filtri Estrazioni + Riscrittura Pagine Estrazione
 
-### Situazione attuale
-- Le 5 rotte di Estrazioni e Stampe puntano tutte a `PlaceholderPage` (pagine vuote)
-- I titoli esistenti hanno `data_incasso`, `importo_incassato` e `produttore_id` tutti NULL
-- Non esistono record in `matrice_provvigioni` (zero regole provvigionali)
-- Non esistono record in `provvigioni_generate` (zero provvigioni calcolate)
-- Serve completare i dati e creare le 5 pagine di estrazione
+### Obiettivo
+Ricreare le 5 pagine di estrazione con un sistema di filtri avanzato ispirato al progetto zbenergy: filtri per periodo (data da/a), ufficio, produttore (Account Executive), compagnia, cliente, con pulsante "Azzera" e export CSV/Excel.
 
-### Modifiche previste
+### Cosa faremo
 
-#### 1. Migration — Completare dati demo e seed provvigioni
+#### 1. Creare componente riutilizzabile `EstrazioniFilters`
+**File**: `src/components/estrazioni/EstrazioniFilters.tsx`
 
-**a) Aggiornare i titoli esistenti** con dati mancanti:
-- `data_incasso` per i titoli incassati
-- `importo_incassato` (uguale o simile a `premio_lordo`)
-- `produttore_id` assegnato al profilo "Produttore Consul" (`aed93cfd-...`)
+Componente filtri condiviso da tutte le pagine di estrazione, ispirato a `ReportsFilters` di zbenergy:
+- **Periodo**: Select con "Questo mese", "Ultimi 3 mesi", "Ultimi 6 mesi", "Quest'anno", "Tutto", "Personalizzato"
+- **Date personalizzate**: Calendar popover per data inizio/fine (visibili solo quando periodo = "Personalizzato")
+- **Ufficio**: Select con lista da tabella `uffici`
+- **Produttore (A/E)**: Select con ricerca, carica da `profiles` dove `ruolo = produttore` (o tutti i profili con ruolo rilevante)
+- **Compagnia**: Select con ricerca, carica da tabella `compagnie`
+- **Cliente**: Input con ricerca, carica da tabella `clienti`
+- **Provvigioni SI/NO**: Radio toggle (solo per pagine che lo richiedono)
+- **Pulsante Azzera**: reset di tutti i filtri
+- Layout a griglia wrap responsive, con icona Filter + etichetta "Filtri:"
 
-**b) Inserire regole matrice provvigioni** per i prodotti usati:
-- Una regola per ruolo "produttore" al 15% per ogni prodotto demo
-- Tipo calcolo: percentuale
+L'interfaccia `FiltersState` sara':
+```typescript
+interface EstrazioniFiltersState {
+  period: string;
+  customStartDate: Date | null;
+  customEndDate: Date | null;
+  ufficio_id: string | null;
+  produttore_id: string | null;
+  compagnia_id: string | null;
+  cliente_id: string | null;
+  conProvvigioni: boolean | null;
+}
+```
 
-**c) Inserire provvigioni generate** per ogni titolo incassato:
-- Calcolo automatico: `importo_incassato * 15%`
-- `user_id` = produttore, `pagata = false`
+Ogni pagina potra' decidere quali filtri mostrare tramite props booleane (`showCompagnia`, `showProduttore`, `showCliente`, `showProvvigioni`).
 
-**d) Inserire altri titoli** per altri clienti privati (Gallo Veronica, Martini Massimo) per avere dati piu ricchi nelle estrazioni
+#### 2. Riscrivere le 5 pagine di estrazione
 
-#### 2. Creare 5 pagine di estrazione funzionanti
+Tutte useranno `EstrazioniFilters` e passeranno i filtri alla query Supabase. Struttura comune: header con back button + titolo, filtri, tabella con totali in footer, export CSV.
 
-**a) Portafoglio per Cliente** (`/portafoglio/estrazioni/per-cliente`)
-- Query: `titoli` JOIN `clienti` raggruppati per cliente
-- Tabella: nome cliente, numero polizze, totale premi, totale incassato
-- Filtri: ricerca nome, ufficio
-- Esportazione CSV
+Le query filtreranno `titoli` per:
+- `data_incasso` nel range date selezionate
+- `ufficio_id` se filtro attivo
+- `produttore_id` se filtro attivo  
+- join `prodotti` → `compagnie` per filtro compagnia
+- `cliente_anagrafica_id` per filtro cliente
 
-**b) Portafoglio per Compagnia** (`/portafoglio/estrazioni/per-compagnia`)
-- Query: `titoli` JOIN `prodotti` JOIN `compagnie` raggruppati per compagnia
-- Tabella: nome compagnia, numero polizze, totale premi, totale incassato
-- Filtri: compagnia, ufficio
-- Esportazione CSV
+**a) PortafoglioPerClientePage** — aggiunge filtri ufficio, produttore, compagnia, periodo
+**b) PortafoglioPerCompagniaPage** — aggiunge filtri ufficio, produttore, periodo
+**c) PremiProvvigioniPage** — aggiunge filtri ufficio, produttore, compagnia, periodo, provvigioni SI/NO
+**d) PremiScopertiGarantitiPage** — aggiunge filtri ufficio, compagnia, periodo
+**e) ECClientiPage** — aggiunge filtri ufficio, periodo, cliente
 
-**c) Premi e Provvigioni** (`/portafoglio/estrazioni/premi-provvigioni`)
-- Query: `titoli` JOIN `provvigioni_generate` JOIN `profiles` (produttore)
-- Tabella: numero polizza, cliente, premio lordo, incassato, % provvigione, importo provvigione, produttore
-- Filtri: data da/a, produttore, stato pagamento
-- Totali in fondo
-- Esportazione CSV
-
-**d) Premi Scoperti e Garantiti** (`/portafoglio/estrazioni/premi-scoperti-garantiti`)
-- Query: titoli con analisi premi — "scoperto" = titoli creati non ancora incassati, "garantito" = titoli incassati
-- Tabella: numero polizza, cliente, compagnia, premio lordo, stato, classificazione
-- Filtri: compagnia, stato
-- Esportazione CSV
-
-**e) E/C Clienti** (`/portafoglio/estrazioni/ec-clienti`)
-- Query: `titoli` raggruppati per cliente con saldo dare/avere
-- Tabella: cliente, totale premi, totale incassato, saldo
-- Dettaglio espandibile per singolo cliente
-- Filtri: ricerca cliente, periodo
-- Esportazione CSV
-
-#### 3. Aggiornare App.tsx — Collegare le nuove pagine alle rotte
-
-Sostituire i 5 `PlaceholderPage` con i nuovi componenti.
+#### 3. Helper `getDateRange`
+Funzione utility nel componente filtri che converte il periodo selezionato in date da/a (come in zbenergy).
 
 ### File coinvolti
 
 | Azione | File |
 |--------|------|
-| Migration | Update titoli + seed matrice_provvigioni + seed provvigioni_generate + titoli aggiuntivi |
-| Creare | `src/pages/estrazioni/PortafoglioPerClientePage.tsx` |
-| Creare | `src/pages/estrazioni/PortafoglioPerCompagniaPage.tsx` |
-| Creare | `src/pages/estrazioni/PremiProvvigioniPage.tsx` |
-| Creare | `src/pages/estrazioni/PremiScopertiGarantitiPage.tsx` |
-| Creare | `src/pages/estrazioni/ECClientiPage.tsx` |
-| Modificare | `src/App.tsx` — sostituire PlaceholderPage con nuovi componenti |
+| Creare | `src/components/estrazioni/EstrazioniFilters.tsx` |
+| Riscrivere | `src/pages/estrazioni/PortafoglioPerClientePage.tsx` |
+| Riscrivere | `src/pages/estrazioni/PortafoglioPerCompagniaPage.tsx` |
+| Riscrivere | `src/pages/estrazioni/PremiProvvigioniPage.tsx` |
+| Riscrivere | `src/pages/estrazioni/PremiScopertiGarantitiPage.tsx` |
+| Riscrivere | `src/pages/estrazioni/ECClientiPage.tsx` |
 
-### Dettagli tecnici
-- Ogni pagina usa `useQuery` con Supabase client per le query
-- Esportazione CSV tramite generazione blob lato client
-- Filtri con componenti `Select`, `Input`, `DatePicker` gia presenti nel progetto
-- Pattern coerente con le altre pagine lista (TitoliList, ClientiList)
+Nessuna migration necessaria — tutte le tabelle e colonne (uffici, compagnie, produttore_id, data_incasso) esistono gia'.
 
