@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
+import DocumentalePage from "./pages/DocumentalePage";
 import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
 import CreaNuovoUtente from "./pages/CreaNuovoUtente";
 import ProspectList from "./pages/ProspectList";
@@ -142,7 +143,7 @@ const App = () => (
               <Route path="/portafoglio/estrazioni/ec-clienti" element={<PlaceholderPage title="E/C Clienti" description="Estratto conto clienti" icon={FileText} />} />
               <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
               <Route path="/portafoglio/regolazioni" element={<PlaceholderPage title="Regolazioni" description="Regolazioni premio polizze" icon={ClipboardList} />} />
-              <Route path="/portafoglio/documentale" element={<PlaceholderPage title="Documentale" description="Archivio documentale polizze" icon={FileText} />} />
+              <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
               <Route path="/trattative" element={<TrattativeList />} />
               <Route path="/portafoglio/rientro-documenti" element={<PlaceholderPage title="Rientro Documenti" description="Gestione rientro documenti dalle compagnie" icon={FileCheck} />} />
               <Route path="/portafoglio/import-titoli" element={<PlaceholderPage title="Import Titoli (Excel)" description="Importazione massiva titoli da file Excel" icon={FileUp} />} />

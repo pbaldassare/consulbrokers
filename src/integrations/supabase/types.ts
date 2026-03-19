@@ -546,6 +546,110 @@ export type Database = {
         }
         Relationships: []
       }
+      document_folders: {
+        Row: {
+          active: boolean | null
+          compagnia_id: string | null
+          created_at: string | null
+          description: string | null
+          folder_type: string
+          icon: string | null
+          id: string
+          name: string
+          order_index: number | null
+          parent_folder_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          folder_type?: string
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          parent_folder_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          compagnia_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          folder_type?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          parent_folder_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_folders_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_library: {
+        Row: {
+          active: boolean | null
+          description: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          folder_id: string
+          id: string
+          tags: string[] | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          description?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          folder_id: string
+          id?: string
+          tags?: string[] | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          description?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          folder_id?: string
+          id?: string
+          tags?: string[] | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_library_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documenti: {
         Row: {
           bucket_name: string
