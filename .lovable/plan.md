@@ -1,38 +1,32 @@
 
 
-## Piano: Salvataggio automatico dei documenti scansionati nell'anagrafica cliente
+## Piano: Miniature documenti + Conferma eliminazione
 
-### Problema attuale
-Il componente `AiDocumentScanner` estrae i dati dal documento ma **non conserva il file** (JPEG/PDF) nell'anagrafica del cliente. Il file viene letto, inviato all'AI, e poi perso.
+### 1. Miniature per ogni documento
 
-### Soluzione
+Nel componente `DocumentiTab.tsx`, per ogni documento nella tabella:
+- **Immagini** (jpg, png, webp): generare un URL firmato via `supabase.storage.from(bucket).createSignedUrl(path, 3600)` e mostrare un `<img>` come miniatura (48x48px, object-cover, rounded)
+- **PDF**: mostrare un'icona PDF stilizzata (già presente `FileText`, la sostituiamo con un'icona più specifica rossa per i PDF)
+- **Altri file**: mantenere l'icona `FileText` generica
 
-**1. Modificare `AiDocumentScanner.tsx`**
-- Aggiungere una nuova prop opzionale `onFileReady?: (file: File) => void`
-- Quando un file viene processato con successo, chiamare `onFileReady(file)` oltre a `onExtracted(data)`
-- Il componente resta generico e riusabile
+La miniatura sostituirà l'icona `FileText` nella prima colonna della tabella. Si userà un hook `useEffect` o un approccio inline per ottenere le signed URLs per i file immagine.
 
-**2. Modificare `ClientiList.tsx`**
-- Accumulare i file scansionati in uno state array `scannedFiles: { file: File, documentType: string }[]`
-- Nei callback `onFileReady` degli scanner (carta identita, tessera sanitaria, visura camerale), pushare il file nell'array
-- **Dopo la creazione del cliente** (nel `onSuccess` della mutation): per ogni file accumulato, fare upload su bucket `documenti_clienti` e inserire record nella tabella `documenti` con `entita_tipo = 'cliente'` e `entita_id = id_cliente_appena_creato`
-- La mutation `createMutation` deve restituire l'ID del cliente creato (modificare per usare `.select().single()`)
+Implementazione:
+- Creare un sotto-componente `DocumentThumbnail` interno al file che riceve `bucket_name`, `path_storage` e `nome_file`
+- Controlla l'estensione: se immagine → fetch signed URL e mostra `<img>`, se PDF → icona PDF rossa, altrimenti → icona generica
+- Dimensione miniatura: 40x40px con bordo arrotondato
 
-**3. Modificare `ImmissionePolizzaPage.tsx`**
-- Stesso pattern: salvare il file della copia polizza nel bucket `documenti_generali` collegato all'entita polizza dopo il salvataggio
+### 2. Dialog di conferma per l'eliminazione
 
-### Dettagli tecnici
-
-- Upload path: `cliente/{clienteId}/{timestamp}_{filename}`
-- Bucket: `documenti_clienti`
-- Record `documenti`: `nome_file`, `path_storage`, `bucket_name`, `entita_tipo='cliente'`, `entita_id`, `caricato_da`
-- I file vengono salvati solo dopo la creazione riuscita del cliente, per evitare orfani nello storage
+Aggiungere un `AlertDialog` (già disponibile in `src/components/ui/alert-dialog.tsx`) che si apre quando si clicca il pulsante cestino:
+- Stato `deleteTarget` per tracciare quale documento eliminare
+- Al click su Trash2 → apri dialog con messaggio "Sei sicuro di voler eliminare questo documento? L'azione è irreversibile."
+- Pulsante "Elimina" (destructive) → esegue `handleDelete`
+- Pulsante "Annulla" → chiude il dialog
 
 ### File coinvolti
 
 | Azione | File |
 |--------|------|
-| Modificare | `src/components/AiDocumentScanner.tsx` — aggiungere prop `onFileReady` |
-| Modificare | `src/pages/ClientiList.tsx` — accumulare file e salvarli post-creazione |
-| Modificare | `src/pages/ImmissionePolizzaPage.tsx` — salvare copia polizza scansionata |
+| Modificare | `src/components/DocumentiTab.tsx` — aggiungere miniature + AlertDialog conferma eliminazione |
 
