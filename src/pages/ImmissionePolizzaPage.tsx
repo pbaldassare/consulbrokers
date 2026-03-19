@@ -22,6 +22,7 @@ const ImmissionePolizzaPage = () => {
   const [appendice, setAppendice] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
+  const scannedFileRef = useRef<File | null>(null);
 
   // Lookup A/E dal codice cliente
   const { data: clienteData } = useQuery({
