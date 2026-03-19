@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Filter, RotateCcw } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { CalendarIcon, Check, ChevronsUpDown, Filter, RotateCcw } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,77 @@ export function getDateRange(period: string): { from: Date | null; to: Date | nu
     default:
       return { from: null, to: null };
   }
+}
+
+// Searchable Combobox component
+function SearchableSelect({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  allLabel,
+  className,
+}: {
+  value: string | null;
+  onValueChange: (val: string | null) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  allLabel: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = value
+    ? options.find((o) => o.value === value)?.label || placeholder
+    : allLabel;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("justify-between bg-background font-normal", className)}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[250px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={`Cerca ${placeholder.toLowerCase()}...`} />
+          <CommandList>
+            <CommandEmpty>Nessun risultato</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__all__"
+                onSelect={() => {
+                  onValueChange(null);
+                  setOpen(false);
+                }}
+              >
+                <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
+                {allLabel}
+              </CommandItem>
+              {options.map((opt) => (
+                <CommandItem
+                  key={opt.value}
+                  value={opt.label}
+                  onSelect={() => {
+                    onValueChange(opt.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === opt.value ? "opacity-100" : "opacity-0")} />
+                  {opt.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 const EstrazioniFilters = ({
@@ -171,62 +243,50 @@ const EstrazioniFilters = ({
 
         {/* Ufficio */}
         {showUfficio && (
-          <Select value={filters.ufficio_id || "all"} onValueChange={(v) => onChange({ ...filters, ufficio_id: v === "all" ? null : v })}>
-            <SelectTrigger className="w-[180px] bg-background">
-              <SelectValue placeholder="Ufficio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti gli uffici</SelectItem>
-              {(uffici || []).map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={filters.ufficio_id}
+            onValueChange={(v) => onChange({ ...filters, ufficio_id: v })}
+            options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}
+            placeholder="Ufficio"
+            allLabel="Tutti gli uffici"
+            className="w-[200px]"
+          />
         )}
 
         {/* Produttore */}
         {showProduttore && (
-          <Select value={filters.produttore_id || "all"} onValueChange={(v) => onChange({ ...filters, produttore_id: v === "all" ? null : v })}>
-            <SelectTrigger className="w-[200px] bg-background">
-              <SelectValue placeholder="Produttore / A.E." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti i produttori</SelectItem>
-              {(produttori || []).map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.cognome} {p.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={filters.produttore_id}
+            onValueChange={(v) => onChange({ ...filters, produttore_id: v })}
+            options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))}
+            placeholder="Produttore"
+            allLabel="Tutti i produttori"
+            className="w-[220px]"
+          />
         )}
 
         {/* Compagnia */}
         {showCompagnia && (
-          <Select value={filters.compagnia_id || "all"} onValueChange={(v) => onChange({ ...filters, compagnia_id: v === "all" ? null : v })}>
-            <SelectTrigger className="w-[200px] bg-background">
-              <SelectValue placeholder="Compagnia" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutte le compagnie</SelectItem>
-              {(compagnie || []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={filters.compagnia_id}
+            onValueChange={(v) => onChange({ ...filters, compagnia_id: v })}
+            options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))}
+            placeholder="Compagnia"
+            allLabel="Tutte le compagnie"
+            className="w-[220px]"
+          />
         )}
 
         {/* Cliente */}
         {showCliente && (
-          <Select value={filters.cliente_id || "all"} onValueChange={(v) => onChange({ ...filters, cliente_id: v === "all" ? null : v })}>
-            <SelectTrigger className="w-[220px] bg-background">
-              <SelectValue placeholder="Cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti i clienti</SelectItem>
-              {(clienti || []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={filters.cliente_id}
+            onValueChange={(v) => onChange({ ...filters, cliente_id: v })}
+            options={(clienti || []).map((c) => ({ value: c.id, label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() }))}
+            placeholder="Cliente"
+            allLabel="Tutti i clienti"
+            className="w-[240px]"
+          />
         )}
       </div>
     </div>
