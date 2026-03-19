@@ -220,6 +220,7 @@ const ClientiList = () => {
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="carta_identita"
+                    onFileReady={handleFileReady}
                     onExtracted={(data) => {
                       if (data.nome) setNome(data.nome as string);
                       if (data.cognome) setCognome(data.cognome as string);
