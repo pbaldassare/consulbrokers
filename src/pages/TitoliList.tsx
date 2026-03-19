@@ -96,6 +96,20 @@ const TitoliList = () => {
     },
   });
 
+  const { data: clientiAnagraficaSearch = [] } = useQuery({
+    queryKey: ["clienti_anagrafica_search", clienteAnagraficaSearch],
+    queryFn: async () => {
+      if (clienteAnagraficaSearch.length < 2) return [];
+      const { data } = await supabase
+        .from("clienti")
+        .select("id, tipo_cliente, nome, cognome, ragione_sociale, codice_fiscale")
+        .or(`cognome.ilike.%${clienteAnagraficaSearch}%,nome.ilike.%${clienteAnagraficaSearch}%,ragione_sociale.ilike.%${clienteAnagraficaSearch}%,codice_fiscale.ilike.%${clienteAnagraficaSearch}%`)
+        .limit(10);
+      return data || [];
+    },
+    enabled: clienteAnagraficaSearch.length >= 2,
+  });
+
   const { data: accountExecutives = [] } = useQuery({
     queryKey: ["ae_list"],
     queryFn: async () => {
