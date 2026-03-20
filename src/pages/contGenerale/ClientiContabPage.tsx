@@ -28,7 +28,7 @@ const ClientiContabPage = () => {
   });
 
   const rows = data?.rows || [];
-  const totalPages = Math.ceil((data?.total || 0) / PAGE_SIZE);
+  const totalCount = data?.total || 0;
 
   const getDisplayName = (c: any) => {
     if (c.tipo_cliente === "azienda") return c.ragione_sociale || "—";
