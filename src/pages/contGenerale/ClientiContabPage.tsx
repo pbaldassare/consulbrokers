@@ -55,7 +55,7 @@ const ClientiContabPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Cerca cliente..." className="pl-9" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
-            <Badge variant="outline">{data?.total || 0} clienti</Badge>
+            <Badge variant="outline">{totalCount} clienti</Badge>
           </div>
         </CardHeader>
         <CardContent>
