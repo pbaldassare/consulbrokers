@@ -30,7 +30,7 @@ const ScadenziarioPage = () => {
   });
 
   const rows = data?.rows || [];
-  const totalPages = Math.ceil((data?.total || 0) / PAGE_SIZE);
+  const totalCount = data?.total || 0;
 
   const getScadenzaBadge = (stato: string, dataScadenza: string) => {
     if (stato === "pagata") return <Badge className="bg-green-100 text-green-800">Pagata</Badge>;
