@@ -13,6 +13,13 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
 import FornitoriPage from "./pages/FornitoriPage";
+import CausaliPage from "./pages/contGenerale/CausaliPage";
+import PrimanotaGeneralePage from "./pages/contGenerale/PrimanotaGeneralePage";
+import ScadenziarioPage from "./pages/contGenerale/ScadenziarioPage";
+import ElabPeriodichePage from "./pages/contGenerale/ElabPeriodichePage";
+import ClientiContabGeneralePage from "./pages/contGenerale/ClientiContabPage";
+import DichiarativiCUPage from "./pages/contGenerale/DichiarativiCUPage";
+import ElabAnnualiPage from "./pages/contGenerale/ElabAnnualiPage";
 import ECClientiContabPage from "./pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "./pages/contabilita/ECCompagniaContabPage";
 import ECProduttoriContabPage from "./pages/contabilita/ECProduttoriContabPage";
@@ -181,13 +188,16 @@ const App = () => (
               <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
 
               {/* CONT. GENERALE */}
+              <Route path="/cont-generale/causali" element={<CausaliPage />} />
               <Route path="/cont-generale/anagrafiche" element={<PlaceholderPage title="Anagrafiche" description="Anagrafiche contabilità generale" icon={Users} />} />
-              <Route path="/cont-generale/primanota" element={<PlaceholderPage title="Primanota" description="Primanota contabilità generale" icon={FileText} />} />
-              <Route path="/cont-generale/elab-periodiche" element={<PlaceholderPage title="Elaborazioni Periodiche" description="Elaborazioni periodiche contabili" icon={CalendarCheck} />} />
+              <Route path="/cont-generale/primanota" element={<PrimanotaGeneralePage />} />
+              <Route path="/cont-generale/scadenziario" element={<ScadenziarioPage />} />
+              <Route path="/cont-generale/elab-periodiche" element={<ElabPeriodichePage />} />
               <Route path="/cont-generale/fornitori" element={<FornitoriPage />} />
-              <Route path="/cont-generale/clienti" element={<PlaceholderPage title="Clienti" description="Gestione clienti contabilità" icon={Users} />} />
-              <Route path="/cont-generale/elab-annuali" element={<PlaceholderPage title="Elaborazioni Annuali" description="Elaborazioni annuali e chiusure" icon={ClipboardList} />} />
-              <Route path="/cont-generale/dichiarativi" element={<PlaceholderPage title="Dichiarativi" description="Gestione dichiarativi fiscali" icon={FileStack} />} />
+              <Route path="/cont-generale/clienti" element={<ClientiContabGeneralePage />} />
+              <Route path="/cont-generale/import-bancario" element={<BancaImport />} />
+              <Route path="/cont-generale/elab-annuali" element={<ElabAnnualiPage />} />
+              <Route path="/cont-generale/dichiarativi" element={<DichiarativiCUPage />} />
 
               {/* FATTURAPA */}
               <Route path="/fatturapa/anagrafiche" element={<PlaceholderPage title="Anagrafiche FatturaPA" description="Anagrafiche per fatturazione elettronica" icon={Users} />} />

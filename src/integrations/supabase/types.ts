@@ -308,6 +308,114 @@ export type Database = {
         }
         Relationships: []
       }
+      causali_contabili: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          tipo_tabella: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          tipo_tabella: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          tipo_tabella?: string
+        }
+        Relationships: []
+      }
+      certificazioni_cu: {
+        Row: {
+          aliquota_ritenuta: number | null
+          altri_importi: number | null
+          anno_fiscale: number
+          codice_fornitore: string | null
+          created_at: string | null
+          data_primanota: string | null
+          fornitore_id: string | null
+          id: string
+          imponibile: number | null
+          nome_fornitore: string | null
+          non_soggetto: number | null
+          numero_documento: string | null
+          numero_primanota: string | null
+          numero_protocollo: string | null
+          ritenuta: number | null
+          stato: string | null
+          tipo_reddito: string | null
+          totale: number | null
+          ufficio_id: string | null
+        }
+        Insert: {
+          aliquota_ritenuta?: number | null
+          altri_importi?: number | null
+          anno_fiscale: number
+          codice_fornitore?: string | null
+          created_at?: string | null
+          data_primanota?: string | null
+          fornitore_id?: string | null
+          id?: string
+          imponibile?: number | null
+          nome_fornitore?: string | null
+          non_soggetto?: number | null
+          numero_documento?: string | null
+          numero_primanota?: string | null
+          numero_protocollo?: string | null
+          ritenuta?: number | null
+          stato?: string | null
+          tipo_reddito?: string | null
+          totale?: number | null
+          ufficio_id?: string | null
+        }
+        Update: {
+          aliquota_ritenuta?: number | null
+          altri_importi?: number | null
+          anno_fiscale?: number
+          codice_fornitore?: string | null
+          created_at?: string | null
+          data_primanota?: string | null
+          fornitore_id?: string | null
+          id?: string
+          imponibile?: number | null
+          nome_fornitore?: string | null
+          non_soggetto?: number | null
+          numero_documento?: string | null
+          numero_primanota?: string | null
+          numero_protocollo?: string | null
+          ritenuta?: number | null
+          stato?: string | null
+          tipo_reddito?: string | null
+          totale?: number | null
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificazioni_cu_fornitore_id_fkey"
+            columns: ["fornitore_id"]
+            isOneToOne: false
+            referencedRelation: "fornitori"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificazioni_cu_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_canali: {
         Row: {
           created_at: string | null
@@ -903,6 +1011,105 @@ export type Database = {
             columns: ["caricato_da"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elab_annuali: {
+        Row: {
+          anno: number
+          created_at: string | null
+          eseguita_da: string | null
+          id: string
+          risultato_json: Json | null
+          stato: string | null
+          tipo: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          anno: number
+          created_at?: string | null
+          eseguita_da?: string | null
+          id?: string
+          risultato_json?: Json | null
+          stato?: string | null
+          tipo: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          anno?: number
+          created_at?: string | null
+          eseguita_da?: string | null
+          id?: string
+          risultato_json?: Json | null
+          stato?: string | null
+          tipo?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elab_annuali_eseguita_da_fkey"
+            columns: ["eseguita_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elab_annuali_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elaborazioni_periodiche: {
+        Row: {
+          created_at: string | null
+          eseguita_da: string | null
+          id: string
+          periodo_a: string | null
+          periodo_da: string | null
+          risultato_json: Json | null
+          stato: string | null
+          tipo: string
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          eseguita_da?: string | null
+          id?: string
+          periodo_a?: string | null
+          periodo_da?: string | null
+          risultato_json?: Json | null
+          stato?: string | null
+          tipo: string
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          eseguita_da?: string | null
+          id?: string
+          periodo_a?: string | null
+          periodo_da?: string | null
+          risultato_json?: Json | null
+          stato?: string | null
+          tipo?: string
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elaborazioni_periodiche_eseguita_da_fkey"
+            columns: ["eseguita_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elaborazioni_periodiche_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
             referencedColumns: ["id"]
           },
         ]
@@ -1950,6 +2157,107 @@ export type Database = {
           },
         ]
       }
+      primanota_generale: {
+        Row: {
+          aliquota_ritenuta: number | null
+          altri_importi: number | null
+          causale_id: string | null
+          created_at: string | null
+          created_by: string | null
+          data_documento: string | null
+          data_pn: string | null
+          data_protocollo: string | null
+          descrizione: string | null
+          fornitore_id: string | null
+          id: string
+          imponibile: number | null
+          non_soggetto: number | null
+          numero_documento: string | null
+          numero_pn: string | null
+          numero_protocollo: string | null
+          ritenuta: number | null
+          stato: string | null
+          tipo: string | null
+          totale: number | null
+          ufficio_id: string | null
+        }
+        Insert: {
+          aliquota_ritenuta?: number | null
+          altri_importi?: number | null
+          causale_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_documento?: string | null
+          data_pn?: string | null
+          data_protocollo?: string | null
+          descrizione?: string | null
+          fornitore_id?: string | null
+          id?: string
+          imponibile?: number | null
+          non_soggetto?: number | null
+          numero_documento?: string | null
+          numero_pn?: string | null
+          numero_protocollo?: string | null
+          ritenuta?: number | null
+          stato?: string | null
+          tipo?: string | null
+          totale?: number | null
+          ufficio_id?: string | null
+        }
+        Update: {
+          aliquota_ritenuta?: number | null
+          altri_importi?: number | null
+          causale_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_documento?: string | null
+          data_pn?: string | null
+          data_protocollo?: string | null
+          descrizione?: string | null
+          fornitore_id?: string | null
+          id?: string
+          imponibile?: number | null
+          non_soggetto?: number | null
+          numero_documento?: string | null
+          numero_pn?: string | null
+          numero_protocollo?: string | null
+          ritenuta?: number | null
+          stato?: string | null
+          tipo?: string | null
+          totale?: number | null
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "primanota_generale_causale_id_fkey"
+            columns: ["causale_id"]
+            isOneToOne: false
+            referencedRelation: "causali_contabili"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primanota_generale_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primanota_generale_fornitore_id_fkey"
+            columns: ["fornitore_id"]
+            isOneToOne: false
+            referencedRelation: "fornitori"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primanota_generale_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       privacy_consensi: {
         Row: {
           cliente_id: string
@@ -2430,6 +2738,67 @@ export type Database = {
           ruolo_base?: string | null
         }
         Relationships: []
+      }
+      scadenziario: {
+        Row: {
+          created_at: string | null
+          data_pagamento: string | null
+          data_scadenza: string
+          descrizione: string | null
+          fornitore_id: string | null
+          id: string
+          importo: number | null
+          primanota_id: string | null
+          stato: string | null
+          ufficio_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_scadenza: string
+          descrizione?: string | null
+          fornitore_id?: string | null
+          id?: string
+          importo?: number | null
+          primanota_id?: string | null
+          stato?: string | null
+          ufficio_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_scadenza?: string
+          descrizione?: string | null
+          fornitore_id?: string | null
+          id?: string
+          importo?: number | null
+          primanota_id?: string | null
+          stato?: string | null
+          ufficio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scadenziario_fornitore_id_fkey"
+            columns: ["fornitore_id"]
+            isOneToOne: false
+            referencedRelation: "fornitori"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scadenziario_primanota_id_fkey"
+            columns: ["primanota_id"]
+            isOneToOne: false
+            referencedRelation: "primanota_generale"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scadenziario_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sinistri: {
         Row: {
