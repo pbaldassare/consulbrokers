@@ -14,7 +14,7 @@ import { format, differenceInDays } from "date-fns";
 const PAGE_SIZE = 25;
 
 const ScadenziarioPage = () => {
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [statoFilter, setStatoFilter] = useState("tutte");
 
   const { data, isLoading } = useQuery({
