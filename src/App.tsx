@@ -184,7 +184,7 @@ const App = () => (
               <Route path="/cont-generale/anagrafiche" element={<PlaceholderPage title="Anagrafiche" description="Anagrafiche contabilità generale" icon={Users} />} />
               <Route path="/cont-generale/primanota" element={<PlaceholderPage title="Primanota" description="Primanota contabilità generale" icon={FileText} />} />
               <Route path="/cont-generale/elab-periodiche" element={<PlaceholderPage title="Elaborazioni Periodiche" description="Elaborazioni periodiche contabili" icon={CalendarCheck} />} />
-              <Route path="/cont-generale/fornitori" element={<PlaceholderPage title="Fornitori" description="Gestione fornitori" icon={Building2} />} />
+              <Route path="/cont-generale/fornitori" element={<FornitoriPage />} />
               <Route path="/cont-generale/clienti" element={<PlaceholderPage title="Clienti" description="Gestione clienti contabilità" icon={Users} />} />
               <Route path="/cont-generale/elab-annuali" element={<PlaceholderPage title="Elaborazioni Annuali" description="Elaborazioni annuali e chiusure" icon={ClipboardList} />} />
               <Route path="/cont-generale/dichiarativi" element={<PlaceholderPage title="Dichiarativi" description="Gestione dichiarativi fiscali" icon={FileStack} />} />
