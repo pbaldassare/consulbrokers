@@ -32,7 +32,7 @@ const DichiarativiCUPage = () => {
   });
 
   const rows = data?.rows || [];
-  const totalPages = Math.ceil((data?.total || 0) / PAGE_SIZE);
+  const totalCount = data?.total || 0;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
