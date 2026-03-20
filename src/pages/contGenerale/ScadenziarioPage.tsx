@@ -22,7 +22,7 @@ const ScadenziarioPage = () => {
     queryFn: async () => {
       let q = supabase.from("scadenziario").select("*, fornitori(nome)", { count: "exact" });
       if (statoFilter !== "tutte") q = q.eq("stato", statoFilter);
-      q = q.order("data_scadenza", { ascending: true }).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      q = q.order("data_scadenza", { ascending: true }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
