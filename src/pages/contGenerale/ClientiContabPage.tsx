@@ -89,7 +89,7 @@ const ClientiContabPage = () => {
               ))}
             </TableBody>
           </Table>
-          {totalPages > 1 && <ServerPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />}
+          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>
     </div>
