@@ -10,13 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, FileText, Search } from "lucide-react";
+import { Plus, FileText, Search, CalendarPlus } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const PAGE_SIZE = 25;
+
+const getDefaultForm = () => ({
+  numero_pn: "", data_pn: new Date().toISOString().slice(0, 10), numero_protocollo: "", data_protocollo: "",
+  numero_documento: "", data_documento: "", fornitore_id: "", causale_id: "", tipo: "EE",
+  descrizione: "", totale: 0, imponibile: 0, aliquota_ritenuta: 20, ritenuta: 0, non_soggetto: 0, altri_importi: 0,
+});
 
 const PrimanotaGeneralePage = () => {
   const { user } = useAuth();
@@ -24,11 +32,17 @@ const PrimanotaGeneralePage = () => {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<any>({
-    numero_pn: "", data_pn: new Date().toISOString().slice(0, 10), numero_protocollo: "", data_protocollo: "",
-    numero_documento: "", data_documento: "", fornitore_id: "", causale_id: "", tipo: "EE",
-    descrizione: "", totale: 0, imponibile: 0, aliquota_ritenuta: 20, ritenuta: 0, non_soggetto: 0, altri_importi: 0,
-  });
+  const [form, setForm] = useState<any>(getDefaultForm());
+
+  // Scadenza fields
+  const [generaScadenza, setGeneraScadenza] = useState(true);
+  const [giorniScadenza, setGiorniScadenza] = useState(30);
+  const [dataScadenza, setDataScadenza] = useState(addDays(new Date(), 30).toISOString().slice(0, 10));
+
+  // Mini-dialog for creating scadenza from existing row
+  const [scadenzaDialogRow, setScadenzaDialogRow] = useState<any>(null);
+  const [scadenzaGiorni, setScadenzaGiorni] = useState(30);
+  const [scadenzaData, setScadenzaData] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["primanota_generale", page, search],
@@ -60,23 +74,76 @@ const PrimanotaGeneralePage = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("primanota_generale").insert({
+      const { data: pnData, error } = await supabase.from("primanota_generale").insert({
         ...form,
         fornitore_id: form.fornitore_id || null,
         causale_id: form.causale_id || null,
         data_protocollo: form.data_protocollo || null,
         data_documento: form.data_documento || null,
         created_by: user?.id,
+      }).select("id, numero_pn, descrizione, totale, ritenuta, fornitore_id").single();
+      if (error) throw error;
+
+      // Auto-create scadenza
+      if (generaScadenza && pnData) {
+        const importoNetto = (Number(pnData.totale) || 0) - (Number(pnData.ritenuta) || 0);
+        const { error: scadErr } = await supabase.from("scadenziario").insert({
+          fornitore_id: pnData.fornitore_id,
+          primanota_id: pnData.id,
+          importo: importoNetto,
+          data_scadenza: dataScadenza,
+          descrizione: `PN ${pnData.numero_pn || "—"} — ${pnData.descrizione || ""}`.trim(),
+          stato: "aperta",
+        });
+        if (scadErr) console.error("Errore creazione scadenza:", scadErr);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["primanota_generale"] });
+      queryClient.invalidateQueries({ queryKey: ["scadenziario"] });
+      setDialogOpen(false);
+      setForm(getDefaultForm());
+      setGeneraScadenza(true);
+      setGiorniScadenza(30);
+      setDataScadenza(addDays(new Date(), 30).toISOString().slice(0, 10));
+      toast.success("Registrazione creata" + (generaScadenza ? " con scadenza" : ""));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const createScadenzaMutation = useMutation({
+    mutationFn: async (row: any) => {
+      const importoNetto = (Number(row.totale) || 0) - (Number(row.ritenuta) || 0);
+      const { error } = await supabase.from("scadenziario").insert({
+        fornitore_id: row.fornitore_id,
+        primanota_id: row.id,
+        importo: importoNetto,
+        data_scadenza: scadenzaData,
+        descrizione: `PN ${row.numero_pn || "—"} — ${row.descrizione || ""}`.trim(),
+        stato: "aperta",
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["primanota_generale"] });
-      setDialogOpen(false);
-      toast.success("Registrazione creata");
+      queryClient.invalidateQueries({ queryKey: ["scadenziario"] });
+      setScadenzaDialogRow(null);
+      toast.success("Scadenza creata");
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const handleGiorniChange = (days: number) => {
+    setGiorniScadenza(days);
+    const baseDate = form.data_pn ? new Date(form.data_pn) : new Date();
+    setDataScadenza(addDays(baseDate, days).toISOString().slice(0, 10));
+  };
+
+  const openScadenzaDialog = (row: any) => {
+    setScadenzaDialogRow(row);
+    setScadenzaGiorni(30);
+    const baseDate = row.data_pn ? new Date(row.data_pn) : new Date();
+    setScadenzaData(addDays(baseDate, 30).toISOString().slice(0, 10));
+  };
 
   const rows = data?.rows || [];
   const totalCount = data?.total || 0;
@@ -94,7 +161,7 @@ const PrimanotaGeneralePage = () => {
             <p className="text-sm text-muted-foreground">Registrazioni contabilità generale con fornitori e causali</p>
           </div>
         </div>
-        <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Nuova Registrazione</Button>
+        <Button onClick={() => { setForm(getDefaultForm()); setGeneraScadenza(true); handleGiorniChange(30); setDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />Nuova Registrazione</Button>
       </div>
 
       <Card>
@@ -119,13 +186,14 @@ const PrimanotaGeneralePage = () => {
                 <TableHead className="text-right">Totale</TableHead>
                 <TableHead className="text-right">Ritenuta</TableHead>
                 <TableHead>Stato</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
               ) : rows.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessuna registrazione trovata</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessuna registrazione trovata</TableCell></TableRow>
               ) : rows.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono">{r.numero_pn || "—"}</TableCell>
@@ -140,6 +208,16 @@ const PrimanotaGeneralePage = () => {
                       {r.stato}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openScadenzaDialog(r)}>
+                          <CalendarPlus className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Crea scadenza</TooltipContent>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -148,12 +226,13 @@ const PrimanotaGeneralePage = () => {
         </CardContent>
       </Card>
 
+      {/* Dialog nuova registrazione */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nuova Registrazione Primanota</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div><Label>N° Primanota</Label><Input value={form.numero_pn} onChange={e => setForm((f: any) => ({ ...f, numero_pn: e.target.value }))} /></div>
-            <div><Label>Data PN</Label><Input type="date" value={form.data_pn} onChange={e => setForm((f: any) => ({ ...f, data_pn: e.target.value }))} /></div>
+            <div><Label>Data PN</Label><Input type="date" value={form.data_pn} onChange={e => { setForm((f: any) => ({ ...f, data_pn: e.target.value })); if (generaScadenza) { setDataScadenza(addDays(new Date(e.target.value), giorniScadenza).toISOString().slice(0, 10)); } }} /></div>
             <div><Label>N° Protocollo</Label><Input value={form.numero_protocollo} onChange={e => setForm((f: any) => ({ ...f, numero_protocollo: e.target.value }))} /></div>
             <div><Label>Data Protocollo</Label><Input type="date" value={form.data_protocollo} onChange={e => setForm((f: any) => ({ ...f, data_protocollo: e.target.value }))} /></div>
             <div><Label>N° Documento</Label><Input value={form.numero_documento} onChange={e => setForm((f: any) => ({ ...f, numero_documento: e.target.value }))} /></div>
@@ -179,9 +258,79 @@ const PrimanotaGeneralePage = () => {
             <div><Label>Aliquota Rit. (%)</Label><Input type="number" value={form.aliquota_ritenuta} onChange={e => setForm((f: any) => ({ ...f, aliquota_ritenuta: parseFloat(e.target.value) || 0 }))} /></div>
             <div><Label>Ritenuta (€)</Label><Input type="number" value={form.ritenuta} onChange={e => setForm((f: any) => ({ ...f, ritenuta: parseFloat(e.target.value) || 0 }))} /></div>
           </div>
+
+          {/* Sezione scadenza */}
+          <div className="border rounded-lg p-4 mt-2 space-y-3 bg-muted/30">
+            <div className="flex items-center gap-3">
+              <Checkbox id="genera-scadenza" checked={generaScadenza} onCheckedChange={(v) => setGeneraScadenza(!!v)} />
+              <Label htmlFor="genera-scadenza" className="font-medium cursor-pointer">Genera scadenza automatica</Label>
+            </div>
+            {generaScadenza && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Giorni scadenza</Label>
+                  <Select value={String(giorniScadenza)} onValueChange={v => handleGiorniChange(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 giorni</SelectItem>
+                      <SelectItem value="60">60 giorni</SelectItem>
+                      <SelectItem value="90">90 giorni</SelectItem>
+                      <SelectItem value="120">120 giorni</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Data scadenza</Label>
+                  <Input type="date" value={dataScadenza} onChange={e => setDataScadenza(e.target.value)} />
+                </div>
+                <div className="col-span-2 text-sm text-muted-foreground">
+                  Importo scadenza: <span className="font-mono font-medium">€ {((form.totale || 0) - (form.ritenuta || 0)).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</span> (totale − ritenuta)
+                </div>
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
             <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>Salva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mini-dialog crea scadenza da riga esistente */}
+      <Dialog open={!!scadenzaDialogRow} onOpenChange={(open) => { if (!open) setScadenzaDialogRow(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Crea Scadenza da Primanota</DialogTitle></DialogHeader>
+          {scadenzaDialogRow && (
+            <div className="space-y-4">
+              <div className="text-sm space-y-1">
+                <p><span className="text-muted-foreground">N° PN:</span> <span className="font-mono">{scadenzaDialogRow.numero_pn || "—"}</span></p>
+                <p><span className="text-muted-foreground">Fornitore:</span> {scadenzaDialogRow.fornitori?.nome || "—"}</p>
+                <p><span className="text-muted-foreground">Importo netto:</span> <span className="font-mono">€ {((Number(scadenzaDialogRow.totale) || 0) - (Number(scadenzaDialogRow.ritenuta) || 0)).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</span></p>
+              </div>
+              <div>
+                <Label>Giorni scadenza</Label>
+                <Select value={String(scadenzaGiorni)} onValueChange={v => { setScadenzaGiorni(Number(v)); const base = scadenzaDialogRow.data_pn ? new Date(scadenzaDialogRow.data_pn) : new Date(); setScadenzaData(addDays(base, Number(v)).toISOString().slice(0, 10)); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 giorni</SelectItem>
+                    <SelectItem value="60">60 giorni</SelectItem>
+                    <SelectItem value="90">90 giorni</SelectItem>
+                    <SelectItem value="120">120 giorni</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Data scadenza</Label>
+                <Input type="date" value={scadenzaData} onChange={e => setScadenzaData(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScadenzaDialogRow(null)}>Annulla</Button>
+            <Button onClick={() => createScadenzaMutation.mutate(scadenzaDialogRow)} disabled={createScadenzaMutation.isPending}>
+              <CalendarPlus className="w-4 h-4 mr-2" />Crea Scadenza
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
