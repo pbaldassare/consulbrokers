@@ -35,6 +35,7 @@ const ScadenziarioPage = () => {
   const getScadenzaBadge = (stato: string, dataScadenza: string) => {
     if (stato === "pagata") return <Badge className="bg-green-100 text-green-800">Pagata</Badge>;
     const days = differenceInDays(new Date(dataScadenza), new Date());
+    /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
     if (days < 0) return <Badge variant="destructive">Scaduta ({Math.abs(days)}gg)</Badge>;
     if (days <= 7) return <Badge className="bg-amber-100 text-amber-800">Scade tra {days}gg</Badge>;
     return <Badge variant="outline">Aperta</Badge>;
