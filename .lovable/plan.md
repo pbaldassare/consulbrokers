@@ -1,51 +1,59 @@
 
 
-## Piano: Restyling Grafico Area CFO
+## Piano: Creare Tabella Fornitori e Caricare Dati
 
-### Problemi attuali
-- KPI cards troppo compresse in 7 colonne, testo piccolo e difficile da leggere
-- Filtri senza bordi visivi chiari, layout piatto
-- Grafici senza padding/spacing adeguato
-- Mancano icone colorate e indicatori visivi per dare gerarchia ai dati
-- Tabelle report e pagamenti senza stile distintivo
+### Dati dal file Excel
+Il file contiene ~1465 fornitori con le colonne: Cod, Nome, Indirizzo, CAP, Localita, Prov, Naz, C.F., P-Iva, Mail, Pec, UltFattura, StSog (Stato Soggetto), StCli (Stato Cliente), StFor (Stato Fornitore).
 
 ### Cosa faremo
 
-#### 1. Header migliorato
-- Titolo con icona BarChart3 colorata accent, sottotitolo con stile più elegante
-- Bottone "Aggiorna KPI" con stile primary invece di outline
+#### 1. Migration: Creare tabella `fornitori`
+Nuova tabella con i campi corrispondenti alle colonne Excel:
 
-#### 2. Filtri globali ridisegnati
-- Card con bordo sinistro accent colorato e background leggero
-- Label più visibili, input con dimensioni coerenti
-- Bottone Reset con icona
+| Colonna DB | Tipo | Da colonna Excel |
+|---|---|---|
+| `id` | uuid PK | auto |
+| `codice` | text UNIQUE | Cod |
+| `nome` | text NOT NULL | Nome |
+| `indirizzo` | text | Indirizzo |
+| `cap` | text | CAP |
+| `localita` | text | Località |
+| `provincia` | text | Prov |
+| `nazione` | text DEFAULT 'IT' | Naz |
+| `codice_fiscale` | text | C.F. |
+| `partita_iva` | text | P-Iva |
+| `email` | text | Mail |
+| `pec` | text | Pec |
+| `ultima_fattura` | date | UltFattura |
+| `stato_soggetto` | boolean | StSog (X = true) |
+| `stato_cliente` | boolean | StCli (X = true) |
+| `stato_fornitore` | boolean | StFor (X = true) |
+| `attivo` | boolean DEFAULT true | - |
+| `ufficio_id` | uuid | - |
+| `created_at` | timestamptz | auto |
 
-#### 3. KPI Cards ristrutturate
-- Da 7 colonne compresse a grid 2-3-4 responsive (2 col mobile, 3 tablet, 4 desktop)
-- Ogni card con icona colorata su sfondo circolare (bg-primary/10, bg-accent/10, bg-destructive/10)
-- Valore più grande (text-2xl), label sopra con font-medium
-- Colori differenziati per tipo: entrate verde/accent, uscite rosso, provvigioni primary, alert warning
+RLS: Admin full, CFO/Contabilita select, Ufficio CRUD own.
 
-#### 4. Tabs con stile migliorato
-- TabsList con background più definito
-- Tab content con spacing uniforme
+#### 2. Caricare i ~1465 record via script
+Usare uno script per parsare l'Excel e inserire tutti i record nella tabella `fornitori` tramite Supabase insert.
 
-#### 5. Grafici con card migliorate
-- CardHeader con bordo inferiore leggero separator
-- Altezza grafici aumentata (280→320px)
-- Tooltip con formattazione italiana migliorata
+#### 3. Creare pagina `FornitoriPage.tsx`
+Sostituire il PlaceholderPage con una pagina completa:
+- Tabella con ricerca, paginazione server-side
+- Colonne: Codice, Nome, Localita, Prov, P.IVA, Email, Ultima Fattura, Stato
+- Dialog per creare/modificare fornitore
+- Filtri per provincia, stato attivo
 
-#### 6. Tabelle report e pagamenti
-- Header tabella con background muted
-- Righe con hover più evidente
-- Badge stato con colori semantici
-- Bottoni azione con variante accent
+#### 4. Aggiornare routing
+In `App.tsx`, sostituire il PlaceholderPage di `/cont-generale/fornitori` con `FornitoriPage`.
 
 ### File coinvolti
 
 | Azione | File |
-|--------|------|
-| Modificare | `src/pages/AreaCFO.tsx` — restyling completo layout, KPI, grafici, tabelle |
-
-Nessuna modifica al backend o alle query, solo UI/UX.
+|---|---|
+| Migration | Nuova tabella `fornitori` + RLS |
+| Script | Caricamento dati Excel |
+| Creare | `src/pages/FornitoriPage.tsx` |
+| Modificare | `src/App.tsx` — rotta fornitori |
+| Aggiornare | `src/integrations/supabase/types.ts` — tipi generati |
 
