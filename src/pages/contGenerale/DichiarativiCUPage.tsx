@@ -54,13 +54,13 @@ const DichiarativiCUPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Cerca codice, nome, N° PN..." className="pl-9" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} />
             </div>
-            <Select value={annoFilter} onValueChange={v => { setAnnoFilter(v); setPage(1); }}>
+            <Select value={annoFilter} onValueChange={v => { setAnnoFilter(v); setPage(0); }}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[2026, 2025, 2024, 2023].map(a => <SelectItem key={a} value={a.toString()}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Badge variant="outline">{data?.total || 0} record</Badge>
+            <Badge variant="outline">{totalCount} record</Badge>
           </div>
         </CardHeader>
         <CardContent>
