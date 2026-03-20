@@ -21,7 +21,7 @@ const PAGE_SIZE = 25;
 const PrimanotaGeneralePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<any>({
