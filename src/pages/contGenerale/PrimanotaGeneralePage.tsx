@@ -35,7 +35,7 @@ const PrimanotaGeneralePage = () => {
     queryFn: async () => {
       let q = supabase.from("primanota_generale").select("*, fornitori(nome), causali_contabili(descrizione)", { count: "exact" });
       if (search) q = q.or(`numero_pn.ilike.%${search}%,descrizione.ilike.%${search}%,numero_documento.ilike.%${search}%`);
-      q = q.order("data_pn", { ascending: false }).range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      q = q.order("data_pn", { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
