@@ -1052,6 +1052,83 @@ export type Database = {
           },
         ]
       }
+      fornitori: {
+        Row: {
+          attivo: boolean | null
+          cap: string | null
+          codice: string | null
+          codice_fiscale: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          indirizzo: string | null
+          localita: string | null
+          nazione: string | null
+          nome: string
+          partita_iva: string | null
+          pec: string | null
+          provincia: string | null
+          stato_cliente: boolean | null
+          stato_fornitore: boolean | null
+          stato_soggetto: boolean | null
+          ufficio_id: string | null
+          ultima_fattura: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          cap?: string | null
+          codice?: string | null
+          codice_fiscale?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          indirizzo?: string | null
+          localita?: string | null
+          nazione?: string | null
+          nome: string
+          partita_iva?: string | null
+          pec?: string | null
+          provincia?: string | null
+          stato_cliente?: boolean | null
+          stato_fornitore?: boolean | null
+          stato_soggetto?: boolean | null
+          ufficio_id?: string | null
+          ultima_fattura?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          cap?: string | null
+          codice?: string | null
+          codice_fiscale?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          indirizzo?: string | null
+          localita?: string | null
+          nazione?: string | null
+          nome?: string
+          partita_iva?: string | null
+          pec?: string | null
+          provincia?: string | null
+          stato_cliente?: boolean | null
+          stato_fornitore?: boolean | null
+          stato_soggetto?: boolean | null
+          ufficio_id?: string | null
+          ultima_fattura?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fornitori_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gruppi_compagnia: {
         Row: {
           attivo: boolean
