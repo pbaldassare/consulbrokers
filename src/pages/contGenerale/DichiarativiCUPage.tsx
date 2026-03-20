@@ -24,7 +24,7 @@ const DichiarativiCUPage = () => {
       let q = supabase.from("certificazioni_cu").select("*, fornitori(nome)", { count: "exact" });
       if (annoFilter) q = q.eq("anno_fiscale", parseInt(annoFilter));
       if (search) q = q.or(`codice_fornitore.ilike.%${search}%,nome_fornitore.ilike.%${search}%,numero_primanota.ilike.%${search}%`);
-      q = q.order("codice_fornitore").order("data_primanota").range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      q = q.order("codice_fornitore").order("data_primanota").range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
