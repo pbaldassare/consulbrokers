@@ -12,7 +12,7 @@ import ServerPagination from "@/components/ServerPagination";
 const PAGE_SIZE = 25;
 
 const ClientiContabPage = () => {
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
