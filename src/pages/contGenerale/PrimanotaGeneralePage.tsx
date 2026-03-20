@@ -104,7 +104,7 @@ const PrimanotaGeneralePage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Cerca per N° PN, descrizione, documento..." className="pl-9" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} />
             </div>
-            <Badge variant="outline">{data?.total || 0} registrazioni</Badge>
+            <Badge variant="outline">{totalCount} registrazioni</Badge>
           </div>
         </CardHeader>
         <CardContent>
