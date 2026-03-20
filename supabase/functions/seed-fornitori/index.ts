@@ -13,7 +13,8 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  const { data: fornitori } = await req.json();
+  const body = await req.json();
+  const fornitori = body.fornitori || body.data || [];
 
   let inserted = 0;
   const batchSize = 100;
