@@ -66,7 +66,7 @@ const ScadenziarioPage = () => {
                 <SelectItem value="scaduta">Scadute</SelectItem>
               </SelectContent>
             </Select>
-            <Badge variant="outline">{data?.total || 0} scadenze</Badge>
+            <Badge variant="outline">{totalCount} scadenze</Badge>
           </div>
         </CardHeader>
         <CardContent>
