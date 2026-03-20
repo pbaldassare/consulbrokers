@@ -20,7 +20,7 @@ const ClientiContabPage = () => {
     queryFn: async () => {
       let q = supabase.from("clienti").select("*", { count: "exact" });
       if (search) q = q.or(`cognome.ilike.%${search}%,nome.ilike.%${search}%,ragione_sociale.ilike.%${search}%,codice_fiscale.ilike.%${search}%`);
-      q = q.order("cognome").range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      q = q.order("cognome").range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
