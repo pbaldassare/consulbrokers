@@ -12,6 +12,7 @@ import ComunicazioniPage from "./pages/ComunicazioniPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./components/PlaceholderPage";
+import FornitoriPage from "./pages/FornitoriPage";
 import ECClientiContabPage from "./pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "./pages/contabilita/ECCompagniaContabPage";
 import ECProduttoriContabPage from "./pages/contabilita/ECProduttoriContabPage";
