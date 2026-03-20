@@ -52,7 +52,7 @@ const DichiarativiCUPage = () => {
           <div className="flex items-center gap-3">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Cerca codice, nome, N° PN..." className="pl-9" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+              <Input placeholder="Cerca codice, nome, N° PN..." className="pl-9" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} />
             </div>
             <Select value={annoFilter} onValueChange={v => { setAnnoFilter(v); setPage(1); }}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
