@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarCheck, Search, AlertTriangle } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 import { format, differenceInDays } from "date-fns";
@@ -20,7 +19,7 @@ const ScadenziarioPage = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["scadenziario", page, statoFilter],
     queryFn: async () => {
-      let q = supabase.from("scadenziario").select("*, fornitori(nome)", { count: "exact" });
+      let q = supabase.from("scadenziario").select("*, fornitori(nome), primanota_generale(numero_pn)", { count: "exact" });
       if (statoFilter !== "tutte") q = q.eq("stato", statoFilter);
       q = q.order("data_scadenza", { ascending: true }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, count, error } = await q;
@@ -35,7 +34,6 @@ const ScadenziarioPage = () => {
   const getScadenzaBadge = (stato: string, dataScadenza: string) => {
     if (stato === "pagata") return <Badge className="bg-green-100 text-green-800">Pagata</Badge>;
     const days = differenceInDays(new Date(dataScadenza), new Date());
-    /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
     if (days < 0) return <Badge variant="destructive">Scaduta ({Math.abs(days)}gg)</Badge>;
     if (days <= 7) return <Badge className="bg-amber-100 text-amber-800">Scade tra {days}gg</Badge>;
     return <Badge variant="outline">Aperta</Badge>;
@@ -75,6 +73,7 @@ const ScadenziarioPage = () => {
               <TableRow>
                 <TableHead>Fornitore</TableHead>
                 <TableHead>Descrizione</TableHead>
+                <TableHead>N° PN</TableHead>
                 <TableHead className="text-right">Importo</TableHead>
                 <TableHead>Scadenza</TableHead>
                 <TableHead>Pagamento</TableHead>
@@ -83,13 +82,18 @@ const ScadenziarioPage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
               ) : rows.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessuna scadenza trovata</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessuna scadenza trovata</TableCell></TableRow>
               ) : rows.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.fornitori?.nome || "—"}</TableCell>
                   <TableCell>{r.descrizione || "—"}</TableCell>
+                  <TableCell>
+                    {r.primanota_generale?.numero_pn ? (
+                      <Badge variant="secondary" className="font-mono text-xs">{r.primanota_generale.numero_pn}</Badge>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell className="text-right font-mono">€ {Number(r.importo).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell>{format(new Date(r.data_scadenza), "dd/MM/yyyy")}</TableCell>
                   <TableCell>{r.data_pagamento ? format(new Date(r.data_pagamento), "dd/MM/yyyy") : "—"}</TableCell>
