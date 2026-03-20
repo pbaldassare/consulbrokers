@@ -14,7 +14,7 @@ import { format } from "date-fns";
 const PAGE_SIZE = 25;
 
 const DichiarativiCUPage = () => {
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [annoFilter, setAnnoFilter] = useState(new Date().getFullYear().toString());
 
