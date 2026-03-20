@@ -57,7 +57,7 @@ const ScadenziarioPage = () => {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <Select value={statoFilter} onValueChange={v => { setStatoFilter(v); setPage(1); }}>
+            <Select value={statoFilter} onValueChange={v => { setStatoFilter(v); setPage(0); }}>
               <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="tutte">Tutte</SelectItem>
