@@ -367,7 +367,7 @@ const AnagraficheProfessionaliPage = () => {
           </TableCell>
           <TableCell className="text-sm">
             <div>Provv: {item.percentuale_base ?? 0}%</div>
-            <div>Cons: {(item as any).percentuale_consulenza ?? 0}%</div>
+            <div>Cons: {item.percentuale_consulenza ?? 0}%</div>
             <div>RA: {item.percentuale_ra ?? 0}%</div>
           </TableCell>
           <TableCell className="text-sm">
