@@ -21,6 +21,7 @@ const RUOLI_INTERNI = [
   { value: "admin", label: "Admin" },
   { value: "ufficio", label: "Ufficio" },
   { value: "produttore", label: "Produttore" },
+  { value: "backoffice", label: "Backoffice" },
   { value: "contabilita", label: "Contabilità" },
   { value: "cfo", label: "CFO" },
 ];
@@ -42,7 +43,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated }: N
         .from("profiles")
         .select("id, nome, cognome, ruolo, ufficio_id, email")
         .eq("attivo", true)
-        .in("ruolo", ["admin", "ufficio", "produttore", "contabilita", "cfo"])
+        .in("ruolo", ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"])
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },
