@@ -622,6 +622,85 @@ export type Database = {
           },
         ]
       }
+      chiusure_contabili: {
+        Row: {
+          avviato_da: string | null
+          completato_da: string | null
+          completato_il: string | null
+          created_at: string | null
+          id: string
+          note: string | null
+          periodo: string
+          stato: string
+          step_movimenti: boolean | null
+          step_quadratura_iva: boolean | null
+          step_report: boolean | null
+          step_riconciliazione: boolean | null
+          step_scadenziario: boolean | null
+          tipo: string
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avviato_da?: string | null
+          completato_da?: string | null
+          completato_il?: string | null
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          periodo: string
+          stato?: string
+          step_movimenti?: boolean | null
+          step_quadratura_iva?: boolean | null
+          step_report?: boolean | null
+          step_riconciliazione?: boolean | null
+          step_scadenziario?: boolean | null
+          tipo?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avviato_da?: string | null
+          completato_da?: string | null
+          completato_il?: string | null
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          periodo?: string
+          stato?: string
+          step_movimenti?: boolean | null
+          step_quadratura_iva?: boolean | null
+          step_report?: boolean | null
+          step_riconciliazione?: boolean | null
+          step_scadenziario?: boolean | null
+          tipo?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chiusure_contabili_avviato_da_fkey"
+            columns: ["avviato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chiusure_contabili_completato_da_fkey"
+            columns: ["completato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chiusure_contabili_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clienti: {
         Row: {
           attivo: boolean | null
@@ -866,6 +945,136 @@ export type Database = {
           ultima_scadenza_polizza?: string | null
         }
         Relationships: []
+      }
+      distinte_giornaliere: {
+        Row: {
+          chiuso_da: string | null
+          chiuso_il: string | null
+          created_at: string | null
+          creato_da: string | null
+          data_distinta: string
+          differenza_cassa: number | null
+          id: string
+          note: string | null
+          saldo_cassa_atteso: number | null
+          stato: string
+          totale_assegni: number | null
+          totale_bonifici: number | null
+          totale_contanti: number | null
+          totale_generale: number | null
+          totale_pos: number | null
+          ufficio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          chiuso_da?: string | null
+          chiuso_il?: string | null
+          created_at?: string | null
+          creato_da?: string | null
+          data_distinta: string
+          differenza_cassa?: number | null
+          id?: string
+          note?: string | null
+          saldo_cassa_atteso?: number | null
+          stato?: string
+          totale_assegni?: number | null
+          totale_bonifici?: number | null
+          totale_contanti?: number | null
+          totale_generale?: number | null
+          totale_pos?: number | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          chiuso_da?: string | null
+          chiuso_il?: string | null
+          created_at?: string | null
+          creato_da?: string | null
+          data_distinta?: string
+          differenza_cassa?: number | null
+          id?: string
+          note?: string | null
+          saldo_cassa_atteso?: number | null
+          stato?: string
+          totale_assegni?: number | null
+          totale_bonifici?: number | null
+          totale_contanti?: number | null
+          totale_generale?: number | null
+          totale_pos?: number | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distinte_giornaliere_chiuso_da_fkey"
+            columns: ["chiuso_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distinte_giornaliere_creato_da_fkey"
+            columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distinte_giornaliere_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distinte_giornaliere_righe: {
+        Row: {
+          created_at: string | null
+          descrizione: string | null
+          distinta_id: string
+          id: string
+          importo: number
+          movimento_id: string | null
+          riferimento: string | null
+          tipo_pagamento: string
+        }
+        Insert: {
+          created_at?: string | null
+          descrizione?: string | null
+          distinta_id: string
+          id?: string
+          importo?: number
+          movimento_id?: string | null
+          riferimento?: string | null
+          tipo_pagamento: string
+        }
+        Update: {
+          created_at?: string | null
+          descrizione?: string | null
+          distinta_id?: string
+          id?: string
+          importo?: number
+          movimento_id?: string | null
+          riferimento?: string | null
+          tipo_pagamento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distinte_giornaliere_righe_distinta_id_fkey"
+            columns: ["distinta_id"]
+            isOneToOne: false
+            referencedRelation: "distinte_giornaliere"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distinte_giornaliere_righe_movimento_id_fkey"
+            columns: ["movimento_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_contabili"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_folders: {
         Row: {
