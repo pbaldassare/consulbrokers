@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import type { SearchableSelectOption } from "@/components/SearchableSelect";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -152,15 +154,13 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="col-span-2">
             <Label className="text-xs">Profilo</Label>
-            <Select value={profiloId} onValueChange={setProfiloId}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleziona..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nessuno —</SelectItem>
-                {profili.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.cognome} {p.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={profiloId}
+              onValueChange={setProfiloId}
+              placeholder="Seleziona profilo..."
+              options={profili.map((p: any) => ({ value: p.id, label: `${p.cognome} ${p.nome}` }))}
+            />
           </div>
           <div>
             <Label className="text-xs">% Provvigione</Label>
@@ -232,7 +232,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("gruppi_finanziari" as any)
-        .select("id, codice, descrizione")
+        .select("id, codice, nome, descrizione")
         .eq("attivo", true)
         .order("codice");
       return (data || []) as any[];
@@ -549,17 +549,15 @@ export default function ClienteDetail() {
               <div>
                 <Label className="text-xs">Gruppo Finanziario</Label>
                 {readOnly ? (
-                  <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.descrizione || "—"}</p>
+                  <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.descrizione || "—"}</p>
                 ) : (
-                  <Select value={ef.gruppo_finanziario_id || ""} onValueChange={(v) => updateField("gruppo_finanziario_id", v === "none" ? null : v)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Nessuno —</SelectItem>
-                      {gruppiFinanziari.map((g: any) => (
-                        <SelectItem key={g.id} value={g.id}>{g.codice} - {g.descrizione}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    className="h-8 text-xs"
+                    value={ef.gruppo_finanziario_id || ""}
+                    onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+                    placeholder="— Seleziona gruppo —"
+                    options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                  />
                 )}
               </div>
               <FieldInput label="Attività" field="attivita" />
