@@ -1,18 +1,16 @@
 
 
-## Piano: Rimuovere Template Ruoli e Matrice Provvigioni
+## Piano: Rimuovere la pagina Provvigioni standalone
 
-Queste due pagine non servono più perché le provvigioni sono gestite direttamente nell'anagrafica di ogni utente commerciale.
+La pagina `/provvigioni` e solo un placeholder e non serve piu — le provvigioni sono gestite direttamente nell'anagrafica commerciale di ogni utente. Le provvigioni nel CFO e nei Pagamenti Provvigioni restano invariate.
 
 ### Modifiche
 
 | File | Modifica |
 |------|----------|
-| `src/components/AppSidebar.tsx` | Rimuovere le voci "Template Ruoli" e "Matrice Provvigioni" dal menu SISTEMA. Rimuovere import `FileStack` e `Grid3X3` se non usati altrove |
-| `src/App.tsx` | Rimuovere le Route `/template-ruoli` e `/matrice-provvigioni` e i relativi import di `GestioneTemplateRuoli` e `MatriceProvvigioni` |
-| `src/components/PageBreadcrumb.tsx` | Rimuovere le entry `matrice-provvigioni` e `template-ruoli` dalla mappa breadcrumb |
-| `src/pages/GestioneTemplateRuoli.tsx` | Eliminare il file |
-| `src/pages/MatriceProvvigioni.tsx` | Eliminare il file |
+| `src/components/AppSidebar.tsx` | Rimuovere la voce `{ label: "Provvigioni", path: "/provvigioni" }` dal menu |
+| `src/App.tsx` | Rimuovere la Route `/provvigioni` (riga 229) |
+| `src/components/PageBreadcrumb.tsx` | Rimuovere entry `"provvigioni"` dalla mappa breadcrumb |
 
-Nessuna modifica al database — le tabelle `matrice_provvigioni` e `template_ruoli` restano nel DB per ora (dati storici), semplicemente non sono più accessibili dalla UI.
+Nessun file da eliminare — la pagina usa gia `PlaceholderPage` inline.
 
