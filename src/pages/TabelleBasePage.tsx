@@ -54,7 +54,7 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [queryKey] });
-      toast({ title: editing ? `${title} aggiornato` : `${title} creato` });
+      toast.success(editing ? `${title} aggiornato` : `${title} creato`);
       closeDialog();
     },
     onError: (e: any) => toast.error("Errore"),
@@ -184,7 +184,7 @@ const RamiTab = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rami-list"] });
-      toast({ title: editing ? "Ramo aggiornato" : "Ramo creato" });
+      toast.success(editing ? "Ramo aggiornato" : "Ramo creato");
       closeDialog();
     },
     onError: (e: any) => toast.error("Errore"),
@@ -325,7 +325,7 @@ const GruppiFinanziariTab = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["gruppi-finanziari"] });
-      toast({ title: editing ? "Gruppo aggiornato" : "Gruppo creato" });
+      toast.success(editing ? "Gruppo aggiornato" : "Gruppo creato");
       closeDialog();
     },
     onError: (e: any) => toast.error("Errore"),
