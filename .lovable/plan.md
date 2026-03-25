@@ -1,34 +1,32 @@
 
 
-## Piano: Potenziamento Contabilita e Contabilita Generale
+## Piano: Potenziamento Cruscotto Giornaliero
 
-### Stato implementazione
+### Stato attuale
+La pagina `CruscottoGiornaliero.tsx` esiste gia con: KPI entrate/uscite/saldo, anomalie bancarie KO, scadenze fornitori, movimenti da riconciliare e movimenti del giorno.
 
-| # | Feature | Stato |
-|---|---------|-------|
-| 1 | Dashboard Contabile Giornaliera (Cruscotto del Giorno) | ✅ Completato |
-| 2 | Distinta Giornaliera Automatica | ✅ Completato |
-| 3 | Verifica Arrivo Premi (Quadratura Premi) | ✅ Completato |
-| 4 | Chiusura Contabile Guidata | ✅ Completato |
-| 5 | Alert Intelligenti Contabili | 🔲 Da fare |
-| 6 | Report Comparativo Uffici | 🔲 Da fare |
+### Cosa manca (da aggiungere)
 
-### Tabelle DB create
-- `distinte_giornaliere` — storico distinte con stato aperta/chiusa/riaperta
-- `distinte_giornaliere_righe` — singoli movimenti nella distinta
-- `chiusure_contabili` — tracking workflow di chiusura con 5 step booleani
+1. **KPI "Incassi da Verificare"** — Titoli con `stato = 'da_incassare'` o simili, cioe premi attesi ma non ancora registrati come incassati. Conteggio + importo totale con link alla lista titoli filtrata.
 
-### Pagine create
-- `src/pages/contabilita/CruscottoGiornaliero.tsx` — KPI giornalieri, anomalie, scadenze, movimenti non riconciliati
-- `src/pages/contabilita/DistintaGiornaliera.tsx` — generazione/chiusura/export CSV distinta
-- `src/pages/contabilita/QuadraturePremi.tsx` — incrocio titoli attesa vs estratti conto
-- `src/pages/contabilita/ChiusuraContabile.tsx` — workflow step-by-step per chiusura periodo
+2. **KPI "Quadratura Cassa"** — Confronto tra saldo cassa atteso (saldo ieri + entrate oggi - uscite oggi) e saldo effettivo. Mostra la differenza con alert se != 0.
 
-### Routing aggiunto
-- `/contabilita/cruscotto` → Cruscotto del Giorno
-- `/contabilita/distinta-giornaliera` → Distinta Giornaliera
-- `/contabilita/quadratura-premi` → Quadratura Premi
-- `/contabilita/chiusura-contabile` → Chiusura Contabile
+3. **Sezione "Titoli in Scadenza Oggi/Settimana"** — Query su titoli con `data_scadenza` nel range oggi+7gg e stato attivo, per anticipare gli incassi attesi.
 
-### Sidebar aggiornata
-Gruppo "Contabilità" ora include: Cruscotto del Giorno, Incassi e Coperture, Distinta Giornaliera, Quadratura Premi, Chiusura Contabile, Avvisi Incasso, E/C Clienti, E/C Compagnia, E/C Produttori, Stampa Primanota, Check Primanota, Stampa Sospesi
+4. **Progress bar di riconciliazione** — Percentuale movimenti riconciliati vs totali del giorno, con barra visuale.
+
+5. **Filtro data** — Permettere di visualizzare il cruscotto per una data diversa da oggi (utile il lunedi per recuperare il weekend).
+
+### File coinvolti
+
+| Azione | File |
+|--------|------|
+| Modificare | `src/pages/contabilita/CruscottoGiornaliero.tsx` — aggiungere nuove query, KPI cards, sezione titoli, filtro data, progress bar |
+
+### Dettagli tecnici
+
+- Nuove query Supabase: `titoli` filtrati per `data_scadenza` e stato, `movimenti_contabili` del giorno precedente per saldo iniziale
+- Nessuna nuova tabella DB necessaria, tutto basato su tabelle esistenti
+- Progress bar con componente `Progress` gia disponibile
+- DatePicker per il filtro data con `Calendar` esistente
+
