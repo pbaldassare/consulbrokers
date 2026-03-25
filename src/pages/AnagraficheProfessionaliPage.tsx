@@ -86,8 +86,8 @@ const emptyForm = {
   // AE
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
   nome_rui: "", iscrizione_rui: "", numero_rui: "", sezione_rui: "",
-  // Corrispondenti
-  percentuale_base: "", codice_fornitore: "", percentuale_ra: "",
+  // Corrispondenti / commerciali
+  percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "",
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
 
@@ -129,9 +129,11 @@ const AnagraficheProfessionaliPage = () => {
     },
   });
 
+  const isCommerciale = ['account_executive', 'corrispondente', 'executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
   const isAE = activeTab === "account_executive";
   const isCorr = activeTab === "corrispondente";
-  const isProduttore = isAE || isCorr;
+  const isNewCommercial = ['executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
+  const isProduttore = isCommerciale;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -178,6 +180,7 @@ const AnagraficheProfessionaliPage = () => {
         numero_rui: form.numero_rui || null,
         sezione_rui: form.sezione_rui || null,
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
+        percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
         abi: form.abi || null,
