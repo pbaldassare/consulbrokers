@@ -417,12 +417,13 @@ export default function ClienteDetail() {
       {readOnly ? (
         <p className="text-sm mt-1">{options.find(o => o.value === ef[field])?.label || ef[field] || "—"}</p>
       ) : (
-        <Select value={ef[field] || ""} onValueChange={(v) => updateField(field, v)}>
-          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-          <SelectContent>
-            {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          className="h-8 text-xs"
+          value={ef[field] || ""}
+          onValueChange={(v) => updateField(field, v)}
+          placeholder="—"
+          options={options}
+        />
       )}
     </div>
   );
