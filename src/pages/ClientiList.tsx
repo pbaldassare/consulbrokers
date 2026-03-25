@@ -354,6 +354,16 @@ const ClientiList = () => {
               )}
 
               <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Gruppo Finanziario</p>
+                <SearchableSelect
+                  value={gruppoFinanziarioId}
+                  onValueChange={setGruppoFinanziarioId}
+                  placeholder="— Seleziona gruppo finanziario —"
+                  options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                />
+              </div>
+
+              <div className="border-t pt-4">
                 <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>
                 <div className="grid grid-cols-3 gap-4">
                   <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
