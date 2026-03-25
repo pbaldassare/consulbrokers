@@ -317,19 +317,24 @@ const DistintaGiornaliera = () => {
       ) : (
         <>
           {/* KPI Cards per tipo pagamento */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {kpiCards.map((k) => {
               const Icon = k.icon;
               return (
                 <Card key={k.label} className={`border-l-4 ${k.color}`}>
-                  <CardHeader className="pb-1 pt-4 px-4">
-                    <CardDescription className="flex items-center gap-1.5 text-xs">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="flex items-center gap-1 text-xs">
                       <Icon className="w-3.5 h-3.5" /> {k.label}
                     </CardDescription>
-                    <CardTitle className={`text-lg ${k.label === "Totale" ? "text-primary" : ""}`}>
+                    <CardTitle className={`text-xl ${k.label === "Totale" ? "text-primary" : ""}`}>
                       {fmt(k.value || 0)}
                     </CardTitle>
                   </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">
+                      {raggruppamento[k.label.toLowerCase()]?.righe.length || 0} mov.
+                    </p>
+                  </CardContent>
                 </Card>
               );
             })}

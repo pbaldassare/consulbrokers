@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -86,6 +86,9 @@ const ContabilitaUfficio = () => {
   const totUscite = movimenti.filter((m: any) => m.tipo === "uscita").reduce((s: number, m: any) => s + (m.importo || 0), 0);
   const saldo = totEntrate - totUscite;
   const anomalieKO = estratti.filter((e: any) => e.stato === "ko").length;
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 
   // Filtered
   const filteredMov = movimenti.filter((m: any) => {
@@ -187,10 +190,53 @@ const ContabilitaUfficio = () => {
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ArrowDownLeft className="w-4 h-4 text-green-500" />Totale Entrate</div><p className="text-2xl font-bold font-mono mt-1">€ {totEntrate.toFixed(2)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ArrowUpRight className="w-4 h-4 text-red-500" />Totale Uscite</div><p className="text-2xl font-bold font-mono mt-1">€ {totUscite.toFixed(2)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Calculator className="w-4 h-4" />Saldo</div><p className={`text-2xl font-bold font-mono mt-1 ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>€ {saldo.toFixed(2)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-2 text-sm text-muted-foreground"><XCircle className="w-4 h-4 text-red-500" />Anomalie KO</div><p className="text-2xl font-bold mt-1">{anomalieKO}</p></CardContent></Card>
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1 text-xs">
+              <ArrowDownLeft className="w-3.5 h-3.5" /> Totale Entrate
+            </CardDescription>
+            <CardTitle className="text-xl text-green-600">{fmt(totEntrate)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">{movimenti.filter((m: any) => m.tipo === "entrata").length} movimenti</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1 text-xs">
+              <ArrowUpRight className="w-3.5 h-3.5" /> Totale Uscite
+            </CardDescription>
+            <CardTitle className="text-xl text-red-600">{fmt(totUscite)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">{movimenti.filter((m: any) => m.tipo === "uscita").length} movimenti</p>
+          </CardContent>
+        </Card>
+
+        <Card className={`border-l-4 ${saldo >= 0 ? "border-l-blue-500" : "border-l-orange-500"}`}>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1 text-xs">
+              <Calculator className="w-3.5 h-3.5" /> Saldo
+            </CardDescription>
+            <CardTitle className={`text-xl ${saldo >= 0 ? "text-blue-600" : "text-orange-600"}`}>{fmt(saldo)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">{movimenti.length} mov. totali</p>
+          </CardContent>
+        </Card>
+
+        <Card className={`border-l-4 ${anomalieKO > 0 ? "border-l-destructive" : "border-l-green-500"}`}>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1 text-xs">
+              <XCircle className="w-3.5 h-3.5" /> Anomalie KO
+            </CardDescription>
+            <CardTitle className={`text-xl ${anomalieKO > 0 ? "text-destructive" : ""}`}>{anomalieKO}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">estratti non riconciliati</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="movimenti">
