@@ -28,7 +28,7 @@ import DistintaGiornaliera from "./pages/contabilita/DistintaGiornaliera";
 import QuadraturePremi from "./pages/contabilita/QuadraturePremi";
 import ChiusuraContabile from "./pages/contabilita/ChiusuraContabile";
 import DocumentalePage from "./pages/DocumentalePage";
-import GestioneTemplateRuoli from "./pages/GestioneTemplateRuoli";
+
 import CreaNuovoUtente from "./pages/CreaNuovoUtente";
 import ProspectList from "./pages/ProspectList";
 import ProspectDetail from "./pages/ProspectDetail";
@@ -38,7 +38,7 @@ import ClientiList from "./pages/ClientiList";
 import ClienteDetail from "./pages/ClienteDetail";
 import CategorieList from "./pages/CategorieList";
 import ProdottiList from "./pages/ProdottiList";
-import MatriceProvvigioni from "./pages/MatriceProvvigioni";
+
 import TitoliList from "./pages/TitoliList";
 import TitoloDetail from "./pages/TitoloDetail";
 import RimessaList from "./pages/RimessaList";
@@ -248,8 +248,6 @@ const App = () => (
 
               {/* SISTEMA (admin) */}
               <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
-              <Route path="/matrice-provvigioni" element={<RoleGuard allowedRoles={["admin"]}><MatriceProvvigioni /></RoleGuard>} />
-              <Route path="/template-ruoli" element={<RoleGuard allowedRoles={["admin"]}><GestioneTemplateRuoli /></RoleGuard>} />
               <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
               <Route path="/gestione-utenti" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtenti /></RoleGuard>} />
               <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />

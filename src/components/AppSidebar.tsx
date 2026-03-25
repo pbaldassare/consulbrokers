@@ -213,10 +213,8 @@ const sidebarEntries: SidebarEntry[] = [
       adminOnly: true,
       children: [
         { label: "Impostazioni", path: "/impostazioni", icon: Settings },
-        { label: "Template Ruoli", path: "/template-ruoli", icon: FileStack },
         { label: "Crea Utente", path: "/crea-utente", icon: UserPlus },
         { label: "Gestione Utenti", path: "/gestione-utenti", icon: Users },
-        { label: "Matrice Provvigioni", path: "/matrice-provvigioni", icon: Grid3X3 },
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
