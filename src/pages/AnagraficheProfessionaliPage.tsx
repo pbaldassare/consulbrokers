@@ -524,12 +524,73 @@ const AnagraficheProfessionaliPage = () => {
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
             </TabsContent>
             <TabsContent value="provvigioni" className="space-y-3 mt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>% Base</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
                 <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
               </div>
             </TabsContent>
             <TabsContent value="banca" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
+                <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
+                <div className="col-span-2"><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
+                <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
+      );
+    }
+
+    if (isNewCommercial) {
+      return (
+        <>
+          {renderUfficioSelect()}
+          <Tabs defaultValue="dati">
+            <TabsList className="grid grid-cols-4">
+              <TabsTrigger value="dati">Dati</TabsTrigger>
+              <TabsTrigger value="indirizzo">Indirizzo</TabsTrigger>
+              <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
+              <TabsTrigger value="banca">RUI & Banca</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dati" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
+                <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
+                <div><Label>Cognome o Denominazione *</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
+                <div><Label>Nome o seguito Denominazione</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+                <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value })} /></div>
+                <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
+                <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="indirizzo" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
+                <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
+                <div><Label>Comune</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
+                <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
+              </div>
+              <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
+            </TabsContent>
+            <TabsContent value="provvigioni" className="space-y-3 mt-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
+                <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="banca" className="space-y-3 mt-3">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Iscrizione RUI</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Nome Iscrizione RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
+                <div><Label>Data Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
+                <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} /></div>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Coordinate Bancarie</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
                 <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
