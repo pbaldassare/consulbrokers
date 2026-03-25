@@ -72,7 +72,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "intermediazione": "Intermediazione",
   "import-fatture": "Import Fatture",
   "cfo": "Area CFO",
-  "provvigioni": "Provvigioni",
+  
   "rimessa-premi": "Rimessa Premi",
   "banca-import": "Import Banca",
   "anomalie-ko": "Anomalie KO",
