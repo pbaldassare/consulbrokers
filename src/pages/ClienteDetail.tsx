@@ -15,7 +15,6 @@ import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import type { SearchableSelectOption } from "@/components/SearchableSelect";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
