@@ -316,19 +316,21 @@ const ClientiList = () => {
                     <div><Label>Codice SDI</Label><Input value={codiceSdi} onChange={(e) => setCodiceSdi(e.target.value)} maxLength={7} /></div>
                     <div>
                       <Label>Forma Giuridica</Label>
-                      <Select value={formaGiuridica} onValueChange={setFormaGiuridica}>
-                        <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="srl">SRL</SelectItem>
-                          <SelectItem value="srls">SRLS</SelectItem>
-                          <SelectItem value="spa">SPA</SelectItem>
-                          <SelectItem value="snc">SNC</SelectItem>
-                          <SelectItem value="sas">SAS</SelectItem>
-                          <SelectItem value="ditta_individuale">Ditta Individuale</SelectItem>
-                          <SelectItem value="cooperativa">Cooperativa</SelectItem>
-                          <SelectItem value="altro">Altro</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={formaGiuridica}
+                        onValueChange={setFormaGiuridica}
+                        placeholder="Seleziona..."
+                        options={[
+                          { value: "srl", label: "SRL" },
+                          { value: "srls", label: "SRLS" },
+                          { value: "spa", label: "SPA" },
+                          { value: "snc", label: "SNC" },
+                          { value: "sas", label: "SAS" },
+                          { value: "ditta_individuale", label: "Ditta Individuale" },
+                          { value: "cooperativa", label: "Cooperativa" },
+                          { value: "altro", label: "Altro" },
+                        ]}
+                      />
                     </div>
                   </div>
                   <div><Label>Indirizzo Sede</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
