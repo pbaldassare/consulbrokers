@@ -226,7 +226,7 @@ const App = () => (
 
               {/* EXTRA STANDALONE */}
               <Route path="/cfo" element={<AreaCFO />} />
-              <Route path="/provvigioni" element={<PlaceholderPage title="Provvigioni" description="Gestione provvigioni agenti" icon={Percent} />} />
+              
               <Route path="/rimessa-premi" element={<RimessaList />} />
               <Route path="/rimessa-premi/:id" element={<RimessaDetail />} />
               <Route path="/banca-import" element={<BancaImport />} />
