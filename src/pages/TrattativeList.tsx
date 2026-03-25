@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { FileText, Search } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -20,7 +20,6 @@ const STATI_TRATTATIVA = [
 ];
 
 const TrattativeList = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
@@ -51,7 +50,7 @@ const TrattativeList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
-      toast({ title: "Trattativa aggiornata" });
+      toast.success("Trattativa aggiornata");
     },
   });
 

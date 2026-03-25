@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { useNavigate } from "react-router-dom";
 import { Plus, Send, FileCode, AlertTriangle, CheckCircle, Clock } from "lucide-react";
@@ -80,10 +80,10 @@ const FlussiCompagnieList = () => {
       await logAttivita({ azione: "creazione_flusso", entita_tipo: "flussi_compagnia", entita_id: data.id });
       queryClient.invalidateQueries({ queryKey: ["flussi_compagnia"] });
       setDialogOpen(false);
-      toast({ title: "Flusso creato" });
+      toast.success("Flusso creato");
       navigate(`/flussi-compagnie/${data.id}`);
     },
-    onError: () => toast({ title: "Errore", description: "Impossibile creare il flusso", variant: "destructive" }),
+    onError: () => toast.error("Errore", { description: "Impossibile creare il flusso" }),
   });
 
   const totali = {

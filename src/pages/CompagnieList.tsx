@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Building2, Search, ShieldAlert } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface CompagniaForm {
@@ -48,7 +48,6 @@ const emptyForm: CompagniaForm = {
 };
 
 const CompagnieList = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CompagniaForm>(emptyForm);
@@ -105,9 +104,9 @@ const CompagnieList = () => {
       queryClient.invalidateQueries({ queryKey: ["compagnie"] });
       setOpen(false);
       setForm(emptyForm);
-      toast({ title: "Compagnia creata con successo" });
+      toast.success("Compagnia creata con successo");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const toggleMutation = useMutation({

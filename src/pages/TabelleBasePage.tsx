@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 /* ────────── Generic CRUD Tab ────────── */
 
@@ -24,7 +24,6 @@ interface SimpleLookupTabProps {
 }
 
 const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) => {
-  const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -58,7 +57,7 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
       toast({ title: editing ? `${title} aggiornato` : `${title} creato` });
       closeDialog();
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   const toggleAttivo = useMutation({
@@ -76,9 +75,9 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [queryKey] });
-      toast({ title: `${title} eliminato` });
+      toast.success(`${title} eliminato`);
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setOpen(true); };
@@ -145,7 +144,6 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
 /* ────────── Rami Tab (with gruppo_ramo_id relation) ────────── */
 
 const RamiTab = () => {
-  const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -189,7 +187,7 @@ const RamiTab = () => {
       toast({ title: editing ? "Ramo aggiornato" : "Ramo creato" });
       closeDialog();
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   const toggleAttivo = useMutation({
@@ -207,9 +205,9 @@ const RamiTab = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rami-list"] });
-      toast({ title: "Ramo eliminato" });
+      toast.success("Ramo eliminato");
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setGruppoId(""); setOpen(true); };
@@ -296,7 +294,6 @@ const RamiTab = () => {
 /* ────────── Gruppi Finanziari Tab ────────── */
 
 const GruppiFinanziariTab = () => {
-  const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -331,7 +328,7 @@ const GruppiFinanziariTab = () => {
       toast({ title: editing ? "Gruppo aggiornato" : "Gruppo creato" });
       closeDialog();
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   const toggleAttivo = useMutation({
@@ -349,9 +346,9 @@ const GruppiFinanziariTab = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["gruppi-finanziari"] });
-      toast({ title: "Gruppo eliminato" });
+      toast.success("Gruppo eliminato");
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   const openNew = () => { setEditing(null); setCodice(""); setNome(""); setDescrizione(""); setOpen(true); };

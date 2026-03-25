@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileCode, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface ExportDef {
   label: string;
@@ -67,7 +67,6 @@ type Format = "csv" | "xml";
 
 const BackupExport = () => {
   const [loading, setLoading] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const handleExport = async (def: ExportDef, format: Format) => {
     const key = `${def.table}_${format}`;
@@ -76,7 +75,7 @@ const BackupExport = () => {
       const { data, error } = await supabase.from(def.table).select(def.columns).limit(10000);
       if (error) throw error;
       if (!data?.length) {
-        toast({ title: "Nessun dato", description: `La tabella ${def.label} è vuota.` });
+        toast.success("Nessun dato", { description: `La tabella ${def.label} è vuota.` });
         return;
       }
       const rows = data as unknown as Record<string, unknown>[];
@@ -92,9 +91,9 @@ const BackupExport = () => {
         entita_id: "00000000-0000-0000-0000-000000000000",
         dettagli_json: { righe: data.length, formato: format },
       });
-      toast({ title: "Export completato", description: `${data.length} righe esportate in ${format.toUpperCase()}.` });
+      toast.success("Export completato", { description: `${data.length} righe esportate in ${format.toUpperCase()}.` });
     } catch (e: any) {
-      toast({ title: "Errore export", description: e.message, variant: "destructive" });
+      toast.error("Errore export");
     } finally {
       setLoading(null);
     }

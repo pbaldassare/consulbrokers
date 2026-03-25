@@ -17,7 +17,7 @@ import {
   Banknote, CalendarIcon, CreditCard, Download, FileDown, FileText,
   HandCoins, Landmark, Lock, Plus, RefreshCw, Unlock
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const fmt = (n: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 
@@ -32,7 +32,6 @@ const TIPO_ICONS: Record<string, any> = {
 
 const DistintaGiornaliera = () => {
   const { profile, user } = useAuth();
-  const { toast } = useToast();
   const qc = useQueryClient();
   const uffId = profile?.ufficio_id;
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -142,12 +141,12 @@ const DistintaGiornaliera = () => {
       return dist;
     },
     onSuccess: () => {
-      toast({ title: "Distinta generata con successo" });
+      toast.success("Distinta generata con successo");
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
     onError: (e: any) => {
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -162,7 +161,7 @@ const DistintaGiornaliera = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Distinta chiusa" });
+      toast.success("Distinta chiusa");
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
@@ -178,7 +177,7 @@ const DistintaGiornaliera = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Distinta riaperta" });
+      toast.success("Distinta riaperta");
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
@@ -240,7 +239,7 @@ const DistintaGiornaliera = () => {
         setTimeout(() => win.print(), 500);
       }
     } catch (e: any) {
-      toast({ title: "Errore generazione PDF", description: e.message, variant: "destructive" });
+      toast.error("Errore generazione PDF");
     }
   };
 

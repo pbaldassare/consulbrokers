@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,7 +69,6 @@ interface Ufficio {
 }
 
 const GestioneUtenti = () => {
-  const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [uffici, setUffici] = useState<Ufficio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +106,7 @@ const GestioneUtenti = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast({ title: "Errore", description: error.message, variant: "destructive" });
+      toast.error("Errore");
     } else {
       setUsers((data as UserProfile[]) || []);
     }
@@ -141,7 +140,7 @@ const GestioneUtenti = () => {
 
   const handleCreate = async () => {
     if (!newNome || !newCognome || !newEmail || !newRuolo) {
-      toast({ title: "Errore", description: "Compila tutti i campi obbligatori", variant: "destructive" });
+      toast.error("Errore", { description: "Compila tutti i campi obbligatori" });
       return;
     }
     setSaving(true);
@@ -160,9 +159,9 @@ const GestioneUtenti = () => {
     });
 
     if (res.error || res.data?.error) {
-      toast({ title: "Errore", description: res.data?.error || res.error?.message, variant: "destructive" });
+      toast.error("Errore");
     } else {
-      toast({ title: "Utente creato", description: `${newEmail} creato con successo` });
+      toast.success("Utente creato", { description: `${newEmail} creato con successo` });
       setCreateOpen(false);
       setNewNome(""); setNewCognome(""); setNewEmail(""); setNewPassword("");
       fetchUsers();
@@ -216,7 +215,7 @@ const GestioneUtenti = () => {
       .eq("id", editUser.id);
 
     if (profileErr) {
-      toast({ title: "Errore", description: profileErr.message, variant: "destructive" });
+      toast.error("Errore");
       setSaving(false);
       return;
     }
@@ -233,7 +232,7 @@ const GestioneUtenti = () => {
       }
     }
 
-    toast({ title: "Utente aggiornato" });
+    toast.success("Utente aggiornato");
     setEditOpen(false);
     fetchUsers();
     setSaving(false);
@@ -249,7 +248,7 @@ const GestioneUtenti = () => {
       .upload(path, file);
 
     if (uploadErr) {
-      toast({ title: "Errore upload", description: uploadErr.message, variant: "destructive" });
+      toast.error("Errore upload");
       setUploadingDoc(false);
       return;
     }
@@ -263,9 +262,9 @@ const GestioneUtenti = () => {
     });
 
     if (insertErr) {
-      toast({ title: "Errore salvataggio", description: insertErr.message, variant: "destructive" });
+      toast.error("Errore salvataggio");
     } else {
-      toast({ title: "Documento caricato" });
+      toast.success("Documento caricato");
       setDocNote("");
       fetchUserDocs(editUser.id);
     }
@@ -278,7 +277,7 @@ const GestioneUtenti = () => {
       .download(doc.path_storage);
 
     if (error || !data) {
-      toast({ title: "Errore download", description: error?.message, variant: "destructive" });
+      toast.error("Errore download");
       return;
     }
     const url = URL.createObjectURL(data);
@@ -293,7 +292,7 @@ const GestioneUtenti = () => {
     if (!editUser) return;
     await supabase.storage.from("documenti_utenti").remove([doc.path_storage]);
     await supabase.from("documenti_utenti").delete().eq("id", doc.id);
-    toast({ title: "Documento eliminato" });
+    toast.success("Documento eliminato");
     fetchUserDocs(editUser.id);
   };
 

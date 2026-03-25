@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { ArrowLeft, Plus, Calendar, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { format, addMonths, addDays } from "date-fns";
@@ -65,7 +65,7 @@ const PortafoglioDetail = () => {
     onSuccess: () => {
       logAttivita({ azione: "cambio_stato_portafoglio", entita_tipo: "portafoglio_incassi", entita_id: id! });
       queryClient.invalidateQueries({ queryKey: ["portafoglio_incassi", id] });
-      toast({ title: "Stato aggiornato" });
+      toast.success("Stato aggiornato");
     },
   });
 
@@ -86,7 +86,7 @@ const PortafoglioDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["portafoglio_eventi", id] });
       setDialogOpen(false);
       setEventoForm({ data_scadenza: "", importo_atteso: "", note: "" });
-      toast({ title: "Evento creato" });
+      toast.success("Evento creato");
     },
   });
 
@@ -110,7 +110,7 @@ const PortafoglioDetail = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["portafoglio_eventi", id] });
-      toast({ title: "Eventi generati automaticamente" });
+      toast.success("Eventi generati automaticamente");
     },
   });
 
@@ -124,7 +124,7 @@ const PortafoglioDetail = () => {
       const azione = esito === "incassato" ? "evento_incasso_matchato" : esito === "ko" ? "evento_incasso_ko" : "evento_incasso_generato";
       await logAttivita({ azione, entita_tipo: "portafoglio_incassi_eventi", entita_id: eventoId });
       queryClient.invalidateQueries({ queryKey: ["portafoglio_eventi", id] });
-      toast({ title: `Esito aggiornato a "${esito}"` });
+      toast.success(`Esito aggiornato a "${esito}"`);
     },
   });
 

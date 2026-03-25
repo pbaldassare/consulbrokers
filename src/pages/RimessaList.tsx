@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Send } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -20,7 +20,6 @@ const PAGE_SIZE = 25;
 const statiRimessa = ["bozza", "pronta", "inviata", "errore"];
 
 const RimessaList = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
@@ -82,9 +81,9 @@ const RimessaList = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
       setOpen(false); setCompagniaId(""); setUfficioId("");
-      toast({ title: `Rimessa creata con ${data.titoli_count} titoli` });
+      toast.success(`Rimessa creata con ${data.titoli_count} titoli`);
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const statoBadge = (s: string) => {

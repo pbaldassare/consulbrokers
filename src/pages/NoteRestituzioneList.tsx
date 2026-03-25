@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, FileStack } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -22,7 +22,6 @@ const PAGE_SIZE = 25;
 const statiNota = ["bozza", "pronta", "spedita", "chiusa"];
 
 const NoteRestituzioneList = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
@@ -94,10 +93,10 @@ const NoteRestituzioneList = () => {
       setClienteId("");
       setUfficioId("");
       setNoteText("");
-      toast({ title: "Nota di restituzione creata" });
+      toast.success("Nota di restituzione creata");
       navigate(`/note-restituzione/${data.id}`);
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const statoBadge = (s: string) => {

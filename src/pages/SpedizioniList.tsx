@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Truck } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
@@ -20,7 +20,6 @@ const PAGE_SIZE = 25;
 const statiSpedizione = ["preparata", "spedita", "consegnata", "problema"];
 
 const SpedizioniList = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
   const [page, setPage] = useState(0);
@@ -64,9 +63,9 @@ const SpedizioniList = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["spedizioni_cartacee"] });
       setDetailOpen(false);
-      toast({ title: "Spedizione aggiornata" });
+      toast.success("Spedizione aggiornata");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const statoBadge = (s: string) => {

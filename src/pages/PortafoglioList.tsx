@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { useNavigate } from "react-router-dom";
 import { Plus, Wallet, AlertTriangle, CheckCircle, Pause } from "lucide-react";
@@ -88,9 +88,9 @@ const PortafoglioList = () => {
       queryClient.invalidateQueries({ queryKey: ["portafoglio_incassi"] });
       setDialogOpen(false);
       setForm({ descrizione: "", importo_atteso: "", periodicita: "annuale", prossima_scadenza: "", stato: "attivo" });
-      toast({ title: "Portafoglio creato" });
+      toast.success("Portafoglio creato");
     },
-    onError: () => toast({ title: "Errore", description: "Impossibile creare il portafoglio", variant: "destructive" }),
+    onError: () => toast.error("Errore", { description: "Impossibile creare il portafoglio" }),
   });
 
   return (

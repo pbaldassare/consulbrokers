@@ -17,10 +17,9 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const ClientiList = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -166,12 +165,12 @@ const ClientiList = () => {
         await uploadScannedFiles(data.id);
       }
       queryClient.invalidateQueries({ queryKey: ["clienti"] });
-      toast({ title: "Cliente creato con successo" });
+      toast.success("Cliente creato con successo");
       resetForm();
       setOpen(false);
     },
     onError: (err: Error) => {
-      toast({ title: "Errore", description: err.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 

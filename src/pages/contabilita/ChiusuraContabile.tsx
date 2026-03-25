@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   CheckCircle, Circle, AlertTriangle, Play, RotateCcw, FileText,
   GitCompare, Calculator, CalendarCheck, BarChart3, Lock
@@ -25,7 +25,6 @@ const steps = [
 
 const ChiusuraContabile = () => {
   const { profile, user } = useAuth();
-  const { toast } = useToast();
   const qc = useQueryClient();
   const uffId = profile?.ufficio_id;
 
@@ -63,10 +62,10 @@ const ChiusuraContabile = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Chiusura avviata" });
+      toast.success("Chiusura avviata");
       qc.invalidateQueries({ queryKey: ["chiusura_contabile"] });
     },
-    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore"),
   });
 
   // Toggle step
@@ -98,7 +97,7 @@ const ChiusuraContabile = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Chiusura completata!" });
+      toast.success("Chiusura completata!");
       qc.invalidateQueries({ queryKey: ["chiusura_contabile"] });
     },
   });

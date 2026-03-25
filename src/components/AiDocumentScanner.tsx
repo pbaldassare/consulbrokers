@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { ScanLine, Upload, Loader2, CheckCircle2, X } from "lucide-react";
 
 export type DocumentType = "carta_identita" | "tessera_sanitaria" | "visura_camerale" | "copia_polizza" | "perizia" | "referto_medico";
@@ -27,7 +27,6 @@ interface AiDocumentScannerProps {
 }
 
 const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, className = "" }: AiDocumentScannerProps) => {
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -36,11 +35,11 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, clas
 
   const processFile = useCallback(async (file: File) => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      toast({ title: "Formato non supportato", description: "Carica un file JPG, PNG, WEBP o PDF", variant: "destructive" });
+      toast.error("Formato non supportato", { description: "Carica un file JPG, PNG, WEBP o PDF" });
       return;
     }
     if (file.size > MAX_SIZE) {
-      toast({ title: "File troppo grande", description: "Il file non deve superare 10MB", variant: "destructive" });
+      toast.error("File troppo grande", { description: "Il file non deve superare 10MB" });
       return;
     }
 
@@ -69,11 +68,11 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, clas
       onFileReady?.(file, documentType);
       setLastResult("success");
       setIsExpanded(false);
-      toast({ title: "Dati estratti con successo", description: `Documento ${DOC_LABELS[documentType]} elaborato` });
+      toast.success("Dati estratti con successo", { description: `Documento ${DOC_LABELS[documentType]} elaborato` });
     } catch (err: unknown) {
       setLastResult("error");
       const message = err instanceof Error ? err.message : "Errore sconosciuto";
-      toast({ title: "Errore estrazione", description: message, variant: "destructive" });
+      toast.error("Errore estrazione");
     } finally {
       setIsProcessing(false);
     }

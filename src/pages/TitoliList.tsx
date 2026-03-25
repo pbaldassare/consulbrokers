@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, FileText } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ServerPagination from "@/components/ServerPagination";
 
@@ -21,7 +21,6 @@ const PAGE_SIZE = 25;
 const statiTitolo = ["creato", "incassato", "stornato", "annullato"];
 
 const TitoliList = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -211,9 +210,9 @@ const TitoliList = () => {
       queryClient.invalidateQueries({ queryKey: ["titoli"] });
       setOpen(false);
       resetForm();
-      toast({ title: "Titolo creato con successo" });
+      toast.success("Titolo creato con successo");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const resetForm = () => {
