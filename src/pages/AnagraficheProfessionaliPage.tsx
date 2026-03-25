@@ -69,6 +69,7 @@ interface Anagrafica {
   percentuale_base: number | null;
   codice_fornitore: string | null;
   percentuale_ra: number | null;
+  percentuale_consulenza: number | null;
   abi: string | null;
   cab: string | null;
   iban: string | null;
@@ -654,7 +655,7 @@ const AnagraficheProfessionaliPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche</h1>
-          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti</p>
+          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti, Executive, Resp. Sede, Prod. Sede</p>
         </div>
         <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />Nuovo
