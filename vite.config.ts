@@ -18,18 +18,34 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["placeholder.svg", "robots.txt"],
+      includeAssets: ["icon-192.png", "icon-512.png", "robots.txt"],
       manifest: {
         name: "ConsulNet — Area Clienti",
         short_name: "ConsulNet",
-        description: "Portale clienti ConsulNet",
+        description: "Portale assicurativo ConsulNet per la gestione delle tue polizze",
         theme_color: "#1a4a5c",
         background_color: "#fafafa",
         display: "standalone",
+        orientation: "portrait",
         start_url: "/cliente",
+        scope: "/",
+        categories: ["business", "finance"],
         icons: [
-          { src: "/placeholder.svg", sizes: "192x192", type: "image/svg+xml" },
-          { src: "/placeholder.svg", sizes: "512x512", type: "image/svg+xml" },
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api",
+              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+            },
+          },
         ],
       },
     }),
