@@ -46,6 +46,7 @@ import {
   Import,
   ArrowRightLeft,
   Database,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
