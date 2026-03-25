@@ -173,7 +173,7 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "cfo_area",
       children: [
         { label: "Causali/Tabelle", path: "/cont-generale/causali", icon: Database },
-        { label: "Anagrafiche", path: "/cont-generale/anagrafiche", icon: Users },
+        { label: "Piano dei Conti", path: "/cont-generale/anagrafiche", icon: Landmark },
         { label: "Primanota", path: "/cont-generale/primanota", icon: FileText },
         { label: "Scadenziario", path: "/cont-generale/scadenziario", icon: CalendarCheck },
         { label: "Elab. Periodiche", path: "/cont-generale/elab-periodiche", icon: CalendarCheck },
