@@ -1230,6 +1230,44 @@ export type Database = {
           },
         ]
       }
+      documenti_utenti: {
+        Row: {
+          categoria: string
+          created_at: string | null
+          id: string
+          nome_file: string
+          note: string | null
+          path_storage: string
+          user_id: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string | null
+          id?: string
+          nome_file: string
+          note?: string | null
+          path_storage: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string | null
+          id?: string
+          nome_file?: string
+          note?: string | null
+          path_storage?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documenti_utenti_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elab_annuali: {
         Row: {
           anno: number
@@ -2616,6 +2654,8 @@ export type Database = {
           nome: string | null
           nome_rui: string | null
           numero_rui: string | null
+          percentuale_base: number | null
+          percentuale_consulenza: number | null
           percentuale_ra: number | null
           permessi_json: Json | null
           provincia: string | null
@@ -2645,6 +2685,8 @@ export type Database = {
           nome?: string | null
           nome_rui?: string | null
           numero_rui?: string | null
+          percentuale_base?: number | null
+          percentuale_consulenza?: number | null
           percentuale_ra?: number | null
           permessi_json?: Json | null
           provincia?: string | null
@@ -2674,6 +2716,8 @@ export type Database = {
           nome?: string | null
           nome_rui?: string | null
           numero_rui?: string | null
+          percentuale_base?: number | null
+          percentuale_consulenza?: number | null
           percentuale_ra?: number | null
           permessi_json?: Json | null
           provincia?: string | null
