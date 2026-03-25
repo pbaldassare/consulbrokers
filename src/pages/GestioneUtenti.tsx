@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { UserPlus, Pencil, RefreshCw, Upload, Download, Trash2, FileText } from "lucide-react";
 
-const ROLES = ["admin", "ufficio", "produttore", "contabilita", "cfo"] as const;
+const ROLES = ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"] as const;
 
 const DOC_CATEGORIE = [
   { value: "carta_identita", label: "Carta d'Identità" },
