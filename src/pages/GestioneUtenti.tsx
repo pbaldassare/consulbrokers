@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { UserPlus, Pencil, RefreshCw } from "lucide-react";
 
-const ROLES = ["admin", "ufficio", "produttore", "contabilita", "cfo", "cliente"] as const;
+const ROLES = ["admin", "ufficio", "produttore", "contabilita", "cfo"] as const;
 
 interface UserProfile {
   id: string;
@@ -23,11 +26,33 @@ interface UserProfile {
   attivo: boolean | null;
   ufficio_id: string | null;
   created_at: string | null;
+  descrizione: string | null;
+  indirizzo: string | null;
+  cap: string | null;
+  citta: string | null;
+  provincia: string | null;
+  telefono: string | null;
+  fax: string | null;
+  codice_fiscale: string | null;
+  nome_rui: string | null;
+  data_iscrizione_rui: string | null;
+  numero_rui: string | null;
+  sezione_rui: string | null;
+  codice_contabile: string | null;
+  percentuale_ra: number | null;
+  iban: string | null;
+  intestatario_cc: string | null;
+}
+
+interface Ufficio {
+  id: string;
+  nome_ufficio: string;
 }
 
 const GestioneUtenti = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [uffici, setUffici] = useState<Ufficio[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -43,26 +68,31 @@ const GestioneUtenti = () => {
   const [newRuolo, setNewRuolo] = useState<string>("produttore");
   const [newPassword, setNewPassword] = useState("");
 
-  // Edit form
-  const [editRuolo, setEditRuolo] = useState<string>("");
-  const [editAttivo, setEditAttivo] = useState(true);
+  // Edit form state
+  const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
 
   const fetchUsers = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, nome, cognome, email, ruolo, attivo, ufficio_id, created_at")
+      .select("id, nome, cognome, email, ruolo, attivo, ufficio_id, created_at, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc")
+      .neq("ruolo", "cliente")
       .order("created_at", { ascending: false });
 
     if (error) {
       toast({ title: "Errore", description: error.message, variant: "destructive" });
     } else {
-      setUsers(data || []);
+      setUsers((data as UserProfile[]) || []);
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  const fetchUffici = async () => {
+    const { data } = await supabase.from("uffici").select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
+    setUffici(data || []);
+  };
+
+  useEffect(() => { fetchUsers(); fetchUffici(); }, []);
 
   const filtered = users.filter((u) => {
     if (filterRole !== "all" && u.ruolo !== filterRole) return false;
@@ -104,19 +134,44 @@ const GestioneUtenti = () => {
 
   const openEdit = (user: UserProfile) => {
     setEditUser(user);
-    setEditRuolo(user.ruolo || "");
-    setEditAttivo(user.attivo ?? true);
+    setEditForm({ ...user });
     setEditOpen(true);
+  };
+
+  const updateEditField = (field: keyof UserProfile, value: any) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleEdit = async () => {
     if (!editUser) return;
     setSaving(true);
 
-    // Update profile
     const { error: profileErr } = await supabase
       .from("profiles")
-      .update({ ruolo: editRuolo, attivo: editAttivo })
+      .update({
+        nome: editForm.nome,
+        cognome: editForm.cognome,
+        email: editForm.email,
+        ruolo: editForm.ruolo,
+        attivo: editForm.attivo,
+        ufficio_id: editForm.ufficio_id || null,
+        descrizione: editForm.descrizione || null,
+        indirizzo: editForm.indirizzo || null,
+        cap: editForm.cap || null,
+        citta: editForm.citta || null,
+        provincia: editForm.provincia || null,
+        telefono: editForm.telefono || null,
+        fax: editForm.fax || null,
+        codice_fiscale: editForm.codice_fiscale || null,
+        nome_rui: editForm.nome_rui || null,
+        data_iscrizione_rui: editForm.data_iscrizione_rui || null,
+        numero_rui: editForm.numero_rui || null,
+        sezione_rui: editForm.sezione_rui || null,
+        codice_contabile: editForm.codice_contabile || null,
+        percentuale_ra: editForm.percentuale_ra ?? null,
+        iban: editForm.iban || null,
+        intestatario_cc: editForm.intestatario_cc || null,
+      })
       .eq("id", editUser.id);
 
     if (profileErr) {
@@ -125,12 +180,12 @@ const GestioneUtenti = () => {
       return;
     }
 
-    // Update user_roles: delete old, insert new
-    if (editRuolo !== editUser.ruolo) {
+    // Update user_roles if role changed
+    if (editForm.ruolo !== editUser.ruolo) {
       await supabase.from("user_roles").delete().eq("user_id", editUser.id);
       const { error: roleErr } = await supabase.from("user_roles").insert({
         user_id: editUser.id,
-        role: editRuolo as any,
+        role: editForm.ruolo as any,
       });
       if (roleErr) {
         console.error("Role update error:", roleErr.message);
@@ -157,7 +212,7 @@ const GestioneUtenti = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Gestione Utenti</h1>
-          <p className="text-muted-foreground text-sm">Crea, modifica e assegna ruoli agli utenti</p>
+          <p className="text-muted-foreground text-sm">Crea, modifica e assegna ruoli agli utenti (esclusi clienti)</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={fetchUsers}>
@@ -281,27 +336,144 @@ const GestioneUtenti = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
+      {/* Edit Dialog - Full Form */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader><DialogTitle>Modifica Utente</DialogTitle></DialogHeader>
-          {editUser && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">{editUser.cognome} {editUser.nome} — {editUser.email}</p>
-              <div className="space-y-1">
-                <Label>Ruolo</Label>
-                <Select value={editRuolo} onValueChange={setEditRuolo}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={editAttivo} onCheckedChange={setEditAttivo} />
-                <Label>{editAttivo ? "Attivo" : "Disattivo"}</Label>
-              </div>
-            </div>
+          {editForm && (
+            <ScrollArea className="max-h-[65vh] pr-4">
+              <Tabs defaultValue="generali" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="generali">Dati Generali</TabsTrigger>
+                  <TabsTrigger value="recapiti">Recapiti</TabsTrigger>
+                  <TabsTrigger value="rui">Iscrizione RUI</TabsTrigger>
+                  <TabsTrigger value="fiscale">Fiscale/Banca</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="generali" className="space-y-4 mt-4">
+                  <div className="space-y-1">
+                    <Label>Descrizione</Label>
+                    <Input value={editForm.descrizione || ""} onChange={e => updateEditField("descrizione", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Cognome / Denominazione</Label>
+                      <Input value={editForm.cognome || ""} onChange={e => updateEditField("cognome", e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Nome / Seguito Denominazione</Label>
+                      <Input value={editForm.nome || ""} onChange={e => updateEditField("nome", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Ruolo</Label>
+                      <Select value={editForm.ruolo || ""} onValueChange={v => updateEditField("ruolo", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Sede (opzionale)</Label>
+                      <Select value={editForm.ufficio_id || "none"} onValueChange={v => updateEditField("ufficio_id", v === "none" ? null : v)}>
+                        <SelectTrigger><SelectValue placeholder="Nessuna sede" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nessuna sede</SelectItem>
+                          {uffici.map(u => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <Switch checked={editForm.attivo ?? true} onCheckedChange={v => updateEditField("attivo", v)} />
+                    <Label>{editForm.attivo ? "Attivo" : "Annullato"}</Label>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="recapiti" className="space-y-4 mt-4">
+                  <div className="space-y-1">
+                    <Label>Indirizzo</Label>
+                    <Input value={editForm.indirizzo || ""} onChange={e => updateEditField("indirizzo", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label>CAP</Label>
+                      <Input value={editForm.cap || ""} onChange={e => updateEditField("cap", e.target.value)} maxLength={5} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Comune</Label>
+                      <Input value={editForm.citta || ""} onChange={e => updateEditField("citta", e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Prov.</Label>
+                      <Input value={editForm.provincia || ""} onChange={e => updateEditField("provincia", e.target.value)} maxLength={2} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Indirizzo Mail</Label>
+                    <Input type="email" value={editForm.email || ""} onChange={e => updateEditField("email", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Telefono</Label>
+                      <Input value={editForm.telefono || ""} onChange={e => updateEditField("telefono", e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Fax</Label>
+                      <Input value={editForm.fax || ""} onChange={e => updateEditField("fax", e.target.value)} />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="rui" className="space-y-4 mt-4">
+                  <div className="space-y-1">
+                    <Label>Nome Iscrizione RUI</Label>
+                    <Input value={editForm.nome_rui || ""} onChange={e => updateEditField("nome_rui", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label>Data Iscrizione RUI</Label>
+                      <Input type="date" value={editForm.data_iscrizione_rui || ""} onChange={e => updateEditField("data_iscrizione_rui", e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Numero</Label>
+                      <Input value={editForm.numero_rui || ""} onChange={e => updateEditField("numero_rui", e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Sezione</Label>
+                      <Input value={editForm.sezione_rui || ""} onChange={e => updateEditField("sezione_rui", e.target.value)} />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="fiscale" className="space-y-4 mt-4">
+                  <div className="space-y-1">
+                    <Label>Codice Contabile</Label>
+                    <Input value={editForm.codice_contabile || ""} onChange={e => updateEditField("codice_contabile", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Codice Fiscale</Label>
+                      <Input value={editForm.codice_fiscale || ""} onChange={e => updateEditField("codice_fiscale", e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>% Rit. Acconto</Label>
+                      <Input type="number" step="0.01" value={editForm.percentuale_ra ?? ""} onChange={e => updateEditField("percentuale_ra", e.target.value ? parseFloat(e.target.value) : null)} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Numero IBAN</Label>
+                    <Input value={editForm.iban || ""} onChange={e => updateEditField("iban", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Intestato a</Label>
+                    <Input value={editForm.intestatario_cc || ""} onChange={e => updateEditField("intestatario_cc", e.target.value)} />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </ScrollArea>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Annulla</Button>

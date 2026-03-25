@@ -2599,40 +2599,88 @@ export type Database = {
       profiles: {
         Row: {
           attivo: boolean | null
+          cap: string | null
+          citta: string | null
+          codice_contabile: string | null
+          codice_fiscale: string | null
           cognome: string | null
           created_at: string | null
+          data_iscrizione_rui: string | null
+          descrizione: string | null
           email: string | null
+          fax: string | null
+          iban: string | null
           id: string
+          indirizzo: string | null
+          intestatario_cc: string | null
           nome: string | null
+          nome_rui: string | null
+          numero_rui: string | null
+          percentuale_ra: number | null
           permessi_json: Json | null
+          provincia: string | null
           ruolo: string | null
           search_vector: unknown
+          sezione_rui: string | null
+          telefono: string | null
           ufficio_id: string | null
           updated_at: string | null
         }
         Insert: {
           attivo?: boolean | null
+          cap?: string | null
+          citta?: string | null
+          codice_contabile?: string | null
+          codice_fiscale?: string | null
           cognome?: string | null
           created_at?: string | null
+          data_iscrizione_rui?: string | null
+          descrizione?: string | null
           email?: string | null
+          fax?: string | null
+          iban?: string | null
           id: string
+          indirizzo?: string | null
+          intestatario_cc?: string | null
           nome?: string | null
+          nome_rui?: string | null
+          numero_rui?: string | null
+          percentuale_ra?: number | null
           permessi_json?: Json | null
+          provincia?: string | null
           ruolo?: string | null
           search_vector?: unknown
+          sezione_rui?: string | null
+          telefono?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
         }
         Update: {
           attivo?: boolean | null
+          cap?: string | null
+          citta?: string | null
+          codice_contabile?: string | null
+          codice_fiscale?: string | null
           cognome?: string | null
           created_at?: string | null
+          data_iscrizione_rui?: string | null
+          descrizione?: string | null
           email?: string | null
+          fax?: string | null
+          iban?: string | null
           id?: string
+          indirizzo?: string | null
+          intestatario_cc?: string | null
           nome?: string | null
+          nome_rui?: string | null
+          numero_rui?: string | null
+          percentuale_ra?: number | null
           permessi_json?: Json | null
+          provincia?: string | null
           ruolo?: string | null
           search_vector?: unknown
+          sezione_rui?: string | null
+          telefono?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
         }
