@@ -179,11 +179,13 @@ export default function ClienteDetail() {
   });
 
   // Trigger provisioning once when client loads without user_id
-  useState(() => {
-    if (cliente && !cliente.user_id && cliente.email) {
+  const provisionedRef = useRef(false);
+  useEffect(() => {
+    if (cliente && !cliente.user_id && cliente.email && !provisionedRef.current) {
+      provisionedRef.current = true;
       provisionMutation.mutate(cliente.id);
     }
-  });
+  }, [cliente]);
 
   if (!cliente) return null;
 
