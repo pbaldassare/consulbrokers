@@ -5,7 +5,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck } from "lucide-react";
+import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface JobResult {
@@ -104,7 +104,23 @@ const ManutenzionePage = () => {
     },
   });
 
-  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending;
+  const provisionClienti = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("provision-clienti-users");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      setResults(prev => [...prev, { label: "Provisioning Clienti", result: data }]);
+      toast({ title: "Provisioning completato", description: `${data?.creati || 0} utenti creati, ${data?.errori || 0} errori` });
+    },
+    onError: (e: any) => {
+      setResults(prev => [...prev, { label: "Provisioning Clienti", result: null, error: e.message }]);
+      toast({ title: "Errore", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending;
 
   const runAll = async () => {
     setResults([]);
@@ -185,6 +201,23 @@ const ManutenzionePage = () => {
             </p>
             <Button size="sm" onClick={() => runQuality.mutate()} disabled={isAnyRunning}>
               {runQuality.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ShieldCheck className="w-4 h-4 mr-1" />}
+              Esegui
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" /> Provisioning Clienti
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Crea utenti auth per tutti i clienti senza account. Password default: Leone123!
+            </p>
+            <Button size="sm" onClick={() => provisionClienti.mutate()} disabled={isAnyRunning}>
+              {provisionClienti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />}
               Esegui
             </Button>
           </CardContent>

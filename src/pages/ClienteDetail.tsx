@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,6 +159,33 @@ export default function ClienteDetail() {
       toast.error("Errore salvataggio documento: " + err.message);
     }
   };
+
+  // Auto-provision user when client has no user_id and has email
+  const provisionMutation = useMutation({
+    mutationFn: async (clienteId: string) => {
+      const { data, error } = await supabase.functions.invoke("create-cliente-user", {
+        body: { cliente_id: clienteId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cliente", id] });
+      toast.success("Account cliente creato automaticamente");
+    },
+    onError: (err: any) => {
+      console.error("Provisioning error:", err.message);
+    },
+  });
+
+  // Trigger provisioning once when client loads without user_id
+  const provisionedRef = useRef(false);
+  useEffect(() => {
+    if (cliente && !cliente.user_id && cliente.email && !provisionedRef.current) {
+      provisionedRef.current = true;
+      provisionMutation.mutate(cliente.id);
+    }
+  }, [cliente]);
 
   if (!cliente) return null;
 
