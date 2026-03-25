@@ -16,6 +16,7 @@ import { Plus, Users, Building2, Search, User } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
@@ -53,6 +54,7 @@ const ClientiList = () => {
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [pec, setPec] = useState("");
+  const [gruppoFinanziarioId, setGruppoFinanziarioId] = useState("");
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
@@ -101,6 +103,18 @@ const ClientiList = () => {
     },
   });
 
+  const { data: gruppiFinanziari = [] } = useQuery({
+    queryKey: ["gruppi_finanziari_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_finanziari" as any)
+        .select("id, codice, nome")
+        .eq("attivo", true)
+        .order("codice");
+      return (data || []) as any[];
+    },
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
       const { error } = await supabase.from("clienti").update({ attivo }).eq("id", id);
@@ -116,6 +130,7 @@ const ClientiList = () => {
         email: email || null,
         telefono: telefono || null,
         pec: pec || null,
+        gruppo_finanziario_id: gruppoFinanziarioId || null,
       };
       if (tipoCliente === "privato") {
         payload.nome = nome || null;
@@ -169,6 +184,7 @@ const ClientiList = () => {
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
+    setGruppoFinanziarioId("");
     scannedFilesRef.current = [];
   };
 
