@@ -51,7 +51,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nome, cognome, email, ruolo, ufficio_id, permessi_json, password } = await req.json();
+    const {
+      nome, cognome, email, ruolo, ufficio_id, permessi_json, password,
+      descrizione, indirizzo, cap, citta, provincia, telefono, fax,
+      codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui,
+      codice_contabile, percentuale_ra, iban, intestatario_cc,
+    } = await req.json();
 
     if (!email || !nome || !cognome || !ruolo) {
       return new Response(
@@ -86,6 +91,22 @@ Deno.serve(async (req) => {
       ufficio_id: ufficio_id || null,
       permessi_json: permessi_json || null,
       attivo: true,
+      descrizione: descrizione || null,
+      indirizzo: indirizzo || null,
+      cap: cap || null,
+      citta: citta || null,
+      provincia: provincia || null,
+      telefono: telefono || null,
+      fax: fax || null,
+      codice_fiscale: codice_fiscale || null,
+      nome_rui: nome_rui || null,
+      data_iscrizione_rui: data_iscrizione_rui || null,
+      numero_rui: numero_rui || null,
+      sezione_rui: sezione_rui || null,
+      codice_contabile: codice_contabile || null,
+      percentuale_ra: percentuale_ra ?? null,
+      iban: iban || null,
+      intestatario_cc: intestatario_cc || null,
     });
 
     if (profileError) {
