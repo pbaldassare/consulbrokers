@@ -22,6 +22,9 @@ const TIPI = [
   { value: "legale", label: "Legali", icon: Scale },
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
   { value: "corrispondente", label: "Corrispondenti", icon: Users },
+  { value: "executive", label: "Executive", icon: Briefcase },
+  { value: "responsabile_sede", label: "Resp. Sede", icon: Users },
+  { value: "produttore_sede", label: "Prod. Sede", icon: Users },
 ] as const;
 
 type TipoAnagrafica = typeof TIPI[number]["value"];
