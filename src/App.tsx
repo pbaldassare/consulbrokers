@@ -83,6 +83,17 @@ import PortafoglioPerCompagniaPage from "./pages/estrazioni/PortafoglioPerCompag
 import PremiProvvigioniPage from "./pages/estrazioni/PremiProvvigioniPage";
 import PremiScopertiGarantitiPage from "./pages/estrazioni/PremiScopertiGarantitiPage";
 import ECClientiPage from "./pages/estrazioni/ECClientiPage";
+import ClienteGuard from "./components/ClienteGuard";
+import ClienteLayout from "./components/ClienteLayout";
+import ClienteDashboard from "./pages/cliente/ClienteDashboard";
+import ClientePolizze from "./pages/cliente/ClientePolizze";
+import ClientePolizzaDetail from "./pages/cliente/ClientePolizzaDetail";
+import ClienteDocumenti from "./pages/cliente/ClienteDocumenti";
+import ClienteScadenze from "./pages/cliente/ClienteScadenze";
+import ClienteComunicazioni from "./pages/cliente/ClienteComunicazioni";
+import ClienteNotifiche from "./pages/cliente/ClienteNotifiche";
+import ClientePagamenti from "./pages/cliente/ClientePagamenti";
+import ClienteUploadDoc from "./pages/cliente/ClienteUploadDoc";
 import NotFound from "./pages/NotFound";
 import {
   Users,
@@ -238,6 +249,18 @@ const App = () => (
               <Route path="/tabelle-base" element={<RoleGuard allowedRoles={["admin"]}><TabelleBasePage /></RoleGuard>} />
               <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
               <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
+            </Route>
+            {/* PORTALE CLIENTE */}
+            <Route element={<ClienteGuard><ClienteLayout /></ClienteGuard>}>
+              <Route path="/cliente" element={<ClienteDashboard />} />
+              <Route path="/cliente/polizze" element={<ClientePolizze />} />
+              <Route path="/cliente/polizze/:id" element={<ClientePolizzaDetail />} />
+              <Route path="/cliente/documenti" element={<ClienteDocumenti />} />
+              <Route path="/cliente/scadenze" element={<ClienteScadenze />} />
+              <Route path="/cliente/comunicazioni" element={<ClienteComunicazioni />} />
+              <Route path="/cliente/notifiche" element={<ClienteNotifiche />} />
+              <Route path="/cliente/pagamenti" element={<ClientePagamenti />} />
+              <Route path="/cliente/upload" element={<ClienteUploadDoc />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

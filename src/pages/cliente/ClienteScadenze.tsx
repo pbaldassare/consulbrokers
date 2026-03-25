@@ -12,9 +12,8 @@ const ClienteScadenze = () => {
   useEffect(() => {
     supabase
       .from("titoli")
-      .select("id, numero_titolo, data_scadenza, stato, prodotti(nome_prodotto)")
-      .not("data_scadenza", "is", null)
-      .order("data_scadenza", { ascending: true })
+      .select("id, numero_titolo, data_incasso, stato, prodotti(nome_prodotto)")
+      .order("created_at", { ascending: false })
       .then(({ data }) => {
         setScadenze(data ?? []);
         setLoading(false);
@@ -34,10 +33,7 @@ const ClienteScadenze = () => {
         <p className="text-muted-foreground">Nessuna scadenza registrata.</p>
       ) : (
         <div className="grid gap-3">
-          {scadenze.map((s) => {
-            const isExpired = s.data_scadenza < today;
-            const isSoon = !isExpired && s.data_scadenza <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-            return (
+          {scadenze.map((s) => (
               <Card key={s.id}>
                 <CardContent className="flex items-center justify-between py-3">
                   <div>
@@ -45,14 +41,14 @@ const ClienteScadenze = () => {
                     <p className="text-sm text-muted-foreground">{(s.prodotti as any)?.nome_prodotto ?? "—"}</p>
                   </div>
                   <div className="text-right">
-                    <Badge className={isExpired ? "bg-destructive text-destructive-foreground" : isSoon ? "bg-yellow-100 text-yellow-800" : "bg-muted text-muted-foreground"}>
-                      {s.data_scadenza}
+                    <Badge className={s.stato === "attivo" ? "bg-green-100 text-green-800" : "bg-muted text-muted-foreground"}>
+                      {s.stato}
                     </Badge>
+                    {s.data_incasso && <p className="text-xs text-muted-foreground mt-1">{s.data_incasso}</p>}
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>

@@ -49,8 +49,8 @@ const ClientePolizzaDetail = () => {
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div><span className="text-muted-foreground">Prodotto:</span> <span className="font-medium">{(titolo.prodotti as any)?.nome_prodotto ?? "—"}</span></div>
           <div><span className="text-muted-foreground">Premio lordo:</span> <span className="font-medium">€ {titolo.premio_lordo?.toFixed(2) ?? "—"}</span></div>
-          <div><span className="text-muted-foreground">Scadenza:</span> <span className="font-medium">{titolo.data_scadenza ?? "—"}</span></div>
-          <div><span className="text-muted-foreground">Decorrenza:</span> <span className="font-medium">{titolo.data_decorrenza ?? "—"}</span></div>
+          <div><span className="text-muted-foreground">Data incasso:</span> <span className="font-medium">{titolo.data_incasso ?? "—"}</span></div>
+          <div><span className="text-muted-foreground">Stato:</span> <span className="font-medium">{titolo.stato}</span></div>
         </CardContent>
       </Card>
 

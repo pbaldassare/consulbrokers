@@ -19,8 +19,8 @@ const ClientePolizze = () => {
   useEffect(() => {
     supabase
       .from("titoli")
-      .select("id, numero_titolo, stato, premio_lordo, data_scadenza, prodotto_id, prodotti(nome_prodotto)")
-      .order("data_scadenza", { ascending: false })
+      .select("id, numero_titolo, stato, premio_lordo, data_incasso, prodotto_id, prodotti(nome_prodotto)")
+      .order("created_at", { ascending: false })
       .then(({ data }) => {
         setTitoli(data ?? []);
         setLoading(false);
@@ -46,7 +46,7 @@ const ClientePolizze = () => {
                   </div>
                   <div className="text-right space-y-1">
                     <Badge className={statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}>{t.stato}</Badge>
-                    <p className="text-xs text-muted-foreground">Scad. {t.data_scadenza ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground">Incasso {t.data_incasso ?? "—"}</p>
                   </div>
                 </CardContent>
               </Card>

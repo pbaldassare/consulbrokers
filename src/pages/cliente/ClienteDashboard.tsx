@@ -15,20 +15,17 @@ const ClienteDashboard = () => {
     if (!user) return;
     const load = async () => {
       const [polRes, notRes, docRes] = await Promise.all([
-        supabase.from("titoli").select("id, data_scadenza", { count: "exact" }),
+        supabase.from("titoli").select("id, stato", { count: "exact" }),
         supabase.from("notifiche").select("id", { count: "exact" }).eq("letto", false),
         supabase.from("documenti").select("id", { count: "exact" }),
       ]);
 
       const polizze = polRes.count ?? 0;
-      const now = new Date().toISOString().slice(0, 10);
-      const scadenze = (polRes.data ?? []).filter(
-        (t) => t.data_scadenza && t.data_scadenza <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10) && t.data_scadenza >= now
-      ).length;
+      const attive = (polRes.data ?? []).filter((t) => t.stato === "attivo").length;
 
       setStats({
         polizze,
-        scadenze,
+        scadenze: attive,
         notifiche: notRes.count ?? 0,
         documenti: docRes.count ?? 0,
       });
@@ -39,7 +36,7 @@ const ClienteDashboard = () => {
 
   const cards = [
     { title: "Polizze Attive", value: stats.polizze, icon: Shield, color: "text-primary", link: "/cliente/polizze" },
-    { title: "Scadenze (30gg)", value: stats.scadenze, icon: CalendarClock, color: "text-accent", link: "/cliente/scadenze" },
+    { title: "Polizze Attive", value: stats.scadenze, icon: CalendarClock, color: "text-accent", link: "/cliente/scadenze" },
     { title: "Notifiche", value: stats.notifiche, icon: Bell, color: "text-destructive", link: "/cliente/notifiche" },
     { title: "Documenti", value: stats.documenti, icon: FileText, color: "text-muted-foreground", link: "/cliente/documenti" },
   ];
