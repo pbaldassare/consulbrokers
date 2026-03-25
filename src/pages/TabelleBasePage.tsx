@@ -269,15 +269,15 @@ const RamiTab = () => {
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Infortuni" /></div>
               <div>
                 <Label>Gruppo Ramo</Label>
-                <Select value={gruppoId} onValueChange={setGruppoId}>
-                  <SelectTrigger><SelectValue placeholder="— Nessun gruppo —" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Nessun gruppo —</SelectItem>
-                    {gruppi.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>{g.codice} - {g.descrizione}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={gruppoId}
+                  onValueChange={setGruppoId}
+                  placeholder="— Nessun gruppo —"
+                  options={[
+                    { value: "none", label: "— Nessun gruppo —" },
+                    ...gruppi.map((g) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
+                  ]}
+                />
               </div>
             </div>
             <DialogFooter>
