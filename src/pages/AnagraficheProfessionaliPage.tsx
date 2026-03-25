@@ -353,41 +353,30 @@ const AnagraficheProfessionaliPage = () => {
       );
     }
 
-    if (isCorr) {
-      const bancaParts = [
-        item.abi ? `ABI ${item.abi}` : null,
-        item.cab ? `CAB ${item.cab}` : null,
-        item.iban,
-        item.intestatario_cc ? `Int: ${item.intestatario_cc}` : null,
-      ].filter(Boolean);
+    if (isCorr || isNewCommercial) {
       return (
         <TableRow key={item.id} className={item.annullato ? "opacity-50" : ""}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
-          <TableCell className="font-medium">{item.ragione_sociale || item.nome_breve || "—"}</TableCell>
-          <TableCell className="text-sm">
-            {item.cognome && <div>{item.cognome}</div>}
+          <TableCell className="font-medium">
+            {item.cognome || item.ragione_sociale || "—"}
             {item.nome && <div className="text-xs text-muted-foreground">{item.nome}</div>}
-            {!item.cognome && !item.nome && "—"}
           </TableCell>
           <TableCell className="text-sm">
             {addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : "—"}
           </TableCell>
           <TableCell className="text-sm">
-            <div>Base: {item.percentuale_base ?? 0}%</div>
+            <div>Provv: {item.percentuale_base ?? 0}%</div>
+            <div>Cons: {(item as any).percentuale_consulenza ?? 0}%</div>
             <div>RA: {item.percentuale_ra ?? 0}%</div>
-            {item.codice_fornitore && <div className="text-xs text-muted-foreground">Cd For: {item.codice_fornitore}</div>}
           </TableCell>
           <TableCell className="text-sm">
             {item.telefono && <div>Tel {item.telefono}</div>}
-            {item.fax && <div>Fax {item.fax}</div>}
             {item.email && <div className="text-xs text-muted-foreground">{item.email}</div>}
-            {!item.telefono && !item.fax && !item.email && "—"}
+            {!item.telefono && !item.email && "—"}
           </TableCell>
-          <TableCell className="text-sm">
-            {bancaParts.length > 0 ? bancaParts.map((p, i) => <div key={i} className="text-xs">{p}</div>) : "—"}
-          </TableCell>
+          <TableCell className="text-sm text-xs">{item.iban || "—"}</TableCell>
           <TableCell className="text-center">
-            {item.annullato ? <Badge variant="destructive" className="text-xs">A</Badge> : <Badge variant="secondary" className="text-xs">—</Badge>}
+            {item.annullato ? <Badge variant="destructive" className="text-xs">Ann.</Badge> : <Badge variant="secondary" className="text-xs">Attivo</Badge>}
           </TableCell>
         </TableRow>
       );
