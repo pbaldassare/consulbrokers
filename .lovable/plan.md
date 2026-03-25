@@ -1,61 +1,101 @@
 
 
-## Piano: Provisioning automatico utenti per clienti + completamento portale
+## Piano: Potenziamento Contabilita e Contabilita Generale
 
-### Situazione attuale
-- **480 clienti** in DB, tutti con email, **nessuno** con `user_id` collegato
-- 4 email duplicate (clienti azienda con email generica tipo `info@...`)
-- `clienti.user_id` esiste gia (migration precedente), RLS base presente
-- Layout, guard e 9 pagine cliente gia create (ma alcune basiche)
-- Le RLS documenti per il cliente usano `entita_id = auth.uid()` (errato, dovrebbe usare `get_my_cliente_ids()`)
-- Nessun meccanismo automatico per creare utenti auth quando si inserisce un cliente
+### Analisi di cosa esiste
 
-### Piano di implementazione
+**Contabilita (polizze/provvigioni):**
+- Incassi e movimenti contabili per ufficio (ContabilitaUfficio)
+- E/C Clienti, Compagnia, Produttori
+- Provvigioni generate + distinte pagamento
+- Riconciliazione bancaria AI (import + matching)
+- Portafoglio incassi con scadenze
 
-#### Step 1 — Edge Function `provision-clienti-users`
-Creare una nuova Edge Function che:
-1. Legge tutti i clienti con `user_id IS NULL` e `email IS NOT NULL`
-2. Per email duplicate: aggiunge un suffisso numerico (es. `info+2@meccanica...`)
-3. Per ogni cliente:
-   - Crea utente in `auth.users` con email + password `Leone123!`
-   - Crea record in `profiles` con ruolo `cliente`
-   - Crea record in `user_roles` con role `cliente`
-   - Aggiorna `clienti.user_id` con l'id appena creato
-4. Gestisce errori per singolo record senza bloccare gli altri
-5. Restituisce report con conteggi (creati/errori/skippati)
+**Contabilita Generale (costi/ricavi uffici):**
+- Primanota Generale con fornitori e causali
+- Scadenziario pagamenti fornitori
+- Elaborazioni periodiche e annuali
+- Dichiarativi/CU
+- Import bancario
 
-Questa function va invocata una tantum per i clienti esistenti.
+### Proposte di miglioramento — cosa implementare
 
-#### Step 2 — Edge Function `create-cliente-user` (trigger per nuovi clienti)
-Creare una Edge Function invocabile dal frontend quando si crea/modifica un cliente dal gestionale:
-- Prende `cliente_id` come parametro
-- Legge email del cliente, crea utente auth + profile + user_roles + aggiorna `clienti.user_id`
-- Se email gia in uso in auth, salta la creazione e logga
+#### 1. Dashboard Contabile Giornaliera ("Cruscotto del Giorno")
+Una pagina che ogni mattina mostra in un colpo d'occhio:
+- Incassi da verificare oggi (titoli con pagamento ricevuto ma non ancora registrato)
+- Scadenze fornitore in scadenza oggi/settimana
+- Movimenti bancari importati non ancora riconciliati
+- Quadratura cassa: totale entrate vs totale uscite del giorno
+- Differenze tra premi attesi e premi effettivamente arrivati sui conti
 
-Modificare `ClienteDetail.tsx` / form di creazione cliente per invocare questa function dopo il salvataggio.
+Questo sostituisce il controllo manuale mattutino che oggi richiede di aprire 4-5 schermate diverse.
 
-#### Step 3 — Migration: rendere email NOT NULL e fix RLS documenti
-- `ALTER TABLE clienti ALTER COLUMN email SET NOT NULL`
-- Aggiornare la policy RLS `Cliente select own documenti` per usare `get_my_cliente_ids()` invece di `auth.uid()` direttamente (gia parzialmente fatto ma la vecchia policy usa `cliente_id = auth.uid()`)
+#### 2. Distinta Giornaliera Automatica
+Generazione automatica della distinta giornaliera degli incassi:
+- Raggruppa tutti i movimenti del giorno per tipo (contanti, assegni, bonifici, POS)
+- Calcola totali per modalita di pagamento
+- Confronta con il saldo cassa atteso
+- Esportazione PDF/CSV con layout pronto per la firma
+- Storico distinte con possibilita di riapertura e correzione
 
-#### Step 4 — Bottone "Provisioning Clienti" nella pagina Manutenzione
-Aggiungere un bottone nella pagina `ManutenzionePage.tsx` che invoca `provision-clienti-users` con feedback di progresso.
+#### 3. Verifica Arrivo Premi ("Quadratura Premi")
+Pannello che incrocia automaticamente:
+- Premi attesi (da titoli con stato "in attesa pagamento" o "da incassare")
+- Movimenti bancari in entrata
+- Segnala i premi NON arrivati dopo X giorni dalla scadenza
+- Segnala importi che non corrispondono (differenze anche di pochi centesimi)
+- Azione rapida: "Segna come incassato" con collegamento automatico al movimento bancario
 
-### File coinvolti
+#### 4. Chiusura Contabile Guidata
+Workflow step-by-step per la chiusura mensile/trimestrale:
+- Step 1: Verifica tutti i movimenti siano registrati
+- Step 2: Riconciliazione bancaria completa (tutti gli estratti matchati)
+- Step 3: Quadratura IVA (registro acquisti vs registro vendite)
+- Step 4: Verifica scadenziario (nessuna scadenza dimenticata)
+- Step 5: Generazione report di periodo
+- Ogni step mostra uno stato (completato/da fare/con errori) con link diretto alla schermata
 
-| Azione | File |
-|--------|------|
-| Creare | `supabase/functions/provision-clienti-users/index.ts` |
-| Creare | `supabase/functions/create-cliente-user/index.ts` |
-| Creare | Migration SQL (email NOT NULL + fix RLS) |
-| Modificare | `src/pages/ManutenzionePage.tsx` — bottone provisioning |
-| Modificare | `src/pages/ClienteDetail.tsx` — invocare create-cliente-user al salvataggio |
+#### 5. Alert Intelligenti Contabili
+Notifiche proattive generate automaticamente:
+- "Il premio della polizza X doveva arrivare 5 giorni fa — ancora non risulta sul conto"
+- "Scadenza fornitore Y tra 3 giorni — importo 1.200 EUR"
+- "Differenza di quadratura di 15,30 EUR sulla cassa di oggi"
+- "3 movimenti bancari da 7+ giorni non riconciliati"
+- Configurabili per ufficio (soglie, tempistiche)
+
+#### 6. Report Comparativo Uffici (per CFO)
+Dashboard che confronta i dati contabili tra uffici:
+- Entrate/uscite per ufficio nel periodo
+- Tasso di riconciliazione bancaria per ufficio
+- Tempo medio di incasso premi per ufficio
+- Scadenze in ritardo per ufficio
+- Grafici comparativi con Recharts
+
+### Priorita suggerita di implementazione
+
+| Priorita | Feature | Impatto |
+|-----------|---------|---------|
+| 1 | Dashboard Contabile Giornaliera | Risparmia 30min/giorno a ogni operatore |
+| 2 | Distinta Giornaliera Automatica | Elimina lavoro manuale ripetitivo |
+| 3 | Verifica Arrivo Premi | Previene perdite e dimenticanze |
+| 4 | Alert Intelligenti | Riduce errori e ritardi |
+| 5 | Chiusura Contabile Guidata | Standardizza il processo |
+| 6 | Report Comparativo Uffici | Visibilita direzionale |
 
 ### Dettagli tecnici
 
-**Gestione email duplicate**: per clienti con stessa email (es. `info@azienda.it`), il sistema usa `email+N@dominio.it` come alias (Gmail-style) per creare utenti auth distinti, mantenendo l'email originale nel campo `clienti.email`.
+**Tabelle DB necessarie:**
+- `distinte_giornaliere` — storico distinte con dettaglio righe
+- `distinte_giornaliere_righe` — singoli movimenti nella distinta
+- `chiusure_contabili` — tracking workflow di chiusura con stato per step
+- Le altre feature usano tabelle gia esistenti (movimenti_contabili, estratti_conto, titoli, notifiche)
 
-**Password default**: `Leone123!` per tutti. Il cliente potra fare reset password dal login.
+**Pagine da creare:**
+- `src/pages/contabilita/CruscottoGiornaliero.tsx`
+- `src/pages/contabilita/DistintaGiornaliera.tsx`
+- `src/pages/contabilita/QuadraturePremi.tsx`
+- `src/pages/contabilita/ChiusuraContabile.tsx`
+- `src/pages/ReportComparativoUffici.tsx`
 
-**Batch processing**: la provision processa un cliente alla volta (non parallelizzabile per limiti Supabase auth admin API) con max 500 record per invocazione.
+**Approccio:** Ogni feature e indipendente. Si possono implementare una alla volta partendo dalla Dashboard Contabile Giornaliera che ha il maggior impatto immediato.
 
