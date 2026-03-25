@@ -1,117 +1,61 @@
 
 
-## Piano: Portale Cliente (PWA + Desktop)
+## Piano: Provisioning automatico utenti per clienti + completamento portale
 
-### Stato attuale
+### Situazione attuale
+- **480 clienti** in DB, tutti con email, **nessuno** con `user_id` collegato
+- 4 email duplicate (clienti azienda con email generica tipo `info@...`)
+- `clienti.user_id` esiste gia (migration precedente), RLS base presente
+- Layout, guard e 9 pagine cliente gia create (ma alcune basiche)
+- Le RLS documenti per il cliente usano `entita_id = auth.uid()` (errato, dovrebbe usare `get_my_cliente_ids()`)
+- Nessun meccanismo automatico per creare utenti auth quando si inserisce un cliente
 
-**Cosa esiste gia:**
-- Tabella `clienti` con anagrafica completa, ma **senza collegamento a `auth.users`** (manca `user_id`)
-- Tabella `titoli` con `cliente_id` (FK profiles) e `cliente_anagrafica_id` (FK clienti) per le polizze
-- Tabella `documenti` con campo `visibile_al_cliente` (boolean) gia predisposto
-- Tabella `notifiche` con `destinatario_id` (FK profiles) — utilizzabile per il cliente
-- Sistema di chat interno (canali diretti/gruppo/broadcast) con RLS che esclude ruolo "cliente"
-- `profiles.ruolo` gestisce i ruoli, `permessi_json` per permessi granulari
-- AuthGuard e RoleGuard gia funzionanti
-- Bucket storage per documenti clienti/titoli/sinistri
+### Piano di implementazione
 
-**Cosa manca:**
-1. **Collegamento `clienti` ↔ `auth.users`**: serve un campo `user_id` sulla tabella `clienti` per sapere quale utente Supabase corrisponde a quale anagrafica cliente
-2. **Layout cliente dedicato**: il MainLayout attuale mostra la sidebar gestionale completa — serve un layout semplificato per il cliente
-3. **Pagine del portale cliente**: nessuna pagina cliente-oriented esiste
-4. **RLS per accesso cliente**: le policy attuali non prevedono accesso client-side filtrato per il singolo cliente
-5. **PWA**: non configurata
+#### Step 1 — Edge Function `provision-clienti-users`
+Creare una nuova Edge Function che:
+1. Legge tutti i clienti con `user_id IS NULL` e `email IS NOT NULL`
+2. Per email duplicate: aggiunge un suffisso numerico (es. `info+2@meccanica...`)
+3. Per ogni cliente:
+   - Crea utente in `auth.users` con email + password `Leone123!`
+   - Crea record in `profiles` con ruolo `cliente`
+   - Crea record in `user_roles` con role `cliente`
+   - Aggiorna `clienti.user_id` con l'id appena creato
+4. Gestisce errori per singolo record senza bloccare gli altri
+5. Restituisce report con conteggi (creati/errori/skippati)
 
----
+Questa function va invocata una tantum per i clienti esistenti.
 
-### Piano di implementazione (6 step)
+#### Step 2 — Edge Function `create-cliente-user` (trigger per nuovi clienti)
+Creare una Edge Function invocabile dal frontend quando si crea/modifica un cliente dal gestionale:
+- Prende `cliente_id` come parametro
+- Legge email del cliente, crea utente auth + profile + user_roles + aggiorna `clienti.user_id`
+- Se email gia in uso in auth, salta la creazione e logga
 
-#### Step 1 — Migration: collegare `clienti` a `auth.users`
-Aggiungere `user_id uuid REFERENCES auth.users(id)` alla tabella `clienti` con indice unico. Questo permette al cliente autenticato di recuperare la propria anagrafica.
+Modificare `ClienteDetail.tsx` / form di creazione cliente per invocare questa function dopo il salvataggio.
 
-#### Step 2 — RLS policies per il portale cliente
-Creare policy su:
-- `clienti`: SELECT dove `user_id = auth.uid()`
-- `titoli`: SELECT dove `cliente_anagrafica_id` IN (clienti del user)
-- `documenti`: SELECT dove `entita_id` corrisponde a un titolo/cliente del user E `visibile_al_cliente = true`
-- `notifiche`: SELECT/UPDATE dove `destinatario_id = auth.uid()`
+#### Step 3 — Migration: rendere email NOT NULL e fix RLS documenti
+- `ALTER TABLE clienti ALTER COLUMN email SET NOT NULL`
+- Aggiornare la policy RLS `Cliente select own documenti` per usare `get_my_cliente_ids()` invece di `auth.uid()` direttamente (gia parzialmente fatto ma la vecchia policy usa `cliente_id = auth.uid()`)
 
-Usare una funzione `security definer` `get_my_cliente_id()` per evitare ricorsioni RLS.
+#### Step 4 — Bottone "Provisioning Clienti" nella pagina Manutenzione
+Aggiungere un bottone nella pagina `ManutenzionePage.tsx` che invoca `provision-clienti-users` con feedback di progresso.
 
-#### Step 3 — Layout cliente dedicato (`ClienteLayout`)
-Creare `src/components/ClienteLayout.tsx` — layout semplificato con:
-- Header con logo ConsulNet e nome utente
-- Navigazione orizzontale o sidebar minimale con le voci: Dashboard, Polizze, Documenti, Scadenze, Comunicazioni, Notifiche, Pagamenti
-- Footer con info contatto agenzia
-- Responsive / mobile-first
+### File coinvolti
 
-Creare `src/components/ClienteGuard.tsx` che verifica `profile.ruolo === 'cliente'` e reindirizza al portale cliente se il ruolo e "cliente".
-
-Modificare `AuthGuard` per reindirizzare i clienti verso `/cliente` invece della dashboard gestionale.
-
-#### Step 4 — Pagine del portale cliente
-Creare le seguenti pagine in `src/pages/cliente/`:
-
-| Pagina | Descrizione |
-|--------|-------------|
-| `ClienteDashboard.tsx` | Riepilogo: polizze attive, prossime scadenze, notifiche non lette |
-| `ClientePolizze.tsx` | Lista polizze (titoli) del cliente con stato, prodotto, scadenza |
-| `ClientePolizzaDetail.tsx` | Dettaglio singola polizza con documenti allegati |
-| `ClienteDocumenti.tsx` | Tutti i documenti visibili al cliente, con download |
-| `ClienteScadenze.tsx` | Scadenziario personale (rate, rinnovi) |
-| `ClienteComunicazioni.tsx` | Chat diretta con l'agenzia (canale dedicato) |
-| `ClienteNotifiche.tsx` | Centro notifiche personale |
-| `ClientePagamenti.tsx` | Placeholder predisposto per pagamenti futuri (Stripe) |
-| `ClienteUploadDoc.tsx` | Upload documenti dal cliente verso l'agenzia |
-
-#### Step 5 — Routing
-Aggiungere in `App.tsx` un blocco di rotte `/cliente/*` protette da `ClienteGuard`:
-```text
-/cliente              → ClienteDashboard
-/cliente/polizze      → ClientePolizze
-/cliente/polizze/:id  → ClientePolizzaDetail
-/cliente/documenti    → ClienteDocumenti
-/cliente/scadenze     → ClienteScadenze
-/cliente/comunicazioni → ClienteComunicazioni
-/cliente/notifiche    → ClienteNotifiche
-/cliente/pagamenti    → ClientePagamenti (placeholder)
-```
-
-#### Step 6 — PWA Setup
-Installare `vite-plugin-pwa`, configurare manifest con nome "ConsulNet", icone, theme color. Aggiungere meta tag mobile a `index.html`. Questo rende l'app installabile da browser su smartphone.
-
----
+| Azione | File |
+|--------|------|
+| Creare | `supabase/functions/provision-clienti-users/index.ts` |
+| Creare | `supabase/functions/create-cliente-user/index.ts` |
+| Creare | Migration SQL (email NOT NULL + fix RLS) |
+| Modificare | `src/pages/ManutenzionePage.tsx` — bottone provisioning |
+| Modificare | `src/pages/ClienteDetail.tsx` — invocare create-cliente-user al salvataggio |
 
 ### Dettagli tecnici
 
-**Funzione DB helper:**
-```sql
-CREATE OR REPLACE FUNCTION public.get_my_cliente_ids()
-RETURNS SETOF uuid
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT id FROM clienti WHERE user_id = auth.uid()
-$$;
-```
+**Gestione email duplicate**: per clienti con stessa email (es. `info@azienda.it`), il sistema usa `email+N@dominio.it` come alias (Gmail-style) per creare utenti auth distinti, mantenendo l'email originale nel campo `clienti.email`.
 
-**File da creare:**
-- `src/components/ClienteLayout.tsx`
-- `src/components/ClienteGuard.tsx`
-- `src/pages/cliente/ClienteDashboard.tsx`
-- `src/pages/cliente/ClientePolizze.tsx`
-- `src/pages/cliente/ClientePolizzaDetail.tsx`
-- `src/pages/cliente/ClienteDocumenti.tsx`
-- `src/pages/cliente/ClienteScadenze.tsx`
-- `src/pages/cliente/ClienteComunicazioni.tsx`
-- `src/pages/cliente/ClienteNotifiche.tsx`
-- `src/pages/cliente/ClientePagamenti.tsx`
-- `src/pages/cliente/ClienteUploadDoc.tsx`
+**Password default**: `Leone123!` per tutti. Il cliente potra fare reset password dal login.
 
-**File da modificare:**
-- `src/App.tsx` — aggiungere rotte `/cliente/*`
-- `src/components/AuthGuard.tsx` — redirect clienti a `/cliente`
-- `vite.config.ts` — plugin PWA
-- `index.html` — meta tag mobile
-
-**Nota sui pagamenti:** La pagina Pagamenti sara un placeholder funzionale (mostra le scadenze da pagare) predisposto per integrazione Stripe futura. Le notifiche sono gia strutturate nel DB, verranno semplicemente filtrate per il `destinatario_id` del cliente.
+**Batch processing**: la provision processa un cliente alla volta (non parallelizzabile per limiti Supabase auth admin API) con max 500 record per invocazione.
 
