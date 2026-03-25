@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Plus, Users, Search, Eye } from "lucide-react";
 import ServerPagination from "@/components/ServerPagination";
@@ -30,7 +30,6 @@ const STATI_PROSPECT = [
 const FONTI = ["Referral", "Web", "Telefono", "Evento", "Altro"];
 
 const ProspectList = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -77,11 +76,11 @@ const ProspectList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospect"] });
-      toast({ title: "Prospect creato con successo" });
+      toast.success("Prospect creato con successo");
       setForm({ nome: "", cognome: "", email: "", telefono: "", fonte: "", note: "" });
       setOpen(false);
     },
-    onError: (err: Error) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast.error("Errore"),
   });
 
   const getStatoBadge = (stato: string) => {

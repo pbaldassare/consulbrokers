@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 
 const LoginPage = () => {
@@ -14,7 +14,6 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +21,7 @@ const LoginPage = () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      toast({ title: "Errore di accesso", description: error.message, variant: "destructive" });
+      toast.error("Errore di accesso");
     } else {
       navigate("/", { replace: true });
     }
@@ -31,7 +30,7 @@ const LoginPage = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast({ title: "Inserisci la tua email", variant: "destructive" });
+      toast.error("Inserisci la tua email");
       return;
     }
     setLoading(true);
@@ -40,9 +39,9 @@ const LoginPage = () => {
     });
     setLoading(false);
     if (error) {
-      toast({ title: "Errore", description: error.message, variant: "destructive" });
+      toast.error("Errore");
     } else {
-      toast({ title: "Email inviata", description: "Controlla la tua casella per il link di reset." });
+      toast.success("Email inviata", { description: "Controlla la tua casella per il link di reset." });
       setResetMode(false);
     }
   };

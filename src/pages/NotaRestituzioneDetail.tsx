@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, FileText, Clock, Package, Plus, Truck, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -31,7 +31,6 @@ const FLAG_LABELS: Record<string, string> = {
 const NotaRestituzioneDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [addTitoloOpen, setAddTitoloOpen] = useState(false);
@@ -110,7 +109,7 @@ const NotaRestituzioneDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["nota_restituzione", id] }),
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const changeStatoMutation = useMutation({
@@ -123,9 +122,9 @@ const NotaRestituzioneDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["nota_restituzione", id] });
       queryClient.invalidateQueries({ queryKey: ["logs_nota", id] });
-      toast({ title: "Stato aggiornato" });
+      toast.success("Stato aggiornato");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const addTitoloMutation = useMutation({
@@ -142,9 +141,9 @@ const NotaRestituzioneDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["nota_dettaglio", id] });
       setAddTitoloOpen(false);
       setSelectedTitoloId("");
-      toast({ title: "Titolo aggiunto" });
+      toast.success("Titolo aggiunto");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const removeTitoloMutation = useMutation({
@@ -154,9 +153,9 @@ const NotaRestituzioneDetail = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["nota_dettaglio", id] });
-      toast({ title: "Titolo rimosso" });
+      toast.success("Titolo rimosso");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const createSpedizioneMutation = useMutation({
@@ -180,9 +179,9 @@ const NotaRestituzioneDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["spedizioni_nota", id] });
       setSpedizioneOpen(false);
       setSpedForm({ corriere: "", tracking_code: "", tipo_spedizione: "singola" });
-      toast({ title: "Spedizione creata" });
+      toast.success("Spedizione creata");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   if (isLoading) return <p className="text-muted-foreground p-8">Caricamento...</p>;

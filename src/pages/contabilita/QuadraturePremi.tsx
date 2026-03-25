@@ -14,7 +14,7 @@ import {
   AlertTriangle, ArrowRightLeft, CheckCircle, Clock, Download, Link2,
   RefreshCw, Search, ShieldAlert, TrendingDown, XCircle
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const fmt = (n: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 
@@ -104,7 +104,6 @@ function computeMatches(titoli: any[], estratti: any[]): MatchResult[] {
 
 const QuadraturePremi = () => {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const qc = useQueryClient();
   const uffId = profile?.ufficio_id;
   const [filtroStato, setFiltroStato] = useState("tutti");
@@ -183,12 +182,12 @@ const QuadraturePremi = () => {
       }
     },
     onSuccess: () => {
-      toast({ title: "Titolo segnato come incassato" });
+      toast.success("Titolo segnato come incassato");
       qc.invalidateQueries({ queryKey: ["quadratura_titoli_attesa"] });
       qc.invalidateQueries({ queryKey: ["quadratura_estratti_entrata"] });
     },
     onError: (e: any) => {
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 

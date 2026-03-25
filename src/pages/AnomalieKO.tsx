@@ -13,10 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, CheckCircle, Link2, Plus } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const AnomalieKO = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, profile, isAdmin } = useAuth();
 
@@ -100,9 +99,9 @@ const AnomalieKO = () => {
       setAssociaDialog(null);
       setSelectedMovId("");
       setNote("");
-      toast({ title: "Associazione completata" });
+      toast.success("Associazione completata");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const verificaMutation = useMutation({
@@ -127,9 +126,9 @@ const AnomalieKO = () => {
       queryClient.invalidateQueries({ queryKey: ["anomalie_ko"] });
       setVerificaDialog(null);
       setNote("");
-      toast({ title: "Anomalia risolta" });
+      toast.success("Anomalia risolta");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const creaMovMutation = useMutation({
@@ -172,9 +171,9 @@ const AnomalieKO = () => {
       setCreaMovDialog(null);
       setMovTipo("entrata");
       setMovCategoria("");
-      toast({ title: "Movimento creato e anomalia risolta" });
+      toast.success("Movimento creato e anomalia risolta");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   return (

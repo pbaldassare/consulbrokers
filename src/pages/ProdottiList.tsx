@@ -11,10 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Package } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const ProdottiList = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [nomeProdotto, setNomeProdotto] = useState("");
@@ -77,9 +76,9 @@ const ProdottiList = () => {
       setCompagniaId("");
       setCategoriaId("");
       setMultititolo(false);
-      toast({ title: "Prodotto creato con successo" });
+      toast.success("Prodotto creato con successo");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   return (

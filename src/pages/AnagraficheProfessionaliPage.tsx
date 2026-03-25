@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -94,7 +94,6 @@ const emptyForm = {
 
 const AnagraficheProfessionaliPage = () => {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TipoAnagrafica>("liquidatore");
   const [search, setSearch] = useState("");
@@ -196,10 +195,10 @@ const AnagraficheProfessionaliPage = () => {
       queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
       setDialogOpen(false);
       setForm(emptyForm);
-      toast({ title: "Anagrafica creata con successo" });
+      toast.success("Anagrafica creata con successo");
     },
     onError: (e: Error) => {
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 

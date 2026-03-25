@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck, Users } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface JobResult {
   label: string;
@@ -15,7 +15,6 @@ interface JobResult {
 }
 
 const ManutenzionePage = () => {
-  const { toast } = useToast();
   const [results, setResults] = useState<JobResult[]>([]);
 
   const refreshKpi = useMutation({
@@ -30,11 +29,11 @@ const ManutenzionePage = () => {
     },
     onSuccess: () => {
       setResults(prev => [...prev, { label: "Refresh KPI CFO", result: { stato: "completato" } }]);
-      toast({ title: "KPI aggiornati con successo" });
+      toast.success("KPI aggiornati con successo");
     },
     onError: (e: any) => {
       setResults(prev => [...prev, { label: "Refresh KPI CFO", result: null, error: e.message }]);
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -52,11 +51,11 @@ const ManutenzionePage = () => {
     },
     onSuccess: (data) => {
       setResults(prev => [...prev, { label: "Scadenze Sinistri", result: data }]);
-      toast({ title: "Controllo scadenze completato" });
+      toast.success("Controllo scadenze completato");
     },
     onError: (e: any) => {
       setResults(prev => [...prev, { label: "Scadenze Sinistri", result: null, error: e.message }]);
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -74,11 +73,11 @@ const ManutenzionePage = () => {
     },
     onSuccess: (data) => {
       setResults(prev => [...prev, { label: "Archiviazione Notifiche", result: data }]);
-      toast({ title: "Notifiche archiviate" });
+      toast.success("Notifiche archiviate");
     },
     onError: (e: any) => {
       setResults(prev => [...prev, { label: "Archiviazione Notifiche", result: null, error: e.message }]);
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -96,11 +95,11 @@ const ManutenzionePage = () => {
     },
     onSuccess: (data: any) => {
       setResults(prev => [...prev, { label: "Controlli Qualità Dati", result: data }]);
-      toast({ title: "Controlli qualità completati", description: `${data?.totale_nuove || 0} nuove anomalie` });
+      toast.success("Controlli qualità completati", { description: `${data?.totale_nuove || 0} nuove anomalie` });
     },
     onError: (e: any) => {
       setResults(prev => [...prev, { label: "Controlli Qualità Dati", result: null, error: e.message }]);
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -112,11 +111,11 @@ const ManutenzionePage = () => {
     },
     onSuccess: (data: any) => {
       setResults(prev => [...prev, { label: "Provisioning Clienti", result: data }]);
-      toast({ title: "Provisioning completato", description: `${data?.creati || 0} utenti creati, ${data?.errori || 0} errori` });
+      toast.success("Provisioning completato", { description: `${data?.creati || 0} utenti creati, ${data?.errori || 0} errori` });
     },
     onError: (e: any) => {
       setResults(prev => [...prev, { label: "Provisioning Clienti", result: null, error: e.message }]);
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 

@@ -14,10 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, ArrowUpRight, ArrowDownLeft, CheckCircle, XCircle, Calculator, CreditCard, GitCompare } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const ContabilitaUfficio = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
 
@@ -123,9 +122,9 @@ const ContabilitaUfficio = () => {
       queryClient.invalidateQueries({ queryKey: ["movimenti_contabili"] });
       setMovOpen(false);
       setMovTipo("entrata"); setMovCategoria(""); setMovImporto(""); setMovData(""); setMovDescrizione(""); setMovRifTipo("");
-      toast({ title: "Movimento registrato" });
+      toast.success("Movimento registrato");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const createEstMutation = useMutation({
@@ -152,9 +151,9 @@ const ContabilitaUfficio = () => {
       queryClient.invalidateQueries({ queryKey: ["incroci_bancari"] });
       setEstOpen(false);
       setEstImporto(""); setEstData(""); setEstDescrizione(""); setEstSaldo("");
-      toast({ title: "Estratto conto caricato e incrocio eseguito" });
+      toast.success("Estratto conto caricato e incrocio eseguito");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const verificaIncrocioMutation = useMutation({
@@ -165,7 +164,7 @@ const ContabilitaUfficio = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incroci_bancari"] });
-      toast({ title: "Incrocio verificato" });
+      toast.success("Incrocio verificato");
     },
   });
 
@@ -177,7 +176,7 @@ const ContabilitaUfficio = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["estratti_conto"] });
-      toast({ title: "Stato aggiornato" });
+      toast.success("Stato aggiornato");
     },
   });
 

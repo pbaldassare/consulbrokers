@@ -10,14 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, FileText, Code, Clock, Send, AlertTriangle } from "lucide-react";
 import TimelineTab from "@/components/TimelineTab";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
 const RimessaDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -62,9 +61,9 @@ const RimessaDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rimessa", id] });
       queryClient.invalidateQueries({ queryKey: ["logs_rimessa", id] });
-      toast({ title: "XML generato, rimessa pronta" });
+      toast.success("XML generato, rimessa pronta");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const changeStatoMutation = useMutation({
@@ -82,9 +81,9 @@ const RimessaDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rimessa", id] });
       queryClient.invalidateQueries({ queryKey: ["logs_rimessa", id] });
-      toast({ title: "Stato aggiornato" });
+      toast.success("Stato aggiornato");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   if (isLoading) return <p className="text-muted-foreground p-8">Caricamento...</p>;

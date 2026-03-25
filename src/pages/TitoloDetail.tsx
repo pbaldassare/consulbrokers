@@ -13,7 +13,7 @@ import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calenda
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
@@ -55,7 +55,6 @@ const SectionCollapsible = ({ title, icon: Icon, children, defaultOpen = true }:
 const TitoloDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -114,9 +113,9 @@ const TitoloDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
-      toast({ title: "Stato aggiornato" });
+      toast.success("Stato aggiornato");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   if (isLoading) return <p className="text-muted-foreground p-8">Caricamento...</p>;

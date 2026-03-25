@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   ArrowLeft, Users, Phone, Mail, Globe, StickyNote, Plus,
   Clock, FileText, TrendingUp, CheckCircle2, XCircle,
@@ -51,7 +51,6 @@ const AZIONE_ICONS: Record<string, React.ElementType> = {
 const ProspectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [trattativaOpen, setTrattativaOpen] = useState(false);
@@ -105,7 +104,7 @@ const ProspectDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospect", id] });
       queryClient.invalidateQueries({ queryKey: ["log_attivita", "prospect", id] });
-      toast({ title: "Stato aggiornato" });
+      toast.success("Stato aggiornato");
     },
   });
 
@@ -146,12 +145,12 @@ const ProspectDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["trattative", id] });
       queryClient.invalidateQueries({ queryKey: ["prospect", id] });
       queryClient.invalidateQueries({ queryKey: ["log_attivita", "prospect", id] });
-      toast({ title: "Trattativa creata" });
+      toast.success("Trattativa creata");
       setTrattativaForm({ prodotto: "", compagnia: "", premio_previsto: "" });
       setTrattativaOpen(false);
     },
     onError: (err: Error) => {
-      toast({ title: "Errore", description: err.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -175,7 +174,7 @@ const ProspectDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trattative", id] });
       queryClient.invalidateQueries({ queryKey: ["log_attivita", "prospect", id] });
-      toast({ title: "Trattativa aggiornata" });
+      toast.success("Trattativa aggiornata");
     },
   });
 
@@ -239,7 +238,7 @@ const ProspectDetail = () => {
                     updates.updated_at = new Date().toISOString();
                     await supabase.from("prospect").update(updates).eq("id", id!);
                     queryClient.invalidateQueries({ queryKey: ["prospect", id] });
-                    toast({ title: "Dati aggiornati dal documento" });
+                    toast.success("Dati aggiornati dal documento");
                   }
                 }}
               />

@@ -1,0 +1,64 @@
+import { Route } from "react-router-dom";
+import PlaceholderPage from "@/components/PlaceholderPage";
+import ContabilitaUfficio from "@/pages/ContabilitaUfficio";
+import CruscottoGiornaliero from "@/pages/contabilita/CruscottoGiornaliero";
+import DistintaGiornaliera from "@/pages/contabilita/DistintaGiornaliera";
+import QuadraturePremi from "@/pages/contabilita/QuadraturePremi";
+import ChiusuraContabile from "@/pages/contabilita/ChiusuraContabile";
+import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
+import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
+import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
+import CausaliPage from "@/pages/contGenerale/CausaliPage";
+import PrimanotaGeneralePage from "@/pages/contGenerale/PrimanotaGeneralePage";
+import ScadenziarioPage from "@/pages/contGenerale/ScadenziarioPage";
+import ElabPeriodichePage from "@/pages/contGenerale/ElabPeriodichePage";
+import ClientiContabGeneralePage from "@/pages/contGenerale/ClientiContabPage";
+import DichiarativiCUPage from "@/pages/contGenerale/DichiarativiCUPage";
+import ElabAnnualiPage from "@/pages/contGenerale/ElabAnnualiPage";
+import FornitoriPage from "@/pages/FornitoriPage";
+import BancaImport from "@/pages/BancaImport";
+import RimessaList from "@/pages/RimessaList";
+import RimessaDetail from "@/pages/RimessaDetail";
+import ReportIVA from "@/pages/ReportIVA";
+import { Bell, Printer, ListChecks, FileOutput, Users, Settings, ArrowRightLeft, Import } from "lucide-react";
+
+export const contabilitaRoutes = (
+  <>
+    {/* CONTABILITÀ UFFICIO */}
+    <Route path="/contabilita" element={<ContabilitaUfficio />} />
+    <Route path="/contabilita/avvisi-incasso" element={<PlaceholderPage title="Avvisi Incasso" description="Gestione avvisi di incasso" icon={Bell} />} />
+    <Route path="/contabilita/cruscotto" element={<CruscottoGiornaliero />} />
+    <Route path="/contabilita/distinta-giornaliera" element={<DistintaGiornaliera />} />
+    <Route path="/contabilita/quadratura-premi" element={<QuadraturePremi />} />
+    <Route path="/contabilita/chiusura-contabile" element={<ChiusuraContabile />} />
+    <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
+    <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
+    <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
+    <Route path="/contabilita/stampa-primanota" element={<PlaceholderPage title="Stampa Primanota" description="Stampa movimenti di primanota" icon={Printer} />} />
+    <Route path="/contabilita/check-primanota" element={<PlaceholderPage title="Check Primanota" description="Verifica e quadratura primanota" icon={ListChecks} />} />
+    <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
+
+    {/* CONT. GENERALE */}
+    <Route path="/cont-generale/causali" element={<CausaliPage />} />
+    <Route path="/cont-generale/anagrafiche" element={<PlaceholderPage title="Anagrafiche" description="Anagrafiche contabilità generale" icon={Users} />} />
+    <Route path="/cont-generale/primanota" element={<PrimanotaGeneralePage />} />
+    <Route path="/cont-generale/scadenziario" element={<ScadenziarioPage />} />
+    <Route path="/cont-generale/elab-periodiche" element={<ElabPeriodichePage />} />
+    <Route path="/cont-generale/fornitori" element={<FornitoriPage />} />
+    <Route path="/cont-generale/clienti" element={<ClientiContabGeneralePage />} />
+    <Route path="/cont-generale/import-bancario" element={<BancaImport />} />
+    <Route path="/cont-generale/elab-annuali" element={<ElabAnnualiPage />} />
+    <Route path="/cont-generale/dichiarativi" element={<DichiarativiCUPage />} />
+
+    {/* FATTURAPA */}
+    <Route path="/fatturapa/anagrafiche" element={<PlaceholderPage title="Anagrafiche FatturaPA" description="Anagrafiche per fatturazione elettronica" icon={Users} />} />
+    <Route path="/fatturapa/gestione" element={<PlaceholderPage title="Gestione FatturaPA" description="Gestione fatture elettroniche" icon={Settings} />} />
+    <Route path="/fatturapa/intermediazione" element={<PlaceholderPage title="Intermediazione" description="Gestione intermediazione fatture" icon={ArrowRightLeft} />} />
+    <Route path="/fatturapa/import-fatture" element={<PlaceholderPage title="Import Fatture Acquisto" description="Importazione fatture di acquisto" icon={Import} />} />
+
+    {/* RIMESSE & EXTRA CONTABILI */}
+    <Route path="/rimessa-premi" element={<RimessaList />} />
+    <Route path="/rimessa-premi/:id" element={<RimessaDetail />} />
+    <Route path="/report-iva" element={<ReportIVA />} />
+  </>
+);

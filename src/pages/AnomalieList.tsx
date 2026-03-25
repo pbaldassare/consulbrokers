@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, ShieldCheck, Eye, Loader2, ExternalLink } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 
@@ -36,7 +36,6 @@ const ENTITY_ROUTES: Record<string, string> = {
 };
 
 const AnomalieList = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, profile } = useAuth();
@@ -95,12 +94,12 @@ const AnomalieList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["anomalie_sistema"] });
-      toast({ title: "Anomalia aggiornata" });
+      toast.success("Anomalia aggiornata");
       setResolveDialog(null);
       setNoteRisoluzione("");
     },
     onError: (e: any) => {
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 
@@ -118,10 +117,10 @@ const AnomalieList = () => {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["anomalie_sistema"] });
-      toast({ title: "Controlli completati", description: `${data?.totale_nuove || 0} nuove anomalie trovate` });
+      toast.success("Controlli completati", { description: `${data?.totale_nuove || 0} nuove anomalie trovate` });
     },
     onError: (e: any) => {
-      toast({ title: "Errore", description: e.message, variant: "destructive" });
+      toast.error("Errore");
     },
   });
 

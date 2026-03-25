@@ -12,12 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, FileText, Loader2, CheckCircle, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const BancaImport = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, profile, isAdmin } = useAuth();
 
@@ -112,9 +111,9 @@ const BancaImport = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["banca_documenti"] });
       setSelectedFile(null);
-      toast({ title: "Documento caricato e analisi avviata" });
+      toast.success("Documento caricato e analisi avviata");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const matchMutation = useMutation({
@@ -130,9 +129,9 @@ const BancaImport = () => {
       queryClient.invalidateQueries({ queryKey: ["estratti_documento"] });
       queryClient.invalidateQueries({ queryKey: ["estratti_conto"] });
       queryClient.invalidateQueries({ queryKey: ["incroci_bancari"] });
-      toast({ title: "Matching completato", description: `OK: ${data?.ok || 0}, KO: ${data?.ko || 0}, Parziali: ${data?.parziale || 0}` });
+      toast.success("Matching completato", { description: `OK: ${data?.ok || 0}, KO: ${data?.ko || 0}, Parziali: ${data?.parziale || 0}` });
     },
-    onError: (err: any) => toast({ title: "Errore matching", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore matching"),
   });
 
   const statoBadge = (stato: string) => {

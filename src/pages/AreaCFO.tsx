@@ -15,7 +15,7 @@ import {
   BarChart3, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Percent,
   CreditCard, FileText, Download, RefreshCw, Loader2, RotateCcw, Activity,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
@@ -50,7 +50,6 @@ const KpiCard = ({ label, value, icon, iconBg }: KpiCardProps) => (
 );
 
 const AreaCFO = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [dataDa, setDataDa] = useState("");
@@ -177,7 +176,7 @@ const AreaCFO = () => {
       if (error) throw error;
       setReportData((data as any) || []);
     } catch (err: any) {
-      toast({ title: "Errore", description: err.message, variant: "destructive" });
+      toast.error("Errore");
     }
     setReportLoading(false);
   };
@@ -218,9 +217,9 @@ const AreaCFO = () => {
       queryClient.invalidateQueries({ queryKey: ["cfo_provv_non_pagate"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_kpi"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_provvigioni_mensili"] });
-      toast({ title: "Provvigioni segnate come pagate" });
+      toast.success("Provvigioni segnate come pagate");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   const fmt = (n: number) => `€ ${(n || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -236,9 +235,9 @@ const AreaCFO = () => {
       queryClient.invalidateQueries({ queryKey: ["cfo_premi_compagnia"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_redditivita"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_provvigioni_mensili"] });
-      toast({ title: "KPI aggiornati" });
+      toast.success("KPI aggiornati");
     },
-    onError: (e: any) => toast({ title: "Errore refresh", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast.error("Errore refresh"),
   });
 
   const tooltipFormatter = (v: number) => fmt(v);

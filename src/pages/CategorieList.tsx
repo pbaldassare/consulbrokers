@@ -9,10 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Tag } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const CategorieList = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState("");
@@ -37,9 +36,9 @@ const CategorieList = () => {
       setOpen(false);
       setNome("");
       setDescrizione("");
-      toast({ title: "Categoria creata con successo" });
+      toast.success("Categoria creata con successo");
     },
-    onError: (err: any) => toast({ title: "Errore", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast.error("Errore"),
   });
 
   return (

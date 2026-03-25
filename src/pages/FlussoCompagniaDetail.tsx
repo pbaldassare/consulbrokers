@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { ArrowLeft, FileCode, Send, Copy, Download, Clock } from "lucide-react";
 import { format } from "date-fns";
@@ -90,9 +90,9 @@ const FlussoCompagniaDetail = () => {
     onSuccess: async () => {
       await logAttivita({ azione: "generazione_payload", entita_tipo: "flussi_compagnia", entita_id: id! });
       queryClient.invalidateQueries({ queryKey: ["flussi_compagnia", id] });
-      toast({ title: "Payload generato", description: "Il flusso è ora pronto per l'invio" });
+      toast.success("Payload generato", { description: "Il flusso è ora pronto per l'invio" });
     },
-    onError: () => toast({ title: "Errore", description: "Impossibile generare il payload", variant: "destructive" }),
+    onError: () => toast.error("Errore", { description: "Impossibile generare il payload" }),
   });
 
   const markSentMutation = useMutation({
@@ -106,7 +106,7 @@ const FlussoCompagniaDetail = () => {
     onSuccess: async () => {
       await logAttivita({ azione: "invio_flusso", entita_tipo: "flussi_compagnia", entita_id: id! });
       queryClient.invalidateQueries({ queryKey: ["flussi_compagnia", id] });
-      toast({ title: "Flusso segnato come inviato" });
+      toast.success("Flusso segnato come inviato");
     },
   });
 
@@ -121,14 +121,14 @@ const FlussoCompagniaDetail = () => {
     onSuccess: async () => {
       await logAttivita({ azione: "errore_flusso", entita_tipo: "flussi_compagnia", entita_id: id!, severity: "critical" });
       queryClient.invalidateQueries({ queryKey: ["flussi_compagnia", id] });
-      toast({ title: "Flusso segnato come errore", variant: "destructive" });
+      toast.error("Flusso segnato come errore");
     },
   });
 
   const copyPayload = () => {
     if (flusso?.payload_output) {
       navigator.clipboard.writeText(flusso.payload_output);
-      toast({ title: "Payload copiato negli appunti" });
+      toast.success("Payload copiato negli appunti");
     }
   };
 
