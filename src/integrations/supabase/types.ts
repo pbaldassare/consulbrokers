@@ -656,6 +656,7 @@ export type Database = {
           tipo_cliente: string
           ufficio_id: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           attivo?: boolean | null
@@ -690,6 +691,7 @@ export type Database = {
           tipo_cliente?: string
           ufficio_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           attivo?: boolean | null
@@ -724,6 +726,7 @@ export type Database = {
           tipo_cliente?: string
           ufficio_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -3331,6 +3334,7 @@ export type Database = {
         Args: { _cliente_id: string }
         Returns: boolean
       }
+      get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
       has_role: {
         Args: {
