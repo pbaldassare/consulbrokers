@@ -1,36 +1,34 @@
 
 
-## Piano: Gruppi Finanziari con nome + Search nei Select + Dati demo
+## Piano: Armonizzazione Anagrafica Cliente + Dati Fake
 
 ### Cosa cambia
 
-1. **Aggiungere campo `nome` alla tabella `gruppi_finanziari`** — Sono enti (banche, assicurazioni, enti pubblici) quindi servono: `codice`, `nome` (nome dell'ente), `descrizione`. Migration SQL per aggiungere la colonna.
+1. **Migration SQL per popolare dati fake** sui 480 clienti esistenti — riempire i campi vuoti con valori realistici:
+   - **Privati (330)**: `titolo` (Sig/Dott/etc), `sesso` (M/F basato sul nome), `tipo_persona` = "fisica", `cellulare`, `nazione` = "Italia", `zona` (Nord/Centro/Sud), `stato_cliente` = "attivo", `prospect` random, `codice_ricerca` = prime lettere cognome+nome, `comune_nascita`, `provincia_nascita`, `codice_ateco` random, `settore`, `attivita`
+   - **Aziende (150)**: `tipo_persona` = "giuridica", `sesso` = "na", `fax`, `nazione` = "Italia", `zona`, `settore`, `codice_ateco`, `fatturato`, `num_dipendenti`, `fido_credito`
+   - **Gruppo Finanziario**: assegnare casualmente uno degli 8 gruppi a ~30% dei clienti (quelli con rapporti bancari/assicurativi)
 
-2. **Aggiornare `SimpleLookupTab` in `TabelleBasePage.tsx`** — Il tab "Gruppi Finanziari" deve diventare un tab custom (come `RamiTab`) con 3 campi: codice, nome, descrizione. Aggiornare anche la tabella per mostrare la colonna Nome.
+2. **Armonizzare la UI di ClienteDetail.tsx**:
+   - Tutti i `FieldSelect` diventano `SearchableSelect` (con ricerca): Titolo, Stato, Prospect, Tipo Persona, Sesso, Tipo Sommario
+   - Il Gruppo Finanziario è già SearchableSelect, verificare funzionamento
+   - Layout uniforme: stessa altezza input (h-8), stesse label (text-xs), grid consistente
+   - In read-only mode: visualizzazione pulita e coerente con dash "—" per campi vuoti
 
-3. **Seedare dati demo** — Inserire via migration ~8 gruppi finanziari realistici italiani (es. Intesa Sanpaolo, UniCredit, Generali, INPS, Cassa Depositi e Prestiti, etc.).
-
-4. **Aggiungere search/filtro nei Select dropdown** — Creare un componente `SearchableSelect` riutilizzabile (usando `Command` di cmdk/shadcn dentro un `Popover`) e applicarlo a:
-   - Select "Gruppo Finanziario" in `ClienteDetail.tsx`
-   - Select "Profilo" nei `CodiceCommercialeRow` in `ClienteDetail.tsx`
-   - Select "Gruppo Ramo" in `RamiTab` di `TabelleBasePage.tsx`
-   - Select "Forma Giuridica" e altri Select nel form di creazione cliente (`ClientiList.tsx`)
-
-5. **Collegamento automatico in creazione cliente** — Aggiungere nel form di creazione cliente (`ClientiList.tsx`) un campo searchable per selezionare il Gruppo Finanziario, salvandolo come `gruppo_finanziario_id` nel payload.
+3. **Aggiungere SearchableSelect al FieldSelect helper** — creare un nuovo helper `FieldSearchable` che usa SearchableSelect in edit mode e testo in read-only mode, per uniformare tutti i dropdown
 
 ### Modifiche per file
 
 | File | Modifica |
 |------|----------|
-| **Migration SQL** | `ALTER TABLE gruppi_finanziari ADD COLUMN nome text`. INSERT di ~8 gruppi demo |
-| **SearchableSelect.tsx** (nuovo) | Componente riutilizzabile: Popover + Command con input di ricerca + lista filtrata. Props: `options`, `value`, `onValueChange`, `placeholder` |
-| **TabelleBasePage.tsx** | Nuovo tab custom `GruppiFinanziariTab` con form a 3 campi (codice, nome, descrizione) e tabella con colonna Nome |
-| **ClienteDetail.tsx** | Sostituire i Select di Gruppo Finanziario e Profilo commerciale con `SearchableSelect` |
-| **ClientiList.tsx** | Aggiungere campo Gruppo Finanziario (searchable) nel form di creazione cliente. Usare `SearchableSelect` per Forma Giuridica |
+| **Migration SQL** | UPDATE clienti con dati fake randomizzati (titolo, sesso, cellulare, zona, nazione, codice_ricerca, settore, gruppo_finanziario_id, etc.) |
+| **ClienteDetail.tsx** | Sostituire `FieldSelect` con nuovo `FieldSearchable` che usa `SearchableSelect`. Armonizzare grid e spacing |
 
 ### Dettagli tecnici
 
-- Il `SearchableSelect` usa `Popover` + `Command` (gia presenti nel progetto via shadcn) per filtrare le opzioni digitando
-- I gruppi finanziari demo includeranno enti reali italiani: banche (Intesa, UniCredit, MPS), assicurazioni (Generali, Allianz), enti pubblici (INPS, INAIL, CDP)
-- Il campo `nome` e obbligatorio (`NOT NULL`) con default vuoto per i record esistenti
+- La migration usa `random()` e `CASE` per distribuire valori realistici
+- Il `codice_ricerca` viene generato come `UPPER(LEFT(cognome,3) || LEFT(nome,2))` per i privati
+- I cellulari fake seguono il formato italiano `3xx xxxxxxx`
+- Il gruppo finanziario viene assegnato solo a clienti con indice pari (simulazione realistica)
+- Nessun campo viene sovrascritto se già valorizzato (WHERE campo IS NULL)
 
