@@ -1,32 +1,34 @@
 
 
-## Piano: Documenti utente + Provvigioni nel profilo
+## Piano: Nuovo ruolo "backoffice" + 3 utenti demo
 
 ### Cosa cambia
 
-1. **Nuove colonne su `profiles`**: Aggiungere `percentuale_base` (numeric) e `percentuale_consulenza` (numeric) per gestire le provvigioni di produzione e intermediazione direttamente nel profilo utente.
+1. **Aggiungere `backoffice` all'enum `app_role`** nel database — questo ruolo vedrà e gestirà solo polizze/clienti a lui assegnati.
 
-2. **Tabella `documenti_utenti`**: Nuova tabella per archiviare documenti associati agli utenti (carta d'identita, mandati, visure, etc.) con campi: `id`, `user_id`, `nome_file`, `path_storage`, `categoria` (carta_identita, mandato, visura, patente, altro), `note`, `created_at`.
+2. **Aggiornare il frontend**:
+   - Aggiungere `"backoffice"` all'array `ROLES` in `GestioneUtenti.tsx`
+   - Aggiungere `"backoffice"` nei `allowedRoles` delle rotte pertinenti (archivi clienti, titoli, polizze, sinistri, etc.) in `App.tsx`
+   - Aggiungere `"backoffice"` nella sidebar (`AppSidebar.tsx`) per rendere visibili le voci di menu appropriate
+   - Aggiungere `"backoffice"` in `AuthGuard.tsx` e `NuovaConversazioneDialog.tsx` dove si listano i ruoli interni
 
-3. **Storage bucket `documenti_utenti`**: Nuovo bucket privato per i file caricati.
-
-4. **Nuovo tab "Provvigioni"** nel dialog di modifica utente: Due campi numerici per percentuale base (produzione) e percentuale consulenza (intermediazione).
-
-5. **Nuovo tab "Documenti"** nel dialog di modifica utente: Lista documenti caricati per l'utente, upload di nuovi documenti con selezione categoria, possibilita di eliminare/scaricare.
-
-6. **Aggiornamento `handleEdit`**: Salvare anche `percentuale_base` e `percentuale_consulenza` nel profilo.
+3. **Creare 3 utenti backoffice** tramite la Edge Function `seed-demo-users` aggiornata, con dati completi (nomi italiani, indirizzi, etc.) e password `Demo2024!`.
 
 ### Modifiche per file
 
 | File | Modifica |
 |------|----------|
-| **Migration SQL** | `ALTER TABLE profiles ADD COLUMN percentuale_base numeric(5,2), ADD COLUMN percentuale_consulenza numeric(5,2)`. Creare tabella `documenti_utenti`. Creare bucket `documenti_utenti`. RLS policies per documenti_utenti e bucket |
-| **GestioneUtenti.tsx** | Aggiungere tab "Provvigioni" con i due campi percentuale. Aggiungere tab "Documenti" con upload, lista e download. Aggiornare `UserProfile` interface, `fetchUsers` select, `handleEdit` update. Da 4 a 6 tabs nel dialog |
+| **Migration SQL** | `ALTER TYPE app_role ADD VALUE 'backoffice'` |
+| **GestioneUtenti.tsx** | Aggiungere `"backoffice"` a `ROLES` |
+| **App.tsx** | Aggiungere `"backoffice"` nei `allowedRoles` per rotte clienti, titoli, polizze, sinistri, portafoglio |
+| **AppSidebar.tsx** | Includere `"backoffice"` nelle condizioni di visibilità delle voci pertinenti |
+| **NuovaConversazioneDialog.tsx** | Aggiungere `"backoffice"` alla lista ruoli nella query utenti chat |
+| **seed-demo-users/index.ts** | Aggiungere 3 utenti backoffice con profili completi |
 
 ### Dettagli tecnici
 
-- Categorie documenti: `carta_identita`, `mandato`, `visura`, `patente`, `altro`
-- Il tab Provvigioni mostra due Input numerici con step 0.01 e suffisso "%"
-- Il tab Documenti carica nel bucket `documenti_utenti` con path `{user_id}/{timestamp}_{filename}`
-- I documenti vengono salvati nella tabella `documenti_utenti` e listati nel tab con possibilita di download e cancellazione
+- Il backoffice avrà accesso a: Dashboard, Archivi (clienti), Titoli, Polizze, Sinistri, Portafoglio, Chat, Documenti
+- Non avrà accesso a: Contabilità, CFO, Impostazioni, Gestione Utenti, Tabelle Base
+- I 3 utenti: `backoffice1@consul.it`, `backoffice2@consul.it`, `backoffice3@consul.it`
+- In futuro si potrà implementare la visibilità filtrata (solo clienti/polizze assegnati) tramite RLS
 
