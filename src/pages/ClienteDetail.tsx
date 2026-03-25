@@ -160,6 +160,31 @@ export default function ClienteDetail() {
     }
   };
 
+  // Auto-provision user when client has no user_id and has email
+  const provisionMutation = useMutation({
+    mutationFn: async (clienteId: string) => {
+      const { data, error } = await supabase.functions.invoke("create-cliente-user", {
+        body: { cliente_id: clienteId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cliente", id] });
+      toast.success("Account cliente creato automaticamente");
+    },
+    onError: (err: any) => {
+      console.error("Provisioning error:", err.message);
+    },
+  });
+
+  // Trigger provisioning once when client loads without user_id
+  useState(() => {
+    if (cliente && !cliente.user_id && cliente.email) {
+      provisionMutation.mutate(cliente.id);
+    }
+  });
+
   if (!cliente) return null;
 
   const isPrivato = cliente.tipo_cliente === "privato";
