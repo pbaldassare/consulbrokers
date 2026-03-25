@@ -86,8 +86,6 @@ const ROUTE_LABELS: Record<string, string> = {
   "report": "Report",
   "comunicazioni": "Comunicazioni",
   "impostazioni": "Impostazioni",
-  "matrice-provvigioni": "Matrice Provvigioni",
-  "template-ruoli": "Template Ruoli",
   "crea-utente": "Crea Utente",
   "gestione-utenti": "Gestione Utenti",
   "backup-export": "Backup & Export",
