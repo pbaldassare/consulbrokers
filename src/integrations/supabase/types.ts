@@ -706,27 +706,51 @@ export type Database = {
       }
       clienti: {
         Row: {
+          attenzione_di: string | null
+          attivita: string | null
           attivo: boolean | null
+          azienda_ssn_sx: boolean | null
+          azienda_stat: string | null
           cap_residenza: string | null
           cap_sede: string | null
+          cellulare: string | null
           citta_residenza: string | null
           citta_sede: string | null
+          cliente_associato: boolean | null
+          cliente_captive: boolean | null
+          cliente_non_ceduto: boolean | null
+          codice_ateco: string | null
           codice_fiscale: string | null
           codice_fiscale_azienda: string | null
+          codice_ricerca: string | null
           codice_sdi: string | null
           cognome: string | null
+          comune_nascita: string | null
+          contratto: string | null
           created_at: string | null
           data_nascita: string | null
           email: string | null
+          fatturato: number | null
+          fax: string | null
+          fido_cauzioni: number | null
+          fido_credito: number | null
           forma_giuridica: string | null
+          gruppo_finanziario_id: string | null
           id: string
           indirizzo_residenza: string | null
           indirizzo_sede: string | null
+          indotto: string | null
+          internazionale: boolean | null
           luogo_nascita: string | null
+          matricola: string | null
+          nazione: string | null
           nome: string | null
           note: string | null
+          num_dipendenti: number | null
           partita_iva: string | null
           pec: string | null
+          prospect: string | null
+          provincia_nascita: string | null
           provincia_residenza: string | null
           provincia_sede: string | null
           ragione_sociale: string | null
@@ -734,34 +758,69 @@ export type Database = {
           referente_email: string | null
           referente_nome: string | null
           referente_telefono: string | null
+          riferimento: string | null
+          sesso: string | null
+          settore: string | null
+          spec_sx_danni: string | null
+          spec_sx_sanita: string | null
+          statistica_premi_sinistri: boolean | null
+          stato_cliente: string | null
           telefono: string | null
           tipo_cliente: string
+          tipo_persona: string | null
+          tipo_sommario: string | null
+          titolo: string | null
           ufficio_id: string | null
           updated_at: string | null
           user_id: string | null
+          zona: string | null
         }
         Insert: {
+          attenzione_di?: string | null
+          attivita?: string | null
           attivo?: boolean | null
+          azienda_ssn_sx?: boolean | null
+          azienda_stat?: string | null
           cap_residenza?: string | null
           cap_sede?: string | null
+          cellulare?: string | null
           citta_residenza?: string | null
           citta_sede?: string | null
+          cliente_associato?: boolean | null
+          cliente_captive?: boolean | null
+          cliente_non_ceduto?: boolean | null
+          codice_ateco?: string | null
           codice_fiscale?: string | null
           codice_fiscale_azienda?: string | null
+          codice_ricerca?: string | null
           codice_sdi?: string | null
           cognome?: string | null
+          comune_nascita?: string | null
+          contratto?: string | null
           created_at?: string | null
           data_nascita?: string | null
           email?: string | null
+          fatturato?: number | null
+          fax?: string | null
+          fido_cauzioni?: number | null
+          fido_credito?: number | null
           forma_giuridica?: string | null
+          gruppo_finanziario_id?: string | null
           id?: string
           indirizzo_residenza?: string | null
           indirizzo_sede?: string | null
+          indotto?: string | null
+          internazionale?: boolean | null
           luogo_nascita?: string | null
+          matricola?: string | null
+          nazione?: string | null
           nome?: string | null
           note?: string | null
+          num_dipendenti?: number | null
           partita_iva?: string | null
           pec?: string | null
+          prospect?: string | null
+          provincia_nascita?: string | null
           provincia_residenza?: string | null
           provincia_sede?: string | null
           ragione_sociale?: string | null
@@ -769,34 +828,69 @@ export type Database = {
           referente_email?: string | null
           referente_nome?: string | null
           referente_telefono?: string | null
+          riferimento?: string | null
+          sesso?: string | null
+          settore?: string | null
+          spec_sx_danni?: string | null
+          spec_sx_sanita?: string | null
+          statistica_premi_sinistri?: boolean | null
+          stato_cliente?: string | null
           telefono?: string | null
           tipo_cliente?: string
+          tipo_persona?: string | null
+          tipo_sommario?: string | null
+          titolo?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          zona?: string | null
         }
         Update: {
+          attenzione_di?: string | null
+          attivita?: string | null
           attivo?: boolean | null
+          azienda_ssn_sx?: boolean | null
+          azienda_stat?: string | null
           cap_residenza?: string | null
           cap_sede?: string | null
+          cellulare?: string | null
           citta_residenza?: string | null
           citta_sede?: string | null
+          cliente_associato?: boolean | null
+          cliente_captive?: boolean | null
+          cliente_non_ceduto?: boolean | null
+          codice_ateco?: string | null
           codice_fiscale?: string | null
           codice_fiscale_azienda?: string | null
+          codice_ricerca?: string | null
           codice_sdi?: string | null
           cognome?: string | null
+          comune_nascita?: string | null
+          contratto?: string | null
           created_at?: string | null
           data_nascita?: string | null
           email?: string | null
+          fatturato?: number | null
+          fax?: string | null
+          fido_cauzioni?: number | null
+          fido_credito?: number | null
           forma_giuridica?: string | null
+          gruppo_finanziario_id?: string | null
           id?: string
           indirizzo_residenza?: string | null
           indirizzo_sede?: string | null
+          indotto?: string | null
+          internazionale?: boolean | null
           luogo_nascita?: string | null
+          matricola?: string | null
+          nazione?: string | null
           nome?: string | null
           note?: string | null
+          num_dipendenti?: number | null
           partita_iva?: string | null
           pec?: string | null
+          prospect?: string | null
+          provincia_nascita?: string | null
           provincia_residenza?: string | null
           provincia_sede?: string | null
           ragione_sociale?: string | null
@@ -804,13 +898,31 @@ export type Database = {
           referente_email?: string | null
           referente_nome?: string | null
           referente_telefono?: string | null
+          riferimento?: string | null
+          sesso?: string | null
+          settore?: string | null
+          spec_sx_danni?: string | null
+          spec_sx_sanita?: string | null
+          statistica_premi_sinistri?: boolean | null
+          stato_cliente?: string | null
           telefono?: string | null
           tipo_cliente?: string
+          tipo_persona?: string | null
+          tipo_sommario?: string | null
+          titolo?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          zona?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "clienti_gruppo_finanziario_id_fkey"
+            columns: ["gruppo_finanziario_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_finanziari"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clienti_ufficio_id_fkey"
             columns: ["ufficio_id"]
@@ -858,6 +970,81 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      codici_commerciali_cliente: {
+        Row: {
+          altro_broker: boolean | null
+          altro_broker_nome: string | null
+          cliente_id: string
+          contatto: string | null
+          created_at: string | null
+          data_acquisito: string | null
+          data_disdetta: string | null
+          filiale: string | null
+          id: string
+          mandato: string | null
+          percentuale: number | null
+          profilo_id: string | null
+          ruolo: string
+          scadenza_mandato: string | null
+          societa_brand: string | null
+          termine_proroga: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          altro_broker?: boolean | null
+          altro_broker_nome?: string | null
+          cliente_id: string
+          contatto?: string | null
+          created_at?: string | null
+          data_acquisito?: string | null
+          data_disdetta?: string | null
+          filiale?: string | null
+          id?: string
+          mandato?: string | null
+          percentuale?: number | null
+          profilo_id?: string | null
+          ruolo: string
+          scadenza_mandato?: string | null
+          societa_brand?: string | null
+          termine_proroga?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          altro_broker?: boolean | null
+          altro_broker_nome?: string | null
+          cliente_id?: string
+          contatto?: string | null
+          created_at?: string | null
+          data_acquisito?: string | null
+          data_disdetta?: string | null
+          filiale?: string | null
+          id?: string
+          mandato?: string | null
+          percentuale?: number | null
+          profilo_id?: string | null
+          ruolo?: string
+          scadenza_mandato?: string | null
+          societa_brand?: string | null
+          termine_proroga?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "codici_commerciali_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "codici_commerciali_cliente_profilo_id_fkey"
+            columns: ["profilo_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1590,6 +1777,30 @@ export type Database = {
         ]
       }
       gruppi_compagnia: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      gruppi_finanziari: {
         Row: {
           attivo: boolean
           codice: string
