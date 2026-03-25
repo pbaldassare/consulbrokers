@@ -1,55 +1,76 @@
 
 
-## Analisi Progetto: Duplicazioni, Codice Inutilizzato, Semplificazioni
+## Piano: Piano dei Conti con Centri di Costo, Sottocentri e Anagrafiche
 
-### 1. FILE COMPLETAMENTE INUTILIZZATI (da eliminare)
+### Cosa si costruisce
 
-| File | Motivo |
-|------|--------|
-| `src/pages/Index.tsx` | Pagina "Welcome to Your Blank App" mai importata/usata |
-| `src/App.css` | CSS Vite default, mai importato da nessuno |
-| `src/components/ui/use-toast.ts` | Re-export puro di `@/hooks/use-toast` — nessun file lo importa |
-| `src/lib/uploadRateLimit.ts` | Funzioni `checkUploadRate` e `getMaxFileSizeMB` mai chiamate da nessuna parte |
-| `src/lib/logPerformance.ts` | Funzione `logPerformance` mai importata/usata |
+Un sistema gerarchico a 3 livelli per la contabilità generale:
 
-### 2. ROTTE DUPLICATE in App.tsx
+```text
+CENTRO DI COSTO (livello 1)     codice 6 cifre, es. "010101"
+  └── SOTTOCENTO (livello 2)     codice 6 cifre, es. "000001"
+        └── ANAGRAFICA (dettaglio)  campi: IBAN, BIC, Città, CF/P.IVA, etc.
+```
 
-| Duplicazione | Dettaglio |
+Ogni conto ha: Descrizione, Sezione Bilancio, Natura (Patrimoniale/Economico + Attivo/Passivo), Gestione partite, Tipo Sezionale (No/Clienti/Fornitori), Voce di spesa, Flag stato, Gestione tesoreria, dati bancari.
+
+### 1. Database (3 nuove tabelle)
+
+**`piano_conti_gruppi`** (Centri di Costo — livello 1):
+- `id` uuid PK, `codice` text UNIQUE (6 cifre, es. "010101"), `descrizione` text
+- `sezione_bilancio` text, `natura_tipo` text (Patrimoniale/Economico), `natura_segno` text (Attivo/Passivo)
+- `attivo` boolean DEFAULT true, `created_at`, `updated_at`
+
+**`piano_conti_conti`** (Sottocentri — livello 2):
+- `id` uuid PK, `gruppo_id` FK → piano_conti_gruppi, `codice` text (6 cifre, es. "000001")
+- `descrizione` text, `sezione_bilancio` text, `natura_tipo` text, `natura_segno` text
+- `gestione_partite` boolean, `tipo_sezionale` text (no/clienti/fornitori), `voce_spesa` text
+- `flag_stato` boolean, `data_sospensione` date, `gestione_tesoreria` boolean
+- `iban` text, `bic` text, `citta` text, `cf_piva` text
+- `attivo` boolean DEFAULT true, UNIQUE(gruppo_id, codice)
+
+**`sezioni_bilancio`** (lookup per il dropdown Sezione Bilancio):
+- Contiene le ~25 voci visibili nello screenshot: CREDITI VERSO SOCI, IMMOBILIZZ. IMMATERIALI, IMMOBILIZZ. MATERIALI, IMMOBILIZZ. FINANZIARIE, ASSICURATI, CLIENTI, DEBITORI DIVERSI, FORNITORI, COMPAGNIE, CREDITORI DIVERSI, ASS./COMP. C/D'ORDINE, CASSA, BANCHE, PORTAFOGLIO, ALTRE ATTIVITA' FINANZ., RATEI E RISCONTI, F.DO AMM. IMM. MATERIALI, F.DO AMM. IMMOB. IMMATER., etc.
+
+### 2. Dati demo pre-compilati
+
+| Gruppo (Centro) | Codice | Sottocentri esempio |
+|---|---|---|
+| CREDITI VERSO SOCI | 010101 | 000001 CREDITI VERSO SOCI, 000002 OBBLIGAZIONISTI C/SOTT.NI |
+| IMMOBILIZZ. IMMATERIALI | 020101 | 000001 SPESE PRIMO IMPIANTO, 000002 COSTI PLURIENNALI, 000003 SOFTWARE, 000004 PORTAFOGLI ASSICURATIVI, 000005 ATTIVITA' FINANZIARIE, 000006 SPESE CERT. DI QUALITA' |
+| BANCHE | 060101 | 000001 BANCA VALSABBINA, 000002 BCC ROMA, 000003 INTESA SANPAOLO |
+| FORNITORI | 050101 | 000001 BOLLETTE TELEFONICHE, 000002 ENERGIA ELETTRICA, 000003 AFFITTO UFFICI |
+| CASSA | 070101 | 000001 CASSA SEDE NAPOLI, 000002 CASSA SEDE ROMA |
+
+~8 gruppi con ~30 sottoconti totali, tutti con sezione bilancio e natura corretti.
+
+### 3. Nuova pagina `PianoDeiContiPage.tsx`
+
+Sostituisce il placeholder "Anagrafiche" in `/cont-generale/anagrafiche`.
+
+**Layout:**
+- Lista gruppi a sinistra (tabella con Gruppo, Descrizione, Natura, n.conti)
+- Click su gruppo → espande i sottoconti inline (accordion)
+- Click su sottoconto → Dialog "Dettaglio Conto" (come nello screenshot legacy) con tutti i campi
+- Bottoni: NUOVO gruppo, NUOVO sottoconto, modifica, stampa
+- SearchableSelect per Sezione Bilancio e Voce di spesa
+- Radio buttons per Tipo Sezionale (No/Clienti/Fornitori)
+- Checkbox per Gestione partite, Flag stato, Gestione tesoreria
+
+### 4. Modifiche ai file esistenti
+
+| File | Modifica |
 |---|---|
-| **BancaImport** montato su 2 rotte | `/banca-import` (riga 232) e `/cont-generale/import-bancario` (riga 217) — stesso componente |
-| **DistintaGiornaliera** montata su 2 rotte | `/contabilita/distinta-giornaliera` (riga 198) e `/contabilita/chiusura-giornaliera` (riga 201) — stesso componente |
-
-### 3. DOPPIO SISTEMA DI TOAST
-
-Il progetto usa **due sistemi di notifica in parallelo**:
-- **shadcn/ui Toaster** (`@/hooks/use-toast` + `<Toaster />`) — usato in ~20 file
-- **Sonner** (`import { toast } from "sonner"`) — usato in ~15 file
-
-Entrambi i `<Toaster>` e `<Sonner>` sono montati in App.tsx. Dovrebbero essere unificati su **uno solo** (Sonner e piu moderno e semplice).
-
-### 4. ICONE LUCIDE INUTILIZZATE in App.tsx
-
-App.tsx importa ~30 icone lucide (righe 102-131) usate solo come prop `icon` delle `PlaceholderPage`. Molte non sono usate altrove: `Landmark`, `Search`, `Shield`, `Percent`, etc. Non e un problema grave ma appesantisce il file.
-
-### 5. SEMPLIFICAZIONI STRUTTURALI PROPOSTE
-
-| Area | Azione |
-|---|---|
-| **PlaceholderPage proliferazione** | 15+ rotte PlaceholderPage — raggruppare in un array di config e generare le Route via `.map()` per ridurre App.tsx di ~40 righe |
-| **App.tsx monolitico** (~280 righe, ~90 import) | Spezzare le rotte in file separati: `routes/archivi.tsx`, `routes/portafoglio.tsx`, `routes/contabilita.tsx`, `routes/sistema.tsx`, `routes/cliente.tsx` |
-| **Toast unificazione** | Rimuovere shadcn Toaster, migrare i ~20 file che usano `useToast()` a `toast` di Sonner (API piu semplice: `toast.success("msg")`) |
-
-### Piano di implementazione
-
-1. **Eliminare 5 file inutilizzati** (`Index.tsx`, `App.css`, `ui/use-toast.ts`, `uploadRateLimit.ts`, `logPerformance.ts`)
-2. **Rimuovere rotta duplicata** `/banca-import` (tenere solo `/cont-generale/import-bancario`) e `/contabilita/chiusura-giornaliera` (tenere solo `distinta-giornaliera`)
-3. **Unificare toast su Sonner**: migrare i ~20 file da `useToast()` a `toast` di Sonner, rimuovere `<Toaster />`, `hooks/use-toast.ts`, `ui/toaster.tsx`, `ui/toast.tsx`
-4. **Spezzare App.tsx in route modules**: creare `src/routes/` con file per area funzionale, riducendo App.tsx a ~50 righe
-5. **Generare PlaceholderPage via config array** dentro i route module
+| **Migration SQL** | CREATE 3 tabelle + INSERT dati demo + RLS policies |
+| **`PianoDeiContiPage.tsx`** (nuovo) | Pagina completa con CRUD gruppi e conti |
+| **`routes/contabilita.tsx`** | Sostituire PlaceholderPage con PianoDeiContiPage su `/cont-generale/anagrafiche` |
+| **`AppSidebar.tsx`** | Rinominare "Anagrafiche" → "Piano dei Conti" |
 
 ### Dettagli tecnici
 
-- La migrazione toast e meccanica: `const { toast } = useToast()` + `toast({ title: "X" })` diventa `import { toast } from "sonner"` + `toast.success("X")`
-- I route module esportano array di `RouteObject` o elementi JSX da includere nel `<Routes>` principale
-- Nessuna modifica funzionale — solo cleanup e riorganizzazione
+- I codici a 6 cifre sono text con validazione frontend (regex `^\d{6}$`)
+- Auto-generazione codice: prossimo disponibile nel gruppo
+- La tabella `sezioni_bilancio` viene usata come lookup per il SearchableSelect
+- RLS: accesso authenticated su tutte e 3 le tabelle (lettura per tutti, scrittura solo admin)
+- Il collegamento con primanota_generale avverrà in un secondo momento tramite FK su `piano_conti_conti.id`
 
