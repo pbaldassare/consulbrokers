@@ -16,6 +16,7 @@ import { Plus, Users, Building2, Search, User } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { useToast } from "@/hooks/use-toast";
 
 const ClientiList = () => {
@@ -53,6 +54,7 @@ const ClientiList = () => {
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [pec, setPec] = useState("");
+  const [gruppoFinanziarioId, setGruppoFinanziarioId] = useState("");
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
@@ -101,6 +103,18 @@ const ClientiList = () => {
     },
   });
 
+  const { data: gruppiFinanziari = [] } = useQuery({
+    queryKey: ["gruppi_finanziari_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_finanziari" as any)
+        .select("id, codice, nome")
+        .eq("attivo", true)
+        .order("codice");
+      return (data || []) as any[];
+    },
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
       const { error } = await supabase.from("clienti").update({ attivo }).eq("id", id);
@@ -116,6 +130,7 @@ const ClientiList = () => {
         email: email || null,
         telefono: telefono || null,
         pec: pec || null,
+        gruppo_finanziario_id: gruppoFinanziarioId || null,
       };
       if (tipoCliente === "privato") {
         payload.nome = nome || null;
@@ -169,6 +184,7 @@ const ClientiList = () => {
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
+    setGruppoFinanziarioId("");
     scannedFilesRef.current = [];
   };
 
@@ -300,19 +316,21 @@ const ClientiList = () => {
                     <div><Label>Codice SDI</Label><Input value={codiceSdi} onChange={(e) => setCodiceSdi(e.target.value)} maxLength={7} /></div>
                     <div>
                       <Label>Forma Giuridica</Label>
-                      <Select value={formaGiuridica} onValueChange={setFormaGiuridica}>
-                        <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="srl">SRL</SelectItem>
-                          <SelectItem value="srls">SRLS</SelectItem>
-                          <SelectItem value="spa">SPA</SelectItem>
-                          <SelectItem value="snc">SNC</SelectItem>
-                          <SelectItem value="sas">SAS</SelectItem>
-                          <SelectItem value="ditta_individuale">Ditta Individuale</SelectItem>
-                          <SelectItem value="cooperativa">Cooperativa</SelectItem>
-                          <SelectItem value="altro">Altro</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={formaGiuridica}
+                        onValueChange={setFormaGiuridica}
+                        placeholder="Seleziona..."
+                        options={[
+                          { value: "srl", label: "SRL" },
+                          { value: "srls", label: "SRLS" },
+                          { value: "spa", label: "SPA" },
+                          { value: "snc", label: "SNC" },
+                          { value: "sas", label: "SAS" },
+                          { value: "ditta_individuale", label: "Ditta Individuale" },
+                          { value: "cooperativa", label: "Cooperativa" },
+                          { value: "altro", label: "Altro" },
+                        ]}
+                      />
                     </div>
                   </div>
                   <div><Label>Indirizzo Sede</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
@@ -334,6 +352,16 @@ const ClientiList = () => {
                   </div>
                 </>
               )}
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Gruppo Finanziario</p>
+                <SearchableSelect
+                  value={gruppoFinanziarioId}
+                  onValueChange={setGruppoFinanziarioId}
+                  placeholder="— Seleziona gruppo finanziario —"
+                  options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                />
+              </div>
 
               <div className="border-t pt-4">
                 <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>

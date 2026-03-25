@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -268,20 +269,145 @@ const RamiTab = () => {
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Infortuni" /></div>
               <div>
                 <Label>Gruppo Ramo</Label>
-                <Select value={gruppoId} onValueChange={setGruppoId}>
-                  <SelectTrigger><SelectValue placeholder="— Nessun gruppo —" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Nessun gruppo —</SelectItem>
-                    {gruppi.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>{g.codice} - {g.descrizione}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={gruppoId}
+                  onValueChange={setGruppoId}
+                  placeholder="— Nessun gruppo —"
+                  options={[
+                    { value: "none", label: "— Nessun gruppo —" },
+                    ...gruppi.map((g) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
+                  ]}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={closeDialog}>Annulla</Button>
               <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || save.isPending}>
+                {save.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
+/* ────────── Gruppi Finanziari Tab ────────── */
+
+const GruppiFinanziariTab = () => {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [nome, setNome] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["gruppi-finanziari"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gruppi_finanziari" as any)
+        .select("*")
+        .order("codice");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (editing) {
+        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).update({ codice, nome, descrizione }).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).insert({ codice, nome, descrizione });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gruppi-finanziari"] });
+      toast({ title: editing ? "Gruppo aggiornato" : "Gruppo creato" });
+      closeDialog();
+    },
+    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await (supabase.from("gruppi_finanziari" as any) as any).update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["gruppi-finanziari"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("gruppi_finanziari" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gruppi-finanziari"] });
+      toast({ title: "Gruppo eliminato" });
+    },
+    onError: (e: any) => toast({ title: "Errore", description: e.message, variant: "destructive" }),
+  });
+
+  const openNew = () => { setEditing(null); setCodice(""); setNome(""); setDescrizione(""); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setNome(g.nome || ""); setDescrizione(g.descrizione); setOpen(true); };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-lg">Gruppi Finanziari</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-24">Codice</TableHead>
+              <TableHead>Nome</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-24 text-center">Attivo</TableHead>
+              <TableHead className="w-28 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+            ) : items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
+                <TableCell className="font-medium">{item.nome || "—"}</TableCell>
+                <TableCell>{item.descrizione}</TableCell>
+                <TableCell className="text-center">
+                  <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
+                </TableCell>
+                <TableCell className="text-right space-x-1">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Gruppo Finanziario" : "Nuovo Gruppo Finanziario"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. ISP" /></div>
+              <div><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Intesa Sanpaolo S.p.A." /></div>
+              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Descrizione..." /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!codice || !nome || !descrizione || save.isPending}>
                 {save.isPending ? "Salvataggio..." : "Salva"}
               </Button>
             </DialogFooter>
@@ -299,7 +425,7 @@ const tabConfig = [
   { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
   { value: "gruppi_compagnia", label: "Gruppi Compagnia", tableName: "gruppi_compagnia", queryKey: "gruppi-compagnia-lookup", title: "Gruppo Compagnia" },
-  { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario" },
+  { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },
   { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },
   { value: "tipi_rinnovo", label: "Tipi Rinnovo", tableName: "tipi_rinnovo", queryKey: "tipi-rinnovo", title: "Tipo Rinnovo" },
   { value: "filiali", label: "Filiali", tableName: "filiali", queryKey: "filiali-lookup", title: "Filiale" },
@@ -324,8 +450,10 @@ const TabelleBasePage = () => {
 
         {tabConfig.map((t) => (
           <TabsContent key={t.value} value={t.value}>
-            {t.custom ? (
+            {t.custom === true || t.custom === "rami" ? (
               <RamiTab />
+            ) : t.custom === "gruppi_finanziari" ? (
+              <GruppiFinanziariTab />
             ) : (
               <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             )}
