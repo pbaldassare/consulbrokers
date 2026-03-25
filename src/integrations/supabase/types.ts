@@ -48,6 +48,7 @@ export type Database = {
           partita_iva: string | null
           pec: string | null
           percentuale_base: number | null
+          percentuale_consulenza: number | null
           percentuale_ra: number | null
           provincia: string | null
           ragione_sociale: string | null
@@ -95,6 +96,7 @@ export type Database = {
           partita_iva?: string | null
           pec?: string | null
           percentuale_base?: number | null
+          percentuale_consulenza?: number | null
           percentuale_ra?: number | null
           provincia?: string | null
           ragione_sociale?: string | null
@@ -142,6 +144,7 @@ export type Database = {
           partita_iva?: string | null
           pec?: string | null
           percentuale_base?: number | null
+          percentuale_consulenza?: number | null
           percentuale_ra?: number | null
           provincia?: string | null
           ragione_sociale?: string | null

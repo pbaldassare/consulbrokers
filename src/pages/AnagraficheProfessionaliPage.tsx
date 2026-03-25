@@ -22,6 +22,9 @@ const TIPI = [
   { value: "legale", label: "Legali", icon: Scale },
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
   { value: "corrispondente", label: "Corrispondenti", icon: Users },
+  { value: "executive", label: "Executive", icon: Briefcase },
+  { value: "responsabile_sede", label: "Resp. Sede", icon: Users },
+  { value: "produttore_sede", label: "Prod. Sede", icon: Users },
 ] as const;
 
 type TipoAnagrafica = typeof TIPI[number]["value"];
@@ -66,6 +69,7 @@ interface Anagrafica {
   percentuale_base: number | null;
   codice_fornitore: string | null;
   percentuale_ra: number | null;
+  percentuale_consulenza: number | null;
   abi: string | null;
   cab: string | null;
   iban: string | null;
@@ -83,8 +87,8 @@ const emptyForm = {
   // AE
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
   nome_rui: "", iscrizione_rui: "", numero_rui: "", sezione_rui: "",
-  // Corrispondenti
-  percentuale_base: "", codice_fornitore: "", percentuale_ra: "",
+  // Corrispondenti / commerciali
+  percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "",
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
 
@@ -126,9 +130,11 @@ const AnagraficheProfessionaliPage = () => {
     },
   });
 
+  const isCommerciale = ['account_executive', 'corrispondente', 'executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
   const isAE = activeTab === "account_executive";
   const isCorr = activeTab === "corrispondente";
-  const isProduttore = isAE || isCorr;
+  const isNewCommercial = ['executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
+  const isProduttore = isCommerciale;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -175,6 +181,7 @@ const AnagraficheProfessionaliPage = () => {
         numero_rui: form.numero_rui || null,
         sezione_rui: form.sezione_rui || null,
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
+        percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
         abi: form.abi || null,
@@ -250,17 +257,16 @@ const AnagraficheProfessionaliPage = () => {
         </TableRow>
       );
     }
-    if (isCorr) {
+    if (isCorr || isNewCommercial) {
       return (
         <TableRow>
           <TableHead>Cod</TableHead>
-          <TableHead>Descrizione</TableHead>
-          <TableHead>Azienda / Nome</TableHead>
+          <TableHead>Denominazione</TableHead>
           <TableHead>Indirizzo / Località</TableHead>
-          <TableHead>%Base / %Ra</TableHead>
-          <TableHead>Tel / Fax / Mail</TableHead>
-          <TableHead>Coordinate Bancarie</TableHead>
-          <TableHead className="text-center">Ann.</TableHead>
+          <TableHead>% Provv / Cons / RA</TableHead>
+          <TableHead>Tel / Mail</TableHead>
+          <TableHead>IBAN</TableHead>
+          <TableHead className="text-center">Stato</TableHead>
         </TableRow>
       );
     }
@@ -280,7 +286,7 @@ const AnagraficheProfessionaliPage = () => {
   const getColSpan = () => {
     if (isPeritiLegali) return 6;
     if (isAE) return 7;
-    if (isCorr) return 8;
+    if (isCorr || isNewCommercial) return 7;
     return 7;
   };
 
@@ -348,41 +354,30 @@ const AnagraficheProfessionaliPage = () => {
       );
     }
 
-    if (isCorr) {
-      const bancaParts = [
-        item.abi ? `ABI ${item.abi}` : null,
-        item.cab ? `CAB ${item.cab}` : null,
-        item.iban,
-        item.intestatario_cc ? `Int: ${item.intestatario_cc}` : null,
-      ].filter(Boolean);
+    if (isCorr || isNewCommercial) {
       return (
         <TableRow key={item.id} className={item.annullato ? "opacity-50" : ""}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
-          <TableCell className="font-medium">{item.ragione_sociale || item.nome_breve || "—"}</TableCell>
-          <TableCell className="text-sm">
-            {item.cognome && <div>{item.cognome}</div>}
+          <TableCell className="font-medium">
+            {item.cognome || item.ragione_sociale || "—"}
             {item.nome && <div className="text-xs text-muted-foreground">{item.nome}</div>}
-            {!item.cognome && !item.nome && "—"}
           </TableCell>
           <TableCell className="text-sm">
             {addressParts.length > 0 ? addressParts.map((p, i) => <div key={i}>{p}</div>) : "—"}
           </TableCell>
           <TableCell className="text-sm">
-            <div>Base: {item.percentuale_base ?? 0}%</div>
+            <div>Provv: {item.percentuale_base ?? 0}%</div>
+            <div>Cons: {item.percentuale_consulenza ?? 0}%</div>
             <div>RA: {item.percentuale_ra ?? 0}%</div>
-            {item.codice_fornitore && <div className="text-xs text-muted-foreground">Cd For: {item.codice_fornitore}</div>}
           </TableCell>
           <TableCell className="text-sm">
             {item.telefono && <div>Tel {item.telefono}</div>}
-            {item.fax && <div>Fax {item.fax}</div>}
             {item.email && <div className="text-xs text-muted-foreground">{item.email}</div>}
-            {!item.telefono && !item.fax && !item.email && "—"}
+            {!item.telefono && !item.email && "—"}
           </TableCell>
-          <TableCell className="text-sm">
-            {bancaParts.length > 0 ? bancaParts.map((p, i) => <div key={i} className="text-xs">{p}</div>) : "—"}
-          </TableCell>
+          <TableCell className="text-sm text-xs">{item.iban || "—"}</TableCell>
           <TableCell className="text-center">
-            {item.annullato ? <Badge variant="destructive" className="text-xs">A</Badge> : <Badge variant="secondary" className="text-xs">—</Badge>}
+            {item.annullato ? <Badge variant="destructive" className="text-xs">Ann.</Badge> : <Badge variant="secondary" className="text-xs">Attivo</Badge>}
           </TableCell>
         </TableRow>
       );
@@ -518,12 +513,73 @@ const AnagraficheProfessionaliPage = () => {
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
             </TabsContent>
             <TabsContent value="provvigioni" className="space-y-3 mt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>% Base</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
                 <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
               </div>
             </TabsContent>
             <TabsContent value="banca" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
+                <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
+                <div className="col-span-2"><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
+                <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
+      );
+    }
+
+    if (isNewCommercial) {
+      return (
+        <>
+          {renderUfficioSelect()}
+          <Tabs defaultValue="dati">
+            <TabsList className="grid grid-cols-4">
+              <TabsTrigger value="dati">Dati</TabsTrigger>
+              <TabsTrigger value="indirizzo">Indirizzo</TabsTrigger>
+              <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
+              <TabsTrigger value="banca">RUI & Banca</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dati" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
+                <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
+                <div><Label>Cognome o Denominazione *</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
+                <div><Label>Nome o seguito Denominazione</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+                <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value })} /></div>
+                <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
+                <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="indirizzo" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={form.indirizzo} onChange={(v) => setForm({ ...form, indirizzo: v })} onSelect={(c) => setForm((f: any) => ({ ...f, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
+                <div><Label>CAP</Label><Input value={form.cap} onChange={(e) => setForm({ ...form, cap: e.target.value })} /></div>
+                <div><Label>Comune</Label><Input value={form.citta} onChange={(e) => setForm({ ...form, citta: e.target.value })} /></div>
+                <div><Label>Provincia</Label><Input value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} maxLength={2} /></div>
+              </div>
+              <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
+            </TabsContent>
+            <TabsContent value="provvigioni" className="space-y-3 mt-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
+                <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="banca" className="space-y-3 mt-3">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Iscrizione RUI</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Nome Iscrizione RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
+                <div><Label>Data Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
+                <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} /></div>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Coordinate Bancarie</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
                 <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
@@ -599,7 +655,7 @@ const AnagraficheProfessionaliPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche</h1>
-          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti</p>
+          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti, Executive, Resp. Sede, Prod. Sede</p>
         </div>
         <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />Nuovo
