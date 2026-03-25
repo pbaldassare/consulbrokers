@@ -256,17 +256,16 @@ const AnagraficheProfessionaliPage = () => {
         </TableRow>
       );
     }
-    if (isCorr) {
+    if (isCorr || isNewCommercial) {
       return (
         <TableRow>
           <TableHead>Cod</TableHead>
-          <TableHead>Descrizione</TableHead>
-          <TableHead>Azienda / Nome</TableHead>
+          <TableHead>Denominazione</TableHead>
           <TableHead>Indirizzo / Località</TableHead>
-          <TableHead>%Base / %Ra</TableHead>
-          <TableHead>Tel / Fax / Mail</TableHead>
-          <TableHead>Coordinate Bancarie</TableHead>
-          <TableHead className="text-center">Ann.</TableHead>
+          <TableHead>% Provv / Cons / RA</TableHead>
+          <TableHead>Tel / Mail</TableHead>
+          <TableHead>IBAN</TableHead>
+          <TableHead className="text-center">Stato</TableHead>
         </TableRow>
       );
     }
@@ -286,7 +285,7 @@ const AnagraficheProfessionaliPage = () => {
   const getColSpan = () => {
     if (isPeritiLegali) return 6;
     if (isAE) return 7;
-    if (isCorr) return 8;
+    if (isCorr || isNewCommercial) return 7;
     return 7;
   };
 
