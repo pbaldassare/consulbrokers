@@ -2600,6 +2600,134 @@ export type Database = {
         }
         Relationships: []
       }
+      piano_conti_conti: {
+        Row: {
+          attivo: boolean | null
+          bic: string | null
+          cf_piva: string | null
+          citta: string | null
+          codice: string
+          created_at: string | null
+          data_sospensione: string | null
+          descrizione: string
+          flag_stato: boolean | null
+          gestione_partite: boolean | null
+          gestione_tesoreria: boolean | null
+          gruppo_id: string
+          iban: string | null
+          id: string
+          natura_segno: string
+          natura_tipo: string
+          sezione_bilancio_id: string | null
+          tipo_sezionale: string | null
+          updated_at: string | null
+          voce_spesa: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          bic?: string | null
+          cf_piva?: string | null
+          citta?: string | null
+          codice: string
+          created_at?: string | null
+          data_sospensione?: string | null
+          descrizione: string
+          flag_stato?: boolean | null
+          gestione_partite?: boolean | null
+          gestione_tesoreria?: boolean | null
+          gruppo_id: string
+          iban?: string | null
+          id?: string
+          natura_segno?: string
+          natura_tipo?: string
+          sezione_bilancio_id?: string | null
+          tipo_sezionale?: string | null
+          updated_at?: string | null
+          voce_spesa?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          bic?: string | null
+          cf_piva?: string | null
+          citta?: string | null
+          codice?: string
+          created_at?: string | null
+          data_sospensione?: string | null
+          descrizione?: string
+          flag_stato?: boolean | null
+          gestione_partite?: boolean | null
+          gestione_tesoreria?: boolean | null
+          gruppo_id?: string
+          iban?: string | null
+          id?: string
+          natura_segno?: string
+          natura_tipo?: string
+          sezione_bilancio_id?: string | null
+          tipo_sezionale?: string | null
+          updated_at?: string | null
+          voce_spesa?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piano_conti_conti_gruppo_id_fkey"
+            columns: ["gruppo_id"]
+            isOneToOne: false
+            referencedRelation: "piano_conti_gruppi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piano_conti_conti_sezione_bilancio_id_fkey"
+            columns: ["sezione_bilancio_id"]
+            isOneToOne: false
+            referencedRelation: "sezioni_bilancio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piano_conti_gruppi: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          natura_segno: string
+          natura_tipo: string
+          sezione_bilancio_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          natura_segno?: string
+          natura_tipo?: string
+          sezione_bilancio_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          natura_segno?: string
+          natura_tipo?: string
+          sezione_bilancio_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piano_conti_gruppi_sezione_bilancio_id_fkey"
+            columns: ["sezione_bilancio_id"]
+            isOneToOne: false
+            referencedRelation: "sezioni_bilancio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portafoglio_incassi: {
         Row: {
           cliente_id: string | null
@@ -3395,6 +3523,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sezioni_bilancio: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          ordine: number | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          ordine?: number | null
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          ordine?: number | null
+        }
+        Relationships: []
       }
       sinistri: {
         Row: {

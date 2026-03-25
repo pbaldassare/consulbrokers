@@ -20,6 +20,7 @@ import BancaImport from "@/pages/BancaImport";
 import RimessaList from "@/pages/RimessaList";
 import RimessaDetail from "@/pages/RimessaDetail";
 import ReportIVA from "@/pages/ReportIVA";
+import PianoDeiContiPage from "@/pages/contGenerale/PianoDeiContiPage";
 import { Bell, Printer, ListChecks, FileOutput, Users, Settings, ArrowRightLeft, Import } from "lucide-react";
 
 export const contabilitaRoutes = (
@@ -40,7 +41,7 @@ export const contabilitaRoutes = (
 
     {/* CONT. GENERALE */}
     <Route path="/cont-generale/causali" element={<CausaliPage />} />
-    <Route path="/cont-generale/anagrafiche" element={<PlaceholderPage title="Anagrafiche" description="Anagrafiche contabilità generale" icon={Users} />} />
+    <Route path="/cont-generale/anagrafiche" element={<PianoDeiContiPage />} />
     <Route path="/cont-generale/primanota" element={<PrimanotaGeneralePage />} />
     <Route path="/cont-generale/scadenziario" element={<ScadenziarioPage />} />
     <Route path="/cont-generale/elab-periodiche" element={<ElabPeriodichePage />} />
