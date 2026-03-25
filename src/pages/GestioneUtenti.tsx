@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, Pencil, RefreshCw } from "lucide-react";
+import { UserPlus, Pencil, RefreshCw, Upload, Download, Trash2, FileText } from "lucide-react";
 
 const ROLES = ["admin", "ufficio", "produttore", "contabilita", "cfo"] as const;
+
+const DOC_CATEGORIE = [
+  { value: "carta_identita", label: "Carta d'Identità" },
+  { value: "mandato", label: "Mandato" },
+  { value: "visura", label: "Visura" },
+  { value: "patente", label: "Patente" },
+  { value: "altro", label: "Altro" },
+] as const;
 
 interface UserProfile {
   id: string;
@@ -42,6 +50,17 @@ interface UserProfile {
   percentuale_ra: number | null;
   iban: string | null;
   intestatario_cc: string | null;
+  percentuale_base: number | null;
+  percentuale_consulenza: number | null;
+}
+
+interface DocUtente {
+  id: string;
+  nome_file: string;
+  path_storage: string;
+  categoria: string;
+  note: string | null;
+  created_at: string | null;
 }
 
 interface Ufficio {
@@ -71,11 +90,19 @@ const GestioneUtenti = () => {
   // Edit form state
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
 
+  // Documents state
+  const [userDocs, setUserDocs] = useState<DocUtente[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docCategoria, setDocCategoria] = useState("altro");
+  const [docNote, setDocNote] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const fetchUsers = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, nome, cognome, email, ruolo, attivo, ufficio_id, created_at, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc")
+      .select("id, nome, cognome, email, ruolo, attivo, ufficio_id, created_at, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, percentuale_base, percentuale_consulenza")
       .neq("ruolo", "cliente")
       .order("created_at", { ascending: false });
 
@@ -93,6 +120,17 @@ const GestioneUtenti = () => {
   };
 
   useEffect(() => { fetchUsers(); fetchUffici(); }, []);
+
+  const fetchUserDocs = async (userId: string) => {
+    setDocsLoading(true);
+    const { data } = await supabase
+      .from("documenti_utenti")
+      .select("id, nome_file, path_storage, categoria, note, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    setUserDocs((data as DocUtente[]) || []);
+    setDocsLoading(false);
+  };
 
   const filtered = users.filter((u) => {
     if (filterRole !== "all" && u.ruolo !== filterRole) return false;
@@ -136,6 +174,7 @@ const GestioneUtenti = () => {
     setEditUser(user);
     setEditForm({ ...user });
     setEditOpen(true);
+    fetchUserDocs(user.id);
   };
 
   const updateEditField = (field: keyof UserProfile, value: any) => {
@@ -171,6 +210,8 @@ const GestioneUtenti = () => {
         percentuale_ra: editForm.percentuale_ra ?? null,
         iban: editForm.iban || null,
         intestatario_cc: editForm.intestatario_cc || null,
+        percentuale_base: editForm.percentuale_base ?? null,
+        percentuale_consulenza: editForm.percentuale_consulenza ?? null,
       })
       .eq("id", editUser.id);
 
@@ -198,6 +239,64 @@ const GestioneUtenti = () => {
     setSaving(false);
   };
 
+  const handleUploadDoc = async (file: File) => {
+    if (!editUser) return;
+    setUploadingDoc(true);
+    const path = `${editUser.id}/${Date.now()}_${file.name}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("documenti_utenti")
+      .upload(path, file);
+
+    if (uploadErr) {
+      toast({ title: "Errore upload", description: uploadErr.message, variant: "destructive" });
+      setUploadingDoc(false);
+      return;
+    }
+
+    const { error: insertErr } = await supabase.from("documenti_utenti").insert({
+      user_id: editUser.id,
+      nome_file: file.name,
+      path_storage: path,
+      categoria: docCategoria,
+      note: docNote || null,
+    });
+
+    if (insertErr) {
+      toast({ title: "Errore salvataggio", description: insertErr.message, variant: "destructive" });
+    } else {
+      toast({ title: "Documento caricato" });
+      setDocNote("");
+      fetchUserDocs(editUser.id);
+    }
+    setUploadingDoc(false);
+  };
+
+  const handleDownloadDoc = async (doc: DocUtente) => {
+    const { data, error } = await supabase.storage
+      .from("documenti_utenti")
+      .download(doc.path_storage);
+
+    if (error || !data) {
+      toast({ title: "Errore download", description: error?.message, variant: "destructive" });
+      return;
+    }
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = doc.nome_file;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteDoc = async (doc: DocUtente) => {
+    if (!editUser) return;
+    await supabase.storage.from("documenti_utenti").remove([doc.path_storage]);
+    await supabase.from("documenti_utenti").delete().eq("id", doc.id);
+    toast({ title: "Documento eliminato" });
+    fetchUserDocs(editUser.id);
+  };
+
   const roleBadgeColor = (role: string | null) => {
     switch (role) {
       case "admin": return "destructive";
@@ -206,6 +305,8 @@ const GestioneUtenti = () => {
       default: return "outline";
     }
   };
+
+  const getCategoriaLabel = (cat: string) => DOC_CATEGORIE.find(c => c.value === cat)?.label || cat;
 
   return (
     <div className="space-y-6">
@@ -343,11 +444,13 @@ const GestioneUtenti = () => {
           {editForm && (
             <ScrollArea className="max-h-[65vh] pr-4">
               <Tabs defaultValue="generali" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="generali">Dati Generali</TabsTrigger>
-                  <TabsTrigger value="recapiti">Recapiti</TabsTrigger>
-                  <TabsTrigger value="rui">Iscrizione RUI</TabsTrigger>
-                  <TabsTrigger value="fiscale">Fiscale/Banca</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-6">
+                  <TabsTrigger value="generali" className="text-xs">Generali</TabsTrigger>
+                  <TabsTrigger value="recapiti" className="text-xs">Recapiti</TabsTrigger>
+                  <TabsTrigger value="rui" className="text-xs">RUI</TabsTrigger>
+                  <TabsTrigger value="fiscale" className="text-xs">Fiscale</TabsTrigger>
+                  <TabsTrigger value="provvigioni" className="text-xs">Provvigioni</TabsTrigger>
+                  <TabsTrigger value="documenti" className="text-xs">Documenti</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="generali" className="space-y-4 mt-4">
@@ -471,6 +574,113 @@ const GestioneUtenti = () => {
                     <Label>Intestato a</Label>
                     <Input value={editForm.intestatario_cc || ""} onChange={e => updateEditField("intestatario_cc", e.target.value)} />
                   </div>
+                </TabsContent>
+
+                <TabsContent value="provvigioni" className="space-y-4 mt-4">
+                  <p className="text-sm text-muted-foreground">Percentuali provvigionali applicate all'utente</p>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>% Provvigione Produzione</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={editForm.percentuale_base ?? ""}
+                          onChange={e => updateEditField("percentuale_base", e.target.value ? parseFloat(e.target.value) : null)}
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>% Provvigione Intermediazione</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={editForm.percentuale_consulenza ?? ""}
+                          onChange={e => updateEditField("percentuale_consulenza", e.target.value ? parseFloat(e.target.value) : null)}
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="documenti" className="space-y-4 mt-4">
+                  <p className="text-sm text-muted-foreground">Documenti associati all'utente (carta d'identità, mandati, visure...)</p>
+                  <Separator />
+
+                  {/* Upload area */}
+                  <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Categoria</Label>
+                        <Select value={docCategoria} onValueChange={setDocCategoria}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {DOC_CATEGORIE.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Note (opzionale)</Label>
+                        <Input value={docNote} onChange={e => setDocNote(e.target.value)} placeholder="es. Scadenza 2027" />
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={e => { if (e.target.files?.[0]) handleUploadDoc(e.target.files[0]); e.target.value = ""; }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingDoc}
+                    >
+                      <Upload className="w-4 h-4 mr-1" />
+                      {uploadingDoc ? "Caricamento..." : "Carica Documento"}
+                    </Button>
+                  </div>
+
+                  {/* Documents list */}
+                  {docsLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Caricamento documenti...</p>
+                  ) : userDocs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nessun documento caricato</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {userDocs.map(doc => (
+                        <div key={doc.id} className="flex items-center justify-between border rounded-md p-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{doc.nome_file}</p>
+                              <div className="flex gap-2 text-xs text-muted-foreground">
+                                <Badge variant="outline" className="text-xs">{getCategoriaLabel(doc.categoria)}</Badge>
+                                {doc.note && <span>{doc.note}</span>}
+                                {doc.created_at && <span>{new Date(doc.created_at).toLocaleDateString("it-IT")}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" onClick={() => handleDownloadDoc(doc)}>
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteDoc(doc)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </ScrollArea>
