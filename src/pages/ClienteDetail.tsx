@@ -21,6 +21,8 @@ import TimelineTab from "@/components/TimelineTab";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import { toast } from "sonner";
+import { parseCF } from "@/lib/parseCF";
+import { lookupComune } from "@/lib/comuniItaliani";
 
 const tipiRelazione = [
   { value: "dipendente", label: "Dipendente" },
@@ -400,13 +402,35 @@ export default function ClienteDetail() {
     <div><span className="text-muted-foreground text-xs">{label}</span><p className="text-sm">{value || "—"}</p></div>
   );
 
+  const handleCFAutoFill = (cf: string) => {
+    if (cf.length === 16) {
+      const parsed = parseCF(cf);
+      if (parsed) {
+        if (!ef.sesso) updateField("sesso", parsed.sesso);
+        if (!ef.data_nascita) updateField("data_nascita", parsed.dataNascita);
+        const info = lookupComune(parsed.codiceCatastale);
+        if (info) {
+          if (!ef.comune_nascita) updateField("comune_nascita", info.comune);
+          if (!ef.provincia_nascita) updateField("provincia_nascita", info.provincia);
+        }
+        toast.info("Dati estratti automaticamente dal Codice Fiscale");
+      }
+    }
+  };
+
   const FieldInput = ({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
     <div>
       <Label className="text-xs">{label}</Label>
       {readOnly ? (
         <p className="text-sm mt-1">{ef[field] || "—"}</p>
       ) : (
-        <Input className="h-8 text-xs" type={type} value={ef[field] || ""} onChange={(e) => updateField(field, e.target.value)} />
+        <Input className="h-8 text-xs" type={type} value={ef[field] || ""} onChange={(e) => {
+          const val = field === "codice_fiscale" || field === "codice_fiscale_azienda" ? e.target.value.toUpperCase() : e.target.value;
+          updateField(field, val);
+          if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
+            handleCFAutoFill(val);
+          }
+        }} />
       )}
     </div>
   );
@@ -480,17 +504,17 @@ export default function ClienteDetail() {
             ]} />
             {isPrivato ? (
               <>
-                <FieldDisplay label="Codice Fiscale" value={cliente.codice_fiscale} />
-                <FieldDisplay label="Data di Nascita" value={cliente.data_nascita} />
-                <FieldDisplay label="Luogo di Nascita" value={cliente.luogo_nascita} />
+                <FieldInput label="Codice Fiscale" field="codice_fiscale" />
+                <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
+                <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
                 <FieldDisplay label="Indirizzo" value={cliente.indirizzo_residenza} />
                 <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
                 <FieldDisplay label="CAP" value={cliente.cap_residenza} />
               </>
             ) : (
               <>
-                <FieldDisplay label="Partita IVA" value={cliente.partita_iva} />
-                <FieldDisplay label="Codice Fiscale" value={cliente.codice_fiscale_azienda} />
+                <FieldInput label="Partita IVA" field="partita_iva" />
+                <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
                 <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
                 <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
                 <FieldDisplay label="Sede" value={cliente.indirizzo_sede} />

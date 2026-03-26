@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,8 @@ import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
+import { parseCF } from "@/lib/parseCF";
+import { lookupComune } from "@/lib/comuniItaliani";
 
 interface CommercialRole {
   profilo_id: string;
@@ -520,7 +522,23 @@ const ClientiList = () => {
                     <div><Label>Cognome</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><Label>Codice Fiscale</Label><Input value={codiceFiscale} onChange={(e) => setCodiceFiscale(e.target.value.toUpperCase())} maxLength={16} /></div>
+                    <div><Label>Codice Fiscale</Label><Input value={codiceFiscale} onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setCodiceFiscale(val);
+                      if (val.length === 16) {
+                        const parsed = parseCF(val);
+                        if (parsed) {
+                          if (!sesso) setSesso(parsed.sesso);
+                          if (!dataNascita) setDataNascita(parsed.dataNascita);
+                          const info = lookupComune(parsed.codiceCatastale);
+                          if (info) {
+                            if (!comuneNascita) setComuneNascita(info.comune);
+                            if (!provinciaNascita) setProvinciaNascita(info.provincia);
+                          }
+                          toast.info("Dati estratti automaticamente dal Codice Fiscale");
+                        }
+                      }
+                    }} maxLength={16} /></div>
                     <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
                   </div>
                   <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
