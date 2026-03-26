@@ -16,6 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import DocumentiTab from "@/components/DocumentiTab";
+import SinistriClienteTab from "@/components/SinistriClienteTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
@@ -535,6 +536,10 @@ export default function ClienteDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="sinistri">
+          <SinistriClienteTab clienteId={id!} />
         </TabsContent>
 
         <TabsContent value="relazioni">
