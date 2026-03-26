@@ -7,10 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -53,6 +59,14 @@ const ImmissionePolizzaPage = () => {
   const [addizionali, setAddizionali] = useState("0");
   const [tasse, setTasse] = useState("");
   const [valuta, setValuta] = useState("EUR");
+
+  // Provvigioni
+  const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
+  const [provvigioneFromDb, setProvvigioneFromDb] = useState(false);
+  const [provvigioneOriginalValue, setProvvigioneOriginalValue] = useState("");
+  const [provvigioneDbRecordId, setProvvigioneDbRecordId] = useState<string | null>(null);
+  const [showProvvigioneDialog, setShowProvvigioneDialog] = useState(false);
+  const [provvigioneDialogType, setProvvigioneDialogType] = useState<"new" | "update">("new");
 
   // Lookup cliente
   const { data: clienteData } = useQuery({
@@ -143,6 +157,24 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  // Provvigione auto-lookup when prodotto changes
+  const { data: provvigioneDb } = useQuery({
+    queryKey: ["provvigione-lookup", selectedProdotto],
+    queryFn: async () => {
+      if (!selectedProdotto) return null;
+      const { data } = await supabase
+        .from("matrice_provvigioni")
+        .select("id, percentuale_provvigione")
+        .eq("prodotto_id", selectedProdotto)
+        .eq("attiva", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!selectedProdotto,
+  });
+
   // Auto-set compagnia when prodotto changes
   useEffect(() => {
     if (selectedProdotto && prodottiList) {
@@ -153,13 +185,84 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedProdotto, prodottiList]);
 
+  // Auto-fill provvigione from DB
+  useEffect(() => {
+    if (provvigioneDb) {
+      const val = String(provvigioneDb.percentuale_provvigione ?? "");
+      setPercentualeProvvigione(val);
+      setProvvigioneOriginalValue(val);
+      setProvvigioneFromDb(true);
+      setProvvigioneDbRecordId(provvigioneDb.id);
+    } else if (selectedProdotto) {
+      setPercentualeProvvigione("");
+      setProvvigioneOriginalValue("");
+      setProvvigioneFromDb(false);
+      setProvvigioneDbRecordId(null);
+    }
+  }, [provvigioneDb, selectedProdotto]);
+
+  const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
+
   const handleConferma = () => {
+    const hasProvvigione = percentualeProvvigione !== "";
+
+    if (hasProvvigione && !provvigioneFromDb) {
+      // New value, no DB record → ask to save as default
+      setProvvigioneDialogType("new");
+      setShowProvvigioneDialog(true);
+      return;
+    }
+
+    if (hasProvvigione && isProvvigioneModified) {
+      // Modified from DB value → ask to update default
+      setProvvigioneDialogType("update");
+      setShowProvvigioneDialog(true);
+      return;
+    }
+
+    // No provvigione change needed, proceed directly
+    finalizzaPolizza();
+  };
+
+  const handleProvvigioneSave = async () => {
+    try {
+      if (provvigioneDialogType === "new") {
+        await supabase.from("matrice_provvigioni").insert({
+          prodotto_id: selectedProdotto,
+          percentuale_provvigione: parseFloat(percentualeProvvigione),
+          tipo_calcolo: "percentuale",
+          attiva: true,
+        });
+        toast.success("Provvigione salvata come default per questo prodotto");
+      } else {
+        if (provvigioneDbRecordId) {
+          await supabase.from("matrice_provvigioni")
+            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) })
+            .eq("id", provvigioneDbRecordId);
+          toast.success("Provvigione default aggiornata");
+        }
+      }
+    } catch {
+      toast.error("Errore nel salvataggio della provvigione");
+    }
+    setShowProvvigioneDialog(false);
+    finalizzaPolizza();
+  };
+
+  const handleProvvigioneSkip = () => {
+    setShowProvvigioneDialog(false);
+    finalizzaPolizza();
+  };
+
+  const finalizzaPolizza = () => {
     console.log("Immissione polizza:", {
       codiceCliente, selectedClienteId, selectedAE, numeroPolizza, riga, appendice,
       tipoOperazione, polizzaAuto, selectedCompagnia, selectedRamo, selectedProdotto,
       specialist, tipoPortafoglio, durataDa, durataA, anniDurata, tipoRinnovo,
       periodicita, rate, moraGiorni, premioNetto, addizionali, tasse, valuta,
+      percentualeProvvigione,
     });
+    toast.success("Polizza registrata con successo");
   };
 
   return (
@@ -365,6 +468,55 @@ const ImmissionePolizzaPage = () => {
         </div>
       </fieldset>
 
+      {/* PROVVIGIONI */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Provvigioni</legend>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">% Provvigione Agenzia</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={percentualeProvvigione}
+              onChange={(e) => setPercentualeProvvigione(e.target.value)}
+              placeholder={selectedProdotto ? "Inserisci %" : "Seleziona un prodotto"}
+              disabled={!selectedProdotto}
+              className="h-8 text-xs font-mono"
+            />
+          </div>
+          <div className="flex items-center gap-2 pb-1">
+            {selectedProdotto && provvigioneFromDb && !isProvvigioneModified && (
+              <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">
+                Da database
+              </Badge>
+            )}
+            {selectedProdotto && provvigioneFromDb && isProvvigioneModified && (
+              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
+                Modificato (era {provvigioneOriginalValue}%)
+              </Badge>
+            )}
+            {selectedProdotto && !provvigioneFromDb && percentualeProvvigione && (
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                Nuovo valore
+              </Badge>
+            )}
+            {selectedProdotto && !provvigioneFromDb && !percentualeProvvigione && (
+              <span className="text-[10px] text-muted-foreground">Nessuna provvigione salvata per questo prodotto</span>
+            )}
+          </div>
+          {premioNetto && percentualeProvvigione && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Importo Provv. stimato</Label>
+              <p className="text-sm font-mono font-semibold text-foreground">
+                € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione)) / 100).toFixed(2)}
+              </p>
+            </div>
+          )}
+        </div>
+      </fieldset>
+
       {/* TIPO */}
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
         <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Tipo</legend>
@@ -395,6 +547,28 @@ const ImmissionePolizzaPage = () => {
         <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
         <Button onClick={handleConferma}>Conferma</Button>
       </div>
+
+      {/* DIALOG PROVVIGIONI */}
+      <AlertDialog open={showProvvigioneDialog} onOpenChange={setShowProvvigioneDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {provvigioneDialogType === "new"
+                ? "Salvare provvigione come default?"
+                : "Aggiornare provvigione default?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {provvigioneDialogType === "new"
+                ? `Non esiste una provvigione salvata per questo prodotto. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
+                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito per questo prodotto?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleProvvigioneSkip}>No, solo per questa polizza</AlertDialogCancel>
+            <AlertDialogAction onClick={handleProvvigioneSave}>Sì, salva come default</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
