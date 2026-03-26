@@ -175,29 +175,24 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Provvigione auto-lookup from provvigioni_compagnia_ramo (Compagnia + Ramo)
+  // Provvigione auto-lookup from provvigioni_compagnia_ramo (Compagnia + Categoria)
+  const selectedProdottoCategoriaId = prodottiList?.find((p) => p.id === selectedProdotto)?.categoria_id as string | undefined;
+
   const { data: provvigioneDb } = useQuery({
-    queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedRamo],
+    queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedProdottoCategoriaId],
     queryFn: async () => {
-      if (!selectedCompagnia || !selectedRamo) return null;
-      // Get the categoria_id from the ramo
-      const { data: ramoData } = await supabase
-        .from("rami")
-        .select("categoria_id")
-        .eq("id", selectedRamo)
-        .maybeSingle();
-      if (!ramoData?.categoria_id) return null;
+      if (!selectedCompagnia || !selectedProdottoCategoriaId) return null;
       const { data } = await supabase
         .from("provvigioni_compagnia_ramo")
         .select("id, percentuale_provvigione")
         .eq("compagnia_id", selectedCompagnia)
-        .eq("categoria_id", ramoData.categoria_id)
+        .eq("categoria_id", selectedProdottoCategoriaId)
         .eq("attiva", true)
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: !!selectedCompagnia && !!selectedRamo,
+    enabled: !!selectedCompagnia && !!selectedProdottoCategoriaId,
   });
 
   // Auto-set compagnia when prodotto changes
@@ -210,7 +205,7 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedProdotto, prodottiList]);
 
-  // Auto-fill provvigione from DB (now based on Compagnia+Ramo)
+  // Auto-fill provvigione from DB (now based on Compagnia+Categoria)
   useEffect(() => {
     if (provvigioneDb) {
       const val = String(provvigioneDb.percentuale_provvigione ?? "");
@@ -218,13 +213,13 @@ const ImmissionePolizzaPage = () => {
       setProvvigioneOriginalValue(val);
       setProvvigioneFromDb(true);
       setProvvigioneDbRecordId(provvigioneDb.id);
-    } else if (selectedCompagnia && selectedRamo) {
+    } else if (selectedCompagnia && selectedProdottoCategoriaId) {
       setPercentualeProvvigione("");
       setProvvigioneOriginalValue("");
       setProvvigioneFromDb(false);
       setProvvigioneDbRecordId(null);
     }
-  }, [provvigioneDb, selectedCompagnia, selectedRamo]);
+  }, [provvigioneDb, selectedCompagnia, selectedProdottoCategoriaId]);
 
   const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
 
