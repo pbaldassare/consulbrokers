@@ -4303,6 +4303,13 @@ export type Database = {
         Args: { _cliente_id: string }
         Returns: boolean
       }
+      count_polizze_per_cliente: {
+        Args: never
+        Returns: {
+          cliente_id: string
+          count: number
+        }[]
+      }
       get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
       has_role: {
