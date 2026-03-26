@@ -309,8 +309,21 @@ function CompagniaFormDialog({
         {/* ── TAB 2: DATI CONTABILI ── */}
         <TabsContent value="contabili" className="space-y-3 mt-4">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Codice Fiscale" field="codice_fiscale" />
-            <Field label="Partita IVA" field="partita_iva" />
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Codice Fiscale</Label>
+              <Input value={form.codice_fiscale} onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                setField("codice_fiscale", val);
+                if (val.length === 11 && /^\d{11}$/.test(val) && !form.partita_iva) {
+                  setField("partita_iva", val);
+                  toast.info("Partita IVA copiata dal Codice Fiscale");
+                }
+              }} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Partita IVA</Label>
+              <Input value={form.partita_iva} onChange={(e) => setField("partita_iva", e.target.value.toUpperCase())} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Iscrizione RUI - Sezione" field="iscrizione_rui_sez" />

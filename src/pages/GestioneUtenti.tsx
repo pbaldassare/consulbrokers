@@ -558,7 +558,7 @@ const GestioneUtenti = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label>Codice Fiscale</Label>
-                      <Input value={editForm.codice_fiscale || ""} onChange={e => updateEditField("codice_fiscale", e.target.value)} />
+                      <Input value={editForm.codice_fiscale || ""} onChange={e => updateEditField("codice_fiscale", e.target.value.toUpperCase())} />
                     </div>
                     <div className="space-y-1">
                       <Label>% Rit. Acconto</Label>

@@ -553,8 +553,15 @@ const ClientiList = () => {
                 <>
                   <div><Label>Ragione Sociale</Label><Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><Label>Partita IVA</Label><Input value={partitaIva} onChange={(e) => setPartitaIva(e.target.value)} maxLength={11} /></div>
-                    <div><Label>Codice Fiscale Azienda</Label><Input value={codiceFiscaleAzienda} onChange={(e) => setCodiceFiscaleAzienda(e.target.value.toUpperCase())} /></div>
+                    <div><Label>Partita IVA</Label><Input value={partitaIva} onChange={(e) => setPartitaIva(e.target.value.toUpperCase())} maxLength={11} /></div>
+                    <div><Label>Codice Fiscale Azienda</Label><Input value={codiceFiscaleAzienda} onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setCodiceFiscaleAzienda(val);
+                      if (val.length === 11 && /^\d{11}$/.test(val) && !partitaIva) {
+                        setPartitaIva(val);
+                        toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
+                      }
+                    }} /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div><Label>Codice SDI</Label><Input value={codiceSdi} onChange={(e) => setCodiceSdi(e.target.value)} maxLength={7} /></div>
