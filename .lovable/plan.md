@@ -1,30 +1,27 @@
 
 
-## Piano: Ordinamento clienti per numero polizze
+## Piano: Spostare le Tab in alto nella pagina ClienteDetail
 
-### Problema
+### Cosa cambia
 
-La funzione RPC `count_polizze_per_cliente()` funziona correttamente — 2.886 clienti su 5.761 hanno polizze collegate. Il problema è che la lista è ordinata per `created_at DESC`, quindi i clienti più recenti (senza polizze) appaiono per primi. Tutti i conteggi mostrano "0" perché quei clienti specifici non hanno polizze.
+Le tab (Polizze, Aziende/Persone, Documenti, Chat, Timeline) attualmente si trovano in fondo alla pagina, dopo la card "Dati Anagrafici" e tutti gli Accordion. Verranno spostate subito dopo l'intestazione del cliente (nome, badge, pulsante Modifica), prima di qualsiasi altra sezione.
 
-### Interventi
+### Implementazione
 
-**1. Ordinamento lato client con possibilità di scegliere**
-- Dopo aver filtrato i clienti, ordinarli di default per numero di polizze decrescente
-- Aggiungere un selettore di ordinamento (per polizze ↓, per cognome A-Z, per data creazione)
-- L'ordinamento per polizze usa il dizionario `polizzeCounts` già disponibile
+**File: `src/pages/ClienteDetail.tsx`**
 
-**2. Modifica in `ClientiList.tsx`**
-- Aggiungere stato `sortBy` con opzioni: `"polizze"`, `"cognome"`, `"created_at"`
-- Applicare il sort sulla lista `filtered` prima del render
-- Aggiungere un `Select` nella barra filtri per scegliere l'ordinamento
-- Default: ordinamento per numero polizze decrescente
+- Spostare il blocco `<Tabs>` (righe 632-fine) subito dopo la `div` dell'intestazione (riga 490)
+- Le sezioni "Dati Anagrafici", Accordion (Gestionali, Statistici, Commerciali, Contabili) verranno incluse come contenuto di una delle tab oppure posizionate dopo le tab
+- Layout risultante:
+  1. Header (nome, badge, pulsante modifica)
+  2. **TabsList** (Polizze, Aziende, Documenti, Chat, Timeline)
+  3. **TabsContent** per ciascuna tab
+  4. Le card anagrafiche e accordion restano visibili sotto le tab (fuori dal componente Tabs) oppure diventano una tab "Anagrafica"
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| File modificato | `src/pages/ClientiList.tsx` |
-| Logica | Sort client-side su array `filtered` usando `polizzeCounts` map |
-| Default | Ordinamento per polizze decrescente |
-| Opzioni | Polizze ↓, Cognome A-Z, Data creazione ↓ |
+| File modificato | `src/pages/ClienteDetail.tsx` |
+| Logica | Riordinamento JSX: spostare `<Tabs>` block dalla riga 632 alla riga 491 |
 
