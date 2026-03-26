@@ -1,64 +1,26 @@
 
 
-## Piano: Provvigioni Automatiche per Prodotto nella Creazione Polizza
+## Piano: Aggiungere tab "Enti" nella lista Clienti
 
-### Concetto compreso
+### Problema
+La lista clienti ha solo due tab (Privati, Aziende) ma il sistema supporta anche il tipo "ente". I clienti di tipo ente non sono visibili in nessuna tab.
 
-Il flusso e:
+### Intervento
 
-1. **Seleziono un prodotto** nella pagina Immissione Polizza
-2. Il sistema cerca nella tabella `matrice_provvigioni` se esiste una percentuale salvata per quel `prodotto_id`
-3. **Se esiste** → pre-compila il campo provvigione con il valore salvato
-4. **Se non esiste** → il campo resta vuoto, l'utente lo compila manualmente
-5. Al salvataggio della polizza, un **dialog di conferma** chiede: "Vuoi salvare questa percentuale provvigionale come default per questo prodotto?"
-   - Se conferma → upsert nella `matrice_provvigioni`
-6. **Se l'utente modifica** una provvigione gia pre-compilata → un secondo dialog chiede: "La provvigione e diversa dal valore salvato (X%). Vuoi aggiornare il default per questo prodotto?"
-   - Se conferma → update nella `matrice_provvigioni`
-   - Se rifiuta → usa il valore solo per questa polizza, senza toccare il DB
+**File: `src/pages/ClientiList.tsx`**
 
-### Interventi
-
-**1. ImmissionePolizzaPage.tsx — Nuova sezione "Provvigioni"**
-
-Aggiungere un fieldset "Provvigioni" tra "Importi" e "Tipo" con:
-- Campo `% Provvigione Agenzia` (numerico)
-- Badge indicatore: "Da database" (verde) oppure "Nuovo valore" (arancione)
-- Il valore si auto-compila quando `selectedProdotto` cambia, cercando in `matrice_provvigioni`
-
-**2. Query automatica provvigioni**
-
-Nuova `useQuery` che si attiva al cambio di `selectedProdotto`:
-```
-SELECT * FROM matrice_provvigioni 
-WHERE prodotto_id = :selectedProdotto AND attiva = true
-ORDER BY user_id NULLS LAST, ufficio_id NULLS LAST
-LIMIT 1
-```
-Se trova un record → setta il campo provvigione e segna `provvigioneFromDb = true`
-
-**3. Dialog di conferma al salvataggio**
-
-Alla pressione di "Conferma":
-- Se `provvigioneFromDb === false` (valore nuovo, nessun record nel DB):
-  - Dialog: "Non esiste una provvigione salvata per questo prodotto. Vuoi salvare X% come default?"
-  - Si → INSERT in `matrice_provvigioni`
-  - No → continua senza salvare il default
-- Se `provvigioneFromDb === true` e il valore e stato modificato:
-  - Dialog: "La provvigione e cambiata da Y% a X%. Vuoi aggiornare il default per questo prodotto?"
-  - Si → UPDATE in `matrice_provvigioni`
-  - No → usa il valore solo per questa polizza
-
-**4. Nessuna modifica allo schema DB**
-
-La tabella `matrice_provvigioni` ha gia tutti i campi necessari: `prodotto_id`, `percentuale_provvigione`, `tipo_calcolo`, `attiva`
+1. **Aggiungere la terza tab "Enti"** nella `TabsList` dopo "Aziende", con icona `Landmark` (lucide-react)
+2. **Aggiornare il filtro `filtered`** — il tipo "ente" usa gli stessi campi di ricerca delle aziende (ragione_sociale, partita_iva, codice_fiscale_azienda, email, pec)
+3. **Aggiungere `TabsContent` per "ente"** — stessa struttura tabellare delle aziende (Ragione Sociale, P.IVA, SDI, Email, PEC) dato che gli enti hanno campi analoghi
+4. **Aggiornare il `Select` tipo cliente nel dialog di creazione** — aggiungere opzione "Ente" (il tipo union diventa `"privato" | "azienda" | "ente"`)
+5. **Aggiornare il sottotitolo pagina** — "Anagrafica clienti privati, aziende ed enti"
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| File modificato | `src/pages/ImmissionePolizzaPage.tsx` |
-| Tabella usata | `matrice_provvigioni` (gia esistente) |
-| Nuovi state | `percentualeProvvigione`, `provvigioneFromDb`, `provvigioneOriginalValue` |
-| Dialog | Componente `AlertDialog` gia presente nel progetto |
-| Operazioni DB | SELECT al cambio prodotto, INSERT/UPDATE al salvataggio con conferma |
+| File modificato | `src/pages/ClientiList.tsx` |
+| Icona ente | `Landmark` da lucide-react |
+| Campi tabella ente | Ragione Sociale, P.IVA, Codice SDI, Email, PEC (come aziende) |
+| Tipo state | `tipoCliente` union esteso a includere `"ente"` |
 
