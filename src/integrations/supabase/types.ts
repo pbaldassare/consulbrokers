@@ -3213,6 +3213,7 @@ export type Database = {
         Row: {
           assegnato_a: string | null
           cognome: string | null
+          convertito_cliente_id: string | null
           created_at: string | null
           email: string | null
           fonte: string | null
@@ -3228,6 +3229,7 @@ export type Database = {
         Insert: {
           assegnato_a?: string | null
           cognome?: string | null
+          convertito_cliente_id?: string | null
           created_at?: string | null
           email?: string | null
           fonte?: string | null
@@ -3243,6 +3245,7 @@ export type Database = {
         Update: {
           assegnato_a?: string | null
           cognome?: string | null
+          convertito_cliente_id?: string | null
           created_at?: string | null
           email?: string | null
           fonte?: string | null
@@ -3261,6 +3264,13 @@ export type Database = {
             columns: ["assegnato_a"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_convertito_cliente_id_fkey"
+            columns: ["convertito_cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
             referencedColumns: ["id"]
           },
           {
