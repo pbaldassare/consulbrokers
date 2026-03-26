@@ -690,7 +690,7 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
   });
 
   return (
-
+    <div className="space-y-6">
       {/* ── Catalogo Prodotti ── */}
       <Card>
         <CardContent className="pt-6">
