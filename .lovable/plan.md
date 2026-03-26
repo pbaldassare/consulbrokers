@@ -1,52 +1,33 @@
 
 
-## Piano: Pagina Analisi Documenti AI Multi-File
+## Piano: Collegamento obbligatorio Polizze-Clienti
 
-### Cosa si costruisce
+### Problema
 
-Una nuova pagina `/portafoglio/analisi-preventivo-rca` dove l'utente può caricare **più file contemporaneamente** (foto e PDF) e l'AI li analizza tutti in parallelo, estraendo dati strutturati da ciascun documento (premi RCA, infortuni, garanzie, dati cliente, ecc.).
+I titoli (polizze) nel database non hanno tutti il campo `cliente_anagrafica_id` valorizzato. I clienti visibili nella lista mostrano "0" polizze perche le polizze seed non sono collegate a quei clienti specifici. Inoltre, il campo `cliente_anagrafica_id` e nullable, quindi si possono creare polizze senza cliente.
 
-### Implementazione
+### Interventi
 
-**1. Nuova Edge Function `analisi-documenti-multipli/index.ts`**
-- Accetta un array di file (base64 + mime_type) e un `tipo_analisi`
-- Per il tipo `preventivo_rca`: schema tool-calling con campi cliente (contraente, CF, targa, veicolo), premi lordi per ramo (RCA, infortuni, furto/incendio, kasko, cristalli, assistenza, tutela legale, altri), totale, e array garanzie (nome, massimale, franchigia, premio)
-- Elabora ogni file in una chiamata AI separata, poi aggrega i risultati
-- Gestione errori 429/402
+**1. Migration: rendere `cliente_anagrafica_id` obbligatorio**
+- Aggiornare i titoli esistenti senza `cliente_anagrafica_id`: assegnarli a un cliente di default oppure eliminarli
+- Alterare la colonna `cliente_anagrafica_id` impostando `NOT NULL`
+- Questo garantisce che ogni polizza futura abbia sempre un cliente collegato
 
-**2. Nuovo file `src/pages/AnalisiPreventivoRCAPage.tsx`**
-- **Upload multi-file**: zona drag & drop che accetta più file contemporaneamente (`multiple` su input)
-- Anteprima dei file caricati con possibilità di rimuoverli prima dell'invio
-- Bottone "Analizza tutti" che invia i file alla edge function
-- Progress bar per ogni file in elaborazione
-- **Risultati**: per ogni documento analizzato, una sezione Card con:
-  - Dati Cliente (contraente, CF, targa, veicolo, date)
-  - Tabella Riepilogo Premi (RCA, Infortuni, Furto/Incendio, Kasko, Cristalli, Assistenza, Tutela Legale, Altri, **Totale**)
-  - Tabella Dettaglio Garanzie (nome, massimale, franchigia, premio, inclusa)
-- Possibilità di confrontare i risultati tra più documenti affiancati
+**2. Migration: aggiornare i dati seed esistenti**
+- Scrivere un UPDATE che assegna un `cliente_anagrafica_id` valido a tutti i titoli che ne sono privi, distribuendoli tra i clienti esistenti nella tabella `clienti`
 
-**3. Rotta e Sidebar**
-- Aggiungere rotta `/portafoglio/analisi-preventivo-rca` in `src/routes/portafoglio.tsx`
-- Aggiungere voce nella sidebar sotto Portafoglio
+**3. Pagina ImmissionePolizzaPage e altri form**
+- Verificare che il campo cliente sia obbligatorio nei form di creazione/modifica polizza
+- Se manca la validazione, aggiungerla
+
+**4. Query conteggio polizze (gia funzionante)**
+- La query in `ClientiList.tsx` funziona gia correttamente; una volta che i dati sono linkati, i conteggi si aggiorneranno automaticamente
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| File creati | `supabase/functions/analisi-documenti-multipli/index.ts`, `src/pages/AnalisiPreventivoRCAPage.tsx` |
-| File modificati | `src/routes/portafoglio.tsx`, `src/components/AppSidebar.tsx` |
-| AI model | `google/gemini-2.5-flash` via Lovable AI Gateway |
-| Upload | Multi-file, PDF/immagini, max 10MB ciascuno, max 10 file |
-| Elaborazione | Chiamate AI in parallelo (Promise.all), una per file |
-
-### Schema tool-calling `preventivo_rca`
-
-```text
-contraente, codice_fiscale, targa, veicolo_marca_modello
-data_effetto, data_scadenza
-premio_lordo_rca, premio_lordo_infortuni, premio_lordo_furto_incendio
-premio_lordo_kasko, premio_lordo_cristalli, premio_lordo_assistenza
-premio_lordo_tutela_legale, premio_lordo_altri, premio_lordo_totale
-garanzie[]: nome_garanzia, massimale, franchigia, premio, inclusa
-```
+| File creato | Nuova migration SQL |
+| File verificati | `src/pages/ImmissionePolizzaPage.tsx`, `src/pages/TitoliList.tsx` |
+| Impatto | Tutti i titoli avranno un cliente, la colonna Polizze mostrera valori corretti |
 
