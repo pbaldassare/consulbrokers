@@ -1,16 +1,18 @@
 
 
-## Piano: Rimuovere pagina Causali/Tabelle di Servizio
+## Piano: Spostare Compagnie, Categorie e Prodotti sotto Tabelle di Sistema
 
-La tabella `causali_contabili` resta nel database perche e usata come FK dalla Primanota Generale (campo `causale_id`). Si rimuove solo la pagina di gestione dedicata e la voce nel menu.
+### Cosa cambia
+
+Le voci **Compagnie**, **Categorie** e **Prodotti** vengono spostate dal gruppo "Archivi" al gruppo "Sistema", accanto a "Tabelle di Base". Sono tabelle di configurazione gestite dall'admin, non dati operativi.
 
 ### Modifiche
 
 | File | Azione |
 |---|---|
-| `src/pages/contGenerale/CausaliPage.tsx` | Eliminare il file |
-| `src/components/AppSidebar.tsx` | Rimuovere la voce "Causali/Tabelle" dal menu Cont. Generale |
-| `src/routes/contabilita.tsx` | Rimuovere la rotta `/cont-generale/causali` e il relativo import |
+| **`src/components/AppSidebar.tsx`** | Rimuovere Compagnie, Categorie, Prodotti dal gruppo Archivi (righe 99-101). Aggiungerle nel gruppo Sistema dopo "Tabelle di Base" (riga 221) |
+| **`src/routes/archivi.tsx`** | Rimuovere le 3 rotte (`/compagnie`, `/categorie`, `/prodotti`) e i relativi import |
+| **`src/routes/sistema.tsx`** | Aggiungere le 3 rotte con RoleGuard admin + import dei componenti |
 
-La tabella DB `causali_contabili` e i dati seed restano invariati: servono come lookup per la Primanota Generale (dropdown causale nel form di registrazione).
+Nessuna modifica a DB, componenti pagina o breadcrumb. Solo riorganizzazione navigazione e rotte.
 
