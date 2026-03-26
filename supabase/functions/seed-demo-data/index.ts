@@ -432,9 +432,9 @@ Deno.serve(async (req) => {
     R.clienti_relazioni = relazioniData.length;
 
     // ==================== 8. SINISTRI (25) ====================
-    const statiSin = ['aperto','aperto','in_gestione','in_gestione','in_gestione','chiuso','chiuso'];
+    const statiSin = ['aperto','aperto','in_lavorazione','in_lavorazione','in_attesa_documenti','chiuso','chiuso','respinto'];
     const descSin = ['Incidente stradale con tamponamento','Danno da infiltrazione acqua','Furto con scasso in abitazione','Incendio parziale magazzino','Grandine su autoveicolo','Danni da evento atmosferico','Infortunio sul lavoro','Danni a terzi per caduta oggetti','Rottura tubatura condominiale','Furto parziale autoveicolo','Sinistro RCA con lesioni lievi','Allagamento locale commerciale','Caduta albero su autovettura','Danni da fulmine','Furto gioielli in abitazione','Crollo parziale controsoffitto','Incidente in parcheggio','Rottura vetrina negozio','Responsabilità professionale','Danno biologico da infortunio','Sinistro kasko','Furto bicicletta assicurata','Guasto impianto elettrico','Danni da vento forte','Sinistro RC auto con concorso'];
-    const titoliValidi = titoliData.filter(t => t.stato === 'attivo' || t.stato === 'incassato');
+    const titoliValidi = titoliData.filter(t => t.stato === 'creato' || t.stato === 'incassato');
 
     const sinistri: any[] = [];
     const sinIds: string[] = [];
