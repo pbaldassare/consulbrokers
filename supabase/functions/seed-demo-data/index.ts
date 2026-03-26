@@ -721,7 +721,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 40; i++) {
       consensi.push({
         cliente_id: clientIds[i % clientIds.length],
-        tipo_consenso: pick(['trattamento_dati', 'trattamento_dati', 'marketing', 'profilazione', 'cessione_terzi']),
+        tipo_consenso: pick(['obbligatorio', 'obbligatorio', 'marketing', 'profilazione', 'comunicazioni']),
         stato: pick(['dato', 'dato', 'dato', 'dato', 'revocato']),
         data_consenso: fakeDate(2021, 2025),
         fonte: pick(['cartaceo', 'digitale', 'email', 'pec']),
