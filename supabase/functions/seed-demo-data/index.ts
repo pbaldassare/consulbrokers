@@ -678,7 +678,7 @@ Deno.serve(async (req) => {
         data_operazione: fakeDate(2023, 2026),
         importo: rf(-5000, 12000),
         descrizione: `[DEMO] ${pick(['Bonifico da cliente', 'Incasso premio RCA', 'Storno bancario', 'Accredito compagnia', 'Pagamento fornitore', 'Rata mutuo', 'Acconto sinistro'])} #${i + 1}`,
-        stato: pick(['nuovo', 'ok', 'ko']),
+        stato: pick(['da_verificare', 'ok', 'ko']),
         ufficio_id: pick(uIds),
         saldo: rf(1000, 50000),
       });
