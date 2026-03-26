@@ -579,15 +579,249 @@ const ClientiList = () => {
                 </>
               )}
 
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-muted-foreground mb-3">Gruppo Finanziario</p>
-                <SearchableSelect
-                  value={gruppoFinanziarioId}
-                  onValueChange={setGruppoFinanziarioId}
-                  placeholder="— Seleziona gruppo finanziario —"
-                  options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                />
-              </div>
+              {/* Sezioni aggiuntive in Accordion */}
+              <Accordion type="multiple" className="w-full border-t pt-4">
+                {/* Dati Gestionali */}
+                <AccordionItem value="gestionali">
+                  <AccordionTrigger className="text-sm font-medium">Dati Gestionali</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Codice Ricerca</Label>
+                          <Input value={codiceRicerca} onChange={(e) => setCodiceRicerca(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Titolo</Label>
+                          <Select value={titolo} onValueChange={setTitolo}>
+                            <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sig">Sig.</SelectItem>
+                              <SelectItem value="sig_ra">Sig.ra</SelectItem>
+                              <SelectItem value="dott">Dott.</SelectItem>
+                              <SelectItem value="dott_ssa">Dott.ssa</SelectItem>
+                              <SelectItem value="ing">Ing.</SelectItem>
+                              <SelectItem value="avv">Avv.</SelectItem>
+                              <SelectItem value="prof">Prof.</SelectItem>
+                              <SelectItem value="rag">Rag.</SelectItem>
+                              <SelectItem value="geom">Geom.</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Stato Cliente</Label>
+                          <Select value={statoCliente} onValueChange={setStatoCliente}>
+                            <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="attivo">Attivo</SelectItem>
+                              <SelectItem value="sospeso">Sospeso</SelectItem>
+                              <SelectItem value="cessato">Cessato</SelectItem>
+                              <SelectItem value="prospect">Prospect</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Tipo Persona</Label>
+                          <Select value={tipoPersona} onValueChange={setTipoPersona}>
+                            <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fisica">Persona Fisica</SelectItem>
+                              <SelectItem value="giuridica">Persona Giuridica</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Sesso</Label>
+                          <Select value={sesso} onValueChange={setSesso}>
+                            <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="M">Maschio</SelectItem>
+                              <SelectItem value="F">Femmina</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Prospect</Label>
+                          <Select value={prospect} onValueChange={setProspect}>
+                            <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="si">Sì</SelectItem>
+                              <SelectItem value="no">No</SelectItem>
+                              <SelectItem value="convertito">Convertito</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Comune Nascita</Label>
+                          <Input value={comuneNascita} onChange={(e) => setComuneNascita(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Provincia Nascita</Label>
+                          <Input value={provinciaNascita} onChange={(e) => setProvinciaNascita(e.target.value)} maxLength={2} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Tipo Sommario</Label>
+                          <Select value={tipoSommario} onValueChange={setTipoSommario}>
+                            <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="dettagliato">Dettagliato</SelectItem>
+                              <SelectItem value="sintetico">Sintetico</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3">
+                        <div>
+                          <Label className="text-xs">Cellulare</Label>
+                          <Input value={cellulare} onChange={(e) => setCellulare(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Fax</Label>
+                          <Input value={fax} onChange={(e) => setFax(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Nazione</Label>
+                          <Input value={nazione} onChange={(e) => setNazione(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Spec. SX Danni</Label>
+                          <Input value={specSxDanni} onChange={(e) => setSpecSxDanni(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Spec. SX Sanità</Label>
+                          <Input value={specSxSanita} onChange={(e) => setSpecSxSanita(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Attenzione di / Note</Label>
+                          <Textarea value={attenzioneDi} onChange={(e) => setAttenzioneDi(e.target.value)} rows={2} />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-6">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={clienteNonCeduto} onCheckedChange={setClienteNonCeduto} />
+                          <Label className="text-xs">Cliente Non Ceduto</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch checked={aziendaSsnSx} onCheckedChange={setAziendaSsnSx} />
+                          <Label className="text-xs">Azienda SSN/SX</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch checked={statisticaPremiSinistri} onCheckedChange={setStatisticaPremiSinistri} />
+                          <Label className="text-xs">Stat. Premi/Sinistri</Label>
+                        </div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Dati Statistici */}
+                <AccordionItem value="statistici">
+                  <AccordionTrigger className="text-sm font-medium">Dati Statistici</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-xs">Gruppo Finanziario</Label>
+                        <SearchableSelect
+                          value={gruppoFinanziarioId}
+                          onValueChange={setGruppoFinanziarioId}
+                          placeholder="— Seleziona gruppo finanziario —"
+                          options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Zona</Label>
+                          <Input value={zona} onChange={(e) => setZona(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Indotto</Label>
+                          <Input value={indotto} onChange={(e) => setIndotto(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Attività</Label>
+                          <Input value={attivita} onChange={(e) => setAttivita(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Settore</Label>
+                          <Input value={settore} onChange={(e) => setSettore(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Azienda Stat.</Label>
+                          <Input value={aziendaStat} onChange={(e) => setAziendaStat(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Contratto</Label>
+                          <Input value={contratto} onChange={(e) => setContratto(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Matricola</Label>
+                          <Input value={matricola} onChange={(e) => setMatricola(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Riferimento</Label>
+                          <Input value={riferimento} onChange={(e) => setRiferimento(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Codice ATECO</Label>
+                          <Input value={codiceAteco} onChange={(e) => setCodiceAteco(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Fatturato €</Label>
+                          <Input type="number" value={fatturato} onChange={(e) => setFatturato(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">N. Dipendenti</Label>
+                          <Input type="number" value={numDipendenti} onChange={(e) => setNumDipendenti(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-6">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={clienteAssociato} onCheckedChange={setClienteAssociato} />
+                          <Label className="text-xs">Cliente Associato</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch checked={clienteCaptive} onCheckedChange={setClienteCaptive} />
+                          <Label className="text-xs">Cliente Captive</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch checked={internazionale} onCheckedChange={setInternazionale} />
+                          <Label className="text-xs">Internazionale</Label>
+                        </div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Dati Contabili */}
+                <AccordionItem value="contabili">
+                  <AccordionTrigger className="text-sm font-medium">Dati Contabili</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Fido Credito €</Label>
+                        <Input type="number" value={fidoCredito} onChange={(e) => setFidoCredito(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Fido Cauzioni €</Label>
+                        <Input type="number" value={fidoCauzioni} onChange={(e) => setFidoCauzioni(e.target.value)} />
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <div className="border-t pt-4">
                 <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>
