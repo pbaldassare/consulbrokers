@@ -116,6 +116,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Documentale", path: "/portafoglio/documentale", icon: HardDrive },
         { label: "Rientro Documenti", path: "/portafoglio/rientro-documenti", icon: Import },
         { label: "Import Titoli (Excel)", path: "/portafoglio/import-titoli", icon: FileUp },
+        { label: "Analisi Preventivo RCA", path: "/portafoglio/analisi-preventivo-rca", icon: Shield },
       ],
     },
   },
