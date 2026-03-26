@@ -3607,54 +3607,100 @@ export type Database = {
       }
       sinistri: {
         Row: {
+          cliente_anagrafica_id: string | null
           cliente_id: string | null
           compagnia_id: string | null
+          controparte: string | null
+          costo_effettivo: number | null
+          costo_preventivato: number | null
           created_at: string | null
           data_apertura: string
           data_chiusura: string | null
+          data_evento: string | null
           descrizione: string | null
+          franchigia: number | null
           id: string
+          importo_liquidato: number | null
+          importo_riserva: number | null
+          luogo_sinistro: string | null
+          note_perito: string | null
           numero_sinistro: string | null
+          numero_sinistro_compagnia: string | null
           responsabile_id: string | null
           search_vector: unknown
           stato: string
+          targa_veicolo: string | null
+          tipo_sinistro: string | null
           titolo_id: string | null
           ufficio_id: string | null
           updated_at: string | null
         }
         Insert: {
+          cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           compagnia_id?: string | null
+          controparte?: string | null
+          costo_effettivo?: number | null
+          costo_preventivato?: number | null
           created_at?: string | null
           data_apertura?: string
           data_chiusura?: string | null
+          data_evento?: string | null
           descrizione?: string | null
+          franchigia?: number | null
           id?: string
+          importo_liquidato?: number | null
+          importo_riserva?: number | null
+          luogo_sinistro?: string | null
+          note_perito?: string | null
           numero_sinistro?: string | null
+          numero_sinistro_compagnia?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
           stato?: string
+          targa_veicolo?: string | null
+          tipo_sinistro?: string | null
           titolo_id?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           compagnia_id?: string | null
+          controparte?: string | null
+          costo_effettivo?: number | null
+          costo_preventivato?: number | null
           created_at?: string | null
           data_apertura?: string
           data_chiusura?: string | null
+          data_evento?: string | null
           descrizione?: string | null
+          franchigia?: number | null
           id?: string
+          importo_liquidato?: number | null
+          importo_riserva?: number | null
+          luogo_sinistro?: string | null
+          note_perito?: string | null
           numero_sinistro?: string | null
+          numero_sinistro_compagnia?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
           stato?: string
+          targa_veicolo?: string | null
+          tipo_sinistro?: string | null
           titolo_id?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sinistri_cliente_anagrafica_id_fkey"
+            columns: ["cliente_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sinistri_cliente_id_fkey"
             columns: ["cliente_id"]
