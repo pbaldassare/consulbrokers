@@ -175,22 +175,29 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Provvigione auto-lookup when prodotto changes
+  // Provvigione auto-lookup from provvigioni_compagnia_ramo (Compagnia + Ramo)
   const { data: provvigioneDb } = useQuery({
-    queryKey: ["provvigione-lookup", selectedProdotto],
+    queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedRamo],
     queryFn: async () => {
-      if (!selectedProdotto) return null;
+      if (!selectedCompagnia || !selectedRamo) return null;
+      // Get the categoria_id from the ramo
+      const { data: ramoData } = await supabase
+        .from("rami")
+        .select("categoria_id")
+        .eq("id", selectedRamo)
+        .maybeSingle();
+      if (!ramoData?.categoria_id) return null;
       const { data } = await supabase
-        .from("matrice_provvigioni")
+        .from("provvigioni_compagnia_ramo")
         .select("id, percentuale_provvigione")
-        .eq("prodotto_id", selectedProdotto)
+        .eq("compagnia_id", selectedCompagnia)
+        .eq("categoria_id", ramoData.categoria_id)
         .eq("attiva", true)
-        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: !!selectedProdotto,
+    enabled: !!selectedCompagnia && !!selectedRamo,
   });
 
   // Auto-set compagnia when prodotto changes
@@ -203,7 +210,7 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedProdotto, prodottiList]);
 
-  // Auto-fill provvigione from DB
+  // Auto-fill provvigione from DB (now based on Compagnia+Ramo)
   useEffect(() => {
     if (provvigioneDb) {
       const val = String(provvigioneDb.percentuale_provvigione ?? "");
@@ -211,13 +218,13 @@ const ImmissionePolizzaPage = () => {
       setProvvigioneOriginalValue(val);
       setProvvigioneFromDb(true);
       setProvvigioneDbRecordId(provvigioneDb.id);
-    } else if (selectedProdotto) {
+    } else if (selectedCompagnia && selectedRamo) {
       setPercentualeProvvigione("");
       setProvvigioneOriginalValue("");
       setProvvigioneFromDb(false);
       setProvvigioneDbRecordId(null);
     }
-  }, [provvigioneDb, selectedProdotto]);
+  }, [provvigioneDb, selectedCompagnia, selectedRamo]);
 
   const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
 
