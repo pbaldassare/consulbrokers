@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy, Search, User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
 
 const PLACEHOLDER_VARS = [
   { label: "Nome cliente", value: "{{cliente_nome}}" },
@@ -44,9 +45,9 @@ const EXAMPLE_DATA: Record<string, string> = {
   "{{data_oggi}}": new Date().toLocaleDateString("it-IT"),
 };
 
-function replaceVars(text: string): string {
+function replaceVarsWithData(text: string, data: Record<string, string>): string {
   let result = text;
-  for (const [key, val] of Object.entries(EXAMPLE_DATA)) {
+  for (const [key, val] of Object.entries(data)) {
     result = result.split(key).join(val);
   }
   return result;
@@ -54,6 +55,236 @@ function replaceVars(text: string): string {
 
 interface Categoria { id: string; nome: string; descrizione: string | null; }
 interface Template { id: string; categoria_id: string; nome: string; oggetto: string; corpo: string; attivo: boolean; created_at: string; }
+
+interface ClienteResult {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  ragione_sociale: string | null;
+  codice_fiscale: string | null;
+  email: string | null;
+  tipo_cliente: string;
+}
+
+interface PolizzaResult {
+  id: string;
+  numero_titolo: string | null;
+  data_scadenza: string | null;
+  premio_lordo: number | null;
+  prodotto_nome: string | null;
+  compagnia_nome: string | null;
+  sede_nome: string | null;
+}
+
+// --- Search hooks ---
+function useClienteSearch(searchTerm: string) {
+  return useQuery({
+    queryKey: ["search_clienti", searchTerm],
+    queryFn: async () => {
+      if (!searchTerm || searchTerm.length < 2) return [];
+      const term = `%${searchTerm}%`;
+      const { data, error } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, email, tipo_cliente")
+        .or(`nome.ilike.${term},cognome.ilike.${term},ragione_sociale.ilike.${term},codice_fiscale.ilike.${term}`)
+        .limit(15);
+      if (error) throw error;
+      return (data || []) as ClienteResult[];
+    },
+    enabled: searchTerm.length >= 2,
+  });
+}
+
+function usePolizzaSearch(searchTerm: string, clienteId?: string) {
+  return useQuery({
+    queryKey: ["search_polizze", searchTerm, clienteId],
+    queryFn: async () => {
+      if (!searchTerm || searchTerm.length < 2) return [];
+      const term = `%${searchTerm}%`;
+      let query = supabase
+        .from("titoli")
+        .select("id, numero_titolo, data_scadenza, premio_lordo, prodotto_id, ufficio_id, cliente_anagrafica_id, prodotti(nome_prodotto, compagnia_id, compagnie(nome)), uffici(nome_ufficio)")
+        .or(`numero_titolo.ilike.${term}`)
+        .limit(15);
+      if (clienteId) {
+        query = query.eq("cliente_anagrafica_id", clienteId);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map((t: any) => ({
+        id: t.id,
+        numero_titolo: t.numero_titolo,
+        data_scadenza: t.data_scadenza,
+        premio_lordo: t.premio_lordo,
+        prodotto_nome: t.prodotti?.nome_prodotto || null,
+        compagnia_nome: t.prodotti?.compagnie?.nome || null,
+        sede_nome: t.uffici?.nome_ufficio || null,
+      })) as PolizzaResult[];
+    },
+    enabled: searchTerm.length >= 2,
+  });
+}
+
+function buildDataMap(cliente?: ClienteResult | null, polizza?: PolizzaResult | null): Record<string, string> {
+  const data = { ...EXAMPLE_DATA, "{{data_oggi}}": new Date().toLocaleDateString("it-IT") };
+  if (cliente) {
+    data["{{cliente_nome}}"] = cliente.nome || "";
+    data["{{cliente_cognome}}"] = cliente.cognome || "";
+    data["{{cliente_email}}"] = cliente.email || "";
+    data["{{cliente_codice_fiscale}}"] = cliente.codice_fiscale || "";
+    data["{{azienda_ragione_sociale}}"] = cliente.ragione_sociale || "";
+  }
+  if (polizza) {
+    data["{{polizza_numero}}"] = polizza.numero_titolo || "";
+    data["{{polizza_scadenza}}"] = polizza.data_scadenza ? new Date(polizza.data_scadenza).toLocaleDateString("it-IT") : "";
+    data["{{polizza_premio}}"] = polizza.premio_lordo != null ? polizza.premio_lordo.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "";
+    data["{{compagnia_nome}}"] = polizza.compagnia_nome || "";
+    data["{{sede_nome}}"] = polizza.sede_nome || "";
+  }
+  return data;
+}
+
+// --- Preview Dialog Component ---
+function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpenChange: (v: boolean) => void; template: Template | null }) {
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [polizzaSearch, setPolizzaSearch] = useState("");
+  const [selectedCliente, setSelectedCliente] = useState<ClienteResult | null>(null);
+  const [selectedPolizza, setSelectedPolizza] = useState<PolizzaResult | null>(null);
+  const [showClienteResults, setShowClienteResults] = useState(false);
+  const [showPolizzaResults, setShowPolizzaResults] = useState(false);
+
+  const { data: clientiResults = [] } = useClienteSearch(clienteSearch);
+  const { data: polizzeResults = [] } = usePolizzaSearch(polizzaSearch, selectedCliente?.id);
+
+  const dataMap = buildDataMap(selectedCliente, selectedPolizza);
+
+  const resetSearch = useCallback(() => {
+    setClienteSearch("");
+    setPolizzaSearch("");
+    setSelectedCliente(null);
+    setSelectedPolizza(null);
+    setShowClienteResults(false);
+    setShowPolizzaResults(false);
+  }, []);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetSearch(); }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Anteprima: {template?.nome}</DialogTitle></DialogHeader>
+        {template && (
+          <div className="space-y-4">
+            {/* Ricerca Cliente */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5"><User className="h-4 w-4" /> Cerca Cliente</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cerca per nome, cognome, ragione sociale, codice fiscale..."
+                  className="pl-9"
+                  value={clienteSearch}
+                  onChange={e => { setClienteSearch(e.target.value); setShowClienteResults(true); }}
+                  onFocus={() => setShowClienteResults(true)}
+                />
+                {showClienteResults && clientiResults.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {clientiResults.map(c => (
+                      <button
+                        key={c.id}
+                        className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center justify-between"
+                        onClick={() => {
+                          setSelectedCliente(c);
+                          setClienteSearch(c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim());
+                          setShowClienteResults(false);
+                        }}
+                      >
+                        <span className="font-medium">
+                          {c.tipo_cliente === "azienda" || c.tipo_cliente === "ente"
+                            ? c.ragione_sociale
+                            : `${c.cognome || ""} ${c.nome || ""}`.trim()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{c.codice_fiscale || c.email || ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {selectedCliente && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    {selectedCliente.tipo_cliente === "azienda" || selectedCliente.tipo_cliente === "ente"
+                      ? selectedCliente.ragione_sociale
+                      : `${selectedCliente.cognome || ""} ${selectedCliente.nome || ""}`.trim()}
+                  </Badge>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setSelectedCliente(null); setClienteSearch(""); }}>Rimuovi</Button>
+                </div>
+              )}
+            </div>
+
+            {/* Ricerca Polizza */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5"><FileText className="h-4 w-4" /> Cerca Polizza</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cerca per numero polizza..."
+                  className="pl-9"
+                  value={polizzaSearch}
+                  onChange={e => { setPolizzaSearch(e.target.value); setShowPolizzaResults(true); }}
+                  onFocus={() => setShowPolizzaResults(true)}
+                />
+                {showPolizzaResults && polizzeResults.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {polizzeResults.map(p => (
+                      <button
+                        key={p.id}
+                        className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center justify-between"
+                        onClick={() => {
+                          setSelectedPolizza(p);
+                          setPolizzaSearch(p.numero_titolo || "");
+                          setShowPolizzaResults(false);
+                        }}
+                      >
+                        <span className="font-medium">{p.numero_titolo}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {[p.prodotto_nome, p.compagnia_nome].filter(Boolean).join(" - ")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {selectedPolizza && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{selectedPolizza.numero_titolo} — {selectedPolizza.compagnia_nome || ""}</Badge>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setSelectedPolizza(null); setPolizzaSearch(""); }}>Rimuovi</Button>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Anteprima */}
+            <div>
+              <Label className="text-xs text-muted-foreground">Oggetto</Label>
+              <p className="font-medium mt-1">{replaceVarsWithData(template.oggetto, dataMap)}</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Corpo</Label>
+              <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm border mt-1">
+                {replaceVarsWithData(template.corpo, dataMap)}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground italic">
+              {selectedCliente || selectedPolizza
+                ? "I dati mostrati provengono dal database."
+                : "Seleziona un cliente e/o una polizza per vedere dati reali. Dati di esempio in uso."}
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function TemplatePage() {
   const qc = useQueryClient();
@@ -274,25 +505,8 @@ export default function TemplatePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog anteprima */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Anteprima: {previewTemplate?.nome}</DialogTitle></DialogHeader>
-          {previewTemplate && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Oggetto</Label>
-                <p className="font-medium">{replaceVars(previewTemplate.oggetto)}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Corpo</Label>
-                <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm border">{replaceVars(previewTemplate.corpo)}</div>
-              </div>
-              <p className="text-xs text-muted-foreground italic">I dati mostrati sono di esempio. Le variabili verranno sostituite con i dati reali al momento dell'invio.</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Dialog anteprima con ricerca reale */}
+      <PreviewDialog open={previewOpen} onOpenChange={setPreviewOpen} template={previewTemplate} />
 
       {/* Dialog nuova categoria */}
       <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
