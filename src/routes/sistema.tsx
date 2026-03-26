@@ -38,6 +38,7 @@ export const sistemaRoutes = (
     <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
     {/* Categorie e Prodotti rimossi dal menu — gestiti nella tab Compagnie */}
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
+    <Route path="/template" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><TemplatePage /></RoleGuard>} />
     <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
 
     {/* STANDALONE */}
