@@ -17,6 +17,10 @@ import ServerPagination from "@/components/ServerPagination";
 
 const PAGE_SIZE = 25;
 const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "chiuso", "respinto"];
+const tipiSinistro = [
+  "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
+  "infortunio", "grandine", "atti_vandalici", "responsabilita_civile", "altro"
+];
 
 const statoBadge: Record<string, string> = {
   aperto: "bg-blue-100 text-blue-800",
@@ -24,6 +28,12 @@ const statoBadge: Record<string, string> = {
   in_attesa_documenti: "bg-orange-100 text-orange-800",
   chiuso: "bg-green-100 text-green-800",
   respinto: "bg-red-100 text-red-800",
+};
+
+const getClienteName = (clienti: any) => {
+  if (!clienti) return "—";
+  if (clienti.tipo_cliente === "azienda" && clienti.ragione_sociale) return clienti.ragione_sociale;
+  return `${clienti.cognome || ""} ${clienti.nome || ""}`.trim() || "—";
 };
 
 export default function SinistriList() {
@@ -34,18 +44,25 @@ export default function SinistriList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
 
-  // Wizard: step 1 = search polizza, step 2 = fill sinistro details
+  // Wizard state
   const [step, setStep] = useState<1 | 2>(1);
   const [polizzaSearch, setPolizzaSearch] = useState({ cliente: "", numero: "", compagnia: "" });
   const [polizzaResults, setPolizzaResults] = useState<any[]>([]);
   const [polizzaLoading, setPolizzaLoading] = useState(false);
   const [selectedPolizza, setSelectedPolizza] = useState<any>(null);
-  const [form, setForm] = useState({ numero_sinistro: "", descrizione: "" });
+  const [form, setForm] = useState({
+    numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: ""
+  });
 
   const { data: sinistriResult, refetch } = useQuery({
     queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],
     queryFn: async () => {
-      let q = supabase.from("sinistri").select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome)", { count: "exact" });
+      let q = supabase.from("sinistri").select(
+        `*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
+         clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
+         titoli(numero_titolo)`,
+        { count: "exact" }
+      );
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
       if (search) q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
@@ -83,9 +100,10 @@ export default function SinistriList() {
     setPolizzaLoading(true);
     try {
       let q = supabase.from("titoli").select(`
-        id, numero_titolo, premio_lordo, stato, created_at,
+        id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
         prodotti(nome_prodotto, compagnie(id, nome)),
-        profiles!titoli_cliente_id_fkey(nome, cognome)
+        profiles!titoli_cliente_id_fkey(nome, cognome),
+        clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
       `).eq("stato", "attivo").limit(50);
 
       if (polizzaSearch.numero) {
@@ -97,17 +115,18 @@ export default function SinistriList() {
 
       let results = data || [];
 
-      // Client-side filter for cliente name
+      // Client-side filter for cliente name (search across both profiles and clienti)
       if (polizzaSearch.cliente) {
         const term = polizzaSearch.cliente.toLowerCase();
         results = results.filter((t: any) => {
           const p = t.profiles;
-          if (!p) return false;
-          return `${p.nome || ""} ${p.cognome || ""}`.toLowerCase().includes(term);
+          const c = t.clienti;
+          const profileMatch = p && `${p.nome || ""} ${p.cognome || ""}`.toLowerCase().includes(term);
+          const clientiMatch = c && `${c.cognome || ""} ${c.nome || ""} ${c.ragione_sociale || ""}`.toLowerCase().includes(term);
+          return profileMatch || clientiMatch;
         });
       }
 
-      // Client-side filter for compagnia (nested join)
       if (polizzaSearch.compagnia) {
         results = results.filter((t: any) => t.prodotti?.compagnie?.id === polizzaSearch.compagnia);
       }
@@ -129,6 +148,7 @@ export default function SinistriList() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const compagniaId = selectedPolizza?.prodotti?.compagnie?.id || null;
+      const clienteAnagraficaId = selectedPolizza?.cliente_anagrafica_id || null;
       const { data, error } = await supabase.functions.invoke("gestione-sinistri", {
         body: {
           azione: "crea",
@@ -136,6 +156,10 @@ export default function SinistriList() {
           descrizione: form.descrizione,
           compagnia_id: compagniaId,
           titolo_id: selectedPolizza?.id || null,
+          cliente_anagrafica_id: clienteAnagraficaId,
+          tipo_sinistro: form.tipo_sinistro || null,
+          luogo_sinistro: form.luogo_sinistro || null,
+          data_evento: form.data_evento || null,
           user_id: user?.id,
         },
       });
@@ -155,7 +179,13 @@ export default function SinistriList() {
     setPolizzaSearch({ cliente: "", numero: "", compagnia: "" });
     setPolizzaResults([]);
     setSelectedPolizza(null);
-    setForm({ numero_sinistro: "", descrizione: "" });
+    setForm({ numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: "" });
+  };
+
+  const getPolizzaClienteName = (t: any) => {
+    if (t.clienti) return getClienteName(t.clienti);
+    if (t.profiles) return `${t.profiles.nome || ""} ${t.profiles.cognome || ""}`.trim() || "—";
+    return "—";
   };
 
   return (
@@ -195,7 +225,7 @@ export default function SinistriList() {
                     <div>
                       <Label className="text-xs">Cliente</Label>
                       <Input
-                        placeholder="Nome / Cognome"
+                        placeholder="Nome / Cognome / Ragione Sociale"
                         value={polizzaSearch.cliente}
                         onChange={e => setPolizzaSearch({ ...polizzaSearch, cliente: e.target.value })}
                       />
@@ -248,7 +278,7 @@ export default function SinistriList() {
                               onClick={() => selectPolizza(t)}
                             >
                               <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
-                              <TableCell>{t.profiles ? `${t.profiles.nome || ""} ${t.profiles.cognome || ""}`.trim() || "—" : "—"}</TableCell>
+                              <TableCell>{getPolizzaClienteName(t)}</TableCell>
                               <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
                               <TableCell>{t.prodotti?.compagnie?.nome || "—"}</TableCell>
                               <TableCell>{t.premio_lordo ? `€ ${Number(t.premio_lordo).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
@@ -280,7 +310,7 @@ export default function SinistriList() {
                         <span className="text-muted-foreground">N° Polizza:</span>
                         <span className="font-medium">{selectedPolizza.numero_titolo || "—"}</span>
                         <span className="text-muted-foreground">Cliente:</span>
-                        <span>{selectedPolizza.profiles ? `${selectedPolizza.profiles.nome || ""} ${selectedPolizza.profiles.cognome || ""}`.trim() : "—"}</span>
+                        <span>{getPolizzaClienteName(selectedPolizza)}</span>
                         <span className="text-muted-foreground">Prodotto:</span>
                         <span>{selectedPolizza.prodotti?.nome_prodotto || "—"}</span>
                         <span className="text-muted-foreground">Compagnia:</span>
@@ -292,13 +322,36 @@ export default function SinistriList() {
                     </div>
                   )}
 
-                  <div>
-                    <Label>Numero Sinistro</Label>
-                    <Input value={form.numero_sinistro} onChange={e => setForm({ ...form, numero_sinistro: e.target.value })} placeholder="Es. SIN-2026-001" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Numero Sinistro</Label>
+                      <Input value={form.numero_sinistro} onChange={e => setForm({ ...form, numero_sinistro: e.target.value })} placeholder="Es. SIN-2026-001" />
+                    </div>
+                    <div>
+                      <Label>Tipo Sinistro</Label>
+                      <Select value={form.tipo_sinistro} onValueChange={v => setForm({ ...form, tipo_sinistro: v })}>
+                        <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
+                        <SelectContent>
+                          {tipiSinistro.map(t => (
+                            <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Luogo Sinistro</Label>
+                      <Input value={form.luogo_sinistro} onChange={e => setForm({ ...form, luogo_sinistro: e.target.value })} placeholder="Es. Via Roma 1, Milano" />
+                    </div>
+                    <div>
+                      <Label>Data Evento</Label>
+                      <Input type="date" value={form.data_evento} onChange={e => setForm({ ...form, data_evento: e.target.value })} />
+                    </div>
                   </div>
                   <div>
                     <Label>Descrizione</Label>
-                    <Textarea value={form.descrizione} onChange={e => setForm({ ...form, descrizione: e.target.value })} rows={4} placeholder="Descrivi l'evento..." />
+                    <Textarea value={form.descrizione} onChange={e => setForm({ ...form, descrizione: e.target.value })} rows={3} placeholder="Descrivi l'evento..." />
                   </div>
                   <Button onClick={handleCrea} className="w-full">Crea Sinistro</Button>
                 </div>
@@ -311,7 +364,7 @@ export default function SinistriList() {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Cerca..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
+          <Input placeholder="Cerca per numero, descrizione..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
         </div>
         <Select value={filtroStato} onValueChange={handleFilterChange(setFiltroStato)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
@@ -334,9 +387,11 @@ export default function SinistriList() {
           <TableHeader>
             <TableRow>
               <TableHead>N° Sinistro</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Polizza</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead>Stato</TableHead>
               <TableHead>Compagnia</TableHead>
-              <TableHead>Responsabile</TableHead>
               <TableHead>Data Apertura</TableHead>
               <TableHead>Descrizione</TableHead>
             </TableRow>
@@ -345,17 +400,19 @@ export default function SinistriList() {
             {sinistri.map((s: any) => (
               <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
+                <TableCell>{getClienteName((s as any).clienti)}</TableCell>
+                <TableCell>{(s as any).titoli?.numero_titolo || "—"}</TableCell>
+                <TableCell className="capitalize">{s.tipo_sinistro?.replace(/_/g, " ") || "—"}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>
                 </TableCell>
                 <TableCell>{s.compagnie?.nome || "—"}</TableCell>
-                <TableCell>{s.profiles ? `${s.profiles.nome} ${s.profiles.cognome}` : "—"}</TableCell>
                 <TableCell>{s.data_apertura ? format(new Date(s.data_apertura), "dd/MM/yyyy") : "—"}</TableCell>
                 <TableCell className="max-w-xs truncate">{s.descrizione || "—"}</TableCell>
               </TableRow>
             ))}
             {!sinistri.length && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun sinistro trovato</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

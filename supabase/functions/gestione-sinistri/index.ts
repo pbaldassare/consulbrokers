@@ -17,10 +17,17 @@ Deno.serve(async (req) => {
     const { azione, ...params } = await req.json();
 
     if (azione === "crea") {
-      const { numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione, user_id } = params;
+      const {
+        numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione, user_id,
+        cliente_anagrafica_id, tipo_sinistro, luogo_sinistro, data_evento
+      } = params;
 
       const { data: sinistro, error } = await supabase.from("sinistri").insert({
         numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione,
+        cliente_anagrafica_id: cliente_anagrafica_id || null,
+        tipo_sinistro: tipo_sinistro || null,
+        luogo_sinistro: luogo_sinistro || null,
+        data_evento: data_evento || null,
       }).select().single();
 
       if (error) throw error;
@@ -47,7 +54,6 @@ Deno.serve(async (req) => {
     if (azione === "cambia_stato") {
       const { sinistro_id, nuovo_stato, user_id } = params;
 
-      // If closing, validate checklist + eventi
       if (nuovo_stato === "chiuso") {
         const { data: checklistPending } = await supabase
           .from("sinistro_checklist")
@@ -97,7 +103,6 @@ Deno.serve(async (req) => {
     }
 
     if (azione === "aggiorna_scaduti") {
-      // Mark overdue events as scaduto
       const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("sinistro_eventi")
