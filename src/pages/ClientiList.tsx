@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Users, Building2, Search, User } from "lucide-react";
+import { Plus, Users, Building2, Search, User, Landmark } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
@@ -56,7 +56,7 @@ const ClientiList = () => {
   const [sortBy, setSortBy] = useState<"polizze" | "cognome" | "created_at">("polizze");
 
   // Form state
-  const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda">("privato");
+  const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
   const [nome, setNome] = useState("");
   const [cognome, setCognome] = useState("");
   const [codiceFiscale, setCodiceFiscale] = useState("");
@@ -387,7 +387,9 @@ const ClientiList = () => {
     return (
       (c.ragione_sociale?.toLowerCase().includes(s)) ||
       (c.partita_iva?.toLowerCase().includes(s)) ||
-      (c.email?.toLowerCase().includes(s))
+      (c.codice_fiscale_azienda?.toLowerCase().includes(s)) ||
+      (c.email?.toLowerCase().includes(s)) ||
+      (c.pec?.toLowerCase().includes(s))
     );
   });
 
@@ -466,7 +468,7 @@ const ClientiList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Clienti</h1>
-          <p className="text-muted-foreground">Anagrafica clienti privati e aziende</p>
+          <p className="text-muted-foreground">Anagrafica clienti privati, aziende ed enti</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -479,11 +481,12 @@ const ClientiList = () => {
             <div className="space-y-4">
               <div>
                 <Label>Tipo Cliente</Label>
-                <Select value={tipoCliente} onValueChange={(v) => setTipoCliente(v as "privato" | "azienda")}>
+                <Select value={tipoCliente} onValueChange={(v) => setTipoCliente(v as "privato" | "azienda" | "ente")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="privato">Privato</SelectItem>
                     <SelectItem value="azienda">Azienda</SelectItem>
+                    <SelectItem value="ente">Ente</SelectItem>
                   </SelectContent>
                 </Select>
                </div>
@@ -977,6 +980,9 @@ const ClientiList = () => {
               <TabsTrigger value="azienda" className="gap-2">
                 <Building2 className="w-4 h-4" />Aziende
               </TabsTrigger>
+              <TabsTrigger value="ente" className="gap-2">
+                <Landmark className="w-4 h-4" />Enti
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="privato">
@@ -1085,6 +1091,63 @@ const ClientiList = () => {
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessuna azienda trovata
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="ente">
+              {isLoading ? (
+                <p className="text-muted-foreground py-4">Caricamento...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ragione Sociale</TableHead>
+                      <TableHead>Partita IVA</TableHead>
+                      <TableHead>Codice SDI</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>PEC</TableHead>
+                      <TableHead>Città</TableHead>
+                      <TableHead>Polizze</TableHead>
+                      <TableHead>Stato</TableHead>
+                      <TableHead>Attivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sorted.map((c) => (
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
+                        <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.codice_sdi || "—"}</TableCell>
+                        <TableCell>{c.email || "—"}</TableCell>
+                        <TableCell>{c.pec || "—"}</TableCell>
+                        <TableCell>{c.citta_sede || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={(polizzeCounts?.[c.id] || 0) > 0 ? "default" : "secondary"}>
+                            {polizzeCounts?.[c.id] || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={c.attivo ? "default" : "secondary"}>
+                            {c.attivo ? "Attivo" : "Disattivo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={c.attivo ?? true}
+                            onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attivo: v })}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {sorted.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                          Nessun ente trovato
                         </TableCell>
                       </TableRow>
                     )}
