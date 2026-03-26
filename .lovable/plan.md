@@ -1,41 +1,64 @@
 
 
-## Piano: Collegamento completo Sinistri ↔ Clienti ↔ Polizze ↔ Compagnie nella UI
+## Piano: Provvigioni Automatiche per Prodotto nella Creazione Polizza
 
-### Stato attuale
+### Concetto compreso
 
-I dati nel database sono **già correttamente collegati**: ogni sinistro ha `cliente_anagrafica_id`, `titolo_id` e `compagnia_id` valorizzati e referenziati. Il problema è che la **UI non sfrutta tutti i collegamenti**:
+Il flusso e:
 
-1. **SinistriList**: la query non include `clienti` — manca il nome cliente nella tabella
-2. **Creazione sinistro**: il wizard non passa `cliente_anagrafica_id` all'edge function, quindi i nuovi sinistri creati non avranno il collegamento al cliente CRM
-3. **SinistriList**: mancano colonne utili (Tipo, Cliente, Polizza, importi)
-4. **Edge function `gestione-sinistri`**: non salva `cliente_anagrafica_id` né `titolo_id` durante la creazione
+1. **Seleziono un prodotto** nella pagina Immissione Polizza
+2. Il sistema cerca nella tabella `matrice_provvigioni` se esiste una percentuale salvata per quel `prodotto_id`
+3. **Se esiste** → pre-compila il campo provvigione con il valore salvato
+4. **Se non esiste** → il campo resta vuoto, l'utente lo compila manualmente
+5. Al salvataggio della polizza, un **dialog di conferma** chiede: "Vuoi salvare questa percentuale provvigionale come default per questo prodotto?"
+   - Se conferma → upsert nella `matrice_provvigioni`
+6. **Se l'utente modifica** una provvigione gia pre-compilata → un secondo dialog chiede: "La provvigione e diversa dal valore salvato (X%). Vuoi aggiornare il default per questo prodotto?"
+   - Se conferma → update nella `matrice_provvigioni`
+   - Se rifiuta → usa il valore solo per questa polizza, senza toccare il DB
 
 ### Interventi
 
-**1. Edge Function `gestione-sinistri/index.ts`**
-- Accettare i campi `tipo_sinistro`, `luogo_sinistro`, `data_evento`, `cliente_anagrafica_id`, `titolo_id` nell'azione `crea`
-- Inserirli nella INSERT su `sinistri`
+**1. ImmissionePolizzaPage.tsx — Nuova sezione "Provvigioni"**
 
-**2. SinistriList.tsx — Query e colonne**
-- Aggiungere alla select: `clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`, `titoli(numero_titolo)`
-- Aggiungere colonne: **Cliente**, **Polizza**, **Tipo Sinistro**
-- Permettere ricerca anche per nome cliente
+Aggiungere un fieldset "Provvigioni" tra "Importi" e "Tipo" con:
+- Campo `% Provvigione Agenzia` (numerico)
+- Badge indicatore: "Da database" (verde) oppure "Nuovo valore" (arancione)
+- Il valore si auto-compila quando `selectedProdotto` cambia, cercando in `matrice_provvigioni`
 
-**3. SinistriList.tsx — Wizard creazione (step 2)**
-- Estrarre `cliente_anagrafica_id` dalla polizza selezionata (via `titoli.cliente_anagrafica_id`)
-- Aggiungere campi: tipo sinistro, luogo, data evento
-- Passare tutti i campi all'edge function
+**2. Query automatica provvigioni**
 
-**4. SinistriList.tsx — Wizard (step 1) query polizze**
-- Includere `cliente_anagrafica_id` nella select dei titoli per poterlo propagare
+Nuova `useQuery` che si attiva al cambio di `selectedProdotto`:
+```
+SELECT * FROM matrice_provvigioni 
+WHERE prodotto_id = :selectedProdotto AND attiva = true
+ORDER BY user_id NULLS LAST, ufficio_id NULLS LAST
+LIMIT 1
+```
+Se trova un record → setta il campo provvigione e segna `provvigioneFromDb = true`
+
+**3. Dialog di conferma al salvataggio**
+
+Alla pressione di "Conferma":
+- Se `provvigioneFromDb === false` (valore nuovo, nessun record nel DB):
+  - Dialog: "Non esiste una provvigione salvata per questo prodotto. Vuoi salvare X% come default?"
+  - Si → INSERT in `matrice_provvigioni`
+  - No → continua senza salvare il default
+- Se `provvigioneFromDb === true` e il valore e stato modificato:
+  - Dialog: "La provvigione e cambiata da Y% a X%. Vuoi aggiornare il default per questo prodotto?"
+  - Si → UPDATE in `matrice_provvigioni`
+  - No → usa il valore solo per questa polizza
+
+**4. Nessuna modifica allo schema DB**
+
+La tabella `matrice_provvigioni` ha gia tutti i campi necessari: `prodotto_id`, `percentuale_provvigione`, `tipo_calcolo`, `attiva`
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| File modificati | `supabase/functions/gestione-sinistri/index.ts`, `src/pages/SinistriList.tsx` |
-| Query sinistri | Aggiunta join a `clienti` e `titoli` |
-| Wizard | Propagazione `cliente_anagrafica_id` da polizza selezionata |
-| Nuovi campi wizard | tipo_sinistro, luogo_sinistro, data_evento |
+| File modificato | `src/pages/ImmissionePolizzaPage.tsx` |
+| Tabella usata | `matrice_provvigioni` (gia esistente) |
+| Nuovi state | `percentualeProvvigione`, `provvigioneFromDb`, `provvigioneOriginalValue` |
+| Dialog | Componente `AlertDialog` gia presente nel progetto |
+| Operazioni DB | SELECT al cambio prodotto, INSERT/UPDATE al salvataggio con conferma |
 
