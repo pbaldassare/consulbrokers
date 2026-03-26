@@ -1083,6 +1083,7 @@ const CompagnieList = () => {
               saving={createMutation.isPending}
               title="Nuova Compagnia"
               saveLabel="Crea Compagnia"
+              compagniaId={null}
             />
           </DialogContent>
         </Dialog>
@@ -1097,6 +1098,7 @@ const CompagnieList = () => {
             saving={updateMutation.isPending}
             title="Modifica Compagnia"
             saveLabel="Salva Modifiche"
+            compagniaId={editId}
           />
         </DialogContent>
       </Dialog>
