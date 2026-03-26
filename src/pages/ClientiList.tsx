@@ -53,6 +53,7 @@ const ClientiList = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [tipoTab, setTipoTab] = useState("privato");
+  const [sortBy, setSortBy] = useState<"polizze" | "cognome" | "created_at">("polizze");
 
   // Form state
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda">("privato");
@@ -932,14 +933,26 @@ const ClientiList = () => {
               <Users className="w-5 h-5" />
               Clienti ({filtered.length})
             </CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Cerca per nome, CF, P.IVA..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-3">
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="polizze">Polizze ↓</SelectItem>
+                  <SelectItem value="cognome">Cognome A-Z</SelectItem>
+                  <SelectItem value="created_at">Data creazione ↓</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cerca per nome, CF, P.IVA..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
