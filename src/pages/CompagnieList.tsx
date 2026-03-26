@@ -216,8 +216,169 @@ function formToPayload(form: CompagniaForm) {
 
 // ── Dialog Form Component ──
 
+function ProvvigioniTabContent({ compagniaId }: { compagniaId: string | null }) {
+  const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newProvv, setNewProvv] = useState({ categoria_id: "", percentuale: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const { data: categorie = [] } = useQuery({
+    queryKey: ["categorie_prodotto"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categorie_prodotto").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: provvigioni = [], isLoading } = useQuery({
+    queryKey: ["provvigioni_compagnia_ramo", compagniaId],
+    queryFn: async () => {
+      if (!compagniaId) return [];
+      const { data, error } = await supabase
+        .from("provvigioni_compagnia_ramo")
+        .select("*, categorie_prodotto(id, nome)")
+        .eq("compagnia_id", compagniaId)
+        .eq("attiva", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!compagniaId,
+  });
+
+  const categoriaOptions = categorie.map((c: any) => ({ value: c.id, label: c.nome }));
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("provvigioni_compagnia_ramo").insert({
+        compagnia_id: compagniaId,
+        categoria_id: newProvv.categoria_id,
+        percentuale_provvigione: parseFloat(newProvv.percentuale),
+        attiva: true,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo", compagniaId] });
+      setCreateOpen(false);
+      setNewProvv({ categoria_id: "", percentuale: "" });
+      toast.success("Provvigione per ramo creata");
+    },
+    onError: (err: any) => toast.error(err.message?.includes("duplicate") ? "Ramo già configurato per questa compagnia" : "Errore nella creazione"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: number }) => {
+      const { error } = await supabase.from("provvigioni_compagnia_ramo")
+        .update({ percentuale_provvigione: value } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo", compagniaId] });
+      setEditingId(null);
+      toast.success("Provvigione aggiornata");
+    },
+    onError: () => toast.error("Errore nell'aggiornamento"),
+  });
+
+  if (!compagniaId) {
+    return (
+      <div className="py-8 text-center text-muted-foreground">
+        <Percent className="w-8 h-8 mx-auto mb-2 opacity-50" />
+        <p>Salva la compagnia prima di configurare le provvigioni per ramo.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Provvigioni configurate: {provvigioni.length}</p>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm"><Plus className="w-4 h-4 mr-2" />Nuova Provvigione</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Nuova Provvigione per Ramo</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Ramo (Categoria) *</Label>
+                <SearchableSelect
+                  options={categoriaOptions}
+                  value={newProvv.categoria_id}
+                  onValueChange={(v) => setNewProvv((p) => ({ ...p, categoria_id: v }))}
+                  placeholder="Seleziona ramo..."
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Provvigione % *</Label>
+                <Input type="number" step="0.01" value={newProvv.percentuale} onChange={(e) => setNewProvv((p) => ({ ...p, percentuale: e.target.value }))} placeholder="es. 5" />
+              </div>
+              <Button onClick={() => createMutation.mutate()} disabled={!newProvv.categoria_id || !newProvv.percentuale || createMutation.isPending} className="w-full">
+                Crea Provvigione
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? (
+        <p className="text-muted-foreground">Caricamento...</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Ramo</TableHead>
+              <TableHead>Provvigione %</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {provvigioni.map((p: any) => (
+              <TableRow key={p.id}>
+                <TableCell><Badge variant="outline">{p.categorie_prodotto?.nome || "—"}</Badge></TableCell>
+                <TableCell>
+                  {editingId === p.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        className="w-20 h-8"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && editValue) updateMutation.mutate({ id: p.id, value: parseFloat(editValue) });
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        autoFocus
+                      />
+                      <span className="text-muted-foreground">%</span>
+                    </div>
+                  ) : (
+                    <button
+                      className="flex items-center gap-1 hover:text-primary transition-colors"
+                      onClick={() => { setEditingId(p.id); setEditValue(String(p.percentuale_provvigione ?? "")); }}
+                    >
+                      <span className="font-semibold">{p.percentuale_provvigione}%</span>
+                      <Pencil className="w-3 h-3 text-muted-foreground" />
+                    </button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {provvigioni.length === 0 && (
+              <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground">Nessuna provvigione configurata</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
 function CompagniaFormDialog({
-  form, setForm, onSave, saving, title, saveLabel,
+  form, setForm, onSave, saving, title, saveLabel, compagniaId,
 }: {
   form: CompagniaForm;
   setForm: React.Dispatch<React.SetStateAction<CompagniaForm>>;
@@ -225,6 +386,7 @@ function CompagniaFormDialog({
   saving: boolean;
   title: string;
   saveLabel: string;
+  compagniaId: string | null;
 }) {
   const setField = (key: keyof CompagniaForm, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -240,9 +402,10 @@ function CompagniaFormDialog({
     <>
       <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
       <Tabs defaultValue="anagrafica" className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
+        <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="anagrafica">Dati Anagrafici</TabsTrigger>
           <TabsTrigger value="contabili">Dati Contabili</TabsTrigger>
+          <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
         </TabsList>
 
         {/* ── TAB 1: DATI ANAGRAFICI ── */}
@@ -439,6 +602,11 @@ function CompagniaFormDialog({
             </RadioGroup>
           </div>
         </TabsContent>
+
+        {/* ── TAB 3: PROVVIGIONI ── */}
+        <TabsContent value="provvigioni" className="mt-4">
+          <ProvvigioniTabContent compagniaId={compagniaId} />
+        </TabsContent>
       </Tabs>
       <Button onClick={onSave} disabled={!form.nome || saving} className="w-full mt-4">
         {saveLabel}
@@ -456,13 +624,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
   const [filterCategoria, setFilterCategoria] = useState("");
   const [createProdOpen, setCreateProdOpen] = useState(false);
 
-  // Provvigioni per Ramo state
-  const [createProvvRamoOpen, setCreateProvvRamoOpen] = useState(false);
-  const [newProvvRamo, setNewProvvRamo] = useState({ compagnia_id: "", categoria_id: "", percentuale: "" });
-  const [editingProvvRamo, setEditingProvvRamo] = useState<string | null>(null);
-  const [editProvvRamoValue, setEditProvvRamoValue] = useState("");
-  const [filterProvvCompagnia, setFilterProvvCompagnia] = useState("");
-
   const [newProd, setNewProd] = useState({
     compagnia_id: "",
     categoria_id: "",
@@ -479,21 +640,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     },
   });
 
-  // Provvigioni Compagnia+Ramo
-  const { data: provvRamo = [], isLoading: loadingProvvRamo } = useQuery({
-    queryKey: ["provvigioni_compagnia_ramo"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("provvigioni_compagnia_ramo")
-        .select("*, compagnie(id, nome, nome_sede), categorie_prodotto(id, nome)")
-        .eq("attiva", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Prodotti (catalogo, senza provvigione)
   const { data: prodotti = [], isLoading } = useQuery({
     queryKey: ["prodotti_catalogo"],
     queryFn: async () => {
@@ -516,43 +662,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     label: c.nome,
   }));
 
-  // Create provvigione ramo
-  const createProvvRamoMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("provvigioni_compagnia_ramo").insert({
-        compagnia_id: newProvvRamo.compagnia_id,
-        categoria_id: newProvvRamo.categoria_id,
-        percentuale_provvigione: parseFloat(newProvvRamo.percentuale),
-        attiva: true,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
-      setCreateProvvRamoOpen(false);
-      setNewProvvRamo({ compagnia_id: "", categoria_id: "", percentuale: "" });
-      toast.success("Provvigione per ramo creata");
-    },
-    onError: (err: any) => toast.error(err.message?.includes("duplicate") ? "Combinazione Compagnia+Ramo già esistente" : "Errore nella creazione"),
-  });
-
-  // Update provvigione ramo
-  const updateProvvRamoMutation = useMutation({
-    mutationFn: async ({ id, value }: { id: string; value: number }) => {
-      const { error } = await supabase.from("provvigioni_compagnia_ramo")
-        .update({ percentuale_provvigione: value } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
-      setEditingProvvRamo(null);
-      toast.success("Provvigione aggiornata");
-    },
-    onError: () => toast.error("Errore nell'aggiornamento"),
-  });
-
-  // Create prodotto (catalogo only, no provvigione)
   const createProdMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("prodotti").insert({
@@ -580,125 +689,9 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     return matchSearch && matchComp && matchCat;
   });
 
-  const filteredProvvRamo = provvRamo.filter((p: any) => {
-    return !filterProvvCompagnia || p.compagnia_id === filterProvvCompagnia;
-  });
-
   return (
     <div className="space-y-6">
-      {/* ── SEZIONE 1: Provvigioni per Ramo ── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Percent className="w-5 h-5" />Provvigioni per Ramo ({filteredProvvRamo.length})
-            </CardTitle>
-            <div className="flex items-center gap-3">
-              <div className="w-52">
-                <SearchableSelect
-                  options={[{ value: "", label: "Tutte le compagnie" }, ...compagniaOptions]}
-                  value={filterProvvCompagnia}
-                  onValueChange={setFilterProvvCompagnia}
-                  placeholder="Filtra compagnia..."
-                />
-              </div>
-              <Dialog open={createProvvRamoOpen} onOpenChange={setCreateProvvRamoOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="w-4 h-4 mr-2" />Nuova Provvigione Ramo</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Nuova Provvigione per Ramo</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Compagnia / Sede *</Label>
-                      <SearchableSelect
-                        options={compagniaOptions}
-                        value={newProvvRamo.compagnia_id}
-                        onValueChange={(v) => setNewProvvRamo((p) => ({ ...p, compagnia_id: v }))}
-                        placeholder="Seleziona compagnia..."
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Ramo (Categoria) *</Label>
-                      <SearchableSelect
-                        options={categoriaOptions}
-                        value={newProvvRamo.categoria_id}
-                        onValueChange={(v) => setNewProvvRamo((p) => ({ ...p, categoria_id: v }))}
-                        placeholder="Seleziona ramo..."
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Provvigione % *</Label>
-                      <Input type="number" step="0.01" value={newProvvRamo.percentuale} onChange={(e) => setNewProvvRamo((p) => ({ ...p, percentuale: e.target.value }))} placeholder="es. 5" />
-                    </div>
-                    <Button onClick={() => createProvvRamoMutation.mutate()} disabled={!newProvvRamo.compagnia_id || !newProvvRamo.categoria_id || !newProvvRamo.percentuale || createProvvRamoMutation.isPending} className="w-full">
-                      Crea Provvigione
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingProvvRamo ? (
-            <p className="text-muted-foreground">Caricamento...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Compagnia</TableHead>
-                  <TableHead>Sede</TableHead>
-                  <TableHead>Ramo</TableHead>
-                  <TableHead>Provvigione %</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProvvRamo.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.compagnie?.nome || "—"}</TableCell>
-                    <TableCell>{p.compagnie?.nome_sede || "—"}</TableCell>
-                    <TableCell><Badge variant="outline">{p.categorie_prodotto?.nome || "—"}</Badge></TableCell>
-                    <TableCell>
-                      {editingProvvRamo === p.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            className="w-20 h-8"
-                            value={editProvvRamoValue}
-                            onChange={(e) => setEditProvvRamoValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && editProvvRamoValue) {
-                                updateProvvRamoMutation.mutate({ id: p.id, value: parseFloat(editProvvRamoValue) });
-                              }
-                              if (e.key === "Escape") setEditingProvvRamo(null);
-                            }}
-                            autoFocus
-                          />
-                          <span className="text-muted-foreground">%</span>
-                        </div>
-                      ) : (
-                        <button
-                          className="flex items-center gap-1 hover:text-primary transition-colors"
-                          onClick={() => { setEditingProvvRamo(p.id); setEditProvvRamoValue(String(p.percentuale_provvigione ?? "")); }}
-                        >
-                          <span className="font-semibold">{p.percentuale_provvigione}%</span>
-                          <Pencil className="w-3 h-3 text-muted-foreground" />
-                        </button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredProvvRamo.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nessuna provvigione configurata</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── SEZIONE 2: Catalogo Prodotti ── */}
+      {/* ── Catalogo Prodotti ── */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-end gap-4">
@@ -915,6 +908,7 @@ const CompagnieList = () => {
               saving={createMutation.isPending}
               title="Nuova Compagnia"
               saveLabel="Crea Compagnia"
+              compagniaId={null}
             />
           </DialogContent>
         </Dialog>
@@ -929,6 +923,7 @@ const CompagnieList = () => {
             saving={updateMutation.isPending}
             title="Modifica Compagnia"
             saveLabel="Salva Modifiche"
+            compagniaId={editId}
           />
         </DialogContent>
       </Dialog>
