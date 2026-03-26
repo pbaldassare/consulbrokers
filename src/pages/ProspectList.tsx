@@ -181,7 +181,16 @@ const ProspectList = () => {
                   <TableCell className="text-muted-foreground">{p.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{p.telefono || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{p.fonte || "—"}</TableCell>
-                  <TableCell>{getStatoBadge(p.stato)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {getStatoBadge(p.stato)}
+                      {p.convertito_cliente_id && (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-kpi-green-bg text-kpi-green-text border border-kpi-green-border">
+                          Convertito
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {p.profiles ? `${p.profiles.nome || ""} ${p.profiles.cognome || ""}`.trim() : "—"}
                   </TableCell>
