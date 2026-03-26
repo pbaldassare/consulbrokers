@@ -13,6 +13,7 @@ const USERS = [
   { nome: "Contabilita", cognome: "Consul", email: "contabilita@consul.it", ruolo: "contabilita" },
   { nome: "CFO", cognome: "Consul", email: "cfo@consul.it", ruolo: "cfo" },
   { nome: "Cliente", cognome: "Consul", email: "cliente@consul.it", ruolo: "cliente" },
+  { nome: "Backoffice", cognome: "Consul", email: "backoffice@consul.it", ruolo: "backoffice" },
 ];
 
 Deno.serve(async (req) => {
