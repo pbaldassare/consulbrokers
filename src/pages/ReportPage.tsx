@@ -31,7 +31,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
     filtri: [
       { key: "_data_da", label: "Data Da", type: "date" },
       { key: "_data_a", label: "Data A", type: "date" },
-      { key: "_ufficio_id", label: "Ufficio", type: "select" },
+      { key: "_ufficio_id", label: "Sede", type: "select" },
       { key: "_compagnia_id", label: "Compagnia", type: "select" },
     ],
     colonne: [
@@ -39,7 +39,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
       { key: "cliente", label: "Cliente" },
       { key: "prodotto", label: "Prodotto" },
       { key: "compagnia", label: "Compagnia" },
-      { key: "ufficio", label: "Ufficio" },
+      { key: "ufficio", label: "Sede" },
       { key: "premio_lordo", label: "Premio Lordo", align: "right", format: "euro" },
       { key: "importo_incassato", label: "Incassato", align: "right", format: "euro" },
       { key: "data_incasso", label: "Data Incasso", format: "date" },
@@ -73,7 +73,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
     filtri: [
       { key: "_data_da", label: "Data Da", type: "date" },
       { key: "_data_a", label: "Data A", type: "date" },
-      { key: "_ufficio_id", label: "Ufficio", type: "select" },
+      { key: "_ufficio_id", label: "Sede", type: "select" },
       { key: "_categoria", label: "Categoria", type: "select" },
     ],
     colonne: [
@@ -82,7 +82,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
       { key: "categoria", label: "Categoria" },
       { key: "descrizione", label: "Descrizione" },
       { key: "importo", label: "Importo", align: "right", format: "euro" },
-      { key: "ufficio", label: "Ufficio" },
+      { key: "ufficio", label: "Sede" },
       { key: "stato", label: "Stato" },
     ],
   },
@@ -93,7 +93,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
     filtri: [
       { key: "_data_da", label: "Data Da", type: "date" },
       { key: "_data_a", label: "Data A", type: "date" },
-      { key: "_ufficio_id", label: "Ufficio", type: "select" },
+      { key: "_ufficio_id", label: "Sede", type: "select" },
       { key: "_stato", label: "Stato", type: "select" },
     ],
     colonne: [
@@ -105,7 +105,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
       { key: "data_apertura", label: "Apertura", format: "date" },
       { key: "data_chiusura", label: "Chiusura", format: "date" },
       { key: "eventi_scaduti", label: "Ev. Scaduti", align: "right" },
-      { key: "ufficio", label: "Ufficio" },
+      { key: "ufficio", label: "Sede" },
     ],
   },
   {
@@ -113,7 +113,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
     label: "Banca KO Aperti",
     rpcName: "report_banca_ko",
     filtri: [
-      { key: "_ufficio_id", label: "Ufficio", type: "select" },
+      { key: "_ufficio_id", label: "Sede", type: "select" },
     ],
     colonne: [
       { key: "created_at", label: "Data KO", format: "date" },

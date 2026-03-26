@@ -180,7 +180,7 @@ const ImpostazioniPage = () => {
       <Tabs defaultValue={isAdmin ? "sistema" : "ufficio"}>
         <TabsList>
           {isAdmin && <TabsTrigger value="sistema">Sistema</TabsTrigger>}
-          <TabsTrigger value="ufficio">Ufficio</TabsTrigger>
+          <TabsTrigger value="ufficio">Sede</TabsTrigger>
         </TabsList>
 
         {isAdmin && (
