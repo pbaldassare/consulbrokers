@@ -274,7 +274,7 @@ const AreaCFO = () => {
               <Input type="date" value={dataA} onChange={(e) => setDataA(e.target.value)} className="w-[160px]" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Ufficio</Label>
+              <Label className="text-xs font-medium">Sede</Label>
               <Select value={ufficioId} onValueChange={setUfficioId}>
                 <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
