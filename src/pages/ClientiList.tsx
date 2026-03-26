@@ -176,6 +176,23 @@ const ClientiList = () => {
     },
   });
 
+  const { data: polizzeCounts } = useQuery({
+    queryKey: ["polizze-count-per-cliente"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("cliente_anagrafica_id")
+        .not("cliente_anagrafica_id", "is", null);
+      const counts: Record<string, number> = {};
+      for (const t of data || []) {
+        if (t.cliente_anagrafica_id) {
+          counts[t.cliente_anagrafica_id] = (counts[t.cliente_anagrafica_id] || 0) + 1;
+        }
+      }
+      return counts;
+    },
+  });
+
   const { data: gruppiFinanziari = [] } = useQuery({
     queryKey: ["gruppi_finanziari_lookup"],
     queryFn: async () => {
@@ -954,6 +971,7 @@ const ClientiList = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefono</TableHead>
                       <TableHead>Città</TableHead>
+                      <TableHead>Polizze</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>Attivo</TableHead>
                     </TableRow>
@@ -967,6 +985,11 @@ const ClientiList = () => {
                         <TableCell>{c.email || "—"}</TableCell>
                         <TableCell>{c.telefono || "—"}</TableCell>
                         <TableCell>{c.citta_residenza || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={(polizzeCounts?.[c.id] || 0) > 0 ? "default" : "secondary"}>
+                            {polizzeCounts?.[c.id] || 0}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={c.attivo ? "default" : "secondary"}>
                             {c.attivo ? "Attivo" : "Disattivo"}
@@ -982,7 +1005,7 @@ const ClientiList = () => {
                     ))}
                     {filtered.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessun cliente privato trovato
                         </TableCell>
                       </TableRow>
@@ -1005,6 +1028,7 @@ const ClientiList = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>PEC</TableHead>
                       <TableHead>Città</TableHead>
+                      <TableHead>Polizze</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>Attivo</TableHead>
                     </TableRow>
@@ -1018,6 +1042,11 @@ const ClientiList = () => {
                         <TableCell>{c.email || "—"}</TableCell>
                         <TableCell>{c.pec || "—"}</TableCell>
                         <TableCell>{c.citta_sede || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={(polizzeCounts?.[c.id] || 0) > 0 ? "default" : "secondary"}>
+                            {polizzeCounts?.[c.id] || 0}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={c.attivo ? "default" : "secondary"}>
                             {c.attivo ? "Attivo" : "Disattivo"}
@@ -1033,7 +1062,7 @@ const ClientiList = () => {
                     ))}
                     {filtered.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessuna azienda trovata
                         </TableCell>
                       </TableRow>
