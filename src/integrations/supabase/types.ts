@@ -4249,22 +4249,31 @@ export type Database = {
           attivo: boolean | null
           codice_ufficio: string | null
           created_at: string | null
+          email: string | null
           id: string
+          indirizzo: string | null
           nome_ufficio: string
+          telefono: string | null
         }
         Insert: {
           attivo?: boolean | null
           codice_ufficio?: string | null
           created_at?: string | null
+          email?: string | null
           id?: string
+          indirizzo?: string | null
           nome_ufficio: string
+          telefono?: string | null
         }
         Update: {
           attivo?: boolean | null
           codice_ufficio?: string | null
           created_at?: string | null
+          email?: string | null
           id?: string
+          indirizzo?: string | null
           nome_ufficio?: string
+          telefono?: string | null
         }
         Relationships: []
       }
