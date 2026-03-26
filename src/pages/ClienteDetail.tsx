@@ -240,7 +240,6 @@ export default function ClienteDetail() {
     },
   });
 
-  // Inline edit state
   const [editFields, setEditFields] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -269,7 +268,6 @@ export default function ClienteDetail() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // Polizze collegate al cliente
   const { data: polizze = [] } = useQuery({
     queryKey: ["polizze_cliente", id],
     queryFn: async () => {
@@ -284,7 +282,6 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
-  // Relazioni
   const { data: relazioni = [] } = useQuery({
     queryKey: ["relazioni_cliente", id],
     queryFn: async () => {
@@ -489,153 +486,15 @@ export default function ClienteDetail() {
         )}
       </div>
 
-      {/* Dati Anagrafici */}
-      <Card>
-        <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <FieldInput label="Codice Ricerca" field="codice_ricerca" />
-            <FieldSelect label="Titolo" field="titolo" options={[
-              { value: "sig", label: "Sig." }, { value: "sig.ra", label: "Sig.ra" },
-              { value: "dott", label: "Dott." }, { value: "dott.ssa", label: "Dott.ssa" },
-              { value: "ing", label: "Ing." }, { value: "avv", label: "Avv." },
-            ]} />
-            <FieldSelect label="Stato" field="stato_cliente" options={[
-              { value: "attivo", label: "Attivo" }, { value: "sospeso", label: "Sospeso" }, { value: "non_operativo", label: "Non Operativo" },
-            ]} />
-            <FieldSelect label="Prospect" field="prospect" options={[
-              { value: "si", label: "Sì" }, { value: "ex", label: "Ex" }, { value: "na", label: "N/A" },
-            ]} />
-            {isPrivato ? (
-              <>
-                <FieldInput label="Codice Fiscale" field="codice_fiscale" />
-                <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
-                <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
-                <FieldDisplay label="Indirizzo" value={cliente.indirizzo_residenza} />
-                <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
-                <FieldDisplay label="CAP" value={cliente.cap_residenza} />
-              </>
-            ) : (
-              <>
-                <FieldInput label="Partita IVA" field="partita_iva" />
-                <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
-                <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
-                <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
-                <FieldDisplay label="Sede" value={cliente.indirizzo_sede} />
-                <FieldDisplay label="Città" value={`${cliente.citta_sede || ""} ${cliente.provincia_sede ? `(${cliente.provincia_sede})` : ""}`} />
-              </>
-            )}
-            <FieldDisplay label="Email" value={cliente.email} />
-            <FieldDisplay label="Telefono" value={cliente.telefono} />
-            <FieldInput label="Cellulare" field="cellulare" />
-            <FieldInput label="Fax" field="fax" />
-            <FieldDisplay label="PEC" value={cliente.pec} />
-            <FieldInput label="Nazione" field="nazione" />
-            <FieldInput label="Attenzione di" field="attenzione_di" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Accordion sections */}
-      <Accordion type="multiple" className="space-y-2">
-        {/* Dati Gestionali */}
-        <AccordionItem value="gestionali" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2"><Settings className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Gestionali</span></div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
-              <FieldSelect label="Tipo Persona" field="tipo_persona" options={[
-                { value: "fisica", label: "Fisica" }, { value: "giuridica", label: "Giuridica" }, { value: "na", label: "N/A" },
-              ]} />
-              <FieldSelect label="Sesso" field="sesso" options={[
-                { value: "M", label: "M" }, { value: "F", label: "F" }, { value: "na", label: "N/A" },
-              ]} />
-              <FieldInput label="Comune Nascita" field="comune_nascita" />
-              <FieldInput label="Provincia Nascita" field="provincia_nascita" />
-              <FieldSelect label="Tipo Sommario" field="tipo_sommario" options={[
-                { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "D", label: "D" }, { value: "E", label: "E" },
-              ]} />
-              <FieldSwitch label="Cliente Non Ceduto" field="cliente_non_ceduto" />
-              <FieldSwitch label="Azienda SSN/SX" field="azienda_ssn_sx" />
-              <FieldSwitch label="Stat. Premi/Sinistri" field="statistica_premi_sinistri" />
-              <FieldInput label="Spec. SX Danni" field="spec_sx_danni" />
-              <FieldInput label="Spec. SX Sanità" field="spec_sx_sanita" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Dati Statistici */}
-        <AccordionItem value="statistici" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
-              <FieldInput label="Zona" field="zona" />
-              <FieldInput label="Indotto" field="indotto" />
-              <div>
-                <Label className="text-xs">Gruppo Finanziario</Label>
-                {readOnly ? (
-                  <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.descrizione || "—"}</p>
-                ) : (
-                  <SearchableSelect
-                    className="h-8 text-xs"
-                    value={ef.gruppo_finanziario_id || ""}
-                    onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-                    placeholder="— Seleziona gruppo —"
-                    options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                  />
-                )}
-              </div>
-              <FieldInput label="Attività" field="attivita" />
-              <FieldInput label="Settore" field="settore" />
-              <FieldInput label="Azienda Stat." field="azienda_stat" />
-              <FieldInput label="Contratto" field="contratto" />
-              <FieldInput label="Matricola" field="matricola" />
-              <FieldInput label="Riferimento" field="riferimento" />
-              <FieldInput label="Fatturato" field="fatturato" type="number" />
-              <FieldInput label="N. Dipendenti" field="num_dipendenti" type="number" />
-              <FieldInput label="Codice ATECO" field="codice_ateco" />
-              <FieldSwitch label="Cliente Associato" field="cliente_associato" />
-              <FieldSwitch label="Cliente Captive" field="cliente_captive" />
-              <FieldSwitch label="Internazionale" field="internazionale" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Codici Commerciali */}
-        <AccordionItem value="commerciali" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /><span className="font-semibold">Codici Commerciali (Rete)</span></div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <CodiciCommercialiSection clienteId={id!} />
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Dati Contabili */}
-        <AccordionItem value="contabili" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Contabili</span></div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
-              <FieldInput label="Fido Credito €" field="fido_credito" type="number" />
-              <FieldInput label="Fido Cauzioni €" field="fido_cauzioni" type="number" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
-      {/* Tabs */}
+      {/* Tabs - positioned right after header */}
       <Tabs defaultValue="polizze">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({polizze.length})</TabsTrigger>
           <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
         </TabsList>
 
         <TabsContent value="polizze">
@@ -733,6 +592,143 @@ export default function ClienteDetail() {
 
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
         <TabsContent value="timeline"><TimelineTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
+
+        <TabsContent value="anagrafica" className="space-y-6">
+          {/* Dati Anagrafici */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <FieldInput label="Codice Ricerca" field="codice_ricerca" />
+                <FieldSelect label="Titolo" field="titolo" options={[
+                  { value: "sig", label: "Sig." }, { value: "sig.ra", label: "Sig.ra" },
+                  { value: "dott", label: "Dott." }, { value: "dott.ssa", label: "Dott.ssa" },
+                  { value: "ing", label: "Ing." }, { value: "avv", label: "Avv." },
+                ]} />
+                <FieldSelect label="Stato" field="stato_cliente" options={[
+                  { value: "attivo", label: "Attivo" }, { value: "sospeso", label: "Sospeso" }, { value: "non_operativo", label: "Non Operativo" },
+                ]} />
+                <FieldSelect label="Prospect" field="prospect" options={[
+                  { value: "si", label: "Sì" }, { value: "ex", label: "Ex" }, { value: "na", label: "N/A" },
+                ]} />
+                {isPrivato ? (
+                  <>
+                    <FieldInput label="Codice Fiscale" field="codice_fiscale" />
+                    <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
+                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
+                    <FieldDisplay label="Indirizzo" value={cliente.indirizzo_residenza} />
+                    <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
+                    <FieldDisplay label="CAP" value={cliente.cap_residenza} />
+                  </>
+                ) : (
+                  <>
+                    <FieldInput label="Partita IVA" field="partita_iva" />
+                    <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
+                    <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
+                    <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
+                    <FieldDisplay label="Sede" value={cliente.indirizzo_sede} />
+                    <FieldDisplay label="Città" value={`${cliente.citta_sede || ""} ${cliente.provincia_sede ? `(${cliente.provincia_sede})` : ""}`} />
+                  </>
+                )}
+                <FieldDisplay label="Email" value={cliente.email} />
+                <FieldDisplay label="Telefono" value={cliente.telefono} />
+                <FieldInput label="Cellulare" field="cellulare" />
+                <FieldInput label="Fax" field="fax" />
+                <FieldDisplay label="PEC" value={cliente.pec} />
+                <FieldInput label="Nazione" field="nazione" />
+                <FieldInput label="Attenzione di" field="attenzione_di" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Accordion sections */}
+          <Accordion type="multiple" className="space-y-2">
+            <AccordionItem value="gestionali" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2"><Settings className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Gestionali</span></div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+                  <FieldSelect label="Tipo Persona" field="tipo_persona" options={[
+                    { value: "fisica", label: "Fisica" }, { value: "giuridica", label: "Giuridica" }, { value: "na", label: "N/A" },
+                  ]} />
+                  <FieldSelect label="Sesso" field="sesso" options={[
+                    { value: "M", label: "M" }, { value: "F", label: "F" }, { value: "na", label: "N/A" },
+                  ]} />
+                  <FieldInput label="Comune Nascita" field="comune_nascita" />
+                  <FieldInput label="Provincia Nascita" field="provincia_nascita" />
+                  <FieldSelect label="Tipo Sommario" field="tipo_sommario" options={[
+                    { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "D", label: "D" }, { value: "E", label: "E" },
+                  ]} />
+                  <FieldSwitch label="Cliente Non Ceduto" field="cliente_non_ceduto" />
+                  <FieldSwitch label="Azienda SSN/SX" field="azienda_ssn_sx" />
+                  <FieldSwitch label="Stat. Premi/Sinistri" field="statistica_premi_sinistri" />
+                  <FieldInput label="Spec. SX Danni" field="spec_sx_danni" />
+                  <FieldInput label="Spec. SX Sanità" field="spec_sx_sanita" />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="statistici" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+                  <FieldInput label="Zona" field="zona" />
+                  <FieldInput label="Indotto" field="indotto" />
+                  <div>
+                    <Label className="text-xs">Gruppo Finanziario</Label>
+                    {readOnly ? (
+                      <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.descrizione || "—"}</p>
+                    ) : (
+                      <SearchableSelect
+                        className="h-8 text-xs"
+                        value={ef.gruppo_finanziario_id || ""}
+                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+                        placeholder="— Seleziona gruppo —"
+                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                      />
+                    )}
+                  </div>
+                  <FieldInput label="Attività" field="attivita" />
+                  <FieldInput label="Settore" field="settore" />
+                  <FieldInput label="Azienda Stat." field="azienda_stat" />
+                  <FieldInput label="Contratto" field="contratto" />
+                  <FieldInput label="Matricola" field="matricola" />
+                  <FieldInput label="Riferimento" field="riferimento" />
+                  <FieldInput label="Fatturato" field="fatturato" type="number" />
+                  <FieldInput label="N. Dipendenti" field="num_dipendenti" type="number" />
+                  <FieldInput label="Codice ATECO" field="codice_ateco" />
+                  <FieldSwitch label="Cliente Associato" field="cliente_associato" />
+                  <FieldSwitch label="Cliente Captive" field="cliente_captive" />
+                  <FieldSwitch label="Internazionale" field="internazionale" />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="commerciali" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /><span className="font-semibold">Codici Commerciali (Rete)</span></div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <CodiciCommercialiSection clienteId={id!} />
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="contabili" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Contabili</span></div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+                  <FieldInput label="Fido Credito €" field="fido_credito" type="number" />
+                  <FieldInput label="Fido Cauzioni €" field="fido_cauzioni" type="number" />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </TabsContent>
       </Tabs>
 
       {/* Dialog Aggiungi Relazione */}
