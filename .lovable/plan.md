@@ -1,36 +1,48 @@
 
 
-## Piano: Pulsante "Converti in Cliente" nel Dettaglio Prospect
+## Piano: Unificare Compagnie + Categorie + Prodotti + Provvigioni
 
-### Concetto
+### Concetto compreso
 
-Prospect e Cliente sono due entita separate. Quando un prospect viene "chiuso vinto", deve poter essere convertito in un record nella tabella `clienti`. Il pulsante copia i dati anagrafici dal prospect, crea il cliente, segna il prospect come convertito e reindirizza alla scheda cliente.
+La struttura attuale (3 pagine separate: Compagnie, Categorie, Prodotti) va unificata in un'unica pagina "Compagnie". Ogni record compagnia rappresenta una **Compagnia + Sede** (es. "Allianz - Milano 1", "Allianz - Roma 2"). Possono esistere decine di record per la stessa compagnia madre con sedi diverse. Dentro ogni compagnia/sede, si gestiscono i **prodotti** (con categoria e nome testuale) e le **provvigioni**.
+
+```text
+Compagnia (Allianz)
+  └─ Sede (Milano 1)
+       └─ Categoria (Tutela Legale)
+            └─ Prodotto (T Legale Allianz) → Provvigione 12%
+```
 
 ### Interventi
 
-**1. Migration SQL — campo `convertito_cliente_id` su prospect**
-- Aggiungere colonna `convertito_cliente_id uuid REFERENCES clienti(id)` alla tabella `prospect`
-- Quando valorizzato, indica che il prospect e stato convertito e punta al cliente creato
+**1. Migration SQL — campo `nome_sede` su compagnie**
+- `ALTER TABLE compagnie ADD COLUMN nome_sede text` — per distinguere le sedi (es. "Milano 1", "Roma Centro")
+- La combinazione nome + nome_sede identifica univocamente la compagnia/sede
 
-**2. ProspectDetail.tsx — Pulsante "Converti in Cliente"**
-- Aggiungere un bottone visibile solo se `prospect.stato === "chiuso_vinto"` e `convertito_cliente_id` e null
-- Se gia convertito, mostrare un Badge/link "Convertito → Vai al Cliente"
-- Al click: dialog di conferma con riepilogo dati che verranno copiati
-- La mutation:
-  1. INSERT in `clienti` con tipo_cliente = "privato", mappando nome, cognome, email, telefono, note, ufficio_id dal prospect
-  2. UPDATE prospect con `convertito_cliente_id = nuovo_cliente.id`
-  3. Log attivita "conversione_prospect_cliente"
-  4. Toast di successo + navigazione a `/archivi/clienti/:id`
+**2. CompagnieList.tsx — Nuova tab "Prodotti & Provvigioni"**
+- Aggiungere una terza tab oltre "Anagrafica" e "Sinistri": **"Prodotti & Provvigioni"**
+- La tab mostra una tabella espandibile:
+  - Colonne: Compagnia, Sede, Categoria, Prodotto, Provvigione %, Stato
+  - Filtri per compagnia e categoria
+  - Pulsante "Nuovo Prodotto" che apre dialog con: select compagnia/sede, select categoria, nome prodotto (testo libero), % provvigione
+  - Modifica inline della provvigione con click sulla riga
 
-**3. ProspectList.tsx — Indicatore visivo**
-- Nella lista, se il prospect ha `convertito_cliente_id` valorizzato, mostrare un piccolo badge "Convertito" accanto allo stato
+**3. CompagnieList.tsx — Aggiungere campo "Sede" nel form compagnia**
+- Nel dialog di creazione/modifica compagnia, aggiungere campo "Nome Sede" accanto al nome compagnia
+- Es.: Nome = "Allianz", Sede = "Milano 1"
+
+**4. Sidebar e Routes — Rimuovere Prodotti e Categorie**
+- Rimuovere le voci "Categorie" e "Prodotti" dalla sidebar (`AppSidebar.tsx`)
+- Rimuovere le route `/categorie` e `/prodotti` da `sistema.tsx`
+- Le pagine `CategorieList.tsx` e `ProdottiList.tsx` restano nel codice ma non sono piu raggiungibili dal menu
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| Migration | `ALTER TABLE prospect ADD COLUMN convertito_cliente_id uuid REFERENCES clienti(id)` |
-| File modificati | `ProspectDetail.tsx`, `ProspectList.tsx` |
-| Mapping campi | nome, cognome, email, telefono, note, ufficio_id → clienti |
-| Condizione bottone | stato = "chiuso_vinto" AND convertito_cliente_id IS NULL |
+| Migration | `ALTER TABLE compagnie ADD COLUMN nome_sede text` |
+| File modificati | `CompagnieList.tsx`, `AppSidebar.tsx`, `src/routes/sistema.tsx` |
+| Query prodotti nella tab | `prodotti` JOIN `compagnie` JOIN `categorie_prodotto` JOIN `matrice_provvigioni` |
+| Creazione prodotto | INSERT in `prodotti` + INSERT in `matrice_provvigioni` (se provvigione specificata) |
+| Tabella categorie | Resta come lookup, gestibile inline nella tab prodotti |
 
