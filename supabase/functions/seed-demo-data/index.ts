@@ -27,6 +27,23 @@ const STRADE = ['Via Roma','Via Garibaldi','Corso Italia','Via Mazzini','Via Dan
 const RAGIONI = ['Tecnoservice','Edilcostruzioni','Agroalimentare del Sud','Logistica Express','Meccanica di Precisione','Farmaceutica Italiana','Chimica Industriale','IT Solutions','Energia Rinnovabile','Consulenza & Gestione','Immobiliare Moderna','Automotive Italia','Tessile & Moda','Alimentari Genuini','Costruzioni Generali','Engineering Group','Digital Innovation','Green Power','Quality Systems','Professional Services','Metal Works','Trasporti Veloci','Bio Cosmetics','Elettronica Avanzata','Servizi Finanziari'];
 const FORME = ['S.r.l.','S.p.A.','S.a.s.','S.n.c.','S.r.l.s.'];
 const COMUNI_NASCITA = ['A944','F205','H501','L219','D612','G273','B354','C351','E463','L736','A662','B157','C933','D969','E625'];
+const SETTORI = ['Manifatturiero','Servizi','Commercio','Edilizia','Trasporti','Agricoltura','Turismo','Sanità','Istruzione','Pubblica Amministrazione','Finanza','Tecnologia','Energia','Alimentare'];
+const ZONE = ['Nord','Centro','Sud','Isole'];
+const CODICI_ATECO = ['01.11','10.71','25.11','41.20','43.21','46.90','47.11','49.41','55.10','56.10','62.01','64.19','68.20','69.10','70.22','71.12','73.11','82.11','85.10','86.10'];
+const ENTI_NOMI = [
+  {nome:'ASL Roma 1',tipo_ente:'ASL'},{nome:'ASL Napoli 1 Centro',tipo_ente:'ASL'},{nome:'ASL Città di Torino',tipo_ente:'ASL'},
+  {nome:'ASL Milano',tipo_ente:'ASL'},{nome:'ASL Toscana Centro',tipo_ente:'ASL'},{nome:'ASL Bologna',tipo_ente:'ASL'},
+  {nome:'Comune di Roma',tipo_ente:'Comune'},{nome:'Comune di Milano',tipo_ente:'Comune'},{nome:'Comune di Napoli',tipo_ente:'Comune'},
+  {nome:'Comune di Firenze',tipo_ente:'Comune'},{nome:'Comune di Bologna',tipo_ente:'Comune'},{nome:'Comune di Torino',tipo_ente:'Comune'},
+  {nome:'Provincia di Roma',tipo_ente:'Provincia'},{nome:'Provincia di Milano',tipo_ente:'Provincia'},{nome:'Provincia di Napoli',tipo_ente:'Provincia'},
+  {nome:'Regione Lazio',tipo_ente:'Regione'},{nome:'Regione Lombardia',tipo_ente:'Regione'},{nome:'Regione Campania',tipo_ente:'Regione'},
+  {nome:'Università La Sapienza',tipo_ente:'Università'},{nome:'Politecnico di Milano',tipo_ente:'Università'},{nome:'Università Federico II',tipo_ente:'Università'},
+  {nome:'Università di Bologna',tipo_ente:'Università'},{nome:'Università di Firenze',tipo_ente:'Università'},
+  {nome:'INPS - Direzione Provinciale Roma',tipo_ente:'INPS'},{nome:'INPS - Direzione Provinciale Milano',tipo_ente:'INPS'},
+  {nome:'INAIL - Sede di Roma',tipo_ente:'INAIL'},{nome:'INAIL - Sede di Milano',tipo_ente:'INAIL'},
+  {nome:'Azienda Ospedaliera San Camillo',tipo_ente:'Ospedale'},{nome:'Policlinico Gemelli',tipo_ente:'Ospedale'},
+  {nome:'Camera di Commercio di Roma',tipo_ente:'CCIAA'},
+];
 
 // ==================== HELPERS ====================
 const pick = <T>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
@@ -140,11 +157,12 @@ Deno.serve(async (req) => {
     if (clientIds.length === 0) clientIds.push('d2364de7-7548-463e-9a67-ecbf68b9aee1');
     R.profiles = createdIds.length;
 
-    // ==================== 3. CLIENTI (CRM - 160) ====================
+    // ==================== 3. CLIENTI (CRM - 160 privati + 50 aziende + 30 enti) ====================
     const clientiData: any[] = [];
+    const clientiIds: string[] = [];
 
-    // 110 privati
-    for (let i = 0; i < 110; i++) {
+    // 160 privati
+    for (let i = 0; i < 160; i++) {
       const male = Math.random() > 0.45;
       const nome = pick(male ? NM : NF);
       const cognome = pick(COG);
@@ -152,19 +170,33 @@ Deno.serve(async (req) => {
       const yN = ri(1945, 2002);
       const mN = ri(1, 12);
       const dN = ri(1, 28);
+      const birthCity = pick(CITIES);
+      const id = uuid();
+      clientiIds.push(id);
       clientiData.push({
+        id,
         tipo_cliente: 'privato',
+        tipo_persona: 'fisica',
         nome, cognome,
+        sesso: male ? 'M' : 'F',
         codice_fiscale: fakeCF(cognome, nome, yN, mN, dN, male ? 'M' : 'F'),
         data_nascita: `${yN}-${pad(mN, 2)}-${pad(dN, 2)}`,
-        luogo_nascita: pick(CITIES).c,
+        luogo_nascita: birthCity.c,
+        comune_nascita: birthCity.c,
+        provincia_nascita: birthCity.p,
         email: `${nome.toLowerCase()}.${cognome.toLowerCase()}.${ri(1,999)}@email.it`,
         telefono: fakePhone(),
+        cellulare: fakePhone(),
         indirizzo_residenza: `${pick(STRADE)} ${ri(1, 250)}`,
         citta_residenza: city.c,
         cap_residenza: city.cap,
         provincia_residenza: city.p,
         attivo: Math.random() > 0.08,
+        stato_cliente: pick(['attivo','attivo','attivo','prospect','sospeso']),
+        zona: pick(ZONE),
+        settore: pick(SETTORI),
+        codice_ateco: pick(CODICI_ATECO),
+        fido_credito: Math.random() > 0.7 ? rf(1000, 50000) : null,
         note: `[DEMO] Cliente privato #${i + 1}`,
         ufficio_id: pick(uIds),
       });
@@ -176,16 +208,22 @@ Deno.serve(async (req) => {
       const base = pick(RAGIONI);
       const cog = pick(COG);
       const forma = pick(FORME);
+      const piva = fakePIVA();
+      const id = uuid();
+      clientiIds.push(id);
       clientiData.push({
+        id,
         tipo_cliente: 'azienda',
+        tipo_persona: 'giuridica',
         ragione_sociale: `${base} ${cog} ${forma}`,
-        partita_iva: fakePIVA(),
-        codice_fiscale_azienda: fakePIVA(),
         forma_giuridica: forma,
+        partita_iva: piva,
+        codice_fiscale_azienda: piva,
         codice_sdi: `${String.fromCharCode(65 + ri(0, 25))}${pad(ri(100000, 999999), 6)}`,
         email: `info@${base.toLowerCase().replace(/[\s&']/g, '')}${ri(1,99)}.it`,
         pec: `pec@${base.toLowerCase().replace(/[\s&']/g, '')}${ri(1,99)}.legalmail.it`,
         telefono: fakePhone(),
+        cellulare: fakePhone(),
         indirizzo_sede: `${pick(STRADE)} ${ri(1, 200)}`,
         citta_sede: city.c,
         cap_sede: city.cap,
@@ -195,12 +233,65 @@ Deno.serve(async (req) => {
         referente_email: `ref.${ri(1,999)}@demo.it`,
         referente_telefono: fakePhone(),
         attivo: Math.random() > 0.08,
+        stato_cliente: pick(['attivo','attivo','attivo','prospect']),
+        zona: pick(ZONE),
+        settore: pick(SETTORI),
+        codice_ateco: pick(CODICI_ATECO),
+        num_dipendenti: ri(5, 500),
+        fatturato: rf(100000, 50000000),
+        fido_credito: rf(5000, 200000),
+        fido_cauzioni: rf(10000, 500000),
         note: `[DEMO] Azienda #${i + 1}`,
+        ufficio_id: pick(uIds),
+      });
+    }
+
+    // 30 enti pubblici
+    for (let i = 0; i < ENTI_NOMI.length; i++) {
+      const ente = ENTI_NOMI[i];
+      const city = CITIES[i % CITIES.length];
+      const piva = fakePIVA();
+      const id = uuid();
+      clientiIds.push(id);
+      clientiData.push({
+        id,
+        tipo_cliente: 'ente',
+        tipo_persona: 'giuridica',
+        ragione_sociale: ente.nome,
+        partita_iva: piva,
+        codice_fiscale_azienda: piva,
+        codice_sdi: `${String.fromCharCode(65 + ri(0, 25))}${pad(ri(100000, 999999), 6)}`,
+        email: `protocollo@${ente.nome.toLowerCase().replace(/[\s\-&']/g, '').substring(0, 15)}${ri(1,9)}.gov.it`,
+        pec: `pec@${ente.nome.toLowerCase().replace(/[\s\-&']/g, '').substring(0, 15)}.legalmail.it`,
+        telefono: fakePhone(),
+        indirizzo_sede: `${pick(STRADE)} ${ri(1, 100)}`,
+        citta_sede: city.c,
+        cap_sede: city.cap,
+        provincia_sede: city.p,
+        referente_nome: pick(NM),
+        referente_cognome: pick(COG),
+        referente_email: `ref.${ente.tipo_ente.toLowerCase()}.${ri(1,99)}@gov.it`,
+        referente_telefono: fakePhone(),
+        attivo: true,
+        stato_cliente: 'attivo',
+        zona: pick(ZONE),
+        settore: 'Pubblica Amministrazione',
+        codice_ateco: '84.11',
+        num_dipendenti: ri(50, 5000),
+        fido_credito: rf(50000, 1000000),
+        fido_cauzioni: rf(100000, 2000000),
+        indotto: ente.tipo_ente,
+        note: `[DEMO] Ente pubblico - ${ente.tipo_ente} #${i + 1}`,
         ufficio_id: pick(uIds),
       });
     }
     await batchInsert(db, 'clienti', clientiData);
     R.clienti = clientiData.length;
+
+    // Separate clienti by type for later use
+    const privatiIds = clientiIds.slice(0, 160);
+    const aziendeIds = clientiIds.slice(160, 210);
+    const entiIds = clientiIds.slice(210);
 
     // ==================== 4. FETCH COMPAGNIE & CATEGORIE ====================
     const { data: comp } = await db.from('compagnie').select('id');
@@ -248,18 +339,49 @@ Deno.serve(async (req) => {
     await batchInsert(db, 'matrice_provvigioni', matrice);
     R.matrice_provvigioni = matrice.length;
 
-    // ==================== 7. TITOLI (230 polizze) ====================
-    const statiPol = ['attivo','attivo','attivo','attivo','incassato','incassato','incassato','incassato','incassato','scaduto','scaduto','annullato','stornato','sospeso'];
+    // ==================== 7. TITOLI (690 polizze collegate a clienti CRM) ====================
+    const statiPol = ['creato','creato','creato','incassato','incassato','incassato','incassato','incassato','incassato','annullato','stornato'];
     const titoliData: any[] = [];
     const titoliIds: string[] = [];
 
-    for (let i = 0; i < 230; i++) {
+    // Build distribution: privati get 1-5 polizze, aziende 3-15, enti 5-20
+    const polizzeAssignment: { clienteAnagId: string; clienteAuthId: string }[] = [];
+
+    // Privati: ~350 polizze
+    for (const cid of privatiIds) {
+      const numPol = ri(1, 5);
+      for (let j = 0; j < numPol; j++) {
+        polizzeAssignment.push({ clienteAnagId: cid, clienteAuthId: clientIds[polizzeAssignment.length % clientIds.length] });
+        if (polizzeAssignment.length >= 350) break;
+      }
+      if (polizzeAssignment.length >= 350) break;
+    }
+    // Aziende: ~200 polizze
+    const startAz = polizzeAssignment.length;
+    for (const cid of aziendeIds) {
+      const numPol = ri(3, 15);
+      for (let j = 0; j < numPol; j++) {
+        polizzeAssignment.push({ clienteAnagId: cid, clienteAuthId: clientIds[(polizzeAssignment.length) % clientIds.length] });
+        if (polizzeAssignment.length - startAz >= 200) break;
+      }
+      if (polizzeAssignment.length - startAz >= 200) break;
+    }
+    // Enti: ~140 polizze
+    const startEn = polizzeAssignment.length;
+    for (const cid of entiIds) {
+      const numPol = ri(5, 20);
+      for (let j = 0; j < numPol; j++) {
+        polizzeAssignment.push({ clienteAnagId: cid, clienteAuthId: clientIds[(polizzeAssignment.length) % clientIds.length] });
+        if (polizzeAssignment.length - startEn >= 140) break;
+      }
+      if (polizzeAssignment.length - startEn >= 140) break;
+    }
+
+    for (let i = 0; i < polizzeAssignment.length; i++) {
       const id = uuid();
       titoliIds.push(id);
       const stato = pick(statiPol);
       const yE = ri(2019, 2025);
-      const mE = ri(1, 12);
-      const dE = ri(1, 28);
       const premioLordo = rf(80, 12000);
       let importoIncassato: number | null = null;
       let dataIncasso: string | null = null;
@@ -282,7 +404,8 @@ Deno.serve(async (req) => {
         importo_incassato: importoIncassato,
         data_incasso: dataIncasso,
         prodotto_id: prodottoIds[i % prodottoIds.length],
-        cliente_id: clientIds[i % clientIds.length],
+        cliente_id: polizzeAssignment[i].clienteAuthId,
+        cliente_anagrafica_id: polizzeAssignment[i].clienteAnagId,
         produttore_id: pick(prodIds),
         ufficio_id: pick(uIds),
         note: `[DEMO] Polizza ${stato} - ${prodNomi[i % prodNomi.length]}`,
@@ -291,10 +414,27 @@ Deno.serve(async (req) => {
     await batchInsert(db, 'titoli', titoliData);
     R.titoli = titoliData.length;
 
+    // ==================== 7b. CLIENTI RELAZIONI (40 relazioni) ====================
+    const relazioniData: any[] = [];
+    const tipiRel: Array<'dipendente'|'legale_rappresentante'|'referente'|'socio'> = ['dipendente','legale_rappresentante','referente','socio'];
+    // Link some privati to aziende/enti
+    for (let i = 0; i < 40; i++) {
+      const privato = privatiIds[i % privatiIds.length];
+      const target = i < 25 ? aziendeIds[i % aziendeIds.length] : entiIds[(i - 25) % entiIds.length];
+      relazioniData.push({
+        cliente_id: privato,
+        cliente_collegato_id: target,
+        tipo_relazione: tipiRel[i % tipiRel.length],
+        note: `[DEMO] Relazione ${tipiRel[i % tipiRel.length]} #${i + 1}`,
+      });
+    }
+    await batchInsert(db, 'clienti_relazioni', relazioniData);
+    R.clienti_relazioni = relazioniData.length;
+
     // ==================== 8. SINISTRI (25) ====================
-    const statiSin = ['aperto','aperto','in_gestione','in_gestione','in_gestione','chiuso','chiuso'];
+    const statiSin = ['aperto','aperto','in_lavorazione','in_lavorazione','in_attesa_documenti','chiuso','chiuso','respinto'];
     const descSin = ['Incidente stradale con tamponamento','Danno da infiltrazione acqua','Furto con scasso in abitazione','Incendio parziale magazzino','Grandine su autoveicolo','Danni da evento atmosferico','Infortunio sul lavoro','Danni a terzi per caduta oggetti','Rottura tubatura condominiale','Furto parziale autoveicolo','Sinistro RCA con lesioni lievi','Allagamento locale commerciale','Caduta albero su autovettura','Danni da fulmine','Furto gioielli in abitazione','Crollo parziale controsoffitto','Incidente in parcheggio','Rottura vetrina negozio','Responsabilità professionale','Danno biologico da infortunio','Sinistro kasko','Furto bicicletta assicurata','Guasto impianto elettrico','Danni da vento forte','Sinistro RC auto con concorso'];
-    const titoliValidi = titoliData.filter(t => t.stato === 'attivo' || t.stato === 'incassato');
+    const titoliValidi = titoliData.filter(t => t.stato === 'creato' || t.stato === 'incassato');
 
     const sinistri: any[] = [];
     const sinIds: string[] = [];
@@ -442,7 +582,7 @@ Deno.serve(async (req) => {
       rimesse.push({
         id: rimId,
         compagnia_id: pick(compIds),
-        stato: pick(['bozza', 'pronto', 'inviato']),
+        stato: pick(['bozza', 'pronta', 'inviata']),
         totale_importi: +totale.toFixed(2),
         data_creazione: fakeDate(2024, 2025),
         created_by: pick(allStaffIds),
@@ -473,7 +613,7 @@ Deno.serve(async (req) => {
         tipo,
         nome, cognome,
         ragione_sociale: i < 4 ? `Studio ${cognome} & Associati` : null,
-        codice: `DEMO-PRO-${pad(i + 1, 3)}`,
+        codice: `DEMO-PRO-${pad(i + 1, 3)}-${ri(1000,9999)}`,
         email: `${nome.toLowerCase()}.${cognome.toLowerCase()}.${ri(1,99)}@studio-demo.it`,
         telefono: fakePhone(),
         cellulare: fakePhone(),
@@ -517,7 +657,7 @@ Deno.serve(async (req) => {
         cognome: pick(COG),
         email: `prospect.demo.${i}@email-demo.it`,
         telefono: fakePhone(),
-        stato: pick(['nuovo', 'contattato', 'in_trattativa', 'convertito', 'perso']),
+        stato: pick(['nuovo', 'in_trattativa', 'preventivo_inviato', 'chiuso_vinto', 'chiuso_perso']),
         fonte: pick(['web', 'referral', 'evento', 'social', 'cold_call']),
         note: '[DEMO] Prospect demo',
         assegnato_a: pick(prodIds),
@@ -538,7 +678,7 @@ Deno.serve(async (req) => {
         data_operazione: fakeDate(2023, 2026),
         importo: rf(-5000, 12000),
         descrizione: `[DEMO] ${pick(['Bonifico da cliente', 'Incasso premio RCA', 'Storno bancario', 'Accredito compagnia', 'Pagamento fornitore', 'Rata mutuo', 'Acconto sinistro'])} #${i + 1}`,
-        stato: pick(['nuovo', 'ok', 'ko']),
+        stato: pick(['da_verificare', 'ok', 'ko']),
         ufficio_id: pick(uIds),
         saldo: rf(1000, 50000),
       });
@@ -581,7 +721,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 40; i++) {
       consensi.push({
         cliente_id: clientIds[i % clientIds.length],
-        tipo_consenso: pick(['trattamento_dati', 'trattamento_dati', 'marketing', 'profilazione', 'cessione_terzi']),
+        tipo_consenso: pick(['obbligatorio', 'obbligatorio', 'marketing', 'profilazione', 'comunicazioni']),
         stato: pick(['dato', 'dato', 'dato', 'dato', 'revocato']),
         data_consenso: fakeDate(2021, 2025),
         fonte: pick(['cartaceo', 'digitale', 'email', 'pec']),
@@ -635,7 +775,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 15; i++) {
       trattative.push({
         prospect_id: prospIds[i % prospIds.length] || null,
-        stato: pick(['aperta', 'in_corso', 'vinta', 'persa']),
+        stato: pick(['aperta', 'in_negoziazione', 'chiusa_vinta', 'chiusa_persa']),
         compagnia: pick(['Allianz', 'Generali', 'UnipolSai', 'AXA', 'Zurich', 'Cattolica', 'Reale Mutua']),
         prodotto: pick(['RCA', 'Vita', 'Infortuni', 'Casa', 'RC Professionale', 'Salute', 'CVT Kasko']),
         premio_previsto: rf(200, 8000),
