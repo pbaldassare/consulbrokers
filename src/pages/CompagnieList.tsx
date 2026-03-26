@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Plus, Building2, Search, ShieldAlert, Percent, Pencil } from "lucide-react";
+import { Plus, Building2, Search, ShieldAlert, Percent, Pencil, Brain } from "lucide-react";
+import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -738,6 +739,9 @@ const CompagnieList = () => {
           <TabsTrigger value="sinistri" className="gap-2">
             <ShieldAlert className="w-4 h-4" />Compagnie Sinistri
           </TabsTrigger>
+          <TabsTrigger value="import-provvigioni" className="gap-2">
+            <Brain className="w-4 h-4" />Import Provvigioni IA
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="anagrafica" className="space-y-4 mt-4">
@@ -872,6 +876,10 @@ const CompagnieList = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="import-provvigioni">
+          <ImportProvvigioniTab />
         </TabsContent>
 
       </Tabs>
