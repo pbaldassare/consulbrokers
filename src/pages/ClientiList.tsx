@@ -82,6 +82,46 @@ const ClientiList = () => {
   const [gruppoFinanziarioId, setGruppoFinanziarioId] = useState("");
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
 
+  // Dati Gestionali
+  const [codiceRicerca, setCodiceRicerca] = useState("");
+  const [titolo, setTitolo] = useState("");
+  const [statoCliente, setStatoCliente] = useState("");
+  const [prospect, setProspect] = useState("");
+  const [tipoPersona, setTipoPersona] = useState("");
+  const [sesso, setSesso] = useState("");
+  const [comuneNascita, setComuneNascita] = useState("");
+  const [provinciaNascita, setProvinciaNascita] = useState("");
+  const [tipoSommario, setTipoSommario] = useState("");
+  const [clienteNonCeduto, setClienteNonCeduto] = useState(false);
+  const [aziendaSsnSx, setAziendaSsnSx] = useState(false);
+  const [statisticaPremiSinistri, setStatisticaPremiSinistri] = useState(false);
+  const [specSxDanni, setSpecSxDanni] = useState("");
+  const [specSxSanita, setSpecSxSanita] = useState("");
+  const [cellulare, setCellulare] = useState("");
+  const [fax, setFax] = useState("");
+  const [nazione, setNazione] = useState("");
+  const [attenzioneDi, setAttenzioneDi] = useState("");
+
+  // Dati Statistici
+  const [zona, setZona] = useState("");
+  const [indotto, setIndotto] = useState("");
+  const [attivita, setAttivita] = useState("");
+  const [settore, setSettore] = useState("");
+  const [aziendaStat, setAziendaStat] = useState("");
+  const [contratto, setContratto] = useState("");
+  const [matricola, setMatricola] = useState("");
+  const [riferimento, setRiferimento] = useState("");
+  const [fatturato, setFatturato] = useState("");
+  const [numDipendenti, setNumDipendenti] = useState("");
+  const [codiceAteco, setCodiceAteco] = useState("");
+  const [clienteAssociato, setClienteAssociato] = useState(false);
+  const [clienteCaptive, setClienteCaptive] = useState(false);
+  const [internazionale, setInternazionale] = useState(false);
+
+  // Dati Contabili
+  const [fidoCredito, setFidoCredito] = useState("");
+  const [fidoCauzioni, setFidoCauzioni] = useState("");
+
   // Rete Commerciale state
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
   const [corr1, setCorr1] = useState<CommercialRole>(emptyRole());
