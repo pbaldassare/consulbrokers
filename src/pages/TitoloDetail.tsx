@@ -63,7 +63,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -208,6 +208,27 @@ const TitoloDetail = () => {
           <FieldRow label="Tipo Lettera" value={fmt(t.tipo_lettera_regolazione)} />
           <FieldRow label="Libro Matricola" value={fmt(t.libro_matricola)} />
         </div>
+      </SectionCollapsible>
+
+      {/* COMMERCIALE & SPLIT */}
+      <SectionCollapsible title="Commerciale & Provvigioni" icon={Percent}>
+        {(() => {
+          const percComm = t.percentuale_commerciale ?? 100;
+          const provvAgenzia = t.premio_lordo && t.provvigioni_firma ? t.provvigioni_firma : null;
+          const commName = t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede";
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+              <FieldRow label="Commerciale" value={commName} />
+              <FieldRow label="% Commerciale" value={`${percComm}%`} />
+              {provvAgenzia != null && (
+                <>
+                  <FieldRow label="Provv. Commerciale" value={fmtEuro(provvAgenzia * percComm / 100)} />
+                  <FieldRow label="Provv. Sede" value={fmtEuro(provvAgenzia * (100 - percComm) / 100)} />
+                </>
+              )}
+            </div>
+          );
+        })()}
       </SectionCollapsible>
 
       {/* IMPORTI */}

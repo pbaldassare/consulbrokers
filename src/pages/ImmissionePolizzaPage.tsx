@@ -68,6 +68,10 @@ const ImmissionePolizzaPage = () => {
   const [showProvvigioneDialog, setShowProvvigioneDialog] = useState(false);
   const [provvigioneDialogType, setProvvigioneDialogType] = useState<"new" | "update">("new");
 
+  // Commerciale
+  const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
+  const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
+
   // Lookup cliente
   const { data: clienteData } = useQuery({
     queryKey: ["cliente-lookup", codiceCliente],
@@ -122,6 +126,20 @@ const ImmissionePolizzaPage = () => {
         .from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, sigla")
         .eq("tipo", "account_executive")
+        .eq("attivo", true)
+        .order("cognome");
+      return data || [];
+    },
+  });
+
+  // Load commerciali (profiles con ruoli commerciali)
+  const { data: commercialiList } = useQuery({
+    queryKey: ["commerciali-list-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, ruolo")
+        .in("ruolo", ["account_executive", "executive", "produttore_sede", "responsabile_sede"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
@@ -261,6 +279,8 @@ const ImmissionePolizzaPage = () => {
       specialist, tipoPortafoglio, durataDa, durataA, anniDurata, tipoRinnovo,
       periodicita, rate, moraGiorni, premioNetto, addizionali, tasse, valuta,
       percentualeProvvigione,
+      commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
+      percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
     });
     toast.success("Polizza registrata con successo");
   };
@@ -508,12 +528,64 @@ const ImmissionePolizzaPage = () => {
           </div>
           {premioNetto && percentualeProvvigione && (
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Importo Provv. stimato</Label>
+              <Label className="text-xs text-muted-foreground">Importo Provv. Agenzia</Label>
               <p className="text-sm font-mono font-semibold text-foreground">
                 € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione)) / 100).toFixed(2)}
               </p>
             </div>
           )}
+        </div>
+
+        {/* Commerciale */}
+        <div className="border-t border-border pt-4 mt-2">
+          <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Ripartizione Commerciale</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+            <div className="space-y-1.5 col-span-2">
+              <Label className="text-xs">Commerciale</Label>
+              <SearchableSelect
+                className="h-8 text-xs"
+                value={selectedCommerciale}
+                onValueChange={(v) => {
+                  setSelectedCommerciale(v);
+                  if (v === "__sede__") setPercentualeCommerciale("100");
+                }}
+                placeholder="— Seleziona —"
+                options={[
+                  { value: "__sede__", label: "🏢 Sede (100%)" },
+                  ...(commercialiList || []).map((c) => ({
+                    value: c.id,
+                    label: `${c.cognome} ${c.nome} (${c.ruolo})`,
+                  })),
+                ]}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">% Commerciale</Label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={percentualeCommerciale}
+                onChange={(e) => setPercentualeCommerciale(e.target.value)}
+                disabled={selectedCommerciale === "__sede__"}
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+            {premioNetto && percentualeProvvigione && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Split</Label>
+                <div className="text-[11px] font-mono space-y-0.5">
+                  <p className="text-foreground">
+                    Comm: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * parseFloat(percentualeCommerciale || "0") / 100).toFixed(2)}
+                  </p>
+                  <p className="text-primary font-semibold">
+                    Sede: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * (100 - parseFloat(percentualeCommerciale || "0")) / 100).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </fieldset>
 
