@@ -1,5 +1,6 @@
 import { Route } from "react-router-dom";
 import PlaceholderPage from "@/components/PlaceholderPage";
+import ProvvigioniSedePage from "@/pages/ProvvigioniSedePage";
 import TitoliList from "@/pages/TitoliList";
 import TitoloDetail from "@/pages/TitoloDetail";
 import GestionePolizzePage from "@/pages/GestionePolizzePage";
@@ -54,5 +55,6 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/rientro-documenti" element={<PlaceholderPage title="Rientro Documenti" description="Gestione rientro documenti dalle compagnie" icon={FileCheck} />} />
     <Route path="/portafoglio/import-titoli" element={<PlaceholderPage title="Import Titoli (Excel)" description="Importazione massiva titoli da file Excel" icon={FileUp} />} />
     <Route path="/portafoglio/analisi-preventivo-rca" element={<AnalisiPreventivoRCAPage />} />
+    <Route path="/provvigioni-sede" element={<ProvvigioniSedePage />} />
   </>
 );
