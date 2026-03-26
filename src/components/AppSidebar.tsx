@@ -201,6 +201,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
         { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
+        { label: "Template Email", path: "/template", icon: Mail },
       ],
     },
   },
