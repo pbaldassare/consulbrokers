@@ -613,7 +613,7 @@ Deno.serve(async (req) => {
         tipo,
         nome, cognome,
         ragione_sociale: i < 4 ? `Studio ${cognome} & Associati` : null,
-        codice: `DEMO-PRO-${pad(i + 1, 3)}`,
+        codice: `DEMO-PRO-${pad(i + 1, 3)}-${ri(1000,9999)}`,
         email: `${nome.toLowerCase()}.${cognome.toLowerCase()}.${ri(1,99)}@studio-demo.it`,
         telefono: fakePhone(),
         cellulare: fakePhone(),
@@ -629,7 +629,7 @@ Deno.serve(async (req) => {
         specializzazione: pick(['Danni materiali', 'Lesioni personali', 'RCA', 'Incendio', 'Responsabilità civile', 'Vita e previdenza']),
       });
     }
-    await batchInsert(db, 'anagrafiche_professionali', anag, 50, 'codice,tipo');
+    await batchInsert(db, 'anagrafiche_professionali', anag);
     R.anagrafiche_professionali = anag.length;
 
     // ==================== 15. PORTAFOGLIO INCASSI (20) ====================
