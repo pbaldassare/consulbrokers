@@ -513,8 +513,8 @@ export default function ClienteDetail() {
               </>
             ) : (
               <>
-                <FieldDisplay label="Partita IVA" value={cliente.partita_iva} />
-                <FieldDisplay label="Codice Fiscale" value={cliente.codice_fiscale_azienda} />
+                <FieldInput label="Partita IVA" field="partita_iva" />
+                <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
                 <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
                 <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
                 <FieldDisplay label="Sede" value={cliente.indirizzo_sede} />
