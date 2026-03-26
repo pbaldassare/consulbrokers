@@ -504,9 +504,9 @@ export default function ClienteDetail() {
             ]} />
             {isPrivato ? (
               <>
-                <FieldDisplay label="Codice Fiscale" value={cliente.codice_fiscale} />
-                <FieldDisplay label="Data di Nascita" value={cliente.data_nascita} />
-                <FieldDisplay label="Luogo di Nascita" value={cliente.luogo_nascita} />
+                <FieldInput label="Codice Fiscale" field="codice_fiscale" />
+                <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
+                <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
                 <FieldDisplay label="Indirizzo" value={cliente.indirizzo_residenza} />
                 <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
                 <FieldDisplay label="CAP" value={cliente.cap_residenza} />
