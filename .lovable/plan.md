@@ -1,41 +1,48 @@
 
 
-## Piano: Collegare Polizze ai Clienti, Triplicare Dati, Aggiungere Enti
-
-### Problema attuale
-- Le polizze (`titoli`) usano `cliente_id` (riferimento a `profiles`/auth users) ma **non** `cliente_anagrafica_id` (riferimento alla tabella CRM `clienti`)
-- Solo 230 polizze, senza relazioni realistiche con i clienti CRM
-- Nessun "ente" (ente pubblico, ASL, comune, ecc.) tra i clienti
-- Nessuna relazione azienda-privato (`clienti_relazioni`)
+## Piano: Aggiungere colonna "Polizze Attive" alla lista clienti
 
 ### Cosa cambia
 
-**1. Migrazione DB: aggiungere "ente" come tipo_cliente**
-- Aggiornare il trigger `validate_clienti_tipo` per accettare `'privato', 'azienda', 'ente'`
+Aggiungere una colonna **"Polizze"** in entrambe le tab (Privati e Aziende) che mostra il conteggio delle polizze attive per ogni cliente.
 
-**2. Aggiornamento seed-demo-data (Edge Function)**
+### Implementazione
 
-| Sezione | Modifica |
-|---|---|
-| **Clienti** | Aggiungere ~30 enti (ASL, Comuni, Province, Regioni, Universita, INPS, INAIL, ecc.) con dati completi (ragione sociale, CF azienda, P.IVA, SDI, PEC, referente, indirizzo sede, settore, codice ATECO) |
-| **Titoli** | Passare da 230 a **690 polizze**. Ogni polizza viene collegata a un record `clienti` tramite `cliente_anagrafica_id`. Distribuzione realistica: alcuni clienti hanno 1 polizza, alcuni 3-5, alcuni grandi clienti/enti fino a 10-15 polizze |
-| **Relazioni azienda-privato** | Creare ~40 record in `clienti_relazioni` che collegano privati ad aziende/enti come dipendenti, legali rappresentanti, referenti o soci |
-| **Campi compilati** | Tutti i campi dei clienti vengono popolati: sesso, data/comune/provincia nascita, zona, indotto, settore, codice ATECO, stato_cliente, tipo_persona, fido credito/cauzioni per aziende/enti |
+**File: `src/pages/ClientiList.tsx`**
 
-**3. Distribuzione polizze per tipo cliente**
-- ~350 polizze su clienti privati (con casi di clienti con 1, 3, 5 polizze)
-- ~200 polizze su aziende (con casi di aziende con 5-15 polizze)
-- ~140 polizze su enti (con casi di enti con 10-20 polizze, realistico per ASL/Comuni)
+1. **Query clienti**: modificare la select per includere un conteggio dei titoli collegati, usando una seconda query sui `titoli` raggruppati per `cliente_anagrafica_id` con stato `'incassato'` o altro stato attivo, oppure fare un join. Approccio pratico: query separata sui titoli per contare polizze attive per cliente, poi merge client-side.
+
+2. **Nuova query**: aggiungere una query `useQuery` che recupera il conteggio polizze attive raggruppate per `cliente_anagrafica_id`:
+   ```ts
+   const { data: polizzeCounts } = useQuery({
+     queryKey: ["polizze-count-per-cliente"],
+     queryFn: async () => {
+       const { data } = await supabase
+         .from("titoli")
+         .select("cliente_anagrafica_id")
+         .not("cliente_anagrafica_id", "is", null)
+         .in("stato", ["incassato","in_lavorazione","sospeso"]);
+       // Contare client-side
+       const counts: Record<string, number> = {};
+       for (const t of data || []) {
+         counts[t.cliente_anagrafica_id] = (counts[t.cliente_anagrafica_id] || 0) + 1;
+       }
+       return counts;
+     }
+   });
+   ```
+
+3. **Colonna nella tabella Privati**: aggiungere `<TableHead>Polizze</TableHead>` e nella riga `<TableCell>{polizzeCounts?.[c.id] || 0}</TableCell>` con un Badge colorato.
+
+4. **Colonna nella tabella Aziende**: stesso aggiornamento.
+
+5. **Aggiornare colSpan** dei messaggi "Nessun cliente" da 8 a 9.
 
 ### Dettagli tecnici
 
-| File | Modifica |
+| Elemento | Dettaglio |
 |---|---|
-| **Migrazione SQL** | `DROP/ADD` del trigger `validate_clienti_tipo` per includere `'ente'` |
-| **`supabase/functions/seed-demo-data/index.ts`** | Sezione 3: aggiungere 30 enti con dati completi. Sezione 7: triplicare titoli a 690, usare `cliente_anagrafica_id` per collegare ai clienti CRM. Nuova sezione: inserire `clienti_relazioni` tra privati e aziende/enti |
-
-### Note
-- I vecchi titoli senza `cliente_anagrafica_id` non vengono toccati (il seed crea nuovi record)
-- Per eseguire il seed aggiornato bisognera richiamare la Edge Function `seed-demo-data`
-- Nessuna modifica al frontend, solo dati
+| File modificato | `src/pages/ClientiList.tsx` |
+| Query aggiuntiva | Select su `titoli` filtrando stati attivi, conteggio client-side per `cliente_anagrafica_id` |
+| Colonna | Badge con numero, posizionata dopo "Città" e prima di "Stato" |
 
