@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -490,6 +490,7 @@ export default function ClienteDetail() {
       <Tabs defaultValue="polizze">
         <TabsList className="flex-wrap">
           <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({polizze.length})</TabsTrigger>
+          <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
           <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
