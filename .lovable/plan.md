@@ -1,64 +1,41 @@
 
 
-## Piano: Simulazione Sinistri Realistici con Dati Completi
+## Piano: Collegamento completo Sinistri ↔ Clienti ↔ Polizze ↔ Compagnie nella UI
 
-### Cosa si costruisce
+### Stato attuale
 
-1. **Migration SQL** per estendere la tabella `sinistri` con campi finanziari e operativi mancanti, poi inserire dati demo realistici collegati a clienti e polizze esistenti
-2. **Tab "Sinistri" nel ClienteDetail** per visualizzare i sinistri collegati alle polizze del cliente
-3. **Pagina ClienteSinistri** nel portale cliente per visualizzare i propri sinistri
+I dati nel database sono **già correttamente collegati**: ogni sinistro ha `cliente_anagrafica_id`, `titolo_id` e `compagnia_id` valorizzati e referenziati. Il problema è che la **UI non sfrutta tutti i collegamenti**:
+
+1. **SinistriList**: la query non include `clienti` — manca il nome cliente nella tabella
+2. **Creazione sinistro**: il wizard non passa `cliente_anagrafica_id` all'edge function, quindi i nuovi sinistri creati non avranno il collegamento al cliente CRM
+3. **SinistriList**: mancano colonne utili (Tipo, Cliente, Polizza, importi)
+4. **Edge function `gestione-sinistri`**: non salva `cliente_anagrafica_id` né `titolo_id` durante la creazione
 
 ### Interventi
 
-**1. Migration: nuovi campi sulla tabella `sinistri`**
+**1. Edge Function `gestione-sinistri/index.ts`**
+- Accettare i campi `tipo_sinistro`, `luogo_sinistro`, `data_evento`, `cliente_anagrafica_id`, `titolo_id` nell'azione `crea`
+- Inserirli nella INSERT su `sinistri`
 
-Aggiungere colonne che mancano per una gestione realistica:
-- `tipo_sinistro` (text): incidente_stradale, furto, incendio, danni_acqua, RC_terzi, infortunio, grandine, ecc.
-- `luogo_sinistro` (text)
-- `data_evento` (date)
-- `costo_preventivato` (numeric)
-- `costo_effettivo` (numeric)
-- `franchigia` (numeric)
-- `importo_liquidato` (numeric)
-- `importo_riserva` (numeric)
-- `targa_veicolo` (text)
-- `controparte` (text)
-- `note_perito` (text)
-- `numero_sinistro_compagnia` (text)
-- `cliente_anagrafica_id` (uuid FK → clienti) per collegamento diretto al CRM
+**2. SinistriList.tsx — Query e colonne**
+- Aggiungere alla select: `clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`, `titoli(numero_titolo)`
+- Aggiungere colonne: **Cliente**, **Polizza**, **Tipo Sinistro**
+- Permettere ricerca anche per nome cliente
 
-**2. Migration: seed dati sinistri realistici**
+**3. SinistriList.tsx — Wizard creazione (step 2)**
+- Estrarre `cliente_anagrafica_id` dalla polizza selezionata (via `titoli.cliente_anagrafica_id`)
+- Aggiungere campi: tipo sinistro, luogo, data evento
+- Passare tutti i campi all'edge function
 
-Inserire ~15-20 sinistri distribuiti tra i clienti con polizze esistenti, con:
-- Stati misti (aperto, in_lavorazione, chiuso, respinto)
-- Costi preventivati vs effettivi realistici
-- Checklist ed eventi collegati
-- Collegamento a `titolo_id` (polizze reali) e `cliente_anagrafica_id`
-
-**3. ClienteDetail: aggiungere tab "Sinistri"**
-
-Nel file `src/pages/ClienteDetail.tsx`:
-- Nuova tab "Sinistri" nella TabsList con conteggio
-- Query sinistri filtrata per `cliente_anagrafica_id` = cliente corrente
-- Tabella con: N. Sinistro, Tipo, Polizza, Stato, Costo Prev., Costo Eff., Data Apertura
-- Click naviga a `/sinistri/:id`
-
-**4. Portale Cliente: pagina sinistri**
-
-- Nuovo file `src/pages/cliente/ClienteSinistri.tsx` con lista sinistri propri
-- Aggiunta route `/cliente/sinistri` in `src/routes/cliente.tsx`
-- Link nella dashboard cliente
-
-**5. Aggiornare SinistroDetail**
-
-Mostrare i nuovi campi (costi, luogo, tipo, controparte, targa) nelle card informative
+**4. SinistriList.tsx — Wizard (step 1) query polizze**
+- Includere `cliente_anagrafica_id` nella select dei titoli per poterlo propagare
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| File creati | 1 migration SQL, `ClienteSinistri.tsx` |
-| File modificati | `ClienteDetail.tsx`, `SinistroDetail.tsx`, `SinistriList.tsx`, `cliente.tsx` routes, `gestione-sinistri/index.ts`, `types.ts` |
-| Dati seed | ~15-20 sinistri con checklist ed eventi, collegati a titoli e clienti esistenti |
-| Campi finanziari | costo_preventivato, costo_effettivo, franchigia, importo_liquidato, importo_riserva |
+| File modificati | `supabase/functions/gestione-sinistri/index.ts`, `src/pages/SinistriList.tsx` |
+| Query sinistri | Aggiunta join a `clienti` e `titoli` |
+| Wizard | Propagazione `cliente_anagrafica_id` da polizza selezionata |
+| Nuovi campi wizard | tipo_sinistro, luogo_sinistro, data_evento |
 
