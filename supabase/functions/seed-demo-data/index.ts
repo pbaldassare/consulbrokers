@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
     R.matrice_provvigioni = matrice.length;
 
     // ==================== 7. TITOLI (690 polizze collegate a clienti CRM) ====================
-    const statiPol = ['attivo','attivo','attivo','attivo','incassato','incassato','incassato','incassato','incassato','scaduto','scaduto','annullato','stornato','sospeso'];
+    const statiPol = ['creato','creato','creato','incassato','incassato','incassato','incassato','incassato','incassato','annullato','stornato'];
     const titoliData: any[] = [];
     const titoliIds: string[] = [];
 
