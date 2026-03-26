@@ -624,13 +624,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
   const [filterCategoria, setFilterCategoria] = useState("");
   const [createProdOpen, setCreateProdOpen] = useState(false);
 
-  // Provvigioni per Ramo state
-  const [createProvvRamoOpen, setCreateProvvRamoOpen] = useState(false);
-  const [newProvvRamo, setNewProvvRamo] = useState({ compagnia_id: "", categoria_id: "", percentuale: "" });
-  const [editingProvvRamo, setEditingProvvRamo] = useState<string | null>(null);
-  const [editProvvRamoValue, setEditProvvRamoValue] = useState("");
-  const [filterProvvCompagnia, setFilterProvvCompagnia] = useState("");
-
   const [newProd, setNewProd] = useState({
     compagnia_id: "",
     categoria_id: "",
@@ -647,21 +640,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     },
   });
 
-  // Provvigioni Compagnia+Ramo
-  const { data: provvRamo = [], isLoading: loadingProvvRamo } = useQuery({
-    queryKey: ["provvigioni_compagnia_ramo"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("provvigioni_compagnia_ramo")
-        .select("*, compagnie(id, nome, nome_sede), categorie_prodotto(id, nome)")
-        .eq("attiva", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Prodotti (catalogo, senza provvigione)
   const { data: prodotti = [], isLoading } = useQuery({
     queryKey: ["prodotti_catalogo"],
     queryFn: async () => {
@@ -684,43 +662,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     label: c.nome,
   }));
 
-  // Create provvigione ramo
-  const createProvvRamoMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("provvigioni_compagnia_ramo").insert({
-        compagnia_id: newProvvRamo.compagnia_id,
-        categoria_id: newProvvRamo.categoria_id,
-        percentuale_provvigione: parseFloat(newProvvRamo.percentuale),
-        attiva: true,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
-      setCreateProvvRamoOpen(false);
-      setNewProvvRamo({ compagnia_id: "", categoria_id: "", percentuale: "" });
-      toast.success("Provvigione per ramo creata");
-    },
-    onError: (err: any) => toast.error(err.message?.includes("duplicate") ? "Combinazione Compagnia+Ramo già esistente" : "Errore nella creazione"),
-  });
-
-  // Update provvigione ramo
-  const updateProvvRamoMutation = useMutation({
-    mutationFn: async ({ id, value }: { id: string; value: number }) => {
-      const { error } = await supabase.from("provvigioni_compagnia_ramo")
-        .update({ percentuale_provvigione: value } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
-      setEditingProvvRamo(null);
-      toast.success("Provvigione aggiornata");
-    },
-    onError: () => toast.error("Errore nell'aggiornamento"),
-  });
-
-  // Create prodotto (catalogo only, no provvigione)
   const createProdMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("prodotti").insert({
@@ -746,10 +687,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     const matchComp = !filterCompagnia || p.compagnia_id === filterCompagnia;
     const matchCat = !filterCategoria || p.categoria_id === filterCategoria;
     return matchSearch && matchComp && matchCat;
-  });
-
-  const filteredProvvRamo = provvRamo.filter((p: any) => {
-    return !filterProvvCompagnia || p.compagnia_id === filterProvvCompagnia;
   });
 
   return (
