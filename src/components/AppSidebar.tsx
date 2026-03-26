@@ -11,6 +11,7 @@ import {
   BarChart3,
   Percent,
   Send,
+  Mail,
   MessageSquare,
   Shield,
   Settings,
