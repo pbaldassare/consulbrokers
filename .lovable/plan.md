@@ -1,18 +1,32 @@
 
 
-## Piano: Rinominare "Provvigioni Sede" → "Provvigioni Consul"
+## Piano: Provvigioni nel Modale Compagnia
 
-### Modifiche
+### Cosa cambia
 
-**1. `src/pages/ProvvigioniSedePage.tsx`**
-- Titolo h1: "Provvigioni Sede" → "Provvigioni Consul"
-- Sottotitolo: "Riepilogo provvigioni residue alla sede" → "Riepilogo provvigioni residue Consul"
-- KPI label "Provvigioni Sede" → "Provvigioni Consul"
-- Badge produttore "Sede" → "Consul" (nella colonna Commerciale, quando non c'è un commerciale assegnato)
-- Colonna header "Provv. Sede" → "Provv. Consul"
+Spostare la gestione provvigioni per ramo **dentro il modale di modifica/creazione compagnia** come terzo tab "Provvigioni", accanto a "Dati Anagrafici" e "Dati Contabili". Rimuovere la sezione "Provvigioni per Ramo" dal tab principale "Prodotti & Provvigioni".
 
-**2. `src/components/AppSidebar.tsx`**
-- Voce menu: "Provvigioni Sede" → "Provvigioni Consul"
+### Modifiche in `src/pages/CompagnieList.tsx`
 
-Nessun altro file viene modificato — le altre occorrenze di "Sede" nel progetto si riferiscono alle sedi/uffici e restano invariate.
+**1. `CompagniaFormDialog` — aggiungere tab "Provvigioni"**
+- Il componente riceve un nuovo prop `compagniaId` (valorizzato solo in modifica, null in creazione)
+- TabsList passa da `grid-cols-2` a `grid-cols-3`, aggiungendo `<TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>`
+- Nuovo `<TabsContent value="provvigioni">`:
+  - Query `provvigioni_compagnia_ramo` filtrata per `compagnia_id = compagniaId`
+  - Tabella con colonne: Ramo, Provvigione %
+  - Inline edit della percentuale (stesso pattern già usato)
+  - Bottone "Nuova Provvigione Ramo" con mini-form: selezione categoria + percentuale
+  - Se `compagniaId` è null (creazione), mostra messaggio "Salva la compagnia prima di configurare le provvigioni"
+
+**2. `ProdottiProvvigioniTab` — rimuovere sezione provvigioni**
+- Eliminare tutta la Card "Provvigioni per Ramo" (righe ~588-699)
+- Eliminare gli state e le mutation relative (`createProvvRamoOpen`, `newProvvRamo`, `editingProvvRamo`, `filterProvvCompagnia`, `createProvvRamoMutation`, `updateProvvRamoMutation`, query `provvigioni_compagnia_ramo`)
+- Resta solo il Catalogo Prodotti
+
+**3. Passare `compagniaId` al dialog**
+- Nel dialog di modifica: `compagniaId={editId}`
+- Nel dialog di creazione: `compagniaId={null}`
+
+### Nessuna modifica al DB
+Stesse tabelle, stesse RLS. Cambia solo il punto di accesso UI.
 
