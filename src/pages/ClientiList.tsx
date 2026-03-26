@@ -340,6 +340,19 @@ const ClientiList = () => {
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
     setAe(emptyRole()); setCorr1(emptyRole()); setCorr2(emptyRole()); setCorr3(emptyRole());
+    // Gestionali
+    setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
+    setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
+    setTipoSommario(""); setClienteNonCeduto(false); setAziendaSsnSx(false);
+    setStatisticaPremiSinistri(false); setSpecSxDanni(""); setSpecSxSanita("");
+    setCellulare(""); setFax(""); setNazione(""); setAttenzioneDi("");
+    // Statistici
+    setZona(""); setIndotto(""); setAttivita(""); setSettore("");
+    setAziendaStat(""); setContratto(""); setMatricola(""); setRiferimento("");
+    setFatturato(""); setNumDipendenti(""); setCodiceAteco("");
+    setClienteAssociato(false); setClienteCaptive(false); setInternazionale(false);
+    // Contabili
+    setFidoCredito(""); setFidoCauzioni("");
     scannedFilesRef.current = [];
   };
 
