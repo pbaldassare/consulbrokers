@@ -220,9 +220,9 @@ const ImpostazioniPage = () => {
             <CardContent className="space-y-4">
               {isAdmin && (
                 <div className="max-w-xs">
-                  <Label>Seleziona ufficio</Label>
+                   <Label>Seleziona sede</Label>
                   <Select value={selectedUfficio} onValueChange={setSelectedUfficio}>
-                    <SelectTrigger><SelectValue placeholder="Scegli ufficio..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Scegli sede..." /></SelectTrigger>
                     <SelectContent>
                       {uffici.map((u) => (
                         <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>

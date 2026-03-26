@@ -159,9 +159,9 @@ const BancaImport = () => {
         <CardContent className="space-y-4">
           {isCfoOrAdmin && (
             <div>
-              <Label>Ufficio *</Label>
+              <Label>Sede *</Label>
               <Select value={selectedUfficio} onValueChange={setSelectedUfficio}>
-                <SelectTrigger><SelectValue placeholder="Seleziona ufficio" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleziona sede" /></SelectTrigger>
                 <SelectContent>
                   {uffici.map((u: any) => (
                     <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>

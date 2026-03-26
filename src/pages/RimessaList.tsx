@@ -117,7 +117,7 @@ const RimessaList = () => {
                 </Select>
               </div>
               <div>
-                <Label>Ufficio</Label>
+                <Label>Sede</Label>
                 <Select value={ufficioId} onValueChange={setUfficioId}>
                   <SelectTrigger><SelectValue placeholder="Opzionale" /></SelectTrigger>
                   <SelectContent>{uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}</SelectContent>
@@ -156,7 +156,7 @@ const RimessaList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Compagnia</TableHead>
-                    <TableHead>Ufficio</TableHead>
+                    <TableHead>Sede</TableHead>
                     <TableHead>Totale €</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead>Creata da</TableHead>

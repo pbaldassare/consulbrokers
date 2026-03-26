@@ -123,9 +123,9 @@ const NoteRestituzioneList = () => {
             <DialogHeader><DialogTitle>Nuova Nota di Restituzione</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Ufficio *</Label>
+                <Label>Sede *</Label>
                 <Select value={ufficioId} onValueChange={setUfficioId}>
-                  <SelectTrigger><SelectValue placeholder="Seleziona ufficio" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleziona sede" /></SelectTrigger>
                   <SelectContent>{uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -155,9 +155,9 @@ const NoteRestituzioneList = () => {
           </SelectContent>
         </Select>
         <Select value={filtroUfficio} onValueChange={(v) => { setFiltroUfficio(v); setPage(0); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ufficio" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Sede" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tutti gli uffici</SelectItem>
+            <SelectItem value="all">Tutte le sedi</SelectItem>
             {uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -172,7 +172,7 @@ const NoteRestituzioneList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cliente</TableHead>
-                    <TableHead>Ufficio</TableHead>
+                    <TableHead>Sede</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead>Creata da</TableHead>
                     <TableHead>Data</TableHead>

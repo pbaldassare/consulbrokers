@@ -220,7 +220,7 @@ const AnomalieList = () => {
                   <TableHead>Gravità</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="hidden md:table-cell">Descrizione</TableHead>
-                  <TableHead className="hidden lg:table-cell">Ufficio</TableHead>
+                  <TableHead className="hidden lg:table-cell">Sede</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead className="hidden md:table-cell">Data</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>

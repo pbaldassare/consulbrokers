@@ -418,7 +418,7 @@ const AnagraficheProfessionaliPage = () => {
           onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
           disabled={!isAdminUser}
         >
-          <SelectTrigger><SelectValue placeholder="Seleziona ufficio..." /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
           <SelectContent>
             {ufficiList.map((u) => (
               <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
