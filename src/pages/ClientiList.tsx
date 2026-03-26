@@ -179,15 +179,11 @@ const ClientiList = () => {
   const { data: polizzeCounts } = useQuery({
     queryKey: ["polizze-count-per-cliente"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("titoli")
-        .select("cliente_anagrafica_id")
-        .not("cliente_anagrafica_id", "is", null);
+      const { data, error } = await supabase.rpc("count_polizze_per_cliente");
+      if (error) throw error;
       const counts: Record<string, number> = {};
-      for (const t of data || []) {
-        if (t.cliente_anagrafica_id) {
-          counts[t.cliente_anagrafica_id] = (counts[t.cliente_anagrafica_id] || 0) + 1;
-        }
+      for (const row of data || []) {
+        counts[row.cliente_id] = Number(row.count);
       }
       return counts;
     },
