@@ -1,55 +1,53 @@
 
 
-## Piano: Commerciale su Polizza + Provvigioni Sede
+## Piano: Provvigioni a livello Compagnia + Ramo
 
 ### Concetto
 
-Ogni polizza ha una **provvigione totale agenzia** (es. 5% dal ramo/compagnia). A questa polizza si collega un **commerciale** (produttore). Il commerciale ha una sua % (es. 60%), che si applica sulla provvigione agenzia: il commerciale prende il 60% del 5% = 3%, la sede prende il restante 40% del 5% = 2%. Se il commerciale e "Sede" (100%), tutta la provvigione va alla sede.
-
-```text
-Polizza: Allianz Milano, Ramo Auto, Premio €1000
-  └─ Provv. Agenzia: 5% = €50
-       ├─ Commerciale (Mario, 60%): 60% di €50 = €30
-       └─ Sede (residuo): 40% di €50 = €20
-```
+Spostare le provvigioni dal livello "prodotto" al livello **Compagnia + Ramo (categoria)**. Una sola percentuale per combinazione compagnia-ramo. I prodotti restano come catalogo testuale ma senza provvigione propria.
 
 ### Interventi
 
-**1. Migration SQL**
-- Aggiungere `commerciale_id uuid REFERENCES profiles(id)` e `percentuale_commerciale numeric` alla tabella `titoli`
-- La provvigione sede = provvigione agenzia totale - quota commerciale (calcolata in app)
+**1. Nuova tabella `provvigioni_compagnia_ramo`**
 
-**2. ImmissionePolizzaPage.tsx — Aggiungere campo Commerciale**
-- Nella sezione Provvigioni, aggiungere:
-  - Select "Commerciale" (da profiles con ruolo commerciale/AE/produttore)
-  - Input "% Commerciale" (default 100 = sede)
-  - Riepilogo calcolato: Provv. Commerciale € / Provv. Sede €
-- Salvare `commerciale_id` e `percentuale_commerciale` nel titolo
+```sql
+CREATE TABLE provvigioni_compagnia_ramo (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  compagnia_id uuid NOT NULL REFERENCES compagnie(id) ON DELETE CASCADE,
+  categoria_id uuid NOT NULL REFERENCES categorie_prodotto(id) ON DELETE CASCADE,
+  percentuale_provvigione numeric NOT NULL DEFAULT 0,
+  attiva boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(compagnia_id, categoria_id)
+);
+```
+Con RLS per admin/cfo/ufficio.
 
-**3. TitoloDetail.tsx — Mostrare split provvigioni**
-- Nella sezione provvigioni, mostrare:
-  - Commerciale collegato + sua %
-  - Importo commerciale e importo sede calcolati
+**2. CompagnieList.tsx — Tab "Prodotti & Provvigioni" ristrutturata**
 
-**4. Nuova pagina "Provvigioni Sede" + voce sidebar**
-- Nuova voce nel menu laterale sotto Portafoglio o come voce singola
-- Pagina che mostra il riepilogo delle provvigioni sede:
-  - Filtri: periodo, compagnia, ramo
-  - Tabella: per ogni polizza mostra premio, provv. agenzia %, provv. commerciale %, residuo sede
-  - KPI totali in alto: Totale Provvigioni Sede, Totale Provvigioni Commerciali
-- La provvigione sede = `provvigione_agenzia * (100 - percentuale_commerciale) / 100`
+- Dividere la tab in due sezioni:
+  - **Provvigioni per Ramo**: tabella Compagnia | Sede | Ramo | Provvigione % (editabile inline). Pulsante "Nuova Provvigione Ramo" con select compagnia + select ramo + input %.
+  - **Catalogo Prodotti**: tabella come adesso ma senza colonna provvigione (il prodotto è solo testuale/informativo).
 
-**5. Profilo "Sede" come commerciale speciale**
-- Il commerciale con 100% = "Sede" (tutta la provvigione va alla sede)
-- Nella select commerciale, la prima opzione e "Sede (100%)" che setta automaticamente percentuale_commerciale = 100
+**3. ImmissionePolizzaPage.tsx — Leggere provvigione da compagnia+ramo**
+
+- Quando si seleziona compagnia e categoria/ramo, fare lookup su `provvigioni_compagnia_ramo` invece di `matrice_provvigioni`.
+- Il campo provvigione agenzia si auto-compila dalla nuova tabella.
+
+**4. ProvvigioniSedePage.tsx e TitoloDetail.tsx**
+
+- Aggiornare i calcoli per usare la provvigione da `provvigioni_compagnia_ramo` tramite compagnia+ramo del titolo.
+
+**5. Pulizia**
+
+- La tabella `matrice_provvigioni` resta ma non viene più usata per nuovi inserimenti (backward compatibility).
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| Migration | `ALTER TABLE titoli ADD COLUMN commerciale_id uuid REFERENCES profiles(id), ADD COLUMN percentuale_commerciale numeric DEFAULT 100` |
-| File modificati | `ImmissionePolizzaPage.tsx`, `TitoloDetail.tsx`, `AppSidebar.tsx`, nuovo `ProvvigioniSedePage.tsx` |
-| Calcolo sede | `provv_sede = premio * (provv_agenzia_% / 100) * ((100 - perc_commerciale) / 100)` |
-| Calcolo commerciale | `provv_comm = premio * (provv_agenzia_% / 100) * (perc_commerciale / 100)` |
-| Default | Se nessun commerciale selezionato → percentuale_commerciale = 100 (tutto alla sede) |
+| Nuova tabella | `provvigioni_compagnia_ramo` (compagnia_id + categoria_id → unique) |
+| File modificati | `CompagnieList.tsx`, `ImmissionePolizzaPage.tsx`, `TitoloDetail.tsx`, `ProvvigioniSedePage.tsx` |
+| Lookup provvigione | `WHERE compagnia_id = X AND categoria_id = Y AND attiva = true` |
+| Tabella prodotti | Resta come catalogo, senza provvigione diretta |
 
