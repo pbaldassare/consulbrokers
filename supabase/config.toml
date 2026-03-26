@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.extract-document-data]
 verify_jwt = false
+
+[functions.parse-provvigioni-pdf]
+verify_jwt = false
