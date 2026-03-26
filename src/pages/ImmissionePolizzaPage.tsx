@@ -168,29 +168,31 @@ const ImmissionePolizzaPage = () => {
   const { data: prodottiList } = useQuery({
     queryKey: ["prodotti-list-immissione", selectedCompagnia],
     queryFn: async () => {
-      let q = supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto, compagnia_id").eq("attivo", true).order("nome_prodotto");
+      let q = supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto, compagnia_id, categoria_id").eq("attivo", true).order("nome_prodotto");
       if (selectedCompagnia) q = q.eq("compagnia_id", selectedCompagnia);
       const { data } = await q;
       return data || [];
     },
   });
 
-  // Provvigione auto-lookup when prodotto changes
+  // Provvigione auto-lookup from provvigioni_compagnia_ramo (Compagnia + Categoria)
+  const selectedProdottoCategoriaId = prodottiList?.find((p) => p.id === selectedProdotto)?.categoria_id as string | undefined;
+
   const { data: provvigioneDb } = useQuery({
-    queryKey: ["provvigione-lookup", selectedProdotto],
+    queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedProdottoCategoriaId],
     queryFn: async () => {
-      if (!selectedProdotto) return null;
+      if (!selectedCompagnia || !selectedProdottoCategoriaId) return null;
       const { data } = await supabase
-        .from("matrice_provvigioni")
+        .from("provvigioni_compagnia_ramo")
         .select("id, percentuale_provvigione")
-        .eq("prodotto_id", selectedProdotto)
+        .eq("compagnia_id", selectedCompagnia)
+        .eq("categoria_id", selectedProdottoCategoriaId)
         .eq("attiva", true)
-        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: !!selectedProdotto,
+    enabled: !!selectedCompagnia && !!selectedProdottoCategoriaId,
   });
 
   // Auto-set compagnia when prodotto changes
@@ -203,7 +205,7 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedProdotto, prodottiList]);
 
-  // Auto-fill provvigione from DB
+  // Auto-fill provvigione from DB (now based on Compagnia+Categoria)
   useEffect(() => {
     if (provvigioneDb) {
       const val = String(provvigioneDb.percentuale_provvigione ?? "");
@@ -211,13 +213,13 @@ const ImmissionePolizzaPage = () => {
       setProvvigioneOriginalValue(val);
       setProvvigioneFromDb(true);
       setProvvigioneDbRecordId(provvigioneDb.id);
-    } else if (selectedProdotto) {
+    } else if (selectedCompagnia && selectedProdottoCategoriaId) {
       setPercentualeProvvigione("");
       setProvvigioneOriginalValue("");
       setProvvigioneFromDb(false);
       setProvvigioneDbRecordId(null);
     }
-  }, [provvigioneDb, selectedProdotto]);
+  }, [provvigioneDb, selectedCompagnia, selectedProdottoCategoriaId]);
 
   const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
 
@@ -244,18 +246,18 @@ const ImmissionePolizzaPage = () => {
 
   const handleProvvigioneSave = async () => {
     try {
-      if (provvigioneDialogType === "new") {
-        await supabase.from("matrice_provvigioni").insert({
-          prodotto_id: selectedProdotto,
+      if (provvigioneDialogType === "new" && selectedCompagnia && selectedProdottoCategoriaId) {
+        await supabase.from("provvigioni_compagnia_ramo").insert({
+          compagnia_id: selectedCompagnia,
+          categoria_id: selectedProdottoCategoriaId,
           percentuale_provvigione: parseFloat(percentualeProvvigione),
-          tipo_calcolo: "percentuale",
           attiva: true,
-        });
-        toast.success("Provvigione salvata come default per questo prodotto");
+        } as any);
+        toast.success("Provvigione salvata per questa combinazione Compagnia+Ramo");
       } else {
         if (provvigioneDbRecordId) {
-          await supabase.from("matrice_provvigioni")
-            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) })
+          await supabase.from("provvigioni_compagnia_ramo")
+            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) } as any)
             .eq("id", provvigioneDbRecordId);
           toast.success("Provvigione default aggiornata");
         }
@@ -501,29 +503,29 @@ const ImmissionePolizzaPage = () => {
               max="100"
               value={percentualeProvvigione}
               onChange={(e) => setPercentualeProvvigione(e.target.value)}
-              placeholder={selectedProdotto ? "Inserisci %" : "Seleziona un prodotto"}
-              disabled={!selectedProdotto}
+              placeholder={selectedCompagnia && selectedProdottoCategoriaId ? "Inserisci %" : "Seleziona compagnia e prodotto"}
+              disabled={!selectedCompagnia || !selectedProdottoCategoriaId}
               className="h-8 text-xs font-mono"
             />
           </div>
           <div className="flex items-center gap-2 pb-1">
-            {selectedProdotto && provvigioneFromDb && !isProvvigioneModified && (
+            {selectedProdottoCategoriaId && provvigioneFromDb && !isProvvigioneModified && (
               <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">
-                Da database
+                Da database (Compagnia+Ramo)
               </Badge>
             )}
-            {selectedProdotto && provvigioneFromDb && isProvvigioneModified && (
+            {selectedProdottoCategoriaId && provvigioneFromDb && isProvvigioneModified && (
               <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
                 Modificato (era {provvigioneOriginalValue}%)
               </Badge>
             )}
-            {selectedProdotto && !provvigioneFromDb && percentualeProvvigione && (
+            {selectedProdottoCategoriaId && !provvigioneFromDb && percentualeProvvigione && (
               <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
                 Nuovo valore
               </Badge>
             )}
-            {selectedProdotto && !provvigioneFromDb && !percentualeProvvigione && (
-              <span className="text-[10px] text-muted-foreground">Nessuna provvigione salvata per questo prodotto</span>
+            {selectedCompagnia && selectedProdottoCategoriaId && !provvigioneFromDb && !percentualeProvvigione && (
+              <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione Compagnia+Ramo</span>
             )}
           </div>
           {premioNetto && percentualeProvvigione && (
@@ -631,8 +633,8 @@ const ImmissionePolizzaPage = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {provvigioneDialogType === "new"
-                ? `Non esiste una provvigione salvata per questo prodotto. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
-                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito per questo prodotto?`}
+                ? `Non esiste una provvigione per questa combinazione Compagnia+Ramo. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
+                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito per questa combinazione Compagnia+Ramo?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

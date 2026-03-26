@@ -455,15 +455,19 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
   const [filterCompagnia, setFilterCompagnia] = useState("");
   const [filterCategoria, setFilterCategoria] = useState("");
   const [createProdOpen, setCreateProdOpen] = useState(false);
-  const [editingProvv, setEditingProvv] = useState<string | null>(null);
-  const [editProvvValue, setEditProvvValue] = useState("");
+
+  // Provvigioni per Ramo state
+  const [createProvvRamoOpen, setCreateProvvRamoOpen] = useState(false);
+  const [newProvvRamo, setNewProvvRamo] = useState({ compagnia_id: "", categoria_id: "", percentuale: "" });
+  const [editingProvvRamo, setEditingProvvRamo] = useState<string | null>(null);
+  const [editProvvRamoValue, setEditProvvRamoValue] = useState("");
+  const [filterProvvCompagnia, setFilterProvvCompagnia] = useState("");
 
   const [newProd, setNewProd] = useState({
     compagnia_id: "",
     categoria_id: "",
     nome_prodotto: "",
     codice_prodotto: "",
-    percentuale: "",
   });
 
   const { data: categorie = [] } = useQuery({
@@ -475,26 +479,30 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     },
   });
 
+  // Provvigioni Compagnia+Ramo
+  const { data: provvRamo = [], isLoading: loadingProvvRamo } = useQuery({
+    queryKey: ["provvigioni_compagnia_ramo"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("provvigioni_compagnia_ramo")
+        .select("*, compagnie(id, nome, nome_sede), categorie_prodotto(id, nome)")
+        .eq("attiva", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Prodotti (catalogo, senza provvigione)
   const { data: prodotti = [], isLoading } = useQuery({
-    queryKey: ["prodotti_con_provvigioni"],
+    queryKey: ["prodotti_catalogo"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("prodotti")
         .select("*, compagnie(id, nome, nome_sede), categorie_prodotto(id, nome)")
         .order("nome_prodotto");
       if (error) throw error;
-
-      // Fetch provvigioni for each product
-      const prodIds = data.map((p: any) => p.id);
-      const { data: provvigioni } = await supabase
-        .from("matrice_provvigioni")
-        .select("*")
-        .in("prodotto_id", prodIds.length > 0 ? prodIds : ["__none__"]);
-
-      return data.map((p: any) => ({
-        ...p,
-        provvigione: provvigioni?.find((pr: any) => pr.prodotto_id === p.id),
-      }));
+      return data || [];
     },
   });
 
@@ -508,70 +516,189 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
     label: c.nome,
   }));
 
-  const createProdMutation = useMutation({
+  // Create provvigione ramo
+  const createProvvRamoMutation = useMutation({
     mutationFn: async () => {
-      const { data: newProduct, error } = await supabase.from("prodotti").insert({
-        compagnia_id: newProd.compagnia_id || null,
-        categoria_id: newProd.categoria_id || null,
-        nome_prodotto: newProd.nome_prodotto,
-        codice_prodotto: newProd.codice_prodotto || null,
-        attivo: true,
-      } as any).select("id").single();
+      const { error } = await supabase.from("provvigioni_compagnia_ramo").insert({
+        compagnia_id: newProvvRamo.compagnia_id,
+        categoria_id: newProvvRamo.categoria_id,
+        percentuale_provvigione: parseFloat(newProvvRamo.percentuale),
+        attiva: true,
+      } as any);
       if (error) throw error;
-
-      if (newProd.percentuale && newProduct) {
-        const { error: provvError } = await supabase.from("matrice_provvigioni").insert({
-          prodotto_id: newProduct.id,
-          percentuale_provvigione: parseFloat(newProd.percentuale),
-          tipo_calcolo: "percentuale",
-          attiva: true,
-        } as any);
-        if (provvError) throw provvError;
-      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["prodotti_con_provvigioni"] });
-      setCreateProdOpen(false);
-      setNewProd({ compagnia_id: "", categoria_id: "", nome_prodotto: "", codice_prodotto: "", percentuale: "" });
-      toast.success("Prodotto creato con successo");
+      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
+      setCreateProvvRamoOpen(false);
+      setNewProvvRamo({ compagnia_id: "", categoria_id: "", percentuale: "" });
+      toast.success("Provvigione per ramo creata");
     },
-    onError: () => toast.error("Errore nella creazione del prodotto"),
+    onError: (err: any) => toast.error(err.message?.includes("duplicate") ? "Combinazione Compagnia+Ramo già esistente" : "Errore nella creazione"),
   });
 
-  const updateProvvMutation = useMutation({
-    mutationFn: async ({ prodottoId, provvigioneId, value }: { prodottoId: string; provvigioneId: string | null; value: number }) => {
-      if (provvigioneId) {
-        const { error } = await supabase.from("matrice_provvigioni")
-          .update({ percentuale_provvigione: value } as any)
-          .eq("id", provvigioneId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("matrice_provvigioni").insert({
-          prodotto_id: prodottoId,
-          percentuale_provvigione: value,
-          tipo_calcolo: "percentuale",
-          attiva: true,
-        } as any);
-        if (error) throw error;
-      }
+  // Update provvigione ramo
+  const updateProvvRamoMutation = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: number }) => {
+      const { error } = await supabase.from("provvigioni_compagnia_ramo")
+        .update({ percentuale_provvigione: value } as any)
+        .eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["prodotti_con_provvigioni"] });
-      setEditingProvv(null);
+      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
+      setEditingProvvRamo(null);
       toast.success("Provvigione aggiornata");
     },
     onError: () => toast.error("Errore nell'aggiornamento"),
   });
 
-  const filtered = prodotti.filter((p: any) => {
+  // Create prodotto (catalogo only, no provvigione)
+  const createProdMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("prodotti").insert({
+        compagnia_id: newProd.compagnia_id || null,
+        categoria_id: newProd.categoria_id || null,
+        nome_prodotto: newProd.nome_prodotto,
+        codice_prodotto: newProd.codice_prodotto || null,
+        attivo: true,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prodotti_catalogo"] });
+      setCreateProdOpen(false);
+      setNewProd({ compagnia_id: "", categoria_id: "", nome_prodotto: "", codice_prodotto: "" });
+      toast.success("Prodotto creato con successo");
+    },
+    onError: () => toast.error("Errore nella creazione del prodotto"),
+  });
+
+  const filteredProdotti = prodotti.filter((p: any) => {
     const matchSearch = !searchProdotto || p.nome_prodotto?.toLowerCase().includes(searchProdotto.toLowerCase());
     const matchComp = !filterCompagnia || p.compagnia_id === filterCompagnia;
     const matchCat = !filterCategoria || p.categoria_id === filterCategoria;
     return matchSearch && matchComp && matchCat;
   });
 
+  const filteredProvvRamo = provvRamo.filter((p: any) => {
+    return !filterProvvCompagnia || p.compagnia_id === filterProvvCompagnia;
+  });
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* ── SEZIONE 1: Provvigioni per Ramo ── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Percent className="w-5 h-5" />Provvigioni per Ramo ({filteredProvvRamo.length})
+            </CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="w-52">
+                <SearchableSelect
+                  options={[{ value: "", label: "Tutte le compagnie" }, ...compagniaOptions]}
+                  value={filterProvvCompagnia}
+                  onValueChange={setFilterProvvCompagnia}
+                  placeholder="Filtra compagnia..."
+                />
+              </div>
+              <Dialog open={createProvvRamoOpen} onOpenChange={setCreateProvvRamoOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="w-4 h-4 mr-2" />Nuova Provvigione Ramo</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Nuova Provvigione per Ramo</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Compagnia / Sede *</Label>
+                      <SearchableSelect
+                        options={compagniaOptions}
+                        value={newProvvRamo.compagnia_id}
+                        onValueChange={(v) => setNewProvvRamo((p) => ({ ...p, compagnia_id: v }))}
+                        placeholder="Seleziona compagnia..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Ramo (Categoria) *</Label>
+                      <SearchableSelect
+                        options={categoriaOptions}
+                        value={newProvvRamo.categoria_id}
+                        onValueChange={(v) => setNewProvvRamo((p) => ({ ...p, categoria_id: v }))}
+                        placeholder="Seleziona ramo..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Provvigione % *</Label>
+                      <Input type="number" step="0.01" value={newProvvRamo.percentuale} onChange={(e) => setNewProvvRamo((p) => ({ ...p, percentuale: e.target.value }))} placeholder="es. 5" />
+                    </div>
+                    <Button onClick={() => createProvvRamoMutation.mutate()} disabled={!newProvvRamo.compagnia_id || !newProvvRamo.categoria_id || !newProvvRamo.percentuale || createProvvRamoMutation.isPending} className="w-full">
+                      Crea Provvigione
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingProvvRamo ? (
+            <p className="text-muted-foreground">Caricamento...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Sede</TableHead>
+                  <TableHead>Ramo</TableHead>
+                  <TableHead>Provvigione %</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProvvRamo.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.compagnie?.nome || "—"}</TableCell>
+                    <TableCell>{p.compagnie?.nome_sede || "—"}</TableCell>
+                    <TableCell><Badge variant="outline">{p.categorie_prodotto?.nome || "—"}</Badge></TableCell>
+                    <TableCell>
+                      {editingProvvRamo === p.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            className="w-20 h-8"
+                            value={editProvvRamoValue}
+                            onChange={(e) => setEditProvvRamoValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editProvvRamoValue) {
+                                updateProvvRamoMutation.mutate({ id: p.id, value: parseFloat(editProvvRamoValue) });
+                              }
+                              if (e.key === "Escape") setEditingProvvRamo(null);
+                            }}
+                            autoFocus
+                          />
+                          <span className="text-muted-foreground">%</span>
+                        </div>
+                      ) : (
+                        <button
+                          className="flex items-center gap-1 hover:text-primary transition-colors"
+                          onClick={() => { setEditingProvvRamo(p.id); setEditProvvRamoValue(String(p.percentuale_provvigione ?? "")); }}
+                        >
+                          <span className="font-semibold">{p.percentuale_provvigione}%</span>
+                          <Pencil className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredProvvRamo.length === 0 && (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nessuna provvigione configurata</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── SEZIONE 2: Catalogo Prodotti ── */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-end gap-4">
@@ -634,10 +761,6 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
                     <Label className="text-xs text-muted-foreground">Codice Prodotto</Label>
                     <Input value={newProd.codice_prodotto} onChange={(e) => setNewProd((p) => ({ ...p, codice_prodotto: e.target.value }))} placeholder="Opzionale" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Provvigione %</Label>
-                    <Input type="number" value={newProd.percentuale} onChange={(e) => setNewProd((p) => ({ ...p, percentuale: e.target.value }))} placeholder="es. 12" />
-                  </div>
                   <Button onClick={() => createProdMutation.mutate()} disabled={!newProd.nome_prodotto || !newProd.compagnia_id || createProdMutation.isPending} className="w-full">
                     Crea Prodotto
                   </Button>
@@ -651,7 +774,7 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Package className="w-5 h-5" />Prodotti & Provvigioni ({filtered.length})
+            <Package className="w-5 h-5" />Catalogo Prodotti ({filteredProdotti.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -666,12 +789,11 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Prodotto</TableHead>
                   <TableHead>Codice</TableHead>
-                  <TableHead>Provvigione %</TableHead>
                   <TableHead>Stato</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((p: any) => (
+                {filteredProdotti.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.compagnie?.nome || "—"}</TableCell>
                     <TableCell>{p.compagnie?.nome_sede || "—"}</TableCell>
@@ -681,51 +803,14 @@ function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
                     <TableCell className="font-medium">{p.nome_prodotto}</TableCell>
                     <TableCell className="font-mono text-sm">{p.codice_prodotto || "—"}</TableCell>
                     <TableCell>
-                      {editingProvv === p.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            className="w-20 h-8"
-                            value={editProvvValue}
-                            onChange={(e) => setEditProvvValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && editProvvValue) {
-                                updateProvvMutation.mutate({
-                                  prodottoId: p.id,
-                                  provvigioneId: p.provvigione?.id || null,
-                                  value: parseFloat(editProvvValue),
-                                });
-                              }
-                              if (e.key === "Escape") setEditingProvv(null);
-                            }}
-                            autoFocus
-                          />
-                          <span className="text-muted-foreground">%</span>
-                        </div>
-                      ) : (
-                        <button
-                          className="flex items-center gap-1 hover:text-primary transition-colors"
-                          onClick={() => {
-                            setEditingProvv(p.id);
-                            setEditProvvValue(p.provvigione?.percentuale_provvigione?.toString() || "");
-                          }}
-                        >
-                          <span className="font-semibold">
-                            {p.provvigione?.percentuale_provvigione != null ? `${p.provvigione.percentuale_provvigione}%` : "—"}
-                          </span>
-                          <Pencil className="w-3 h-3 text-muted-foreground" />
-                        </button>
-                      )}
-                    </TableCell>
-                    <TableCell>
                       <Badge variant={p.attivo ? "default" : "secondary"}>
                         {p.attivo ? "Attivo" : "Inattivo"}
                       </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
-                {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nessun prodotto trovato</TableCell></TableRow>
+                {filteredProdotti.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nessun prodotto trovato</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

@@ -3285,6 +3285,48 @@ export type Database = {
           },
         ]
       }
+      provvigioni_compagnia_ramo: {
+        Row: {
+          attiva: boolean | null
+          categoria_id: string
+          compagnia_id: string
+          created_at: string | null
+          id: string
+          percentuale_provvigione: number
+        }
+        Insert: {
+          attiva?: boolean | null
+          categoria_id: string
+          compagnia_id: string
+          created_at?: string | null
+          id?: string
+          percentuale_provvigione?: number
+        }
+        Update: {
+          attiva?: boolean | null
+          categoria_id?: string
+          compagnia_id?: string
+          created_at?: string | null
+          id?: string
+          percentuale_provvigione?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provvigioni_compagnia_ramo_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorie_prodotto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_compagnia_ramo_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provvigioni_generate: {
         Row: {
           calcolata_il: string | null
