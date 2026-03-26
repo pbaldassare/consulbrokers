@@ -27,6 +27,23 @@ const STRADE = ['Via Roma','Via Garibaldi','Corso Italia','Via Mazzini','Via Dan
 const RAGIONI = ['Tecnoservice','Edilcostruzioni','Agroalimentare del Sud','Logistica Express','Meccanica di Precisione','Farmaceutica Italiana','Chimica Industriale','IT Solutions','Energia Rinnovabile','Consulenza & Gestione','Immobiliare Moderna','Automotive Italia','Tessile & Moda','Alimentari Genuini','Costruzioni Generali','Engineering Group','Digital Innovation','Green Power','Quality Systems','Professional Services','Metal Works','Trasporti Veloci','Bio Cosmetics','Elettronica Avanzata','Servizi Finanziari'];
 const FORME = ['S.r.l.','S.p.A.','S.a.s.','S.n.c.','S.r.l.s.'];
 const COMUNI_NASCITA = ['A944','F205','H501','L219','D612','G273','B354','C351','E463','L736','A662','B157','C933','D969','E625'];
+const SETTORI = ['Manifatturiero','Servizi','Commercio','Edilizia','Trasporti','Agricoltura','Turismo','Sanità','Istruzione','Pubblica Amministrazione','Finanza','Tecnologia','Energia','Alimentare'];
+const ZONE = ['Nord','Centro','Sud','Isole'];
+const CODICI_ATECO = ['01.11','10.71','25.11','41.20','43.21','46.90','47.11','49.41','55.10','56.10','62.01','64.19','68.20','69.10','70.22','71.12','73.11','82.11','85.10','86.10'];
+const ENTI_NOMI = [
+  {nome:'ASL Roma 1',tipo_ente:'ASL'},{nome:'ASL Napoli 1 Centro',tipo_ente:'ASL'},{nome:'ASL Città di Torino',tipo_ente:'ASL'},
+  {nome:'ASL Milano',tipo_ente:'ASL'},{nome:'ASL Toscana Centro',tipo_ente:'ASL'},{nome:'ASL Bologna',tipo_ente:'ASL'},
+  {nome:'Comune di Roma',tipo_ente:'Comune'},{nome:'Comune di Milano',tipo_ente:'Comune'},{nome:'Comune di Napoli',tipo_ente:'Comune'},
+  {nome:'Comune di Firenze',tipo_ente:'Comune'},{nome:'Comune di Bologna',tipo_ente:'Comune'},{nome:'Comune di Torino',tipo_ente:'Comune'},
+  {nome:'Provincia di Roma',tipo_ente:'Provincia'},{nome:'Provincia di Milano',tipo_ente:'Provincia'},{nome:'Provincia di Napoli',tipo_ente:'Provincia'},
+  {nome:'Regione Lazio',tipo_ente:'Regione'},{nome:'Regione Lombardia',tipo_ente:'Regione'},{nome:'Regione Campania',tipo_ente:'Regione'},
+  {nome:'Università La Sapienza',tipo_ente:'Università'},{nome:'Politecnico di Milano',tipo_ente:'Università'},{nome:'Università Federico II',tipo_ente:'Università'},
+  {nome:'Università di Bologna',tipo_ente:'Università'},{nome:'Università di Firenze',tipo_ente:'Università'},
+  {nome:'INPS - Direzione Provinciale Roma',tipo_ente:'INPS'},{nome:'INPS - Direzione Provinciale Milano',tipo_ente:'INPS'},
+  {nome:'INAIL - Sede di Roma',tipo_ente:'INAIL'},{nome:'INAIL - Sede di Milano',tipo_ente:'INAIL'},
+  {nome:'Azienda Ospedaliera San Camillo',tipo_ente:'Ospedale'},{nome:'Policlinico Gemelli',tipo_ente:'Ospedale'},
+  {nome:'Camera di Commercio di Roma',tipo_ente:'CCIAA'},
+];
 
 // ==================== HELPERS ====================
 const pick = <T>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
