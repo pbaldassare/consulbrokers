@@ -51,12 +51,14 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         sidebar: {
-          DEFAULT: "hsl(var(--sidebar-bg))",
+          "bg-from": "hsl(var(--sidebar-bg-from))",
+          "bg-to": "hsl(var(--sidebar-bg-to))",
           foreground: "hsl(var(--sidebar-foreground))",
           active: "hsl(var(--sidebar-active))",
           "active-foreground": "hsl(var(--sidebar-active-foreground))",
           hover: "hsl(var(--sidebar-hover))",
           border: "hsl(var(--sidebar-border))",
+          muted: "hsl(var(--sidebar-muted))",
         },
         kpi: {
           "green-bg": "hsl(var(--kpi-green-bg))",

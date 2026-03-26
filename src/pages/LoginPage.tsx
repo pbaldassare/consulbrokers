@@ -47,17 +47,24 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: "linear-gradient(135deg, hsl(199 58% 14%), hsl(199 50% 24%), hsl(170 55% 32%))",
+      }}
+    >
       <div className="w-full max-w-sm">
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
+        <div className="bg-card/95 backdrop-blur-sm border border-white/10 rounded-xl p-8 shadow-2xl">
           <div className="flex items-center justify-center mb-6">
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <Lock className="w-6 h-6 text-primary" />
             </div>
           </div>
-          <h1 className="text-xl font-bold text-foreground text-center mb-1">
+          <h1 className="text-xl font-bold text-foreground text-center mb-0.5">ConsulNet</h1>
+          <p className="text-xs text-muted-foreground text-center mb-1 uppercase tracking-widest">Gestionale</p>
+          <h2 className="text-base font-semibold text-foreground text-center mt-4 mb-1">
             {resetMode ? "Recupera Password" : "Accedi"}
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground text-center mb-6">
             {resetMode
               ? "Inserisci la tua email per ricevere il link di reset"
@@ -106,7 +113,7 @@ const LoginPage = () => {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full btn-primary-gradient" disabled={loading}>
               {loading ? "Attendere..." : resetMode ? "Invia link di reset" : "Accedi"}
             </Button>
           </form>

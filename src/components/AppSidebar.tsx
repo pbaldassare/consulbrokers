@@ -78,15 +78,10 @@ type SidebarEntry =
   | { type: "group"; group: SidebarGroupDef };
 
 const sidebarEntries: SidebarEntry[] = [
-  // HOME
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
-
-  // PROSPECT, TRATTATIVE & COMUNICAZIONI (standalone, high visibility)
   { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Trattative", path: "/trattative", icon: ArrowRightLeft, permissionKey: "titoli" } },
   { type: "single", item: { label: "Comunicazioni", path: "/comunicazioni", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
-
-  // ARCHIVI
   {
     type: "group",
     group: {
@@ -99,8 +94,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // PORTAFOGLIO
   {
     type: "group",
     group: {
@@ -120,8 +113,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // SINISTRI
   {
     type: "group",
     group: {
@@ -137,8 +128,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // CONTABILITÀ
   {
     type: "group",
     group: {
@@ -161,8 +150,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // CONT. GENERALE
   {
     type: "group",
     group: {
@@ -170,7 +157,6 @@ const sidebarEntries: SidebarEntry[] = [
       icon: BarChart3,
       permissionKey: "cfo_area",
       children: [
-        
         { label: "Piano dei Conti", path: "/cont-generale/anagrafiche", icon: Landmark },
         { label: "Primanota", path: "/cont-generale/primanota", icon: FileText },
         { label: "Scadenziario", path: "/cont-generale/scadenziario", icon: CalendarCheck },
@@ -183,8 +169,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // FATTURAPA
   {
     type: "group",
     group: {
@@ -200,8 +184,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // SISTEMA (admin)
   {
     type: "group",
     group: {
@@ -224,10 +206,7 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-
-  // Extra standalone items
   { type: "single", item: { label: "Area CFO", path: "/cfo", icon: BarChart3, permissionKey: "cfo_area" } },
-  
   { type: "single", item: { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign, permissionKey: "provvigioni" } },
   { type: "single", item: { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" } },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
@@ -243,34 +222,28 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const location = useLocation();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
-  // Fetch unread message count for the badge
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["chat_unread_count", user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
-      // Get channels the user belongs to
       const { data: channels } = await supabase
         .from("chat_canali_membri")
         .select("canale_id")
         .eq("user_id", user.id);
       if (!channels?.length) return 0;
       const channelIds = channels.map((c) => c.canale_id);
-
-      // Count messages not sent by the user (simple unread proxy)
       const { count } = await supabase
         .from("chat_messaggi_interni")
         .select("id", { count: "exact", head: true })
         .in("canale_id", channelIds)
         .neq("mittente_id", user.id)
         .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
       return count || 0;
     },
     enabled: !!user?.id,
     refetchInterval: 30000,
   });
 
-  // Auto-open the group that contains the current route
   useEffect(() => {
     for (const entry of sidebarEntries) {
       if (entry.type === "group") {
@@ -306,25 +279,28 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen bg-card border-r border-sidebar-border z-30 transition-all duration-200 flex flex-col ${
+      className={`fixed left-0 top-0 h-screen z-30 transition-all duration-200 flex flex-col ${
         collapsed ? "w-16" : "w-60"
       }`}
+      style={{
+        background: "linear-gradient(180deg, hsl(var(--sidebar-bg-from)), hsl(var(--sidebar-bg-to)))",
+      }}
     >
       {/* Brand */}
-      <div className="px-4 py-5 border-b border-sidebar-border">
+      <div className="px-4 py-5 border-b border-white/10">
         {!collapsed && (
           <>
-            <h1 className="text-xl font-bold text-foreground tracking-tight">ConsulNet</h1>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mt-0.5">Gestionale</p>
+            <h1 className="text-xl font-bold text-white tracking-tight">ConsulNet</h1>
+            <p className="text-[10px] text-white/50 uppercase tracking-widest mt-0.5">Gestionale</p>
           </>
         )}
         {collapsed && (
-          <h1 className="text-xl font-bold text-foreground text-center">A</h1>
+          <h1 className="text-xl font-bold text-white text-center">C</h1>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
+      <nav className="flex-1 overflow-y-auto py-3 px-2 sidebar-scrollbar">
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
             const item = entry.item;
@@ -335,10 +311,10 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                 to={item.path}
                 end={item.path === "/"}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-0.5 ${
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 mb-0.5 ${
                     isActive
-                      ? "bg-sidebar-active text-sidebar-active-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-hover"
+                      ? "bg-white/15 text-white shadow-sm backdrop-blur-sm"
+                      : "text-white/70 hover:bg-white/8 hover:text-white/90"
                   } ${collapsed ? "justify-center" : ""}`
                 }
               >
@@ -346,7 +322,6 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
                 {!collapsed && (
                   <span className="flex-1">{item.label}</span>
                 )}
-                {/* Unread badge for Comunicazioni */}
                 {item.hasBadge && unreadCount > 0 && (
                   <span className={`inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none ${
                     collapsed ? "absolute top-0.5 right-0.5 w-4 h-4" : "ml-auto min-w-[18px] h-[18px] px-1"
@@ -358,7 +333,6 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
             );
           }
 
-          // Group
           const group = entry.group;
           if (!isVisible(group.permissionKey, group.adminOnly)) return null;
           const isOpen = openGroups.has(group.label);
@@ -372,10 +346,10 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
             <div key={group.label} className="mb-1">
               <button
                 onClick={() => toggleGroup(group.label)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors w-full ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-150 w-full ${
                   hasActiveChild
-                    ? "text-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-hover"
+                    ? "text-white"
+                    : "text-white/60 hover:bg-white/8 hover:text-white/80"
                 } ${collapsed ? "justify-center" : ""}`}
               >
                 <group.icon className="w-[18px] h-[18px] shrink-0" />
@@ -394,17 +368,17 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
               </button>
 
               {isOpen && !collapsed && (
-                <div className="ml-3 pl-3 border-l border-sidebar-border">
+                <div className="ml-3 pl-3 border-l border-white/15">
                   {group.children.map((child) => (
                     <RouterNavLink
                       key={child.path}
                       to={child.path}
                       end
                       className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors mb-0.5 ${
+                        `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 mb-0.5 ${
                           isActive
-                            ? "bg-sidebar-active text-sidebar-active-foreground font-medium"
-                            : "text-sidebar-foreground hover:bg-sidebar-hover"
+                            ? "bg-white/15 text-white font-medium"
+                            : "text-white/60 hover:bg-white/8 hover:text-white/80"
                         }`
                       }
                     >
