@@ -126,9 +126,9 @@ const ClientiList = () => {
 
   // Rete Commerciale state
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
-  const [corr1, setCorr1] = useState<CommercialRole>(emptyRole());
-  const [corr2, setCorr2] = useState<CommercialRole>(emptyRole());
-  const [corr3, setCorr3] = useState<CommercialRole>(emptyRole());
+  const [executive, setExecutive] = useState<CommercialRole>(emptyRole());
+  const [agente, setAgente] = useState<CommercialRole>(emptyRole());
+  const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
     scannedFilesRef.current.push({ file, documentType });
@@ -214,9 +214,9 @@ const ClientiList = () => {
   const insertCommercialRoles = async (clienteId: string) => {
     const roles: { ruolo: string; data: CommercialRole }[] = [
       { ruolo: "AE", data: ae },
-      { ruolo: "Corrispondente 1", data: corr1 },
-      { ruolo: "Corrispondente 2", data: corr2 },
-      { ruolo: "Corrispondente 3", data: corr3 },
+      { ruolo: "Executive", data: executive },
+      { ruolo: "Agente", data: agente },
+      { ruolo: "Produttore Sede", data: produttoreSede },
     ];
     const rows = roles
       .filter((r) => r.data.profilo_id)
@@ -341,7 +341,7 @@ const ClientiList = () => {
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
-    setAe(emptyRole()); setCorr1(emptyRole()); setCorr2(emptyRole()); setCorr3(emptyRole());
+    setAe(emptyRole()); setExecutive(emptyRole()); setAgente(emptyRole()); setProduttoreSede(emptyRole());
     // Gestionali
     setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
@@ -885,19 +885,19 @@ const ClientiList = () => {
                   </div>
                 </div>
 
-                {/* Corrispondenti in Accordion */}
+                {/* Ruoli commerciali in Accordion */}
                 <Accordion type="multiple" className="w-full">
-                  <AccordionItem value="corr1">
-                    <AccordionTrigger className="text-sm py-2">Corrispondente 1</AccordionTrigger>
-                    <AccordionContent>{renderCorrispondenteFields(corr1, setCorr1)}</AccordionContent>
+                  <AccordionItem value="executive">
+                    <AccordionTrigger className="text-sm py-2">Executive</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(executive, setExecutive)}</AccordionContent>
                   </AccordionItem>
-                  <AccordionItem value="corr2">
-                    <AccordionTrigger className="text-sm py-2">Corrispondente 2</AccordionTrigger>
-                    <AccordionContent>{renderCorrispondenteFields(corr2, setCorr2)}</AccordionContent>
+                  <AccordionItem value="agente">
+                    <AccordionTrigger className="text-sm py-2">Agente</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(agente, setAgente)}</AccordionContent>
                   </AccordionItem>
-                  <AccordionItem value="corr3">
-                    <AccordionTrigger className="text-sm py-2">Corrispondente 3</AccordionTrigger>
-                    <AccordionContent>{renderCorrispondenteFields(corr3, setCorr3)}</AccordionContent>
+                  <AccordionItem value="produttore_sede">
+                    <AccordionTrigger className="text-sm py-2">Produttore Sede</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(produttoreSede, setProduttoreSede)}</AccordionContent>
                   </AccordionItem>
                 </Accordion>
               </div>
