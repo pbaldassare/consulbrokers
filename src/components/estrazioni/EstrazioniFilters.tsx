@@ -247,8 +247,8 @@ const EstrazioniFilters = ({
             value={filters.ufficio_id}
             onValueChange={(v) => onChange({ ...filters, ufficio_id: v })}
             options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}
-            placeholder="Ufficio"
-            allLabel="Tutti gli uffici"
+            placeholder="Sede"
+            allLabel="Tutte le sedi"
             className="w-[200px]"
           />
         )}

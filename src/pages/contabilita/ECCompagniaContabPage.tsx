@@ -233,7 +233,7 @@ const ECCompagniaContabPage = () => {
 
           <SearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })}
             options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))}
-            placeholder="Ufficio" allLabel="Tutti gli uffici" className="w-[200px]" />
+            placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
 
           <SearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })}
             options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))}
