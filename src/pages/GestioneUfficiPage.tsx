@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Plus, Users, Briefcase, Pencil, UserCheck } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,9 @@ interface Ufficio {
   id: string;
   codice_ufficio: string;
   nome_ufficio: string;
+  indirizzo: string | null;
+  email: string | null;
+  telefono: string | null;
   attivo: boolean;
   created_at: string;
 }
@@ -27,7 +30,7 @@ const GestioneUfficiPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
-  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", attivo: true });
+  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", email: "", telefono: "", attivo: true });
 
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
@@ -74,23 +77,26 @@ const GestioneUfficiPage = () => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; attivo: boolean }) => {
+    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; email: string; telefono: string; attivo: boolean }) => {
+      const payload = {
+        codice_ufficio: data.codice_ufficio,
+        nome_ufficio: data.nome_ufficio,
+        indirizzo: data.indirizzo || null,
+        email: data.email || null,
+        telefono: data.telefono || null,
+        attivo: data.attivo,
+      };
       if (data.id) {
-        const { error } = await supabase
-          .from("uffici" as any)
-          .update({ codice_ufficio: data.codice_ufficio, nome_ufficio: data.nome_ufficio, attivo: data.attivo })
-          .eq("id", data.id);
+        const { error } = await supabase.from("uffici" as any).update(payload).eq("id", data.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("uffici" as any)
-          .insert({ codice_ufficio: data.codice_ufficio, nome_ufficio: data.nome_ufficio, attivo: data.attivo });
+        const { error } = await supabase.from("uffici" as any).insert(payload);
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["uffici"] });
-      toast.success(editingUfficio ? "Ufficio aggiornato" : "Ufficio creato");
+      toast.success(editingUfficio ? "Sede aggiornata" : "Sede creata");
       closeDialog();
     },
     onError: (err: any) => toast.error(err.message),
@@ -98,13 +104,20 @@ const GestioneUfficiPage = () => {
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
-    setFormData({ codice_ufficio: "", nome_ufficio: "", attivo: true });
+    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", email: "", telefono: "", attivo: true });
     setDialogOpen(true);
   };
 
   const openEditDialog = (u: Ufficio) => {
     setEditingUfficio(u);
-    setFormData({ codice_ufficio: u.codice_ufficio, nome_ufficio: u.nome_ufficio, attivo: u.attivo });
+    setFormData({
+      codice_ufficio: u.codice_ufficio,
+      nome_ufficio: u.nome_ufficio,
+      indirizzo: u.indirizzo || "",
+      email: u.email || "",
+      telefono: u.telefono || "",
+      attivo: u.attivo,
+    });
     setDialogOpen(true);
   };
 
@@ -115,7 +128,7 @@ const GestioneUfficiPage = () => {
 
   const handleSave = () => {
     if (!formData.codice_ufficio.trim() || !formData.nome_ufficio.trim()) {
-      toast.error("Compilare tutti i campi obbligatori");
+      toast.error("Compilare codice e nome sede");
       return;
     }
     upsertMutation.mutate({ id: editingUfficio?.id, ...formData });
@@ -126,21 +139,21 @@ const GestioneUfficiPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Building2 className="w-6 h-6" /> Gestione Uffici
+            <Building2 className="w-6 h-6" /> Gestione Sedi
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Gestisci gli uffici e le entità collegate</p>
+          <p className="text-muted-foreground text-sm mt-1">Gestisci le sedi e le entità collegate</p>
         </div>
-        <Button onClick={openCreateDialog}><Plus className="w-4 h-4 mr-2" /> Nuovo Ufficio</Button>
+        <Button onClick={openCreateDialog}><Plus className="w-4 h-4 mr-2" /> Nuova Sede</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Totale Uffici</p><p className="text-2xl font-bold text-foreground">{uffici.length}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Attivi</p><p className="text-2xl font-bold text-primary">{uffici.filter(u => u.attivo).length}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Disattivi</p><p className="text-2xl font-bold text-destructive">{uffici.filter(u => !u.attivo).length}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Totale Sedi</p><p className="text-2xl font-bold text-foreground">{uffici.length}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Attive</p><p className="text-2xl font-bold text-primary">{uffici.filter(u => u.attivo).length}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Disattive</p><p className="text-2xl font-bold text-destructive">{uffici.filter(u => !u.attivo).length}</p></CardContent></Card>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Elenco Uffici</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Elenco Sedi</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
             <p className="text-muted-foreground text-center py-8">Caricamento...</p>
@@ -149,11 +162,12 @@ const GestioneUfficiPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Codice</TableHead>
-                  <TableHead>Nome Ufficio</TableHead>
+                  <TableHead>Nome Sede</TableHead>
+                  <TableHead>Indirizzo</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Telefono</TableHead>
                   <TableHead className="text-center">Utenti</TableHead>
                   <TableHead className="text-center">Clienti</TableHead>
-                  <TableHead className="text-center">Produttori</TableHead>
-                  <TableHead className="text-center">Anagrafiche</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Azioni</TableHead>
                 </TableRow>
@@ -167,13 +181,14 @@ const GestioneUfficiPage = () => {
                   >
                     <TableCell className="font-mono font-medium">{u.codice_ufficio}</TableCell>
                     <TableCell className="font-medium">{u.nome_ufficio}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{u.indirizzo || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.telefono || "—"}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.utenti || 0}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.clienti || 0}</TableCell>
-                    <TableCell className="text-center">{counts[u.id]?.produttori || 0}</TableCell>
-                    <TableCell className="text-center">{counts[u.id]?.anagrafiche || 0}</TableCell>
                     <TableCell>
                       <Badge variant={u.attivo ? "default" : "secondary"}>
-                        {u.attivo ? "Attivo" : "Disattivo"}
+                        {u.attivo ? "Attiva" : "Disattiva"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -184,7 +199,7 @@ const GestioneUfficiPage = () => {
                   </TableRow>
                 ))}
                 {uffici.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nessun ufficio trovato</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessuna sede trovata</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -197,20 +212,32 @@ const GestioneUfficiPage = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingUfficio ? "Modifica Ufficio" : "Nuovo Ufficio"}</DialogTitle>
+            <DialogTitle>{editingUfficio ? "Modifica Sede" : "Nuova Sede"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Codice Ufficio *</Label>
-              <Input value={formData.codice_ufficio} onChange={(e) => setFormData({ ...formData, codice_ufficio: e.target.value })} placeholder="es. UFF001" />
+              <Label>Codice Sede *</Label>
+              <Input value={formData.codice_ufficio} onChange={(e) => setFormData({ ...formData, codice_ufficio: e.target.value })} placeholder="es. SEDE001" />
             </div>
             <div>
-              <Label>Nome Ufficio *</Label>
-              <Input value={formData.nome_ufficio} onChange={(e) => setFormData({ ...formData, nome_ufficio: e.target.value })} placeholder="es. Ufficio Milano" />
+              <Label>Nome Sede *</Label>
+              <Input value={formData.nome_ufficio} onChange={(e) => setFormData({ ...formData, nome_ufficio: e.target.value })} placeholder="es. Sede Milano" />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo</Label>
+              <Input value={formData.indirizzo} onChange={(e) => setFormData({ ...formData, indirizzo: e.target.value })} placeholder="es. Via Roma 1, 20121 Milano" />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
+              <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="es. sede-milano@azienda.it" />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Telefono</Label>
+              <Input value={formData.telefono} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} placeholder="es. 02 1234567" />
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={formData.attivo} onCheckedChange={(v) => setFormData({ ...formData, attivo: v })} />
-              <Label>Attivo</Label>
+              <Label>Attiva</Label>
             </div>
           </div>
           <DialogFooter>
@@ -285,6 +312,13 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
           <Building2 className="w-5 h-5" />
           Dettaglio: {ufficio.nome_ufficio} ({ufficio.codice_ufficio})
         </CardTitle>
+        {(ufficio.indirizzo || ufficio.email || ufficio.telefono) && (
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
+            {ufficio.indirizzo && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ufficio.indirizzo}</span>}
+            {ufficio.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{ufficio.email}</span>}
+            {ufficio.telefono && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{ufficio.telefono}</span>}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="utenti">

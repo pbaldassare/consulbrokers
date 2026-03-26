@@ -200,7 +200,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
-        { label: "Gestione Uffici", path: "/gestione-uffici", icon: Building2 },
+        { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
       ],
     },
   },
