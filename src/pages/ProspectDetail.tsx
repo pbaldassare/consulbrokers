@@ -15,8 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, Users, Phone, Mail, Globe, StickyNote, Plus,
-  Clock, FileText, TrendingUp, CheckCircle2, XCircle,
+  Clock, FileText, TrendingUp, CheckCircle2, XCircle, UserPlus, ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -87,6 +92,46 @@ const ProspectDetail = () => {
   });
 
   const trattativeIds = trattative?.map((t) => t.id) || [];
+
+  const convertToClientMutation = useMutation({
+    mutationFn: async () => {
+      const { data: newClient, error: insertErr } = await supabase
+        .from("clienti")
+        .insert({
+          tipo_cliente: "privato",
+          nome: prospect?.nome || null,
+          cognome: prospect?.cognome || null,
+          email: prospect?.email || null,
+          telefono: prospect?.telefono || null,
+          note: prospect?.note || null,
+          ufficio_id: prospect?.ufficio_id || null,
+          attivo: true,
+        })
+        .select("id")
+        .single();
+      if (insertErr) throw insertErr;
+
+      const { error: updateErr } = await supabase
+        .from("prospect")
+        .update({ convertito_cliente_id: newClient.id } as any)
+        .eq("id", id!);
+      if (updateErr) throw updateErr;
+
+      await logAttivita({
+        azione: "conversione_prospect_cliente",
+        entita_tipo: "prospect",
+        entita_id: id!,
+        dettagli_json: { cliente_id: newClient.id, nome: prospect?.nome, cognome: prospect?.cognome },
+      });
+
+      return newClient.id;
+    },
+    onSuccess: (clienteId) => {
+      toast.success("Prospect convertito in cliente con successo!");
+      navigate(`/archivi/clienti/${clienteId}`);
+    },
+    onError: () => toast.error("Errore durante la conversione"),
+  });
 
   const updateStatoMutation = useMutation({
     mutationFn: async (newStato: string) => {
@@ -211,12 +256,51 @@ const ProspectDetail = () => {
             </p>
           </div>
         </div>
-        <Select value={prospect.stato} onValueChange={(v) => updateStatoMutation.mutate(v)}>
-          <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {STATI_PROSPECT.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {prospect.stato === "chiuso_vinto" && !(prospect as any).convertito_cliente_id && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="gap-2 bg-kpi-green-text hover:bg-kpi-green-text/90 text-white">
+                  <UserPlus className="w-4 h-4" />Converti in Cliente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Converti Prospect in Cliente</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>Verrà creato un nuovo cliente con i seguenti dati:</p>
+                      <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
+                        <p><strong>Nome:</strong> {prospect.nome} {prospect.cognome}</p>
+                        <p><strong>Email:</strong> {prospect.email || "—"}</p>
+                        <p><strong>Telefono:</strong> {prospect.telefono || "—"}</p>
+                        {prospect.note && <p><strong>Note:</strong> {prospect.note}</p>}
+                      </div>
+                      <p>Il prospect verrà segnato come convertito. Questa azione non è reversibile.</p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => convertToClientMutation.mutate()} disabled={convertToClientMutation.isPending}>
+                    Conferma Conversione
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {(prospect as any).convertito_cliente_id && (
+            <Button variant="outline" className="gap-2 text-kpi-green-text border-kpi-green-border" onClick={() => navigate(`/archivi/clienti/${(prospect as any).convertito_cliente_id}`)}>
+              <ExternalLink className="w-4 h-4" />Vai al Cliente
+            </Button>
+          )}
+          <Select value={prospect.stato} onValueChange={(v) => updateStatoMutation.mutate(v)}>
+            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STATI_PROSPECT.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
