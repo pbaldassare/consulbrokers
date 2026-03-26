@@ -201,7 +201,7 @@ export default function AnalisiPreventivoRCAPage() {
                 {res.nome_file}
               </CardTitle>
               {res.errore && <Badge variant="destructive">Errore</Badge>}
-              {res.risultato && <Badge className="bg-green-600 text-white">Analizzato</Badge>}
+              {res.risultato && <Badge className="bg-primary text-primary-foreground">Analizzato</Badge>}
             </div>
           </CardHeader>
           <CardContent>
@@ -267,7 +267,7 @@ export default function AnalisiPreventivoRCAPage() {
                             <TableCell>{g.franchigia || "—"}</TableCell>
                             <TableCell className="text-right">{fmt(g.premio)}</TableCell>
                             <TableCell className="text-center">
-                              {g.inclusa ? <Badge className="bg-green-600 text-white">Sì</Badge> : <Badge variant="secondary">No</Badge>}
+                              {g.inclusa ? <Badge className="bg-primary text-primary-foreground">Sì</Badge> : <Badge variant="secondary">No</Badge>}
                             </TableCell>
                           </TableRow>
                         ))}
