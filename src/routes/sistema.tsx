@@ -13,6 +13,7 @@ import NotifichePage from "@/pages/NotifichePage";
 import CompagnieList from "@/pages/CompagnieList";
 import CategorieList from "@/pages/CategorieList";
 import ProdottiList from "@/pages/ProdottiList";
+import TemplatePage from "@/pages/TemplatePage";
 import PrivacyConsensi from "@/pages/PrivacyConsensi";
 import ComunicazioniPage from "@/pages/ComunicazioniPage";
 import ReportPage from "@/pages/ReportPage";
@@ -37,6 +38,7 @@ export const sistemaRoutes = (
     <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
     {/* Categorie e Prodotti rimossi dal menu — gestiti nella tab Compagnie */}
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
+    <Route path="/template" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><TemplatePage /></RoleGuard>} />
     <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
 
     {/* STANDALONE */}

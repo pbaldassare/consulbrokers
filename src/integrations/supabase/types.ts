@@ -3927,6 +3927,68 @@ export type Database = {
           },
         ]
       }
+      template_categorie: {
+        Row: {
+          created_at: string | null
+          descrizione: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string | null
+          descrizione?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string | null
+          descrizione?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      template_email: {
+        Row: {
+          attivo: boolean | null
+          categoria_id: string
+          corpo: string
+          created_at: string | null
+          id: string
+          nome: string
+          oggetto: string
+          updated_at: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          categoria_id: string
+          corpo?: string
+          created_at?: string | null
+          id?: string
+          nome: string
+          oggetto?: string
+          updated_at?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          categoria_id?: string
+          corpo?: string
+          created_at?: string | null
+          id?: string
+          nome?: string
+          oggetto?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_email_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "template_categorie"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tipi_mandatario: {
         Row: {
           attivo: boolean
