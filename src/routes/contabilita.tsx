@@ -8,7 +8,7 @@ import ChiusuraContabile from "@/pages/contabilita/ChiusuraContabile";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
-import CausaliPage from "@/pages/contGenerale/CausaliPage";
+
 import PrimanotaGeneralePage from "@/pages/contGenerale/PrimanotaGeneralePage";
 import ScadenziarioPage from "@/pages/contGenerale/ScadenziarioPage";
 import ElabPeriodichePage from "@/pages/contGenerale/ElabPeriodichePage";
@@ -40,7 +40,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
 
     {/* CONT. GENERALE */}
-    <Route path="/cont-generale/causali" element={<CausaliPage />} />
+    
     <Route path="/cont-generale/anagrafiche" element={<PianoDeiContiPage />} />
     <Route path="/cont-generale/primanota" element={<PrimanotaGeneralePage />} />
     <Route path="/cont-generale/scadenziario" element={<ScadenziarioPage />} />
