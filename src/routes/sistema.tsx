@@ -10,6 +10,9 @@ import GestioneUfficiPage from "@/pages/GestioneUfficiPage";
 import AnomalieList from "@/pages/AnomalieList";
 import AnomalieKO from "@/pages/AnomalieKO";
 import NotifichePage from "@/pages/NotifichePage";
+import CompagnieList from "@/pages/CompagnieList";
+import CategorieList from "@/pages/CategorieList";
+import ProdottiList from "@/pages/ProdottiList";
 import PrivacyConsensi from "@/pages/PrivacyConsensi";
 import ComunicazioniPage from "@/pages/ComunicazioniPage";
 import ReportPage from "@/pages/ReportPage";
@@ -31,6 +34,9 @@ export const sistemaRoutes = (
     <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
     <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
     <Route path="/tabelle-base" element={<RoleGuard allowedRoles={["admin"]}><TabelleBasePage /></RoleGuard>} />
+    <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
+    <Route path="/categorie" element={<RoleGuard allowedRoles={["admin"]}><CategorieList /></RoleGuard>} />
+    <Route path="/prodotti" element={<RoleGuard allowedRoles={["admin"]}><ProdottiList /></RoleGuard>} />
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
     <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
 
