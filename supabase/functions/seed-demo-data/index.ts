@@ -157,11 +157,12 @@ Deno.serve(async (req) => {
     if (clientIds.length === 0) clientIds.push('d2364de7-7548-463e-9a67-ecbf68b9aee1');
     R.profiles = createdIds.length;
 
-    // ==================== 3. CLIENTI (CRM - 160) ====================
+    // ==================== 3. CLIENTI (CRM - 160 privati + 50 aziende + 30 enti) ====================
     const clientiData: any[] = [];
+    const clientiIds: string[] = [];
 
-    // 110 privati
-    for (let i = 0; i < 110; i++) {
+    // 160 privati
+    for (let i = 0; i < 160; i++) {
       const male = Math.random() > 0.45;
       const nome = pick(male ? NM : NF);
       const cognome = pick(COG);
@@ -169,19 +170,33 @@ Deno.serve(async (req) => {
       const yN = ri(1945, 2002);
       const mN = ri(1, 12);
       const dN = ri(1, 28);
+      const birthCity = pick(CITIES);
+      const id = uuid();
+      clientiIds.push(id);
       clientiData.push({
+        id,
         tipo_cliente: 'privato',
+        tipo_persona: 'fisica',
         nome, cognome,
+        sesso: male ? 'M' : 'F',
         codice_fiscale: fakeCF(cognome, nome, yN, mN, dN, male ? 'M' : 'F'),
         data_nascita: `${yN}-${pad(mN, 2)}-${pad(dN, 2)}`,
-        luogo_nascita: pick(CITIES).c,
+        luogo_nascita: birthCity.c,
+        comune_nascita: birthCity.c,
+        provincia_nascita: birthCity.p,
         email: `${nome.toLowerCase()}.${cognome.toLowerCase()}.${ri(1,999)}@email.it`,
         telefono: fakePhone(),
+        cellulare: fakePhone(),
         indirizzo_residenza: `${pick(STRADE)} ${ri(1, 250)}`,
         citta_residenza: city.c,
         cap_residenza: city.cap,
         provincia_residenza: city.p,
         attivo: Math.random() > 0.08,
+        stato_cliente: pick(['attivo','attivo','attivo','prospect','sospeso']),
+        zona: pick(ZONE),
+        settore: pick(SETTORI),
+        codice_ateco: pick(CODICI_ATECO),
+        fido_credito: Math.random() > 0.7 ? rf(1000, 50000) : null,
         note: `[DEMO] Cliente privato #${i + 1}`,
         ufficio_id: pick(uIds),
       });
@@ -193,16 +208,22 @@ Deno.serve(async (req) => {
       const base = pick(RAGIONI);
       const cog = pick(COG);
       const forma = pick(FORME);
+      const piva = fakePIVA();
+      const id = uuid();
+      clientiIds.push(id);
       clientiData.push({
+        id,
         tipo_cliente: 'azienda',
+        tipo_persona: 'giuridica',
         ragione_sociale: `${base} ${cog} ${forma}`,
-        partita_iva: fakePIVA(),
-        codice_fiscale_azienda: fakePIVA(),
         forma_giuridica: forma,
+        partita_iva: piva,
+        codice_fiscale_azienda: piva,
         codice_sdi: `${String.fromCharCode(65 + ri(0, 25))}${pad(ri(100000, 999999), 6)}`,
         email: `info@${base.toLowerCase().replace(/[\s&']/g, '')}${ri(1,99)}.it`,
         pec: `pec@${base.toLowerCase().replace(/[\s&']/g, '')}${ri(1,99)}.legalmail.it`,
         telefono: fakePhone(),
+        cellulare: fakePhone(),
         indirizzo_sede: `${pick(STRADE)} ${ri(1, 200)}`,
         citta_sede: city.c,
         cap_sede: city.cap,
@@ -212,12 +233,65 @@ Deno.serve(async (req) => {
         referente_email: `ref.${ri(1,999)}@demo.it`,
         referente_telefono: fakePhone(),
         attivo: Math.random() > 0.08,
+        stato_cliente: pick(['attivo','attivo','attivo','prospect']),
+        zona: pick(ZONE),
+        settore: pick(SETTORI),
+        codice_ateco: pick(CODICI_ATECO),
+        num_dipendenti: ri(5, 500),
+        fatturato: rf(100000, 50000000),
+        fido_credito: rf(5000, 200000),
+        fido_cauzioni: rf(10000, 500000),
         note: `[DEMO] Azienda #${i + 1}`,
+        ufficio_id: pick(uIds),
+      });
+    }
+
+    // 30 enti pubblici
+    for (let i = 0; i < ENTI_NOMI.length; i++) {
+      const ente = ENTI_NOMI[i];
+      const city = CITIES[i % CITIES.length];
+      const piva = fakePIVA();
+      const id = uuid();
+      clientiIds.push(id);
+      clientiData.push({
+        id,
+        tipo_cliente: 'ente',
+        tipo_persona: 'giuridica',
+        ragione_sociale: ente.nome,
+        partita_iva: piva,
+        codice_fiscale_azienda: piva,
+        codice_sdi: `${String.fromCharCode(65 + ri(0, 25))}${pad(ri(100000, 999999), 6)}`,
+        email: `protocollo@${ente.nome.toLowerCase().replace(/[\s\-&']/g, '').substring(0, 15)}${ri(1,9)}.gov.it`,
+        pec: `pec@${ente.nome.toLowerCase().replace(/[\s\-&']/g, '').substring(0, 15)}.legalmail.it`,
+        telefono: fakePhone(),
+        indirizzo_sede: `${pick(STRADE)} ${ri(1, 100)}`,
+        citta_sede: city.c,
+        cap_sede: city.cap,
+        provincia_sede: city.p,
+        referente_nome: pick(NM),
+        referente_cognome: pick(COG),
+        referente_email: `ref.${ente.tipo_ente.toLowerCase()}.${ri(1,99)}@gov.it`,
+        referente_telefono: fakePhone(),
+        attivo: true,
+        stato_cliente: 'attivo',
+        zona: pick(ZONE),
+        settore: 'Pubblica Amministrazione',
+        codice_ateco: '84.11',
+        num_dipendenti: ri(50, 5000),
+        fido_credito: rf(50000, 1000000),
+        fido_cauzioni: rf(100000, 2000000),
+        indotto: ente.tipo_ente,
+        note: `[DEMO] Ente pubblico - ${ente.tipo_ente} #${i + 1}`,
         ufficio_id: pick(uIds),
       });
     }
     await batchInsert(db, 'clienti', clientiData);
     R.clienti = clientiData.length;
+
+    // Separate clienti by type for later use
+    const privatiIds = clientiIds.slice(0, 160);
+    const aziendeIds = clientiIds.slice(160, 210);
+    const entiIds = clientiIds.slice(210);
 
     // ==================== 4. FETCH COMPAGNIE & CATEGORIE ====================
     const { data: comp } = await db.from('compagnie').select('id');
