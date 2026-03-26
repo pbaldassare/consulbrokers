@@ -28,6 +28,10 @@ const PLACEHOLDER_VARS = [
   { label: "Premio Polizza", value: "{{polizza_premio}}" },
   { label: "Compagnia", value: "{{compagnia_nome}}" },
   { label: "Sede", value: "{{sede_nome}}" },
+  { label: "Indirizzo Sede", value: "{{sede_indirizzo}}" },
+  { label: "Email Sede", value: "{{sede_email}}" },
+  { label: "Telefono Sede", value: "{{sede_telefono}}" },
+  { label: "Codice Sede", value: "{{sede_codice}}" },
   { label: "Data Oggi", value: "{{data_oggi}}" },
 ];
 
@@ -42,6 +46,10 @@ const EXAMPLE_DATA: Record<string, string> = {
   "{{polizza_premio}}": "1.250,00",
   "{{compagnia_nome}}": "Allianz",
   "{{sede_nome}}": "Sede di Milano",
+  "{{sede_indirizzo}}": "Via Roma 10, 20121 Milano",
+  "{{sede_email}}": "sede.milano@agenzia.it",
+  "{{sede_telefono}}": "02 1234567",
+  "{{sede_codice}}": "MI-001",
   "{{data_oggi}}": new Date().toLocaleDateString("it-IT"),
 };
 
@@ -74,6 +82,10 @@ interface PolizzaResult {
   prodotto_nome: string | null;
   compagnia_nome: string | null;
   sede_nome: string | null;
+  sede_indirizzo: string | null;
+  sede_email: string | null;
+  sede_telefono: string | null;
+  sede_codice: string | null;
 }
 
 // --- Search hooks ---
@@ -103,7 +115,7 @@ function usePolizzaSearch(searchTerm: string, clienteId?: string) {
       const term = `%${searchTerm}%`;
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, data_scadenza, premio_lordo, prodotto_id, ufficio_id, cliente_anagrafica_id, prodotti(nome_prodotto, compagnia_id, compagnie(nome)), uffici(nome_ufficio)")
+        .select("id, numero_titolo, data_scadenza, premio_lordo, prodotto_id, ufficio_id, cliente_anagrafica_id, prodotti(nome_prodotto, compagnia_id, compagnie(nome)), uffici(nome_ufficio, indirizzo, email, telefono, codice_ufficio)")
         .or(`numero_titolo.ilike.${term}`)
         .limit(15);
       if (clienteId) {
@@ -119,6 +131,10 @@ function usePolizzaSearch(searchTerm: string, clienteId?: string) {
         prodotto_nome: t.prodotti?.nome_prodotto || null,
         compagnia_nome: t.prodotti?.compagnie?.nome || null,
         sede_nome: t.uffici?.nome_ufficio || null,
+        sede_indirizzo: t.uffici?.indirizzo || null,
+        sede_email: t.uffici?.email || null,
+        sede_telefono: t.uffici?.telefono || null,
+        sede_codice: t.uffici?.codice_ufficio || null,
       })) as PolizzaResult[];
     },
     enabled: searchTerm.length >= 2,
@@ -140,6 +156,10 @@ function buildDataMap(cliente?: ClienteResult | null, polizza?: PolizzaResult | 
     data["{{polizza_premio}}"] = polizza.premio_lordo != null ? polizza.premio_lordo.toLocaleString("it-IT", { minimumFractionDigits: 2 }) : "";
     data["{{compagnia_nome}}"] = polizza.compagnia_nome || "";
     data["{{sede_nome}}"] = polizza.sede_nome || "";
+    data["{{sede_indirizzo}}"] = polizza.sede_indirizzo || "";
+    data["{{sede_email}}"] = polizza.sede_email || "";
+    data["{{sede_telefono}}"] = polizza.sede_telefono || "";
+    data["{{sede_codice}}"] = polizza.sede_codice || "";
   }
   return data;
 }
