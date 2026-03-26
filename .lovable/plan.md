@@ -1,57 +1,38 @@
 
 
-## Piano: Ricerca Dati Reali nei Template Email
+## Piano: Aggiungere dati Sede ai Template Email
 
-### Problema attuale
-L'anteprima usa solo dati fake. L'utente vuole poter cercare e selezionare clienti e polizze reali dal database per popolare le variabili del template con dati veri.
+### Intervento
 
-### Interventi
+Aggiungere nuove variabili placeholder per la sede (ufficio) con tutti i dati disponibili dalla tabella `uffici`: indirizzo, email, telefono, codice ufficio.
 
-**1. Ristrutturare l'anteprima con ricerca dati reali**
+### Modifiche a `src/pages/TemplatePage.tsx`
 
-Nell'anteprima del template (e nel futuro invio), aggiungere:
-- **Cerca Cliente**: campo di ricerca che interroga `clienti` + `profiles` (nome, cognome, ragione sociale, codice fiscale) con risultati in dropdown
-- **Cerca Polizza**: campo di ricerca che interroga `titoli` con join su `prodotti`, `compagnie` — cerca per numero_titolo, nome prodotto, nome compagnia. Filtrato opzionalmente per cliente selezionato
-- Quando si seleziona un cliente e/o una polizza, le variabili del template vengono sostituite con i dati reali dal DB
-- Se nessun dato selezionato, mostra i dati di esempio come fallback
+**1. Nuove variabili placeholder**
 
-**2. Migliorare il dialog anteprima**
+Aggiungere a `PLACEHOLDER_VARS`:
+- `{{sede_indirizzo}}` — uffici.indirizzo
+- `{{sede_email}}` — uffici.email
+- `{{sede_telefono}}` — uffici.telefono
+- `{{sede_codice}}` — uffici.codice_ufficio
 
-Il dialog anteprima diventa:
-```text
-┌─────────────────────────────────────┐
-│ Anteprima: Sollecito pagamento      │
-├─────────────────────────────────────┤
-│ 🔍 Cerca Cliente: [___________]    │
-│    → Mario Rossi - RSSMRA80A01H501 │
-│    → Rossi S.r.l.                  │
-│                                     │
-│ 🔍 Cerca Polizza: [___________]    │
-│    → POL-2026-001234 - Auto Allianz│
-│                                     │
-│ ─── Anteprima ───                  │
-│ Oggetto: Sollecito polizza POL-... │
-│ Corpo: Gentile Mario Rossi, ...    │
-└─────────────────────────────────────┘
-```
+**2. Dati di esempio**
 
-**3. Componenti di ricerca**
+Aggiungere a `EXAMPLE_DATA` valori di esempio per le nuove variabili.
 
-- Usare il pattern `SearchableSelect` (Popover + Command) gia presente nel progetto
-- Query cliente: `clienti` join `profiles` con ricerca ILIKE su nome/cognome/ragione_sociale/codice_fiscale
-- Query polizza: `titoli` join `prodotti` + `compagnie` + `uffici` con ricerca ILIKE su numero_titolo
+**3. Query polizza**
 
-**4. Nessuna modifica al DB**
+La query su `titoli` gia fa join su `uffici(nome_ufficio)` — estendere per includere anche `indirizzo, email, telefono, codice_ufficio`.
 
-Tutto lato frontend: le query di ricerca usano le tabelle esistenti (`clienti`, `profiles`, `titoli`, `prodotti`, `compagnie`, `uffici`).
+**4. PolizzaResult interface**
 
-### Dettagli tecnici
+Aggiungere i nuovi campi: `sede_indirizzo`, `sede_email`, `sede_telefono`, `sede_codice`.
 
-| Elemento | Dettaglio |
-|---|---|
-| File modificato | `src/pages/TemplatePage.tsx` |
-| Ricerca cliente | `clienti` join `profiles` → nome, cognome, email, codice_fiscale, ragione_sociale |
-| Ricerca polizza | `titoli` join `prodotti`, `compagnie`, `uffici` → numero_titolo, data_scadenza, premio_lordo, compagnia, sede |
-| Pattern UI | SearchableSelect (Popover+Command) per entrambe le ricerche |
-| Fallback | Se nessuna selezione, mostra dati di esempio |
+**5. buildDataMap**
+
+Popolare le nuove variabili dai dati della polizza selezionata.
+
+### Nessuna modifica al DB
+
+Tutto lato frontend, i campi esistono gia nella tabella `uffici`.
 
