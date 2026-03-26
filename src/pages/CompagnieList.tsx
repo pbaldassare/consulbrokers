@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Plus, Building2, Search, ShieldAlert, Package, Percent, Pencil } from "lucide-react";
+import { Plus, Building2, Search, ShieldAlert, Percent, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -615,205 +615,6 @@ function CompagniaFormDialog({
   );
 }
 
-// ── Prodotti & Provvigioni Tab ──
-
-function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
-  const queryClient = useQueryClient();
-  const [searchProdotto, setSearchProdotto] = useState("");
-  const [filterCompagnia, setFilterCompagnia] = useState("");
-  const [filterCategoria, setFilterCategoria] = useState("");
-  const [createProdOpen, setCreateProdOpen] = useState(false);
-
-  const [newProd, setNewProd] = useState({
-    compagnia_id: "",
-    categoria_id: "",
-    nome_prodotto: "",
-    codice_prodotto: "",
-  });
-
-  const { data: categorie = [] } = useQuery({
-    queryKey: ["categorie_prodotto"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("categorie_prodotto").select("*").order("nome");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: prodotti = [], isLoading } = useQuery({
-    queryKey: ["prodotti_catalogo"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("prodotti")
-        .select("*, compagnie(id, nome, nome_sede), categorie_prodotto(id, nome)")
-        .order("nome_prodotto");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const compagniaOptions = compagnie.map((c: any) => ({
-    value: c.id,
-    label: c.nome + (c.nome_sede ? ` - ${c.nome_sede}` : ""),
-  }));
-
-  const categoriaOptions = categorie.map((c: any) => ({
-    value: c.id,
-    label: c.nome,
-  }));
-
-  const createProdMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("prodotti").insert({
-        compagnia_id: newProd.compagnia_id || null,
-        categoria_id: newProd.categoria_id || null,
-        nome_prodotto: newProd.nome_prodotto,
-        codice_prodotto: newProd.codice_prodotto || null,
-        attivo: true,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["prodotti_catalogo"] });
-      setCreateProdOpen(false);
-      setNewProd({ compagnia_id: "", categoria_id: "", nome_prodotto: "", codice_prodotto: "" });
-      toast.success("Prodotto creato con successo");
-    },
-    onError: () => toast.error("Errore nella creazione del prodotto"),
-  });
-
-  const filteredProdotti = prodotti.filter((p: any) => {
-    const matchSearch = !searchProdotto || p.nome_prodotto?.toLowerCase().includes(searchProdotto.toLowerCase());
-    const matchComp = !filterCompagnia || p.compagnia_id === filterCompagnia;
-    const matchCat = !filterCategoria || p.categoria_id === filterCategoria;
-    return matchSearch && matchComp && matchCat;
-  });
-
-  return (
-    <div className="space-y-6">
-      {/* ── Catalogo Prodotti ── */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-end gap-4">
-            <div className="flex-1 space-y-1">
-              <Label className="text-xs text-muted-foreground">Cerca prodotto</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Nome prodotto..." value={searchProdotto} onChange={(e) => setSearchProdotto(e.target.value)} className="pl-9" />
-              </div>
-            </div>
-            <div className="w-52 space-y-1">
-              <Label className="text-xs text-muted-foreground">Compagnia</Label>
-              <SearchableSelect
-                options={[{ value: "", label: "Tutte" }, ...compagniaOptions]}
-                value={filterCompagnia}
-                onValueChange={setFilterCompagnia}
-                placeholder="Tutte..."
-              />
-            </div>
-            <div className="w-48 space-y-1">
-              <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <SearchableSelect
-                options={[{ value: "", label: "Tutte" }, ...categoriaOptions]}
-                value={filterCategoria}
-                onValueChange={setFilterCategoria}
-                placeholder="Tutte..."
-              />
-            </div>
-            <Button variant="secondary" onClick={() => { setSearchProdotto(""); setFilterCompagnia(""); setFilterCategoria(""); }}>Reset</Button>
-            <Dialog open={createProdOpen} onOpenChange={setCreateProdOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="w-4 h-4 mr-2" />Nuovo Prodotto</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Nuovo Prodotto</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Compagnia / Sede *</Label>
-                    <SearchableSelect
-                      options={compagniaOptions}
-                      value={newProd.compagnia_id}
-                      onValueChange={(v) => setNewProd((p) => ({ ...p, compagnia_id: v }))}
-                      placeholder="Seleziona compagnia..."
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Categoria</Label>
-                    <SearchableSelect
-                      options={categoriaOptions}
-                      value={newProd.categoria_id}
-                      onValueChange={(v) => setNewProd((p) => ({ ...p, categoria_id: v }))}
-                      placeholder="Seleziona categoria..."
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Nome Prodotto *</Label>
-                    <Input value={newProd.nome_prodotto} onChange={(e) => setNewProd((p) => ({ ...p, nome_prodotto: e.target.value }))} placeholder="es. T Legale Allianz" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Codice Prodotto</Label>
-                    <Input value={newProd.codice_prodotto} onChange={(e) => setNewProd((p) => ({ ...p, codice_prodotto: e.target.value }))} placeholder="Opzionale" />
-                  </div>
-                  <Button onClick={() => createProdMutation.mutate()} disabled={!newProd.nome_prodotto || !newProd.compagnia_id || createProdMutation.isPending} className="w-full">
-                    Crea Prodotto
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Package className="w-5 h-5" />Catalogo Prodotti ({filteredProdotti.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-muted-foreground">Caricamento...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Compagnia</TableHead>
-                  <TableHead>Sede</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Prodotto</TableHead>
-                  <TableHead>Codice</TableHead>
-                  <TableHead>Stato</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProdotti.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.compagnie?.nome || "—"}</TableCell>
-                    <TableCell>{p.compagnie?.nome_sede || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{p.categorie_prodotto?.nome || "—"}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{p.nome_prodotto}</TableCell>
-                    <TableCell className="font-mono text-sm">{p.codice_prodotto || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={p.attivo ? "default" : "secondary"}>
-                        {p.attivo ? "Attivo" : "Inattivo"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredProdotti.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nessun prodotto trovato</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 // ── Main Page ──
 
 const CompagnieList = () => {
@@ -936,9 +737,6 @@ const CompagnieList = () => {
           </TabsTrigger>
           <TabsTrigger value="sinistri" className="gap-2">
             <ShieldAlert className="w-4 h-4" />Compagnie Sinistri
-          </TabsTrigger>
-          <TabsTrigger value="prodotti" className="gap-2">
-            <Package className="w-4 h-4" />Prodotti & Provvigioni
           </TabsTrigger>
         </TabsList>
 
@@ -1076,9 +874,6 @@ const CompagnieList = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="prodotti" className="mt-4">
-          <ProdottiProvvigioniTab compagnie={compagnie} />
-        </TabsContent>
       </Tabs>
     </div>
   );
