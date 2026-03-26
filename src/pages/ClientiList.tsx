@@ -53,6 +53,7 @@ const ClientiList = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [tipoTab, setTipoTab] = useState("privato");
+  const [sortBy, setSortBy] = useState<"polizze" | "cognome" | "created_at">("polizze");
 
   // Form state
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda">("privato");
@@ -388,6 +389,18 @@ const ClientiList = () => {
       (c.partita_iva?.toLowerCase().includes(s)) ||
       (c.email?.toLowerCase().includes(s))
     );
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "polizze") {
+      return (polizzeCounts?.[b.id] ?? 0) - (polizzeCounts?.[a.id] ?? 0);
+    }
+    if (sortBy === "cognome") {
+      const na = (a.cognome || a.ragione_sociale || "").toLowerCase();
+      const nb = (b.cognome || b.ragione_sociale || "").toLowerCase();
+      return na.localeCompare(nb);
+    }
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
   });
 
   const updateRole = (setter: React.Dispatch<React.SetStateAction<CommercialRole>>, field: keyof CommercialRole, value: any) => {
@@ -930,16 +943,28 @@ const ClientiList = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Clienti ({filtered.length})
+              Clienti ({sorted.length})
             </CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Cerca per nome, CF, P.IVA..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-3">
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="polizze">Polizze ↓</SelectItem>
+                  <SelectItem value="cognome">Cognome A-Z</SelectItem>
+                  <SelectItem value="created_at">Data creazione ↓</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cerca per nome, CF, P.IVA..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -973,7 +998,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((c) => (
+                    {sorted.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.cognome || "—"}</TableCell>
                         <TableCell>{c.nome || "—"}</TableCell>
@@ -999,7 +1024,7 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filtered.length === 0 && (
+                    {sorted.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessun cliente privato trovato
@@ -1030,7 +1055,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((c) => (
+                    {sorted.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
@@ -1056,7 +1081,7 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filtered.length === 0 && (
+                    {sorted.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessuna azienda trovata
