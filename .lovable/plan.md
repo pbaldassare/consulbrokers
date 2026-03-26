@@ -1,38 +1,18 @@
 
 
-## Piano: Aggiungere dati Sede ai Template Email
+## Piano: Rinominare "Provvigioni Sede" → "Provvigioni Consul"
 
-### Intervento
+### Modifiche
 
-Aggiungere nuove variabili placeholder per la sede (ufficio) con tutti i dati disponibili dalla tabella `uffici`: indirizzo, email, telefono, codice ufficio.
+**1. `src/pages/ProvvigioniSedePage.tsx`**
+- Titolo h1: "Provvigioni Sede" → "Provvigioni Consul"
+- Sottotitolo: "Riepilogo provvigioni residue alla sede" → "Riepilogo provvigioni residue Consul"
+- KPI label "Provvigioni Sede" → "Provvigioni Consul"
+- Badge produttore "Sede" → "Consul" (nella colonna Commerciale, quando non c'è un commerciale assegnato)
+- Colonna header "Provv. Sede" → "Provv. Consul"
 
-### Modifiche a `src/pages/TemplatePage.tsx`
+**2. `src/components/AppSidebar.tsx`**
+- Voce menu: "Provvigioni Sede" → "Provvigioni Consul"
 
-**1. Nuove variabili placeholder**
-
-Aggiungere a `PLACEHOLDER_VARS`:
-- `{{sede_indirizzo}}` — uffici.indirizzo
-- `{{sede_email}}` — uffici.email
-- `{{sede_telefono}}` — uffici.telefono
-- `{{sede_codice}}` — uffici.codice_ufficio
-
-**2. Dati di esempio**
-
-Aggiungere a `EXAMPLE_DATA` valori di esempio per le nuove variabili.
-
-**3. Query polizza**
-
-La query su `titoli` gia fa join su `uffici(nome_ufficio)` — estendere per includere anche `indirizzo, email, telefono, codice_ufficio`.
-
-**4. PolizzaResult interface**
-
-Aggiungere i nuovi campi: `sede_indirizzo`, `sede_email`, `sede_telefono`, `sede_codice`.
-
-**5. buildDataMap**
-
-Popolare le nuove variabili dai dati della polizza selezionata.
-
-### Nessuna modifica al DB
-
-Tutto lato frontend, i campi esistono gia nella tabella `uffici`.
+Nessun altro file viene modificato — le altre occorrenze di "Sede" nel progetto si riferiscono alle sedi/uffici e restano invariate.
 
