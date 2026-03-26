@@ -1,50 +1,55 @@
 
 
-## Piano: Aggiungere tutte le sezioni al form di creazione cliente
+## Piano: Auto-compilazione campi da Codice Fiscale
 
-### Problema
+### Cosa fa
 
-Il dialog "Nuovo Cliente" ha solo dati anagrafici base, contatti, gruppo finanziario e rete commerciale. Mancano le sezioni **Dati Gestionali**, **Dati Statistici** e **Dati Contabili** che sono presenti nella pagina di dettaglio (`ClienteDetail.tsx`).
+Quando l'utente digita un codice fiscale italiano valido (16 caratteri), il sistema estrae automaticamente:
+- **Sesso** (M/F) — dal carattere del mese (A-E-H-L-M-P-R-S-T = M, il giorno > 40 = F)
+- **Data di nascita** — anno (pos 6-7), mese (pos 8), giorno (pos 9-10, se >40 sottrarre 40)
+- **Comune di nascita** — codice catastale (pos 11-14), lookup su tabella comuni
 
-### Cosa cambia
+Questo evita di scrivere due volte gli stessi dati. Si applica ovunque ci sia un campo codice fiscale.
 
-Il dialog viene ampliato con 3 sezioni aggiuntive in Accordion (collassabili), replicando esattamente i campi del dettaglio:
+### Struttura
 
-```text
-Dialog "Nuovo Cliente" (max-w-3xl)
-├── Tipo Cliente + AI Scanner
-├── Dati Anagrafici (esistente)
-├── Contatti (esistente)
-├── Gruppo Finanziario (esistente → spostato dentro Dati Statistici)
-├── [NUOVO] Dati Gestionali (Accordion)
-│   ├── Tipo Persona, Sesso, Comune/Prov Nascita
-│   ├── Tipo Sommario, Cliente Non Ceduto, Azienda SSN/SX
-│   ├── Stat. Premi/Sinistri, Spec SX Danni/Sanità
-│   ├── Codice Ricerca, Titolo, Stato Cliente, Prospect
-│   └── Cellulare, Fax, Nazione, Attenzione di
-├── [NUOVO] Dati Statistici (Accordion)
-│   ├── Zona, Indotto, Gruppo Finanziario
-│   ├── Attività, Settore, Azienda Stat., Contratto
-│   ├── Matricola, Riferimento, Fatturato, N. Dipendenti
-│   ├── Codice ATECO
-│   └── Cliente Associato, Captive, Internazionale
-├── Rete Commerciale (esistente)
-└── [NUOVO] Dati Contabili (Accordion)
-    ├── Fido Credito €
-    └── Fido Cauzioni €
-```
+**1. Utility `src/lib/parseCF.ts`** (nuovo file)
 
-### Modifiche
+Funzione pura `parseCF(cf: string)` che restituisce `{ sesso, dataNascita, codiceCatastale } | null`:
+- Valida lunghezza 16 e formato regex
+- Estrae anno, mese (da lettera), giorno (sottraendo 40 se femmina)
+- Restituisce sesso "M" o "F" e data in formato "YYYY-MM-DD"
+- Restituisce il codice catastale (4 char) per lookup comune
+
+**2. Tabella comuni** — array statico con i ~8000 codici catastali italiani e il relativo comune/provincia. File `src/lib/comuniItaliani.ts` con le voci principali (~300 comuni piu frequenti) per non appesantire il bundle. In alternativa, query su una tabella DB `comuni_italiani` se gia presente.
+
+**3. Applicazione in `ClientiList.tsx`** (creazione cliente)
+
+Aggiungere un `useEffect` o handler `onBlur` sul campo codice fiscale:
+- Quando CF raggiunge 16 char validi, chiama `parseCF`
+- Auto-compila: `sesso`, `dataNascita`, `comuneNascita`, `provinciaNascita`
+- Non sovrascrive campi gia compilati manualmente (solo se vuoti)
+- Mostra toast informativo "Dati estratti dal CF"
+
+**4. Applicazione in `ClienteDetail.tsx`** (modifica cliente)
+
+Stesso meccanismo quando si modifica il CF in fase di edit.
+
+**5. Applicazione in `DocPrecontrattualePage.tsx`**
+
+Se il CF viene inserito, auto-compilare eventuali campi collegati disponibili.
+
+### Modifiche per file
 
 | File | Modifica |
 |---|---|
-| **`src/pages/ClientiList.tsx`** | Aggiungere ~20 nuovi state per i campi mancanti (codice_ricerca, titolo, stato_cliente, prospect, tipo_persona, sesso, comune_nascita, provincia_nascita, tipo_sommario, zona, indotto, attivita, settore, codice_ateco, fatturato, num_dipendenti, fido_credito, fido_cauzioni, nazione, cellulare, fax, attenzione_di + switch booleani). Aggiungere 3 sezioni Accordion nel dialog con gli stessi campi/dropdown del dettaglio. Includere tutti i nuovi campi nel payload di `createMutation`. Aggiornare `resetForm` per resettare tutti i nuovi state. Spostare "Gruppo Finanziario" dentro la sezione Statistici |
+| **`src/lib/parseCF.ts`** | Nuovo: funzione `parseCF()` con parsing completo CF italiano |
+| **`src/lib/comuniItaliani.ts`** | Nuovo: mappa codice catastale → {comune, provincia} per i ~300 comuni piu comuni |
+| **`src/pages/ClientiList.tsx`** | Aggiungere handler su campo CF che chiama `parseCF` e auto-compila sesso, data nascita, comune/provincia nascita se vuoti |
+| **`src/pages/ClienteDetail.tsx`** | Stesso auto-fill quando CF viene modificato |
 
-### Dettagli tecnici
-
-- Stessi dropdown/opzioni usati in `ClienteDetail.tsx` (Titolo, Stato, Prospect, Tipo Persona, Sesso, Tipo Sommario)
-- Switch per booleani: cliente_non_ceduto, azienda_ssn_sx, statistica_premi_sinistri, cliente_associato, cliente_captive, internazionale
-- I campi numerici (fatturato, num_dipendenti, fido_credito, fido_cauzioni) usano `type="number"`
-- Nessuna modifica DB: tutte le colonne esistono gia nella tabella `clienti`
-- Le sezioni sono in Accordion collassati di default per non appesantire il form
+### Note tecniche
+- Il parsing e completamente client-side, nessuna chiamata API
+- I campi vengono compilati solo se attualmente vuoti (non si sovrascrive input manuale)
+- Il codice catastale copre i comuni piu frequenti; per i restanti il campo resta vuoto e l'utente compila manualmente
 
