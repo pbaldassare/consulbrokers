@@ -48,7 +48,7 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome)")
+        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
@@ -123,21 +123,63 @@ export default function SinistroDetail() {
 
   const isChiuso = sinistro.stato === "chiuso" || sinistro.stato === "respinto";
 
+  const tipoLabels: Record<string, string> = {
+    incidente_stradale: "Incidente Stradale", furto: "Furto", incendio: "Incendio",
+    danni_acqua: "Danni Acqua", RC_terzi: "RC Terzi", infortunio: "Infortunio", grandine: "Grandine",
+  };
+
+  const clienteNome = sinistro.clienti
+    ? sinistro.clienti.tipo_cliente === "azienda"
+      ? sinistro.clienti.ragione_sociale
+      : `${sinistro.clienti.cognome || ""} ${sinistro.clienti.nome || ""}`.trim()
+    : "—";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/sinistri")}><ArrowLeft className="h-5 w-5" /></Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Sinistro {sinistro.numero_sinistro || "—"}</h1>
-          <p className="text-muted-foreground">{sinistro.compagnie?.nome}</p>
+          <p className="text-muted-foreground">{sinistro.compagnie?.nome} — {tipoLabels[sinistro.tipo_sinistro] || sinistro.tipo_sinistro || "N/D"}</p>
         </div>
         <Badge className={`text-sm px-3 py-1 ${statoBadge[sinistro.stato]}`}>{sinistro.stato.replace(/_/g, " ")}</Badge>
       </div>
 
-      {/* Info Cards */}
+      {/* Info Cards Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Data Apertura</p><p className="font-semibold">{sinistro.data_apertura ? format(new Date(sinistro.data_apertura), "dd/MM/yyyy") : "—"}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Cliente</p><p className="font-semibold">{clienteNome}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Polizza</p><p className="font-semibold">{sinistro.titoli?.numero_titolo || "—"}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Data Evento</p><p className="font-semibold">{sinistro.data_evento ? format(new Date(sinistro.data_evento), "dd/MM/yyyy") : "—"}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Responsabile</p><p className="font-semibold">{sinistro.profiles ? `${sinistro.profiles.nome} ${sinistro.profiles.cognome}` : "—"}</p></CardContent></Card>
+      </div>
+
+      {/* Financial Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Preventivato</p><p className="font-semibold font-mono">€ {(sinistro.costo_preventivato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Costo Effettivo</p><p className="font-semibold font-mono">€ {(sinistro.costo_effettivo || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Franchigia</p><p className="font-semibold font-mono">€ {(sinistro.franchigia || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Liquidato</p><p className="font-semibold font-mono text-green-700">€ {(sinistro.importo_liquidato || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Riserva</p><p className="font-semibold font-mono text-orange-600">€ {(sinistro.importo_riserva || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</p></CardContent></Card>
+      </div>
+
+      {/* Detail Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {sinistro.luogo_sinistro && (
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Luogo Sinistro</p><p className="font-semibold">{sinistro.luogo_sinistro}</p></CardContent></Card>
+        )}
+        {sinistro.targa_veicolo && (
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Targa Veicolo</p><p className="font-semibold">{sinistro.targa_veicolo}</p></CardContent></Card>
+        )}
+        {sinistro.controparte && (
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Controparte</p><p className="font-semibold">{sinistro.controparte}</p></CardContent></Card>
+        )}
+        {sinistro.numero_sinistro_compagnia && (
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">N. Sinistro Compagnia</p><p className="font-semibold">{sinistro.numero_sinistro_compagnia}</p></CardContent></Card>
+        )}
+      </div>
+
+      {/* Checklist + Events summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Checklist</p><p className="font-semibold">{checklist?.filter((c: any) => c.completato).length}/{checklist?.length}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Eventi Attivi</p><p className="font-semibold">{eventi?.filter((e: any) => e.stato === "attivo").length}</p></CardContent></Card>
       </div>
@@ -158,6 +200,10 @@ export default function SinistroDetail() {
 
       {sinistro.descrizione && (
         <Card><CardHeader><CardTitle className="text-base">Descrizione</CardTitle></CardHeader><CardContent><p>{sinistro.descrizione}</p></CardContent></Card>
+      )}
+
+      {sinistro.note_perito && (
+        <Card><CardHeader><CardTitle className="text-base">Note Perito</CardTitle></CardHeader><CardContent><p>{sinistro.note_perito}</p></CardContent></Card>
       )}
 
       <Tabs defaultValue="checklist">
