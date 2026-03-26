@@ -12,12 +12,37 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Plus, Users, Building2, Search, User } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
+
+interface CommercialRole {
+  profilo_id: string;
+  percentuale: string;
+  societa_brand: string;
+  filiale: string;
+  mandato: string;
+  data_acquisito: string;
+  data_disdetta: string;
+  altro_broker: boolean;
+  altro_broker_nome: string;
+}
+
+const emptyRole = (): CommercialRole => ({
+  profilo_id: "",
+  percentuale: "",
+  societa_brand: "",
+  filiale: "",
+  mandato: "",
+  data_acquisito: "",
+  data_disdetta: "",
+  altro_broker: false,
+  altro_broker_nome: "",
+});
 
 const ClientiList = () => {
   const navigate = useNavigate();
@@ -55,6 +80,12 @@ const ClientiList = () => {
   const [pec, setPec] = useState("");
   const [gruppoFinanziarioId, setGruppoFinanziarioId] = useState("");
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
+
+  // Rete Commerciale state
+  const [ae, setAe] = useState<CommercialRole>(emptyRole());
+  const [corr1, setCorr1] = useState<CommercialRole>(emptyRole());
+  const [corr2, setCorr2] = useState<CommercialRole>(emptyRole());
+  const [corr3, setCorr3] = useState<CommercialRole>(emptyRole());
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
     scannedFilesRef.current.push({ file, documentType });
@@ -114,6 +145,21 @@ const ClientiList = () => {
     },
   });
 
+  const { data: profiliCommerciali = [] } = useQuery({
+    queryKey: ["profili_commerciali_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, ruolo")
+        .in("ruolo", ["admin", "produttore", "responsabile_sede", "produttore_sede", "executive", "backoffice"])
+        .order("cognome");
+      return (data || []).map((p: any) => ({
+        value: p.id,
+        label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
+      }));
+    },
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
       const { error } = await supabase.from("clienti").update({ attivo }).eq("id", id);
@@ -121,6 +167,34 @@ const ClientiList = () => {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clienti"] }),
   });
+
+  const insertCommercialRoles = async (clienteId: string) => {
+    const roles: { ruolo: string; data: CommercialRole }[] = [
+      { ruolo: "AE", data: ae },
+      { ruolo: "Corrispondente 1", data: corr1 },
+      { ruolo: "Corrispondente 2", data: corr2 },
+      { ruolo: "Corrispondente 3", data: corr3 },
+    ];
+    const rows = roles
+      .filter((r) => r.data.profilo_id)
+      .map((r) => ({
+        cliente_id: clienteId,
+        profilo_id: r.data.profilo_id,
+        ruolo: r.ruolo,
+        percentuale: r.data.percentuale ? parseFloat(r.data.percentuale) : null,
+        societa_brand: r.data.societa_brand || null,
+        filiale: r.data.filiale || null,
+        mandato: r.data.mandato || null,
+        data_acquisito: r.data.data_acquisito || null,
+        data_disdetta: r.data.data_disdetta || null,
+        altro_broker: r.data.altro_broker,
+        altro_broker_nome: r.data.altro_broker_nome || null,
+      }));
+    if (rows.length > 0) {
+      const { error } = await supabase.from("codici_commerciali_cliente").insert(rows as any);
+      if (error) console.error("Errore inserimento rete commerciale:", error);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -162,7 +236,10 @@ const ClientiList = () => {
     },
     onSuccess: async (data) => {
       if (data?.id) {
-        await uploadScannedFiles(data.id);
+        await Promise.all([
+          uploadScannedFiles(data.id),
+          insertCommercialRoles(data.id),
+        ]);
       }
       queryClient.invalidateQueries({ queryKey: ["clienti"] });
       toast.success("Cliente creato con successo");
@@ -184,6 +261,7 @@ const ClientiList = () => {
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
+    setAe(emptyRole()); setCorr1(emptyRole()); setCorr2(emptyRole()); setCorr3(emptyRole());
     scannedFilesRef.current = [];
   };
 
@@ -206,6 +284,64 @@ const ClientiList = () => {
     );
   });
 
+  const updateRole = (setter: React.Dispatch<React.SetStateAction<CommercialRole>>, field: keyof CommercialRole, value: any) => {
+    setter((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const renderCorrispondenteFields = (role: CommercialRole, setter: React.Dispatch<React.SetStateAction<CommercialRole>>) => (
+    <div className="space-y-3 pt-2">
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs">Profilo</Label>
+          <SearchableSelect
+            value={role.profilo_id}
+            onValueChange={(v) => updateRole(setter, "profilo_id", v)}
+            placeholder="Seleziona..."
+            options={profiliCommerciali}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">% Provvigione</Label>
+          <Input value={role.percentuale} onChange={(e) => updateRole(setter, "percentuale", e.target.value)} placeholder="0.00" />
+        </div>
+        <div>
+          <Label className="text-xs">Società/Brand</Label>
+          <Input value={role.societa_brand} onChange={(e) => updateRole(setter, "societa_brand", e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs">Filiale</Label>
+          <Input value={role.filiale} onChange={(e) => updateRole(setter, "filiale", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Mandato</Label>
+          <Input value={role.mandato} onChange={(e) => updateRole(setter, "mandato", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Data Acquisizione</Label>
+          <Input type="date" value={role.data_acquisito} onChange={(e) => updateRole(setter, "data_acquisito", e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs">Data Disdetta</Label>
+          <Input type="date" value={role.data_disdetta} onChange={(e) => updateRole(setter, "data_disdetta", e.target.value)} />
+        </div>
+        <div className="flex items-end gap-2">
+          <Switch checked={role.altro_broker} onCheckedChange={(v) => updateRole(setter, "altro_broker", v)} />
+          <Label className="text-xs">Altro Broker</Label>
+        </div>
+        {role.altro_broker && (
+          <div>
+            <Label className="text-xs">Nome Altro Broker</Label>
+            <Input value={role.altro_broker_nome} onChange={(e) => updateRole(setter, "altro_broker_nome", e.target.value)} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -217,7 +353,7 @@ const ClientiList = () => {
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Nuovo Cliente</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Nuovo Cliente</DialogTitle>
             </DialogHeader>
@@ -369,6 +505,51 @@ const ClientiList = () => {
                   <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
                   <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
                 </div>
+              </div>
+
+              {/* Rete Commerciale */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-foreground mb-3">Rete Commerciale</p>
+
+                {/* Account Executive - sempre visibile */}
+                <div className="rounded-md border p-4 mb-3 bg-muted/30">
+                  <p className="text-sm font-medium mb-3">Account Executive</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Profilo</Label>
+                      <SearchableSelect
+                        value={ae.profilo_id}
+                        onValueChange={(v) => updateRole(setAe, "profilo_id", v)}
+                        placeholder="Seleziona AE..."
+                        options={profiliCommerciali}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">% Provvigione</Label>
+                      <Input value={ae.percentuale} onChange={(e) => updateRole(setAe, "percentuale", e.target.value)} placeholder="0.00" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Società/Brand</Label>
+                      <Input value={ae.societa_brand} onChange={(e) => updateRole(setAe, "societa_brand", e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Corrispondenti in Accordion */}
+                <Accordion type="multiple" className="w-full">
+                  <AccordionItem value="corr1">
+                    <AccordionTrigger className="text-sm py-2">Corrispondente 1</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(corr1, setCorr1)}</AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="corr2">
+                    <AccordionTrigger className="text-sm py-2">Corrispondente 2</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(corr2, setCorr2)}</AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="corr3">
+                    <AccordionTrigger className="text-sm py-2">Corrispondente 3</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(corr3, setCorr3)}</AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
             <DialogFooter>
