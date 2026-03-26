@@ -3943,6 +3943,7 @@ export type Database = {
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_id: string | null
+          commerciale_id: string | null
           compagnia_id: string | null
           created_at: string | null
           data_competenza: string | null
@@ -3968,6 +3969,7 @@ export type Database = {
           note: string | null
           numero_titolo: string | null
           pag_diretto_compagnia: boolean | null
+          percentuale_commerciale: number | null
           periodicita: string | null
           premio_lordo: number | null
           premio_netto: number | null
@@ -4011,6 +4013,7 @@ export type Database = {
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
+          commerciale_id?: string | null
           compagnia_id?: string | null
           created_at?: string | null
           data_competenza?: string | null
@@ -4036,6 +4039,7 @@ export type Database = {
           note?: string | null
           numero_titolo?: string | null
           pag_diretto_compagnia?: boolean | null
+          percentuale_commerciale?: number | null
           periodicita?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
@@ -4079,6 +4083,7 @@ export type Database = {
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
+          commerciale_id?: string | null
           compagnia_id?: string | null
           created_at?: string | null
           data_competenza?: string | null
@@ -4104,6 +4109,7 @@ export type Database = {
           note?: string | null
           numero_titolo?: string | null
           pag_diretto_compagnia?: boolean | null
+          percentuale_commerciale?: number | null
           periodicita?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
@@ -4149,6 +4155,13 @@ export type Database = {
           {
             foreignKeyName: "titoli_cliente_id_fkey"
             columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_commerciale_id_fkey"
+            columns: ["commerciale_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
