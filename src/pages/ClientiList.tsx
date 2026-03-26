@@ -943,7 +943,7 @@ const ClientiList = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Clienti ({filtered.length})
+              Clienti ({sorted.length})
             </CardTitle>
             <div className="flex items-center gap-3">
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
@@ -998,7 +998,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((c) => (
+                    {sorted.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.cognome || "—"}</TableCell>
                         <TableCell>{c.nome || "—"}</TableCell>
@@ -1024,7 +1024,7 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filtered.length === 0 && (
+                    {sorted.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessun cliente privato trovato
@@ -1055,7 +1055,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((c) => (
+                    {sorted.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
@@ -1081,7 +1081,7 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filtered.length === 0 && (
+                    {sorted.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground">
                           Nessuna azienda trovata
