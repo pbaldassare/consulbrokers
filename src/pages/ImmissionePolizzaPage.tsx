@@ -503,29 +503,30 @@ const ImmissionePolizzaPage = () => {
               max="100"
               value={percentualeProvvigione}
               onChange={(e) => setPercentualeProvvigione(e.target.value)}
-              placeholder={selectedProdotto ? "Inserisci %" : "Seleziona un prodotto"}
-              disabled={!selectedProdotto}
+              placeholder={selectedCompagnia && selectedProdottoCategoriaId ? "Inserisci %" : "Seleziona compagnia e prodotto"}
+              disabled={!selectedCompagnia || !selectedProdottoCategoriaId}
               className="h-8 text-xs font-mono"
             />
           </div>
           <div className="flex items-center gap-2 pb-1">
-            {selectedProdotto && provvigioneFromDb && !isProvvigioneModified && (
+            {selectedProdottoCategoriaId && provvigioneFromDb && !isProvvigioneModified && (
               <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">
-                Da database
+                Da database (Compagnia+Ramo)
               </Badge>
             )}
-            {selectedProdotto && provvigioneFromDb && isProvvigioneModified && (
+            {selectedProdottoCategoriaId && provvigioneFromDb && isProvvigioneModified && (
               <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
                 Modificato (era {provvigioneOriginalValue}%)
               </Badge>
             )}
-            {selectedProdotto && !provvigioneFromDb && percentualeProvvigione && (
+            {selectedProdottoCategoriaId && !provvigioneFromDb && percentualeProvvigione && (
               <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
                 Nuovo valore
               </Badge>
             )}
-            {selectedProdotto && !provvigioneFromDb && !percentualeProvvigione && (
-              <span className="text-[10px] text-muted-foreground">Nessuna provvigione salvata per questo prodotto</span>
+            {selectedCompagnia && selectedProdottoCategoriaId && !provvigioneFromDb && !percentualeProvvigione && (
+              <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione Compagnia+Ramo</span>
+            )}
             )}
           </div>
           {premioNetto && percentualeProvvigione && (
