@@ -527,7 +527,6 @@ const ImmissionePolizzaPage = () => {
             {selectedCompagnia && selectedProdottoCategoriaId && !provvigioneFromDb && !percentualeProvvigione && (
               <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione Compagnia+Ramo</span>
             )}
-            )}
           </div>
           {premioNetto && percentualeProvvigione && (
             <div className="space-y-1">
