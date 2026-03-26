@@ -229,12 +229,12 @@ function CompagniaFormDialog({
   const setField = (key: keyof CompagniaForm, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const Field = useCallback(({ label, field, placeholder, className }: { label: string; field: keyof CompagniaForm; placeholder?: string; className?: string }) => (
+  const renderField = (label: string, field: keyof CompagniaForm, placeholder?: string, className?: string) => (
     <div className={`space-y-1 ${className || ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input value={form[field] as string} onChange={(e) => setField(field, e.target.value)} placeholder={placeholder} />
+      <Input value={(form[field] as string) || ""} onChange={(e) => setField(field, e.target.value)} placeholder={placeholder} />
     </div>
-  ), [form, setField]);
+  );
 
   return (
     <>
