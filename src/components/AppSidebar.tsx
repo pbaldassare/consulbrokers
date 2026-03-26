@@ -200,8 +200,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
-        { label: "Categorie", path: "/categorie", icon: Tag },
-        { label: "Prodotti", path: "/prodotti", icon: Package },
         { label: "Gestione Uffici", path: "/gestione-uffici", icon: Building2 },
       ],
     },

@@ -1081,6 +1081,7 @@ export type Database = {
           mail_ec: string | null
           nazione: string | null
           nome: string
+          nome_sede: string | null
           nome_segue: string | null
           note: string | null
           pagamento: string | null
@@ -1127,6 +1128,7 @@ export type Database = {
           mail_ec?: string | null
           nazione?: string | null
           nome: string
+          nome_sede?: string | null
           nome_segue?: string | null
           note?: string | null
           pagamento?: string | null
@@ -1173,6 +1175,7 @@ export type Database = {
           mail_ec?: string | null
           nazione?: string | null
           nome?: string
+          nome_sede?: string | null
           nome_segue?: string | null
           note?: string | null
           pagamento?: string | null
