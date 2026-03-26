@@ -246,18 +246,18 @@ const ImmissionePolizzaPage = () => {
 
   const handleProvvigioneSave = async () => {
     try {
-      if (provvigioneDialogType === "new") {
-        await supabase.from("matrice_provvigioni").insert({
-          prodotto_id: selectedProdotto,
+      if (provvigioneDialogType === "new" && selectedCompagnia && selectedProdottoCategoriaId) {
+        await supabase.from("provvigioni_compagnia_ramo").insert({
+          compagnia_id: selectedCompagnia,
+          categoria_id: selectedProdottoCategoriaId,
           percentuale_provvigione: parseFloat(percentualeProvvigione),
-          tipo_calcolo: "percentuale",
           attiva: true,
-        });
-        toast.success("Provvigione salvata come default per questo prodotto");
+        } as any);
+        toast.success("Provvigione salvata per questa combinazione Compagnia+Ramo");
       } else {
         if (provvigioneDbRecordId) {
-          await supabase.from("matrice_provvigioni")
-            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) })
+          await supabase.from("provvigioni_compagnia_ramo")
+            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) } as any)
             .eq("id", provvigioneDbRecordId);
           toast.success("Provvigione default aggiornata");
         }
