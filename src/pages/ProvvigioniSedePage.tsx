@@ -60,8 +60,8 @@ const ProvvigioniSedePage = () => {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Provvigioni Sede</h1>
-        <p className="text-sm text-muted-foreground mt-1">Riepilogo provvigioni residue alla sede</p>
+        <h1 className="text-2xl font-bold text-foreground">Provvigioni Consul</h1>
+        <p className="text-sm text-muted-foreground mt-1">Riepilogo provvigioni residue Consul</p>
       </div>
 
       {/* KPI */}
@@ -70,7 +70,7 @@ const ProvvigioniSedePage = () => {
           <CardContent className="pt-4 flex items-center gap-3">
             <Landmark className="w-8 h-8 text-primary" />
             <div>
-              <p className="text-xs text-muted-foreground">Provvigioni Sede</p>
+              <p className="text-xs text-muted-foreground">Provvigioni Consul</p>
               <p className="text-xl font-bold font-mono text-primary">{fmtEuro(totals.totaleSede)}</p>
             </div>
           </CardContent>
@@ -137,7 +137,7 @@ const ProvvigioniSedePage = () => {
                   <TableHead>Commerciale</TableHead>
                   <TableHead className="text-right">% Comm.</TableHead>
                   <TableHead className="text-right">Provv. Comm.</TableHead>
-                  <TableHead className="text-right">Provv. Sede</TableHead>
+                  <TableHead className="text-right">Provv. Consul</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -155,7 +155,7 @@ const ProvvigioniSedePage = () => {
                       <TableCell className="text-right font-mono text-xs">{fmtEuro(provvAgenzia)}</TableCell>
                       <TableCell className="text-xs">
                         {t.commerciale ? `${(t.commerciale as any).cognome} ${(t.commerciale as any).nome}` : (
-                          <Badge variant="secondary" className="text-[10px]">Sede</Badge>
+                          <Badge variant="secondary" className="text-[10px]">Consul</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">{percComm}%</TableCell>
