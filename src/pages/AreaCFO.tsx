@@ -489,7 +489,7 @@ const AreaCFO = () => {
                         <TableHead>Stato</TableHead>
                         <TableHead>Prodotto</TableHead>
                         <TableHead>Compagnia</TableHead>
-                        <TableHead>Ufficio</TableHead>
+                        <TableHead>Sede</TableHead>
                         <TableHead>Produttore</TableHead>
                         <TableHead>Cliente</TableHead>
                         <TableHead>Premio €</TableHead>

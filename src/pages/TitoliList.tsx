@@ -295,7 +295,7 @@ const TitoliList = () => {
                 </Select>
               </div>
               <div>
-                <Label>Ufficio</Label>
+                <Label>Sede</Label>
                 <Select value={ufficioId} onValueChange={setUfficioId}>
                   <SelectTrigger><SelectValue placeholder="Seleziona" /></SelectTrigger>
                   <SelectContent>{uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}</SelectContent>
