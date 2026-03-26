@@ -633,8 +633,8 @@ const ImmissionePolizzaPage = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {provvigioneDialogType === "new"
-                ? `Non esiste una provvigione salvata per questo prodotto. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
-                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito per questo prodotto?`}
+                ? `Non esiste una provvigione per questa combinazione Compagnia+Ramo. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
+                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito per questa combinazione Compagnia+Ramo?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
