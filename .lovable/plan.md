@@ -1,32 +1,22 @@
 
 
-## Piano: Provvigioni nel Modale Compagnia
+## Piano: Rimuovere il Catalogo Prodotti
 
 ### Cosa cambia
 
-Spostare la gestione provvigioni per ramo **dentro il modale di modifica/creazione compagnia** come terzo tab "Provvigioni", accanto a "Dati Anagrafici" e "Dati Contabili". Rimuovere la sezione "Provvigioni per Ramo" dal tab principale "Prodotti & Provvigioni".
+Eliminare completamente il tab "Prodotti & Provvigioni" dalla pagina Compagnie, che ora contiene solo il Catalogo Prodotti (le provvigioni sono gia state spostate nel modale). La pagina restera con i soli tab "Compagnie / Sedi" e "Ufficio Sinistri".
 
 ### Modifiche in `src/pages/CompagnieList.tsx`
 
-**1. `CompagniaFormDialog` — aggiungere tab "Provvigioni"**
-- Il componente riceve un nuovo prop `compagniaId` (valorizzato solo in modifica, null in creazione)
-- TabsList passa da `grid-cols-2` a `grid-cols-3`, aggiungendo `<TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>`
-- Nuovo `<TabsContent value="provvigioni">`:
-  - Query `provvigioni_compagnia_ramo` filtrata per `compagnia_id = compagniaId`
-  - Tabella con colonne: Ramo, Provvigione %
-  - Inline edit della percentuale (stesso pattern già usato)
-  - Bottone "Nuova Provvigione Ramo" con mini-form: selezione categoria + percentuale
-  - Se `compagniaId` è null (creazione), mostra messaggio "Salva la compagnia prima di configurare le provvigioni"
+**1. Rimuovere il componente `ProdottiProvvigioniTab`** (righe ~600-815)
+- Eliminare l'intero componente e tutti i suoi state, query e mutation (prodotti, categorie, filtri, creazione prodotto)
 
-**2. `ProdottiProvvigioniTab` — rimuovere sezione provvigioni**
-- Eliminare tutta la Card "Provvigioni per Ramo" (righe ~588-699)
-- Eliminare gli state e le mutation relative (`createProvvRamoOpen`, `newProvvRamo`, `editingProvvRamo`, `filterProvvCompagnia`, `createProvvRamoMutation`, `updateProvvRamoMutation`, query `provvigioni_compagnia_ramo`)
-- Resta solo il Catalogo Prodotti
+**2. Rimuovere il tab "Prodotti" dalla pagina principale**
+- Eliminare `<TabsTrigger value="prodotti">` e `<TabsContent value="prodotti">` (righe ~1079-1081)
+- Aggiornare `TabsList` da `grid-cols-3` a `grid-cols-2` (o rimuovere la griglia se ora sono solo 2 tab)
 
-**3. Passare `compagniaId` al dialog**
-- Nel dialog di modifica: `compagniaId={editId}`
-- Nel dialog di creazione: `compagniaId={null}`
+**3. Pulizia import**
+- Rimuovere eventuali import non piu usati (es. `Package` da lucide-react se usato solo li)
 
-### Nessuna modifica al DB
-Stesse tabelle, stesse RLS. Cambia solo il punto di accesso UI.
+Nessuna modifica al DB. Il tab Prodotti viene semplicemente rimosso dall'interfaccia.
 
