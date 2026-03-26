@@ -1,48 +1,52 @@
 
 
-## Piano: Aggiungere colonna "Polizze Attive" alla lista clienti
+## Piano: Pagina Analisi Documenti AI Multi-File
 
-### Cosa cambia
+### Cosa si costruisce
 
-Aggiungere una colonna **"Polizze"** in entrambe le tab (Privati e Aziende) che mostra il conteggio delle polizze attive per ogni cliente.
+Una nuova pagina `/portafoglio/analisi-preventivo-rca` dove l'utente può caricare **più file contemporaneamente** (foto e PDF) e l'AI li analizza tutti in parallelo, estraendo dati strutturati da ciascun documento (premi RCA, infortuni, garanzie, dati cliente, ecc.).
 
 ### Implementazione
 
-**File: `src/pages/ClientiList.tsx`**
+**1. Nuova Edge Function `analisi-documenti-multipli/index.ts`**
+- Accetta un array di file (base64 + mime_type) e un `tipo_analisi`
+- Per il tipo `preventivo_rca`: schema tool-calling con campi cliente (contraente, CF, targa, veicolo), premi lordi per ramo (RCA, infortuni, furto/incendio, kasko, cristalli, assistenza, tutela legale, altri), totale, e array garanzie (nome, massimale, franchigia, premio)
+- Elabora ogni file in una chiamata AI separata, poi aggrega i risultati
+- Gestione errori 429/402
 
-1. **Query clienti**: modificare la select per includere un conteggio dei titoli collegati, usando una seconda query sui `titoli` raggruppati per `cliente_anagrafica_id` con stato `'incassato'` o altro stato attivo, oppure fare un join. Approccio pratico: query separata sui titoli per contare polizze attive per cliente, poi merge client-side.
+**2. Nuovo file `src/pages/AnalisiPreventivoRCAPage.tsx`**
+- **Upload multi-file**: zona drag & drop che accetta più file contemporaneamente (`multiple` su input)
+- Anteprima dei file caricati con possibilità di rimuoverli prima dell'invio
+- Bottone "Analizza tutti" che invia i file alla edge function
+- Progress bar per ogni file in elaborazione
+- **Risultati**: per ogni documento analizzato, una sezione Card con:
+  - Dati Cliente (contraente, CF, targa, veicolo, date)
+  - Tabella Riepilogo Premi (RCA, Infortuni, Furto/Incendio, Kasko, Cristalli, Assistenza, Tutela Legale, Altri, **Totale**)
+  - Tabella Dettaglio Garanzie (nome, massimale, franchigia, premio, inclusa)
+- Possibilità di confrontare i risultati tra più documenti affiancati
 
-2. **Nuova query**: aggiungere una query `useQuery` che recupera il conteggio polizze attive raggruppate per `cliente_anagrafica_id`:
-   ```ts
-   const { data: polizzeCounts } = useQuery({
-     queryKey: ["polizze-count-per-cliente"],
-     queryFn: async () => {
-       const { data } = await supabase
-         .from("titoli")
-         .select("cliente_anagrafica_id")
-         .not("cliente_anagrafica_id", "is", null)
-         .in("stato", ["incassato","in_lavorazione","sospeso"]);
-       // Contare client-side
-       const counts: Record<string, number> = {};
-       for (const t of data || []) {
-         counts[t.cliente_anagrafica_id] = (counts[t.cliente_anagrafica_id] || 0) + 1;
-       }
-       return counts;
-     }
-   });
-   ```
-
-3. **Colonna nella tabella Privati**: aggiungere `<TableHead>Polizze</TableHead>` e nella riga `<TableCell>{polizzeCounts?.[c.id] || 0}</TableCell>` con un Badge colorato.
-
-4. **Colonna nella tabella Aziende**: stesso aggiornamento.
-
-5. **Aggiornare colSpan** dei messaggi "Nessun cliente" da 8 a 9.
+**3. Rotta e Sidebar**
+- Aggiungere rotta `/portafoglio/analisi-preventivo-rca` in `src/routes/portafoglio.tsx`
+- Aggiungere voce nella sidebar sotto Portafoglio
 
 ### Dettagli tecnici
 
 | Elemento | Dettaglio |
 |---|---|
-| File modificato | `src/pages/ClientiList.tsx` |
-| Query aggiuntiva | Select su `titoli` filtrando stati attivi, conteggio client-side per `cliente_anagrafica_id` |
-| Colonna | Badge con numero, posizionata dopo "Città" e prima di "Stato" |
+| File creati | `supabase/functions/analisi-documenti-multipli/index.ts`, `src/pages/AnalisiPreventivoRCAPage.tsx` |
+| File modificati | `src/routes/portafoglio.tsx`, `src/components/AppSidebar.tsx` |
+| AI model | `google/gemini-2.5-flash` via Lovable AI Gateway |
+| Upload | Multi-file, PDF/immagini, max 10MB ciascuno, max 10 file |
+| Elaborazione | Chiamate AI in parallelo (Promise.all), una per file |
+
+### Schema tool-calling `preventivo_rca`
+
+```text
+contraente, codice_fiscale, targa, veicolo_marca_modello
+data_effetto, data_scadenza
+premio_lordo_rca, premio_lordo_infortuni, premio_lordo_furto_incendio
+premio_lordo_kasko, premio_lordo_cristalli, premio_lordo_assistenza
+premio_lordo_tutela_legale, premio_lordo_altri, premio_lordo_totale
+garanzie[]: nome_garanzia, massimale, franchigia, premio, inclusa
+```
 
