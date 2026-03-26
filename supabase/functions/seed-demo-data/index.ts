@@ -339,18 +339,49 @@ Deno.serve(async (req) => {
     await batchInsert(db, 'matrice_provvigioni', matrice);
     R.matrice_provvigioni = matrice.length;
 
-    // ==================== 7. TITOLI (230 polizze) ====================
+    // ==================== 7. TITOLI (690 polizze collegate a clienti CRM) ====================
     const statiPol = ['attivo','attivo','attivo','attivo','incassato','incassato','incassato','incassato','incassato','scaduto','scaduto','annullato','stornato','sospeso'];
     const titoliData: any[] = [];
     const titoliIds: string[] = [];
 
-    for (let i = 0; i < 230; i++) {
+    // Build distribution: privati get 1-5 polizze, aziende 3-15, enti 5-20
+    const polizzeAssignment: { clienteAnagId: string; clienteAuthId: string }[] = [];
+
+    // Privati: ~350 polizze
+    for (const cid of privatiIds) {
+      const numPol = ri(1, 5);
+      for (let j = 0; j < numPol; j++) {
+        polizzeAssignment.push({ clienteAnagId: cid, clienteAuthId: clientIds[polizzeAssignment.length % clientIds.length] });
+        if (polizzeAssignment.length >= 350) break;
+      }
+      if (polizzeAssignment.length >= 350) break;
+    }
+    // Aziende: ~200 polizze
+    const startAz = polizzeAssignment.length;
+    for (const cid of aziendeIds) {
+      const numPol = ri(3, 15);
+      for (let j = 0; j < numPol; j++) {
+        polizzeAssignment.push({ clienteAnagId: cid, clienteAuthId: clientIds[(polizzeAssignment.length) % clientIds.length] });
+        if (polizzeAssignment.length - startAz >= 200) break;
+      }
+      if (polizzeAssignment.length - startAz >= 200) break;
+    }
+    // Enti: ~140 polizze
+    const startEn = polizzeAssignment.length;
+    for (const cid of entiIds) {
+      const numPol = ri(5, 20);
+      for (let j = 0; j < numPol; j++) {
+        polizzeAssignment.push({ clienteAnagId: cid, clienteAuthId: clientIds[(polizzeAssignment.length) % clientIds.length] });
+        if (polizzeAssignment.length - startEn >= 140) break;
+      }
+      if (polizzeAssignment.length - startEn >= 140) break;
+    }
+
+    for (let i = 0; i < polizzeAssignment.length; i++) {
       const id = uuid();
       titoliIds.push(id);
       const stato = pick(statiPol);
       const yE = ri(2019, 2025);
-      const mE = ri(1, 12);
-      const dE = ri(1, 28);
       const premioLordo = rf(80, 12000);
       let importoIncassato: number | null = null;
       let dataIncasso: string | null = null;
@@ -373,7 +404,8 @@ Deno.serve(async (req) => {
         importo_incassato: importoIncassato,
         data_incasso: dataIncasso,
         prodotto_id: prodottoIds[i % prodottoIds.length],
-        cliente_id: clientIds[i % clientIds.length],
+        cliente_id: polizzeAssignment[i].clienteAuthId,
+        cliente_anagrafica_id: polizzeAssignment[i].clienteAnagId,
         produttore_id: pick(prodIds),
         ufficio_id: pick(uIds),
         note: `[DEMO] Polizza ${stato} - ${prodNomi[i % prodNomi.length]}`,
@@ -381,6 +413,23 @@ Deno.serve(async (req) => {
     }
     await batchInsert(db, 'titoli', titoliData);
     R.titoli = titoliData.length;
+
+    // ==================== 7b. CLIENTI RELAZIONI (40 relazioni) ====================
+    const relazioniData: any[] = [];
+    const tipiRel: Array<'dipendente'|'legale_rappresentante'|'referente'|'socio'> = ['dipendente','legale_rappresentante','referente','socio'];
+    // Link some privati to aziende/enti
+    for (let i = 0; i < 40; i++) {
+      const privato = privatiIds[i % privatiIds.length];
+      const target = i < 25 ? aziendeIds[i % aziendeIds.length] : entiIds[(i - 25) % entiIds.length];
+      relazioniData.push({
+        cliente_id: privato,
+        cliente_collegato_id: target,
+        tipo_relazione: tipiRel[i % tipiRel.length],
+        note: `[DEMO] Relazione ${tipiRel[i % tipiRel.length]} #${i + 1}`,
+      });
+    }
+    await batchInsert(db, 'clienti_relazioni', relazioniData);
+    R.clienti_relazioni = relazioniData.length;
 
     // ==================== 8. SINISTRI (25) ====================
     const statiSin = ['aperto','aperto','in_gestione','in_gestione','in_gestione','chiuso','chiuso'];
