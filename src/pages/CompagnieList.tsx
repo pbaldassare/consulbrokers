@@ -602,6 +602,11 @@ function CompagniaFormDialog({
             </RadioGroup>
           </div>
         </TabsContent>
+
+        {/* ── TAB 3: PROVVIGIONI ── */}
+        <TabsContent value="provvigioni" className="mt-4">
+          <ProvvigioniTabContent compagniaId={compagniaId} />
+        </TabsContent>
       </Tabs>
       <Button onClick={onSave} disabled={!form.nome || saving} className="w-full mt-4">
         {saveLabel}
