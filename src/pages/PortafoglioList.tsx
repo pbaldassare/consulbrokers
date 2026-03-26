@@ -216,7 +216,7 @@ const PortafoglioList = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrizione</TableHead>
-                <TableHead>Ufficio</TableHead>
+                <TableHead>Sede</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Importo</TableHead>
                 <TableHead>Periodicità</TableHead>

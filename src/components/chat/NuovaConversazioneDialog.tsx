@@ -180,7 +180,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated }: N
             </Select>
             <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
               <SelectTrigger className="h-8 text-xs flex-1">
-                <SelectValue placeholder="Ufficio" />
+                <SelectValue placeholder="Sede" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="tutti">Tutti gli uffici</SelectItem>

@@ -196,7 +196,7 @@ const FlussiCompagnieList = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Compagnia</TableHead>
-                <TableHead>Ufficio</TableHead>
+                <TableHead>Sede</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Periodo</TableHead>
                 <TableHead>Formato</TableHead>

@@ -166,10 +166,10 @@ const CreaNuovoUtente = () => {
 
             {showUfficio && (
               <div className="space-y-1.5">
-                <Label>Ufficio</Label>
+                <Label>Sede</Label>
                 <Select value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleziona ufficio" />
+                    <SelectValue placeholder="Seleziona sede" />
                   </SelectTrigger>
                   <SelectContent>
                     {uffici?.map((u) => (

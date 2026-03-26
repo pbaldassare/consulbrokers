@@ -105,7 +105,7 @@ const SpedizioniList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tipo</TableHead>
-                    <TableHead>Ufficio</TableHead>
+                    <TableHead>Sede</TableHead>
                     <TableHead>Corriere</TableHead>
                     <TableHead>Tracking</TableHead>
                     <TableHead>Data</TableHead>
@@ -141,7 +141,7 @@ const SpedizioniList = () => {
                 <div><span className="text-muted-foreground">Tipo:</span> {selected.tipo_spedizione}</div>
                 <div><span className="text-muted-foreground">Data:</span> {selected.data_spedizione}</div>
                 <div><span className="text-muted-foreground">Corriere:</span> {selected.corriere || "—"}</div>
-                <div><span className="text-muted-foreground">Ufficio:</span> {selected.uffici?.nome_ufficio || "—"}</div>
+                <div><span className="text-muted-foreground">Sede:</span> {selected.uffici?.nome_ufficio || "—"}</div>
               </div>
               <div>
                 <Label>Tracking Code</Label>

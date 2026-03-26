@@ -139,9 +139,9 @@ const ReportIVA = () => {
         </Select>
         {isCfoOrAdmin && (
           <Select value={selectedUfficio} onValueChange={setSelectedUfficio}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Tutti gli uffici" /></SelectTrigger>
+            <SelectTrigger className="w-48"><SelectValue placeholder="Tutte le sedi" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tutti gli uffici</SelectItem>
+              <SelectItem value="all">Tutte le sedi</SelectItem>
               {uffici?.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
             </SelectContent>
           </Select>

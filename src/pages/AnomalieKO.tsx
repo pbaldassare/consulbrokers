@@ -186,9 +186,9 @@ const AnomalieKO = () => {
       {/* Filters */}
       <div className="flex gap-3">
         <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Ufficio" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Sede" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tutti gli uffici</SelectItem>
+            <SelectItem value="all">Tutte le sedi</SelectItem>
             {uffici.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
           </SelectContent>
         </Select>
