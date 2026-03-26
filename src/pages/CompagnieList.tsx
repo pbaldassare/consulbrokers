@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Plus, Building2, Search, ShieldAlert } from "lucide-react";
+import { Plus, Building2, Search, ShieldAlert, Package, Percent, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -64,6 +64,7 @@ const TIPI_COPERTURA = ["Deposito a copertura", "Scambio conferme", "Conferma so
 
 interface CompagniaForm {
   nome: string;
+  nome_sede: string;
   codice: string;
   nome_segue: string;
   indirizzo: string;
@@ -106,7 +107,7 @@ interface CompagniaForm {
 }
 
 const emptyForm: CompagniaForm = {
-  nome: "", codice: "", nome_segue: "", indirizzo: "", cap: "", comune: "", provincia: "",
+  nome: "", nome_sede: "", codice: "", nome_segue: "", indirizzo: "", cap: "", comune: "", provincia: "",
   nazione: "ITALIA", stato: "Attivo", telefono: "", fax: "", cellulare: "", note: "",
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
   codice_fiscale: "", partita_iva: "", iscrizione_rui_sez: "", iscrizione_rui_num: "",
@@ -124,6 +125,7 @@ function toOptions(arr: string[]) {
 function dbToForm(c: any): CompagniaForm {
   return {
     nome: c.nome || "",
+    nome_sede: c.nome_sede || "",
     codice: c.codice || "",
     nome_segue: c.nome_segue || "",
     indirizzo: c.indirizzo || "",
@@ -169,6 +171,7 @@ function dbToForm(c: any): CompagniaForm {
 function formToPayload(form: CompagniaForm) {
   return {
     nome: form.nome,
+    nome_sede: form.nome_sede || null,
     codice: form.codice || null,
     nome_segue: form.nome_segue || null,
     indirizzo: form.indirizzo || null,
@@ -244,9 +247,10 @@ function CompagniaFormDialog({
 
         {/* ── TAB 1: DATI ANAGRAFICI ── */}
         <TabsContent value="anagrafica" className="space-y-3 mt-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Codice Ricerca" field="codice" />
-            <Field label="Nome *" field="nome" />
+            <Field label="Nome Compagnia *" field="nome" />
+            <Field label="Nome Sede" field="nome_sede" placeholder="es. Milano 1, Roma Centro" />
           </div>
           <Field label="Nome (segue)" field="nome_segue" />
 
@@ -443,6 +447,295 @@ function CompagniaFormDialog({
   );
 }
 
+// ── Prodotti & Provvigioni Tab ──
+
+function ProdottiProvvigioniTab({ compagnie }: { compagnie: any[] }) {
+  const queryClient = useQueryClient();
+  const [searchProdotto, setSearchProdotto] = useState("");
+  const [filterCompagnia, setFilterCompagnia] = useState("");
+  const [filterCategoria, setFilterCategoria] = useState("");
+  const [createProdOpen, setCreateProdOpen] = useState(false);
+  const [editingProvv, setEditingProvv] = useState<string | null>(null);
+  const [editProvvValue, setEditProvvValue] = useState("");
+
+  const [newProd, setNewProd] = useState({
+    compagnia_id: "",
+    categoria_id: "",
+    nome_prodotto: "",
+    codice_prodotto: "",
+    percentuale: "",
+  });
+
+  const { data: categorie = [] } = useQuery({
+    queryKey: ["categorie_prodotto"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categorie_prodotto").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: prodotti = [], isLoading } = useQuery({
+    queryKey: ["prodotti_con_provvigioni"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prodotti")
+        .select("*, compagnie(id, nome, nome_sede), categorie_prodotto(id, nome)")
+        .order("nome_prodotto");
+      if (error) throw error;
+
+      // Fetch provvigioni for each product
+      const prodIds = data.map((p: any) => p.id);
+      const { data: provvigioni } = await supabase
+        .from("matrice_provvigioni")
+        .select("*")
+        .in("prodotto_id", prodIds.length > 0 ? prodIds : ["__none__"]);
+
+      return data.map((p: any) => ({
+        ...p,
+        provvigione: provvigioni?.find((pr: any) => pr.prodotto_id === p.id),
+      }));
+    },
+  });
+
+  const compagniaOptions = compagnie.map((c: any) => ({
+    value: c.id,
+    label: c.nome + (c.nome_sede ? ` - ${c.nome_sede}` : ""),
+  }));
+
+  const categoriaOptions = categorie.map((c: any) => ({
+    value: c.id,
+    label: c.nome,
+  }));
+
+  const createProdMutation = useMutation({
+    mutationFn: async () => {
+      const { data: newProduct, error } = await supabase.from("prodotti").insert({
+        compagnia_id: newProd.compagnia_id || null,
+        categoria_id: newProd.categoria_id || null,
+        nome_prodotto: newProd.nome_prodotto,
+        codice_prodotto: newProd.codice_prodotto || null,
+        attivo: true,
+      } as any).select("id").single();
+      if (error) throw error;
+
+      if (newProd.percentuale && newProduct) {
+        const { error: provvError } = await supabase.from("matrice_provvigioni").insert({
+          prodotto_id: newProduct.id,
+          percentuale_provvigione: parseFloat(newProd.percentuale),
+          tipo_calcolo: "percentuale",
+          attiva: true,
+        } as any);
+        if (provvError) throw provvError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prodotti_con_provvigioni"] });
+      setCreateProdOpen(false);
+      setNewProd({ compagnia_id: "", categoria_id: "", nome_prodotto: "", codice_prodotto: "", percentuale: "" });
+      toast.success("Prodotto creato con successo");
+    },
+    onError: () => toast.error("Errore nella creazione del prodotto"),
+  });
+
+  const updateProvvMutation = useMutation({
+    mutationFn: async ({ prodottoId, provvigioneId, value }: { prodottoId: string; provvigioneId: string | null; value: number }) => {
+      if (provvigioneId) {
+        const { error } = await supabase.from("matrice_provvigioni")
+          .update({ percentuale_provvigione: value } as any)
+          .eq("id", provvigioneId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("matrice_provvigioni").insert({
+          prodotto_id: prodottoId,
+          percentuale_provvigione: value,
+          tipo_calcolo: "percentuale",
+          attiva: true,
+        } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prodotti_con_provvigioni"] });
+      setEditingProvv(null);
+      toast.success("Provvigione aggiornata");
+    },
+    onError: () => toast.error("Errore nell'aggiornamento"),
+  });
+
+  const filtered = prodotti.filter((p: any) => {
+    const matchSearch = !searchProdotto || p.nome_prodotto?.toLowerCase().includes(searchProdotto.toLowerCase());
+    const matchComp = !filterCompagnia || p.compagnia_id === filterCompagnia;
+    const matchCat = !filterCategoria || p.categoria_id === filterCategoria;
+    return matchSearch && matchComp && matchCat;
+  });
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-end gap-4">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs text-muted-foreground">Cerca prodotto</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Nome prodotto..." value={searchProdotto} onChange={(e) => setSearchProdotto(e.target.value)} className="pl-9" />
+              </div>
+            </div>
+            <div className="w-52 space-y-1">
+              <Label className="text-xs text-muted-foreground">Compagnia</Label>
+              <SearchableSelect
+                options={[{ value: "", label: "Tutte" }, ...compagniaOptions]}
+                value={filterCompagnia}
+                onValueChange={setFilterCompagnia}
+                placeholder="Tutte..."
+              />
+            </div>
+            <div className="w-48 space-y-1">
+              <Label className="text-xs text-muted-foreground">Categoria</Label>
+              <SearchableSelect
+                options={[{ value: "", label: "Tutte" }, ...categoriaOptions]}
+                value={filterCategoria}
+                onValueChange={setFilterCategoria}
+                placeholder="Tutte..."
+              />
+            </div>
+            <Button variant="secondary" onClick={() => { setSearchProdotto(""); setFilterCompagnia(""); setFilterCategoria(""); }}>Reset</Button>
+            <Dialog open={createProdOpen} onOpenChange={setCreateProdOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="w-4 h-4 mr-2" />Nuovo Prodotto</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Nuovo Prodotto</DialogTitle></DialogHeader>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Compagnia / Sede *</Label>
+                    <SearchableSelect
+                      options={compagniaOptions}
+                      value={newProd.compagnia_id}
+                      onValueChange={(v) => setNewProd((p) => ({ ...p, compagnia_id: v }))}
+                      placeholder="Seleziona compagnia..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Categoria</Label>
+                    <SearchableSelect
+                      options={categoriaOptions}
+                      value={newProd.categoria_id}
+                      onValueChange={(v) => setNewProd((p) => ({ ...p, categoria_id: v }))}
+                      placeholder="Seleziona categoria..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Nome Prodotto *</Label>
+                    <Input value={newProd.nome_prodotto} onChange={(e) => setNewProd((p) => ({ ...p, nome_prodotto: e.target.value }))} placeholder="es. T Legale Allianz" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Codice Prodotto</Label>
+                    <Input value={newProd.codice_prodotto} onChange={(e) => setNewProd((p) => ({ ...p, codice_prodotto: e.target.value }))} placeholder="Opzionale" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Provvigione %</Label>
+                    <Input type="number" value={newProd.percentuale} onChange={(e) => setNewProd((p) => ({ ...p, percentuale: e.target.value }))} placeholder="es. 12" />
+                  </div>
+                  <Button onClick={() => createProdMutation.mutate()} disabled={!newProd.nome_prodotto || !newProd.compagnia_id || createProdMutation.isPending} className="w-full">
+                    Crea Prodotto
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Package className="w-5 h-5" />Prodotti & Provvigioni ({filtered.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-muted-foreground">Caricamento...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Sede</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Prodotto</TableHead>
+                  <TableHead>Codice</TableHead>
+                  <TableHead>Provvigione %</TableHead>
+                  <TableHead>Stato</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.compagnie?.nome || "—"}</TableCell>
+                    <TableCell>{p.compagnie?.nome_sede || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{p.categorie_prodotto?.nome || "—"}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{p.nome_prodotto}</TableCell>
+                    <TableCell className="font-mono text-sm">{p.codice_prodotto || "—"}</TableCell>
+                    <TableCell>
+                      {editingProvv === p.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            className="w-20 h-8"
+                            value={editProvvValue}
+                            onChange={(e) => setEditProvvValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editProvvValue) {
+                                updateProvvMutation.mutate({
+                                  prodottoId: p.id,
+                                  provvigioneId: p.provvigione?.id || null,
+                                  value: parseFloat(editProvvValue),
+                                });
+                              }
+                              if (e.key === "Escape") setEditingProvv(null);
+                            }}
+                            autoFocus
+                          />
+                          <span className="text-muted-foreground">%</span>
+                        </div>
+                      ) : (
+                        <button
+                          className="flex items-center gap-1 hover:text-primary transition-colors"
+                          onClick={() => {
+                            setEditingProvv(p.id);
+                            setEditProvvValue(p.provvigione?.percentuale_provvigione?.toString() || "");
+                          }}
+                        >
+                          <span className="font-semibold">
+                            {p.provvigione?.percentuale_provvigione != null ? `${p.provvigione.percentuale_provvigione}%` : "—"}
+                          </span>
+                          <Pencil className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={p.attivo ? "default" : "secondary"}>
+                        {p.attivo ? "Attivo" : "Inattivo"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nessun prodotto trovato</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Page ──
 
 const CompagnieList = () => {
@@ -509,7 +802,7 @@ const CompagnieList = () => {
   };
 
   const filteredAnagrafica = compagnie.filter((c: any) => {
-    const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase());
+    const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
     return matchNome && matchCodice;
   });
@@ -524,7 +817,7 @@ const CompagnieList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Compagnie</h1>
-          <p className="text-muted-foreground">Gestione compagnie assicurative</p>
+          <p className="text-muted-foreground">Gestione compagnie, sedi, prodotti e provvigioni</p>
         </div>
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
           <DialogTrigger asChild>
@@ -564,6 +857,9 @@ const CompagnieList = () => {
           <TabsTrigger value="sinistri" className="gap-2">
             <ShieldAlert className="w-4 h-4" />Compagnie Sinistri
           </TabsTrigger>
+          <TabsTrigger value="prodotti" className="gap-2">
+            <Package className="w-4 h-4" />Prodotti & Provvigioni
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="anagrafica" className="space-y-4 mt-4">
@@ -574,7 +870,7 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Specificare il nome, anche parziale (vuoto = tutto)</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca per nome..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
+                    <Input placeholder="Cerca per nome o sede..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
                   </div>
                 </div>
                 <div className="w-40 space-y-1">
@@ -601,6 +897,7 @@ const CompagnieList = () => {
                     <TableRow>
                       <TableHead>Codice</TableHead>
                       <TableHead>Nome</TableHead>
+                      <TableHead>Sede</TableHead>
                       <TableHead>Gruppo</TableHead>
                       <TableHead>Comune</TableHead>
                       <TableHead>Prov</TableHead>
@@ -613,6 +910,7 @@ const CompagnieList = () => {
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(c)}>
                         <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
                         <TableCell className="font-medium">{c.nome}</TableCell>
+                        <TableCell>{c.nome_sede || "—"}</TableCell>
                         <TableCell>{c.gruppo_compagnia || "—"}</TableCell>
                         <TableCell>{c.comune || "—"}</TableCell>
                         <TableCell>{c.provincia || "—"}</TableCell>
@@ -627,7 +925,7 @@ const CompagnieList = () => {
                       </TableRow>
                     ))}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nessuna compagnia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna compagnia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -696,6 +994,10 @@ const CompagnieList = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="prodotti" className="mt-4">
+          <ProdottiProvvigioniTab compagnie={compagnie} />
         </TabsContent>
       </Tabs>
     </div>
