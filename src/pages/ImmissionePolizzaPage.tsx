@@ -168,7 +168,7 @@ const ImmissionePolizzaPage = () => {
   const { data: prodottiList } = useQuery({
     queryKey: ["prodotti-list-immissione", selectedCompagnia],
     queryFn: async () => {
-      let q = supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto, compagnia_id").eq("attivo", true).order("nome_prodotto");
+      let q = supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto, compagnia_id, categoria_id").eq("attivo", true).order("nome_prodotto");
       if (selectedCompagnia) q = q.eq("compagnia_id", selectedCompagnia);
       const { data } = await q;
       return data || [];
