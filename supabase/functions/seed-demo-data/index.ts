@@ -582,7 +582,7 @@ Deno.serve(async (req) => {
       rimesse.push({
         id: rimId,
         compagnia_id: pick(compIds),
-        stato: pick(['bozza', 'pronto', 'inviato']),
+        stato: pick(['bozza', 'pronta', 'inviata']),
         totale_importi: +totale.toFixed(2),
         data_creazione: fakeDate(2024, 2025),
         created_by: pick(allStaffIds),
@@ -657,7 +657,7 @@ Deno.serve(async (req) => {
         cognome: pick(COG),
         email: `prospect.demo.${i}@email-demo.it`,
         telefono: fakePhone(),
-        stato: pick(['nuovo', 'contattato', 'in_trattativa', 'convertito', 'perso']),
+        stato: pick(['nuovo', 'in_trattativa', 'preventivo_inviato', 'chiuso_vinto', 'chiuso_perso']),
         fonte: pick(['web', 'referral', 'evento', 'social', 'cold_call']),
         note: '[DEMO] Prospect demo',
         assegnato_a: pick(prodIds),
@@ -775,7 +775,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 15; i++) {
       trattative.push({
         prospect_id: prospIds[i % prospIds.length] || null,
-        stato: pick(['aperta', 'in_corso', 'vinta', 'persa']),
+        stato: pick(['aperta', 'in_negoziazione', 'chiusa_vinta', 'chiusa_persa']),
         compagnia: pick(['Allianz', 'Generali', 'UnipolSai', 'AXA', 'Zurich', 'Cattolica', 'Reale Mutua']),
         prodotto: pick(['RCA', 'Vita', 'Infortuni', 'Casa', 'RC Professionale', 'Salute', 'CVT Kasko']),
         premio_previsto: rf(200, 8000),
