@@ -229,10 +229,10 @@ function CompagniaFormDialog({
   const setField = (key: keyof CompagniaForm, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const Field = ({ label, field, placeholder, className }: { label: string; field: keyof CompagniaForm; placeholder?: string; className?: string }) => (
+  const renderField = (label: string, field: keyof CompagniaForm, placeholder?: string, className?: string) => (
     <div className={`space-y-1 ${className || ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input value={form[field] as string} onChange={(e) => setField(field, e.target.value)} placeholder={placeholder} />
+      <Input value={(form[field] as string) || ""} onChange={(e) => setField(field, e.target.value)} placeholder={placeholder} />
     </div>
   );
 
@@ -248,11 +248,11 @@ function CompagniaFormDialog({
         {/* ── TAB 1: DATI ANAGRAFICI ── */}
         <TabsContent value="anagrafica" className="space-y-3 mt-4">
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Codice Ricerca" field="codice" />
-            <Field label="Nome Compagnia *" field="nome" />
-            <Field label="Nome Sede" field="nome_sede" placeholder="es. Milano 1, Roma Centro" />
+            {renderField("Codice Ricerca", "codice")}
+            {renderField("Nome Compagnia *", "nome")}
+            {renderField("Nome Sede", "nome_sede", "es. Milano 1, Roma Centro")}
           </div>
-          <Field label="Nome (segue)" field="nome_segue" />
+          {renderField("Nome (segue)", "nome_segue")}
 
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Indirizzo</Label>
@@ -263,9 +263,9 @@ function CompagniaFormDialog({
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="CAP" field="cap" />
-            <Field label="Città" field="comune" />
-            <Field label="Provincia" field="provincia" placeholder="es. MI" />
+            {renderField("CAP", "cap")}
+            {renderField("Città", "comune")}
+            {renderField("Provincia", "provincia", "es. MI")}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -292,17 +292,17 @@ function CompagniaFormDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Email" field="mail" />
-            <Field label="PEC" field="pec" />
+            {renderField("Email", "mail")}
+            {renderField("PEC", "pec")}
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Telefono" field="telefono" />
-            <Field label="Fax" field="fax" />
-            <Field label="Cellulare" field="cellulare" />
+            {renderField("Telefono", "telefono")}
+            {renderField("Fax", "fax")}
+            {renderField("Cellulare", "cellulare")}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Mail Estratto Conto" field="mail_ec" />
-            <Field label="Mail Avvisi" field="mail_avvisi" />
+            {renderField("Mail Estratto Conto", "mail_ec")}
+            {renderField("Mail Avvisi", "mail_avvisi")}
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Attenzione di / Note</Label>
@@ -330,11 +330,11 @@ function CompagniaFormDialog({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Iscrizione RUI - Sezione" field="iscrizione_rui_sez" />
-            <Field label="Iscrizione RUI - Numero" field="iscrizione_rui_num" />
+            {renderField("Iscrizione RUI - Sezione", "iscrizione_rui_sez")}
+            {renderField("Iscrizione RUI - Numero", "iscrizione_rui_num")}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Pagamento" field="pagamento" placeholder="es. Bonifico a 30 gg." />
+            {renderField("Pagamento", "pagamento", "es. Bonifico a 30 gg.")}
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Tipo Pagamento</Label>
               <SearchableSelect
@@ -345,7 +345,7 @@ function CompagniaFormDialog({
               />
             </div>
           </div>
-          <Field label="% Ritenuta d'Acconto" field="percentuale_ra" placeholder="es. 23" />
+          {renderField("% Ritenuta d'Acconto", "percentuale_ra", "es. 23")}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -380,15 +380,15 @@ function CompagniaFormDialog({
           <div className="border-t pt-3 mt-3">
             <Label className="text-sm font-medium text-foreground">Dati Bancari</Label>
           </div>
-          <Field label="CC/IBAN" field="iban" />
+          {renderField("CC/IBAN", "iban")}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Codice ABI" field="codice_abi" />
-            <Field label="Codice CAB" field="codice_cab" />
+            {renderField("Codice ABI", "codice_abi")}
+            {renderField("Codice CAB", "codice_cab")}
           </div>
-          <Field label="Intestato a" field="intestato_a" />
+          {renderField("Intestato a", "intestato_a")}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="BIC" field="bic" />
-            <Field label="Città Banca" field="citta_banca" />
+            {renderField("BIC", "bic")}
+            {renderField("Città Banca", "citta_banca")}
           </div>
 
           <div className="border-t pt-3 mt-3">
