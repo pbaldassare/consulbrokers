@@ -391,6 +391,18 @@ const ClientiList = () => {
     );
   });
 
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "polizze") {
+      return (polizzeCounts?.[b.id] ?? 0) - (polizzeCounts?.[a.id] ?? 0);
+    }
+    if (sortBy === "cognome") {
+      const na = (a.cognome || a.ragione_sociale || "").toLowerCase();
+      const nb = (b.cognome || b.ragione_sociale || "").toLowerCase();
+      return na.localeCompare(nb);
+    }
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
+
   const updateRole = (setter: React.Dispatch<React.SetStateAction<CommercialRole>>, field: keyof CommercialRole, value: any) => {
     setter((prev) => ({ ...prev, [field]: value }));
   };
