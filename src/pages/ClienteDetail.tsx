@@ -33,9 +33,9 @@ const tipiRelazione = [
 
 const ruoliCommerciali = [
   { value: "account_executive", label: "Account Executive" },
-  { value: "corrispondente_1", label: "Corrispondente 1" },
-  { value: "corrispondente_2", label: "Corrispondente 2" },
-  { value: "corrispondente_3", label: "Corrispondente 3" },
+  { value: "executive", label: "Executive" },
+  { value: "agente", label: "Agente" },
+  { value: "produttore_sede", label: "Produttore Sede" },
 ];
 
 /* ── Codici Commerciali Sub-component ── */
