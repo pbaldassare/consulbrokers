@@ -629,7 +629,7 @@ Deno.serve(async (req) => {
         specializzazione: pick(['Danni materiali', 'Lesioni personali', 'RCA', 'Incendio', 'Responsabilità civile', 'Vita e previdenza']),
       });
     }
-    await batchInsert(db, 'anagrafiche_professionali', anag);
+    await batchInsert(db, 'anagrafiche_professionali', anag, 50, 'codice,tipo');
     R.anagrafiche_professionali = anag.length;
 
     // ==================== 15. PORTAFOGLIO INCASSI (20) ====================
