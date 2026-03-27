@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck } from "lucide-react";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -81,6 +81,33 @@ const TitoloDetail = () => {
         .eq("titolo_id", id!)
         .order("riga", { ascending: true });
       if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: veicolo } = useQuery({
+    queryKey: ["veicolo-polizza", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("veicoli_polizza").select("*").eq("titolo_id", id!).maybeSingle();
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: premiGaranzia = [] } = useQuery({
+    queryKey: ["premi-garanzia", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("premi_garanzia_polizza").select("*").eq("titolo_id", id!).order("ordine");
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const { data: conducente } = useQuery({
+    queryKey: ["conducente-polizza", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("conducenti_polizza").select("*").eq("titolo_id", id!).maybeSingle();
       return data;
     },
     enabled: !!id,
