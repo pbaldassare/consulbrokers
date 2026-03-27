@@ -56,7 +56,13 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from("compagnie").insert(batch);
       if (error) {
         errors += batch.length;
-        console.error(`Batch ${i} error:`, error.message);
+        if (i === 0) {
+          // Return first batch error for debugging
+          return new Response(
+            JSON.stringify({ error: error.message, details: error.details, hint: error.hint, code: error.code, batch0_sample: batch[0] }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+          );
+        }
       } else {
         inserted += batch.length;
       }
