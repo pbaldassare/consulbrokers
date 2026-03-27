@@ -199,6 +199,7 @@ function formToPayload(form: CompagniaForm) {
     tipo_pagamento: form.tipo_pagamento || null,
     percentuale_ra: form.percentuale_ra ? parseFloat(form.percentuale_ra) : null,
     gruppo_compagnia: form.gruppo_compagnia || null,
+    gruppo_compagnia_id: form.gruppo_compagnia_id || null,
     tipo_mandatario: form.tipo_mandatario || null,
     gruppo_statistico: form.gruppo_statistico || null,
     iban: form.iban || null,
