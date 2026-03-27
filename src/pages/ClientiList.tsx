@@ -1109,7 +1109,7 @@ const ClientiList = () => {
                       <TableCell>
                         <Switch
                           checked={c.attivo ?? true}
-                          onCheckedChange={(v) => { v.stopPropagation?.(); toggleMutation.mutate({ id: c.id, attivo: v }); }}
+                          onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attivo: v })}
                           onClick={(e) => e.stopPropagation()}
                         />
                       </TableCell>
