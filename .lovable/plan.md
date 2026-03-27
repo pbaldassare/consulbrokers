@@ -1,50 +1,82 @@
 
 
-## Piano: Completare il form Immissione Polizza allineandolo al vecchio sistema
+## Piano: Allineare il Dettaglio Polizza al vecchio sistema
 
-### Analisi differenze (screenshot vs attuale)
+### Analisi dello screenshot
 
-Il **TitoloDetail** (visualizzazione) è già abbastanza completo. Il problema principale è il form **ImmissionePolizzaPage** che non cattura molti campi che il vecchio sistema richiede. I campi esistono già nel DB (tabella `titoli`) ma non vengono inseriti.
+Lo screenshot mostra il **DETTAGLIO POLIZZA** del vecchio sistema per il COMUNE DI SANTA MARINA SALINA. Confrontandolo con il nostro `TitoloDetail.tsx`, emergono queste differenze:
 
-| Sezione | Campi mancanti in ImmissionePolizzaPage |
+#### 1. Header DATI — campi mancanti dal cliente
+Il vecchio sistema mostra nella testata della polizza anche dati ereditati dal cliente:
+- **Attivita** (es. "CATEGORIA DA DEFINIRE")
+- **Gr. Fin** (es. "Enti Pubblici Territoriali")
+- **Gr. Stat** (es. "Gruppo ENTI PUBBLICI DIVERSI")
+
+Attualmente il nostro detail mostra il link al cliente ma non questi campi. Vanno aggiunti nella sezione Contratto.
+
+#### 2. Tab mancanti
+Il vecchio sistema ha tab: **FAMILIARI**, **GARANZIE**, **NOTE**, **CORRISPONDENZA**, **ANAGRAFICA**, **ARCHIVIO**.
+Noi abbiamo: Provvigioni, Documenti, Chat, Timeline.
+
+Mappatura:
+- **FAMILIARI** → tab per soggetti collegati alla polizza (assicurati, beneficiari) — concetto nuovo
+- **GARANZIE** → dettaglio coperture/garanzie della polizza — concetto nuovo
+- **NOTE** → esiste come campo testo, va promossa a tab
+- **CORRISPONDENZA** → mappabile sulla nostra Chat
+- **ANAGRAFICA** → dati anagrafici del cliente (link)
+- **ARCHIVIO** → mappabile sui nostri Documenti
+
+#### 3. DETTAGLIO MOVIMENTI — concetto completamente mancante
+Questo e la differenza piu importante. Il vecchio sistema mostra una tabella di **movimenti della polizza** — ogni riga rappresenta un'operazione (polizza base, rinnovo, appendice, storno, ecc.) con:
+
+| Colonna | Significato |
 |---|---|
-| **Periodo** | Garanzia Da/A, Data Competenza, Limite Mora, Disdetta (mesi) |
-| **Regolazione** | Intera sezione mancante: checkbox Sì, Tipo Lettera (dropdown), Tipo Scadenza (dropdown), GG Presentazione, Periodicità (già presente ma va spostata qui), Libro Matricola (radio No/Auto/Altro) |
-| **Importi** | Riga Quietanza (Netto/Add./Tasse/Totale/Provv.), checkbox Rimborso, Indicizzata, No Calcolo Tasse, Pag. Diretto Compagnia, Emissione Fee, Formato Elettronico, Fax Incasso (radio Sì/No), Cambio, Copertura (data + numero), Incasso (data + numero + codice) |
-| **Contratto** | Vincolo come dropdown (non text), Gruppo Ramo mostrato come badge |
+| Rg (Riga) | Numero progressivo riga |
+| App (Appendice) | Numero appendice |
+| Data Movimento | Data registrazione |
+| Effetto | Data decorrenza |
+| Scadenza | Data scadenza rata |
+| Rinnovo | Tipo rinnovo (es. "Tacito rinnovo") |
+| Descrizione | Es. "CIG: B6554C6288" |
+| Val | Valuta (EURO) |
+| Premio | Importo premio |
+| Provvigioni | Importo provvigioni |
+| Tipo | Es. "Polizza Base" |
+| Inc | Flag incasso |
+| Copertura | Data copertura |
+| Incasso | Data incasso |
+| Stato | Icona stato |
+| Sost-> / <-Sost | Sostituisce / Sostituito da |
+
+Questo e il cuore della gestione polizze: ogni polizza ha una storia di movimenti. Attualmente NON abbiamo una tabella `movimenti_polizza` nel DB — esiste solo `movimenti_contabili` che e per la contabilita ufficio.
 
 ### Cosa fare
 
-**File unico da modificare: `src/pages/ImmissionePolizzaPage.tsx`**
+**1. Nuova tabella DB: `movimenti_polizza`**
+Struttura:
+- `id`, `titolo_id` (FK), `riga`, `appendice`
+- `data_movimento`, `data_effetto`, `data_scadenza`, `data_rinnovo`
+- `tipo_rinnovo` (text: Tacito rinnovo, Libera, ecc.)
+- `descrizione`, `valuta`, `premio`, `provvigioni`
+- `tipo` (text: Polizza Base, Appendice, Rinnovo, Storno)
+- `incassato` (boolean), `data_copertura`, `data_incasso`
+- `stato` (text)
+- `sostituisce_id` (FK self-ref), `sostituito_da_id`
+- RLS: admin all, ufficio per proprio ufficio, backoffice select
 
-1. **Sezione Periodo** — aggiungere i campi:
-   - `garanziaDa`, `garanziaA` (date)
-   - `dataCompetenza` (date)
-   - `limiteMora` (date)
-   - `disdettaMesi` (number)
+**2. Aggiornare `TitoloDetail.tsx`**
+- Aggiungere nella sezione Contratto i campi dal cliente: **Attivita**, **Gr. Finanziario**, **Gr. Statistico** (fetch join su `clienti`)
+- Aggiungere sezione **DETTAGLIO MOVIMENTI** con tabella come nel vecchio sistema
+- Riorganizzare le tab: aggiungere **Garanzie** e **Familiari** (anche se inizialmente vuote)
 
-2. **Nuova sezione Regolazione** — aggiungere fieldset dopo Periodo:
-   - `regolazione` (checkbox Sì)
-   - `tipoLetteraRegolazione` (dropdown: specificare tipo)
-   - `tipoScadenza` (dropdown: no scadenza, a scadenza)
-   - `giorniPresentazione` (number)
-   - Spostare `periodicita` qui (dal periodo)
-   - `libroMatricola` (radio: No / Auto / Altro)
+**3. Aggiornare `types.ts`** per il nuovo tipo `movimenti_polizza`
 
-3. **Sezione Importi** — espandere significativamente:
-   - Aggiungere riga **Firma** e riga **Pros. Quietanza** con struttura tabellare (Netto, Addizionali, Tasse, Totale calcolato, Provvigioni calcolate)
-   - Aggiungere checkbox/flag: `rimborso`, `indicizzata`, `noCalcoloTasse`, `pagDirettoCompagnia`, `emissioneFee`, `formatoElettronico`
-   - Aggiungere radio `faxIncasso` (Sì/No)
-   - Aggiungere campo `cambio` (numerico, default 1)
-   - Aggiungere campi `coperturaDa` (date) + `coperturaNumero` (text)
-   - Aggiungere campi incasso: `dataIncasso` (date), `numeroIncasso` (text)
+**4. Auto-creazione primo movimento**
+Quando si salva una nuova polizza in `ImmissionePolizzaPage`, creare automaticamente il primo movimento di tipo "Polizza Base" con i dati della polizza.
 
-4. **Sezione Contratto** — piccolo fix:
-   - `vincolo` da Input a SearchableSelect (dropdown: "Specificare il vincolo (eventuale)")
-   - Mostrare il **Gruppo/Categoria** del ramo selezionato come Badge, come nel vecchio sistema
-
-5. **Aggiornare `finalizzaPolizza()`** per includere tutti i nuovi campi nel payload di salvataggio
-
-### Nessuna modifica DB
-Tutti i campi esistono già nella tabella `titoli` (garanzia_da, garanzia_a, data_competenza, limite_mora, disdetta_mesi, regolazione, tipo_scadenza, giorni_presentazione, tipo_lettera_regolazione, libro_matricola, rimborso, indicizzata, pag_diretto_compagnia, formato_elettronico, premio_netto_quietanza, addizionali_quietanza, tasse_quietanza, provvigioni_quietanza, ecc.)
+### File da modificare
+- **1 nuova migrazione SQL** — crea `movimenti_polizza` con RLS
+- **`src/pages/TitoloDetail.tsx`** — aggiungere movimenti, campi cliente, tab
+- **`src/pages/ImmissionePolizzaPage.tsx`** — auto-creazione primo movimento
+- **`src/integrations/supabase/types.ts`** — nuovo tipo
 
