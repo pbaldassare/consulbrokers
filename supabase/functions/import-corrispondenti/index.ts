@@ -12,27 +12,26 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
-    const { corrispondenti } = await req.json();
+    const { records, tipo } = await req.json();
+    if (!tipo || !records) throw new Error("Missing 'tipo' or 'records' in request body");
 
-    // Step 1: Nullify FK refs to corrispondenti
-    const { data: corrIds } = await supabase
+    // Step 1: Nullify FK refs
+    const { data: existingIds } = await supabase
       .from("anagrafiche_professionali")
       .select("id")
-      .eq("tipo", "corrispondente");
+      .eq("tipo", tipo);
     
-    if (corrIds && corrIds.length > 0) {
-      const ids = corrIds.map((r: any) => r.id);
-      // Nullify codici_commerciali_cliente.profilo_id
-      for (const id of ids) {
-        await supabase.from("codici_commerciali_cliente").update({ profilo_id: null }).eq("profilo_id", id);
+    if (existingIds && existingIds.length > 0) {
+      for (const r of existingIds) {
+        await supabase.from("codici_commerciali_cliente").update({ profilo_id: null }).eq("profilo_id", r.id);
       }
     }
 
-    // Step 2: Delete fake corrispondenti
+    // Step 2: Delete existing records of this tipo
     const { error: delErr } = await supabase
       .from("anagrafiche_professionali")
       .delete()
-      .eq("tipo", "corrispondente");
+      .eq("tipo", tipo);
     if (delErr) throw new Error(`Delete error: ${delErr.message}`);
 
     // Step 3: Insert in batches
@@ -40,8 +39,8 @@ Deno.serve(async (req) => {
     let errors = 0;
     const batchSize = 50;
 
-    for (let i = 0; i < corrispondenti.length; i += batchSize) {
-      const batch = corrispondenti.slice(i, i + batchSize);
+    for (let i = 0; i < records.length; i += batchSize) {
+      const batch = records.slice(i, i + batchSize);
       const { error } = await supabase.from("anagrafiche_professionali").insert(batch);
       if (error) {
         errors += batch.length;
@@ -52,7 +51,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, inserted, errors, deleted: corrIds?.length || 0 }),
+      JSON.stringify({ success: true, tipo, inserted, errors, deleted: existingIds?.length || 0 }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
