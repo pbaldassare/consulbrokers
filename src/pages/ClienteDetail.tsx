@@ -114,6 +114,8 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
   const [mandato, setMandato] = useState(existing?.mandato || "");
   const [dataAcquisito, setDataAcquisito] = useState(existing?.data_acquisito || "");
   const [scadenzaMandato, setScadenzaMandato] = useState(existing?.scadenza_mandato || "");
+  const [dataDisdetta, setDataDisdetta] = useState(existing?.data_disdetta || "");
+  const [termineProroga, setTermineProroga] = useState(existing?.termine_proroga || "");
   const [altroBroker, setAltroBroker] = useState(existing?.altro_broker || false);
   const [altroBrokerNome, setAltroBrokerNome] = useState(existing?.altro_broker_nome || "");
 
@@ -126,6 +128,8 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
       setMandato(existing.mandato || "");
       setDataAcquisito(existing.data_acquisito || "");
       setScadenzaMandato(existing.scadenza_mandato || "");
+      setDataDisdetta(existing.data_disdetta || "");
+      setTermineProroga(existing.termine_proroga || "");
       setAltroBroker(existing.altro_broker || false);
       setAltroBrokerNome(existing.altro_broker_nome || "");
     }
@@ -143,6 +147,8 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
       mandato: mandato || null,
       data_acquisito: dataAcquisito || null,
       scadenza_mandato: scadenzaMandato || null,
+      data_disdetta: dataDisdetta || null,
+      termine_proroga: termineProroga || null,
       altro_broker: altroBroker,
       altro_broker_nome: altroBrokerNome || null,
     });
@@ -188,6 +194,14 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
           <div>
             <Label className="text-xs">Scadenza Mandato</Label>
             <Input className="h-8 text-xs" type="date" value={scadenzaMandato} onChange={(e) => setScadenzaMandato(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Data Disdetta</Label>
+            <Input className="h-8 text-xs" type="date" value={dataDisdetta} onChange={(e) => setDataDisdetta(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Termine Proroga</Label>
+            <Input className="h-8 text-xs" type="date" value={termineProroga} onChange={(e) => setTermineProroga(e.target.value)} />
           </div>
           <div className="flex items-center gap-2 col-span-2">
             <Switch checked={altroBroker} onCheckedChange={setAltroBroker} />

@@ -30,7 +30,9 @@ interface CommercialRole {
   filiale: string;
   mandato: string;
   data_acquisito: string;
+  scadenza_mandato: string;
   data_disdetta: string;
+  termine_proroga: string;
   altro_broker: boolean;
   altro_broker_nome: string;
 }
@@ -42,7 +44,9 @@ const emptyRole = (): CommercialRole => ({
   filiale: "",
   mandato: "",
   data_acquisito: "",
+  scadenza_mandato: "",
   data_disdetta: "",
+  termine_proroga: "",
   altro_broker: false,
   altro_broker_nome: "",
 });
@@ -267,7 +271,9 @@ const ClientiList = () => {
         filiale: r.data.filiale || null,
         mandato: r.data.mandato || null,
         data_acquisito: r.data.data_acquisito || null,
+        scadenza_mandato: r.data.scadenza_mandato || null,
         data_disdetta: r.data.data_disdetta || null,
+        termine_proroga: r.data.termine_proroga || null,
         altro_broker: r.data.altro_broker,
         altro_broker_nome: r.data.altro_broker_nome || null,
       }));
@@ -483,8 +489,16 @@ const ClientiList = () => {
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
+          <Label className="text-xs">Scadenza Mandato</Label>
+          <Input type="date" value={role.scadenza_mandato} onChange={(e) => updateRole(setter, "scadenza_mandato", e.target.value)} />
+        </div>
+        <div>
           <Label className="text-xs">Data Disdetta</Label>
           <Input type="date" value={role.data_disdetta} onChange={(e) => updateRole(setter, "data_disdetta", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Termine Proroga</Label>
+          <Input type="date" value={role.termine_proroga} onChange={(e) => updateRole(setter, "termine_proroga", e.target.value)} />
         </div>
         <div className="flex items-end gap-2">
           <Switch checked={role.altro_broker} onCheckedChange={(v) => updateRole(setter, "altro_broker", v)} />
