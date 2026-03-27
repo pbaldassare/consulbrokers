@@ -134,7 +134,7 @@ const ClientiList = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [tipoTab, setTipoTab] = useState("privato");
-  const [sortBy, setSortBy] = useState<"polizze" | "cognome" | "created_at">("polizze");
+  const [sortBy, setSortBy] = useState<"cognome" | "created_at">("cognome");
 
   // Form state
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
@@ -272,18 +272,6 @@ const ClientiList = () => {
     },
   });
 
-  const { data: polizzeCounts } = useQuery({
-    queryKey: ["polizze-count-per-cliente"],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("count_polizze_per_cliente");
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      for (const row of data || []) {
-        counts[row.cliente_id] = Number(row.count);
-      }
-      return counts;
-    },
-  });
 
   const { data: gruppiFinanziari = [] } = useQuery({
     queryKey: ["gruppi_finanziari_lookup"],
@@ -518,9 +506,6 @@ const ClientiList = () => {
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === "polizze") {
-      return (polizzeCounts?.[b.id] ?? 0) - (polizzeCounts?.[a.id] ?? 0);
-    }
     if (sortBy === "cognome") {
       const na = (a.cognome || a.ragione_sociale || "").toLowerCase();
       const nb = (b.cognome || b.ragione_sociale || "").toLowerCase();
@@ -1055,7 +1040,6 @@ const ClientiList = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="polizze">Polizze ↓</SelectItem>
                   <SelectItem value="cognome">Cognome A-Z</SelectItem>
                   <SelectItem value="created_at">Data creazione ↓</SelectItem>
                 </SelectContent>
@@ -1099,7 +1083,6 @@ const ClientiList = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefono</TableHead>
                       <TableHead>Città</TableHead>
-                      <TableHead>Polizze</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>Attivo</TableHead>
                     </TableRow>
@@ -1113,11 +1096,6 @@ const ClientiList = () => {
                         <TableCell>{c.email || "—"}</TableCell>
                         <TableCell>{c.telefono || "—"}</TableCell>
                         <TableCell>{c.citta_residenza || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={(polizzeCounts?.[c.id] || 0) > 0 ? "default" : "secondary"}>
-                            {polizzeCounts?.[c.id] || 0}
-                          </Badge>
-                        </TableCell>
                         <TableCell>
                           <Badge variant={c.attivo ? "default" : "secondary"}>
                             {c.attivo ? "Attivo" : "Disattivo"}
@@ -1156,7 +1134,6 @@ const ClientiList = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>PEC</TableHead>
                       <TableHead>Città</TableHead>
-                      <TableHead>Polizze</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>Attivo</TableHead>
                     </TableRow>
@@ -1170,11 +1147,6 @@ const ClientiList = () => {
                         <TableCell>{c.email || "—"}</TableCell>
                         <TableCell>{c.pec || "—"}</TableCell>
                         <TableCell>{c.citta_sede || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={(polizzeCounts?.[c.id] || 0) > 0 ? "default" : "secondary"}>
-                            {polizzeCounts?.[c.id] || 0}
-                          </Badge>
-                        </TableCell>
                         <TableCell>
                           <Badge variant={c.attivo ? "default" : "secondary"}>
                             {c.attivo ? "Attivo" : "Disattivo"}
@@ -1213,7 +1185,6 @@ const ClientiList = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>PEC</TableHead>
                       <TableHead>Città</TableHead>
-                      <TableHead>Polizze</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead>Attivo</TableHead>
                     </TableRow>
@@ -1227,11 +1198,6 @@ const ClientiList = () => {
                         <TableCell>{c.email || "—"}</TableCell>
                         <TableCell>{c.pec || "—"}</TableCell>
                         <TableCell>{c.citta_sede || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={(polizzeCounts?.[c.id] || 0) > 0 ? "default" : "secondary"}>
-                            {polizzeCounts?.[c.id] || 0}
-                          </Badge>
-                        </TableCell>
                         <TableCell>
                           <Badge variant={c.attivo ? "default" : "secondary"}>
                             {c.attivo ? "Attivo" : "Disattivo"}
