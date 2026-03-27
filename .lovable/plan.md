@@ -1,22 +1,33 @@
 
 
-## Piano: Aggiungere aliquote tasse a tabella `rami` e popolare dati reali dall'Excel
+## Piano: Mostrare aliquote tasse nella gestione Rami
 
-### Modifiche al database
+### Cosa fare
 
-**1. Migrazione — aggiungere colonne alla tabella `rami`:**
-- `aliquota_tasse_ramo` (numeric, default 0) — percentuale tasse sul ramo
-- `aliquota_tasse_ard` (numeric, default 0) — percentuale tasse ARD
+Aggiungere i campi `aliquota_tasse_ramo` e `aliquota_tasse_ard` sia nella **tabella** che nel **dialog di modifica/creazione** del tab Rami in `src/pages/TabelleBasePage.tsx`.
 
-**2. Operazioni dati (via insert tool):**
-- `UPDATE titoli SET ramo_id = NULL` — rimuovere FK verso rami fake
-- `DELETE FROM rami` — svuotare rami fake
-- `DELETE FROM gruppi_ramo` — svuotare gruppi fake
-- Inserire i **13 gruppi_ramo** reali dall'Excel (ZL, ZT, ZD, ZY, ZP, ZN, ZC, DI, ZM, ZQ, ZS, ZV)
-- Inserire i **182 rami** reali dall'Excel con codice, descrizione, gruppo_ramo_id, aliquota_tasse_ramo, aliquota_tasse_ard
+### Modifiche in `src/pages/TabelleBasePage.tsx` (RamiTab)
 
-### Dettagli tecnici
-- I dati vengono estratti dal file `codici_ramo_sottogruppo.xlsx` caricato in precedenza
-- I titoli esistenti perderanno temporaneamente il `ramo_id` — andrà riassegnato manualmente dopo
-- Nessuna modifica frontend necessaria per questa fase
+**1. Stato — aggiungere due state variables (~riga 152):**
+- `aliquotaRamo` (string, default "0")
+- `aliquotaArd` (string, default "0")
+
+**2. Payload save (~riga 176):**
+- Aggiungere `aliquota_tasse_ramo: parseFloat(aliquotaRamo) || 0` e `aliquota_tasse_ard: parseFloat(aliquotaArd) || 0`
+
+**3. openNew / openEdit (~riga 213-214):**
+- Reset/popolare i nuovi campi
+
+**4. Colonne tabella (~righe 227-231):**
+- Aggiungere due `<TableHead>`: "% Tasse Ramo" e "% Tasse ARD"
+- Aggiungere due `<TableCell>` corrispondenti nelle righe (~riga 241)
+- Aggiornare il `colSpan` nei messaggi vuoto/caricamento
+
+**5. Dialog (~righe 266-279):**
+- Aggiungere due campi `<Input type="number">` per le aliquote, dopo il campo Gruppo Ramo
+
+### Risultato
+- Le aliquote saranno visibili nella tabella rami
+- Saranno editabili dal dialog di creazione/modifica
+- Nessuna migrazione necessaria (le colonne esistono già nel DB)
 
