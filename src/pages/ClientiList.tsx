@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Users, Building2, Search, User, Landmark } from "lucide-react";
+import ServerPagination from "@/components/ServerPagination";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
@@ -133,8 +134,23 @@ const ClientiList = () => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [tipoTab, setTipoTab] = useState("privato");
   const [sortBy, setSortBy] = useState<"cognome" | "created_at">("cognome");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset page when tab changes
+  useEffect(() => { setPage(0); }, [tipoTab, sortBy]);
 
   // Form state
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
@@ -260,17 +276,52 @@ const ClientiList = () => {
     scannedFilesRef.current = [];
   }, []);
 
-  const { data: clienti = [], isLoading } = useQuery({
-    queryKey: ["clienti"],
+  const { data: clientiResult, isLoading } = useQuery({
+    queryKey: ["clienti", tipoTab, debouncedSearch, sortBy, page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("clienti")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .eq("tipo_cliente", tipoTab);
+
+      // Server-side search
+      if (debouncedSearch) {
+        const s = `%${debouncedSearch}%`;
+        if (tipoTab === "privato") {
+          query = query.or(
+            `nome.ilike.${s},cognome.ilike.${s},codice_fiscale.ilike.${s},email.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},telefono.ilike.${s}`
+          );
+        } else {
+          query = query.or(
+            `ragione_sociale.ilike.${s},partita_iva.ilike.${s},codice_fiscale_azienda.ilike.${s},email.ilike.${s},pec.ilike.${s},citta_sede.ilike.${s},telefono.ilike.${s}`
+          );
+        }
+      }
+
+      // Server-side sorting
+      if (sortBy === "cognome") {
+        if (tipoTab === "privato") {
+          query = query.order("cognome", { ascending: true, nullsFirst: false });
+        } else {
+          query = query.order("ragione_sociale", { ascending: true, nullsFirst: false });
+        }
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
+
+      // Pagination
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data;
+      return { data: data || [], totalCount: count || 0 };
     },
   });
+
+  const clienti = clientiResult?.data || [];
+  const totalCount = clientiResult?.totalCount || 0;
 
 
   const { data: gruppiFinanziari = [] } = useQuery({
@@ -484,40 +535,7 @@ const ClientiList = () => {
     scannedFilesRef.current = [];
   };
 
-  const filtered = clienti.filter((c) => {
-    if (c.tipo_cliente !== tipoTab) return false;
-    if (!search) return true;
-    const s = search.toLowerCase();
-    if (c.tipo_cliente === "privato") {
-      return (
-        (c.nome?.toLowerCase().includes(s)) ||
-        (c.cognome?.toLowerCase().includes(s)) ||
-        (c.codice_fiscale?.toLowerCase().includes(s)) ||
-        (c.email?.toLowerCase().includes(s)) ||
-        (c.citta_residenza?.toLowerCase().includes(s)) ||
-        (c.citta_sede?.toLowerCase().includes(s)) ||
-        (c.telefono?.toLowerCase().includes(s))
-      );
-    }
-    return (
-      (c.ragione_sociale?.toLowerCase().includes(s)) ||
-      (c.partita_iva?.toLowerCase().includes(s)) ||
-      (c.codice_fiscale_azienda?.toLowerCase().includes(s)) ||
-      (c.email?.toLowerCase().includes(s)) ||
-      (c.pec?.toLowerCase().includes(s)) ||
-      (c.citta_sede?.toLowerCase().includes(s)) ||
-      (c.telefono?.toLowerCase().includes(s))
-    );
-  });
-
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === "cognome") {
-      const na = (a.cognome || a.ragione_sociale || "").toLowerCase();
-      const nb = (b.cognome || b.ragione_sociale || "").toLowerCase();
-      return na.localeCompare(nb);
-    }
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-  });
+  // Server-side filtering/sorting — data already comes filtered and sorted
 
   const updateRole = (setter: React.Dispatch<React.SetStateAction<CommercialRole>>, field: keyof CommercialRole, value: any) => {
     setter((prev) => ({ ...prev, [field]: value }));
@@ -1037,7 +1055,7 @@ const ClientiList = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Clienti ({sorted.length})
+              Clienti ({totalCount})
             </CardTitle>
             <div className="flex items-center gap-3">
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
@@ -1079,6 +1097,7 @@ const ClientiList = () => {
               {isLoading ? (
                 <p className="text-muted-foreground py-4">Caricamento...</p>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1093,7 +1112,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sorted.map((c) => (
+                    {clienti.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.cognome || "—"}</TableCell>
                         <TableCell>{c.nome || "—"}</TableCell>
@@ -1114,15 +1133,17 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {sorted.length === 0 && (
+                    {clienti.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
                           Nessun cliente privato trovato
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+                </>
               )}
             </TabsContent>
 
@@ -1130,6 +1151,7 @@ const ClientiList = () => {
               {isLoading ? (
                 <p className="text-muted-foreground py-4">Caricamento...</p>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1144,7 +1166,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sorted.map((c) => (
+                    {clienti.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
@@ -1165,15 +1187,17 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {sorted.length === 0 && (
+                    {clienti.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
                           Nessuna azienda trovata
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+                </>
               )}
             </TabsContent>
 
@@ -1181,6 +1205,7 @@ const ClientiList = () => {
               {isLoading ? (
                 <p className="text-muted-foreground py-4">Caricamento...</p>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1195,7 +1220,7 @@ const ClientiList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sorted.map((c) => (
+                    {clienti.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
                         <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
@@ -1216,15 +1241,17 @@ const ClientiList = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {sorted.length === 0 && (
+                    {clienti.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
                           Nessun ente trovato
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+                </>
               )}
             </TabsContent>
           </Tabs>
