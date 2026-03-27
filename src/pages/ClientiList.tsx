@@ -132,6 +132,8 @@ const ClientiList = () => {
   const [riferimento, setRiferimento] = useState("");
   const [fatturato, setFatturato] = useState("");
   const [numDipendenti, setNumDipendenti] = useState("");
+  const [fascia_fatturato, setFasciaFatturato] = useState("");
+  const [fascia_dipendenti, setFasciaDipendenti] = useState("");
   const [codiceAteco, setCodiceAteco] = useState("");
   const [clienteAssociato, setClienteAssociato] = useState(false);
   const [clienteCaptive, setClienteCaptive] = useState(false);
