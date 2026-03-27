@@ -131,6 +131,7 @@ const ClientiList = () => {
   const [clienteAssociato, setClienteAssociato] = useState(false);
   const [clienteCaptive, setClienteCaptive] = useState(false);
   const [internazionale, setInternazionale] = useState(false);
+  const [gruppoStatistico, setGruppoStatistico] = useState("");
 
   // Dati Contabili
   const [fidoCredito, setFidoCredito] = useState("");
