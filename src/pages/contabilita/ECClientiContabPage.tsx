@@ -258,7 +258,7 @@ const ECClientiContabPage = () => {
 
           <SearchableSelect value={filters.specialista_id} onValueChange={(v) => set({ specialista_id: v })}
             options={(specialisti || []).map((s) => ({ value: s.id, label: s.ragione_sociale || `${s.cognome || ""} ${s.nome || ""}`.trim() }))}
-            placeholder="Specialista (A/E)" allLabel="Tutti gli specialisti" className="w-[220px]" />
+            placeholder="Backoffice" allLabel="Tutti i backoffice" className="w-[220px]" />
 
           <SearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })}
             options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))}

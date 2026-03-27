@@ -370,7 +370,7 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Specialist</Label>
+            <Label className="text-xs">Backoffice</Label>
             <SearchableSelect className="h-8 text-xs" value={specialist} onValueChange={setSpecialist} placeholder="—"
               options={[{ value: "danni", label: "Danni" }, { value: "vita", label: "Vita" }, { value: "auto", label: "Auto" }, { value: "re", label: "RE" }]}
             />
