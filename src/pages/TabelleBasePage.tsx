@@ -150,6 +150,8 @@ const RamiTab = () => {
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [gruppoId, setGruppoId] = useState("");
+  const [aliquotaRamo, setAliquotaRamo] = useState("0");
+  const [aliquotaArd, setAliquotaArd] = useState("0");
 
   const { data: rami = [], isLoading } = useQuery({
     queryKey: ["rami-list"],
@@ -173,7 +175,7 @@ const RamiTab = () => {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload = { codice, descrizione, gruppo_ramo_id: gruppoId && gruppoId !== "none" ? gruppoId : null };
+      const payload = { codice, descrizione, gruppo_ramo_id: gruppoId && gruppoId !== "none" ? gruppoId : null, aliquota_tasse_ramo: parseFloat(aliquotaRamo) || 0, aliquota_tasse_ard: parseFloat(aliquotaArd) || 0 };
       if (editing) {
         const { error } = await supabase.from("rami").update(payload).eq("id", editing.id);
         if (error) throw error;
@@ -210,8 +212,8 @@ const RamiTab = () => {
     onError: (e: any) => toast.error("Errore"),
   });
 
-  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setGruppoId(""); setOpen(true); };
-  const openEdit = (r: any) => { setEditing(r); setCodice(r.codice); setDescrizione(r.descrizione); setGruppoId(r.gruppo_ramo_id || ""); setOpen(true); };
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setGruppoId(""); setAliquotaRamo("0"); setAliquotaArd("0"); setOpen(true); };
+  const openEdit = (r: any) => { setEditing(r); setCodice(r.codice); setDescrizione(r.descrizione); setGruppoId(r.gruppo_ramo_id || ""); setAliquotaRamo(String(r.aliquota_tasse_ramo ?? 0)); setAliquotaArd(String(r.aliquota_tasse_ard ?? 0)); setOpen(true); };
   const closeDialog = () => { setOpen(false); setEditing(null); };
 
   return (
@@ -227,15 +229,17 @@ const RamiTab = () => {
               <TableHead className="w-32">Codice</TableHead>
               <TableHead>Descrizione</TableHead>
               <TableHead>Gruppo Ramo</TableHead>
+              <TableHead className="w-28 text-right">% Tasse Ramo</TableHead>
+              <TableHead className="w-28 text-right">% Tasse ARD</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
             ) : rami.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun ramo inserito</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun ramo inserito</TableCell></TableRow>
             ) : rami.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono font-semibold">{r.codice}</TableCell>
@@ -247,6 +251,8 @@ const RamiTab = () => {
                     <span className="text-muted-foreground text-xs">—</span>
                   )}
                 </TableCell>
+                <TableCell className="text-right font-mono">{r.aliquota_tasse_ramo ?? 0}%</TableCell>
+                <TableCell className="text-right font-mono">{r.aliquota_tasse_ard ?? 0}%</TableCell>
                 <TableCell className="text-center">
                   <Switch checked={r.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: r.id, attivo: v })} />
                 </TableCell>
@@ -275,7 +281,11 @@ const RamiTab = () => {
                     { value: "none", label: "— Nessun gruppo —" },
                     ...gruppi.map((g) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
                   ]}
-                />
+                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>% Tasse Ramo</Label><Input type="number" step="0.01" value={aliquotaRamo} onChange={(e) => setAliquotaRamo(e.target.value)} /></div>
+                <div><Label>% Tasse ARD</Label><Input type="number" step="0.01" value={aliquotaArd} onChange={(e) => setAliquotaArd(e.target.value)} /></div>
               </div>
             </div>
             <DialogFooter>
