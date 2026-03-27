@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import DocumentiTab from "@/components/DocumentiTab";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
@@ -622,7 +623,7 @@ export default function ClienteDetail() {
                     <FieldInput label="Codice Fiscale" field="codice_fiscale" />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
                     <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
-                    <FieldDisplay label="Indirizzo" value={cliente.indirizzo_residenza} />
+                    <FieldInput label="Indirizzo Residenza" field="indirizzo_residenza" />
                     <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
                     <FieldDisplay label="CAP" value={cliente.cap_residenza} />
                   </>
@@ -632,7 +633,7 @@ export default function ClienteDetail() {
                     <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
                     <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
                     <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
-                    <FieldDisplay label="Sede" value={cliente.indirizzo_sede} />
+                    <FieldInput label="Sede" field="indirizzo_sede" />
                     <FieldDisplay label="Città" value={`${cliente.citta_sede || ""} ${cliente.provincia_sede ? `(${cliente.provincia_sede})` : ""}`} />
                   </>
                 )}
@@ -644,8 +645,45 @@ export default function ClienteDetail() {
                 <FieldInput label="Nazione" field="nazione" />
                 <FieldInput label="Attenzione di" field="attenzione_di" />
               </div>
+              {/* Note */}
+              <div className="mt-4">
+                <Label className="text-xs">Note</Label>
+                {readOnly ? (
+                  <p className="text-sm mt-1 whitespace-pre-wrap">{ef.note || "—"}</p>
+                ) : (
+                  <Textarea className="text-xs" rows={3} value={ef.note || ""} onChange={(e) => updateField("note", e.target.value)} />
+                )}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Indirizzi Aggiuntivi */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Indirizzi Aggiuntivi</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Alternativo</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <FieldInput label="Indirizzo" field="indirizzo_alternativo" />
+                  <FieldInput label="CAP" field="cap_alternativo" />
+                  <FieldInput label="Città" field="citta_alternativa" />
+                  <FieldInput label="Provincia" field="provincia_alternativa" />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Fiscale</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <FieldInput label="Indirizzo" field="indirizzo_fiscale" />
+                  <FieldInput label="CAP" field="cap_fiscale" />
+                  <FieldInput label="Città" field="citta_fiscale" />
+                  <FieldInput label="Provincia" field="provincia_fiscale" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Nominativi */}
+          <NominativiSection clienteId={id!} readOnly={readOnly} />
 
           {/* Accordion sections */}
           <Accordion type="multiple" className="space-y-2">
@@ -697,6 +735,7 @@ export default function ClienteDetail() {
                       />
                     )}
                   </div>
+                  <FieldInput label="Gruppo Statistico" field="gruppo_statistico" />
                   <FieldInput label="Attività" field="attivita" />
                   <FieldInput label="Settore" field="settore" />
                   <FieldInput label="Azienda Stat." field="azienda_stat" />
