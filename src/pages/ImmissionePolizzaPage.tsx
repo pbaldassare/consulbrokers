@@ -262,6 +262,9 @@ const ImmissionePolizzaPage = () => {
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
 
+  // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
+  const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
+
   const { data: provvigioneDb } = useQuery({
     queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedProdottoCategoriaId],
     queryFn: async () => {
