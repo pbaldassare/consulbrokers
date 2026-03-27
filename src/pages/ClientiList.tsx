@@ -1205,6 +1205,7 @@ const ClientiList = () => {
               {isLoading ? (
                 <p className="text-muted-foreground py-4">Caricamento...</p>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1242,13 +1243,15 @@ const ClientiList = () => {
                     ))}
                     {clienti.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
                           Nessun ente trovato
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+                </>
               )}
             </TabsContent>
           </Tabs>
