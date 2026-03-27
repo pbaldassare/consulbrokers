@@ -50,15 +50,45 @@ const ImmissionePolizzaPage = () => {
   const [durataA, setDurataA] = useState("");
   const [anniDurata, setAnniDurata] = useState("1");
   const [tipoRinnovo, setTipoRinnovo] = useState("tacito_rinnovo");
-  const [periodicita, setPeriodicita] = useState("annuale");
   const [rate, setRate] = useState("1");
   const [moraGiorni, setMoraGiorni] = useState("15");
+  const [garanziaDa, setGaranziaDa] = useState("");
+  const [garanziaA, setGaranziaA] = useState("");
+  const [dataCompetenza, setDataCompetenza] = useState("");
+  const [limiteMora, setLimiteMora] = useState("");
+  const [disdettaMesi, setDisdettaMesi] = useState("");
+
+  // Regolazione
+  const [regolazione, setRegolazione] = useState(false);
+  const [tipoLetteraRegolazione, setTipoLetteraRegolazione] = useState("");
+  const [tipoScadenza, setTipoScadenza] = useState("no_scadenza");
+  const [giorniPresentazione, setGiorniPresentazione] = useState("");
+  const [periodicita, setPeriodicita] = useState("annuale");
+  const [libroMatricola, setLibroMatricola] = useState("no");
 
   // Importi
   const [premioNetto, setPremioNetto] = useState("");
   const [addizionali, setAddizionali] = useState("0");
   const [tasse, setTasse] = useState("");
   const [valuta, setValuta] = useState("EUR");
+  // Quietanza
+  const [premioNettoQuietanza, setPremioNettoQuietanza] = useState("");
+  const [addizionaliQuietanza, setAddizionaliQuietanza] = useState("0");
+  const [tasseQuietanza, setTasseQuietanza] = useState("");
+  // Flags
+  const [rimborso, setRimborso] = useState(false);
+  const [indicizzata, setIndicizzata] = useState(false);
+  const [noCalcoloTasse, setNoCalcoloTasse] = useState(false);
+  const [pagDirettoCompagnia, setPagDirettoCompagnia] = useState(false);
+  const [emissioneFee, setEmissioneFee] = useState(false);
+  const [formatoElettronico, setFormatoElettronico] = useState(false);
+  const [faxIncasso, setFaxIncasso] = useState("no");
+  const [cambio, setCambio] = useState("1");
+  // Copertura & Incasso
+  const [coperturaDa, setCoperturaDa] = useState("");
+  const [coperturaNumero, setCoperturaNumero] = useState("");
+  const [dataIncasso, setDataIncasso] = useState("");
+  const [numeroIncasso, setNumeroIncasso] = useState("");
 
   // Provvigioni
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
@@ -72,7 +102,8 @@ const ImmissionePolizzaPage = () => {
   const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
   const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
 
-  // Lookup cliente
+  // --- Queries ---
+
   const { data: clienteData } = useQuery({
     queryKey: ["cliente-lookup", codiceCliente],
     queryFn: async () => {
@@ -88,7 +119,6 @@ const ImmissionePolizzaPage = () => {
     enabled: codiceCliente.length >= 2,
   });
 
-  // Auto-fetch AE dal cliente
   const { data: clienteAE } = useQuery({
     queryKey: ["cliente-ae", selectedClienteId],
     queryFn: async () => {
@@ -105,20 +135,14 @@ const ImmissionePolizzaPage = () => {
     enabled: !!selectedClienteId,
   });
 
-  // Quando il cliente cambia, pre-compilare AE
   useEffect(() => {
-    if (clienteData?.id) {
-      setSelectedClienteId(clienteData.id);
-    }
+    if (clienteData?.id) setSelectedClienteId(clienteData.id);
   }, [clienteData?.id]);
 
   useEffect(() => {
-    if (clienteAE?.profilo_id) {
-      setSelectedAE(clienteAE.profilo_id as string);
-    }
+    if (clienteAE?.profilo_id) setSelectedAE(clienteAE.profilo_id as string);
   }, [clienteAE?.profilo_id]);
 
-  // Load A/E list
   const { data: aeList } = useQuery({
     queryKey: ["ae-list-immissione"],
     queryFn: async () => {
@@ -132,7 +156,6 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Load commerciali (profiles con ruoli commerciali)
   const { data: commercialiList } = useQuery({
     queryKey: ["commerciali-list-immissione"],
     queryFn: async () => {
@@ -146,7 +169,6 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Load compagnie
   const { data: compagnieList } = useQuery({
     queryKey: ["compagnie-list-immissione"],
     queryFn: async () => {
@@ -155,16 +177,22 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Load rami
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione").eq("attivo", true).order("codice");
+      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id").eq("attivo", true).order("codice");
       return data || [];
     },
   });
 
-  // Load prodotti (filtrati per compagnia)
+  const { data: gruppiRamo } = useQuery({
+    queryKey: ["gruppi-ramo-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase.from("gruppi_ramo").select("id, codice, descrizione").eq("attivo", true);
+      return data || [];
+    },
+  });
+
   const { data: prodottiList } = useQuery({
     queryKey: ["prodotti-list-immissione", selectedCompagnia],
     queryFn: async () => {
@@ -175,8 +203,11 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Provvigione auto-lookup from provvigioni_compagnia_ramo (Compagnia + Categoria)
   const selectedProdottoCategoriaId = prodottiList?.find((p) => p.id === selectedProdotto)?.categoria_id as string | undefined;
+
+  // Gruppo ramo del ramo selezionato
+  const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
+  const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
 
   const { data: provvigioneDb } = useQuery({
     queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedProdottoCategoriaId],
@@ -195,17 +226,13 @@ const ImmissionePolizzaPage = () => {
     enabled: !!selectedCompagnia && !!selectedProdottoCategoriaId,
   });
 
-  // Auto-set compagnia when prodotto changes
   useEffect(() => {
     if (selectedProdotto && prodottiList) {
       const prod = prodottiList.find((p) => p.id === selectedProdotto);
-      if (prod?.compagnia_id && !selectedCompagnia) {
-        setSelectedCompagnia(prod.compagnia_id);
-      }
+      if (prod?.compagnia_id && !selectedCompagnia) setSelectedCompagnia(prod.compagnia_id);
     }
   }, [selectedProdotto, prodottiList]);
 
-  // Auto-fill provvigione from DB (now based on Compagnia+Categoria)
   useEffect(() => {
     if (provvigioneDb) {
       const val = String(provvigioneDb.percentuale_provvigione ?? "");
@@ -223,24 +250,26 @@ const ImmissionePolizzaPage = () => {
 
   const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
 
+  // --- Computed ---
+  const totFirma = (parseFloat(premioNetto || "0") + parseFloat(addizionali || "0") + parseFloat(tasse || "0"));
+  const totQuietanza = (parseFloat(premioNettoQuietanza || "0") + parseFloat(addizionaliQuietanza || "0") + parseFloat(tasseQuietanza || "0"));
+  const provvFirma = percentualeProvvigione ? (parseFloat(premioNetto || "0") * parseFloat(percentualeProvvigione) / 100) : 0;
+  const provvQuietanza = percentualeProvvigione ? (parseFloat(premioNettoQuietanza || "0") * parseFloat(percentualeProvvigione) / 100) : 0;
+
+  // --- Handlers ---
+
   const handleConferma = () => {
     const hasProvvigione = percentualeProvvigione !== "";
-
     if (hasProvvigione && !provvigioneFromDb) {
-      // New value, no DB record → ask to save as default
       setProvvigioneDialogType("new");
       setShowProvvigioneDialog(true);
       return;
     }
-
     if (hasProvvigione && isProvvigioneModified) {
-      // Modified from DB value → ask to update default
       setProvvigioneDialogType("update");
       setShowProvvigioneDialog(true);
       return;
     }
-
-    // No provvigione change needed, proceed directly
     finalizzaPolizza();
   };
 
@@ -283,6 +312,27 @@ const ImmissionePolizzaPage = () => {
       percentualeProvvigione,
       commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
       percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
+      // New fields
+      garanzia_da: garanziaDa || null,
+      garanzia_a: garanziaA || null,
+      data_competenza: dataCompetenza || null,
+      limite_mora: limiteMora || null,
+      disdetta_mesi: disdettaMesi ? parseInt(disdettaMesi) : null,
+      regolazione,
+      tipo_lettera_regolazione: tipoLetteraRegolazione || null,
+      tipo_scadenza: tipoScadenza,
+      giorni_presentazione: giorniPresentazione ? parseInt(giorniPresentazione) : null,
+      libro_matricola: libroMatricola,
+      premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
+      addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
+      tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
+      rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
+      pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
+      formato_elettronico: formatoElettronico, fax_incasso: faxIncasso === "si",
+      cambio: parseFloat(cambio) || 1,
+      copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
+      data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
+      vincolo: vincolo || null,
     });
     toast.success("Polizza registrata con successo");
   };
@@ -351,13 +401,22 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Ramo</Label>
-            <SearchableSelect
-              className="h-8 text-xs"
-              value={selectedRamo}
-              onValueChange={setSelectedRamo}
-              placeholder="— Ramo —"
-              options={(ramiList || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))}
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <SearchableSelect
+                  className="h-8 text-xs"
+                  value={selectedRamo}
+                  onValueChange={setSelectedRamo}
+                  placeholder="— Ramo —"
+                  options={(ramiList || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))}
+                />
+              </div>
+              {selectedGruppoRamo && (
+                <Badge variant="secondary" className="text-[10px] whitespace-nowrap shrink-0">
+                  {selectedGruppoRamo.descrizione}
+                </Badge>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
@@ -412,7 +471,20 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Vincolo</Label>
-            <Input value={vincolo} onChange={(e) => setVincolo(e.target.value)} className="h-8 text-xs" />
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={vincolo}
+              onValueChange={setVincolo}
+              placeholder="— Specificare vincolo —"
+              options={[
+                { value: "nessuno", label: "Nessuno" },
+                { value: "ipoteca", label: "Ipoteca" },
+                { value: "leasing", label: "Leasing" },
+                { value: "pegno", label: "Pegno" },
+                { value: "cessione", label: "Cessione" },
+                { value: "altro", label: "Altro" },
+              ]}
+            />
           </div>
         </div>
       </fieldset>
@@ -438,6 +510,22 @@ const ImmissionePolizzaPage = () => {
             <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
+            <Label className="text-xs">Garanzia Da</Label>
+            <Input type="date" value={garanziaDa} onChange={(e) => setGaranziaDa(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Garanzia A</Label>
+            <Input type="date" value={garanziaA} onChange={(e) => setGaranziaA(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Data Competenza</Label>
+            <Input type="date" value={dataCompetenza} onChange={(e) => setDataCompetenza(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Limite Mora</Label>
+            <Input type="date" value={limiteMora} onChange={(e) => setLimiteMora(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">Tipo Rinnovo</Label>
             <SearchableSelect className="h-8 text-xs" value={tipoRinnovo} onValueChange={setTipoRinnovo} placeholder="—"
               options={[
@@ -446,6 +534,25 @@ const ImmissionePolizzaPage = () => {
                 { value: "libera", label: "Libera" },
               ]}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">GG Mora</Label>
+            <Input type="number" value={moraGiorni} onChange={(e) => setMoraGiorni(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Disdetta (mesi)</Label>
+            <Input type="number" value={disdettaMesi} onChange={(e) => setDisdettaMesi(e.target.value)} placeholder="0" className="h-8 text-xs" />
+          </div>
+        </div>
+      </fieldset>
+
+      {/* REGOLAZIONE */}
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Regolazione</legend>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <div className="flex items-center gap-2 h-8">
+            <Checkbox id="regolazione" checked={regolazione} onCheckedChange={(v) => setRegolazione(v === true)} />
+            <Label htmlFor="regolazione" className="font-normal cursor-pointer text-xs">Regolazione Sì</Label>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Periodicità</Label>
@@ -459,8 +566,42 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">GG Mora</Label>
-            <Input type="number" value={moraGiorni} onChange={(e) => setMoraGiorni(e.target.value)} className="h-8 text-xs" />
+            <Label className="text-xs">Tipo Scadenza</Label>
+            <SearchableSelect className="h-8 text-xs" value={tipoScadenza} onValueChange={setTipoScadenza} placeholder="—"
+              options={[
+                { value: "no_scadenza", label: "No Scadenza" },
+                { value: "a_scadenza", label: "A Scadenza" },
+              ]}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">GG Presentazione</Label>
+            <Input type="number" value={giorniPresentazione} onChange={(e) => setGiorniPresentazione(e.target.value)} placeholder="0" className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tipo Lettera Regolazione</Label>
+            <SearchableSelect className="h-8 text-xs" value={tipoLetteraRegolazione} onValueChange={setTipoLetteraRegolazione} placeholder="— Tipo lettera —"
+              options={[
+                { value: "standard", label: "Standard" },
+                { value: "personalizzata", label: "Personalizzata" },
+                { value: "nessuna", label: "Nessuna" },
+              ]}
+            />
+          </div>
+          <div className="space-y-1.5 col-span-2">
+            <Label className="text-xs">Libro Matricola</Label>
+            <RadioGroup value={libroMatricola} onValueChange={setLibroMatricola} className="flex gap-4 h-8 items-center">
+              {[
+                { value: "no", label: "No" },
+                { value: "auto", label: "Auto" },
+                { value: "altro", label: "Altro" },
+              ].map((opt) => (
+                <div key={opt.value} className="flex items-center gap-1.5">
+                  <RadioGroupItem value={opt.value} id={`lm-${opt.value}`} />
+                  <Label htmlFor={`lm-${opt.value}`} className="font-normal cursor-pointer text-xs">{opt.label}</Label>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
         </div>
       </fieldset>
@@ -468,24 +609,104 @@ const ImmissionePolizzaPage = () => {
       {/* IMPORTI */}
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
         <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Importi</legend>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+        {/* Tabella Firma / Quietanza */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-24"></th>
+                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Netto €</th>
+                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Addizionali €</th>
+                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Tasse €</th>
+                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Totale €</th>
+                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Provvigioni €</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-border/50">
+                <td className="py-1.5 px-2 font-semibold text-foreground">Firma</td>
+                <td className="py-1 px-1">
+                  <Input type="number" step="0.01" value={premioNetto} onChange={(e) => setPremioNetto(e.target.value)} className="h-7 text-xs font-mono text-right" />
+                </td>
+                <td className="py-1 px-1">
+                  <Input type="number" step="0.01" value={addizionali} onChange={(e) => setAddizionali(e.target.value)} className="h-7 text-xs font-mono text-right" />
+                </td>
+                <td className="py-1 px-1">
+                  <Input type="number" step="0.01" value={tasse} onChange={(e) => setTasse(e.target.value)} className="h-7 text-xs font-mono text-right" />
+                </td>
+                <td className="py-1.5 px-2 text-right font-mono font-semibold text-foreground">{totFirma.toFixed(2)}</td>
+                <td className="py-1.5 px-2 text-right font-mono text-foreground">{provvFirma.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-2 font-semibold text-foreground">Pros. Quietanza</td>
+                <td className="py-1 px-1">
+                  <Input type="number" step="0.01" value={premioNettoQuietanza} onChange={(e) => setPremioNettoQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
+                </td>
+                <td className="py-1 px-1">
+                  <Input type="number" step="0.01" value={addizionaliQuietanza} onChange={(e) => setAddizionaliQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
+                </td>
+                <td className="py-1 px-1">
+                  <Input type="number" step="0.01" value={tasseQuietanza} onChange={(e) => setTasseQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
+                </td>
+                <td className="py-1.5 px-2 text-right font-mono font-semibold text-foreground">{totQuietanza.toFixed(2)}</td>
+                <td className="py-1.5 px-2 text-right font-mono text-foreground">{provvQuietanza.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Flags row */}
+        <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2">
+          {[
+            { id: "rimborso", label: "Rimborso", checked: rimborso, onChange: setRimborso },
+            { id: "indicizzata", label: "Indicizzata", checked: indicizzata, onChange: setIndicizzata },
+            { id: "noCalcoloTasse", label: "No Calcolo Tasse", checked: noCalcoloTasse, onChange: setNoCalcoloTasse },
+            { id: "pagDiretto", label: "Pag. Diretto Compagnia", checked: pagDirettoCompagnia, onChange: setPagDirettoCompagnia },
+            { id: "emissioneFee", label: "Emissione Fee", checked: emissioneFee, onChange: setEmissioneFee },
+            { id: "formatoElett", label: "Formato Elettronico", checked: formatoElettronico, onChange: setFormatoElettronico },
+          ].map((flag) => (
+            <div key={flag.id} className="flex items-center gap-1.5">
+              <Checkbox id={flag.id} checked={flag.checked} onCheckedChange={(v) => flag.onChange(v === true)} />
+              <Label htmlFor={flag.id} className="font-normal cursor-pointer text-xs">{flag.label}</Label>
+            </div>
+          ))}
+        </div>
+
+        {/* Additional fields */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
           <div className="space-y-1.5">
-            <Label className="text-xs">Premio Netto €</Label>
-            <Input type="number" step="0.01" value={premioNetto} onChange={(e) => setPremioNetto(e.target.value)} className="h-8 text-xs font-mono" />
+            <Label className="text-xs">Fax Incasso</Label>
+            <RadioGroup value={faxIncasso} onValueChange={setFaxIncasso} className="flex gap-3 h-8 items-center">
+              <div className="flex items-center gap-1"><RadioGroupItem value="si" id="fax-si" /><Label htmlFor="fax-si" className="text-xs font-normal cursor-pointer">Sì</Label></div>
+              <div className="flex items-center gap-1"><RadioGroupItem value="no" id="fax-no" /><Label htmlFor="fax-no" className="text-xs font-normal cursor-pointer">No</Label></div>
+            </RadioGroup>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Addizionali €</Label>
-            <Input type="number" step="0.01" value={addizionali} onChange={(e) => setAddizionali(e.target.value)} className="h-8 text-xs font-mono" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tasse €</Label>
-            <Input type="number" step="0.01" value={tasse} onChange={(e) => setTasse(e.target.value)} className="h-8 text-xs font-mono" />
+            <Label className="text-xs">Cambio</Label>
+            <Input type="number" step="0.0001" value={cambio} onChange={(e) => setCambio(e.target.value)} className="h-8 text-xs font-mono" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Valuta</Label>
             <SearchableSelect className="h-8 text-xs" value={valuta} onValueChange={setValuta} placeholder="—"
               options={[{ value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }, { value: "GBP", label: "GBP" }]}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Copertura Da</Label>
+            <Input type="date" value={coperturaDa} onChange={(e) => setCoperturaDa(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Copertura N°</Label>
+            <Input value={coperturaNumero} onChange={(e) => setCoperturaNumero(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Data Incasso</Label>
+            <Input type="date" value={dataIncasso} onChange={(e) => setDataIncasso(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">N° Incasso</Label>
+            <Input value={numeroIncasso} onChange={(e) => setNumeroIncasso(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
       </fieldset>
@@ -497,10 +718,7 @@ const ImmissionePolizzaPage = () => {
           <div className="space-y-1.5">
             <Label className="text-xs">% Provvigione Agenzia</Label>
             <Input
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
+              type="number" step="0.01" min="0" max="100"
               value={percentualeProvvigione}
               onChange={(e) => setPercentualeProvvigione(e.target.value)}
               placeholder={selectedCompagnia && selectedProdottoCategoriaId ? "Inserisci %" : "Seleziona compagnia e prodotto"}
@@ -510,22 +728,16 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="flex items-center gap-2 pb-1">
             {selectedProdottoCategoriaId && provvigioneFromDb && !isProvvigioneModified && (
-              <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">
-                Da database (Compagnia+Ramo)
-              </Badge>
+              <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Da database (Compagnia+Ramo)</Badge>
             )}
             {selectedProdottoCategoriaId && provvigioneFromDb && isProvvigioneModified && (
-              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
-                Modificato (era {provvigioneOriginalValue}%)
-              </Badge>
+              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">Modificato (era {provvigioneOriginalValue}%)</Badge>
             )}
             {selectedProdottoCategoriaId && !provvigioneFromDb && percentualeProvvigione && (
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
-                Nuovo valore
-              </Badge>
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">Nuovo valore</Badge>
             )}
             {selectedCompagnia && selectedProdottoCategoriaId && !provvigioneFromDb && !percentualeProvvigione && (
-              <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione Compagnia+Ramo</span>
+              <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione</span>
             )}
           </div>
           {premioNetto && percentualeProvvigione && (
@@ -564,10 +776,7 @@ const ImmissionePolizzaPage = () => {
             <div className="space-y-1.5">
               <Label className="text-xs">% Commerciale</Label>
               <Input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
+                type="number" step="1" min="0" max="100"
                 value={percentualeCommerciale}
                 onChange={(e) => setPercentualeCommerciale(e.target.value)}
                 disabled={selectedCommerciale === "__sede__"}
@@ -627,14 +836,12 @@ const ImmissionePolizzaPage = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {provvigioneDialogType === "new"
-                ? "Salvare provvigione come default?"
-                : "Aggiornare provvigione default?"}
+              {provvigioneDialogType === "new" ? "Salvare provvigione come default?" : "Aggiornare provvigione default?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {provvigioneDialogType === "new"
                 ? `Non esiste una provvigione per questa combinazione Compagnia+Ramo. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
-                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito per questa combinazione Compagnia+Ramo?`}
+                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
