@@ -1,17 +1,15 @@
 
 
-## Piano: Rimuovere colonna e ordinamento "Polizze" dalla lista Clienti
+## Piano: Aggiungere città e altri campi alla ricerca clienti
 
-### Cosa rimuovere in `src/pages/ClientiList.tsx`
+### Problema
+La ricerca filtra solo su nome/cognome/CF/email (privati) e ragione_sociale/PIVA/CF/email/PEC (aziende/enti). Non cerca su **città**, **telefono**, **indirizzo** — quindi "santa" per trovare Santa Marina Salina non funziona.
 
-1. **Query `polizzeCounts`** (righe ~275-283): eliminare la useQuery che chiama `count_polizze_per_cliente`
-2. **Opzione di ordinamento "polizze"**: cambiare il default di `sortBy` da `"polizze"` a `"cognome"`, rimuovere il caso `sortBy === "polizze"` nella funzione sort, rimuovere il `<SelectItem value="polizze">` dal select di ordinamento
-3. **Colonna "Polizze" nel tab Privati** (~righe 1102, 1116-1120): rimuovere `<TableHead>Polizze</TableHead>` e la relativa `<TableCell>` con il badge
-4. **Colonna "Polizze" nel tab Aziende** (~righe 1159, 1173-1177): stessa rimozione
-5. **Colonna "Polizze" nel tab Enti** (~righe 1216, 1230-1234): stessa rimozione
+### Soluzione
+In `src/pages/ClientiList.tsx` (righe 487-505), aggiungere `citta_sede`, `citta_residenza`, `telefono`, `indirizzo_sede` ai campi cercati, sia per privati che per aziende/enti.
 
-### Risultato
-- La lista clienti non mostra piu la colonna Polizze
-- L'ordinamento di default diventa per cognome A-Z
-- Nessuna query extra verso `count_polizze_per_cliente`
+**Privati** — aggiungere: `citta_residenza`, `citta_sede`, `telefono`
+**Aziende/Enti** — aggiungere: `citta_sede`, `telefono`
+
+Questo rende la ricerca completa su tutti i campi visibili nelle tabelle.
 
