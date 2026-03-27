@@ -581,6 +581,24 @@ const tabConfig: { value: string; label: string; tableName: string; queryKey: st
 ];
 
 const TabelleBasePage = () => {
+  // Fetch counts for all tabs
+  const { data: counts = {} } = useQuery({
+    queryKey: ["tabelle-base-counts"],
+    queryFn: async () => {
+      const results: Record<string, number> = {};
+      await Promise.all(
+        tabConfig.map(async (t) => {
+          const { count, error } = await supabase
+            .from(t.tableName as any)
+            .select("*", { count: "exact", head: true });
+          if (!error) results[t.value] = count ?? 0;
+        })
+      );
+      return results;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -593,7 +611,14 @@ const TabelleBasePage = () => {
       <Tabs defaultValue="gruppi_ramo" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           {tabConfig.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
+            <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
+              {t.label}
+              {counts[t.value] != null && (
+                <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px] min-w-[20px] justify-center">
+                  {counts[t.value]}
+                </Badge>
+              )}
+            </TabsTrigger>
           ))}
         </TabsList>
 
