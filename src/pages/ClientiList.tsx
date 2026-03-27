@@ -10,11 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Users, Building2, Search, User, Landmark } from "lucide-react";
+import { Plus, Users, Search } from "lucide-react";
 import ServerPagination from "@/components/ServerPagination";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
@@ -135,8 +135,7 @@ const ClientiList = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [tipoTab, setTipoTab] = useState("privato");
-  const [sortBy, setSortBy] = useState<"cognome" | "created_at">("cognome");
+  const [sortBy, setSortBy] = useState<"denominazione" | "created_at">("denominazione");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 25;
 
@@ -149,8 +148,8 @@ const ClientiList = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset page when tab changes
-  useEffect(() => { setPage(0); }, [tipoTab, sortBy]);
+  // Reset page when sort changes
+  useEffect(() => { setPage(0); }, [sortBy]);
 
   // Form state
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
@@ -277,34 +276,24 @@ const ClientiList = () => {
   }, []);
 
   const { data: clientiResult, isLoading } = useQuery({
-    queryKey: ["clienti", tipoTab, debouncedSearch, sortBy, page],
+    queryKey: ["clienti", debouncedSearch, sortBy, page],
     queryFn: async () => {
       let query = supabase
         .from("clienti")
-        .select("*", { count: "exact" })
-        .eq("tipo_cliente", tipoTab);
+        .select("*", { count: "exact" });
 
-      // Server-side search
+      // Server-side search across all fields
       if (debouncedSearch) {
         const s = `%${debouncedSearch}%`;
-        if (tipoTab === "privato") {
-          query = query.or(
-            `nome.ilike.${s},cognome.ilike.${s},codice_fiscale.ilike.${s},email.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},telefono.ilike.${s}`
-          );
-        } else {
-          query = query.or(
-            `ragione_sociale.ilike.${s},partita_iva.ilike.${s},codice_fiscale_azienda.ilike.${s},email.ilike.${s},pec.ilike.${s},citta_sede.ilike.${s},telefono.ilike.${s}`
-          );
-        }
+        query = query.or(
+          `nome.ilike.${s},cognome.ilike.${s},ragione_sociale.ilike.${s},codice_fiscale.ilike.${s},codice_fiscale_azienda.ilike.${s},partita_iva.ilike.${s},email.ilike.${s},pec.ilike.${s},telefono.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},codice_ricerca.ilike.${s}`
+        );
       }
 
       // Server-side sorting
-      if (sortBy === "cognome") {
-        if (tipoTab === "privato") {
-          query = query.order("cognome", { ascending: true, nullsFirst: false });
-        } else {
-          query = query.order("ragione_sociale", { ascending: true, nullsFirst: false });
-        }
+      if (sortBy === "denominazione") {
+        query = query.order("cognome", { ascending: true, nullsFirst: false })
+                     .order("ragione_sociale", { ascending: true, nullsFirst: false });
       } else {
         query = query.order("created_at", { ascending: false });
       }
@@ -1063,7 +1052,7 @@ const ClientiList = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cognome">Cognome A-Z</SelectItem>
+                  <SelectItem value="denominazione">Nome A-Z</SelectItem>
                   <SelectItem value="created_at">Data creazione ↓</SelectItem>
                 </SelectContent>
               </Select>
@@ -1080,181 +1069,65 @@ const ClientiList = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={tipoTab} onValueChange={setTipoTab}>
-            <TabsList>
-              <TabsTrigger value="privato" className="gap-2">
-                <User className="w-4 h-4" />Privati
-              </TabsTrigger>
-              <TabsTrigger value="azienda" className="gap-2">
-                <Building2 className="w-4 h-4" />Aziende
-              </TabsTrigger>
-              <TabsTrigger value="ente" className="gap-2">
-                <Landmark className="w-4 h-4" />Enti
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="privato">
-              {isLoading ? (
-                <p className="text-muted-foreground py-4">Caricamento...</p>
-              ) : (
-                <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cognome</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Codice Fiscale</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Telefono</TableHead>
-                      <TableHead>Città</TableHead>
-                      <TableHead>Stato</TableHead>
-                      <TableHead>Attivo</TableHead>
+          {isLoading ? (
+            <p className="text-muted-foreground py-4">Caricamento...</p>
+          ) : (
+            <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Codice</TableHead>
+                  <TableHead>Denominazione</TableHead>
+                  <TableHead>CF / P.IVA</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Telefono</TableHead>
+                  <TableHead>Città</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Attivo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clienti.map((c) => {
+                  const denominazione = c.tipo_cliente === "privato"
+                    ? [c.cognome, c.nome].filter(Boolean).join(" ") || "—"
+                    : c.ragione_sociale || "—";
+                  const cfPiva = c.codice_fiscale || c.partita_iva || c.codice_fiscale_azienda || "—";
+                  const citta = c.citta_residenza || c.citta_sede || "—";
+                  return (
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
+                      <TableCell className="font-mono text-xs">{c.codice_ricerca || "—"}</TableCell>
+                      <TableCell className="font-medium">{denominazione}</TableCell>
+                      <TableCell className="font-mono text-xs">{cfPiva}</TableCell>
+                      <TableCell>{c.email || "—"}</TableCell>
+                      <TableCell>{c.telefono || "—"}</TableCell>
+                      <TableCell>{citta}</TableCell>
+                      <TableCell>
+                        <Badge variant={c.attivo ? "default" : "secondary"}>
+                          {c.attivo ? "Attivo" : "Disattivo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={c.attivo ?? true}
+                          onCheckedChange={(v) => { v.stopPropagation?.(); toggleMutation.mutate({ id: c.id, attivo: v }); }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clienti.map((c) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
-                        <TableCell className="font-medium">{c.cognome || "—"}</TableCell>
-                        <TableCell>{c.nome || "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{c.codice_fiscale || "—"}</TableCell>
-                        <TableCell>{c.email || "—"}</TableCell>
-                        <TableCell>{c.telefono || "—"}</TableCell>
-                        <TableCell>{c.citta_residenza || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.attivo ? "default" : "secondary"}>
-                            {c.attivo ? "Attivo" : "Disattivo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={c.attivo ?? true}
-                            onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attivo: v })}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {clienti.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          Nessun cliente privato trovato
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="azienda">
-              {isLoading ? (
-                <p className="text-muted-foreground py-4">Caricamento...</p>
-              ) : (
-                <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ragione Sociale</TableHead>
-                      <TableHead>Partita IVA</TableHead>
-                      <TableHead>Codice SDI</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>PEC</TableHead>
-                      <TableHead>Città</TableHead>
-                      <TableHead>Stato</TableHead>
-                      <TableHead>Attivo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clienti.map((c) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
-                        <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{c.codice_sdi || "—"}</TableCell>
-                        <TableCell>{c.email || "—"}</TableCell>
-                        <TableCell>{c.pec || "—"}</TableCell>
-                        <TableCell>{c.citta_sede || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.attivo ? "default" : "secondary"}>
-                            {c.attivo ? "Attivo" : "Disattivo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={c.attivo ?? true}
-                            onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attivo: v })}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {clienti.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          Nessuna azienda trovata
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="ente">
-              {isLoading ? (
-                <p className="text-muted-foreground py-4">Caricamento...</p>
-              ) : (
-                <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ragione Sociale</TableHead>
-                      <TableHead>Partita IVA</TableHead>
-                      <TableHead>Codice SDI</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>PEC</TableHead>
-                      <TableHead>Città</TableHead>
-                      <TableHead>Stato</TableHead>
-                      <TableHead>Attivo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clienti.map((c) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
-                        <TableCell className="font-medium">{c.ragione_sociale || "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{c.partita_iva || "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{c.codice_sdi || "—"}</TableCell>
-                        <TableCell>{c.email || "—"}</TableCell>
-                        <TableCell>{c.pec || "—"}</TableCell>
-                        <TableCell>{c.citta_sede || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.attivo ? "default" : "secondary"}>
-                            {c.attivo ? "Attivo" : "Disattivo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={c.attivo ?? true}
-                            onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attivo: v })}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {clienti.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          Nessun ente trovato
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
+                  );
+                })}
+                {clienti.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      Nessun cliente trovato
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
