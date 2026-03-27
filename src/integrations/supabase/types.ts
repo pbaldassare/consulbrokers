@@ -734,6 +734,8 @@ export type Database = {
           created_at: string | null
           data_nascita: string | null
           email: string | null
+          fascia_dipendenti: string | null
+          fascia_fatturato: string | null
           fatturato: number | null
           fax: string | null
           fido_cauzioni: number | null
@@ -813,6 +815,8 @@ export type Database = {
           created_at?: string | null
           data_nascita?: string | null
           email?: string | null
+          fascia_dipendenti?: string | null
+          fascia_fatturato?: string | null
           fatturato?: number | null
           fax?: string | null
           fido_cauzioni?: number | null
@@ -892,6 +896,8 @@ export type Database = {
           created_at?: string | null
           data_nascita?: string | null
           email?: string | null
+          fascia_dipendenti?: string | null
+          fascia_fatturato?: string | null
           fatturato?: number | null
           fax?: string | null
           fido_cauzioni?: number | null
@@ -2266,6 +2272,180 @@ export type Database = {
           entita_tipo?: string | null
           id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      lookup_attivita: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      lookup_contratti: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      lookup_fasce_dipendenti: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          ordine: number
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          ordine?: number
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          ordine?: number
+        }
+        Relationships: []
+      }
+      lookup_fasce_fatturato: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          ordine: number
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          ordine?: number
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          ordine?: number
+        }
+        Relationships: []
+      }
+      lookup_indotti: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      lookup_settori: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      lookup_zone: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
         }
         Relationships: []
       }
