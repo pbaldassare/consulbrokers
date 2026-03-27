@@ -529,11 +529,15 @@ function CompagniaFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Gruppo Finanziario</Label>
+              <Label className="text-xs text-muted-foreground">Gruppo Compagnia</Label>
               <SearchableSelect
-                options={toOptions(GRUPPI_STATISTICI)}
-                value={form.gruppo_compagnia}
-                onValueChange={(v) => setField("gruppo_compagnia", v)}
+                options={gruppiCompagnia}
+                value={form.gruppo_compagnia_id}
+                onValueChange={(v) => {
+                  setField("gruppo_compagnia_id", v);
+                  const found = gruppiCompagnia.find((g: any) => g.value === v);
+                  setField("gruppo_compagnia", found?.label || "");
+                }}
                 placeholder="Seleziona..."
               />
             </div>
