@@ -415,9 +415,144 @@ const GruppiFinanziariTab = () => {
   );
 };
 
+/* ────────── Ordered Lookup Tab (with ordine field) ────────── */
+
+interface OrderedLookupTabProps {
+  tableName: string;
+  title: string;
+  queryKey: string;
+}
+
+const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps) => {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [ordine, setOrdine] = useState(0);
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: [queryKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(tableName as any)
+        .select("*")
+        .order("ordine");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (editing) {
+        const { error } = await (supabase.from(tableName as any) as any).update({ codice, descrizione, ordine }).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from(tableName as any) as any).insert({ codice, descrizione, ordine });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      qc.invalidateQueries({ queryKey: ["lookup", tableName] });
+      toast.success(editing ? `${title} aggiornato` : `${title} creato`);
+      closeDialog();
+    },
+    onError: () => toast.error("Errore"),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await (supabase.from(tableName as any) as any).update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      qc.invalidateQueries({ queryKey: ["lookup", tableName] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from(tableName as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] });
+      qc.invalidateQueries({ queryKey: ["lookup", tableName] });
+      toast.success(`${title} eliminato`);
+    },
+    onError: () => toast.error("Errore"),
+  });
+
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setOrdine(items.length + 1); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setOrdine(g.ordine ?? 0); setOpen(true); };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-20">Ordine</TableHead>
+              <TableHead className="w-32">Codice</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-24 text-center">Attivo</TableHead>
+              <TableHead className="w-28 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento inserito</TableCell></TableRow>
+            ) : items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="text-center font-mono">{item.ordine}</TableCell>
+                <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
+                <TableCell>{item.descrizione}</TableCell>
+                <TableCell className="text-center">
+                  <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
+                </TableCell>
+                <TableCell className="text-right space-x-1">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? `Modifica ${title}` : `Nuovo ${title}`}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. F01" /></div>
+              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Descrizione..." /></div>
+              <div><Label>Ordine</Label><Input type="number" value={ordine} onChange={(e) => setOrdine(Number(e.target.value))} placeholder="1" /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || save.isPending}>
+                {save.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ────────── Page ────────── */
 
-const tabConfig = [
+const tabConfig: { value: string; label: string; tableName: string; queryKey: string; title: string; custom?: string | boolean }[] = [
   { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
   { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
@@ -426,6 +561,13 @@ const tabConfig = [
   { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },
   { value: "tipi_rinnovo", label: "Tipi Rinnovo", tableName: "tipi_rinnovo", queryKey: "tipi-rinnovo", title: "Tipo Rinnovo" },
   { value: "filiali", label: "Filiali", tableName: "filiali", queryKey: "filiali-lookup", title: "Filiale" },
+  { value: "lookup_zone", label: "Zone", tableName: "lookup_zone", queryKey: "lookup-zone", title: "Zona", custom: "ordered" },
+  { value: "lookup_indotti", label: "Indotti", tableName: "lookup_indotti", queryKey: "lookup-indotti", title: "Indotto" },
+  { value: "lookup_attivita", label: "Attività", tableName: "lookup_attivita", queryKey: "lookup-attivita", title: "Attività" },
+  { value: "lookup_settori", label: "Settori", tableName: "lookup_settori", queryKey: "lookup-settori", title: "Settore" },
+  { value: "lookup_contratti", label: "Contratti", tableName: "lookup_contratti", queryKey: "lookup-contratti", title: "Contratto" },
+  { value: "lookup_fasce_fatturato", label: "Fasce Fatturato", tableName: "lookup_fasce_fatturato", queryKey: "lookup-fasce-fatturato", title: "Fascia Fatturato", custom: "ordered" },
+  { value: "lookup_fasce_dipendenti", label: "Fasce Dipendenti", tableName: "lookup_fasce_dipendenti", queryKey: "lookup-fasce-dipendenti", title: "Fascia Dipendenti", custom: "ordered" },
 ];
 
 const TabelleBasePage = () => {
@@ -451,6 +593,8 @@ const TabelleBasePage = () => {
               <RamiTab />
             ) : t.custom === "gruppi_finanziari" ? (
               <GruppiFinanziariTab />
+            ) : t.custom === "ordered" ? (
+              <OrderedLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             ) : (
               <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             )}
