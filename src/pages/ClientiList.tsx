@@ -790,9 +790,13 @@ const ClientiList = () => {
                           <Input value={specSxSanita} onChange={(e) => setSpecSxSanita(e.target.value)} />
                         </div>
                         <div>
-                          <Label className="text-xs">Attenzione di / Note</Label>
-                          <Textarea value={attenzioneDi} onChange={(e) => setAttenzioneDi(e.target.value)} rows={2} />
+                          <Label className="text-xs">Attenzione di</Label>
+                          <Input value={attenzioneDi} onChange={(e) => setAttenzioneDi(e.target.value)} />
                         </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Note</Label>
+                        <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
                       </div>
                       <div className="flex flex-wrap gap-6">
                         <div className="flex items-center gap-2">
