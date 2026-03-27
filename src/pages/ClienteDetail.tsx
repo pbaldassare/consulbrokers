@@ -25,6 +25,7 @@ import type { DocumentType } from "@/components/AiDocumentScanner";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 
 const tipiRelazione = [
   { value: "dipendente", label: "Dipendente" },
@@ -847,37 +848,7 @@ export default function ClienteDetail() {
                 <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
-                  <FieldInput label="Zona" field="zona" />
-                  <FieldInput label="Indotto" field="indotto" />
-                  <div>
-                    <Label className="text-xs">Gruppo Finanziario</Label>
-                    {readOnly ? (
-                      <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.descrizione || "—"}</p>
-                    ) : (
-                      <SearchableSelect
-                        className="h-8 text-xs"
-                        value={ef.gruppo_finanziario_id || ""}
-                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-                        placeholder="— Seleziona gruppo —"
-                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                      />
-                    )}
-                  </div>
-                  <FieldInput label="Gruppo Statistico" field="gruppo_statistico" />
-                  <FieldInput label="Attività" field="attivita" />
-                  <FieldInput label="Settore" field="settore" />
-                  <FieldInput label="Azienda Stat." field="azienda_stat" />
-                  <FieldInput label="Contratto" field="contratto" />
-                  <FieldInput label="Matricola" field="matricola" />
-                  <FieldInput label="Riferimento" field="riferimento" />
-                  <FieldInput label="Fatturato" field="fatturato" type="number" />
-                  <FieldInput label="N. Dipendenti" field="num_dipendenti" type="number" />
-                  <FieldInput label="Codice ATECO" field="codice_ateco" />
-                  <FieldSwitch label="Cliente Associato" field="cliente_associato" />
-                  <FieldSwitch label="Cliente Captive" field="cliente_captive" />
-                  <FieldSwitch label="Internazionale" field="internazionale" />
-                </div>
+                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} />
               </AccordionContent>
             </AccordionItem>
 
