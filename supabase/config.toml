@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.parse-provvigioni-pdf]
 verify_jwt = false
+
+[functions.import-corrispondenti]
+verify_jwt = false
