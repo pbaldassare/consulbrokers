@@ -535,40 +535,7 @@ const ClientiList = () => {
     scannedFilesRef.current = [];
   };
 
-  const filtered = clienti.filter((c) => {
-    if (c.tipo_cliente !== tipoTab) return false;
-    if (!search) return true;
-    const s = search.toLowerCase();
-    if (c.tipo_cliente === "privato") {
-      return (
-        (c.nome?.toLowerCase().includes(s)) ||
-        (c.cognome?.toLowerCase().includes(s)) ||
-        (c.codice_fiscale?.toLowerCase().includes(s)) ||
-        (c.email?.toLowerCase().includes(s)) ||
-        (c.citta_residenza?.toLowerCase().includes(s)) ||
-        (c.citta_sede?.toLowerCase().includes(s)) ||
-        (c.telefono?.toLowerCase().includes(s))
-      );
-    }
-    return (
-      (c.ragione_sociale?.toLowerCase().includes(s)) ||
-      (c.partita_iva?.toLowerCase().includes(s)) ||
-      (c.codice_fiscale_azienda?.toLowerCase().includes(s)) ||
-      (c.email?.toLowerCase().includes(s)) ||
-      (c.pec?.toLowerCase().includes(s)) ||
-      (c.citta_sede?.toLowerCase().includes(s)) ||
-      (c.telefono?.toLowerCase().includes(s))
-    );
-  });
-
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === "cognome") {
-      const na = (a.cognome || a.ragione_sociale || "").toLowerCase();
-      const nb = (b.cognome || b.ragione_sociale || "").toLowerCase();
-      return na.localeCompare(nb);
-    }
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-  });
+  // Server-side filtering/sorting — data already comes filtered and sorted
 
   const updateRole = (setter: React.Dispatch<React.SetStateAction<CommercialRole>>, field: keyof CommercialRole, value: any) => {
     setter((prev) => ({ ...prev, [field]: value }));
