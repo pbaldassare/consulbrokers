@@ -3838,6 +3838,8 @@ export type Database = {
       }
       rami: {
         Row: {
+          aliquota_tasse_ard: number | null
+          aliquota_tasse_ramo: number | null
           attivo: boolean
           codice: string
           created_at: string | null
@@ -3846,6 +3848,8 @@ export type Database = {
           id: string
         }
         Insert: {
+          aliquota_tasse_ard?: number | null
+          aliquota_tasse_ramo?: number | null
           attivo?: boolean
           codice: string
           created_at?: string | null
@@ -3854,6 +3858,8 @@ export type Database = {
           id?: string
         }
         Update: {
+          aliquota_tasse_ard?: number | null
+          aliquota_tasse_ramo?: number | null
           attivo?: boolean
           codice?: string
           created_at?: string | null
