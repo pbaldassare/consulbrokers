@@ -104,6 +104,17 @@ const ClientiList = () => {
   const [fax, setFax] = useState("");
   const [nazione, setNazione] = useState("");
   const [attenzioneDi, setAttenzioneDi] = useState("");
+  const [note, setNote] = useState("");
+
+  // Indirizzi aggiuntivi
+  const [indirizzoAlternativo, setIndirizzoAlternativo] = useState("");
+  const [capAlternativo, setCapAlternativo] = useState("");
+  const [cittaAlternativa, setCittaAlternativa] = useState("");
+  const [provinciaAlternativa, setProvinciaAlternativa] = useState("");
+  const [indirizzoFiscale, setIndirizzoFiscale] = useState("");
+  const [capFiscale, setCapFiscale] = useState("");
+  const [cittaFiscale, setCittaFiscale] = useState("");
+  const [provinciaFiscale, setProvinciaFiscale] = useState("");
 
   // Dati Statistici
   const [zona, setZona] = useState("");
