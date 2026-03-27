@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote } from "lucide-react";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -63,9 +63,23 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo)")
         .eq("id", id!)
         .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: movimentiPolizza = [] } = useQuery({
+    queryKey: ["movimenti-polizza", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("movimenti_polizza")
+        .select("*")
+        .eq("titolo_id", id!)
+        .order("riga", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -161,15 +175,20 @@ const TitoloDetail = () => {
           <FieldRow label="Riga" value={fmt(t.riga)} />
           <FieldRow label="Appendice" value={fmt(t.appendice)} />
           {t.cliente_anagrafica && (
-            <div className="col-span-2 flex justify-between py-1">
-              <span className="text-xs text-muted-foreground">Cliente</span>
-              <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
-                {(t.cliente_anagrafica as any).tipo_cliente === "privato"
-                  ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
-                  : (t.cliente_anagrafica as any).ragione_sociale || "—"}
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </Button>
-            </div>
+            <>
+              <div className="col-span-2 flex justify-between py-1">
+                <span className="text-xs text-muted-foreground">Cliente</span>
+                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
+                  {(t.cliente_anagrafica as any).tipo_cliente === "privato"
+                    ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
+                    : (t.cliente_anagrafica as any).ragione_sociale || "—"}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+              <FieldRow label="Attività" value={fmt((t.cliente_anagrafica as any).attivita)} />
+              <FieldRow label="Gr. Finanziario" value={fmt((t.cliente_anagrafica as any).gruppi_finanziari?.nome)} />
+              <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
+            </>
           )}
           <FieldRow label="Produttore" value={t.produttore ? `${(t.produttore as any).nome} ${(t.produttore as any).cognome}` : "—"} />
           <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
@@ -314,6 +333,57 @@ const TitoloDetail = () => {
         </Table>
       </SectionCollapsible>
 
+      {/* DETTAGLIO MOVIMENTI */}
+      <SectionCollapsible title="Dettaglio Movimenti" icon={List}>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">Rg</TableHead>
+                <TableHead className="w-16">App</TableHead>
+                <TableHead>Data Mov.</TableHead>
+                <TableHead>Effetto</TableHead>
+                <TableHead>Scadenza</TableHead>
+                <TableHead>Rinnovo</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead>Val</TableHead>
+                <TableHead className="text-right">Premio</TableHead>
+                <TableHead className="text-right">Provv.</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="w-12">Inc</TableHead>
+                <TableHead>Copertura</TableHead>
+                <TableHead>Incasso</TableHead>
+                <TableHead>Stato</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(movimentiPolizza as any[]).map((m: any) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-mono text-xs">{m.riga}</TableCell>
+                  <TableCell className="font-mono text-xs">{m.appendice}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(m.data_movimento)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(m.data_effetto)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(m.data_scadenza)}</TableCell>
+                  <TableCell className="text-xs">{fmt(m.tipo_rinnovo)}</TableCell>
+                  <TableCell className="text-xs max-w-[200px] truncate">{fmt(m.descrizione)}</TableCell>
+                  <TableCell className="text-xs">{m.valuta || "EUR"}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{fmtEuro(m.premio)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{fmtEuro(m.provvigioni)}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-[10px]">{m.tipo}</Badge></TableCell>
+                  <TableCell className="text-center">{m.incassato ? "✓" : ""}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(m.data_copertura)}</TableCell>
+                  <TableCell className="text-xs">{fmtDate(m.data_incasso)}</TableCell>
+                  <TableCell><Badge variant={m.stato === "attivo" ? "default" : "secondary"} className="text-[10px]">{m.stato}</Badge></TableCell>
+                </TableRow>
+              ))}
+              {movimentiPolizza.length === 0 && (
+                <TableRow><TableCell colSpan={15} className="text-center text-muted-foreground">Nessun movimento registrato</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </SectionCollapsible>
+
       {t.note && (
         <Card>
           <CardContent className="pt-4">
@@ -324,13 +394,24 @@ const TitoloDetail = () => {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="provvigioni">
-        <TabsList>
+      <Tabs defaultValue="movimenti">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
           <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
+          <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
+          <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
+          <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
           <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
         </TabsList>
+        <TabsContent value="movimenti">
+          <Card>
+            <CardContent className="pt-6 text-sm text-muted-foreground">
+              I movimenti sono visualizzati nella sezione sopra. Questa tab potrà contenere funzionalità di gestione avanzata (aggiunta rinnovi, appendici, storni).
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="provvigioni">
           <Card>
             <CardContent className="pt-6">
@@ -359,6 +440,15 @@ const TitoloDetail = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="garanzie">
+          <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Garanzie — in fase di sviluppo. Qui verranno mostrate le coperture e garanzie della polizza.</CardContent></Card>
+        </TabsContent>
+        <TabsContent value="familiari">
+          <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Familiari — in fase di sviluppo. Qui verranno mostrati assicurati e beneficiari collegati alla polizza.</CardContent></Card>
+        </TabsContent>
+        <TabsContent value="note">
+          <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
         </TabsContent>
         <TabsContent value="documenti">
           <Card><CardContent className="pt-6"><DocumentiTab entitaTipo="titolo" entitaId={id!} bucketName="documenti_titoli" /></CardContent></Card>

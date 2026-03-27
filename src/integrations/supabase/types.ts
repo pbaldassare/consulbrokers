@@ -2576,6 +2576,113 @@ export type Database = {
           },
         ]
       }
+      movimenti_polizza: {
+        Row: {
+          appendice: string | null
+          created_at: string | null
+          data_copertura: string | null
+          data_effetto: string | null
+          data_incasso: string | null
+          data_movimento: string | null
+          data_rinnovo: string | null
+          data_scadenza: string | null
+          descrizione: string | null
+          id: string
+          incassato: boolean | null
+          premio: number | null
+          provvigioni: number | null
+          riga: number | null
+          sostituisce_id: string | null
+          sostituito_da_id: string | null
+          stato: string | null
+          tipo: string | null
+          tipo_rinnovo: string | null
+          titolo_id: string
+          ufficio_id: string | null
+          updated_at: string | null
+          valuta: string | null
+        }
+        Insert: {
+          appendice?: string | null
+          created_at?: string | null
+          data_copertura?: string | null
+          data_effetto?: string | null
+          data_incasso?: string | null
+          data_movimento?: string | null
+          data_rinnovo?: string | null
+          data_scadenza?: string | null
+          descrizione?: string | null
+          id?: string
+          incassato?: boolean | null
+          premio?: number | null
+          provvigioni?: number | null
+          riga?: number | null
+          sostituisce_id?: string | null
+          sostituito_da_id?: string | null
+          stato?: string | null
+          tipo?: string | null
+          tipo_rinnovo?: string | null
+          titolo_id: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+        }
+        Update: {
+          appendice?: string | null
+          created_at?: string | null
+          data_copertura?: string | null
+          data_effetto?: string | null
+          data_incasso?: string | null
+          data_movimento?: string | null
+          data_rinnovo?: string | null
+          data_scadenza?: string | null
+          descrizione?: string | null
+          id?: string
+          incassato?: boolean | null
+          premio?: number | null
+          provvigioni?: number | null
+          riga?: number | null
+          sostituisce_id?: string | null
+          sostituito_da_id?: string | null
+          stato?: string | null
+          tipo?: string | null
+          tipo_rinnovo?: string | null
+          titolo_id?: string
+          ufficio_id?: string | null
+          updated_at?: string | null
+          valuta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimenti_polizza_sostituisce_id_fkey"
+            columns: ["sostituisce_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_polizza"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_polizza_sostituito_da_id_fkey"
+            columns: ["sostituito_da_id"]
+            isOneToOne: false
+            referencedRelation: "movimenti_polizza"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimenti_polizza_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nominativi_cliente: {
         Row: {
           cliente_id: string
