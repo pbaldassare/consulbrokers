@@ -306,38 +306,98 @@ const ImmissionePolizzaPage = () => {
     finalizzaPolizza();
   };
 
-  const finalizzaPolizza = () => {
-    console.log("Immissione polizza:", {
-      codiceCliente, selectedClienteId, selectedAE, numeroPolizza, riga, appendice,
-      tipoOperazione, polizzaAuto, selectedCompagnia, selectedRamo, selectedProdotto,
-      specialist, tipoPortafoglio, durataDa, durataA, anniDurata, tipoRinnovo,
-      periodicita, rate, moraGiorni, premioNetto, addizionali, tasse, valuta,
-      percentualeProvvigione,
-      commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
-      percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
-      // New fields
-      garanzia_da: garanziaDa || null,
-      garanzia_a: garanziaA || null,
-      data_competenza: dataCompetenza || null,
-      limite_mora: limiteMora || null,
-      disdetta_mesi: disdettaMesi ? parseInt(disdettaMesi) : null,
-      regolazione,
-      tipo_lettera_regolazione: tipoLetteraRegolazione || null,
-      tipo_scadenza: tipoScadenza,
-      giorni_presentazione: giorniPresentazione ? parseInt(giorniPresentazione) : null,
-      libro_matricola: libroMatricola,
-      premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
-      addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
-      tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
-      rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
-      pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
-      formato_elettronico: formatoElettronico, fax_incasso: faxIncasso === "si",
-      cambio: parseFloat(cambio) || 1,
-      copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
-      data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
-      vincolo: vincolo || null,
-    });
-    toast.success("Polizza registrata con successo");
+  const finalizzaPolizza = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload: Record<string, any> = {
+        numero_titolo: numeroPolizza || null,
+        riga: parseInt(riga) || 0,
+        appendice: appendice || "000",
+        compagnia_id: selectedCompagnia || null,
+        ramo_id: selectedRamo || null,
+        prodotto_id: selectedProdotto || null,
+        cliente_anagrafica_id: selectedClienteId || null,
+        specialist: specialist || null,
+        tipo_portafoglio: tipoPortafoglio,
+        cig_rif: cigRif || null,
+        vincolo: vincolo || null,
+        targa_telaio: targaTelaio || null,
+        descrizione_polizza: descrizionePolizza || null,
+        durata_da: durataDa || null,
+        durata_a: durataA || null,
+        anni_durata: parseInt(anniDurata) || 1,
+        tipo_rinnovo: tipoRinnovo,
+        periodicita,
+        rate: parseInt(rate) || 1,
+        mora_giorni: parseInt(moraGiorni) || 15,
+        premio_netto: premioNetto ? parseFloat(premioNetto) : null,
+        addizionali: addizionali ? parseFloat(addizionali) : 0,
+        tasse: tasse ? parseFloat(tasse) : null,
+        premio_lordo: totFirma || null,
+        valuta,
+        provvigioni_firma: provvFirma || null,
+        percentuale_provvigione: percentualeProvvigione ? parseFloat(percentualeProvvigione) : null,
+        commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
+        percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
+        garanzia_da: garanziaDa || null,
+        garanzia_a: garanziaA || null,
+        data_competenza: dataCompetenza || null,
+        limite_mora: limiteMora || null,
+        disdetta_mesi: disdettaMesi ? parseInt(disdettaMesi) : null,
+        regolazione,
+        tipo_lettera_regolazione: tipoLetteraRegolazione || null,
+        tipo_scadenza: tipoScadenza,
+        giorni_presentazione: giorniPresentazione ? parseInt(giorniPresentazione) : null,
+        libro_matricola: libroMatricola,
+        premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
+        addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
+        tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
+        provvigioni_quietanza: provvQuietanza || null,
+        rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
+        pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
+        formato_elettronico: formatoElettronico, fax_incasso: faxIncasso === "si",
+        cambio: parseFloat(cambio) || 1,
+        copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
+        data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
+        stato: "creato",
+        ufficio_id: profile?.ufficio_id || null,
+      };
+
+      const { data: newTitolo, error } = await supabase
+        .from("titoli")
+        .insert(payload as any)
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      // Create first movimento "Polizza Base"
+      await supabase.from("movimenti_polizza").insert({
+        titolo_id: newTitolo.id,
+        riga: parseInt(riga) || 0,
+        appendice: appendice || "000",
+        data_movimento: new Date().toISOString().split("T")[0],
+        data_effetto: durataDa || null,
+        data_scadenza: durataA || null,
+        tipo_rinnovo: tipoRinnovo === "tacito_rinnovo" ? "Tacito rinnovo" : tipoRinnovo,
+        descrizione: cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null,
+        valuta,
+        premio: totFirma || 0,
+        provvigioni: provvFirma || 0,
+        tipo: "Polizza Base",
+        incassato: false,
+        stato: "attivo",
+        ufficio_id: profile?.ufficio_id || null,
+      } as any);
+
+      toast.success("Polizza registrata con successo");
+      navigate(`/titoli/${newTitolo.id}`);
+    } catch (err: any) {
+      console.error("Errore salvataggio polizza:", err);
+      toast.error(err.message || "Errore nel salvataggio della polizza");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
