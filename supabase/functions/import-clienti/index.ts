@@ -76,6 +76,34 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "delete_fake") {
+      const keepUfficio = "f5163c49-1e7e-48b5-9ac6-5494a9d4ce4a";
+      
+      // Delete dependencies first
+      const tables = ["clienti_relazioni", "codici_commerciali_cliente"];
+      for (const t of tables) {
+        const { error } = await supabase.from(t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        if (error) console.error(`Delete ${t}:`, error.message);
+      }
+      
+      // Delete fake clienti (not our ufficio)
+      const { error: delErr, count } = await supabase
+        .from("clienti")
+        .delete({ count: "exact" })
+        .neq("ufficio_id", keepUfficio);
+      
+      // Also delete null ufficio_id
+      const { error: delErr2 } = await supabase
+        .from("clienti")
+        .delete()
+        .is("ufficio_id", null);
+      
+      return new Response(
+        JSON.stringify({ success: !delErr, deleted: count, error: delErr?.message }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     throw new Error("Unknown action");
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), {
