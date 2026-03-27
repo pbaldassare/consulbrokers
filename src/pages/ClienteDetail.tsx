@@ -205,6 +205,121 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
   );
 }
 
+/* ── Nominativi Sub-component ── */
+function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnly: boolean }) {
+  const queryClient = useQueryClient();
+  const [nome, setNome] = useState("");
+  const [cognome, setCognome] = useState("");
+  const [emailN, setEmailN] = useState("");
+  const [telefonoN, setTelefonoN] = useState("");
+  const [ruoloN, setRuoloN] = useState("");
+
+  const { data: nominativi = [] } = useQuery({
+    queryKey: ["nominativi_cliente", clienteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("nominativi_cliente" as any)
+        .select("*")
+        .eq("cliente_id", clienteId)
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase.from("nominativi_cliente" as any) as any).insert({
+        cliente_id: clienteId,
+        nome: nome || null,
+        cognome: cognome || null,
+        email: emailN || null,
+        telefono: telefonoN || null,
+        ruolo: ruoloN || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nominativi_cliente", clienteId] });
+      setNome(""); setCognome(""); setEmailN(""); setTelefonoN(""); setRuoloN("");
+      toast.success("Nominativo aggiunto");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("nominativi_cliente" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nominativi_cliente", clienteId] });
+      toast.success("Nominativo rimosso");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-base">Nominativi / Referenti</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {nominativi.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Cognome</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Telefono</TableHead>
+                <TableHead>Ruolo</TableHead>
+                {!readOnly && <TableHead className="w-10" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {nominativi.map((n: any) => (
+                <TableRow key={n.id}>
+                  <TableCell>{n.nome || "—"}</TableCell>
+                  <TableCell>{n.cognome || "—"}</TableCell>
+                  <TableCell>{n.email || "—"}</TableCell>
+                  <TableCell>{n.telefono || "—"}</TableCell>
+                  <TableCell>{n.ruolo || "—"}</TableCell>
+                  {!readOnly && (
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMutation.mutate(n.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        {!readOnly && (
+          <div className="border rounded-md p-3 bg-muted/30">
+            <p className="text-xs font-semibold mb-2">Aggiungi Nominativo</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <Input className="h-8 text-xs" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Cognome" value={cognome} onChange={(e) => setCognome(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Email" value={emailN} onChange={(e) => setEmailN(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Telefono" value={telefonoN} onChange={(e) => setTelefonoN(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Ruolo" value={ruoloN} onChange={(e) => setRuoloN(e.target.value)} />
+            </div>
+            <Button size="sm" className="mt-2" onClick={() => addMutation.mutate()} disabled={addMutation.isPending || (!nome && !cognome)}>
+              <Plus className="w-3 h-3 mr-1" />Aggiungi
+            </Button>
+          </div>
+        )}
+        {nominativi.length === 0 && readOnly && (
+          <p className="text-center text-muted-foreground py-4 text-sm">Nessun nominativo presente</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── Main Component ── */
 export default function ClienteDetail() {
   const { id } = useParams();
