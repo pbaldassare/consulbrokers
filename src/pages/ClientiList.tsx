@@ -816,85 +816,72 @@ const ClientiList = () => {
                   </AccordionContent>
                 </AccordionItem>
 
+                {/* Indirizzi Aggiuntivi */}
+                <AccordionItem value="indirizzi_extra">
+                  <AccordionTrigger className="text-sm font-medium">Indirizzi Aggiuntivi</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <p className="text-xs font-semibold text-muted-foreground">Indirizzo Alternativo</p>
+                      <div className="grid grid-cols-4 gap-3">
+                        <div><Label className="text-xs">Indirizzo</Label><Input value={indirizzoAlternativo} onChange={(e) => setIndirizzoAlternativo(e.target.value)} /></div>
+                        <div><Label className="text-xs">CAP</Label><Input value={capAlternativo} onChange={(e) => setCapAlternativo(e.target.value)} maxLength={5} /></div>
+                        <div><Label className="text-xs">Città</Label><Input value={cittaAlternativa} onChange={(e) => setCittaAlternativa(e.target.value)} /></div>
+                        <div><Label className="text-xs">Provincia</Label><Input value={provinciaAlternativa} onChange={(e) => setProvinciaAlternativa(e.target.value)} maxLength={2} /></div>
+                      </div>
+                      <p className="text-xs font-semibold text-muted-foreground">Indirizzo Fiscale</p>
+                      <div className="grid grid-cols-4 gap-3">
+                        <div><Label className="text-xs">Indirizzo</Label><Input value={indirizzoFiscale} onChange={(e) => setIndirizzoFiscale(e.target.value)} /></div>
+                        <div><Label className="text-xs">CAP</Label><Input value={capFiscale} onChange={(e) => setCapFiscale(e.target.value)} maxLength={5} /></div>
+                        <div><Label className="text-xs">Città</Label><Input value={cittaFiscale} onChange={(e) => setCittaFiscale(e.target.value)} /></div>
+                        <div><Label className="text-xs">Provincia</Label><Input value={provinciaFiscale} onChange={(e) => setProvinciaFiscale(e.target.value)} maxLength={2} /></div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
                 {/* Dati Statistici */}
                 <AccordionItem value="statistici">
                   <AccordionTrigger className="text-sm font-medium">Dati Statistici</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      <div>
-                        <Label className="text-xs">Gruppo Finanziario</Label>
-                        <SearchableSelect
-                          value={gruppoFinanziarioId}
-                          onValueChange={setGruppoFinanziarioId}
-                          placeholder="— Seleziona gruppo finanziario —"
-                          options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs">Zona</Label>
-                          <Input value={zona} onChange={(e) => setZona(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Indotto</Label>
-                          <Input value={indotto} onChange={(e) => setIndotto(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Attività</Label>
-                          <Input value={attivita} onChange={(e) => setAttivita(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs">Settore</Label>
-                          <Input value={settore} onChange={(e) => setSettore(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Azienda Stat.</Label>
-                          <Input value={aziendaStat} onChange={(e) => setAziendaStat(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Contratto</Label>
-                          <Input value={contratto} onChange={(e) => setContratto(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs">Matricola</Label>
-                          <Input value={matricola} onChange={(e) => setMatricola(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Riferimento</Label>
-                          <Input value={riferimento} onChange={(e) => setRiferimento(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Codice ATECO</Label>
-                          <Input value={codiceAteco} onChange={(e) => setCodiceAteco(e.target.value)} />
-                        </div>
-                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs">Fatturato €</Label>
-                          <Input type="number" value={fatturato} onChange={(e) => setFatturato(e.target.value)} />
+                          <Label className="text-xs">Gruppo Finanziario</Label>
+                          <SearchableSelect
+                            value={gruppoFinanziarioId}
+                            onValueChange={setGruppoFinanziarioId}
+                            placeholder="— Seleziona gruppo finanziario —"
+                            options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                          />
                         </div>
                         <div>
-                          <Label className="text-xs">N. Dipendenti</Label>
-                          <Input type="number" value={numDipendenti} onChange={(e) => setNumDipendenti(e.target.value)} />
+                          <Label className="text-xs">Gruppo Statistico</Label>
+                          <Input value={gruppoStatistico} onChange={(e) => setGruppoStatistico(e.target.value)} />
                         </div>
                       </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div><Label className="text-xs">Zona</Label><Input value={zona} onChange={(e) => setZona(e.target.value)} /></div>
+                        <div><Label className="text-xs">Indotto</Label><Input value={indotto} onChange={(e) => setIndotto(e.target.value)} /></div>
+                        <div><Label className="text-xs">Attività</Label><Input value={attivita} onChange={(e) => setAttivita(e.target.value)} /></div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div><Label className="text-xs">Settore</Label><Input value={settore} onChange={(e) => setSettore(e.target.value)} /></div>
+                        <div><Label className="text-xs">Azienda Stat.</Label><Input value={aziendaStat} onChange={(e) => setAziendaStat(e.target.value)} /></div>
+                        <div><Label className="text-xs">Contratto</Label><Input value={contratto} onChange={(e) => setContratto(e.target.value)} /></div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div><Label className="text-xs">Matricola</Label><Input value={matricola} onChange={(e) => setMatricola(e.target.value)} /></div>
+                        <div><Label className="text-xs">Riferimento</Label><Input value={riferimento} onChange={(e) => setRiferimento(e.target.value)} /></div>
+                        <div><Label className="text-xs">Codice ATECO</Label><Input value={codiceAteco} onChange={(e) => setCodiceAteco(e.target.value)} /></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label className="text-xs">Fatturato €</Label><Input type="number" value={fatturato} onChange={(e) => setFatturato(e.target.value)} /></div>
+                        <div><Label className="text-xs">N. Dipendenti</Label><Input type="number" value={numDipendenti} onChange={(e) => setNumDipendenti(e.target.value)} /></div>
+                      </div>
                       <div className="flex flex-wrap gap-6">
-                        <div className="flex items-center gap-2">
-                          <Switch checked={clienteAssociato} onCheckedChange={setClienteAssociato} />
-                          <Label className="text-xs">Cliente Associato</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch checked={clienteCaptive} onCheckedChange={setClienteCaptive} />
-                          <Label className="text-xs">Cliente Captive</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch checked={internazionale} onCheckedChange={setInternazionale} />
-                          <Label className="text-xs">Internazionale</Label>
-                        </div>
+                        <div className="flex items-center gap-2"><Switch checked={clienteAssociato} onCheckedChange={setClienteAssociato} /><Label className="text-xs">Cliente Associato</Label></div>
+                        <div className="flex items-center gap-2"><Switch checked={clienteCaptive} onCheckedChange={setClienteCaptive} /><Label className="text-xs">Cliente Captive</Label></div>
+                        <div className="flex items-center gap-2"><Switch checked={internazionale} onCheckedChange={setInternazionale} /><Label className="text-xs">Internazionale</Label></div>
                       </div>
                     </div>
                   </AccordionContent>
