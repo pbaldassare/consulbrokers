@@ -334,6 +334,8 @@ const ClientiList = () => {
         riferimento: riferimento || null,
         fatturato: fatturato ? parseFloat(fatturato) : null,
         num_dipendenti: numDipendenti ? parseInt(numDipendenti) : null,
+        fascia_fatturato: fascia_fatturato || null,
+        fascia_dipendenti: fascia_dipendenti || null,
         codice_ateco: codiceAteco || null,
         cliente_associato: clienteAssociato,
         cliente_captive: clienteCaptive,
