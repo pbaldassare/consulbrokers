@@ -134,8 +134,23 @@ const ClientiList = () => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [tipoTab, setTipoTab] = useState("privato");
   const [sortBy, setSortBy] = useState<"cognome" | "created_at">("cognome");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset page when tab changes
+  useEffect(() => { setPage(0); }, [tipoTab, sortBy]);
 
   // Form state
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
