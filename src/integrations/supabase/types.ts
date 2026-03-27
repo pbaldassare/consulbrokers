@@ -711,9 +711,13 @@ export type Database = {
           attivo: boolean | null
           azienda_ssn_sx: boolean | null
           azienda_stat: string | null
+          cap_alternativo: string | null
+          cap_fiscale: string | null
           cap_residenza: string | null
           cap_sede: string | null
           cellulare: string | null
+          citta_alternativa: string | null
+          citta_fiscale: string | null
           citta_residenza: string | null
           citta_sede: string | null
           cliente_associato: boolean | null
@@ -736,7 +740,10 @@ export type Database = {
           fido_credito: number | null
           forma_giuridica: string | null
           gruppo_finanziario_id: string | null
+          gruppo_statistico: string | null
           id: string
+          indirizzo_alternativo: string | null
+          indirizzo_fiscale: string | null
           indirizzo_residenza: string | null
           indirizzo_sede: string | null
           indotto: string | null
@@ -750,6 +757,8 @@ export type Database = {
           partita_iva: string | null
           pec: string | null
           prospect: string | null
+          provincia_alternativa: string | null
+          provincia_fiscale: string | null
           provincia_nascita: string | null
           provincia_residenza: string | null
           provincia_sede: string | null
@@ -781,9 +790,13 @@ export type Database = {
           attivo?: boolean | null
           azienda_ssn_sx?: boolean | null
           azienda_stat?: string | null
+          cap_alternativo?: string | null
+          cap_fiscale?: string | null
           cap_residenza?: string | null
           cap_sede?: string | null
           cellulare?: string | null
+          citta_alternativa?: string | null
+          citta_fiscale?: string | null
           citta_residenza?: string | null
           citta_sede?: string | null
           cliente_associato?: boolean | null
@@ -806,7 +819,10 @@ export type Database = {
           fido_credito?: number | null
           forma_giuridica?: string | null
           gruppo_finanziario_id?: string | null
+          gruppo_statistico?: string | null
           id?: string
+          indirizzo_alternativo?: string | null
+          indirizzo_fiscale?: string | null
           indirizzo_residenza?: string | null
           indirizzo_sede?: string | null
           indotto?: string | null
@@ -820,6 +836,8 @@ export type Database = {
           partita_iva?: string | null
           pec?: string | null
           prospect?: string | null
+          provincia_alternativa?: string | null
+          provincia_fiscale?: string | null
           provincia_nascita?: string | null
           provincia_residenza?: string | null
           provincia_sede?: string | null
@@ -851,9 +869,13 @@ export type Database = {
           attivo?: boolean | null
           azienda_ssn_sx?: boolean | null
           azienda_stat?: string | null
+          cap_alternativo?: string | null
+          cap_fiscale?: string | null
           cap_residenza?: string | null
           cap_sede?: string | null
           cellulare?: string | null
+          citta_alternativa?: string | null
+          citta_fiscale?: string | null
           citta_residenza?: string | null
           citta_sede?: string | null
           cliente_associato?: boolean | null
@@ -876,7 +898,10 @@ export type Database = {
           fido_credito?: number | null
           forma_giuridica?: string | null
           gruppo_finanziario_id?: string | null
+          gruppo_statistico?: string | null
           id?: string
+          indirizzo_alternativo?: string | null
+          indirizzo_fiscale?: string | null
           indirizzo_residenza?: string | null
           indirizzo_sede?: string | null
           indotto?: string | null
@@ -890,6 +915,8 @@ export type Database = {
           partita_iva?: string | null
           pec?: string | null
           prospect?: string | null
+          provincia_alternativa?: string | null
+          provincia_fiscale?: string | null
           provincia_nascita?: string | null
           provincia_residenza?: string | null
           provincia_sede?: string | null
@@ -2365,6 +2392,50 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nominativi_cliente: {
+        Row: {
+          cliente_id: string
+          cognome: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          nome: string | null
+          note: string | null
+          ruolo: string | null
+          telefono: string | null
+        }
+        Insert: {
+          cliente_id: string
+          cognome?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          note?: string | null
+          ruolo?: string | null
+          telefono?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          cognome?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          note?: string | null
+          ruolo?: string | null
+          telefono?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nominativi_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
             referencedColumns: ["id"]
           },
         ]
