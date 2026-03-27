@@ -494,6 +494,7 @@ const TitoloDetail = () => {
         </SectionCollapsible>
       )}
 
+      {t.note && (
         <Card>
           <CardContent className="pt-4">
             <span className="text-xs text-muted-foreground">Note:</span>
