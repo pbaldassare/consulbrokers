@@ -90,6 +90,7 @@ interface CompagniaForm {
   tipo_pagamento: string;
   percentuale_ra: string;
   gruppo_compagnia: string;
+  gruppo_compagnia_id: string;
   tipo_mandatario: string;
   gruppo_statistico: string;
   iban: string;
