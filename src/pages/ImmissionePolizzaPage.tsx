@@ -101,6 +101,56 @@ const ImmissionePolizzaPage = () => {
   const [showProvvigioneDialog, setShowProvvigioneDialog] = useState(false);
   const [provvigioneDialogType, setProvvigioneDialogType] = useState<"new" | "update">("new");
 
+  // === RCA AUTO State ===
+  // Veicolo
+  const [vSettore, setVSettore] = useState("Autovetture");
+  const [vTipoVeicolo, setVTipoVeicolo] = useState("AUTOVETTURA");
+  const [vUso, setVUso] = useState("PRIVATO");
+  const [vMarca, setVMarca] = useState("");
+  const [vModello, setVModello] = useState("");
+  const [vVersione, setVVersione] = useState("");
+  const [vTarga, setVTarga] = useState("");
+  const [vTelaio, setVTelaio] = useState("");
+  const [vDescrizione, setVDescrizione] = useState("");
+  const [vDataImmatricolazione, setVDataImmatricolazione] = useState("");
+  const [vAnnoAcquisto, setVAnnoAcquisto] = useState("");
+  const [vProvinciaCircolazione, setVProvinciaCircolazione] = useState("");
+  const [vClasseBm, setVClasseBm] = useState("");
+  const [vMass1, setVMass1] = useState("0");
+  const [vMass2, setVMass2] = useState("0");
+  const [vMass3, setVMass3] = useState("0");
+  const [vPeius, setVPeius] = useState(false);
+  const [vFranchigia, setVFranchigia] = useState("0");
+  const [vTemporanea, setVTemporanea] = useState(false);
+  const [vCaricoScarico, setVCaricoScarico] = useState(false);
+  const [vCompetizione, setVCompetizione] = useState(false);
+  const [vRimorchio, setVRimorchio] = useState(false);
+  const [vCv, setVCv] = useState("0");
+  const [vKw, setVKw] = useState("0");
+  const [vCc, setVCc] = useState("0");
+  const [vPosti, setVPosti] = useState("0");
+  const [vPesoMotrice, setVPesoMotrice] = useState("0");
+  const [vPesoRimorchio, setVPesoRimorchio] = useState("0");
+  const [vPesoTotale, setVPesoTotale] = useState("0");
+  const [vTipologiaGuida, setVTipologiaGuida] = useState("");
+  const [vTipoAlimentazione, setVTipoAlimentazione] = useState("");
+  // Premi garanzia
+  const garanzie_default = ["RC", "Furto/Incendio/Eventi", "Tutela Legale", "ARD", "Kasko/Cristalli", "Ass. Stradale", "Infortuni"];
+  const [premiGaranzia, setPremiGaranzia] = useState(
+    garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i }))
+  );
+  // Conducente
+  const [cNome, setCNome] = useState("");
+  const [cCognome, setCCognome] = useState("");
+  const [cIndirizzo, setCIndirizzo] = useState("");
+  const [cCap, setCCap] = useState("");
+  const [cCitta, setCCitta] = useState("");
+  const [cProvincia, setCProvincia] = useState("");
+  const [cDataNascita, setCDataNascita] = useState("");
+  const [cTipoPatente, setCTipoPatente] = useState("");
+  const [cDataRilascioPatente, setCDataRilascioPatente] = useState("");
+  const [cNote, setCNote] = useState("");
+
   // Commerciale
   const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
   const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
