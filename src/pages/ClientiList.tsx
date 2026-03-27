@@ -202,7 +202,7 @@ const ClientiList = () => {
     },
   });
 
-  const { data: profiliCommerciali = [] } = useQuery({
+  const { data: profiliCommercialiRaw = [] } = useQuery({
     queryKey: ["profili_commerciali_lookup"],
     queryFn: async () => {
       const { data } = await supabase
@@ -210,12 +210,24 @@ const ClientiList = () => {
         .select("id, nome, cognome, ruolo")
         .in("ruolo", ["admin", "produttore", "responsabile_sede", "produttore_sede", "executive", "backoffice"])
         .order("cognome");
-      return (data || []).map((p: any) => ({
-        value: p.id,
-        label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
-      }));
+      return data || [];
     },
   });
+
+  const profiliCommerciali = profiliCommercialiRaw.map((p: any) => ({
+    value: p.id,
+    label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
+  }));
+
+  // Auto-fill backoffice role when dialog opens
+  useEffect(() => {
+    if (open && !backofficeRole.profilo_id) {
+      const backofficeProfile = profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice");
+      if (backofficeProfile) {
+        setBackofficeRole(prev => ({ ...prev, profilo_id: backofficeProfile.id }));
+      }
+    }
+  }, [open, profiliCommercialiRaw]);
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
