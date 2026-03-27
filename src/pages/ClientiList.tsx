@@ -127,7 +127,7 @@ const ClientiList = () => {
 
   // Rete Commerciale state
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
-  const [executive, setExecutive] = useState<CommercialRole>(emptyRole());
+  const [backofficeRole, setBackofficeRole] = useState<CommercialRole>(emptyRole());
   const [agente, setAgente] = useState<CommercialRole>(emptyRole());
   const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
 
@@ -202,7 +202,7 @@ const ClientiList = () => {
     },
   });
 
-  const { data: profiliCommerciali = [] } = useQuery({
+  const { data: profiliCommercialiRaw = [] } = useQuery({
     queryKey: ["profili_commerciali_lookup"],
     queryFn: async () => {
       const { data } = await supabase
@@ -210,12 +210,24 @@ const ClientiList = () => {
         .select("id, nome, cognome, ruolo")
         .in("ruolo", ["admin", "produttore", "responsabile_sede", "produttore_sede", "executive", "backoffice"])
         .order("cognome");
-      return (data || []).map((p: any) => ({
-        value: p.id,
-        label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
-      }));
+      return data || [];
     },
   });
+
+  const profiliCommerciali = profiliCommercialiRaw.map((p: any) => ({
+    value: p.id,
+    label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
+  }));
+
+  // Auto-fill backoffice role when dialog opens
+  useEffect(() => {
+    if (open && !backofficeRole.profilo_id) {
+      const backofficeProfile = profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice");
+      if (backofficeProfile) {
+        setBackofficeRole(prev => ({ ...prev, profilo_id: backofficeProfile.id }));
+      }
+    }
+  }, [open, profiliCommercialiRaw]);
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
@@ -228,7 +240,7 @@ const ClientiList = () => {
   const insertCommercialRoles = async (clienteId: string) => {
     const roles: { ruolo: string; data: CommercialRole }[] = [
       { ruolo: "AE", data: ae },
-      { ruolo: "Executive", data: executive },
+      { ruolo: "Backoffice", data: backofficeRole },
       { ruolo: "Agente", data: agente },
       { ruolo: "Produttore Sede", data: produttoreSede },
     ];
@@ -355,7 +367,7 @@ const ClientiList = () => {
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
-    setAe(emptyRole()); setExecutive(emptyRole()); setAgente(emptyRole()); setProduttoreSede(emptyRole());
+    setAe(emptyRole()); setBackofficeRole(emptyRole()); setAgente(emptyRole()); setProduttoreSede(emptyRole());
     // Gestionali
     setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
@@ -916,9 +928,9 @@ const ClientiList = () => {
 
                 {/* Ruoli commerciali in Accordion */}
                 <Accordion type="multiple" className="w-full">
-                  <AccordionItem value="executive">
-                    <AccordionTrigger className="text-sm py-2">Executive</AccordionTrigger>
-                    <AccordionContent>{renderCorrispondenteFields(executive, setExecutive)}</AccordionContent>
+                  <AccordionItem value="backoffice">
+                    <AccordionTrigger className="text-sm py-2">Backoffice</AccordionTrigger>
+                    <AccordionContent>{renderCorrispondenteFields(backofficeRole, setBackofficeRole)}</AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="agente">
                     <AccordionTrigger className="text-sm py-2">Agente</AccordionTrigger>
