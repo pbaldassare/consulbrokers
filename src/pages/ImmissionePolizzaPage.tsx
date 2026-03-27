@@ -891,7 +891,7 @@ const ImmissionePolizzaPage = () => {
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
-        <Button onClick={handleConferma}>Conferma</Button>
+        <Button onClick={handleConferma} disabled={saving}>{saving ? "Salvataggio..." : "Conferma"}</Button>
       </div>
 
       {/* DIALOG PROVVIGIONI */}
