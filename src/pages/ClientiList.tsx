@@ -1141,6 +1141,7 @@ const ClientiList = () => {
                     )}
                   </TableBody>
                 </Table>
+                <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
               )}
             </TabsContent>
 
