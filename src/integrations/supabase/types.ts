@@ -1226,6 +1226,65 @@ export type Database = {
         }
         Relationships: []
       }
+      conducenti_polizza: {
+        Row: {
+          cap: string | null
+          citta: string | null
+          cognome: string | null
+          created_at: string | null
+          data_nascita: string | null
+          data_rilascio_patente: string | null
+          id: string
+          indirizzo: string | null
+          nome: string | null
+          note: string | null
+          provincia: string | null
+          tipo_patente: string | null
+          titolo_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cap?: string | null
+          citta?: string | null
+          cognome?: string | null
+          created_at?: string | null
+          data_nascita?: string | null
+          data_rilascio_patente?: string | null
+          id?: string
+          indirizzo?: string | null
+          nome?: string | null
+          note?: string | null
+          provincia?: string | null
+          tipo_patente?: string | null
+          titolo_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cap?: string | null
+          citta?: string | null
+          cognome?: string | null
+          created_at?: string | null
+          data_nascita?: string | null
+          data_rilascio_patente?: string | null
+          id?: string
+          indirizzo?: string | null
+          nome?: string | null
+          note?: string | null
+          provincia?: string | null
+          tipo_patente?: string | null
+          titolo_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conducenti_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: true
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dettaglio_riparto: {
         Row: {
           addizionali: number | null
@@ -3242,6 +3301,53 @@ export type Database = {
           },
         ]
       }
+      premi_garanzia_polizza: {
+        Row: {
+          annuo: number | null
+          capitale: number | null
+          created_at: string | null
+          firma: number | null
+          garanzia: string
+          id: string
+          ordine: number | null
+          rata: number | null
+          tasso: number | null
+          titolo_id: string
+        }
+        Insert: {
+          annuo?: number | null
+          capitale?: number | null
+          created_at?: string | null
+          firma?: number | null
+          garanzia: string
+          id?: string
+          ordine?: number | null
+          rata?: number | null
+          tasso?: number | null
+          titolo_id: string
+        }
+        Update: {
+          annuo?: number | null
+          capitale?: number | null
+          created_at?: string | null
+          firma?: number | null
+          garanzia?: string
+          id?: string
+          ordine?: number | null
+          rata?: number | null
+          tasso?: number | null
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premi_garanzia_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       primanota_generale: {
         Row: {
           aliquota_ritenuta: number | null
@@ -4790,6 +4896,128 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      veicoli_polizza: {
+        Row: {
+          anno_acquisto: number | null
+          carico_scarico: boolean | null
+          cc: number | null
+          classe_bm: string | null
+          competizione: boolean | null
+          created_at: string | null
+          cv: number | null
+          data_immatricolazione: string | null
+          franchigia: number | null
+          id: string
+          kw: number | null
+          marca: string | null
+          massimale_1: number | null
+          massimale_2: number | null
+          massimale_3: number | null
+          modello: string | null
+          peius: boolean | null
+          peso_motrice: number | null
+          peso_rimorchio: number | null
+          peso_totale: number | null
+          posti: number | null
+          provincia_circolazione: string | null
+          rimorchio: boolean | null
+          settore: string | null
+          targa: string | null
+          telaio: string | null
+          temporanea: boolean | null
+          tipo_alimentazione: string | null
+          tipo_veicolo: string | null
+          tipologia_guida: string | null
+          titolo_id: string
+          updated_at: string | null
+          uso: string | null
+          veicolo_descrizione: string | null
+          versione: string | null
+        }
+        Insert: {
+          anno_acquisto?: number | null
+          carico_scarico?: boolean | null
+          cc?: number | null
+          classe_bm?: string | null
+          competizione?: boolean | null
+          created_at?: string | null
+          cv?: number | null
+          data_immatricolazione?: string | null
+          franchigia?: number | null
+          id?: string
+          kw?: number | null
+          marca?: string | null
+          massimale_1?: number | null
+          massimale_2?: number | null
+          massimale_3?: number | null
+          modello?: string | null
+          peius?: boolean | null
+          peso_motrice?: number | null
+          peso_rimorchio?: number | null
+          peso_totale?: number | null
+          posti?: number | null
+          provincia_circolazione?: string | null
+          rimorchio?: boolean | null
+          settore?: string | null
+          targa?: string | null
+          telaio?: string | null
+          temporanea?: boolean | null
+          tipo_alimentazione?: string | null
+          tipo_veicolo?: string | null
+          tipologia_guida?: string | null
+          titolo_id: string
+          updated_at?: string | null
+          uso?: string | null
+          veicolo_descrizione?: string | null
+          versione?: string | null
+        }
+        Update: {
+          anno_acquisto?: number | null
+          carico_scarico?: boolean | null
+          cc?: number | null
+          classe_bm?: string | null
+          competizione?: boolean | null
+          created_at?: string | null
+          cv?: number | null
+          data_immatricolazione?: string | null
+          franchigia?: number | null
+          id?: string
+          kw?: number | null
+          marca?: string | null
+          massimale_1?: number | null
+          massimale_2?: number | null
+          massimale_3?: number | null
+          modello?: string | null
+          peius?: boolean | null
+          peso_motrice?: number | null
+          peso_rimorchio?: number | null
+          peso_totale?: number | null
+          posti?: number | null
+          provincia_circolazione?: string | null
+          rimorchio?: boolean | null
+          settore?: string | null
+          targa?: string | null
+          telaio?: string | null
+          temporanea?: boolean | null
+          tipo_alimentazione?: string | null
+          tipo_veicolo?: string | null
+          tipologia_guida?: string | null
+          titolo_id?: string
+          updated_at?: string | null
+          uso?: string | null
+          veicolo_descrizione?: string | null
+          versione?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veicoli_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: true
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

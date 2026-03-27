@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck } from "lucide-react";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -81,6 +81,33 @@ const TitoloDetail = () => {
         .eq("titolo_id", id!)
         .order("riga", { ascending: true });
       if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: veicolo } = useQuery({
+    queryKey: ["veicolo-polizza", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("veicoli_polizza").select("*").eq("titolo_id", id!).maybeSingle();
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: premiGaranzia = [] } = useQuery({
+    queryKey: ["premi-garanzia", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("premi_garanzia_polizza").select("*").eq("titolo_id", id!).order("ordine");
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const { data: conducente } = useQuery({
+    queryKey: ["conducente-polizza", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("conducenti_polizza").select("*").eq("titolo_id", id!).maybeSingle();
       return data;
     },
     enabled: !!id,
@@ -383,6 +410,89 @@ const TitoloDetail = () => {
           </Table>
         </div>
       </SectionCollapsible>
+
+      {/* === SEZIONI RCA AUTO === */}
+      {(veicolo as any) && (
+        <SectionCollapsible title="Dati Veicolo" icon={Car}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+            <FieldRow label="Settore" value={fmt((veicolo as any).settore)} />
+            <FieldRow label="Tipo" value={fmt((veicolo as any).tipo_veicolo)} />
+            <FieldRow label="Uso" value={fmt((veicolo as any).uso)} />
+            <FieldRow label="Targa" value={fmt((veicolo as any).targa)} />
+            <FieldRow label="Marca" value={fmt((veicolo as any).marca)} />
+            <FieldRow label="Modello" value={fmt((veicolo as any).modello)} />
+            <FieldRow label="Versione" value={fmt((veicolo as any).versione)} />
+            <FieldRow label="Veicolo" value={fmt((veicolo as any).veicolo_descrizione)} />
+            <FieldRow label="Telaio" value={fmt((veicolo as any).telaio)} />
+            <FieldRow label="Immatricolazione" value={fmtDate((veicolo as any).data_immatricolazione)} />
+            <FieldRow label="Anno Acquisto" value={fmt((veicolo as any).anno_acquisto)} />
+            <FieldRow label="Prov. Circolazione" value={fmt((veicolo as any).provincia_circolazione)} />
+            <FieldRow label="Classe B/M" value={fmt((veicolo as any).classe_bm)} />
+            <FieldRow label="Massimale 1" value={fmtEuro((veicolo as any).massimale_1)} />
+            <FieldRow label="Massimale 2" value={fmtEuro((veicolo as any).massimale_2)} />
+            <FieldRow label="Massimale 3" value={fmtEuro((veicolo as any).massimale_3)} />
+            <FieldRow label="Peius" value={fmtBool((veicolo as any).peius)} />
+            <FieldRow label="Franchigia" value={fmtEuro((veicolo as any).franchigia)} />
+            <FieldRow label="Temporanea" value={fmtBool((veicolo as any).temporanea)} />
+            <FieldRow label="Carico/Scarico" value={fmtBool((veicolo as any).carico_scarico)} />
+            <FieldRow label="CV" value={fmt((veicolo as any).cv)} />
+            <FieldRow label="KW" value={fmt((veicolo as any).kw)} />
+            <FieldRow label="CC" value={fmt((veicolo as any).cc)} />
+            <FieldRow label="Posti" value={fmt((veicolo as any).posti)} />
+            <FieldRow label="Peso Mot." value={fmt((veicolo as any).peso_motrice)} />
+            <FieldRow label="Peso Rim." value={fmt((veicolo as any).peso_rimorchio)} />
+            <FieldRow label="Peso Tot." value={fmt((veicolo as any).peso_totale)} />
+            <FieldRow label="Tipologia Guida" value={fmt((veicolo as any).tipologia_guida)} />
+            <FieldRow label="Alimentazione" value={fmt((veicolo as any).tipo_alimentazione)} />
+          </div>
+        </SectionCollapsible>
+      )}
+
+      {(premiGaranzia as any[]).length > 0 && (
+        <SectionCollapsible title="Premi per Garanzia" icon={ShieldCheck}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Garanzia</TableHead>
+                <TableHead className="text-right">Capitale</TableHead>
+                <TableHead className="text-right">Tasso</TableHead>
+                <TableHead className="text-right">Firma</TableHead>
+                <TableHead className="text-right">Rata</TableHead>
+                <TableHead className="text-right">Annuo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(premiGaranzia as any[]).map((pg: any) => (
+                <TableRow key={pg.id}>
+                  <TableCell className="font-medium">{pg.garanzia}</TableCell>
+                  <TableCell className="text-right font-mono">{fmtEuro(pg.capitale)}</TableCell>
+                  <TableCell className="text-right font-mono">{pg.tasso ?? "—"}</TableCell>
+                  <TableCell className="text-right font-mono">{fmtEuro(pg.firma)}</TableCell>
+                  <TableCell className="text-right font-mono">{fmtEuro(pg.rata)}</TableCell>
+                  <TableCell className="text-right font-mono">{fmtEuro(pg.annuo)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </SectionCollapsible>
+      )}
+
+      {(conducente as any) && (
+        <SectionCollapsible title="Dati Conducente" icon={UserCheck}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+            <FieldRow label="Nome" value={fmt((conducente as any).nome)} />
+            <FieldRow label="Cognome" value={fmt((conducente as any).cognome)} />
+            <FieldRow label="Indirizzo" value={fmt((conducente as any).indirizzo)} />
+            <FieldRow label="CAP" value={fmt((conducente as any).cap)} />
+            <FieldRow label="Città" value={fmt((conducente as any).citta)} />
+            <FieldRow label="Provincia" value={fmt((conducente as any).provincia)} />
+            <FieldRow label="Data Nascita" value={fmtDate((conducente as any).data_nascita)} />
+            <FieldRow label="Tipo Patente" value={fmt((conducente as any).tipo_patente)} />
+            <FieldRow label="Rilascio Patente" value={fmtDate((conducente as any).data_rilascio_patente)} />
+            {(conducente as any).note && <div className="col-span-full"><FieldRow label="Note" value={(conducente as any).note} /></div>}
+          </div>
+        </SectionCollapsible>
+      )}
 
       {t.note && (
         <Card>
