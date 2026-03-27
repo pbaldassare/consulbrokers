@@ -1102,6 +1102,7 @@ export type Database = {
           fax: string | null
           firma_digitale: string | null
           gruppo_compagnia: string | null
+          gruppo_compagnia_id: string | null
           gruppo_statistico: string | null
           iban: string | null
           id: string
@@ -1149,6 +1150,7 @@ export type Database = {
           fax?: string | null
           firma_digitale?: string | null
           gruppo_compagnia?: string | null
+          gruppo_compagnia_id?: string | null
           gruppo_statistico?: string | null
           iban?: string | null
           id?: string
@@ -1196,6 +1198,7 @@ export type Database = {
           fax?: string | null
           firma_digitale?: string | null
           gruppo_compagnia?: string | null
+          gruppo_compagnia_id?: string | null
           gruppo_statistico?: string | null
           iban?: string | null
           id?: string
@@ -1224,7 +1227,15 @@ export type Database = {
           tipo_pagamento?: string | null
           ultima_scadenza_polizza?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "compagnie_gruppo_compagnia_id_fkey"
+            columns: ["gruppo_compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_compagnia"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conducenti_polizza: {
         Row: {

@@ -90,6 +90,7 @@ interface CompagniaForm {
   tipo_pagamento: string;
   percentuale_ra: string;
   gruppo_compagnia: string;
+  gruppo_compagnia_id: string;
   tipo_mandatario: string;
   gruppo_statistico: string;
   iban: string;
@@ -113,7 +114,7 @@ const emptyForm: CompagniaForm = {
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
   codice_fiscale: "", partita_iva: "", iscrizione_rui_sez: "", iscrizione_rui_num: "",
   pagamento: "", tipo_pagamento: "", percentuale_ra: "",
-  gruppo_compagnia: "", tipo_mandatario: "", gruppo_statistico: "",
+  gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
   iban: "", codice_abi: "", codice_cab: "", intestato_a: "", bic: "", citta_banca: "",
   aut_incasso_118: false, tipo_copertura: "", ra_ec_negativi: false,
   allegato_excel_avvisi: false, allegato_excel_ec: false, firma_digitale: "No", escluso_all4: false,
@@ -151,6 +152,7 @@ function dbToForm(c: any): CompagniaForm {
     tipo_pagamento: c.tipo_pagamento || "",
     percentuale_ra: c.percentuale_ra != null ? String(c.percentuale_ra) : "",
     gruppo_compagnia: c.gruppo_compagnia || "",
+    gruppo_compagnia_id: c.gruppo_compagnia_id || "",
     tipo_mandatario: c.tipo_mandatario || "",
     gruppo_statistico: c.gruppo_statistico || "",
     iban: c.iban || "",
@@ -197,6 +199,7 @@ function formToPayload(form: CompagniaForm) {
     tipo_pagamento: form.tipo_pagamento || null,
     percentuale_ra: form.percentuale_ra ? parseFloat(form.percentuale_ra) : null,
     gruppo_compagnia: form.gruppo_compagnia || null,
+    gruppo_compagnia_id: form.gruppo_compagnia_id || null,
     tipo_mandatario: form.tipo_mandatario || null,
     gruppo_statistico: form.gruppo_statistico || null,
     iban: form.iban || null,
@@ -392,6 +395,19 @@ function CompagniaFormDialog({
   const setField = (key: keyof CompagniaForm, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const { data: gruppiCompagnia = [] } = useQuery({
+    queryKey: ["gruppi_compagnia_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, descrizione")
+        .eq("attivo", true)
+        .order("descrizione");
+      return (data || []).map((g: any) => ({ value: g.id, label: g.descrizione }));
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
   const renderField = (label: string, field: keyof CompagniaForm, placeholder?: string, className?: string) => (
     <div className={`space-y-1 ${className || ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -513,11 +529,15 @@ function CompagniaFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Gruppo Finanziario</Label>
+              <Label className="text-xs text-muted-foreground">Gruppo Compagnia</Label>
               <SearchableSelect
-                options={toOptions(GRUPPI_STATISTICI)}
-                value={form.gruppo_compagnia}
-                onValueChange={(v) => setField("gruppo_compagnia", v)}
+                options={gruppiCompagnia}
+                value={form.gruppo_compagnia_id}
+                onValueChange={(v) => {
+                  setField("gruppo_compagnia_id", v);
+                  const found = gruppiCompagnia.find((g: any) => g.value === v);
+                  setField("gruppo_compagnia", found?.label || "");
+                }}
                 placeholder="Seleziona..."
               />
             </div>
