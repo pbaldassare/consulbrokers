@@ -175,15 +175,20 @@ const TitoloDetail = () => {
           <FieldRow label="Riga" value={fmt(t.riga)} />
           <FieldRow label="Appendice" value={fmt(t.appendice)} />
           {t.cliente_anagrafica && (
-            <div className="col-span-2 flex justify-between py-1">
-              <span className="text-xs text-muted-foreground">Cliente</span>
-              <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
-                {(t.cliente_anagrafica as any).tipo_cliente === "privato"
-                  ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
-                  : (t.cliente_anagrafica as any).ragione_sociale || "—"}
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </Button>
-            </div>
+            <>
+              <div className="col-span-2 flex justify-between py-1">
+                <span className="text-xs text-muted-foreground">Cliente</span>
+                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
+                  {(t.cliente_anagrafica as any).tipo_cliente === "privato"
+                    ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
+                    : (t.cliente_anagrafica as any).ragione_sociale || "—"}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+              <FieldRow label="Attività" value={fmt((t.cliente_anagrafica as any).attivita)} />
+              <FieldRow label="Gr. Finanziario" value={fmt((t.cliente_anagrafica as any).gruppi_finanziari?.nome)} />
+              <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
+            </>
           )}
           <FieldRow label="Produttore" value={t.produttore ? `${(t.produttore as any).nome} ${(t.produttore as any).cognome}` : "—"} />
           <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
