@@ -114,7 +114,7 @@ const emptyForm: CompagniaForm = {
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
   codice_fiscale: "", partita_iva: "", iscrizione_rui_sez: "", iscrizione_rui_num: "",
   pagamento: "", tipo_pagamento: "", percentuale_ra: "",
-  gruppo_compagnia: "", tipo_mandatario: "", gruppo_statistico: "",
+  gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
   iban: "", codice_abi: "", codice_cab: "", intestato_a: "", bic: "", citta_banca: "",
   aut_incasso_118: false, tipo_copertura: "", ra_ec_negativi: false,
   allegato_excel_avvisi: false, allegato_excel_ec: false, firma_digitale: "No", escluso_all4: false,
