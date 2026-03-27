@@ -22,6 +22,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 
 interface CommercialRole {
   profilo_id: string;
@@ -50,6 +51,82 @@ const emptyRole = (): CommercialRole => ({
   altro_broker: false,
   altro_broker_nome: "",
 });
+
+/* ── Dati Statistici sub-component for Create dialog ── */
+function DatiStatisticiCreate(props: {
+  zona: string; setZona: (v: string) => void;
+  indotto: string; setIndotto: (v: string) => void;
+  attivita: string; setAttivita: (v: string) => void;
+  settore: string; setSettore: (v: string) => void;
+  contratto: string; setContratto: (v: string) => void;
+  gruppoFinanziarioId: string; setGruppoFinanziarioId: (v: string) => void;
+  gruppoStatistico: string; setGruppoStatistico: (v: string) => void;
+  fasciaFatturato: string; setFasciaFatturato: (v: string) => void;
+  fasciaDipendenti: string; setFasciaDipendenti: (v: string) => void;
+  aziendaStat: string; setAziendaStat: (v: string) => void;
+  matricola: string; setMatricola: (v: string) => void;
+  riferimento: string; setRiferimento: (v: string) => void;
+  codiceAteco: string; setCodiceAteco: (v: string) => void;
+  clienteAssociato: boolean; setClienteAssociato: (v: boolean) => void;
+  clienteCaptive: boolean; setClienteCaptive: (v: boolean) => void;
+  internazionale: boolean; setInternazionale: (v: boolean) => void;
+  gruppiFinanziari: any[];
+}) {
+  const { data: zoneOpts = [] } = useLookupZone();
+  const { data: indottiOpts = [] } = useLookupIndotti();
+  const { data: attivitaOpts = [] } = useLookupAttivita();
+  const { data: settoriOpts = [] } = useLookupSettori();
+  const { data: contrattiOpts = [] } = useLookupContratti();
+  const { data: fasceFatturatoOpts = [] } = useLookupFasceFatturato();
+  const { data: fasceDipendentiOpts = [] } = useLookupFasceDipendenti();
+  const { data: gruppiStatOpts = [] } = useGruppiStatistici();
+
+  const p = props;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Gruppo Finanziario</Label>
+          <SearchableSelect
+            value={p.gruppoFinanziarioId}
+            onValueChange={p.setGruppoFinanziarioId}
+            placeholder="— Seleziona gruppo finanziario —"
+            options={p.gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Gruppo Statistico</Label>
+          <SearchableSelect value={p.gruppoStatistico} onValueChange={p.setGruppoStatistico} placeholder="— Seleziona —" options={gruppiStatOpts} />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label className="text-xs">Zona</Label><SearchableSelect value={p.zona} onValueChange={p.setZona} placeholder="— Seleziona —" options={zoneOpts} /></div>
+        <div><Label className="text-xs">Indotto</Label><SearchableSelect value={p.indotto} onValueChange={p.setIndotto} placeholder="— Seleziona —" options={indottiOpts} /></div>
+        <div><Label className="text-xs">Attività</Label><SearchableSelect value={p.attivita} onValueChange={p.setAttivita} placeholder="— Seleziona —" options={attivitaOpts} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label className="text-xs">Settore</Label><SearchableSelect value={p.settore} onValueChange={p.setSettore} placeholder="— Seleziona —" options={settoriOpts} /></div>
+        <div><Label className="text-xs">Azienda Stat.</Label><Input value={p.aziendaStat} onChange={(e) => p.setAziendaStat(e.target.value)} /></div>
+        <div><Label className="text-xs">Contratto</Label><SearchableSelect value={p.contratto} onValueChange={p.setContratto} placeholder="— Seleziona —" options={contrattiOpts} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label className="text-xs">Matricola</Label><Input value={p.matricola} onChange={(e) => p.setMatricola(e.target.value)} /></div>
+        <div><Label className="text-xs">Riferimento</Label><Input value={p.riferimento} onChange={(e) => p.setRiferimento(e.target.value)} /></div>
+        <div><Label className="text-xs">Codice ATECO</Label><Input value={p.codiceAteco} onChange={(e) => p.setCodiceAteco(e.target.value)} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">Fascia Fatturato</Label><SearchableSelect value={p.fasciaFatturato} onValueChange={p.setFasciaFatturato} placeholder="— Seleziona —" options={fasceFatturatoOpts} /></div>
+        <div><Label className="text-xs">Fascia Dipendenti</Label><SearchableSelect value={p.fasciaDipendenti} onValueChange={p.setFasciaDipendenti} placeholder="— Seleziona —" options={fasceDipendentiOpts} /></div>
+      </div>
+      <div className="flex flex-wrap gap-6">
+        <div className="flex items-center gap-2"><Switch checked={p.clienteAssociato} onCheckedChange={p.setClienteAssociato} /><Label className="text-xs">Cliente Associato</Label></div>
+        <div className="flex items-center gap-2"><Switch checked={p.clienteCaptive} onCheckedChange={p.setClienteCaptive} /><Label className="text-xs">Cliente Captive</Label></div>
+        <div className="flex items-center gap-2"><Switch checked={p.internazionale} onCheckedChange={p.setInternazionale} /><Label className="text-xs">Internazionale</Label></div>
+      </div>
+    </div>
+  );
+}
 
 const ClientiList = () => {
   const navigate = useNavigate();
@@ -131,6 +208,8 @@ const ClientiList = () => {
   const [riferimento, setRiferimento] = useState("");
   const [fatturato, setFatturato] = useState("");
   const [numDipendenti, setNumDipendenti] = useState("");
+  const [fascia_fatturato, setFasciaFatturato] = useState("");
+  const [fascia_dipendenti, setFasciaDipendenti] = useState("");
   const [codiceAteco, setCodiceAteco] = useState("");
   const [clienteAssociato, setClienteAssociato] = useState(false);
   const [clienteCaptive, setClienteCaptive] = useState(false);
@@ -331,6 +410,8 @@ const ClientiList = () => {
         riferimento: riferimento || null,
         fatturato: fatturato ? parseFloat(fatturato) : null,
         num_dipendenti: numDipendenti ? parseInt(numDipendenti) : null,
+        fascia_fatturato: fascia_fatturato || null,
+        fascia_dipendenti: fascia_dipendenti || null,
         codice_ateco: codiceAteco || null,
         cliente_associato: clienteAssociato,
         cliente_captive: clienteCaptive,
@@ -857,47 +938,25 @@ const ClientiList = () => {
                 <AccordionItem value="statistici">
                   <AccordionTrigger className="text-sm font-medium">Dati Statistici</AccordionTrigger>
                   <AccordionContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs">Gruppo Finanziario</Label>
-                          <SearchableSelect
-                            value={gruppoFinanziarioId}
-                            onValueChange={setGruppoFinanziarioId}
-                            placeholder="— Seleziona gruppo finanziario —"
-                            options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Gruppo Statistico</Label>
-                          <Input value={gruppoStatistico} onChange={(e) => setGruppoStatistico(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div><Label className="text-xs">Zona</Label><Input value={zona} onChange={(e) => setZona(e.target.value)} /></div>
-                        <div><Label className="text-xs">Indotto</Label><Input value={indotto} onChange={(e) => setIndotto(e.target.value)} /></div>
-                        <div><Label className="text-xs">Attività</Label><Input value={attivita} onChange={(e) => setAttivita(e.target.value)} /></div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div><Label className="text-xs">Settore</Label><Input value={settore} onChange={(e) => setSettore(e.target.value)} /></div>
-                        <div><Label className="text-xs">Azienda Stat.</Label><Input value={aziendaStat} onChange={(e) => setAziendaStat(e.target.value)} /></div>
-                        <div><Label className="text-xs">Contratto</Label><Input value={contratto} onChange={(e) => setContratto(e.target.value)} /></div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div><Label className="text-xs">Matricola</Label><Input value={matricola} onChange={(e) => setMatricola(e.target.value)} /></div>
-                        <div><Label className="text-xs">Riferimento</Label><Input value={riferimento} onChange={(e) => setRiferimento(e.target.value)} /></div>
-                        <div><Label className="text-xs">Codice ATECO</Label><Input value={codiceAteco} onChange={(e) => setCodiceAteco(e.target.value)} /></div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><Label className="text-xs">Fatturato €</Label><Input type="number" value={fatturato} onChange={(e) => setFatturato(e.target.value)} /></div>
-                        <div><Label className="text-xs">N. Dipendenti</Label><Input type="number" value={numDipendenti} onChange={(e) => setNumDipendenti(e.target.value)} /></div>
-                      </div>
-                      <div className="flex flex-wrap gap-6">
-                        <div className="flex items-center gap-2"><Switch checked={clienteAssociato} onCheckedChange={setClienteAssociato} /><Label className="text-xs">Cliente Associato</Label></div>
-                        <div className="flex items-center gap-2"><Switch checked={clienteCaptive} onCheckedChange={setClienteCaptive} /><Label className="text-xs">Cliente Captive</Label></div>
-                        <div className="flex items-center gap-2"><Switch checked={internazionale} onCheckedChange={setInternazionale} /><Label className="text-xs">Internazionale</Label></div>
-                      </div>
-                    </div>
+                    <DatiStatisticiCreate
+                      zona={zona} setZona={setZona}
+                      indotto={indotto} setIndotto={setIndotto}
+                      attivita={attivita} setAttivita={setAttivita}
+                      settore={settore} setSettore={setSettore}
+                      contratto={contratto} setContratto={setContratto}
+                      gruppoFinanziarioId={gruppoFinanziarioId} setGruppoFinanziarioId={setGruppoFinanziarioId}
+                      gruppoStatistico={gruppoStatistico} setGruppoStatistico={setGruppoStatistico}
+                      fasciaFatturato={fascia_fatturato} setFasciaFatturato={setFasciaFatturato}
+                      fasciaDipendenti={fascia_dipendenti} setFasciaDipendenti={setFasciaDipendenti}
+                      aziendaStat={aziendaStat} setAziendaStat={setAziendaStat}
+                      matricola={matricola} setMatricola={setMatricola}
+                      riferimento={riferimento} setRiferimento={setRiferimento}
+                      codiceAteco={codiceAteco} setCodiceAteco={setCodiceAteco}
+                      clienteAssociato={clienteAssociato} setClienteAssociato={setClienteAssociato}
+                      clienteCaptive={clienteCaptive} setClienteCaptive={setClienteCaptive}
+                      internazionale={internazionale} setInternazionale={setInternazionale}
+                      gruppiFinanziari={gruppiFinanziari}
+                    />
                   </AccordionContent>
                 </AccordionItem>
 

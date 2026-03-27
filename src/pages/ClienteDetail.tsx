@@ -25,6 +25,7 @@ import type { DocumentType } from "@/components/AiDocumentScanner";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 
 const tipiRelazione = [
   { value: "dipendente", label: "Dipendente" },
@@ -334,7 +335,88 @@ function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnl
   );
 }
 
-/* ── Main Component ── */
+/* ── Dati Statistici Sub-component ── */
+function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[] }) {
+  const { data: zoneOpts = [] } = useLookupZone();
+  const { data: indottiOpts = [] } = useLookupIndotti();
+  const { data: attivitaOpts = [] } = useLookupAttivita();
+  const { data: settoriOpts = [] } = useLookupSettori();
+  const { data: contrattiOpts = [] } = useLookupContratti();
+  const { data: fasceFatturatoOpts = [] } = useLookupFasceFatturato();
+  const { data: fasceDipendentiOpts = [] } = useLookupFasceDipendenti();
+  const { data: gruppiStatOpts = [] } = useGruppiStatistici();
+
+  const LookupField = ({ label, field, options }: { label: string; field: string; options: { value: string; label: string }[] }) => (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{options.find(o => o.value === ef[field])?.label || ef[field] || "—"}</p>
+      ) : (
+        <SearchableSelect
+          className="h-8 text-xs"
+          value={ef[field] || ""}
+          onValueChange={(v) => updateField(field, v || null)}
+          placeholder="— Seleziona —"
+          options={options}
+        />
+      )}
+    </div>
+  );
+
+  const FieldInput = ({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{ef[field] || "—"}</p>
+      ) : (
+        <Input className="h-8 text-xs" type={type} value={ef[field] || ""} onChange={(e) => updateField(field, e.target.value)} />
+      )}
+    </div>
+  );
+
+  const FieldSwitch = ({ label, field }: { label: string; field: string }) => (
+    <div className="flex items-center gap-2">
+      <Switch checked={!!ef[field]} onCheckedChange={(v) => updateField(field, v)} disabled={readOnly} />
+      <Label className="text-xs">{label}</Label>
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+      <LookupField label="Zona" field="zona" options={zoneOpts} />
+      <LookupField label="Indotto" field="indotto" options={indottiOpts} />
+      <div>
+        <Label className="text-xs">Gruppo Finanziario</Label>
+        {readOnly ? (
+          <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}</p>
+        ) : (
+          <SearchableSelect
+            className="h-8 text-xs"
+            value={ef.gruppo_finanziario_id || ""}
+            onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+            placeholder="— Seleziona gruppo —"
+            options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+          />
+        )}
+      </div>
+      <LookupField label="Gruppo Statistico" field="gruppo_statistico" options={gruppiStatOpts} />
+      <LookupField label="Attività" field="attivita" options={attivitaOpts} />
+      <LookupField label="Settore" field="settore" options={settoriOpts} />
+      <FieldInput label="Azienda Stat." field="azienda_stat" />
+      <LookupField label="Contratto" field="contratto" options={contrattiOpts} />
+      <FieldInput label="Matricola" field="matricola" />
+      <FieldInput label="Riferimento" field="riferimento" />
+      <LookupField label="Fascia Fatturato" field="fascia_fatturato" options={fasceFatturatoOpts} />
+      <LookupField label="Fascia Dipendenti" field="fascia_dipendenti" options={fasceDipendentiOpts} />
+      <FieldInput label="Codice ATECO" field="codice_ateco" />
+      <FieldSwitch label="Cliente Associato" field="cliente_associato" />
+      <FieldSwitch label="Cliente Captive" field="cliente_captive" />
+      <FieldSwitch label="Internazionale" field="internazionale" />
+    </div>
+  );
+}
+
+
 export default function ClienteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -847,37 +929,7 @@ export default function ClienteDetail() {
                 <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
-                  <FieldInput label="Zona" field="zona" />
-                  <FieldInput label="Indotto" field="indotto" />
-                  <div>
-                    <Label className="text-xs">Gruppo Finanziario</Label>
-                    {readOnly ? (
-                      <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.descrizione || "—"}</p>
-                    ) : (
-                      <SearchableSelect
-                        className="h-8 text-xs"
-                        value={ef.gruppo_finanziario_id || ""}
-                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-                        placeholder="— Seleziona gruppo —"
-                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                      />
-                    )}
-                  </div>
-                  <FieldInput label="Gruppo Statistico" field="gruppo_statistico" />
-                  <FieldInput label="Attività" field="attivita" />
-                  <FieldInput label="Settore" field="settore" />
-                  <FieldInput label="Azienda Stat." field="azienda_stat" />
-                  <FieldInput label="Contratto" field="contratto" />
-                  <FieldInput label="Matricola" field="matricola" />
-                  <FieldInput label="Riferimento" field="riferimento" />
-                  <FieldInput label="Fatturato" field="fatturato" type="number" />
-                  <FieldInput label="N. Dipendenti" field="num_dipendenti" type="number" />
-                  <FieldInput label="Codice ATECO" field="codice_ateco" />
-                  <FieldSwitch label="Cliente Associato" field="cliente_associato" />
-                  <FieldSwitch label="Cliente Captive" field="cliente_captive" />
-                  <FieldSwitch label="Internazionale" field="internazionale" />
-                </div>
+                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} />
               </AccordionContent>
             </AccordionItem>
 
