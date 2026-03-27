@@ -21,6 +21,8 @@ import { toast } from "sonner";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const [saving, setSaving] = useState(false);
 
   // Form state — Cliente
   const [codiceCliente, setCodiceCliente] = useState("");
