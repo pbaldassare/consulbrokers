@@ -26,6 +26,7 @@ import PremiScopertiGarantitiPage from "@/pages/estrazioni/PremiScopertiGarantit
 import ECClientiPage from "@/pages/estrazioni/ECClientiPage";
 import { BookOpen, ClipboardList, FileCheck, FileUp } from "lucide-react";
 
+
 export const portafoglioRoutes = (
   <>
     <Route path="/titoli" element={<TitoliList />} />

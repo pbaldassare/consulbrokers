@@ -11,8 +11,6 @@ import AnomalieList from "@/pages/AnomalieList";
 import AnomalieKO from "@/pages/AnomalieKO";
 import NotifichePage from "@/pages/NotifichePage";
 import CompagnieList from "@/pages/CompagnieList";
-import CategorieList from "@/pages/CategorieList";
-import ProdottiList from "@/pages/ProdottiList";
 import TemplatePage from "@/pages/TemplatePage";
 import PrivacyConsensi from "@/pages/PrivacyConsensi";
 import ComunicazioniPage from "@/pages/ComunicazioniPage";
