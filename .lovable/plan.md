@@ -1,88 +1,77 @@
 
 
-## Piano: Strutturare i dati specifici RCA Auto
+## Piano: Caricare polizza RCA reale di RENT AND EVENTS SRL con storico movimenti
 
-### Analisi degli screenshot
+### Dati dagli screenshot
 
-La polizza RCA Auto del vecchio sistema ha **3 sezioni aggiuntive** rispetto alle polizze generiche, che attualmente NON esistono nel nostro DB:
+**Polizza**: 332434490 — R.C. AUTOVEICOLI
+- Cliente: RENT AND EVENTS SRL (già presente, ID: `2451d38a-...`)
+- Compagnia: **ASSISA** — ASSISUD DI GREGORIO ANGELO & C. SAS (NON esiste nel DB, va creata)
+- Ramo: RCA AUTO (ID: `fbd5eab1-...`)
+- Gruppo: ZQ / R.C.A.
+- Specialist: GG — GUARRACINO GAETANO (ID: `cf2372e6-...`)
+- Ufficio: Agenzia Napoli (ID: `68506cb3-...`)
+- Descrizione: PASSAT TG. FA637ZA - NICOLA PIROVANO
 
-#### 1. DATI VEICOLO
-| Campo | Esempio |
-|---|---|
-| Settore | Autovetture |
-| Tipo | AUTOVETTURA |
-| Uso | PRIVATO |
-| Marca / Modello / Versione | — (dropdown) |
-| Targa | FT914NM |
-| Veicolo (descrizione) | AUDI A1 GIALLA |
-| Immatricolazione | (data) |
-| Anno Acquisto | N/A |
-| Provincia circolazione | Napoli |
-| Classe B/M | 06 |
-| Massimali (3 campi) | 0, 0, 0 |
-| Peius | (checkbox) |
-| Franchigia | 0,00 |
-| Temporanea / Carico-Scarico / Competizione / Rimorchio | (checkbox) |
-| CV, KW, CC, Posti | 16, 85, 0, 5 |
-| Peso: Mot, Rim, Tot | 0, 0, 0 |
-| Telaio | (text) |
-| Tipologia guida | (dropdown) |
-| Tipo alimentazione | (dropdown) |
+**Periodo (Polizza Base / anno 1)**:
+- Durata: 17/04/2024 → 17/04/2026 (2 anni)
+- Garanzia: 17/04/2024 → 17/04/2025
+- Rate: 1, Tipo rinnovo: Tacito rinnovo, Mora: 15gg, Disdetta: 2mm
 
-#### 2. DATI PREMIO (breakdown per garanzia)
-Righe: RC, Furto/Incendio/Eventi, Tutela Legale, ARD (varie), Kasko/Cristalli, Ass. Stradale, Infortuni + Subtotale, SSN, Tasse, Totale.
-Colonne per riga: Capitale, Tasso, Firma, Rata, Annuo.
+**Importi Firma (anno 1)**:
+- Netto: 417,34 — Add: 196,64 — Tasse: 136,02 — Totale: 750,00 — Provv: 57,48
 
-#### 3. DATI CONDUCENTE
-Nome, Indirizzo, CAP/Citta/Prov, Data nascita, Tipo patente, Data rilascio, Note.
+**Importi Quietanza (anno 2)**:
+- Netto: 447,36 — Add: 196,64 — Tasse: 140,00 — Totale: 784,00 — Provv: 59,44
+
+**2 Movimenti**:
+1. **Polizza Base** — Data 17/04/2024, Eff 17/04/2024, Scad 17/04/2025, Premio 750,00, Provv 57,48, Stato: Rinn (rinnovato)
+2. **Polizza Quietanza** — Data 23/04/2025, Eff 17/04/2025, Scad 17/04/2026, Premio 784,00, Provv 59,44, Stato: da incassare
+
+**Dati Veicolo**:
+- Settore: Autovetture, Tipo: AUTOVETTURA, Uso: PRIVATO
+- Marca: Volkswagen, Modello: Passat V
+- Targa: FA637ZA, Descrizione: PASSAT TG. FA637ZA - NICOLA PIROVANO
+- Provincia: Potenza, Classe B/M: 11
+- CV: 20, KW: 110, CC: 0, Posti: 5
+
+**Premi per Garanzia**:
+| Garanzia | Capitale | Tasso | Firma | Rata | Annuo |
+|---|---|---|---|---|---|
+| RC | — | — | 447,36 | 447,36 | 0 |
+| Furto/Incendio/Eventi | 13000 | 0 | 163,91 | 163,91 | 0 |
+| Tutela Legale | 0 | 0 | 0 | 0 | 0 |
+| ARD (varie) | 0 | 0 | 0 | 0 | 0 |
+| Kasko/Cristalli | 0 | 0 | 0 | 0 | 0 |
+| Ass. Stradale | 0 | 0 | 32,73 | 32,73 | 0 |
+| Infortuni | 0 | 0 | 0 | 0 | 0 |
 
 ### Cosa fare
 
-**1. Nuova tabella DB: `veicoli_polizza`**
-Contiene tutti i dati veicolo legati a un titolo (relazione 1:1 con `titoli`):
-- `id`, `titolo_id` (FK UNIQUE → titoli)
-- `settore` (text: Autovetture, Motocicli, Ciclomotori, Autocarri...)
-- `tipo_veicolo` (text: AUTOVETTURA, MOTOCICLO...)
-- `uso` (text: PRIVATO, PUBBLICO, PROMISCUO...)
-- `marca`, `modello`, `versione`
-- `targa`, `telaio`, `veicolo_descrizione`
-- `data_immatricolazione`, `anno_acquisto`
-- `provincia_circolazione`
-- `classe_bm` (text)
-- `massimale_1`, `massimale_2`, `massimale_3` (numeric)
-- `peius` (boolean), `franchigia` (numeric)
-- `temporanea`, `carico_scarico`, `competizione`, `rimorchio` (boolean)
-- `cv`, `kw`, `cc`, `posti` (integer)
-- `peso_motrice`, `peso_rimorchio`, `peso_totale` (integer)
-- `tipologia_guida`, `tipo_alimentazione` (text)
+**1. Creare compagnia ASSISA**
+- Insert in `compagnie`: codice `ASSISA`, nome `ASSISUD DI GREGORIO ANGELO & C. SAS`
 
-**2. Nuova tabella DB: `premi_garanzia_polizza`**
-Breakdown premi per garanzia (relazione 1:N con `titoli`):
-- `id`, `titolo_id` (FK → titoli)
-- `garanzia` (text: RC, Furto/Incendio/Eventi, Tutela Legale, ARD, Kasko/Cristalli, Ass. Stradale, Infortuni)
-- `capitale`, `tasso`, `firma`, `rata`, `annuo` (numeric)
-- `ordine` (integer, per ordinamento display)
+**2. Inserire il titolo (polizza)**
+- Numero: 332434490, Riga: 0, Appendice: 000
+- Con tutti i dati contratto, periodo, regolazione, importi (firma + quietanza)
+- Cliente: RENT AND EVENTS SRL, Ramo: RCA AUTO, Compagnia: ASSISA
+- Specialist: GUARRACINO GAETANO
 
-**3. Nuova tabella DB: `conducenti_polizza`**
-Dati conducente (relazione 1:1 con `titoli`):
-- `id`, `titolo_id` (FK UNIQUE → titoli)
-- `nome`, `cognome`, `indirizzo`, `cap`, `citta`, `provincia`
-- `data_nascita`, `tipo_patente`, `data_rilascio_patente`
-- `note`
+**3. Inserire 2 movimenti in `movimenti_polizza`**
+- Movimento 1: Polizza Base (anno 1) — premio 750, provvigioni 57,48
+- Movimento 2: Polizza Quietanza (anno 2) — premio 784, provvigioni 59,44
 
-**4. Aggiornare `ImmissionePolizzaPage.tsx`**
-- Quando il ramo selezionato appartiene al gruppo "RCA", mostrare le 3 sezioni aggiuntive (DATI VEICOLO, DATI PREMIO, DATI CONDUCENTE)
-- Al salvataggio, inserire i record nelle 3 nuove tabelle
+**4. Inserire dati veicolo in `veicoli_polizza`**
+- Volkswagen Passat V, targa FA637ZA, classe B/M 11, ecc.
 
-**5. Aggiornare `TitoloDetail.tsx`**
-- Nel dettaglio polizza, se il titolo ha un record in `veicoli_polizza`, mostrare le sezioni DATI VEICOLO / DATI PREMIO / DATI CONDUCENTE
+**5. Inserire premi garanzia in `premi_garanzia_polizza`**
+- 7 righe (RC, Furto/Incendio, Tutela Legale, ARD, Kasko, Ass. Stradale, Infortuni)
 
-**6. Aggiornare `types.ts`**
-- Aggiungere i 3 nuovi tipi Supabase
+### Approccio tecnico
+- Tutto via **migrazione SQL** con un unico file
+- Uso di variabili SQL per gli UUID generati (compagnia, titolo)
+- Nessuna modifica UI necessaria — le sezioni Movimenti, Veicolo e Premi Garanzia sono già implementate in TitoloDetail
 
-### File da modificare
-- **1 migrazione SQL** — crea le 3 tabelle con RLS e indici
-- **`src/pages/ImmissionePolizzaPage.tsx`** — sezioni condizionali RCA + salvataggio
-- **`src/pages/TitoloDetail.tsx`** — visualizzazione dati veicolo/premio/conducente
-- **`src/integrations/supabase/types.ts`** — nuovi tipi
+### File da creare
+- **1 migrazione SQL** — crea compagnia ASSISA + inserisce titolo + 2 movimenti + veicolo + premi garanzia
 
