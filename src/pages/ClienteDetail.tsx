@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import DocumentiTab from "@/components/DocumentiTab";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
@@ -199,6 +200,121 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
             <Button size="sm" onClick={handleSave} disabled={saving}>Salva</Button>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Nominativi Sub-component ── */
+function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnly: boolean }) {
+  const queryClient = useQueryClient();
+  const [nome, setNome] = useState("");
+  const [cognome, setCognome] = useState("");
+  const [emailN, setEmailN] = useState("");
+  const [telefonoN, setTelefonoN] = useState("");
+  const [ruoloN, setRuoloN] = useState("");
+
+  const { data: nominativi = [] } = useQuery({
+    queryKey: ["nominativi_cliente", clienteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("nominativi_cliente" as any)
+        .select("*")
+        .eq("cliente_id", clienteId)
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase.from("nominativi_cliente" as any) as any).insert({
+        cliente_id: clienteId,
+        nome: nome || null,
+        cognome: cognome || null,
+        email: emailN || null,
+        telefono: telefonoN || null,
+        ruolo: ruoloN || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nominativi_cliente", clienteId] });
+      setNome(""); setCognome(""); setEmailN(""); setTelefonoN(""); setRuoloN("");
+      toast.success("Nominativo aggiunto");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("nominativi_cliente" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nominativi_cliente", clienteId] });
+      toast.success("Nominativo rimosso");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-base">Nominativi / Referenti</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {nominativi.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Cognome</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Telefono</TableHead>
+                <TableHead>Ruolo</TableHead>
+                {!readOnly && <TableHead className="w-10" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {nominativi.map((n: any) => (
+                <TableRow key={n.id}>
+                  <TableCell>{n.nome || "—"}</TableCell>
+                  <TableCell>{n.cognome || "—"}</TableCell>
+                  <TableCell>{n.email || "—"}</TableCell>
+                  <TableCell>{n.telefono || "—"}</TableCell>
+                  <TableCell>{n.ruolo || "—"}</TableCell>
+                  {!readOnly && (
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMutation.mutate(n.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        {!readOnly && (
+          <div className="border rounded-md p-3 bg-muted/30">
+            <p className="text-xs font-semibold mb-2">Aggiungi Nominativo</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <Input className="h-8 text-xs" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Cognome" value={cognome} onChange={(e) => setCognome(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Email" value={emailN} onChange={(e) => setEmailN(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Telefono" value={telefonoN} onChange={(e) => setTelefonoN(e.target.value)} />
+              <Input className="h-8 text-xs" placeholder="Ruolo" value={ruoloN} onChange={(e) => setRuoloN(e.target.value)} />
+            </div>
+            <Button size="sm" className="mt-2" onClick={() => addMutation.mutate()} disabled={addMutation.isPending || (!nome && !cognome)}>
+              <Plus className="w-3 h-3 mr-1" />Aggiungi
+            </Button>
+          </div>
+        )}
+        {nominativi.length === 0 && readOnly && (
+          <p className="text-center text-muted-foreground py-4 text-sm">Nessun nominativo presente</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -622,7 +738,7 @@ export default function ClienteDetail() {
                     <FieldInput label="Codice Fiscale" field="codice_fiscale" />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
                     <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
-                    <FieldDisplay label="Indirizzo" value={cliente.indirizzo_residenza} />
+                    <FieldInput label="Indirizzo Residenza" field="indirizzo_residenza" />
                     <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
                     <FieldDisplay label="CAP" value={cliente.cap_residenza} />
                   </>
@@ -632,7 +748,7 @@ export default function ClienteDetail() {
                     <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
                     <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
                     <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
-                    <FieldDisplay label="Sede" value={cliente.indirizzo_sede} />
+                    <FieldInput label="Sede" field="indirizzo_sede" />
                     <FieldDisplay label="Città" value={`${cliente.citta_sede || ""} ${cliente.provincia_sede ? `(${cliente.provincia_sede})` : ""}`} />
                   </>
                 )}
@@ -644,8 +760,45 @@ export default function ClienteDetail() {
                 <FieldInput label="Nazione" field="nazione" />
                 <FieldInput label="Attenzione di" field="attenzione_di" />
               </div>
+              {/* Note */}
+              <div className="mt-4">
+                <Label className="text-xs">Note</Label>
+                {readOnly ? (
+                  <p className="text-sm mt-1 whitespace-pre-wrap">{ef.note || "—"}</p>
+                ) : (
+                  <Textarea className="text-xs" rows={3} value={ef.note || ""} onChange={(e) => updateField("note", e.target.value)} />
+                )}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Indirizzi Aggiuntivi */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Indirizzi Aggiuntivi</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Alternativo</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <FieldInput label="Indirizzo" field="indirizzo_alternativo" />
+                  <FieldInput label="CAP" field="cap_alternativo" />
+                  <FieldInput label="Città" field="citta_alternativa" />
+                  <FieldInput label="Provincia" field="provincia_alternativa" />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Fiscale</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <FieldInput label="Indirizzo" field="indirizzo_fiscale" />
+                  <FieldInput label="CAP" field="cap_fiscale" />
+                  <FieldInput label="Città" field="citta_fiscale" />
+                  <FieldInput label="Provincia" field="provincia_fiscale" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Nominativi */}
+          <NominativiSection clienteId={id!} readOnly={readOnly} />
 
           {/* Accordion sections */}
           <Accordion type="multiple" className="space-y-2">
@@ -697,6 +850,7 @@ export default function ClienteDetail() {
                       />
                     )}
                   </div>
+                  <FieldInput label="Gruppo Statistico" field="gruppo_statistico" />
                   <FieldInput label="Attività" field="attivita" />
                   <FieldInput label="Settore" field="settore" />
                   <FieldInput label="Azienda Stat." field="azienda_stat" />
