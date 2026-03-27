@@ -52,6 +52,82 @@ const emptyRole = (): CommercialRole => ({
   altro_broker_nome: "",
 });
 
+/* ── Dati Statistici sub-component for Create dialog ── */
+function DatiStatisticiCreate(props: {
+  zona: string; setZona: (v: string) => void;
+  indotto: string; setIndotto: (v: string) => void;
+  attivita: string; setAttivita: (v: string) => void;
+  settore: string; setSettore: (v: string) => void;
+  contratto: string; setContratto: (v: string) => void;
+  gruppoFinanziarioId: string; setGruppoFinanziarioId: (v: string) => void;
+  gruppoStatistico: string; setGruppoStatistico: (v: string) => void;
+  fasciaFatturato: string; setFasciaFatturato: (v: string) => void;
+  fasciaDipendenti: string; setFasciaDipendenti: (v: string) => void;
+  aziendaStat: string; setAziendaStat: (v: string) => void;
+  matricola: string; setMatricola: (v: string) => void;
+  riferimento: string; setRiferimento: (v: string) => void;
+  codiceAteco: string; setCodiceAteco: (v: string) => void;
+  clienteAssociato: boolean; setClienteAssociato: (v: boolean) => void;
+  clienteCaptive: boolean; setClienteCaptive: (v: boolean) => void;
+  internazionale: boolean; setInternazionale: (v: boolean) => void;
+  gruppiFinanziari: any[];
+}) {
+  const { data: zoneOpts = [] } = useLookupZone();
+  const { data: indottiOpts = [] } = useLookupIndotti();
+  const { data: attivitaOpts = [] } = useLookupAttivita();
+  const { data: settoriOpts = [] } = useLookupSettori();
+  const { data: contrattiOpts = [] } = useLookupContratti();
+  const { data: fasceFatturatoOpts = [] } = useLookupFasceFatturato();
+  const { data: fasceDipendentiOpts = [] } = useLookupFasceDipendenti();
+  const { data: gruppiStatOpts = [] } = useGruppiStatistici();
+
+  const p = props;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Gruppo Finanziario</Label>
+          <SearchableSelect
+            value={p.gruppoFinanziarioId}
+            onValueChange={p.setGruppoFinanziarioId}
+            placeholder="— Seleziona gruppo finanziario —"
+            options={p.gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Gruppo Statistico</Label>
+          <SearchableSelect value={p.gruppoStatistico} onValueChange={p.setGruppoStatistico} placeholder="— Seleziona —" options={gruppiStatOpts} />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label className="text-xs">Zona</Label><SearchableSelect value={p.zona} onValueChange={p.setZona} placeholder="— Seleziona —" options={zoneOpts} /></div>
+        <div><Label className="text-xs">Indotto</Label><SearchableSelect value={p.indotto} onValueChange={p.setIndotto} placeholder="— Seleziona —" options={indottiOpts} /></div>
+        <div><Label className="text-xs">Attività</Label><SearchableSelect value={p.attivita} onValueChange={p.setAttivita} placeholder="— Seleziona —" options={attivitaOpts} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label className="text-xs">Settore</Label><SearchableSelect value={p.settore} onValueChange={p.setSettore} placeholder="— Seleziona —" options={settoriOpts} /></div>
+        <div><Label className="text-xs">Azienda Stat.</Label><Input value={p.aziendaStat} onChange={(e) => p.setAziendaStat(e.target.value)} /></div>
+        <div><Label className="text-xs">Contratto</Label><SearchableSelect value={p.contratto} onValueChange={p.setContratto} placeholder="— Seleziona —" options={contrattiOpts} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><Label className="text-xs">Matricola</Label><Input value={p.matricola} onChange={(e) => p.setMatricola(e.target.value)} /></div>
+        <div><Label className="text-xs">Riferimento</Label><Input value={p.riferimento} onChange={(e) => p.setRiferimento(e.target.value)} /></div>
+        <div><Label className="text-xs">Codice ATECO</Label><Input value={p.codiceAteco} onChange={(e) => p.setCodiceAteco(e.target.value)} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">Fascia Fatturato</Label><SearchableSelect value={p.fasciaFatturato} onValueChange={p.setFasciaFatturato} placeholder="— Seleziona —" options={fasceFatturatoOpts} /></div>
+        <div><Label className="text-xs">Fascia Dipendenti</Label><SearchableSelect value={p.fasciaDipendenti} onValueChange={p.setFasciaDipendenti} placeholder="— Seleziona —" options={fasceDipendentiOpts} /></div>
+      </div>
+      <div className="flex flex-wrap gap-6">
+        <div className="flex items-center gap-2"><Switch checked={p.clienteAssociato} onCheckedChange={p.setClienteAssociato} /><Label className="text-xs">Cliente Associato</Label></div>
+        <div className="flex items-center gap-2"><Switch checked={p.clienteCaptive} onCheckedChange={p.setClienteCaptive} /><Label className="text-xs">Cliente Captive</Label></div>
+        <div className="flex items-center gap-2"><Switch checked={p.internazionale} onCheckedChange={p.setInternazionale} /><Label className="text-xs">Internazionale</Label></div>
+      </div>
+    </div>
+  );
+}
+
 const ClientiList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
