@@ -276,17 +276,52 @@ const ClientiList = () => {
     scannedFilesRef.current = [];
   }, []);
 
-  const { data: clienti = [], isLoading } = useQuery({
-    queryKey: ["clienti"],
+  const { data: clientiResult, isLoading } = useQuery({
+    queryKey: ["clienti", tipoTab, debouncedSearch, sortBy, page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("clienti")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .eq("tipo_cliente", tipoTab);
+
+      // Server-side search
+      if (debouncedSearch) {
+        const s = `%${debouncedSearch}%`;
+        if (tipoTab === "privato") {
+          query = query.or(
+            `nome.ilike.${s},cognome.ilike.${s},codice_fiscale.ilike.${s},email.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},telefono.ilike.${s}`
+          );
+        } else {
+          query = query.or(
+            `ragione_sociale.ilike.${s},partita_iva.ilike.${s},codice_fiscale_azienda.ilike.${s},email.ilike.${s},pec.ilike.${s},citta_sede.ilike.${s},telefono.ilike.${s}`
+          );
+        }
+      }
+
+      // Server-side sorting
+      if (sortBy === "cognome") {
+        if (tipoTab === "privato") {
+          query = query.order("cognome", { ascending: true, nullsFirst: false });
+        } else {
+          query = query.order("ragione_sociale", { ascending: true, nullsFirst: false });
+        }
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
+
+      // Pagination
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data;
+      return { data: data || [], totalCount: count || 0 };
     },
   });
+
+  const clienti = clientiResult?.data || [];
+  const totalCount = clientiResult?.totalCount || 0;
 
 
   const { data: gruppiFinanziari = [] } = useQuery({
