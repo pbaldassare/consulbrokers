@@ -443,6 +443,54 @@ const ImmissionePolizzaPage = () => {
         ufficio_id: profile?.ufficio_id || null,
       } as any);
 
+      // Save RCA data if applicable
+      if (isRCA) {
+        await supabase.from("veicoli_polizza").insert({
+          titolo_id: newTitolo.id,
+          settore: vSettore || null, tipo_veicolo: vTipoVeicolo || null, uso: vUso || null,
+          marca: vMarca || null, modello: vModello || null, versione: vVersione || null,
+          targa: vTarga || null, telaio: vTelaio || null, veicolo_descrizione: vDescrizione || null,
+          data_immatricolazione: vDataImmatricolazione || null,
+          anno_acquisto: vAnnoAcquisto ? parseInt(vAnnoAcquisto) : null,
+          provincia_circolazione: vProvinciaCircolazione || null,
+          classe_bm: vClasseBm || null,
+          massimale_1: parseFloat(vMass1) || 0, massimale_2: parseFloat(vMass2) || 0, massimale_3: parseFloat(vMass3) || 0,
+          peius: vPeius, franchigia: parseFloat(vFranchigia) || 0,
+          temporanea: vTemporanea, carico_scarico: vCaricoScarico, competizione: vCompetizione, rimorchio: vRimorchio,
+          cv: parseInt(vCv) || 0, kw: parseInt(vKw) || 0, cc: parseInt(vCc) || 0, posti: parseInt(vPosti) || 0,
+          peso_motrice: parseInt(vPesoMotrice) || 0, peso_rimorchio: parseInt(vPesoRimorchio) || 0, peso_totale: parseInt(vPesoTotale) || 0,
+          tipologia_guida: vTipologiaGuida || null, tipo_alimentazione: vTipoAlimentazione || null,
+        } as any);
+
+        // Premi garanzia
+        const premiRows = premiGaranzia.filter(p => parseFloat(p.firma || "0") > 0 || parseFloat(p.rata || "0") > 0 || parseFloat(p.annuo || "0") > 0);
+        if (premiRows.length > 0) {
+          await supabase.from("premi_garanzia_polizza").insert(
+            premiRows.map(p => ({
+              titolo_id: newTitolo.id,
+              garanzia: p.garanzia,
+              capitale: parseFloat(p.capitale || "0"),
+              tasso: parseFloat(p.tasso || "0"),
+              firma: parseFloat(p.firma || "0"),
+              rata: parseFloat(p.rata || "0"),
+              annuo: parseFloat(p.annuo || "0"),
+              ordine: p.ordine,
+            })) as any
+          );
+        }
+
+        // Conducente
+        if (cNome || cCognome) {
+          await supabase.from("conducenti_polizza").insert({
+            titolo_id: newTitolo.id,
+            nome: cNome || null, cognome: cCognome || null,
+            indirizzo: cIndirizzo || null, cap: cCap || null, citta: cCitta || null, provincia: cProvincia || null,
+            data_nascita: cDataNascita || null, tipo_patente: cTipoPatente || null,
+            data_rilascio_patente: cDataRilascioPatente || null, note: cNote || null,
+          } as any);
+        }
+      }
+
       toast.success("Polizza registrata con successo");
       navigate(`/titoli/${newTitolo.id}`);
     } catch (err: any) {
@@ -940,6 +988,175 @@ const ImmissionePolizzaPage = () => {
           <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
         </div>
       </fieldset>
+
+      {/* === SEZIONI RCA AUTO === */}
+      {isRCA && (
+        <>
+          {/* DATI VEICOLO */}
+          <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">🚗 Dati Veicolo</legend>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Settore</Label>
+                <SearchableSelect className="h-8 text-xs" value={vSettore} onValueChange={setVSettore} placeholder="—"
+                  options={["Autovetture","Motocicli","Ciclomotori","Autocarri","Macchine Agricole","Macchine Operatrici","Rimorchi","Natanti"].map(v => ({ value: v, label: v }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo Veicolo</Label>
+                <SearchableSelect className="h-8 text-xs" value={vTipoVeicolo} onValueChange={setVTipoVeicolo} placeholder="—"
+                  options={["AUTOVETTURA","MOTOCICLO","CICLOMOTORE","AUTOCARRO","AUTOBUS","RIMORCHIO","MACCHINA AGRICOLA","MACCHINA OPERATRICE"].map(v => ({ value: v, label: v }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Uso</Label>
+                <SearchableSelect className="h-8 text-xs" value={vUso} onValueChange={setVUso} placeholder="—"
+                  options={["PRIVATO","PUBBLICO","PROMISCUO","PROPRIO","TERZI","NOLEGGIO"].map(v => ({ value: v, label: v }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Provincia Circolazione</Label>
+                <Input value={vProvinciaCircolazione} onChange={(e) => setVProvinciaCircolazione(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Marca</Label>
+                <Input value={vMarca} onChange={(e) => setVMarca(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Modello</Label>
+                <Input value={vModello} onChange={(e) => setVModello(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Versione</Label>
+                <Input value={vVersione} onChange={(e) => setVVersione(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Targa</Label>
+                <Input value={vTarga} onChange={(e) => setVTarga(e.target.value.toUpperCase())} className="h-8 text-xs font-mono" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Veicolo (descrizione)</Label>
+                <Input value={vDescrizione} onChange={(e) => setVDescrizione(e.target.value)} placeholder="es. AUDI A1 GIALLA" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Telaio</Label>
+                <Input value={vTelaio} onChange={(e) => setVTelaio(e.target.value)} className="h-8 text-xs font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Classe B/M</Label>
+                <Input value={vClasseBm} onChange={(e) => setVClasseBm(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Immatricolazione</Label>
+                <Input type="date" value={vDataImmatricolazione} onChange={(e) => setVDataImmatricolazione(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Anno Acquisto</Label>
+                <Input type="number" value={vAnnoAcquisto} onChange={(e) => setVAnnoAcquisto(e.target.value)} className="h-8 text-xs" />
+              </div>
+            </div>
+            {/* Massimali */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5"><Label className="text-xs">Massimale 1</Label><Input type="number" step="0.01" value={vMass1} onChange={(e) => setVMass1(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Massimale 2</Label><Input type="number" step="0.01" value={vMass2} onChange={(e) => setVMass2(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Massimale 3</Label><Input type="number" step="0.01" value={vMass3} onChange={(e) => setVMass3(e.target.value)} className="h-8 text-xs font-mono" /></div>
+            </div>
+            {/* Flags */}
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {[
+                { id: "v-peius", label: "Peius", checked: vPeius, onChange: setVPeius },
+                { id: "v-temporanea", label: "Temporanea", checked: vTemporanea, onChange: setVTemporanea },
+                { id: "v-caricoscarico", label: "Carico/Scarico", checked: vCaricoScarico, onChange: setVCaricoScarico },
+                { id: "v-competizione", label: "Competizione", checked: vCompetizione, onChange: setVCompetizione },
+                { id: "v-rimorchio", label: "Rimorchio", checked: vRimorchio, onChange: setVRimorchio },
+              ].map((flag) => (
+                <div key={flag.id} className="flex items-center gap-1.5">
+                  <Checkbox id={flag.id} checked={flag.checked} onCheckedChange={(v) => flag.onChange(v === true)} />
+                  <Label htmlFor={flag.id} className="font-normal cursor-pointer text-xs">{flag.label}</Label>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5"><Label className="text-xs">Franchigia</Label><Input type="number" step="0.01" value={vFranchigia} onChange={(e) => setVFranchigia(e.target.value)} className="h-8 text-xs font-mono w-40" /></div>
+            {/* Dati tecnici */}
+            <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
+              <div className="space-y-1.5"><Label className="text-xs">CV</Label><Input type="number" value={vCv} onChange={(e) => setVCv(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">KW</Label><Input type="number" value={vKw} onChange={(e) => setVKw(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">CC</Label><Input type="number" value={vCc} onChange={(e) => setVCc(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Posti</Label><Input type="number" value={vPosti} onChange={(e) => setVPosti(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Peso Mot.</Label><Input type="number" value={vPesoMotrice} onChange={(e) => setVPesoMotrice(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Peso Rim.</Label><Input type="number" value={vPesoRimorchio} onChange={(e) => setVPesoRimorchio(e.target.value)} className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Peso Tot.</Label><Input type="number" value={vPesoTotale} onChange={(e) => setVPesoTotale(e.target.value)} className="h-8 text-xs font-mono" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipologia Guida</Label>
+                <SearchableSelect className="h-8 text-xs" value={vTipologiaGuida} onValueChange={setVTipologiaGuida} placeholder="—"
+                  options={["Libera","Esperta","Esclusiva"].map(v => ({ value: v, label: v }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo Alimentazione</Label>
+                <SearchableSelect className="h-8 text-xs" value={vTipoAlimentazione} onValueChange={setVTipoAlimentazione} placeholder="—"
+                  options={["Benzina","Diesel","GPL","Metano","Ibrido","Elettrico"].map(v => ({ value: v, label: v }))} />
+              </div>
+            </div>
+          </fieldset>
+
+          {/* DATI PREMIO PER GARANZIA */}
+          <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">💰 Dati Premio per Garanzia</legend>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-48">Garanzia</th>
+                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Capitale</th>
+                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Tasso</th>
+                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Firma</th>
+                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Rata</th>
+                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Annuo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {premiGaranzia.map((pg, idx) => (
+                    <tr key={pg.garanzia} className="border-b border-border/50">
+                      <td className="py-1 px-2 font-medium text-foreground">{pg.garanzia}</td>
+                      {(["capitale", "tasso", "firma", "rata", "annuo"] as const).map((col) => (
+                        <td key={col} className="py-1 px-1">
+                          <Input type="number" step="0.01" value={(pg as any)[col]}
+                            onChange={(e) => {
+                              const updated = [...premiGaranzia];
+                              (updated[idx] as any)[col] = e.target.value;
+                              setPremiGaranzia(updated);
+                            }}
+                            className="h-7 text-xs font-mono text-right w-24" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </fieldset>
+
+          {/* DATI CONDUCENTE */}
+          <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">👤 Dati Conducente</legend>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5 col-span-2"><Label className="text-xs">Indirizzo</Label><Input value={cIndirizzo} onChange={(e) => setCIndirizzo(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">CAP</Label><Input value={cCap} onChange={(e) => setCCap(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Città</Label><Input value={cCitta} onChange={(e) => setCCitta(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Provincia</Label><Input value={cProvincia} onChange={(e) => setCProvincia(e.target.value)} className="h-8 text-xs w-20" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Data Nascita</Label><Input type="date" value={cDataNascita} onChange={(e) => setCDataNascita(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo Patente</Label>
+                <SearchableSelect className="h-8 text-xs" value={cTipoPatente} onValueChange={setCTipoPatente} placeholder="—"
+                  options={["AM","A1","A2","A","B","BE","C","CE","D","DE"].map(v => ({ value: v, label: v }))} />
+              </div>
+              <div className="space-y-1.5"><Label className="text-xs">Data Rilascio Patente</Label><Input type="date" value={cDataRilascioPatente} onChange={(e) => setCDataRilascioPatente(e.target.value)} className="h-8 text-xs" /></div>
+              <div className="space-y-1.5 col-span-2"><Label className="text-xs">Note</Label><Input value={cNote} onChange={(e) => setCNote(e.target.value)} className="h-8 text-xs" /></div>
+            </div>
+          </fieldset>
+        </>
+      )}
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
