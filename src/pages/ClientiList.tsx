@@ -493,7 +493,10 @@ const ClientiList = () => {
         (c.nome?.toLowerCase().includes(s)) ||
         (c.cognome?.toLowerCase().includes(s)) ||
         (c.codice_fiscale?.toLowerCase().includes(s)) ||
-        (c.email?.toLowerCase().includes(s))
+        (c.email?.toLowerCase().includes(s)) ||
+        (c.citta_residenza?.toLowerCase().includes(s)) ||
+        (c.citta_sede?.toLowerCase().includes(s)) ||
+        (c.telefono?.toLowerCase().includes(s))
       );
     }
     return (
@@ -501,7 +504,9 @@ const ClientiList = () => {
       (c.partita_iva?.toLowerCase().includes(s)) ||
       (c.codice_fiscale_azienda?.toLowerCase().includes(s)) ||
       (c.email?.toLowerCase().includes(s)) ||
-      (c.pec?.toLowerCase().includes(s))
+      (c.pec?.toLowerCase().includes(s)) ||
+      (c.citta_sede?.toLowerCase().includes(s)) ||
+      (c.telefono?.toLowerCase().includes(s))
     );
   });
 
