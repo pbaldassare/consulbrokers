@@ -1,47 +1,49 @@
 
 
-## Piano: Importare Corrispondenti dall'Excel in anagrafiche_professionali
+## Piano: Importare Account Executive dall'Excel come `responsabile_sede`
 
-### Situazione attuale
-- La tabella `anagrafiche_professionali` contiene ~267 record fake di tipo `corrispondente` (creati dal seed)
-- L'Excel `Corrispondenti_1.xlsx` contiene ~267 corrispondenti reali con 20 colonne
-- Tutti i campi dell'Excel mappano a colonne esistenti — nessuna migrazione DB necessaria
+### Dati Excel
+Il file `AccountExecutive-2.xlsx` contiene ~180 righe con 13 colonne. La maggior parte ha solo Codice, Descrizione e eventualmente A=Ann. Alcuni hanno dati bancari, RUI, telefono, mail e sigla.
 
-### Step 1 — Svuotare i corrispondenti fake
+### Mappatura colonne
 
-Eliminare tutti i record con `tipo = 'corrispondente'` dalla tabella `anagrafiche_professionali` (DELETE via insert tool). Prima verificare che non ci siano FK dipendenti (es. `codici_commerciali`, `sinistri`, `titoli` che referenziano questi record) e nullificarle se necessario.
+| Excel | DB (`anagrafiche_professionali`) |
+|-------|----------------------------------|
+| `Codice` | `codice` |
+| `Descrizione` | `ragione_sociale` |
+| `Telefono` | `telefono` |
+| `Mail` | `email` |
+| `Sigla` | `sigla` |
+| `Banca (1 riga)` | `banca_riga1` |
+| `Banca (2 riga)` | `banca_riga2` |
+| `Banca (3 riga)` | `banca_riga3` |
+| `Nome Rui` | `nome_rui` |
+| `Iscr Rui` | `iscrizione_rui` |
+| `Numero Rui` | `numero_rui` |
+| `Sez. Rui` | `sezione_rui` |
+| `A=Ann` | `annullato` (true se "A") → `attivo = false` |
 
-### Step 2 — Importare i corrispondenti dall'Excel
+Tutti i campi esistono gia nel DB. **Nessuna migrazione necessaria.**
 
-Script Python che:
-1. Legge l'Excel con pandas
-2. Mappa le colonne:
-   - `A=Ann` → `annullato` (true se "A", altrimenti false); se annullato → `attivo = false`
-   - `Cod` → `codice`
-   - `Descrizione` → `ragione_sociale`
-   - `Azienda o Cognome` → `cognome`
-   - `Segue o Nome` → `nome`
-   - `Indirizzo` → `indirizzo`
-   - `Località` → `citta`
-   - `Prov` → `provincia`
-   - `Cap` → `cap`
-   - `%Base` → `percentuale_base`
-   - `Cd For` → `codice_fornitore`
-   - `%Ra` → `percentuale_ra`
-   - `Tel` → `telefono`, `Fax` → `fax`, `Mail` → `email`
-   - `Rui` → `numero_rui`
-   - `Abi` → `abi`, `Cab` → `cab`, `Iban` → `iban`
-   - `IntestatarioCC` → `intestatario_cc`
-3. Imposta `tipo = 'corrispondente'` per tutti
-4. Inserisce nel DB via psql/edge function
+### Step 1 — Svuotare i fake `responsabile_sede`
 
-### Step 3 — Verificare i conteggi
+- Nullificare eventuali FK in `codici_commerciali_cliente.profilo_id` che puntano a record `tipo = 'responsabile_sede'`
+- DELETE da `anagrafiche_professionali` WHERE `tipo = 'responsabile_sede'`
 
-Controllare che il numero di record inseriti corrisponda alle righe dell'Excel e che il tab "Corrispondenti" in Anagrafiche Professionali mostri i dati corretti.
+### Step 2 — Importare dall'Excel
+
+- Script Python che legge l'Excel con pandas
+- Mappa le colonne come sopra, imposta `tipo = 'responsabile_sede'` per tutti
+- Valori vuoti → null
+- `A=Ann = "A"` → `annullato = true`, `attivo = false`; altrimenti `annullato = false`, `attivo = true`
+- Invio dati via edge function (riutilizzando lo stesso pattern di `import-corrispondenti`, adattato per il tipo `responsabile_sede`)
+
+### Step 3 — Verificare conteggi
+
+Controllare che i record inseriti corrispondano alle righe dell'Excel.
 
 ### Dettagli tecnici
-- Nessuna migrazione DB necessaria
-- Import via edge function `import-compagnie` (riutilizzata/adattata) o script Python diretto con psql
-- I valori vuoti saranno trattati come null
-- Il campo `attivo` sarà `false` se `A=Ann` contiene "A", altrimenti `true`
+- Edge function: creare `import-responsabili-sede` (o riutilizzare `import-corrispondenti` generalizzandola con un parametro `tipo`)
+- Batch insert da 50
+- Nessuna migrazione DB
 
