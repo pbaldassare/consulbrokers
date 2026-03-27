@@ -304,6 +304,16 @@ const ClientiList = () => {
         fax: fax || null,
         nazione: nazione || null,
         attenzione_di: attenzioneDi || null,
+        note: note || null,
+        // Indirizzi aggiuntivi
+        indirizzo_alternativo: indirizzoAlternativo || null,
+        cap_alternativo: capAlternativo || null,
+        citta_alternativa: cittaAlternativa || null,
+        provincia_alternativa: provinciaAlternativa || null,
+        indirizzo_fiscale: indirizzoFiscale || null,
+        cap_fiscale: capFiscale || null,
+        citta_fiscale: cittaFiscale || null,
+        provincia_fiscale: provinciaFiscale || null,
         // Statistici
         zona: zona || null,
         indotto: indotto || null,
@@ -319,6 +329,7 @@ const ClientiList = () => {
         cliente_associato: clienteAssociato,
         cliente_captive: clienteCaptive,
         internazionale: internazionale,
+        gruppo_statistico: gruppoStatistico || null,
         // Contabili
         fido_credito: fidoCredito ? parseFloat(fidoCredito) : null,
         fido_cauzioni: fidoCauzioni ? parseFloat(fidoCauzioni) : null,
@@ -385,11 +396,13 @@ const ClientiList = () => {
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
     setTipoSommario(""); setClienteNonCeduto(false); setAziendaSsnSx(false);
     setStatisticaPremiSinistri(false); setSpecSxDanni(""); setSpecSxSanita("");
-    setCellulare(""); setFax(""); setNazione(""); setAttenzioneDi("");
+    setCellulare(""); setFax(""); setNazione(""); setAttenzioneDi(""); setNote("");
+    setIndirizzoAlternativo(""); setCapAlternativo(""); setCittaAlternativa(""); setProvinciaAlternativa("");
+    setIndirizzoFiscale(""); setCapFiscale(""); setCittaFiscale(""); setProvinciaFiscale("");
     // Statistici
     setZona(""); setIndotto(""); setAttivita(""); setSettore("");
     setAziendaStat(""); setContratto(""); setMatricola(""); setRiferimento("");
-    setFatturato(""); setNumDipendenti(""); setCodiceAteco("");
+    setFatturato(""); setNumDipendenti(""); setCodiceAteco(""); setGruppoStatistico("");
     setClienteAssociato(false); setClienteCaptive(false); setInternazionale(false);
     // Contabili
     setFidoCredito(""); setFidoCauzioni("");
