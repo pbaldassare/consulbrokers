@@ -152,6 +152,7 @@ function dbToForm(c: any): CompagniaForm {
     tipo_pagamento: c.tipo_pagamento || "",
     percentuale_ra: c.percentuale_ra != null ? String(c.percentuale_ra) : "",
     gruppo_compagnia: c.gruppo_compagnia || "",
+    gruppo_compagnia_id: c.gruppo_compagnia_id || "",
     tipo_mandatario: c.tipo_mandatario || "",
     gruppo_statistico: c.gruppo_statistico || "",
     iban: c.iban || "",
