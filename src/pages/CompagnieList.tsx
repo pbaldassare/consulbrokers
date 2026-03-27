@@ -395,6 +395,19 @@ function CompagniaFormDialog({
   const setField = (key: keyof CompagniaForm, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const { data: gruppiCompagnia = [] } = useQuery({
+    queryKey: ["gruppi_compagnia_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, descrizione")
+        .eq("attivo", true)
+        .order("descrizione");
+      return (data || []).map((g: any) => ({ value: g.id, label: g.descrizione }));
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
   const renderField = (label: string, field: keyof CompagniaForm, placeholder?: string, className?: string) => (
     <div className={`space-y-1 ${className || ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
