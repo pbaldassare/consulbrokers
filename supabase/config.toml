@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.import-corrispondenti]
 verify_jwt = false
+
+[functions.import-clienti]
+verify_jwt = false
