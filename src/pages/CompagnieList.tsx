@@ -717,7 +717,7 @@ const CompagnieList = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Compagnie</h1>
-          <p className="text-muted-foreground">Gestione compagnie, sedi, prodotti e provvigioni</p>
+          <p className="text-muted-foreground">Gestione compagnie, sedi, prodotti e provvigioni — <span className="font-semibold">{compagnie.length}</span> compagnie totali</p>
         </div>
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
           <DialogTrigger asChild>
