@@ -1,61 +1,120 @@
 
 
-## Piano: Creare la pagina Sitemap (organigramma ruoli e privilegi)
+## Piano: Aggiungere descrizioni alle pagine nella Mappa delle Sezioni
 
-### Obiettivo
-Creare una pagina visuale `/sitemap` accessibile solo agli admin che mostra l'organigramma completo del sistema: ruoli, gerarchie, permessi, e tutte le sezioni/pagine raggruppate per area con indicazione di chi vi accede.
+### Modifica
+Aggiungere un campo `descrizione` a ogni voce `pagina` nell'array `sezioni` di `SitemapPage.tsx`, e mostrarlo sotto il nome della pagina nel componente `SezioneCard`.
 
-### Struttura della pagina
+### Descrizioni per ogni sezione
 
-La pagina sarà organizzata in 3 sezioni principali:
+**Home**
+- Dashboard: Pannello principale con KPI, grafici e feed attivita in tempo reale, profilato per ruolo
 
-**Sezione 1 — Gerarchia Ruoli** (cards colorate con icone)
-Piramide visiva dei 7 ruoli del sistema, ognuno con una card che descrive mansioni e accessi:
+**Archivi**
+- Clienti: Lista unificata di tutti i clienti (privati, aziende, enti) con ricerca avanzata multi-campo
+- Dettaglio Cliente: Scheda completa del cliente con dati anagrafici, polizze, sinistri, documenti e timeline
+- Anagrafiche Professionali: Gestione periti, medici, legali, carrozzerie e altri professionisti collegati
 
-| Ruolo | Livello | Descrizione |
-|-------|---------|-------------|
-| **Admin** | 1 (top) | Accesso totale. Gestione utenti, sedi, compagnie, tabelle base, backup, manutenzione, template, impostazioni. Tutti i permessi sono implicitamente attivi. |
-| **CFO** | 2 | Area finanziaria e contabilità generale. Piano dei conti, primanota, scadenziario, elaborazioni periodiche/annuali, dichiarativi, import bancario, anomalie sistema. |
-| **Ufficio** | 2 | Gestione operativa della sede. Clienti, portafoglio, sinistri, contabilità ufficio, impostazioni sede, template email. Visibilità su tutti i dati della sede assegnata. |
-| **Contabilità** | 3 | Contabilità ufficio: incassi, distinta giornaliera, quadratura premi, chiusura contabile, E/C clienti/compagnie/produttori, FatturaPA. |
-| **Produttore** | 3 | Visibilità limitata alla propria produzione. Dashboard, prospect, trattative, portafoglio proprio, provvigioni proprie. |
-| **Backoffice** | 3 | Supporto operativo. Gestione clienti, polizze, sinistri, comunicazioni. Opera come Specialist/Executive sui clienti assegnati. |
-| **Cliente** | 4 (esterno) | Portale dedicato separato. Vede solo le proprie polizze, documenti, scadenze, sinistri, pagamenti. Nessun accesso al gestionale interno. |
+**Prospect & Trattative**
+- Lista Prospect: Elenco contatti potenziali non ancora clienti, con stato e assegnazione
+- Dettaglio Prospect: Scheda del prospect con storico contatti e conversione a cliente
+- Trattative: Pipeline commerciale con preventivi, stato negoziazione e conversione
 
-**Sezione 2 — Mappa delle Sezioni** (griglia di card espandibili)
-Ogni area del sistema con le sue pagine e i ruoli che vi accedono:
+**Portafoglio**
+- Lista Portafoglio: Vista complessiva di tutte le polizze attive, scadute e in lavorazione
+- Dettaglio Portafoglio: Scheda polizza con garanzie, premi, movimenti e documenti allegati
+- Gestione Polizze: Operazioni massive su polizze (filtri avanzati, azioni batch)
+- Immissione Polizza: Inserimento nuova polizza con wizard guidato
+- Rinnovi: Gestione rinnovi in scadenza con conferma o modifica condizioni
+- Storno Polizza: Annullamento polizza con calcolo rateo e generazione documentazione
+- Sospensione Polizza: Sospensione temporanea copertura con date e motivazione
+- Riattivazione Polizza: Ripristino polizza precedentemente sospesa
+- Appendici Polizza: Modifica condizioni polizza in corso (variazioni, integrazioni)
+- Duplicazione Polizza: Copia polizza esistente come base per nuova emissione
+- Conferma Emittende: Conferma emissione polizze in attesa di validazione
+- Titoli: Gestione titoli di incasso (quietanze, ricevute) collegati alle polizze
 
-- Home / Dashboard
-- Archivi (Clienti, Anagrafiche)
-- Prospect / Trattative
-- Portafoglio (9 sotto-pagine)
-- Sinistri (5 sotto-pagine)
-- Contabilità (12 sotto-pagine)
-- Cont. Generale (9 sotto-pagine)
-- FatturaPA (4 sotto-pagine)
-- Sistema (10 sotto-pagine, admin only)
-- Area CFO, Provvigioni, Rimessa Premi
-- Portale Cliente (9 pagine, ruolo cliente)
+**Sinistri**
+- Lista Sinistri: Elenco sinistri con filtri per stato, data, compagnia e tipo
+- Dettaglio Sinistro: Scheda sinistro con cronologia, perizie, documenti e liquidazioni
+- Analisi Preventivo RCA: Strumento di analisi e simulazione preventivi RC Auto
+- Doc Precontrattuale: Generazione documentazione precontrattuale obbligatoria
 
-Ogni pagina mostra i ruoli autorizzati con badge colorati.
+**Contabilita Ufficio**
+- Contabilita Ufficio: Pannello principale contabilita della sede con riepilogo movimenti
+- Cruscotto Giornaliero: Situazione contabile del giorno con incassi e sospesi
+- Distinta Giornaliera: Distinta di cassa giornaliera con dettaglio operazioni e chiusura
+- Quadratura Premi: Verifica corrispondenza tra premi incassati e premi dovuti
+- Chiusura Contabile: Chiusura periodo contabile con generazione report
+- E/C Clienti: Estratto conto per singolo cliente con saldo e movimenti
+- E/C Compagnia: Estratto conto verso compagnia con premi e provvigioni
+- E/C Produttori: Estratto conto produttore con provvigioni maturate e liquidate
+- Import Provvigioni: Importazione file provvigioni da compagnie (PDF/Excel)
+- Diff. Provvigioni: Analisi differenze tra provvigioni attese e ricevute
+- Report IVA: Report IVA periodico per adempimenti fiscali
 
-**Sezione 3 — Permessi JSON** (tabella riassuntiva)
-Lista di tutte le chiavi `permessi_json` e a quali sezioni corrispondono:
-`dashboard`, `titoli`, `sinistri`, `contabilita`, `cfo_area`, `impostazioni`, `provvigioni`, `rimessa_premi`
+**Contabilita Generale**
+- Piano dei Conti: Struttura gerarchica conti e centri di costo
+- Primanota Generale: Registrazione movimenti contabili generali
+- Scadenziario: Scadenze pagamenti fornitori e incassi attesi
+- Clienti Contabilita: Anagrafica clienti ai fini della contabilita generale
+- Elaborazioni Periodiche: Bilancini, situazioni patrimoniali ed economiche periodiche
+- Elaborazioni Annuali: Bilancio annuale e chiusura esercizio
+- Dichiarativi CU: Generazione Certificazioni Uniche per collaboratori
+- Fornitori: Anagrafica fornitori con dati fiscali e contabili
+- Import Bancario: Importazione e riconciliazione movimenti bancari
 
-### Dettagli tecnici
+**Estrazioni & Stampe**
+- Estrazioni e Stampe: Hub centrale per report e stampe personalizzate
+- Portafoglio per Cliente: Estrazione portafoglio raggruppato per cliente
+- Portafoglio per Compagnia: Estrazione portafoglio raggruppato per compagnia
+- Premi e Provvigioni: Report premi e provvigioni con filtri temporali e per compagnia
+- Premi Scoperti/Garantiti: Analisi premi scoperti vs garantiti per valutazione rischio
+- E/C Clienti (Estrazioni): Estratti conto clienti in formato esportabile
 
-**File da creare:**
-- `src/pages/SitemapPage.tsx` — componente React con layout a card, griglia responsive, badge colorati per ruolo, sezioni collapsibili
+**Sistema**
+- Impostazioni: Configurazione parametri generali del sistema e della sede
+- Crea Utente: Creazione nuovo utente con assegnazione ruolo e sede
+- Gestione Utenti: Lista utenti con modifica ruoli, permessi e stato attivazione
+- Anomalie Sistema: Monitoraggio anomalie, errori e incongruenze nei dati
+- Backup & Export: Esportazione dati e backup del database
+- Manutenzione: Operazioni di manutenzione tecnica del sistema
+- Tabelle di Base: Gestione tabelle di lookup (rami, zone, indotti, settori, ecc.)
+- Compagnie: Anagrafica compagnie assicurative con categorie e prodotti
+- Gestione Sedi: Configurazione sedi operative dell'agenzia
+- Template Email: Modelli email personalizzabili per comunicazioni automatiche
+- Sitemap: Questa pagina — organigramma ruoli e mappa funzionale
 
-**File da modificare:**
-- `src/routes/sistema.tsx` — aggiungere route `/sitemap` con `RoleGuard allowedRoles={["admin"]}`
-- `src/components/AppSidebar.tsx` — aggiungere voce "Sitemap" nel gruppo Sistema con icona `Map`
+**Altre Funzioni**
+- Area CFO: Cruscotto finanziario con indicatori economici aggregati
+- Provvigioni Sede: Gestione provvigioni per sede con dettaglio per compagnia e ramo
+- Pagamenti Provvigioni: Registrazione e monitoraggio pagamenti provvigioni ai produttori
+- Rimessa Premi: Gestione rimesse premi alle compagnie con scadenze e saldi
+- Notifiche: Centro notifiche con avvisi di sistema, scadenze e comunicazioni
+- Comunicazioni: Invio e gestione comunicazioni email/PEC a clienti e compagnie
+- Spedizioni: Tracciamento spedizioni documenti e corrispondenza
+- Note Restituzione: Gestione note di credito e restituzioni da compagnie
+- Flussi Compagnie: Importazione e gestione flussi dati dalle compagnie
+- Privacy & Consensi: Gestione consensi GDPR e documentazione privacy clienti
+- Report: Report statistici e analitici personalizzabili
+- Documentale: Archivio documentale con cartelle e upload file
+- Chat Interna: Messaggistica interna tra operatori con canali tematici
 
-### Design
-- Card con bordo colorato per ogni ruolo (colori distinti per livello gerarchico)
-- Badge per i ruoli su ogni pagina
-- Layout responsive a griglia
-- Sezioni espandibili per i gruppi di pagine
-- Stile coerente con il resto dell'app (Tailwind + shadcn)
+**Portale Cliente**
+- Dashboard Cliente: Riepilogo personale con polizze attive, scadenze prossime e avvisi
+- Le mie Polizze: Lista polizze personali con stato e dettagli copertura
+- Dettaglio Polizza: Visualizzazione completa di una polizza con garanzie e documenti
+- Documenti: Archivio documenti personali e contrattuali scaricabili
+- Scadenze: Calendario scadenze polizze e pagamenti
+- Pagamenti: Storico pagamenti e situazione contabile personale
+- Sinistri: Visualizzazione e apertura sinistri personali
+- Upload Documenti: Caricamento documenti richiesti dall'agenzia
+- Comunicazioni: Messaggi scambiati con l'agenzia
+- Notifiche: Avvisi e promemoria personali
+
+### Modifica UI
+Nel componente `SezioneCard`, sotto il nome di ogni pagina verra mostrata la descrizione in testo piu piccolo e colore attenuato.
+
+### File modificato
+- `src/pages/SitemapPage.tsx`
 
