@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png", "robots.txt"],
       manifest: {
-        name: "ConsulNet — Area Clienti",
-        short_name: "ConsulNet",
-        description: "Portale assicurativo ConsulNet per la gestione delle tue polizze",
+        name: "CBnet — Area Clienti",
+        short_name: "CBnet",
+        description: "Portale assicurativo CBnet per la gestione delle tue polizze",
         theme_color: "#1a4a5c",
         background_color: "#fafafa",
         display: "standalone",

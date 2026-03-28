@@ -291,7 +291,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
       <div className="px-4 py-5 border-b border-white/10">
         {!collapsed && (
           <>
-            <h1 className="text-xl font-bold text-white tracking-tight">ConsulNet</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">CBnet</h1>
             <p className="text-[10px] text-white/50 uppercase tracking-widest mt-0.5">Gestionale</p>
           </>
         )}

@@ -60,7 +60,7 @@ const LoginPage = () => {
               <Lock className="w-6 h-6 text-primary" />
             </div>
           </div>
-          <h1 className="text-xl font-bold text-foreground text-center mb-0.5">ConsulNet</h1>
+          <h1 className="text-xl font-bold text-foreground text-center mb-0.5">CBnet</h1>
           <p className="text-xs text-muted-foreground text-center mb-1 uppercase tracking-widest">Gestionale</p>
           <h2 className="text-base font-semibold text-foreground text-center mt-4 mb-1">
             {resetMode ? "Recupera Password" : "Accedi"}
