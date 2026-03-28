@@ -39,6 +39,7 @@ export const sistemaRoutes = (
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
     <Route path="/template" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><TemplatePage /></RoleGuard>} />
     <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
+    <Route path="/sitemap" element={<RoleGuard allowedRoles={["admin"]}><SitemapPage /></RoleGuard>} />
 
     {/* STANDALONE */}
     <Route path="/cfo" element={<AreaCFO />} />
