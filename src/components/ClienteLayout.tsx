@@ -50,7 +50,7 @@ const ClienteLayout = () => {
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <h1 className="text-lg font-bold text-primary tracking-tight">ConsulNet</h1>
+            <h1 className="text-lg font-bold text-primary tracking-tight">CBnet</h1>
             <span className="hidden sm:inline text-xs text-muted-foreground">Area Clienti</span>
           </div>
           <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ const ClienteLayout = () => {
 
       {/* Footer */}
       <footer className="border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
-        ConsulNet — Per assistenza contatta la tua agenzia
+        CBnet — Per assistenza contatta la tua agenzia
       </footer>
     </div>
   );
