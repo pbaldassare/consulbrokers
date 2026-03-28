@@ -327,16 +327,14 @@ function SezioneCard({ sezione }: { sezione: typeof sezioni[0] }) {
           <CardContent className="pt-0 pb-3 px-4">
             <div className="space-y-2">
               {sezione.pagine.map((p) => (
-                <div key={p.nome} className="flex items-start justify-between gap-3 py-2 border-b border-border/50 last:border-0">
-                  <div className="flex-1 min-w-0">
+                <div key={p.nome} className="py-2 border-b border-border/50 last:border-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-foreground">{p.nome}</span>
-                    {"desc" in p && p.desc && (
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{p.desc}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-1 flex-wrap justify-end shrink-0 pt-0.5">
                     {p.ruoli.map((r) => <RoleBadge key={r} role={r} />)}
                   </div>
+                  {"desc" in p && p.desc && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">{p.desc}</p>
+                  )}
                 </div>
               ))}
             </div>
