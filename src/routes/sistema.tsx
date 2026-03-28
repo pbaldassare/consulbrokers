@@ -23,6 +23,7 @@ import FlussiCompagnieList from "@/pages/FlussiCompagnieList";
 import FlussoCompagniaDetail from "@/pages/FlussoCompagniaDetail";
 import PagamentiProvvigioniList from "@/pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "@/pages/PagamentoProvvigioneDetail";
+import SitemapPage from "@/pages/SitemapPage";
 
 export const sistemaRoutes = (
   <>
