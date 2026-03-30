@@ -290,6 +290,16 @@ const sezioni = [
       { nome: "Notifiche", desc: "Avvisi e promemoria personali", ruoli: ["cliente"] },
     ],
   },
+  {
+    area: "Portale Prospect",
+    icon: ClipboardList,
+    pagine: [
+      { nome: "Dashboard Prospect", desc: "Riepilogo personale con KPI trattative e documenti", ruoli: ["prospect"] },
+      { nome: "Le mie Trattative", desc: "Lista trattative in corso con stato, compagnia e premio previsto", ruoli: ["prospect"] },
+      { nome: "Documenti", desc: "Documenti relativi alle proprie trattative, scaricabili", ruoli: ["prospect"] },
+      { nome: "Upload Documenti", desc: "Caricamento documenti richiesti dall'agenzia", ruoli: ["prospect"] },
+    ],
+  },
 ];
 
 /* ─── PERMESSI JSON ─── */
