@@ -322,6 +322,7 @@ const roleBadgeColor: Record<string, string> = {
   produttore: "bg-purple-500 text-white hover:bg-purple-600",
   backoffice: "bg-teal-500 text-white hover:bg-teal-600",
   cliente: "bg-gray-500 text-white hover:bg-gray-600",
+  prospect: "bg-orange-500 text-white hover:bg-orange-600",
 };
 
 function RoleBadge({ role }: { role: string }) {
