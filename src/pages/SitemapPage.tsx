@@ -404,8 +404,8 @@ export default function SitemapPage() {
         </div>
 
         {/* Livello 4 */}
-        <div className="flex justify-center">
-          <RuoloCard ruolo={ruoli[ruoli.length - 1]} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+          {ruoli.filter((r) => r.livello === 4).map((r) => <RuoloCard key={r.nome} ruolo={r} />)}
         </div>
       </section>
 
