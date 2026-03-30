@@ -123,6 +123,20 @@ const ruoli = [
       "Comunicazioni con l'agenzia",
     ],
   },
+  {
+    nome: "Prospect",
+    livello: 4,
+    icon: ClipboardList,
+    color: "border-orange-400 bg-orange-50 dark:bg-orange-950/30",
+    badgeColor: "bg-orange-500 text-white",
+    descrizione: "Utente non ancora cliente, con accesso al portale dedicato per seguire le proprie trattative.",
+    mansioni: [
+      "Visualizzazione trattative in corso",
+      "Download documenti relativi alle trattative",
+      "Upload documenti richiesti dall'agenzia",
+      "Monitoraggio stato delle proposte",
+    ],
+  },
 ];
 
 /* ─── SEZIONI ─── */

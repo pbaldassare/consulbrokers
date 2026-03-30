@@ -23,6 +23,23 @@ const LoginPage = () => {
     if (error) {
       toast.error("Errore di accesso");
     } else {
+      // Check role for redirect
+      const { data: { user: loggedUser } } = await supabase.auth.getUser();
+      if (loggedUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("ruolo")
+          .eq("id", loggedUser.id)
+          .maybeSingle();
+        if (profile?.ruolo === "cliente") {
+          navigate("/cliente", { replace: true });
+          return;
+        }
+        if (profile?.ruolo === "prospect") {
+          navigate("/prospect", { replace: true });
+          return;
+        }
+      }
       navigate("/", { replace: true });
     }
   };

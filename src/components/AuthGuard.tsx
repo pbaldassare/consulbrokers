@@ -14,6 +14,11 @@ const AuthGuard = ({ children }: { children: ReactNode }) => {
     return <Navigate to="/cliente" replace />;
   }
 
+  // Redirect prospects to portal if trying to access gestionale
+  if (profile?.ruolo === "prospect" && !location.pathname.startsWith("/prospect")) {
+    return <Navigate to="/prospect" replace />;
+  }
+
   return <>{children}</>;
 };
 

@@ -38,6 +38,7 @@ const App = () => (
               {sistemaRoutes}
             </Route>
             {clienteRoutes}
+            {prospectRoutes}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

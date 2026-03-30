@@ -7,12 +7,11 @@ import { ClipboardList } from "lucide-react";
 
 interface Trattativa {
   id: string;
-  titolo: string | null;
-  stato: string | null;
-  tipo_prodotto: string | null;
-  premio_proposto: number | null;
+  compagnia: string | null;
+  prodotto: string | null;
+  stato: string;
+  premio_previsto: number | null;
   created_at: string | null;
-  note: string | null;
 }
 
 const statoColors: Record<string, string> = {
@@ -44,7 +43,7 @@ const ProspectTrattative = () => {
 
       const { data } = await supabase
         .from("trattative")
-        .select("id, titolo, stato, tipo_prodotto, premio_proposto, created_at, note")
+        .select("id, compagnia, prodotto, stato, premio_previsto, created_at")
         .eq("prospect_id", prospect.id)
         .order("created_at", { ascending: false });
 
@@ -76,23 +75,23 @@ const ProspectTrattative = () => {
             <Card key={t.id}>
               <CardHeader className="py-3 px-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <CardTitle className="text-sm font-semibold">{t.titolo || "Trattativa"}</CardTitle>
-                  <Badge className={`${statoColors[t.stato || ""] || "bg-muted"} text-white text-[10px]`}>
-                    {t.stato || "N/D"}
+                  <CardTitle className="text-sm font-semibold">
+                    {t.prodotto || "Trattativa"} {t.compagnia ? `— ${t.compagnia}` : ""}
+                  </CardTitle>
+                  <Badge className={`${statoColors[t.stato] || "bg-muted"} text-white text-[10px]`}>
+                    {t.stato}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-0 pb-3 px-4">
                 <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                  {t.tipo_prodotto && <span>Prodotto: <strong className="text-foreground">{t.tipo_prodotto}</strong></span>}
-                  {t.premio_proposto != null && (
-                    <span>Premio: <strong className="text-foreground">€ {t.premio_proposto.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</strong></span>
+                  {t.premio_previsto != null && (
+                    <span>Premio previsto: <strong className="text-foreground">€ {t.premio_previsto.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</strong></span>
                   )}
                   {t.created_at && (
                     <span>Data: <strong className="text-foreground">{new Date(t.created_at).toLocaleDateString("it-IT")}</strong></span>
                   )}
                 </div>
-                {t.note && <p className="text-xs text-muted-foreground mt-2">{t.note}</p>}
               </CardContent>
             </Card>
           ))}
