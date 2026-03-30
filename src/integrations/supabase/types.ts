@@ -3703,6 +3703,7 @@ export type Database = {
           telefono: string | null
           ufficio_id: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           assegnato_a?: string | null
@@ -3719,6 +3720,7 @@ export type Database = {
           telefono?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           assegnato_a?: string | null
@@ -3735,6 +3737,7 @@ export type Database = {
           telefono?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
