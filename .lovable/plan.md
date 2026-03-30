@@ -1,29 +1,66 @@
 
 
-## Piano: Correggere il layout della Mappa delle Sezioni
+## Piano: Creare il livello di utenza "Prospect"
 
-### Problema
-Le card della sitemap hanno un layout orribile: i badge dei ruoli sono affiancati alla descrizione, comprimendo il testo che va a capo parola per parola. Risultato illeggibile.
+### Obiettivo
+Creare un nuovo ruolo utente `prospect` con portale dedicato (`/prospect`) dove il prospect può vedere le proprie trattative e caricare/scaricare documenti. L'account viene creato automaticamente quando si inserisce un prospect con email.
 
-### Soluzione
-Cambiare il layout di ogni voce pagina dentro `SezioneCard`: invece di avere nome+descrizione e badge sulla stessa riga (`flex justify-between`), mettere i badge SOTTO il nome (sulla stessa riga del nome) e la descrizione sotto, in un layout verticale pulito.
+### Modifiche
 
-Layout per ogni pagina:
-```text
-┌──────────────────────────────────────────────────┐
-│ Nome Pagina  [ADMIN] [UFFICIO] [BACKOFFICE]      │
-│ Descrizione breve in testo piccolo attenuato     │
-├──────────────────────────────────────────────────┤
-│ Nome Pagina 2  [ADMIN] [CFO]                     │
-│ Descrizione breve della pagina 2                 │
-└──────────────────────────────────────────────────┘
-```
+**1. Database — Collegare prospect a user account**
+- Aggiungere colonna `user_id` (uuid, nullable, references auth.users) alla tabella `prospect`
+- Questo collega il record prospect all'account auth, come `clienti.user_id` per i clienti
 
-### Modifica tecnica
-In `SezioneCard` (riga ~330), cambiare il div di ogni pagina da layout `flex justify-between` a layout verticale:
-- Prima riga: nome + badge inline (flex wrap)
-- Seconda riga: descrizione sotto, full width
+**2. Edge Function — `create-prospect-user`**
+- Simile a `create-cliente-user`: crea account auth con email del prospect e password di default (`Leone123!`), crea profilo con ruolo `prospect`, aggiorna `prospect.user_id`
+- Trigger automatico: chiamata dalla pagina ProspectDetail o al momento della creazione prospect se ha email
 
-### File modificato
-- `src/pages/SitemapPage.tsx` — solo il componente `SezioneCard`, righe 329-341
+**3. Guard — `ProspectGuard.tsx`**
+- Come `ClienteGuard.tsx` ma verifica `profile?.ruolo === "prospect"`
+- Redirige a `/login` se non autenticato, a `/` se ruolo diverso
+
+**4. Layout — `ProspectLayout.tsx`**
+- Simile a `ClienteLayout.tsx` con header "CBnet — Area Prospect"
+- Nav items: Dashboard, Trattative, Documenti, Comunicazioni, Upload
+
+**5. Pagine portale prospect** (`src/pages/prospect/`)
+- `ProspectDashboard.tsx` — riepilogo con KPI (trattative in corso, documenti, stato)
+- `ProspectTrattative.tsx` — lista delle proprie trattative con stato e dettagli
+- `ProspectDocumenti.tsx` — documenti relativi alle proprie trattative
+- `ProspectUploadDoc.tsx` — upload documenti per la propria pratica
+
+**6. Route — `src/routes/prospect.tsx`**
+- Rotte sotto `/prospect/*` protette da `ProspectGuard`
+
+**7. AuthGuard — aggiornare redirect**
+- Aggiungere: se `ruolo === "prospect"` e path non inizia con `/prospect`, redirect a `/prospect`
+- Come già fatto per il ruolo `cliente`
+
+**8. App.tsx — aggiungere rotte prospect**
+- Importare e montare `prospectRoutes`
+
+**9. SitemapPage.tsx — aggiornare**
+- Aggiungere ruolo "Prospect" (livello 4, come Cliente, icona `UserPlus`, colore arancione)
+- Aggiungere sezione "Portale Prospect" con le 4 pagine
+- Aggiungere badge `prospect` dove necessario
+
+**10. LoginPage.tsx — gestire redirect post-login**
+- Se ruolo `prospect`, redirect a `/prospect` dopo login
+
+### File coinvolti
+| Azione | File |
+|--------|------|
+| Migrazione | `prospect.user_id` colonna |
+| Nuovo | `supabase/functions/create-prospect-user/index.ts` |
+| Nuovo | `src/components/ProspectGuard.tsx` |
+| Nuovo | `src/components/ProspectLayout.tsx` |
+| Nuovo | `src/pages/prospect/ProspectDashboard.tsx` |
+| Nuovo | `src/pages/prospect/ProspectTrattative.tsx` |
+| Nuovo | `src/pages/prospect/ProspectDocumenti.tsx` |
+| Nuovo | `src/pages/prospect/ProspectUploadDoc.tsx` |
+| Nuovo | `src/routes/prospect.tsx` |
+| Modifica | `src/App.tsx` |
+| Modifica | `src/components/AuthGuard.tsx` |
+| Modifica | `src/pages/LoginPage.tsx` |
+| Modifica | `src/pages/SitemapPage.tsx` |
 
