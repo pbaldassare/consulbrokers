@@ -123,6 +123,20 @@ const ruoli = [
       "Comunicazioni con l'agenzia",
     ],
   },
+  {
+    nome: "Prospect",
+    livello: 4,
+    icon: ClipboardList,
+    color: "border-orange-400 bg-orange-50 dark:bg-orange-950/30",
+    badgeColor: "bg-orange-500 text-white",
+    descrizione: "Utente non ancora cliente, con accesso al portale dedicato per seguire le proprie trattative.",
+    mansioni: [
+      "Visualizzazione trattative in corso",
+      "Download documenti relativi alle trattative",
+      "Upload documenti richiesti dall'agenzia",
+      "Monitoraggio stato delle proposte",
+    ],
+  },
 ];
 
 /* ─── SEZIONI ─── */
@@ -276,6 +290,16 @@ const sezioni = [
       { nome: "Notifiche", desc: "Avvisi e promemoria personali", ruoli: ["cliente"] },
     ],
   },
+  {
+    area: "Portale Prospect",
+    icon: ClipboardList,
+    pagine: [
+      { nome: "Dashboard Prospect", desc: "Riepilogo personale con KPI trattative e documenti", ruoli: ["prospect"] },
+      { nome: "Le mie Trattative", desc: "Lista trattative in corso con stato, compagnia e premio previsto", ruoli: ["prospect"] },
+      { nome: "Documenti", desc: "Documenti relativi alle proprie trattative, scaricabili", ruoli: ["prospect"] },
+      { nome: "Upload Documenti", desc: "Caricamento documenti richiesti dall'agenzia", ruoli: ["prospect"] },
+    ],
+  },
 ];
 
 /* ─── PERMESSI JSON ─── */
@@ -298,6 +322,7 @@ const roleBadgeColor: Record<string, string> = {
   produttore: "bg-purple-500 text-white hover:bg-purple-600",
   backoffice: "bg-teal-500 text-white hover:bg-teal-600",
   cliente: "bg-gray-500 text-white hover:bg-gray-600",
+  prospect: "bg-orange-500 text-white hover:bg-orange-600",
 };
 
 function RoleBadge({ role }: { role: string }) {
@@ -379,8 +404,8 @@ export default function SitemapPage() {
         </div>
 
         {/* Livello 4 */}
-        <div className="flex justify-center">
-          <RuoloCard ruolo={ruoli[ruoli.length - 1]} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+          {ruoli.filter((r) => r.livello === 4).map((r) => <RuoloCard key={r.nome} ruolo={r} />)}
         </div>
       </section>
 
