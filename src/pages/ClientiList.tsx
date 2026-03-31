@@ -1113,6 +1113,13 @@ const ClientiList = () => {
                       <TableCell>{c.email || "—"}</TableCell>
                       <TableCell>{c.telefono || "—"}</TableCell>
                       <TableCell>{citta}</TableCell>
+                      <TableCell className="text-center">
+                        {(polizzeCountMap[c.id] || 0) > 0 ? (
+                          <Badge variant="default" className="min-w-[2rem] justify-center">{polizzeCountMap[c.id]}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={c.attivo ? "default" : "secondary"}>
                           {c.attivo ? "Attivo" : "Disattivo"}
