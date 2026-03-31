@@ -1072,6 +1072,8 @@ const TabelleBasePage = () => {
               <RcaGaranzieTab />
             ) : t.custom === "ordered" ? (
               <OrderedLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
+            ) : t.custom === "tipo_documento" ? (
+              <TipoDocumentoTab />
             ) : (
               <SimpleLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             )}
