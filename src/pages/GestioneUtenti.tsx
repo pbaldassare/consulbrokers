@@ -17,6 +17,15 @@ import { UserPlus, Pencil, RefreshCw, Upload, Download, Trash2, FileText } from 
 
 const ROLES = ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"] as const;
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  ufficio: "Sede",
+  produttore: "Produttore",
+  backoffice: "Specialist",
+  contabilita: "Contabilità",
+  cfo: "CFO",
+};
+
 const DOC_CATEGORIE = [
   { value: "carta_identita", label: "Carta d'Identità" },
   { value: "mandato", label: "Mandato" },
@@ -333,7 +342,7 @@ const GestioneUtenti = () => {
               <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutti</SelectItem>
-                {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {ROLES.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -420,7 +429,7 @@ const GestioneUtenti = () => {
               <Select value={newRuolo} onValueChange={setNewRuolo}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {ROLES.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -473,7 +482,7 @@ const GestioneUtenti = () => {
                       <Select value={editForm.ruolo || ""} onValueChange={v => updateEditField("ruolo", v)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {ROLES.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>

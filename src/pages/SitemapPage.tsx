@@ -93,12 +93,12 @@ const ruoli = [
     ],
   },
   {
-    nome: "Backoffice",
+    nome: "Specialist",
     livello: 3,
     icon: Headphones,
     color: "border-teal-500 bg-teal-50 dark:bg-teal-950/30",
     badgeColor: "bg-teal-500 text-white",
-    descrizione: "Supporto operativo quotidiano. Opera come Specialist/Executive sui clienti assegnati alla sede.",
+    descrizione: "Supporto operativo quotidiano. Opera come Specialist sui clienti assegnati alla sede.",
     mansioni: [
       "Gestione clienti e anagrafiche",
       "Lavorazione polizze e sinistri",
@@ -325,10 +325,15 @@ const roleBadgeColor: Record<string, string> = {
   prospect: "bg-orange-500 text-white hover:bg-orange-600",
 };
 
+const roleBadgeLabel: Record<string, string> = {
+  backoffice: "specialist",
+  ufficio: "sede",
+};
+
 function RoleBadge({ role }: { role: string }) {
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${roleBadgeColor[role] || "bg-muted text-muted-foreground"}`}>
-      {role}
+      {roleBadgeLabel[role] || role}
     </span>
   );
 }

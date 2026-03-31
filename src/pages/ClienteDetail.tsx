@@ -36,7 +36,7 @@ const tipiRelazione = [
 
 const ruoliCommerciali = [
   { value: "account_executive", label: "Account Executive" },
-  { value: "backoffice", label: "Backoffice" },
+  { value: "backoffice", label: "Specialist" },
   { value: "agente", label: "Agente" },
   { value: "produttore_sede", label: "Produttore Sede" },
 ];

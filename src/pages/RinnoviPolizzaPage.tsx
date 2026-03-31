@@ -131,9 +131,9 @@ const RinnoviPolizzaPage = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <Label className="w-24 text-right shrink-0">Backoffice</Label>
+              <Label className="w-24 text-right shrink-0">Specialist</Label>
               <select value={specialist} onChange={(e) => setSpecialist(e.target.value)} className={`${selectClass} flex-1`}>
-                <option value="">Tutti i backoffice</option>
+                <option value="">Tutti gli specialist</option>
               </select>
               <Label className="shrink-0">Indotto</Label>
               <select value={indotto} onChange={(e) => setIndotto(e.target.value)} className={`${selectClass} flex-1`}>
