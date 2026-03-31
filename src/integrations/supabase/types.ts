@@ -2369,6 +2369,30 @@ export type Database = {
         }
         Relationships: []
       }
+      lookup_conti_incasso: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
       lookup_contratti: {
         Row: {
           attivo: boolean | null
@@ -2471,6 +2495,30 @@ export type Database = {
         }
         Relationships: []
       }
+      lookup_risk_type: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
       lookup_settori: {
         Row: {
           attivo: boolean | null
@@ -2488,6 +2536,30 @@ export type Database = {
         }
         Update: {
           attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      lookup_tipo_documento: {
+        Row: {
+          attivo: boolean
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean
           codice?: string
           created_at?: string | null
           descrizione?: string
@@ -2660,12 +2732,18 @@ export type Database = {
           id: string
           incassato: boolean | null
           premio: number | null
+          premio_netto: number | null
           provvigioni: number | null
+          provvigioni_attive: number | null
+          provvigioni_passive: number | null
           riga: number | null
           sostituisce_id: string | null
           sostituito_da_id: string | null
           stato: string | null
+          stato_incasso: string | null
+          tasse: number | null
           tipo: string | null
+          tipo_documento: string | null
           tipo_rinnovo: string | null
           titolo_id: string
           ufficio_id: string | null
@@ -2685,12 +2763,18 @@ export type Database = {
           id?: string
           incassato?: boolean | null
           premio?: number | null
+          premio_netto?: number | null
           provvigioni?: number | null
+          provvigioni_attive?: number | null
+          provvigioni_passive?: number | null
           riga?: number | null
           sostituisce_id?: string | null
           sostituito_da_id?: string | null
           stato?: string | null
+          stato_incasso?: string | null
+          tasse?: number | null
           tipo?: string | null
+          tipo_documento?: string | null
           tipo_rinnovo?: string | null
           titolo_id: string
           ufficio_id?: string | null
@@ -2710,12 +2794,18 @@ export type Database = {
           id?: string
           incassato?: boolean | null
           premio?: number | null
+          premio_netto?: number | null
           provvigioni?: number | null
+          provvigioni_attive?: number | null
+          provvigioni_passive?: number | null
           riga?: number | null
           sostituisce_id?: string | null
           sostituito_da_id?: string | null
           stato?: string | null
+          stato_incasso?: string | null
+          tasse?: number | null
           tipo?: string | null
+          tipo_documento?: string | null
           tipo_rinnovo?: string | null
           titolo_id?: string
           ufficio_id?: string | null
@@ -4611,6 +4701,7 @@ export type Database = {
         Row: {
           addizionali: number | null
           addizionali_quietanza: number | null
+          ae_nome: string | null
           anni_durata: number | null
           appendice: string | null
           cambio: number | null
@@ -4618,7 +4709,10 @@ export type Database = {
           cliente_anagrafica_id: string | null
           cliente_id: string | null
           commerciale_id: string | null
+          comp_assicurativa: string | null
+          comp_contabile: string | null
           compagnia_id: string | null
+          conto_incasso: string | null
           created_at: string | null
           data_competenza: string | null
           data_incasso: string | null
@@ -4628,12 +4722,14 @@ export type Database = {
           durata_a: string | null
           durata_da: string | null
           emissione_fee: boolean | null
+          filiale: string | null
           formato_elettronico: boolean | null
           garanzia_a: string | null
           garanzia_da: string | null
           giorni_presentazione: number | null
           gruppo_ramo: string | null
           id: string
+          id_legacy: number | null
           importo_incassato: number | null
           indicizzata: boolean | null
           libro_matricola: string | null
@@ -4644,12 +4740,15 @@ export type Database = {
           numero_titolo: string | null
           pag_diretto_compagnia: boolean | null
           percentuale_commerciale: number | null
+          percentuale_riparto: number | null
           periodicita: string | null
           premio_lordo: number | null
           premio_netto: number | null
           premio_netto_quietanza: number | null
           prodotto_id: string | null
+          prodotto_nome: string | null
           produttore_id: string | null
+          produttore_nome: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           ramo_id: string | null
@@ -4657,6 +4756,7 @@ export type Database = {
           regolazione: boolean | null
           riga: number | null
           rimborso: boolean | null
+          risk_type: string | null
           search_vector: unknown
           sostituisce_appendice: string | null
           sostituisce_polizza: string | null
@@ -4669,7 +4769,9 @@ export type Database = {
           targa_telaio: string | null
           tasse: number | null
           tasse_quietanza: number | null
+          tipo_incasso: string | null
           tipo_lettera_regolazione: string | null
+          tipo_mandatario: string | null
           tipo_portafoglio: string | null
           tipo_rinnovo: string | null
           tipo_scadenza: string | null
@@ -4681,6 +4783,7 @@ export type Database = {
         Insert: {
           addizionali?: number | null
           addizionali_quietanza?: number | null
+          ae_nome?: string | null
           anni_durata?: number | null
           appendice?: string | null
           cambio?: number | null
@@ -4688,7 +4791,10 @@ export type Database = {
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           commerciale_id?: string | null
+          comp_assicurativa?: string | null
+          comp_contabile?: string | null
           compagnia_id?: string | null
+          conto_incasso?: string | null
           created_at?: string | null
           data_competenza?: string | null
           data_incasso?: string | null
@@ -4698,12 +4804,14 @@ export type Database = {
           durata_a?: string | null
           durata_da?: string | null
           emissione_fee?: boolean | null
+          filiale?: string | null
           formato_elettronico?: boolean | null
           garanzia_a?: string | null
           garanzia_da?: string | null
           giorni_presentazione?: number | null
           gruppo_ramo?: string | null
           id?: string
+          id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
           libro_matricola?: string | null
@@ -4714,12 +4822,15 @@ export type Database = {
           numero_titolo?: string | null
           pag_diretto_compagnia?: boolean | null
           percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
           periodicita?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
           premio_netto_quietanza?: number | null
           prodotto_id?: string | null
+          prodotto_nome?: string | null
           produttore_id?: string | null
+          produttore_nome?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
           ramo_id?: string | null
@@ -4727,6 +4838,7 @@ export type Database = {
           regolazione?: boolean | null
           riga?: number | null
           rimborso?: boolean | null
+          risk_type?: string | null
           search_vector?: unknown
           sostituisce_appendice?: string | null
           sostituisce_polizza?: string | null
@@ -4739,7 +4851,9 @@ export type Database = {
           targa_telaio?: string | null
           tasse?: number | null
           tasse_quietanza?: number | null
+          tipo_incasso?: string | null
           tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
           tipo_portafoglio?: string | null
           tipo_rinnovo?: string | null
           tipo_scadenza?: string | null
@@ -4751,6 +4865,7 @@ export type Database = {
         Update: {
           addizionali?: number | null
           addizionali_quietanza?: number | null
+          ae_nome?: string | null
           anni_durata?: number | null
           appendice?: string | null
           cambio?: number | null
@@ -4758,7 +4873,10 @@ export type Database = {
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           commerciale_id?: string | null
+          comp_assicurativa?: string | null
+          comp_contabile?: string | null
           compagnia_id?: string | null
+          conto_incasso?: string | null
           created_at?: string | null
           data_competenza?: string | null
           data_incasso?: string | null
@@ -4768,12 +4886,14 @@ export type Database = {
           durata_a?: string | null
           durata_da?: string | null
           emissione_fee?: boolean | null
+          filiale?: string | null
           formato_elettronico?: boolean | null
           garanzia_a?: string | null
           garanzia_da?: string | null
           giorni_presentazione?: number | null
           gruppo_ramo?: string | null
           id?: string
+          id_legacy?: number | null
           importo_incassato?: number | null
           indicizzata?: boolean | null
           libro_matricola?: string | null
@@ -4784,12 +4904,15 @@ export type Database = {
           numero_titolo?: string | null
           pag_diretto_compagnia?: boolean | null
           percentuale_commerciale?: number | null
+          percentuale_riparto?: number | null
           periodicita?: string | null
           premio_lordo?: number | null
           premio_netto?: number | null
           premio_netto_quietanza?: number | null
           prodotto_id?: string | null
+          prodotto_nome?: string | null
           produttore_id?: string | null
+          produttore_nome?: string | null
           provvigioni_firma?: number | null
           provvigioni_quietanza?: number | null
           ramo_id?: string | null
@@ -4797,6 +4920,7 @@ export type Database = {
           regolazione?: boolean | null
           riga?: number | null
           rimborso?: boolean | null
+          risk_type?: string | null
           search_vector?: unknown
           sostituisce_appendice?: string | null
           sostituisce_polizza?: string | null
@@ -4809,7 +4933,9 @@ export type Database = {
           targa_telaio?: string | null
           tasse?: number | null
           tasse_quietanza?: number | null
+          tipo_incasso?: string | null
           tipo_lettera_regolazione?: string | null
+          tipo_mandatario?: string | null
           tipo_portafoglio?: string | null
           tipo_rinnovo?: string | null
           tipo_scadenza?: string | null
