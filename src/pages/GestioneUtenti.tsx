@@ -17,6 +17,15 @@ import { UserPlus, Pencil, RefreshCw, Upload, Download, Trash2, FileText } from 
 
 const ROLES = ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"] as const;
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  ufficio: "Sede",
+  produttore: "Produttore",
+  backoffice: "Specialist",
+  contabilita: "Contabilità",
+  cfo: "CFO",
+};
+
 const DOC_CATEGORIE = [
   { value: "carta_identita", label: "Carta d'Identità" },
   { value: "mandato", label: "Mandato" },

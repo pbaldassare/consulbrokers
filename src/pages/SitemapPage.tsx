@@ -93,12 +93,12 @@ const ruoli = [
     ],
   },
   {
-    nome: "Backoffice",
+    nome: "Specialist",
     livello: 3,
     icon: Headphones,
     color: "border-teal-500 bg-teal-50 dark:bg-teal-950/30",
     badgeColor: "bg-teal-500 text-white",
-    descrizione: "Supporto operativo quotidiano. Opera come Specialist/Executive sui clienti assegnati alla sede.",
+    descrizione: "Supporto operativo quotidiano. Opera come Specialist sui clienti assegnati alla sede.",
     mansioni: [
       "Gestione clienti e anagrafiche",
       "Lavorazione polizze e sinistri",

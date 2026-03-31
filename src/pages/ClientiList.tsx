@@ -1015,7 +1015,7 @@ const ClientiList = () => {
                 {/* Ruoli commerciali in Accordion */}
                 <Accordion type="multiple" className="w-full">
                   <AccordionItem value="backoffice">
-                    <AccordionTrigger className="text-sm py-2">Backoffice</AccordionTrigger>
+                    <AccordionTrigger className="text-sm py-2">Specialist</AccordionTrigger>
                     <AccordionContent>{renderCorrispondenteFields(backofficeRole, setBackofficeRole)}</AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="agente">

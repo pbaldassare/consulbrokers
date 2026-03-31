@@ -187,7 +187,7 @@ const ECClientiContabPage = () => {
             placeholder="Cliente" allLabel="Tutti i clienti" className="w-[240px]" />
           <FilterSearchableSelect value={filters.specialista_id} onValueChange={(v) => set({ specialista_id: v })}
             options={(specialisti || []).map((s) => ({ value: s.id, label: s.ragione_sociale || `${s.cognome || ""} ${s.nome || ""}`.trim() }))}
-            placeholder="Backoffice" allLabel="Tutti i backoffice" className="w-[220px]" />
+            placeholder="Specialist" allLabel="Tutti gli specialist" className="w-[220px]" />
           <FilterSearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })}
             options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))}
             placeholder="Produttore" allLabel="Tutti i produttori" className="w-[220px]" />

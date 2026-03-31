@@ -21,7 +21,7 @@ const RUOLI_INTERNI = [
   { value: "admin", label: "Admin" },
   { value: "ufficio", label: "Ufficio" },
   { value: "produttore", label: "Produttore" },
-  { value: "backoffice", label: "Backoffice" },
+  { value: "backoffice", label: "Specialist" },
   { value: "contabilita", label: "Contabilità" },
   { value: "cfo", label: "CFO" },
 ];
