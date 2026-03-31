@@ -342,7 +342,7 @@ const GestioneUtenti = () => {
               <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutti</SelectItem>
-                {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {ROLES.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
