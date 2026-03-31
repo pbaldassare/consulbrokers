@@ -1,93 +1,96 @@
 
 
-## Piano: Conversione Prospect → Cliente "Comune di Varese" + Dati Simulati + Miglioramenti Portale
+## Piano: Upgrade grafico portale cliente + dati simulati + statistiche
 
 ### Panoramica
-
-Operazione complessa in 4 fasi: dati DB, ufficio San Donà, polizze fake con compagnie/rami reali, e miglioramenti UI al portale cliente.
-
----
-
-### Fase 1 — Creare ufficio "San Donà di Piave" + assegnare Specialist
-
-**Migrazione SQL:**
-- `INSERT` ufficio con dati reali:
-  - `nome_ufficio`: SEDE SAN DONA' DI PIAVE
-  - `indirizzo`: Via Giobatta dall'Armi 3/2, 30027 San Donà di Piave (VE)
-  - `email`: consulbrokerssandona@pec-mail.it
-  - `telefono`: 0421 307800
-
-- Scegliere uno Specialist esistente (es. GAETANO GUARRACINO, id `cf2372e6-...`, ruolo `backoffice`) e aggiornarne l'`ufficio_id` all'ufficio San Donà appena creato.
-
-### Fase 2 — Convertire Prospect → Cliente
-
-**Via script (Edge Function o SQL diretto):**
-
-1. `INSERT` in `clienti` con dati del Comune di Varese:
-
-| Campo | Valore |
-|-------|--------|
-| tipo_cliente | ente |
-| ragione_sociale | Comune di Varese |
-| partita_iva | 00291010121 |
-| indirizzo_sede | Via Sacco 5 |
-| cap_sede | 21100 |
-| citta_sede | Varese |
-| provincia_sede | VA |
-| email | protocollo@comune.varese.it |
-| pec | protocollo@pec.comune.varese.it |
-| telefono | 0332 255111 |
-| codice_sdi | UFZSRP (codice SDI tipico enti pubblici) |
-| codice_fiscale_azienda | 00291010121 |
-| user_id | `746c540d-...` (stesso del prospect) |
-| ufficio_id | → id ufficio San Donà appena creato |
-| attivo | true |
-| note | Ente Pubblico - ~80.000 abitanti. Responsabile sede: Maria Midena |
-
-2. Aggiornare il profilo auth (`profiles`) → `ruolo` da `prospect` a `cliente`
-3. Aggiornare il prospect → `stato` = `chiuso_vinto`, `convertito_cliente_id` = nuovo id cliente
-4. Assegnare codice commerciale (Specialist = GAETANO GUARRACINO)
-
-### Fase 3 — Creare 8 polizze fake con compagnie e rami reali
-
-| # | Prodotto | Compagnia (reale) | Ramo (reale) | Numero Polizza | Premio Lordo | Stato |
-|---|----------|-------------------|--------------|----------------|-------------|-------|
-| 1 | RCT/O | Generali Italia (`c152f68d`) | PA - R.C.T./O. (`aaf435d1`) | VA-RCTO-2025-001 | 18.500 | attivo |
-| 2 | Infortuni Cumulativa | AXA (`57df53bc`) | NC - Infortuni Cumulativa (`f3478e36`) | VA-INF-2025-002 | 8.200 | attivo |
-| 3 | Kasko Veicoli | Allianz (`0678589e`) | QK - Kasko (`7bfdf4f6`) | VA-KAS-2025-003 | 4.800 | attivo |
-| 4 | Libro Matricola | Unipol (`a6c13e3d`) | QAB - Libro Matricola (`f42d71cc`) | VA-LM-2025-004 | 12.600 | attivo |
-| 5 | Tutela Legale | Generali Italia (`c152f68d`) | PCB - RC + Tutela Legale (`bb7cbeee`) | VA-TL-2025-005 | 6.900 | attivo |
-| 6 | RC Patrimoniale | Cattolica (`7b1c10eb`) | PS - RC Patrimoniale (`e2f09c7f`) | VA-RCP-2025-006 | 9.400 | attivo |
-| 7 | Cyber Risk | AXA (`57df53bc`) | CY - Cyber Risk (`f479640c`) | VA-CYB-2025-007 | 7.300 | attivo |
-| 8 | Welfare | Reale Mutua (`bd13e472`) | NI - Infortuni Individuale (`8d13b7c0`) | VA-WEL-2025-008 | 5.500 | attivo |
-
-Tutti collegati a `cliente_anagrafica_id` del nuovo cliente, `ufficio_id` San Donà, `specialist` = GUARRACINO, `filiale` = "SEDE SAN DONA'".
-
-### Fase 4 — Miglioramenti UI Portale Cliente
-
-**4a. Aggiungere "Sinistri" alla navigazione** (`ClienteLayout.tsx`)
-- Aggiungere voce "Sinistri" con icona `AlertTriangle` nel menu di navigazione (già esiste la rotta `/cliente/sinistri` e la pagina `ClienteSinistri.tsx`)
-
-**4b. Aggiungere pagina "Il Mio Ufficio"** (nuova pagina `ClienteUfficio.tsx`)
-- Mostra i dati dell'ufficio assegnato (indirizzo, telefono, email, orari)
-- Mostra lo Specialist di riferimento (nome, email, telefono)
-- Dati recuperati da `clienti.ufficio_id` → `uffici` + codici commerciali → profili
-- Aggiungere voce "Il Mio Ufficio" nella navigazione e rotta
-
-**4c. Aggiungere pagina "Anagrafica"** (nuova pagina `ClienteAnagrafica.tsx`)
-- Mostra i dati anagrafici del cliente (read-only): ragione sociale, P.IVA, indirizzo, email, PEC, telefono
-- Recuperati dalla tabella `clienti` tramite `user_id`
-- Aggiungere voce "I Miei Dati" nella navigazione e rotta
+Trasformare il portale cliente da interfaccia basica a dashboard professionale con grafici Recharts, colori, sinistri simulati, dati polizze arricchiti e scadenziario visuale.
 
 ---
 
-### Dettagli tecnici
+### Fase 1 — Migrazione SQL: arricchire dati + simulare sinistri
 
-| File | Modifica |
-|------|----------|
-| Migrazione SQL | Ufficio San Donà + cliente + 8 titoli + aggiornamento profilo/prospect + codice commerciale |
-| `src/components/ClienteLayout.tsx` | +3 voci nav (Sinistri, I Miei Dati, Il Mio Ufficio) |
-| `src/pages/cliente/ClienteAnagrafica.tsx` | Nuova pagina read-only anagrafica |
-| `src/pages/cliente/ClienteUfficio.tsx` | Nuova pagina info ufficio + specialist |
-| `src/routes/cliente.tsx` | +2 rotte |
+**Aggiornare le 8 polizze** con campi mancanti:
+- `data_scadenza`, `durata_da`, `durata_da`, `periodicita`, `premio_netto`, `tasse`, `data_competenza`, `compagnia_id`, `ramo_id`, `descrizione_polizza`
+- Aggiungere date di incasso realistiche (2024-2025)
+
+**Inserire 5 sinistri fake** collegati alle polizze del Comune di Varese:
+1. Danno acqua — polizza RCT/O — aperto, riserva 15.000
+2. Infortunio dipendente — polizza Infortuni — chiuso, liquidato 3.200
+3. Furto attrezzature — polizza Kasko — in_lavorazione, riserva 8.500
+4. RC Terzi scivolamento — polizza RCT/O — aperto, riserva 22.000
+5. Cyber attack — polizza Cyber Risk — in_attesa_documenti, riserva 12.000
+
+Ogni sinistro con: `numero_sinistro`, `tipo_sinistro`, `data_evento`, `data_apertura`, `luogo_sinistro`, `descrizione`, `importo_riserva`, `importo_liquidato`, `costo_preventivato`, `stato`
+
+---
+
+### Fase 2 — Dashboard con grafici e KPI colorati
+
+Riscrivere `ClienteDashboard.tsx`:
+- **KPI cards** con icone su sfondo colorato circolare (stile CFO), bordi sinistri colorati:
+  - Polizze attive (verde), Premi totali (blu), Sinistri aperti (arancione), Prossime scadenze (rosso)
+- **Grafico a torta** (Recharts PieChart): ripartizione premi per ramo/prodotto
+- **Grafico a barre** (Recharts BarChart): premi per compagnia
+- **Timeline scadenze** prossime (3-4 card con countdown giorni)
+- **Mini tabella sinistri** recenti con stato colorato
+
+---
+
+### Fase 3 — Polizze: card arricchite + dettaglio completo
+
+**ClientePolizze.tsx**: card più ricche con:
+- Compagnia (fetch join `compagnie.nome`), ramo, periodicità
+- Premio lordo in evidenza, data scadenza, data decorrenza
+- Icona colorata per ramo
+- Badge stato con colori più vivaci
+
+**ClientePolizzaDetail.tsx**: dettaglio completo con:
+- Sezione "Dati Polizza" con tutti i campi: compagnia, ramo, decorrenza, scadenza, periodicità, premio netto, tasse, premio lordo
+- Sezione "Copertura" con descrizione polizza
+- Badge stato grande colorato
+- Documenti allegati (invariato)
+
+---
+
+### Fase 4 — Scadenziario visuale
+
+Riscrivere `ClienteScadenze.tsx`:
+- **KPI** in cima: scadenze prossimi 30gg (rosso), 60gg (arancione), 90gg (giallo)
+- **Lista card** con indicatore visuale giorni mancanti (barra colorata), countdown
+- Ordinamento per data scadenza (più vicina prima)
+- Badge urgenza: "URGENTE" rosso < 30gg, "IN SCADENZA" arancione < 60gg
+
+---
+
+### Fase 5 — Sinistri migliorati
+
+Aggiornare `ClienteSinistri.tsx`:
+- **KPI row**: Totale, Aperti (arancione), Chiusi (verde), Riserve totali (€), Liquidato totale (€)
+- **Grafico PieChart**: distribuzione per tipo sinistro
+- **Grafico BarChart**: riserve vs liquidato per sinistro
+- Tabella con più colonne: importo riserva, importo liquidato
+
+---
+
+### Fase 6 — Sidebar colorata stile brand
+
+Aggiornare `ClienteLayout.tsx`:
+- Sidebar con gradiente teal (hsl(199,58%,18%) → hsl(199,58%,26%)) come la sidebar admin
+- Logo bianco, testi nav bianchi/semi-trasparenti
+- Voce attiva con sfondo bianco semi-trasparente
+- Footer sidebar con nome utente in bianco
+
+---
+
+### File coinvolti
+
+| File | Azione |
+|------|--------|
+| Migrazione SQL | UPDATE 8 polizze + INSERT 5 sinistri |
+| `src/pages/cliente/ClienteDashboard.tsx` | Riscrittura completa con Recharts + KPI |
+| `src/pages/cliente/ClientePolizze.tsx` | Card arricchite con compagnia, ramo, date |
+| `src/pages/cliente/ClientePolizzaDetail.tsx` | Dettaglio completo tutti i campi |
+| `src/pages/cliente/ClienteScadenze.tsx` | Scadenziario visuale con countdown |
+| `src/pages/cliente/ClienteSinistri.tsx` | KPI + grafici riserve/liquidato |
+| `src/components/ClienteLayout.tsx` | Sidebar gradiente teal |
 
