@@ -312,6 +312,17 @@ const ClientiList = () => {
   const clienti = clientiResult?.data || [];
   const totalCount = clientiResult?.totalCount || 0;
 
+  // Conteggio polizze per cliente
+  const { data: polizzeCountMap = {} } = useQuery({
+    queryKey: ["count_polizze_per_cliente"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("count_polizze_per_cliente");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: any) => { map[r.cliente_id] = Number(r.count); });
+      return map;
+    },
+  });
 
   const { data: gruppiFinanziari = [] } = useQuery({
     queryKey: ["gruppi_finanziari_lookup"],
@@ -1081,8 +1092,9 @@ const ClientiList = () => {
                   <TableHead>CF / P.IVA</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefono</TableHead>
-                  <TableHead>Città</TableHead>
-                  <TableHead>Stato</TableHead>
+                   <TableHead>Città</TableHead>
+                   <TableHead className="text-center">Polizze</TableHead>
+                   <TableHead>Stato</TableHead>
                   <TableHead>Attivo</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1101,6 +1113,13 @@ const ClientiList = () => {
                       <TableCell>{c.email || "—"}</TableCell>
                       <TableCell>{c.telefono || "—"}</TableCell>
                       <TableCell>{citta}</TableCell>
+                      <TableCell className="text-center">
+                        {(polizzeCountMap[c.id] || 0) > 0 ? (
+                          <Badge variant="default" className="min-w-[2rem] justify-center">{polizzeCountMap[c.id]}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={c.attivo ? "default" : "secondary"}>
                           {c.attivo ? "Attivo" : "Disattivo"}
@@ -1118,7 +1137,7 @@ const ClientiList = () => {
                 })}
                 {clienti.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                       Nessun cliente trovato
                     </TableCell>
                   </TableRow>
