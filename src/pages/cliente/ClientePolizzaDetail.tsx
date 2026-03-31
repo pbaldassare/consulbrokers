@@ -4,8 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+
+const statoBadge: Record<string, string> = {
+  attivo: "bg-emerald-100 text-emerald-800",
+  scaduto: "bg-red-100 text-red-800",
+  sospeso: "bg-yellow-100 text-yellow-800",
+  incassato: "bg-blue-100 text-blue-800",
+};
+
+const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(v);
+const fmtDate = (d: string | null) => d ? format(new Date(d), "dd MMM yyyy", { locale: it }) : "—";
 
 const ClientePolizzaDetail = () => {
   const { id } = useParams();
@@ -16,7 +28,7 @@ const ClientePolizzaDetail = () => {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      supabase.from("titoli").select("*, prodotti(nome_prodotto), compagnie:prodotti(compagnia_id)").eq("id", id).maybeSingle(),
+      supabase.from("titoli").select("*, compagnie(nome), rami(descrizione)").eq("id", id).maybeSingle(),
       supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id),
     ]).then(([tRes, dRes]) => {
       setTitolo(tRes.data);
@@ -33,29 +45,75 @@ const ClientePolizzaDetail = () => {
   if (loading) return <Skeleton className="h-40 w-full" />;
   if (!titolo) return <p className="text-muted-foreground">Polizza non trovata.</p>;
 
+  const rows = [
+    { label: "Compagnia", value: (titolo.compagnie as any)?.nome, icon: Building2 },
+    { label: "Ramo", value: (titolo.rami as any)?.descrizione, icon: Shield },
+    { label: "Decorrenza", value: fmtDate(titolo.durata_da), icon: Calendar },
+    { label: "Scadenza", value: fmtDate(titolo.data_scadenza), icon: Calendar },
+    { label: "Periodicità", value: titolo.periodicita, icon: Calendar },
+    { label: "Premio Netto", value: titolo.premio_netto ? fmt(titolo.premio_netto) : "—", icon: CreditCard },
+    { label: "Tasse", value: titolo.tasse ? fmt(titolo.tasse) : "—", icon: CreditCard },
+    { label: "Premio Lordo", value: titolo.premio_lordo ? fmt(titolo.premio_lordo) : "—", icon: CreditCard },
+    { label: "Data Incasso", value: fmtDate(titolo.data_incasso), icon: Calendar },
+  ];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Link to="/cliente/polizze">
-        <Button variant="ghost" size="sm" className="gap-1.5"><ArrowLeft className="h-4 w-4" />Torna alle polizze</Button>
+        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"><ArrowLeft className="h-4 w-4" />Torna alle polizze</Button>
       </Link>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Polizza {titolo.numero_titolo}</span>
-            <Badge>{titolo.stato}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Prodotto:</span> <span className="font-medium">{(titolo.prodotti as any)?.nome_prodotto ?? "—"}</span></div>
-          <div><span className="text-muted-foreground">Premio lordo:</span> <span className="font-medium">€ {titolo.premio_lordo?.toFixed(2) ?? "—"}</span></div>
-          <div><span className="text-muted-foreground">Data incasso:</span> <span className="font-medium">{titolo.data_incasso ?? "—"}</span></div>
-          <div><span className="text-muted-foreground">Stato:</span> <span className="font-medium">{titolo.stato}</span></div>
+      {/* Header */}
+      <Card className="border-l-4 border-l-emerald-500">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Polizza</p>
+              <h2 className="text-2xl font-bold text-foreground">{titolo.numero_titolo}</h2>
+              <p className="text-sm text-teal-700 font-medium mt-1">{(titolo.rami as any)?.descrizione ?? "—"}</p>
+            </div>
+            <Badge className={`text-sm px-4 py-1.5 ${statoBadge[titolo.stato] ?? "bg-muted"}`}>{titolo.stato?.toUpperCase()}</Badge>
+          </div>
         </CardContent>
       </Card>
 
+      {/* Dati Polizza */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Documenti allegati</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-teal-600" />Dati Polizza</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rows.map(r => (
+              <div key={r.label} className="flex items-start gap-3 py-2">
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <r.icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{r.label}</p>
+                  <p className="text-sm font-semibold text-foreground">{r.value || "—"}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Copertura */}
+      {titolo.descrizione_polizza && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-teal-600" />Descrizione Copertura</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-foreground leading-relaxed">{titolo.descrizione_polizza}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Documenti */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Documenti allegati</CardTitle></CardHeader>
         <CardContent>
           {docs.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nessun documento disponibile.</p>
@@ -64,9 +122,7 @@ const ClientePolizzaDetail = () => {
               {docs.map((d) => (
                 <div key={d.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <span className="text-sm">{d.nome_file}</span>
-                  <Button variant="ghost" size="sm" onClick={() => handleDownload(d)}>
-                    <Download className="h-4 w-4" />
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDownload(d)}><Download className="h-4 w-4" /></Button>
                 </div>
               ))}
             </div>

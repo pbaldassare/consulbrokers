@@ -4,8 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign } from "lucide-react";
 import { format } from "date-fns";
+import { it } from "date-fns/locale";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
+const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6"];
 
 const statoBadge: Record<string, string> = {
   aperto: "bg-blue-100 text-blue-800",
@@ -23,7 +27,10 @@ const tipoLabels: Record<string, string> = {
   RC_terzi: "RC Terzi",
   infortunio: "Infortunio",
   grandine: "Grandine",
+  altro: "Altro",
 };
+
+const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
 export default function ClienteSinistri() {
   const { user } = useAuth();
@@ -31,10 +38,8 @@ export default function ClienteSinistri() {
   const { data: sinistri = [] } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
     queryFn: async () => {
-      // Get cliente IDs linked to this user
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
       if (!clienteIds?.length) return [];
-      
       const { data, error } = await supabase
         .from("sinistri")
         .select("*, compagnie(nome), titoli(numero_titolo)")
@@ -47,50 +52,137 @@ export default function ClienteSinistri() {
   });
 
   const aperti = sinistri.filter((s: any) => !["chiuso", "respinto"].includes(s.stato)).length;
+  const chiusi = sinistri.length - aperti;
+  const riserve = sinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
+  const liquidato = sinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
+
+  // Pie data by tipo
+  const perTipo = sinistri.reduce((acc: any[], s: any) => {
+    const name = tipoLabels[s.tipo_sinistro] || s.tipo_sinistro || "Altro";
+    const existing = acc.find(a => a.name === name);
+    if (existing) existing.value++;
+    else acc.push({ name, value: 1 });
+    return acc;
+  }, []);
+
+  // Bar data riserve vs liquidato
+  const barData = sinistri.map((s: any) => ({
+    name: s.numero_sinistro?.replace("SIN-VA-", "") || "—",
+    riserva: s.importo_riserva || 0,
+    liquidato: s.importo_liquidato || 0,
+  }));
+
+  const kpis = [
+    { label: "Totale", value: sinistri.length, icon: AlertTriangle, color: "text-blue-600", bg: "bg-blue-100", border: "#2563eb" },
+    { label: "Aperti", value: aperti, icon: Clock, color: "text-orange-600", bg: "bg-orange-100", border: "#ea580c" },
+    { label: "Chiusi", value: chiusi, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-100", border: "#059669" },
+    { label: "Riserve Totali", value: fmt(riserve), icon: DollarSign, color: "text-red-600", bg: "bg-red-100", border: "#dc2626" },
+    { label: "Liquidato", value: fmt(liquidato), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-100", border: "#0d9488" },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <AlertTriangle className="h-6 w-6 text-orange-500" />
-        <h1 className="text-2xl font-bold">I Miei Sinistri</h1>
+        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+          <AlertTriangle className="h-5 w-5 text-orange-600" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold">I Miei Sinistri</h1>
+          <p className="text-sm text-muted-foreground">{sinistri.length} sinistri registrati</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Totale</p><p className="text-2xl font-bold">{sinistri.length}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Aperti</p><p className="text-2xl font-bold text-orange-600">{aperti}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Chiusi</p><p className="text-2xl font-bold text-green-600">{sinistri.length - aperti}</p></CardContent></Card>
+      {/* KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {kpis.map(k => (
+          <Card key={k.label} className="border-l-4" style={{ borderLeftColor: k.border }}>
+            <CardContent className="pt-3 pb-3">
+              <div className="flex items-center gap-2">
+                <div className={`h-8 w-8 rounded-full ${k.bg} flex items-center justify-center`}>
+                  <k.icon className={`h-4 w-4 ${k.color}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                  <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
+      {/* Charts */}
+      {sinistri.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Distribuzione per Tipo</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={perTipo} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={4} dataKey="value" label={({ name, value }) => `${name} (${value})`} labelLine={false}>
+                    {perTipo.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Riserve vs Liquidato</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={barData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Legend />
+                  <Bar dataKey="riserva" name="Riserva" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="liquidato" name="Liquidato" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Table */}
       <Card>
-        <CardHeader><CardTitle>Elenco Sinistri</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Elenco Sinistri</CardTitle></CardHeader>
         <CardContent>
           {sinistri.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">Nessun sinistro presente</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>N. Sinistro</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Polizza</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Luogo</TableHead>
-                  <TableHead>Data Evento</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sinistri.map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
-                    <TableCell>{tipoLabels[s.tipo_sinistro] || s.tipo_sinistro || "—"}</TableCell>
-                    <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
-                    <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
-                    <TableCell>{s.luogo_sinistro || "—"}</TableCell>
-                    <TableCell>{s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "—"}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>N. Sinistro</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Polizza</TableHead>
+                    <TableHead>Stato</TableHead>
+                    <TableHead>Luogo</TableHead>
+                    <TableHead className="text-right">Riserva</TableHead>
+                    <TableHead className="text-right">Liquidato</TableHead>
+                    <TableHead>Data Evento</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {sinistri.map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
+                      <TableCell>{tipoLabels[s.tipo_sinistro] || s.tipo_sinistro || "—"}</TableCell>
+                      <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
+                      <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
+                      <TableCell className="max-w-[200px] truncate">{s.luogo_sinistro || "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{s.importo_riserva ? fmt(s.importo_riserva) : "—"}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-600">{s.importo_liquidato ? fmt(s.importo_liquidato) : "—"}</TableCell>
+                      <TableCell>{s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
