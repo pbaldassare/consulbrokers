@@ -1,25 +1,35 @@
 
 
-## Piano: Mostrare numero polizze per cliente nella lista clienti
+## Piano: Creare Prospect "Comune di Varese" con Trattativa
 
-### Situazione attuale
-- Tutti i **1035 titoli** sono già collegati ai clienti tramite `cliente_anagrafica_id` (0 senza cliente)
-- Esiste già la funzione DB `count_polizze_per_cliente()` che restituisce `(cliente_id, count)`
-- La lista clienti (`ClientiList.tsx`) non mostra il conteggio polizze
+### Dati del Prospect (Ente pubblico)
 
-### Modifiche
+| Campo | Valore |
+|-------|--------|
+| nome | Comune di Varese |
+| cognome | *(vuoto — è un ente)* |
+| email | protocollo@comune.varese.it |
+| telefono | 0332 255111 |
+| fonte | Bando pubblico |
+| stato | nuovo |
+| note | Ente pubblico — Comune di Varese, P.IVA 00291010121, Via Sacco 5, 21100 Varese (VA). Settore: Pubblica Amministrazione Locale. |
 
-**File: `src/pages/ClientiList.tsx`**
+### Trattativa simulata
 
-1. Aggiungere una query separata che chiama `count_polizze_per_cliente()` via RPC e costruisce una mappa `cliente_id → num_polizze`
-2. Aggiungere la colonna **"Polizze"** nella tabella, tra "Città" e "Stato"
-3. Mostrare il conteggio con un Badge colorato (evidenziato se > 0)
-4. Aggiornare il `colSpan` della riga "Nessun cliente trovato"
+| Campo | Valore |
+|-------|--------|
+| prodotto | Polizza RCT/O Enti Pubblici |
+| compagnia | Generali Italia |
+| premio_previsto | 18500.00 |
+| stato | in_trattativa |
 
-La colonna mostrerà un badge numerico per ogni cliente, rendendo immediatamente visibile quante polizze ha ciascuno.
+Dati coerenti: il Comune di Varese necessita tipicamente di copertura Responsabilità Civile verso Terzi e Operai (RCT/O), la compagnia Generali è tra le principali per il segmento PA, e il premio è realistico per un comune di ~80.000 abitanti.
 
-### Dettagli tecnici
-- Uso di `supabase.rpc("count_polizze_per_cliente")` che è già una `SECURITY DEFINER` function
-- La mappa viene costruita una volta e consultata per ogni riga della tabella
-- Nessuna modifica al DB necessaria
+### Esecuzione
+
+1. INSERT prospect con i dati sopra → ottengo `prospect_id`
+2. INSERT trattativa collegata al prospect
+
+### File coinvolti
+Nessuna modifica al codice. Solo operazioni dati.
 
