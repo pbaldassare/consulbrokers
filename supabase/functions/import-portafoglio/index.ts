@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
         tipo_portafoglio: baseRow.tipo_portafoglio || null,
         stato: stato,
         // New fields
-        percentuale_riparto: stateRow.perc_riparto ?? null,
+        percentuale_riparto: num(stateRow.perc_riparto),
         tipo_mandatario: baseRow.tipo_mand || null,
         risk_type: baseRow.risk_type || null,
         prodotto_nome: baseRow.prodotto || null,
