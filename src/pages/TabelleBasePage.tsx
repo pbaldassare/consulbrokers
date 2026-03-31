@@ -824,6 +824,174 @@ const RcaGaranzieTab = () => {
   );
 };
 
+/* ────────── Tipo Documento Tab (with boolean flags) ────────── */
+
+const TIPO_DOC_FLAGS = [
+  { key: "visibile", label: "Vis" },
+  { key: "clienti", label: "Cli" },
+  { key: "compagnie", label: "Comp" },
+  { key: "polizze", label: "Pol" },
+  { key: "trattative", label: "Tratt" },
+  { key: "contrattuali", label: "Contr" },
+  { key: "prod", label: "Prod" },
+] as const;
+
+const TipoDocumentoTab = () => {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [firma, setFirma] = useState("");
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["lookup-tipo-documento"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lookup_tipo_documento" as any)
+        .select("*")
+        .order("codice");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload: any = { codice, descrizione, firma: firma || null };
+      TIPO_DOC_FLAGS.forEach(f => { payload[f.key] = flags[f.key] ?? false; });
+      if (editing) {
+        const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lookup-tipo-documento"] });
+      toast.success(editing ? "Tipo aggiornato" : "Tipo creato");
+      closeDialog();
+    },
+    onError: () => toast.error("Errore"),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lookup-tipo-documento"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lookup-tipo-documento"] });
+      toast.success("Tipo eliminato");
+    },
+    onError: () => toast.error("Errore"),
+  });
+
+  const openNew = () => {
+    setEditing(null); setCodice(""); setDescrizione(""); setFirma("");
+    setFlags({}); setOpen(true);
+  };
+  const openEdit = (item: any) => {
+    setEditing(item); setCodice(item.codice); setDescrizione(item.descrizione); setFirma(item.firma || "");
+    const f: Record<string, boolean> = {};
+    TIPO_DOC_FLAGS.forEach(fl => { f[fl.key] = !!item[fl.key]; });
+    setFlags(f); setOpen(true);
+  };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-lg">Tipi Documento</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-24">Codice</TableHead>
+                <TableHead>Descrizione</TableHead>
+                {TIPO_DOC_FLAGS.map(f => (
+                  <TableHead key={f.key} className="w-12 text-center text-xs">{f.label}</TableHead>
+                ))}
+                <TableHead className="w-14 text-center text-xs">Firma</TableHead>
+                <TableHead className="w-20 text-center">Attivo</TableHead>
+                <TableHead className="w-24 text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+              ) : items.length === 0 ? (
+                <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+              ) : items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-mono font-semibold text-xs">{item.codice}</TableCell>
+                  <TableCell className="text-sm">{item.descrizione}</TableCell>
+                  {TIPO_DOC_FLAGS.map(f => (
+                    <TableCell key={f.key} className="text-center">
+                      {item[f.key] ? <Badge variant="default" className="px-1 py-0 text-[10px]">✓</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-center text-xs font-mono">{item.firma || "—"}</TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>{editing ? "Modifica Tipo Documento" : "Nuovo Tipo Documento"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 11" /></div>
+                <div><Label>Firma</Label><Input value={firma} onChange={(e) => setFirma(e.target.value)} placeholder="S o vuoto" /></div>
+              </div>
+              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Descrizione..." /></div>
+              <div>
+                <Label className="mb-2 block">Visibilità per sezione</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {TIPO_DOC_FLAGS.map(f => (
+                    <label key={f.key} className="flex items-center gap-2 text-sm">
+                      <Switch checked={flags[f.key] ?? false} onCheckedChange={(v) => setFlags(prev => ({ ...prev, [f.key]: v }))} />
+                      {f.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || save.isPending}>
+                {save.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ────────── Page ────────── */
 
 const tabConfig: { value: string; label: string; tableName: string; queryKey: string; title: string; custom?: string | boolean }[] = [
