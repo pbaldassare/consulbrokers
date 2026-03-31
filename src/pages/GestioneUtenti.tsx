@@ -482,7 +482,7 @@ const GestioneUtenti = () => {
                       <Select value={editForm.ruolo || ""} onValueChange={v => updateEditField("ruolo", v)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {ROLES.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
