@@ -2,20 +2,8 @@ import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  LayoutDashboard,
-  Shield,
-  FileText,
-  CalendarClock,
-  MessageSquare,
-  Bell,
-  CreditCard,
-  Upload,
-  LogOut,
-  Menu,
-  X,
-  AlertTriangle,
-  User,
-  Building,
+  LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
+  Bell, CreditCard, Upload, LogOut, Menu, X, AlertTriangle, User, Building,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -47,12 +35,12 @@ const ClienteLayout = () => {
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="p-4 border-b border-border">
-        <h1 className="text-lg font-bold text-primary tracking-tight">CBnet</h1>
-        <span className="text-xs text-muted-foreground">Area Clienti</span>
+      <div className="p-5 border-b border-white/10">
+        <h1 className="text-xl font-bold text-white tracking-tight">CBnet</h1>
+        <span className="text-xs text-white/60">Area Clienti</span>
       </div>
 
-      {/* Nav items */}
+      {/* Nav */}
       <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
@@ -62,10 +50,10 @@ const ClienteLayout = () => {
             onClick={onItemClick}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-white/20 text-white shadow-sm"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               )
             }
           >
@@ -76,11 +64,11 @@ const ClienteLayout = () => {
       </nav>
 
       {/* User + logout */}
-      <div className="p-3 border-t border-border space-y-2">
-        <p className="text-xs text-muted-foreground truncate px-1">
+      <div className="p-3 border-t border-white/10 space-y-2">
+        <p className="text-xs text-white/50 truncate px-1">
           {profile?.nome} {profile?.cognome}
         </p>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full justify-start gap-2 text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full justify-start gap-2 text-white/70 hover:text-white hover:bg-white/10">
           <LogOut className="h-4 w-4" />
           Esci
         </Button>
@@ -91,19 +79,19 @@ const ClienteLayout = () => {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-56 shrink-0 border-r border-border bg-card flex-col">
+      <aside
+        className="hidden md:flex w-56 shrink-0 flex-col"
+        style={{ background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" }}
+      >
         <SidebarContent />
       </aside>
 
-      {/* Mobile header + overlay */}
+      {/* Mobile + main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden sticky top-0 z-50 border-b border-border bg-card shadow-sm">
           <div className="flex items-center justify-between px-4 h-14">
             <div className="flex items-center gap-3">
-              <button
-                className="p-1.5 rounded-md hover:bg-muted"
-                onClick={() => setMobileOpen(!mobileOpen)}
-              >
+              <button className="p-1.5 rounded-md hover:bg-muted" onClick={() => setMobileOpen(!mobileOpen)}>
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
               <h1 className="text-lg font-bold text-primary tracking-tight">CBnet</h1>
@@ -116,9 +104,10 @@ const ClienteLayout = () => {
 
         {/* Mobile overlay */}
         {mobileOpen && (
-          <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)}>
+          <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)}>
             <aside
-              className="absolute left-0 top-0 bottom-0 w-64 bg-card border-r border-border"
+              className="absolute left-0 top-0 bottom-0 w-64"
+              style={{ background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" }}
               onClick={(e) => e.stopPropagation()}
             >
               <SidebarContent onItemClick={() => setMobileOpen(false)} />
@@ -126,12 +115,10 @@ const ClienteLayout = () => {
           </div>
         )}
 
-        {/* Main content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">
           <Outlet />
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-border bg-card py-3 text-center text-xs text-muted-foreground">
           CBnet — Per assistenza contatta la tua agenzia
         </footer>
