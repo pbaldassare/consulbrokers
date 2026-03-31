@@ -3891,6 +3891,92 @@ export type Database = {
           },
         ]
       }
+      rca_garanzie: {
+        Row: {
+          aliquota_tasse: number | null
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          aliquota_tasse?: number | null
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          aliquota_tasse?: number | null
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      rca_settori: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      rca_usi: {
+        Row: {
+          attivo: boolean | null
+          codice: string
+          created_at: string | null
+          descrizione: string
+          id: string
+          settore_id: string
+        }
+        Insert: {
+          attivo?: boolean | null
+          codice: string
+          created_at?: string | null
+          descrizione: string
+          id?: string
+          settore_id: string
+        }
+        Update: {
+          attivo?: boolean | null
+          codice?: string
+          created_at?: string | null
+          descrizione?: string
+          id?: string
+          settore_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rca_usi_settore_id_fkey"
+            columns: ["settore_id"]
+            isOneToOne: false
+            referencedRelation: "rca_settori"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_salvati: {
         Row: {
           created_at: string
