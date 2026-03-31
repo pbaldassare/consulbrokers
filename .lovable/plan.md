@@ -1,96 +1,59 @@
 
 
-## Piano: Import Portafoglio Polizze — Schema + Edge Function + Esecuzione
+## Piano: Aggiornamento Tabelle di Base con dati reali
 
-### Panoramica
+### 1. Tabella `tipi_mandatario` — Sostituzione completa
 
-1803 record da importare. Serve prima aggiornare lo schema DB (nuovi campi e tabelle di lookup), poi creare una Edge Function `import-portafoglio`, infine eseguire l'import.
+**Stato attuale**: 6 record generici (AGE, BRO, DEL, DIR, MAN, SUB)
+**Dati Excel**: 14 record con codici numerici specifici del settore assicurativo
 
----
+| Codice | Descrizione |
+|--------|-------------|
+| 01 | Direzione |
+| 02 | Gerenza |
+| 03 | Agenzia Generale |
+| 04 | Agente Monomandatario |
+| 11 | Agente Multimandatario |
+| 12 | Broker |
+| 13 | Sub-Agente |
+| 21 | Compagnia Estera |
+| 22 | Agente Estero |
+| 23 | Broker Estero |
+| 31 | Lloyd's Coverholder |
+| 32 | Lloyd's Broker |
+| 33 | Lloyd's Service Company |
+| 99 | Altro |
 
-### Step 1 — Migrazione DB: nuove tabelle di lookup
+**Azione**: Cancellare i 6 record esistenti e inserire i 14 nuovi. Verificare prima che nessun titolo faccia riferimento ai vecchi codici.
 
-Creare 3 nuove tabelle di lookup (struttura standard: `id, codice, descrizione, attivo, created_at`):
+### 2. Tabella `lookup_tipo_documento` — Sostituzione completa
 
-| Tabella | Dati iniziali (dall'Excel) |
-|---|---|
-| `lookup_risk_type` | Valori unici trovati nell'Excel (quasi tutti vuoti) |
-| `lookup_tipo_documento` | PI, PQ, AM (+ quelli che aggiungerai tu) |
-| `lookup_conti_incasso` | "CASSA NAPOLI", "BANCA PREALPI G 10756", "BNL C/C 941", ecc. |
+**Stato attuale**: 3 record (PI, PQ, AM) — questi sono tipi di movimento polizza, non tipi documento completi.
+**Dati Excel**: 91 tipi documento con struttura gerarchica e colonne aggiuntive.
 
-**Nota**: `tipi_mandatario` esiste già nel DB e in TabelleBasePage — non serve crearla.
+L'Excel ha molte più colonne rispetto alla struttura semplice `codice/descrizione/attivo` della lookup:
+- `Visibile`, `Clienti`, `Compagnie`, `Polizze`, `Trattative`, `Contrattuali`, `Prod`
+- `Firma`, `Firma Avanzata`, `Smart Anchors`, `Box firma 1-4`, `Clausole Particolari`, `Pos Clausole`
 
-### Step 2 — Migrazione DB: nuovi campi su `titoli`
+**Problema**: La tabella `lookup_tipo_documento` ha solo `codice, descrizione, attivo`. I dati Excel hanno una struttura molto più ricca (visibilità per sezione, firma elettronica, ecc.).
 
-| Campo | Tipo | Note |
-|---|---|---|
-| `percentuale_riparto` | numeric | %Riparto (es. 100) |
-| `tipo_mandatario` | text | FK logica → `tipi_mandatario.codice` |
-| `risk_type` | text | FK logica → `lookup_risk_type.codice` |
-| `prodotto_nome` | text | Nome prodotto dal legacy |
-| `comp_contabile` | date | Data competenza contabile |
-| `comp_assicurativa` | date | Data competenza assicurativa |
-| `tipo_incasso` | text | B, X, P ecc. |
-| `conto_incasso` | text | Nome conto |
-| `id_legacy` | integer | ID sistema vecchio per tracciabilità |
-| `produttore_nome` | text | Nome produttore (testo, no FK) |
-| `ae_nome` | text | Nome Account Executive (testo) |
-| `filiale` | text | Codice filiale (NA, FIB, PZZ) |
+**Proposta**: Serve ampliare la tabella `lookup_tipo_documento` con le colonne aggiuntive per gestire correttamente la classificazione documentale. In alternativa, creare una nuova tabella dedicata `tipi_documento_polizza` con tutte le colonne.
 
-### Step 3 — Migrazione DB: nuovi campi su `movimenti_polizza`
+### Domanda prima di procedere
 
-| Campo | Tipo | Note |
-|---|---|---|
-| `tipo_documento` | text | PI, PQ, AM |
-| `premio_netto` | numeric | Imponibile |
-| `tasse` | numeric | |
-| `provvigioni_attive` | numeric | |
-| `provvigioni_passive` | numeric | |
-| `stato_incasso` | text | S, altro |
+Per i **tipi documento**: l'Excel ha 19 colonne con flag di visibilità (Clienti, Compagnie, Polizze, Trattative, ecc.) e gestione firma elettronica. Devo:
 
-### Step 4 — Aggiornare TabelleBasePage
+**A)** Aggiungere tutte queste colonne alla tabella `lookup_tipo_documento` esistente (e aggiornare la UI in TabelleBasePage con un form più complesso)
 
-Aggiungere i 3 nuovi tab in `tabConfig`:
-- `lookup_risk_type` → "Risk Type"
-- `lookup_tipo_documento` → "Tipo Documento"
-- `lookup_conti_incasso` → "Conti Incasso"
-
-### Step 5 — Edge Function `import-portafoglio`
-
-Logica:
-1. Riceve array di record parsati dal client
-2. Per ogni `numero_titolo` unico: crea/aggiorna un record in `titoli` (usa i dati della riga PI o della più recente)
-3. Per ogni riga Excel: crea un record in `movimenti_polizza`
-4. Lookup automatici:
-   - `clienti.codice_ricerca` → `cliente_anagrafica_id`
-   - `compagnie.codice` → `compagnia_id`
-   - `rami.codice` → `ramo_id`
-   - `uffici` per filiale → `ufficio_id`
-5. Produttore e AE salvati come testo (no FK)
-6. Action `replace_all`: cancella tutti i titoli e movimenti esistenti, poi inserisce
-
-### Step 6 — Esecuzione import
-
-- Parsare `portafoglio_napoli_dal_2020_3.xlsx` via script
-- Preparare payload JSON
-- Invocare Edge Function con `action: "replace_all"`
-- Risultato atteso: ~titoli unici creati + 1803 movimenti
-
-### Step 7 — `clienti.fatturato`
-
-Il campo `fatturato` esiste già in `clienti`. I dati "Fatt" dell'Excel sono ridondanti (sono dati del cliente, non della polizza). Non serve un nuovo campo.
-
----
+**B)** Creare una nuova tabella `tipi_documento` separata con tutte le colonne, lasciando `lookup_tipo_documento` solo per i 3 tipi movimento (PI/PQ/AM)
 
 ### Dettagli tecnici
 
 **File coinvolti:**
 
 | File | Modifica |
-|---|---|
-| Migrazione SQL | 3 tabelle lookup + campi su `titoli` e `movimenti_polizza` |
-| `src/pages/TabelleBasePage.tsx` | 3 nuovi tab |
-| `supabase/functions/import-portafoglio/index.ts` | Nuova Edge Function |
-| `supabase/config.toml` | Aggiungere `[functions.import-portafoglio]` |
-| Script esecuzione | Parsing Excel + invocazione |
+|------|----------|
+| Migrazione SQL | ALTER TABLE o CREATE TABLE per colonne aggiuntive |
+| `src/pages/TabelleBasePage.tsx` | Tab custom per gestire i nuovi campi |
+| Dati | INSERT dei record da Excel |
 
