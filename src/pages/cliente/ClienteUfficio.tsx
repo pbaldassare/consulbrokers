@@ -41,11 +41,11 @@ const ClienteUfficio = () => {
         if (cc?.profilo_id) {
           const { data: prof } = await supabase
             .from("profiles")
-            .select("nome, cognome, email, telefono, cellulare")
+            .select("nome, cognome, email, telefono")
             .eq("id", cc.profilo_id)
             .maybeSingle();
           if (prof) {
-            setSpecialist({ nome: prof.nome, cognome: prof.cognome, email: prof.email, telefono: prof.telefono, cellulare: prof.cellulare, ruolo: cc.ruolo, filiale: cc.filiale });
+            setSpecialist({ nome: prof.nome, cognome: prof.cognome, email: prof.email, telefono: prof.telefono, ruolo: cc.ruolo, filiale: cc.filiale });
           }
         }
       }
