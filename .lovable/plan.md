@@ -1,87 +1,81 @@
 
 
-## Analisi: Campi già esistenti nel DB
+## Piano: Fix Edge Function + Esecuzione diretta import + Rimozione pulsante
 
-Hai ragione a chiedere — **quasi tutti i campi sono già presenti** nella tabella `clienti`. Ecco il mapping completo:
+### Analisi Excel — 40 colonne, ~549 record
 
-### Campi Excel → Campi DB `clienti` (GIÀ ESISTENTI)
+Le colonne dell'Excel e il loro mapping:
 
-| Colonna Excel | Campo DB `clienti` | Stato |
+**Campi → tabella `clienti` (TUTTI GIA ESISTENTI)**
+
+| Colonna Excel | Campo DB | Note |
 |---|---|---|
-| Codice | `codice_ricerca` | ✅ Esiste |
-| Nome | `cognome`/`nome` (F) o `ragione_sociale` (G) | ✅ Esiste |
-| F/G | `tipo_cliente` (privato/azienda) | ✅ Esiste |
-| Indirizzo | `indirizzo_residenza` (F) / `indirizzo_sede` (G) | ✅ Esiste |
-| Cap | `cap_residenza` / `cap_sede` | ✅ Esiste |
-| Comune | `citta_residenza` / `citta_sede` | ✅ Esiste |
-| Prov | `provincia_residenza` / `provincia_sede` | ✅ Esiste |
-| Tel | `telefono` | ✅ Esiste |
-| Email | `email` | ✅ Esiste |
-| AttenDi | `attenzione_di` | ✅ Esiste |
-| CF | `codice_fiscale` (F) / `codice_fiscale_azienda` (G) | ✅ Esiste |
-| PIva | `partita_iva` | ✅ Esiste |
-| GruStat | `gruppo_statistico` | ✅ Esiste (testo, lookup in `gruppi_statistici`) |
-| GruFin | `gruppo_finanziario_id` | ✅ Esiste (FK → `gruppi_finanziari`) |
-| Indotto | `indotto` | ✅ Esiste (testo, lookup in `lookup_indotti`) |
-| Zona | `zona` | ✅ Esiste (testo, lookup in `lookup_zone`) |
-| Attivita | `attivita` | ✅ Esiste (testo, lookup in `lookup_attivita`) |
-| SpecialistSX | `spec_sx_danni` | ✅ Esiste |
-| Stato | `attivo` / `stato_cliente` | ✅ Esiste |
-| Fatturato | `fatturato` | ✅ Esiste |
-| Dipendenti | `fascia_dipendenti` | ✅ Esiste |
+| Codice | `codice_ricerca` | Padded a 6 cifre (es. "000032") |
+| Nome | `ragione_sociale` se G, oppure split `cognome`+`nome` se F | Split su primo spazio |
+| F/G | `tipo_cliente` | F=privato, G=azienda |
+| Indirizzo | `indirizzo_residenza` (F) / `indirizzo_sede` (G) | |
+| Cap | `cap_residenza` / `cap_sede` | |
+| Comune | `citta_residenza` / `citta_sede` | |
+| Prov | `provincia_residenza` / `provincia_sede` | |
+| Tel | `telefono` | |
+| Email | `email` | |
+| AttenDi | `attenzione_di` | |
+| CF | `codice_fiscale` (F) / `codice_fiscale_azienda` (G) | |
+| PIva | `partita_iva` | |
+| GruStat | `gruppo_statistico` | Testo libero, es. "Gruppo CAREMAR" |
+| GruFin | `gruppo_finanziario_id` | Lookup per nome → `gruppi_finanziari.id`, crea se mancante |
+| Indotto | `indotto` | Testo, es. "Gruppo CAREMAR", "PERSONE FISICHE" |
+| Zona | `zona` | "SUD", "CENTRO", "NORD-OVEST" — gia in `lookup_zone` |
+| Attivita | `attivita` | "CATEGORIA DA DEFINIRE" ecc. |
+| Fatturato | `fatturato` | Spesso vuoto |
+| Dipendenti | `fascia_dipendenti` | Spesso vuoto |
+| SpecialistSX | `spec_sx_danni` | Es. "BONITO TINA" |
+| Stato | `attivo` + `stato_cliente` | "Attivo" / "non attivo" |
 
-### Campi Excel → Tabella `codici_commerciali_cliente` (GIÀ ESISTENTE)
+**Campi → tabella `codici_commerciali_cliente` (GIA ESISTENTE, da popolare)**
 
-| Colonna Excel | Campo DB | Stato |
+| Colonna Excel | Campo DB | Note |
 |---|---|---|
-| Brand | `societa_brand` | ✅ Esiste (= "Consulbrokers" sempre) |
-| Unit / Filiale | `filiale` | ✅ Esiste |
-| Specialist | `ruolo = 'Backoffice'`, `profilo_id` → profiles | ✅ Esiste |
-| Prod1 | `ruolo = 'corrispondente_1'`, `profilo_id` → anagrafiche | ✅ Esiste |
-| Prod2 | `ruolo = 'corrispondente_2'` | ✅ Esiste |
-| Prod3 | `ruolo = 'corrispondente_3'` | ✅ Esiste |
-| Acquisito | `data_acquisito` | ✅ Esiste |
-| ScadMandato | `scadenza_mandato` | ✅ Esiste |
+| Brand | `societa_brand` | Sempre "Consulbrokers" (a volte vuoto negli ultimi record) |
+| Unit | `filiale` | "SEDE NAPOLI" o "SEDE ROMA" |
+| Specialist | ruolo `Backoffice`, `profilo_id` → `profiles` | GUARRACINO, SCARPELLI, DEL GIUDICE, BOCCHINI |
+| Prod1 | ruolo `corrispondente_1`, **`profilo_id` = null**, `contatto` = nome | AMATO MARCELLINO, BRIGIDA ecc. |
+| Prod2 | ruolo `corrispondente_2`, `profilo_id` = null | |
+| Prod3 | ruolo `corrispondente_3`, `profilo_id` = null | "Consulbrokers Digital Srl" ecc. |
+| Acquisito | `data_acquisito` | Date in formato MM/DD/YY |
+| ScadMandato | `scadenza_mandato` | |
+| Filiale | non usato separatamente | Corrisponde a "Ufficio di Napoli" = `ufficio_id` |
 
-### Nota su "Brand" = Sede
+**Colonne ignorate** (non servono per l'import):
+CF dup, PI dup, Inserito, Variato, Ultimo carico, Pr Scad, 7A Invio, 7A Reso, 7A Evaso, GDPR Evaso
 
-Hai ragione: **Brand = "Consulbrokers"** per tutti i record, e **Unit = "SEDE NAPOLI" o "SEDE ROMA"** corrisponde alla sede/filiale. Il campo `ufficio_id` è già collegato a `uffici` (`f5163c49...` = "Ufficio di Napoli"). Il campo `filiale` in `codici_commerciali_cliente` può ospitare "SEDE NAPOLI" / "SEDE ROMA".
+### Bug critico da fixare
 
-### Tabelle di lookup già presenti
+Nella Edge Function `import-clienti`, righe 226-260: per `Prod1/2/3` viene assegnato `profilo_id` cercando in `anagrafiche_professionali`, ma la FK `codici_commerciali_cliente.profilo_id` punta a `profiles`. I corrispondenti non hanno un record in `profiles`, quindi causa errore di FK violation.
 
-- `lookup_zone`: 13 record (SUD, CENTRO, NORD-OVEST, ecc.) ✅
-- `lookup_indotti`: 3 record ✅
-- `lookup_attivita`: 20+ record ✅
-- `gruppi_statistici`: 16 record ✅
-- `gruppi_finanziari`: 21+ record ✅ (ma alcuni valori Excel mancano, vanno creati)
+**Fix**: per `corrispondente_1/2/3` impostare `profilo_id: null` e salvare il nome solo in `contatto`.
 
-### Cosa manca nel DB
+### Cosa faremo (3 step)
 
-1. **Gruppi finanziari mancanti**: alcuni valori dall'Excel non esistono ancora (es: "Gruppo CAREMAR", "GRUPPO EUROELETTRICA IMPIANTI", "Gruppo CALCIATORI SINGOLI", "Gruppo Dipendenti FIME", "Gruppo Dipendenti Società PERRETTI", "Gestione Milano", "PERSONE FISICHE")
-2. **Profiles Specialist mancanti**: nel DB ci sono solo GUARRACINO come backoffice. Mancano: SCARPELLI PAOLA, DEL GIUDICE PALMINA, BOCCHINI SERENA, BONITO TINA — vanno creati come profiles con ruolo `backoffice`
-3. **Dati nei codici_commerciali_cliente**: la tabella è vuota, va popolata
+**1. Fix Edge Function `import-clienti/index.ts`**
+- Righe 228, 240, 252: cambiare `profilo_id: anagMap[prodKey] || null` → `profilo_id: null`
+- I produttori restano referenziati solo per nome nel campo `contatto`
 
-### Piano di implementazione
+**2. Eseguire l'import direttamente**
+- Parsare l'Excel `Clienti_Napoli-2.xlsx` tramite script
+- Chiamare la Edge Function con `action: "replace_all"`, passando `clienti` e `codici_commerciali`
+- Risultato atteso: ~549 clienti inseriti, codici commerciali creati, gruppi finanziari mancanti creati automaticamente
 
-**Non serve creare nuove tabelle né nuove colonne.** Serve solo:
-
-1. **Creare i gruppi finanziari mancanti** (INSERT in `gruppi_finanziari`)
-2. **Creare i profiles Specialist mancanti** (SCARPELLI, DEL GIUDICE, BOCCHINI, BONITO) con ruolo `backoffice`
-3. **Aggiornare la Edge Function `import-clienti`** con action `replace_all`:
-   - Cancella `codici_commerciali_cliente` e `clienti_relazioni` esistenti
-   - Cancella tutti i clienti
-   - Reinserisce i ~548 clienti con tutti i campi mappati
-   - Per ogni cliente crea i record `codici_commerciali_cliente` (Specialist, Prod1/2/3)
-   - Risolve GruFin per nome → `gruppo_finanziario_id`
-   - Risolve Specialist per cognome/nome → `profilo_id` in profiles
-   - Risolve Prod1/2/3 per nome → `profilo_id` in anagrafiche_professionali
-4. **Aggiornare ManutenzionePage** con bottone "Reimporta Clienti Napoli" che parsa l'Excel e invoca la function
+**3. Rimuovere la card "Reimporta Clienti Napoli" da ManutenzionePage**
+- Eliminare righe 284-317 (card con upload Excel)
+- Rimuovere: `importClienti` mutation (righe ~93-169), `handleFileUpload` (righe 171-180), `fileInputRef`, `importStatus`, `parseExcelDate`, import `Upload`/`Database`
+- Togliere `importClienti.isPending` da `isAnyRunning`
 
 ### File coinvolti
 
-| Azione | File |
-|---|---|
-| Modifica | `supabase/functions/import-clienti/index.ts` — nuova action `replace_all` |
-| Modifica | `src/pages/ManutenzionePage.tsx` — bottone reimportazione con upload Excel |
-| Dati | INSERT profiles Specialist mancanti + INSERT gruppi_finanziari mancanti (via Edge Function) |
+| File | Modifica |
+|------|----------|
+| `supabase/functions/import-clienti/index.ts` | Fix: `profilo_id: null` per Prod1/2/3 |
+| `src/pages/ManutenzionePage.tsx` | Rimozione card + codice import |
+| Script diretto | Parsing Excel + invocazione Edge Function |
 
