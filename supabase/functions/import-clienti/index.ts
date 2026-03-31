@@ -222,38 +222,32 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Prod1 -> anagrafiche
+        // Prod1 -> contatto only (no profilo_id, FK points to profiles not anagrafiche)
         if (c.prod1) {
-          const prodKey = c.prod1.trim().toUpperCase();
-          const profiloId = anagMap[prodKey] || null;
           ccBatch.push({
             cliente_id: clienteId,
             ruolo: "corrispondente_1",
-            profilo_id: profiloId,
+            profilo_id: null,
             societa_brand: c.brand || "Consulbrokers",
             contatto: c.prod1,
           });
         }
 
         if (c.prod2) {
-          const prodKey = c.prod2.trim().toUpperCase();
-          const profiloId = anagMap[prodKey] || null;
           ccBatch.push({
             cliente_id: clienteId,
             ruolo: "corrispondente_2",
-            profilo_id: profiloId,
+            profilo_id: null,
             societa_brand: c.brand || "Consulbrokers",
             contatto: c.prod2,
           });
         }
 
         if (c.prod3) {
-          const prodKey = c.prod3.trim().toUpperCase();
-          const profiloId = anagMap[prodKey] || null;
           ccBatch.push({
             cliente_id: clienteId,
             ruolo: "corrispondente_3",
-            profilo_id: profiloId,
+            profilo_id: null,
             societa_brand: c.brand || "Consulbrokers",
             contatto: c.prod3,
           });
