@@ -429,7 +429,7 @@ const GestioneUtenti = () => {
               <Select value={newRuolo} onValueChange={setNewRuolo}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {ROLES.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
