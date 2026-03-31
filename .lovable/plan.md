@@ -1,55 +1,86 @@
 
 
-## Piano: Importare Corrispondenti come utenti con ruolo dedicato
+## Piano: Tabelle Base RCA Auto concatenate
 
-### Dati ricevuti
-Il file Excel contiene ~260 record di corrispondenti con campi: Descrizione, Azienda/Cognome, Nome, Indirizzo, Località, Prov, Cap, %Base, Cd For (codice fornitore), %Ra, Tel, Fax, Mail, Rui, Abi, Cab, Iban, IntestatarioCC. Molti record non hanno email — genereremo email fake per quelli.
+### Dati dai file Excel
+
+**3 tabelle interconnesse:**
+
+1. **Settori RCA** (tipologie_di_rca.xlsx) — 16 record
+   - Codice settore (01-16) + Descrizione (Autovetture, Autobus, Autocarri, ecc.)
+
+2. **Usi RCA** (tabella_uso_rca_auto.xlsx) — 43 record
+   - Ogni uso è legato a un settore (FK settore)
+   - Codice uso + Descrizione (Privato, Conto Terzi, Scuola Guida, ecc.)
+
+3. **Garanzie RCA** (tabelal_settori_rca_auto.xlsm) — 17 record
+   - Codice garanzia + Descrizione + **%Tasse** (aliquota fiscale)
+   - Es: Cristalli 13.5%, Infortuni 2.5%, Black Box 0%
+
+### Struttura relazionale
+
+```text
+rca_settori (16 record)
+  ├── id, codice, descrizione, attivo
+  │
+  └──< rca_usi (43 record)
+        ├── id, settore_id (FK → rca_settori), codice, descrizione, attivo
+        │
+rca_garanzie (17 record, indipendente)
+  ├── id, codice, descrizione, aliquota_tasse (%), attivo
+```
 
 ### Modifiche
 
-**1. Database — Nuovo ruolo `corrispondente`**
-- Aggiungere `corrispondente` all'enum `app_role`
-- Questo permette di assegnare il ruolo nella tabella `user_roles`
+**1. Migrazione DB — 3 tabelle nuove**
 
-**2. Edge Function — `provision-corrispondenti-users`**
-- Nuova Edge Function che:
-  - Riceve l'array di record dal frontend
-  - Per ogni corrispondente con dati sufficienti (nome/cognome o ragione_sociale):
-    - Se manca l'email, genera una fake: `cognome.nome@corrispondente.consulbrokers.fake` (o variante con codice fornitore)
-    - Crea account auth (password `Leone123!`)
-    - Crea profilo in `profiles` con `ruolo = 'corrispondente'`
-    - Inserisce in `user_roles` con role `corrispondente`
-    - Mappa i campi: indirizzo, cap, citta, provincia, telefono, fax, numero_rui, percentuale_base, percentuale_ra, iban, intestatario_cc, codice_contabile (da Cd For)
-  - Salta le righe che sono "SEDE ..." o vuote (intestazioni di sezione)
-  - Opera in batch, restituisce conteggio successi/errori
+```sql
+CREATE TABLE rca_settori (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  codice text NOT NULL UNIQUE,
+  descrizione text NOT NULL,
+  attivo boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
 
-**3. Pagina UI — Trigger importazione**
-- Aggiungere nella pagina `ManutenzionePage` (o `AnagraficheProfessionaliPage`) un bottone "Provisioning Corrispondenti" che:
-  - Legge i corrispondenti dalla tabella `anagrafiche_professionali` dove `tipo = 'corrispondente'`
-  - Chiama la Edge Function per creare gli account
-  - Mostra risultato
+CREATE TABLE rca_usi (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  settore_id uuid REFERENCES rca_settori(id) ON DELETE CASCADE NOT NULL,
+  codice text NOT NULL,
+  descrizione text NOT NULL,
+  attivo boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(settore_id, codice)
+);
 
-**4. Aggiornamenti vari**
-- `AuthGuard.tsx`: se ruolo `corrispondente`, redirect a dashboard (stesse pagine del produttore)
-- `SitemapPage.tsx`: aggiungere ruolo "Corrispondente" al livello 3, stessi privilegi del Produttore
-- `GestioneUtenti.tsx`: aggiungere label `corrispondente: "Corrispondente"` nel mapping ruoli
-- `AppSidebar.tsx`: se ruolo `corrispondente`, stessa sidebar del produttore
+CREATE TABLE rca_garanzie (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  codice text NOT NULL UNIQUE,
+  descrizione text NOT NULL,
+  aliquota_tasse numeric(5,2) DEFAULT 0,
+  attivo boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+```
 
-**5. Caricamento dati iniziale**
-- Lo script di importazione parserà l'Excel e caricherà i dati tramite la Edge Function
-- Filtra le righe "SEDE ...", righe vuote, e righe senza nome/cognome/ragione_sociale
-- ~180-200 record utili stimati (molti sono sedi o duplicati)
++ RLS policies per admin/ufficio + INSERT dei dati iniziali (16 settori, 43 usi, 17 garanzie)
+
+**2. UI — 3 nuovi tab in TabelleBasePage**
+
+- **Tab "Settori RCA"**: tabella CRUD classica (codice + descrizione)
+- **Tab "Usi RCA"**: tabella con colonna **Settore** (select da rca_settori) + codice + descrizione — filtro per settore
+- **Tab "Garanzie RCA"**: tabella con codice + descrizione + **% Tasse** (campo numerico editabile)
+
+Ogni tab usa lo stesso pattern CRUD già esistente nella pagina, con dialog di creazione/modifica.
+
+**3. Aggiornamento types.ts**
+- Automatico dopo la migrazione
 
 ### File coinvolti
+
 | Azione | File |
 |--------|------|
-| Migrazione | ALTER TYPE app_role ADD VALUE 'corrispondente' |
-| Nuovo | `supabase/functions/provision-corrispondenti-users/index.ts` |
-| Modifica | `src/pages/ManutenzionePage.tsx` — bottone provisioning |
-| Modifica | `src/components/AuthGuard.tsx` — gestione ruolo corrispondente |
-| Modifica | `src/pages/SitemapPage.tsx` — nuovo ruolo |
-| Modifica | `src/pages/GestioneUtenti.tsx` — label ruolo |
-
-### Email fake
-Per i record senza email, formato: `cognome.nome@corr.consulbrokers.local` (o `ragionesociale@corr.consulbrokers.local` per le aziende). Se duplicati, aggiunge suffisso numerico.
+| Migrazione | Crea tabelle + inserisce dati iniziali |
+| Modifica | `src/pages/TabelleBasePage.tsx` — 3 nuovi tab + componenti custom |
+| Aggiornamento | `src/integrations/supabase/types.ts` |
 
