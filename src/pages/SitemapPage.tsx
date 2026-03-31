@@ -108,6 +108,21 @@ const ruoli = [
     ],
   },
   {
+    nome: "Corrispondente",
+    livello: 3,
+    icon: Briefcase,
+    color: "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30",
+    badgeColor: "bg-indigo-500 text-white",
+    descrizione: "Corrispondente esterno con accesso equivalente al produttore. Visibilità limitata alla propria produzione.",
+    mansioni: [
+      "Dashboard con KPI personali",
+      "Prospect e trattative proprie",
+      "Portafoglio polizze assegnate",
+      "Provvigioni personali",
+      "Comunicazioni relative ai propri clienti",
+    ],
+  },
+  {
     nome: "Cliente",
     livello: 4,
     icon: UserCircle,
