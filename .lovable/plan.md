@@ -1,86 +1,87 @@
 
 
-## Piano: Tabelle Base RCA Auto concatenate
+## Analisi: Campi già esistenti nel DB
 
-### Dati dai file Excel
+Hai ragione a chiedere — **quasi tutti i campi sono già presenti** nella tabella `clienti`. Ecco il mapping completo:
 
-**3 tabelle interconnesse:**
+### Campi Excel → Campi DB `clienti` (GIÀ ESISTENTI)
 
-1. **Settori RCA** (tipologie_di_rca.xlsx) — 16 record
-   - Codice settore (01-16) + Descrizione (Autovetture, Autobus, Autocarri, ecc.)
+| Colonna Excel | Campo DB `clienti` | Stato |
+|---|---|---|
+| Codice | `codice_ricerca` | ✅ Esiste |
+| Nome | `cognome`/`nome` (F) o `ragione_sociale` (G) | ✅ Esiste |
+| F/G | `tipo_cliente` (privato/azienda) | ✅ Esiste |
+| Indirizzo | `indirizzo_residenza` (F) / `indirizzo_sede` (G) | ✅ Esiste |
+| Cap | `cap_residenza` / `cap_sede` | ✅ Esiste |
+| Comune | `citta_residenza` / `citta_sede` | ✅ Esiste |
+| Prov | `provincia_residenza` / `provincia_sede` | ✅ Esiste |
+| Tel | `telefono` | ✅ Esiste |
+| Email | `email` | ✅ Esiste |
+| AttenDi | `attenzione_di` | ✅ Esiste |
+| CF | `codice_fiscale` (F) / `codice_fiscale_azienda` (G) | ✅ Esiste |
+| PIva | `partita_iva` | ✅ Esiste |
+| GruStat | `gruppo_statistico` | ✅ Esiste (testo, lookup in `gruppi_statistici`) |
+| GruFin | `gruppo_finanziario_id` | ✅ Esiste (FK → `gruppi_finanziari`) |
+| Indotto | `indotto` | ✅ Esiste (testo, lookup in `lookup_indotti`) |
+| Zona | `zona` | ✅ Esiste (testo, lookup in `lookup_zone`) |
+| Attivita | `attivita` | ✅ Esiste (testo, lookup in `lookup_attivita`) |
+| SpecialistSX | `spec_sx_danni` | ✅ Esiste |
+| Stato | `attivo` / `stato_cliente` | ✅ Esiste |
+| Fatturato | `fatturato` | ✅ Esiste |
+| Dipendenti | `fascia_dipendenti` | ✅ Esiste |
 
-2. **Usi RCA** (tabella_uso_rca_auto.xlsx) — 43 record
-   - Ogni uso è legato a un settore (FK settore)
-   - Codice uso + Descrizione (Privato, Conto Terzi, Scuola Guida, ecc.)
+### Campi Excel → Tabella `codici_commerciali_cliente` (GIÀ ESISTENTE)
 
-3. **Garanzie RCA** (tabelal_settori_rca_auto.xlsm) — 17 record
-   - Codice garanzia + Descrizione + **%Tasse** (aliquota fiscale)
-   - Es: Cristalli 13.5%, Infortuni 2.5%, Black Box 0%
+| Colonna Excel | Campo DB | Stato |
+|---|---|---|
+| Brand | `societa_brand` | ✅ Esiste (= "Consulbrokers" sempre) |
+| Unit / Filiale | `filiale` | ✅ Esiste |
+| Specialist | `ruolo = 'Backoffice'`, `profilo_id` → profiles | ✅ Esiste |
+| Prod1 | `ruolo = 'corrispondente_1'`, `profilo_id` → anagrafiche | ✅ Esiste |
+| Prod2 | `ruolo = 'corrispondente_2'` | ✅ Esiste |
+| Prod3 | `ruolo = 'corrispondente_3'` | ✅ Esiste |
+| Acquisito | `data_acquisito` | ✅ Esiste |
+| ScadMandato | `scadenza_mandato` | ✅ Esiste |
 
-### Struttura relazionale
+### Nota su "Brand" = Sede
 
-```text
-rca_settori (16 record)
-  ├── id, codice, descrizione, attivo
-  │
-  └──< rca_usi (43 record)
-        ├── id, settore_id (FK → rca_settori), codice, descrizione, attivo
-        │
-rca_garanzie (17 record, indipendente)
-  ├── id, codice, descrizione, aliquota_tasse (%), attivo
-```
+Hai ragione: **Brand = "Consulbrokers"** per tutti i record, e **Unit = "SEDE NAPOLI" o "SEDE ROMA"** corrisponde alla sede/filiale. Il campo `ufficio_id` è già collegato a `uffici` (`f5163c49...` = "Ufficio di Napoli"). Il campo `filiale` in `codici_commerciali_cliente` può ospitare "SEDE NAPOLI" / "SEDE ROMA".
 
-### Modifiche
+### Tabelle di lookup già presenti
 
-**1. Migrazione DB — 3 tabelle nuove**
+- `lookup_zone`: 13 record (SUD, CENTRO, NORD-OVEST, ecc.) ✅
+- `lookup_indotti`: 3 record ✅
+- `lookup_attivita`: 20+ record ✅
+- `gruppi_statistici`: 16 record ✅
+- `gruppi_finanziari`: 21+ record ✅ (ma alcuni valori Excel mancano, vanno creati)
 
-```sql
-CREATE TABLE rca_settori (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  codice text NOT NULL UNIQUE,
-  descrizione text NOT NULL,
-  attivo boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
-);
+### Cosa manca nel DB
 
-CREATE TABLE rca_usi (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  settore_id uuid REFERENCES rca_settori(id) ON DELETE CASCADE NOT NULL,
-  codice text NOT NULL,
-  descrizione text NOT NULL,
-  attivo boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(settore_id, codice)
-);
+1. **Gruppi finanziari mancanti**: alcuni valori dall'Excel non esistono ancora (es: "Gruppo CAREMAR", "GRUPPO EUROELETTRICA IMPIANTI", "Gruppo CALCIATORI SINGOLI", "Gruppo Dipendenti FIME", "Gruppo Dipendenti Società PERRETTI", "Gestione Milano", "PERSONE FISICHE")
+2. **Profiles Specialist mancanti**: nel DB ci sono solo GUARRACINO come backoffice. Mancano: SCARPELLI PAOLA, DEL GIUDICE PALMINA, BOCCHINI SERENA, BONITO TINA — vanno creati come profiles con ruolo `backoffice`
+3. **Dati nei codici_commerciali_cliente**: la tabella è vuota, va popolata
 
-CREATE TABLE rca_garanzie (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  codice text NOT NULL UNIQUE,
-  descrizione text NOT NULL,
-  aliquota_tasse numeric(5,2) DEFAULT 0,
-  attivo boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
-);
-```
+### Piano di implementazione
 
-+ RLS policies per admin/ufficio + INSERT dei dati iniziali (16 settori, 43 usi, 17 garanzie)
+**Non serve creare nuove tabelle né nuove colonne.** Serve solo:
 
-**2. UI — 3 nuovi tab in TabelleBasePage**
-
-- **Tab "Settori RCA"**: tabella CRUD classica (codice + descrizione)
-- **Tab "Usi RCA"**: tabella con colonna **Settore** (select da rca_settori) + codice + descrizione — filtro per settore
-- **Tab "Garanzie RCA"**: tabella con codice + descrizione + **% Tasse** (campo numerico editabile)
-
-Ogni tab usa lo stesso pattern CRUD già esistente nella pagina, con dialog di creazione/modifica.
-
-**3. Aggiornamento types.ts**
-- Automatico dopo la migrazione
+1. **Creare i gruppi finanziari mancanti** (INSERT in `gruppi_finanziari`)
+2. **Creare i profiles Specialist mancanti** (SCARPELLI, DEL GIUDICE, BOCCHINI, BONITO) con ruolo `backoffice`
+3. **Aggiornare la Edge Function `import-clienti`** con action `replace_all`:
+   - Cancella `codici_commerciali_cliente` e `clienti_relazioni` esistenti
+   - Cancella tutti i clienti
+   - Reinserisce i ~548 clienti con tutti i campi mappati
+   - Per ogni cliente crea i record `codici_commerciali_cliente` (Specialist, Prod1/2/3)
+   - Risolve GruFin per nome → `gruppo_finanziario_id`
+   - Risolve Specialist per cognome/nome → `profilo_id` in profiles
+   - Risolve Prod1/2/3 per nome → `profilo_id` in anagrafiche_professionali
+4. **Aggiornare ManutenzionePage** con bottone "Reimporta Clienti Napoli" che parsa l'Excel e invoca la function
 
 ### File coinvolti
 
 | Azione | File |
-|--------|------|
-| Migrazione | Crea tabelle + inserisce dati iniziali |
-| Modifica | `src/pages/TabelleBasePage.tsx` — 3 nuovi tab + componenti custom |
-| Aggiornamento | `src/integrations/supabase/types.ts` |
+|---|---|
+| Modifica | `supabase/functions/import-clienti/index.ts` — nuova action `replace_all` |
+| Modifica | `src/pages/ManutenzionePage.tsx` — bottone reimportazione con upload Excel |
+| Dati | INSERT profiles Specialist mancanti + INSERT gruppi_finanziari mancanti (via Edge Function) |
 
