@@ -42,5 +42,8 @@ verify_jwt = false
 [functions.import-clienti]
 verify_jwt = false
 
+[functions.import-portafoglio]
+verify_jwt = false
+
 [functions.provision-corrispondenti-users]
 verify_jwt = false
