@@ -1092,8 +1092,9 @@ const ClientiList = () => {
                   <TableHead>CF / P.IVA</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefono</TableHead>
-                  <TableHead>Città</TableHead>
-                  <TableHead>Stato</TableHead>
+                   <TableHead>Città</TableHead>
+                   <TableHead className="text-center">Polizze</TableHead>
+                   <TableHead>Stato</TableHead>
                   <TableHead>Attivo</TableHead>
                 </TableRow>
               </TableHeader>
