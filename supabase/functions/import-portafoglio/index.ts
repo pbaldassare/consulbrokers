@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function num(v: any): number | null {
+  if (v === null || v === undefined || v === "" || (typeof v === "string" && v.trim() === "")) return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
