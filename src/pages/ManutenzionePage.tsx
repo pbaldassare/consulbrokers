@@ -119,7 +119,23 @@ const ManutenzionePage = () => {
     },
   });
 
-  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending;
+  const provisionCorrispondenti = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("provision-corrispondenti-users");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      setResults(prev => [...prev, { label: "Provisioning Corrispondenti", result: data }]);
+      toast.success("Provisioning completato", { description: `${data?.creati || 0} utenti creati, ${data?.errori || 0} errori` });
+    },
+    onError: (e: any) => {
+      setResults(prev => [...prev, { label: "Provisioning Corrispondenti", result: null, error: e.message }]);
+      toast.error("Errore");
+    },
+  });
+
+  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending || provisionCorrispondenti.isPending;
 
   const runAll = async () => {
     setResults([]);
