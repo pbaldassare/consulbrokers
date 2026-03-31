@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck, Users, Upload, Database } from "lucide-react";
+import { RefreshCw, AlertTriangle, Bell, Loader2, CheckCircle, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
 interface JobResult {
@@ -14,26 +14,8 @@ interface JobResult {
   error?: string;
 }
 
-// Helper to parse Excel date serial numbers or date strings
-const parseExcelDate = (val: any): string | null => {
-  if (!val) return null;
-  if (typeof val === "number") {
-    // Excel serial date
-    const d = new Date((val - 25569) * 86400 * 1000);
-    return d.toISOString().split("T")[0];
-  }
-  if (val instanceof Date) return val.toISOString().split("T")[0];
-  if (typeof val === "string") {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? null : d.toISOString().split("T")[0];
-  }
-  return null;
-};
-
 const ManutenzionePage = () => {
   const [results, setResults] = useState<JobResult[]>([]);
-  const [importStatus, setImportStatus] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshKpi = useMutation({
     mutationFn: async () => {
@@ -90,96 +72,7 @@ const ManutenzionePage = () => {
     onError: (e: any) => { setResults(prev => [...prev, { label: "Provisioning Corrispondenti", result: null, error: e.message }]); toast.error("Errore"); },
   });
 
-  const importClienti = useMutation({
-    mutationFn: async (file: File) => {
-      setImportStatus("Leggendo file Excel...");
-      const XLSX = await import("xlsx");
-      const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: null });
-
-      setImportStatus(`Trovati ${rows.length} record. Preparando dati...`);
-
-      const clienti: any[] = [];
-      const codici_commerciali: any[] = [];
-
-      for (const row of rows) {
-        const codice = row["Codice"] ? String(row["Codice"]).padStart(6, "0") : null;
-        const tipo = row["F/G"] || "F";
-        
-        clienti.push({
-          codice,
-          nome: row["Nome"] || null,
-          indirizzo: row["Indirizzo"] || null,
-          cap: row["Cap"] ? String(row["Cap"]) : null,
-          comune: row["Comune"] || null,
-          prov: row["Prov"] || null,
-          tel: row["Tel"] ? String(row["Tel"]) : null,
-          email: row["Email"] || null,
-          atten_di: row["AttenDi"] || null,
-          tipo,
-          cf: row["CF"] || null,
-          piva: row["PIva"] ? String(row["PIva"]) : null,
-          gru_stat: row["GruStat"] || null,
-          gru_fin: row["GruFin"] || null,
-          indotto: row["Indotto"] || null,
-          zona: row["Zona"] || null,
-          attivita: row["Attivita"] || null,
-          specialist_sx: row["SpecialistSX"] || null,
-          stato: row["Stato"] || "Attivo",
-          fatturato: row["Fatturato"] || null,
-          dipendenti: row["Dipendenti"] ? String(row["Dipendenti"]) : null,
-        });
-
-        codici_commerciali.push({
-          codice,
-          brand: row["Brand"] || "Consulbrokers",
-          unit: row["Unit"] || null,
-          specialist: row["Specialist"] || null,
-          prod1: row["Prod1"] || null,
-          prod2: row["Prod2"] || null,
-          prod3: row["Prod3"] || null,
-          acquisito: parseExcelDate(row["Acquisito"]),
-          scad_mandato: parseExcelDate(row["ScadMandato"]),
-        });
-      }
-
-      setImportStatus(`Inviando ${clienti.length} clienti alla Edge Function...`);
-
-      const { data, error } = await supabase.functions.invoke("import-clienti", {
-        body: { action: "replace_all", clienti, codici_commerciali },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data: any) => {
-      setImportStatus("");
-      setResults(prev => [...prev, { label: "Reimportazione Clienti Napoli", result: data }]);
-      toast.success("Reimportazione completata!", {
-        description: `${data?.clienti_inseriti || 0} clienti, ${data?.cc_inseriti || 0} codici comm., ${data?.gf_creati || 0} gruppi fin.`,
-      });
-    },
-    onError: (e: any) => {
-      setImportStatus("");
-      setResults(prev => [...prev, { label: "Reimportazione Clienti Napoli", result: null, error: e.message }]);
-      toast.error("Errore reimportazione", { description: e.message });
-    },
-  });
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!confirm(`Stai per reimportare TUTTI i clienti dal file "${file.name}".\n\nQuesta operazione:\n- Cancellerà TUTTI i clienti esistenti\n- Cancellerà tutti i codici commerciali\n- Reinserirà i clienti dal file Excel\n\nSei sicuro?`)) {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-    importClienti.mutate(file);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending || provisionCorrispondenti.isPending || importClienti.isPending;
+  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending || provisionCorrispondenti.isPending;
 
   const runAll = async () => {
     setResults([]);
@@ -278,41 +171,6 @@ const ManutenzionePage = () => {
             <Button size="sm" onClick={() => provisionCorrispondenti.mutate()} disabled={isAnyRunning}>
               {provisionCorrispondenti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />} Esegui
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/30 bg-primary/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Database className="w-4 h-4" /> Reimporta Clienti Napoli
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground mb-3">
-              Carica il file Excel Clienti_Napoli.xlsx per reimportare tutti i clienti con codici commerciali e relazioni.
-              <span className="text-destructive font-medium"> Cancella tutti i clienti esistenti!</span>
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isAnyRunning}
-            >
-              {importClienti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
-              Carica Excel
-            </Button>
-            {importStatus && (
-              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> {importStatus}
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
