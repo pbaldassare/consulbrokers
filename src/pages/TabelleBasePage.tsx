@@ -895,6 +895,10 @@ const TabelleBasePage = () => {
               <RamiTab />
             ) : t.custom === "gruppi_finanziari" ? (
               <GruppiFinanziariTab />
+            ) : t.custom === "rca_usi" ? (
+              <RcaUsiTab />
+            ) : t.custom === "rca_garanzie" ? (
+              <RcaGaranzieTab />
             ) : t.custom === "ordered" ? (
               <OrderedLookupTab tableName={t.tableName} title={t.title} queryKey={t.queryKey} />
             ) : (
