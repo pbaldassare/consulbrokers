@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { UserPlus, Pencil, RefreshCw, Upload, Download, Trash2, FileText } from "lucide-react";
 
-const ROLES = ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"] as const;
+const ROLES = ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo", "corrispondente"] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -24,6 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
   backoffice: "Specialist",
   contabilita: "Contabilità",
   cfo: "CFO",
+  corrispondente: "Corrispondente",
 };
 
 const DOC_CATEGORIE = [
