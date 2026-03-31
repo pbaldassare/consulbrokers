@@ -119,7 +119,23 @@ const ManutenzionePage = () => {
     },
   });
 
-  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending;
+  const provisionCorrispondenti = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("provision-corrispondenti-users");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      setResults(prev => [...prev, { label: "Provisioning Corrispondenti", result: data }]);
+      toast.success("Provisioning completato", { description: `${data?.creati || 0} utenti creati, ${data?.errori || 0} errori` });
+    },
+    onError: (e: any) => {
+      setResults(prev => [...prev, { label: "Provisioning Corrispondenti", result: null, error: e.message }]);
+      toast.error("Errore");
+    },
+  });
+
+  const isAnyRunning = refreshKpi.isPending || checkScadenze.isPending || archiviaNotifiche.isPending || runQuality.isPending || provisionClienti.isPending || provisionCorrispondenti.isPending;
 
   const runAll = async () => {
     setResults([]);
@@ -217,6 +233,22 @@ const ManutenzionePage = () => {
             </p>
             <Button size="sm" onClick={() => provisionClienti.mutate()} disabled={isAnyRunning}>
               {provisionClienti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />}
+              Esegui
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" /> Provisioning Corrispondenti
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Crea utenti auth per tutti i corrispondenti in anagrafica. Password default: Leone123!
+            </p>
+            <Button size="sm" onClick={() => provisionCorrispondenti.mutate()} disabled={isAnyRunning}>
+              {provisionCorrispondenti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />}
               Esegui
             </Button>
           </CardContent>
