@@ -2546,24 +2546,72 @@ export type Database = {
       lookup_tipo_documento: {
         Row: {
           attivo: boolean
+          box_firma_1: string | null
+          box_firma_2: string | null
+          box_firma_3: string | null
+          box_firma_4: string | null
+          clausole_particolari: string | null
+          clienti: boolean | null
           codice: string
+          compagnie: boolean | null
+          contrattuali: boolean | null
           created_at: string | null
           descrizione: string
+          firma: string | null
+          firma_avanzata: string | null
           id: string
+          polizze: boolean | null
+          pos_clausole: string | null
+          prod: boolean | null
+          smart_anchors: string | null
+          trattative: boolean | null
+          visibile: boolean | null
         }
         Insert: {
           attivo?: boolean
+          box_firma_1?: string | null
+          box_firma_2?: string | null
+          box_firma_3?: string | null
+          box_firma_4?: string | null
+          clausole_particolari?: string | null
+          clienti?: boolean | null
           codice: string
+          compagnie?: boolean | null
+          contrattuali?: boolean | null
           created_at?: string | null
           descrizione: string
+          firma?: string | null
+          firma_avanzata?: string | null
           id?: string
+          polizze?: boolean | null
+          pos_clausole?: string | null
+          prod?: boolean | null
+          smart_anchors?: string | null
+          trattative?: boolean | null
+          visibile?: boolean | null
         }
         Update: {
           attivo?: boolean
+          box_firma_1?: string | null
+          box_firma_2?: string | null
+          box_firma_3?: string | null
+          box_firma_4?: string | null
+          clausole_particolari?: string | null
+          clienti?: boolean | null
           codice?: string
+          compagnie?: boolean | null
+          contrattuali?: boolean | null
           created_at?: string | null
           descrizione?: string
+          firma?: string | null
+          firma_avanzata?: string | null
           id?: string
+          polizze?: boolean | null
+          pos_clausole?: string | null
+          prod?: boolean | null
+          smart_anchors?: string | null
+          trattative?: boolean | null
+          visibile?: boolean | null
         }
         Relationships: []
       }
