@@ -23,12 +23,15 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/cliente/polizze", label: "Polizze", icon: Shield },
+  { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
   { to: "/cliente/documenti", label: "Documenti", icon: FileText },
   { to: "/cliente/scadenze", label: "Scadenze", icon: CalendarClock },
   { to: "/cliente/comunicazioni", label: "Comunicazioni", icon: MessageSquare },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
   { to: "/cliente/upload", label: "Carica Doc", icon: Upload },
+  { to: "/cliente/anagrafica", label: "I Miei Dati", icon: User },
+  { to: "/cliente/ufficio", label: "Il Mio Ufficio", icon: Building },
 ];
 
 const ClienteLayout = () => {

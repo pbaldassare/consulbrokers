@@ -44,7 +44,9 @@ const ClienteUfficio = () => {
             .select("nome, cognome, email, telefono, cellulare")
             .eq("id", cc.profilo_id)
             .maybeSingle();
-          setSpecialist({ ...prof, ruolo: cc.ruolo, filiale: cc.filiale });
+          if (prof) {
+            setSpecialist({ ...prof, ruolo: cc.ruolo, filiale: cc.filiale });
+          }
         }
       }
       setLoading(false);
