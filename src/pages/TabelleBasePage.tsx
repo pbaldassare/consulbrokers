@@ -560,11 +560,278 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
   );
 };
 
+/* ────────── RCA Usi Tab (with settore FK) ────────── */
+
+const RcaUsiTab = () => {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [settoreId, setSettoreId] = useState("");
+  const [filtroSettore, setFiltroSettore] = useState("all");
+
+  const { data: settori = [] } = useQuery({
+    queryKey: ["rca-settori"],
+    queryFn: async () => {
+      const { data } = await (supabase.from("rca_settori" as any) as any).select("*").eq("attivo", true).order("codice");
+      return data || [];
+    },
+  });
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["rca-usi"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("rca_usi" as any) as any).select("*, rca_settori(codice, descrizione)").order("codice");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const filtered = filtroSettore === "all" ? items : items.filter((i: any) => i.settore_id === filtroSettore);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = { codice, descrizione, settore_id: settoreId };
+      if (editing) {
+        const { error } = await (supabase.from("rca_usi" as any) as any).update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from("rca_usi" as any) as any).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rca-usi"] }); toast.success(editing ? "Uso aggiornato" : "Uso creato"); closeDialog(); },
+    onError: () => toast.error("Errore"),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await (supabase.from("rca_usi" as any) as any).update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rca-usi"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("rca_usi" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rca-usi"] }); toast.success("Uso eliminato"); },
+    onError: () => toast.error("Errore"),
+  });
+
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setSettoreId(""); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setSettoreId(g.settore_id); setOpen(true); };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-lg">Usi RCA</CardTitle>
+        <div className="flex items-center gap-2">
+          <Select value={filtroSettore} onValueChange={setFiltroSettore}>
+            <SelectTrigger className="w-[260px]"><SelectValue placeholder="Filtra per settore" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutti i settori</SelectItem>
+              {settori.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>{s.codice} - {s.descrizione}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-40">Settore</TableHead>
+              <TableHead className="w-24">Codice</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-24 text-center">Attivo</TableHead>
+              <TableHead className="w-28 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+            ) : filtered.map((item: any) => (
+              <TableRow key={item.id}>
+                <TableCell>
+                  {item.rca_settori ? (
+                    <Badge variant="secondary">{item.rca_settori.codice} - {item.rca_settori.descrizione}</Badge>
+                  ) : "—"}
+                </TableCell>
+                <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
+                <TableCell>{item.descrizione}</TableCell>
+                <TableCell className="text-center">
+                  <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
+                </TableCell>
+                <TableCell className="text-right space-x-1">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Uso RCA" : "Nuovo Uso RCA"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Settore</Label>
+                <SearchableSelect
+                  value={settoreId}
+                  onValueChange={setSettoreId}
+                  placeholder="Seleziona settore..."
+                  options={settori.map((s: any) => ({ value: s.id, label: `${s.codice} - ${s.descrizione}` }))}
+                />
+              </div>
+              <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 1" /></div>
+              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. PRIVATO" /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || !settoreId || save.isPending}>
+                {save.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
+/* ────────── RCA Garanzie Tab (with aliquota_tasse) ────────── */
+
+const RcaGaranzieTab = () => {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [codice, setCodice] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [aliquota, setAliquota] = useState("0");
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["rca-garanzie"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("rca_garanzie" as any) as any).select("*").order("codice");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = { codice, descrizione, aliquota_tasse: parseFloat(aliquota) || 0 };
+      if (editing) {
+        const { error } = await (supabase.from("rca_garanzie" as any) as any).update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase.from("rca_garanzie" as any) as any).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rca-garanzie"] }); toast.success(editing ? "Garanzia aggiornata" : "Garanzia creata"); closeDialog(); },
+    onError: () => toast.error("Errore"),
+  });
+
+  const toggleAttivo = useMutation({
+    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
+      const { error } = await (supabase.from("rca_garanzie" as any) as any).update({ attivo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rca-garanzie"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("rca_garanzie" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rca-garanzie"] }); toast.success("Garanzia eliminata"); },
+    onError: () => toast.error("Errore"),
+  });
+
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setAliquota("0"); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setAliquota(String(g.aliquota_tasse ?? 0)); setOpen(true); };
+  const closeDialog = () => { setOpen(false); setEditing(null); };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-lg">Garanzie RCA</CardTitle>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuova</Button>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-24">Codice</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead className="w-28 text-right">% Tasse</TableHead>
+              <TableHead className="w-24 text-center">Attivo</TableHead>
+              <TableHead className="w-28 text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+            ) : items.map((item: any) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
+                <TableCell>{item.descrizione}</TableCell>
+                <TableCell className="text-right font-mono">{item.aliquota_tasse ?? 0}%</TableCell>
+                <TableCell className="text-center">
+                  <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
+                </TableCell>
+                <TableCell className="text-right space-x-1">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Garanzia RCA" : "Nuova Garanzia RCA"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 01" /></div>
+              <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Cristalli veicolo" /></div>
+              <div><Label>% Tasse</Label><Input type="number" step="0.01" value={aliquota} onChange={(e) => setAliquota(e.target.value)} /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>Annulla</Button>
+              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || save.isPending}>
+                {save.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ────────── Page ────────── */
 
 const tabConfig: { value: string; label: string; tableName: string; queryKey: string; title: string; custom?: string | boolean }[] = [
   { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
   { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
+  { value: "rca_settori", label: "Settori RCA", tableName: "rca_settori", queryKey: "rca-settori", title: "Settore RCA" },
+  { value: "rca_usi", label: "Usi RCA", tableName: "rca_usi", queryKey: "rca-usi", title: "Uso RCA", custom: "rca_usi" },
+  { value: "rca_garanzie", label: "Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia RCA", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
   { value: "gruppi_compagnia", label: "Gruppi Compagnia", tableName: "gruppi_compagnia", queryKey: "gruppi-compagnia-lookup", title: "Gruppo Compagnia" },
   { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },
