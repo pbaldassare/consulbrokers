@@ -11,6 +11,8 @@ import ClienteNotifiche from "@/pages/cliente/ClienteNotifiche";
 import ClientePagamenti from "@/pages/cliente/ClientePagamenti";
 import ClienteUploadDoc from "@/pages/cliente/ClienteUploadDoc";
 import ClienteSinistri from "@/pages/cliente/ClienteSinistri";
+import ClienteAnagrafica from "@/pages/cliente/ClienteAnagrafica";
+import ClienteUfficio from "@/pages/cliente/ClienteUfficio";
 
 export const clienteRoutes = (
   <Route element={<ClienteGuard><ClienteLayout /></ClienteGuard>}>
@@ -24,5 +26,7 @@ export const clienteRoutes = (
     <Route path="/cliente/pagamenti" element={<ClientePagamenti />} />
     <Route path="/cliente/upload" element={<ClienteUploadDoc />} />
     <Route path="/cliente/sinistri" element={<ClienteSinistri />} />
+    <Route path="/cliente/anagrafica" element={<ClienteAnagrafica />} />
+    <Route path="/cliente/ufficio" element={<ClienteUfficio />} />
   </Route>
 );
