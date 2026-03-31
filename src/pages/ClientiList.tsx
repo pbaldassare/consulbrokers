@@ -312,6 +312,17 @@ const ClientiList = () => {
   const clienti = clientiResult?.data || [];
   const totalCount = clientiResult?.totalCount || 0;
 
+  // Conteggio polizze per cliente
+  const { data: polizzeCountMap = {} } = useQuery({
+    queryKey: ["count_polizze_per_cliente"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("count_polizze_per_cliente");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: any) => { map[r.cliente_id] = Number(r.count); });
+      return map;
+    },
+  });
 
   const { data: gruppiFinanziari = [] } = useQuery({
     queryKey: ["gruppi_finanziari_lookup"],
