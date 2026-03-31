@@ -325,10 +325,15 @@ const roleBadgeColor: Record<string, string> = {
   prospect: "bg-orange-500 text-white hover:bg-orange-600",
 };
 
+const roleBadgeLabel: Record<string, string> = {
+  backoffice: "specialist",
+  ufficio: "sede",
+};
+
 function RoleBadge({ role }: { role: string }) {
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${roleBadgeColor[role] || "bg-muted text-muted-foreground"}`}>
-      {role}
+      {roleBadgeLabel[role] || role}
     </span>
   );
 }
