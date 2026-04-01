@@ -5367,12 +5367,50 @@ export type Database = {
         Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
         Returns: Json
       }
-      cfo_kpi: {
-        Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
+      cfo_kpi:
+        | {
+            Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _compagnia_id?: string
+              _data_a?: string
+              _data_da?: string
+              _produttore_nome?: string
+              _ufficio_id?: string
+            }
+            Returns: Json
+          }
+      cfo_premi_per_compagnia:
+        | { Args: { _data_a?: string; _data_da?: string }; Returns: Json }
+        | {
+            Args: {
+              _compagnia_id?: string
+              _data_a?: string
+              _data_da?: string
+              _produttore_nome?: string
+              _ufficio_id?: string
+            }
+            Returns: Json
+          }
+      cfo_premi_per_produttore: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _ufficio_id?: string
+        }
         Returns: Json
       }
-      cfo_premi_per_compagnia: {
-        Args: { _data_a?: string; _data_da?: string }
+      cfo_premi_per_ramo: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _produttore_nome?: string
+          _ufficio_id?: string
+        }
         Returns: Json
       }
       cfo_provvigioni_mensili: {
@@ -5384,16 +5422,27 @@ export type Database = {
         Args: { _data_a?: string; _data_da?: string }
         Returns: Json
       }
-      cfo_report_titoli: {
-        Args: {
-          _compagnia_id?: string
-          _data_a?: string
-          _data_da?: string
-          _produttore_id?: string
-          _ufficio_id?: string
-        }
-        Returns: Json
-      }
+      cfo_report_titoli:
+        | {
+            Args: {
+              _compagnia_id?: string
+              _data_a?: string
+              _data_da?: string
+              _produttore_id?: string
+              _ufficio_id?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _compagnia_id?: string
+              _data_a?: string
+              _data_da?: string
+              _produttore_nome?: string
+              _ufficio_id?: string
+            }
+            Returns: Json
+          }
       check_consenso_marketing: {
         Args: { _cliente_id: string }
         Returns: boolean

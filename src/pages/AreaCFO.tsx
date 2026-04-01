@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import {
   BarChart3, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Percent,
   CreditCard, FileText, Download, RefreshCw, Loader2, RotateCcw, Activity,
@@ -24,6 +25,8 @@ import {
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
   "hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(var(--accent))",
+  "#2563eb", "#16a34a", "#dc2626", "#9333ea", "#f59e0b", "#06b6d4",
+  "#e11d48", "#84cc16", "#6366f1",
 ];
 
 interface KpiCardProps {
@@ -55,14 +58,16 @@ const AreaCFO = () => {
   const [dataDa, setDataDa] = useState("");
   const [dataA, setDataA] = useState("");
   const [ufficioId, setUfficioId] = useState("all");
-  const [compagniaId, setCompagniaId] = useState("all");
-  const [produttoreId, setProduttoreId] = useState("all");
+  const [compagniaId, setCompagniaId] = useState("");
+  const [produttoreNome, setProduttoreNome] = useState("all");
 
   const filterParams = useMemo(() => ({
     _data_da: dataDa || null,
     _data_a: dataA || null,
     _ufficio_id: ufficioId !== "all" ? ufficioId : null,
-  }), [dataDa, dataA, ufficioId]);
+    _compagnia_id: compagniaId || null,
+    _produttore_nome: produttoreNome !== "all" ? produttoreNome : null,
+  }), [dataDa, dataA, ufficioId, compagniaId, produttoreNome]);
 
   // Reference data
   const { data: uffici = [] } = useQuery({
@@ -77,21 +82,32 @@ const AreaCFO = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_attive"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("compagnie").select("*").eq("attiva", true).order("nome");
+      const { data, error } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
       if (error) throw error;
       return data;
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: profiles = [] } = useQuery({
-    queryKey: ["profiles_produttori"],
+  const { data: produttori = [] } = useQuery({
+    queryKey: ["produttori_distinti"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true);
+      const { data, error } = await supabase
+        .from("titoli")
+        .select("produttore_nome")
+        .not("produttore_nome", "is", null)
+        .not("produttore_nome", "eq", "");
       if (error) throw error;
-      return data;
+      const unique = [...new Set((data || []).map((d: any) => d.produttore_nome))].sort();
+      return unique;
     },
+    staleTime: 5 * 60 * 1000,
   });
+
+  const compagniaOptions = useMemo(() =>
+    compagnie.map((c) => ({ value: c.id, label: c.nome })),
+    [compagnie]
+  );
 
   // KPI
   const { data: kpi } = useQuery({
@@ -108,7 +124,11 @@ const AreaCFO = () => {
   const { data: entrateUscite = [] } = useQuery({
     queryKey: ["cfo_entrate_uscite", filterParams],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("cfo_entrate_uscite_mensili", filterParams as any);
+      const { data, error } = await supabase.rpc("cfo_entrate_uscite_mensili", {
+        _data_da: filterParams._data_da,
+        _data_a: filterParams._data_a,
+        _ufficio_id: filterParams._ufficio_id,
+      } as any);
       if (error) throw error;
       return (data as any) || [];
     },
@@ -116,11 +136,33 @@ const AreaCFO = () => {
   });
 
   const { data: premiCompagnia = [] } = useQuery({
-    queryKey: ["cfo_premi_compagnia", dataDa, dataA],
+    queryKey: ["cfo_premi_compagnia", filterParams],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("cfo_premi_per_compagnia", {
-        _data_da: dataDa || null,
-        _data_a: dataA || null,
+      const { data, error } = await supabase.rpc("cfo_premi_per_compagnia", filterParams as any);
+      if (error) throw error;
+      return (data as any) || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: premiRamo = [] } = useQuery({
+    queryKey: ["cfo_premi_ramo", filterParams],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("cfo_premi_per_ramo" as any, filterParams as any);
+      if (error) throw error;
+      return (data as any) || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: premiProduttore = [] } = useQuery({
+    queryKey: ["cfo_premi_produttore", filterParams],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("cfo_premi_per_produttore" as any, {
+        _data_da: filterParams._data_da,
+        _data_a: filterParams._data_a,
+        _ufficio_id: filterParams._ufficio_id,
+        _compagnia_id: filterParams._compagnia_id,
       } as any);
       if (error) throw error;
       return (data as any) || [];
@@ -143,7 +185,11 @@ const AreaCFO = () => {
   const { data: provvMensili = [] } = useQuery({
     queryKey: ["cfo_provvigioni_mensili", filterParams],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("cfo_provvigioni_mensili", filterParams as any);
+      const { data, error } = await supabase.rpc("cfo_provvigioni_mensili", {
+        _data_da: filterParams._data_da,
+        _data_a: filterParams._data_a,
+        _ufficio_id: filterParams._ufficio_id,
+      } as any);
       if (error) throw error;
       return (data as any) || [];
     },
@@ -166,13 +212,7 @@ const AreaCFO = () => {
   const generateReport = async () => {
     setReportLoading(true);
     try {
-      const { data, error } = await supabase.rpc("cfo_report_titoli", {
-        _data_da: dataDa || null,
-        _data_a: dataA || null,
-        _ufficio_id: ufficioId !== "all" ? ufficioId : null,
-        _compagnia_id: compagniaId !== "all" ? compagniaId : null,
-        _produttore_id: produttoreId !== "all" ? produttoreId : null,
-      } as any);
+      const { data, error } = await supabase.rpc("cfo_report_titoli", filterParams as any);
       if (error) throw error;
       setReportData((data as any) || []);
     } catch (err: any) {
@@ -233,6 +273,8 @@ const AreaCFO = () => {
       queryClient.invalidateQueries({ queryKey: ["cfo_kpi"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_entrate_uscite"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_premi_compagnia"] });
+      queryClient.invalidateQueries({ queryKey: ["cfo_premi_ramo"] });
+      queryClient.invalidateQueries({ queryKey: ["cfo_premi_produttore"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_redditivita"] });
       queryClient.invalidateQueries({ queryKey: ["cfo_provvigioni_mensili"] });
       toast.success("KPI aggiornati");
@@ -241,6 +283,14 @@ const AreaCFO = () => {
   });
 
   const tooltipFormatter = (v: number) => fmt(v);
+
+  const resetFilters = () => {
+    setDataDa("");
+    setDataA("");
+    setUfficioId("all");
+    setCompagniaId("");
+    setProduttoreNome("all");
+  };
 
   return (
     <div className="space-y-6">
@@ -283,7 +333,27 @@ const AreaCFO = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" size="sm" onClick={() => { setDataDa(""); setDataA(""); setUfficioId("all"); }}>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Compagnia</Label>
+              <SearchableSelect
+                options={compagniaOptions}
+                value={compagniaId}
+                onValueChange={setCompagniaId}
+                placeholder="Tutte"
+                className="w-[220px]"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Produttore</Label>
+              <Select value={produttoreNome} onValueChange={setProduttoreNome}>
+                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti</SelectItem>
+                  {produttori.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
               Reset
             </Button>
@@ -390,6 +460,48 @@ const AreaCFO = () => {
               </CardContent>
             </Card>
 
+            {/* Premi per Ramo - NEW */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Premi per Ramo (Top 15)</CardTitle>
+              </CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {premiRamo.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={premiRamo} layout="vertical" margin={{ left: 120 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="ramo" type="category" className="text-xs" width={110} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Bar dataKey="totale" fill="hsl(var(--chart-2))" name="Premi Incassati" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
+              </CardContent>
+            </Card>
+
+            {/* Premi per Produttore - NEW */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Premi per Produttore (Top 15)</CardTitle>
+              </CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {premiProduttore.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={premiProduttore} layout="vertical" margin={{ left: 130 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="produttore" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Bar dataKey="totale" fill="hsl(var(--chart-3))" name="Premi Incassati" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
+              </CardContent>
+            </Card>
+
             {/* Redditività per Ufficio */}
             <Card>
               <CardHeader className="pb-2">
@@ -449,26 +561,6 @@ const AreaCFO = () => {
             <Separator />
             <CardContent className="pt-4 space-y-4">
               <div className="flex flex-wrap gap-4 items-end">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Compagnia</Label>
-                  <Select value={compagniaId} onValueChange={setCompagniaId}>
-                    <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tutte</SelectItem>
-                      {compagnie.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Produttore</Label>
-                  <Select value={produttoreId} onValueChange={setProduttoreId}>
-                    <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tutti</SelectItem>
-                      {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome} {p.cognome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <Button onClick={generateReport} disabled={reportLoading}>
                   {reportLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
                   {reportLoading ? "Generando..." : "Genera Report"}
@@ -478,6 +570,7 @@ const AreaCFO = () => {
                     <Download className="w-4 h-4 mr-2" />Esporta CSV
                   </Button>
                 )}
+                <p className="text-xs text-muted-foreground">Usa i filtri globali in alto per filtrare il report</p>
               </div>
 
               {reportData && (
@@ -487,8 +580,8 @@ const AreaCFO = () => {
                       <TableRow className="bg-muted/50">
                         <TableHead>N. Titolo</TableHead>
                         <TableHead>Stato</TableHead>
-                        <TableHead>Prodotto</TableHead>
                         <TableHead>Compagnia</TableHead>
+                        <TableHead>Ramo</TableHead>
                         <TableHead>Sede</TableHead>
                         <TableHead>Produttore</TableHead>
                         <TableHead>Cliente</TableHead>
@@ -506,8 +599,8 @@ const AreaCFO = () => {
                               {r.stato}
                             </Badge>
                           </TableCell>
-                          <TableCell>{r.prodotto || "—"}</TableCell>
                           <TableCell>{r.compagnia || "—"}</TableCell>
+                          <TableCell>{r.ramo || "—"}</TableCell>
                           <TableCell>{r.ufficio || "—"}</TableCell>
                           <TableCell>{r.produttore || "—"}</TableCell>
                           <TableCell>{r.cliente || "—"}</TableCell>
