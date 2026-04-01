@@ -1,39 +1,48 @@
 
 
-## Piano: Aggiornare stato titoli a "incassato" fino al 28/02/2026
+## Piano: Fix RPC + Nuovi grafici CFO (solo dati reali)
 
-### Nota importante
-Il 2026 **non è bisestile** — febbraio ha 28 giorni, non 29. Uso quindi il 28/02/2026 come data limite.
+### Problema
+- `cfo_premi_per_compagnia` fa JOIN via `prodotti` (`prodotto_id` sempre NULL) → grafico vuoto
+- `cfo_report_titoli` stesso problema → compagnia/produttore sempre "—"
+- Mancano grafici per Ramo e Produttore
 
-### Dati coinvolti
-- **708 titoli** in stato "attivo" con `data_scadenza ≤ 2026-02-28`
-- **12 titoli** in stato "sospeso" con `data_scadenza ≤ 2026-02-28`
-- Totale: **720 titoli** da portare a "incassato"
+### Dati reali verificati nel DB (titoli incassati)
 
-### Operazione
+| Dimensione | Record con dato | Top entry |
+|---|---|---|
+| Compagnia (`compagnia_id`) | 530/720 | AON €10.5M, ALLIANZ €480K |
+| Ramo (`ramo_id`) | ~720/720 | RCT/RCO €9.4M, Infortuni €1.4M |
+| Produttore (`produttore_nome`) | 357/720 | COMODO EGIDIO €9.4M |
 
-Un singolo UPDATE via insert tool:
+### Modifiche
 
-```sql
-UPDATE titoli
-SET stato = 'incassato',
-    importo_incassato = premio_lordo,
-    data_incasso = data_scadenza
-WHERE data_scadenza <= '2026-02-28'
-  AND stato IN ('attivo', 'sospeso');
-```
+**1. Migrazione SQL — Riscrivere 2 funzioni + creare 2 nuove**
 
-- `stato` → `'incassato'`
-- `importo_incassato` → copiato da `premio_lordo` (incasso totale)
-- `data_incasso` → copiato da `data_scadenza` (data realistica di incasso)
+- **`cfo_premi_per_compagnia`**: JOIN diretto `titoli.compagnia_id → compagnie` (invece di `prodotti → compagnie`). Aggiungere parametri `_ufficio_id`, `_compagnia_id`, `_produttore_nome`.
 
-### Risultato atteso
-- I KPI della dashboard CFO (Premi Incassati, Provvigioni) e i grafici "Premi per Compagnia" mostreranno dati reali
-- I report e le estrazioni filtrate per stato "incassato" funzioneranno correttamente
+- **`cfo_report_titoli`**: JOIN diretto `titoli.compagnia_id → compagnie`, `titoli.ramo_id → rami`, `titoli.cliente_anagrafica_id → clienti`. Usare `titoli.produttore_nome`. Sostituire parametro `_produttore_id` con `_produttore_nome text`.
+
+- **NUOVA `cfo_premi_per_ramo`**: Aggregazione premi incassati per ramo (`titoli.ramo_id → rami`), top 15, filtri date/ufficio.
+
+- **NUOVA `cfo_premi_per_produttore`**: Aggregazione per `produttore_nome`, top 15, filtri date/ufficio.
+
+**2. Frontend `AreaCFO.tsx`**
+
+- Aggiungere filtri **Compagnia** (SearchableSelect, lista lunga) e **Produttore** (select con valori distinti `produttore_nome` dal DB) nei filtri globali
+- Passare `_compagnia_id` e `_produttore_nome` alle query `cfo_kpi`, `cfo_premi_per_compagnia`, report
+- Aggiungere 2 nuovi grafici nella griglia:
+  - **Premi per Ramo** — BarChart orizzontale, top 15
+  - **Premi per Produttore** — BarChart orizzontale, top 15
+- Aggiornare il report per usare `_produttore_nome` al posto di `_produttore_id`, e mostrare colonna Ramo
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Nessun file frontend | Solo operazione dati via insert tool |
+| Migrazione SQL | DROP+CREATE 2 RPC + CREATE 2 nuove |
+| `src/pages/AreaCFO.tsx` | Filtri globali, 2 nuovi grafici, query aggiornate |
+
+### Zero dati inventati
+Tutto viene da dati reali già presenti nelle tabelle `titoli`, `compagnie`, `rami`. Nessun seed o dato fittizio.
 
