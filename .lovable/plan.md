@@ -1,41 +1,58 @@
 
 
-## Piano: Tabella polizze stile "Scheda Cliente" DOCX
+## Piano: Nuovi campi sinistri + grafici dashboard + simulazione dati Comune di Varese
 
-### Cosa cambia
+### Fase 1 — Migrazione SQL: nuovi campi nella tabella `sinistri`
 
-Trasformare la pagina "Le tue Polizze" da card verticali a una **tabella professionale** che replica lo schema del documento DOCX di Consulbrokers:
+Aggiungere colonne mancanti per il dettaglio completo:
 
-| Colonna | Campo DB |
-|---------|----------|
-| Mandato / Compagnia | `compagnie.nome` + `produttore_nome` (o `tipo_mandatario`) |
-| Prodotto | `rami.descrizione` o `prodotto_nome` o `descrizione_polizza` |
-| Numero Polizza / Targa | `numero_titolo` + `targa_telaio` |
-| Data scadenza | `data_scadenza` |
-| Fraz. | `periodicita` |
-| Premio Annuo Lordo | `premio_lordo` |
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `perito_id` | uuid FK → anagrafiche_professionali | Perito assegnato |
+| `liquidatore_id` | uuid FK → anagrafiche_professionali | Liquidatore assegnato |
+| `medico_legale` | text | Nome medico legale |
+| `dinamica` | text | Descrizione dinamica sinistro |
+| `indirizzo_sinistro` | text | Indirizzo completo luogo sinistro |
+| `citta_sinistro` | text | Citta del sinistro |
+| `provincia_sinistro` | text | Provincia |
+| `cap_sinistro` | text | CAP |
+| `data_denuncia` | date | Data denuncia |
+| `ramo_sinistro` | text | Ramo assicurativo (es. RCT/O) |
 
-In fondo alla tabella: **riga totale** con somma premi lordi.
+Campi gia presenti e utilizzabili: `controparte`, `targa_veicolo`, `franchigia`, `note_perito`, `numero_sinistro_compagnia`, `costo_preventivato`, `costo_effettivo`.
 
-### Dettagli implementazione
+### Fase 2 — Aggiornare i 5 sinistri esistenti + aggiungerne 3 nuovi
 
-**File:** `src/pages/cliente/ClientePolizze.tsx` — riscrittura completa
+**Aggiornare** i sinistri del Comune di Varese con i nuovi campi (perito, liquidatore, medico legale, indirizzo, dinamica, data denuncia, ramo, controparte, numero sinistro compagnia, franchigia).
 
-- Header con logo/titolo "ELENCO POSIZIONI ASSICURATIVE ATTIVE"
-- Tabella HTML con header colorato (teal/brand)
-- Ogni riga cliccabile → link al dettaglio polizza
-- Badge stato sulla riga (colore per attivo/scaduto/sospeso)
-- Riga footer con **Totale premio annuo lordo** in grassetto
-- Query aggiornata per fetchare anche `produttore_nome`, `targa_telaio`, `prodotto_nome`
-- Responsive: su mobile la tabella diventa scrollabile orizzontalmente
-- Mantiene indicatore scadenza (giorni mancanti) come badge nella colonna data
+**Inserire 3 sinistri aggiuntivi** per avere dati piu ricchi:
+- Grandine su veicoli (Kasko) — chiuso
+- Infortunio dipendente 2 (Infortuni) — aperto
+- Responsabilita patrimoniale (RC Patrimoniale) — in_lavorazione
 
-### Nessuna modifica DB necessaria
-Tutti i campi esistono già nella tabella `titoli`.
+Totale: 8 sinistri (4 aperti, 4 chiusi), distribuiti su rami diversi.
+
+### Fase 3 — Dashboard: sostituire "Sinistri Recenti" con 2 nuovi grafici
+
+In `ClienteDashboard.tsx`, nella sezione bottom-row, sostituire la card "Sinistri Recenti" con:
+
+1. **PieChart "Sinistri per Ramo"** — torta che mostra sinistri aperti vs chiusi raggruppati per ramo (usando colori diversi per aperti/chiusi)
+2. **BarChart "Rapporto Premi/Sinistri per Anno"** — barre affiancate che mostrano premi pagati e sinistri liquidati per anno (2024, 2025)
+
+### Fase 4 — Pagina Sinistri: dettaglio espanso + nuovo grafico
+
+In `ClienteSinistri.tsx`:
+
+- Aggiungere il **grafico PieChart sinistri per ramo (aperti vs chiusi)** al posto dell'attuale "Distribuzione per Tipo"
+- Aggiungere colonne in tabella: **Ramo**, **Perito**, **Liquidatore**, **Indirizzo**
+- Rendere ogni riga cliccabile per espandere un **pannello dettaglio** con tutti i campi: dinamica, controparte, medico legale, franchigia, data denuncia, indirizzo completo, note perito, numero sinistro compagnia, costi preventivato/effettivo
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| `src/pages/cliente/ClientePolizze.tsx` | Riscrittura da card a tabella stile DOCX |
+| Migrazione SQL | ALTER TABLE sinistri + 3 FK |
+| Dati SQL (insert tool) | UPDATE 5 sinistri + INSERT 3 nuovi |
+| `src/pages/cliente/ClienteDashboard.tsx` | Sostituire sinistri recenti con 2 grafici |
+| `src/pages/cliente/ClienteSinistri.tsx` | Tabella arricchita + dettaglio espandibile + grafico ramo |
 
