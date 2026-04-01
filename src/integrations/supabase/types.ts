@@ -4370,6 +4370,8 @@ export type Database = {
       }
       sinistri: {
         Row: {
+          cap_sinistro: string | null
+          citta_sinistro: string | null
           cliente_anagrafica_id: string | null
           cliente_id: string | null
           compagnia_id: string | null
@@ -4379,16 +4381,24 @@ export type Database = {
           created_at: string | null
           data_apertura: string
           data_chiusura: string | null
+          data_denuncia: string | null
           data_evento: string | null
           descrizione: string | null
+          dinamica: string | null
           franchigia: number | null
           id: string
           importo_liquidato: number | null
           importo_riserva: number | null
+          indirizzo_sinistro: string | null
+          liquidatore_id: string | null
           luogo_sinistro: string | null
+          medico_legale: string | null
           note_perito: string | null
           numero_sinistro: string | null
           numero_sinistro_compagnia: string | null
+          perito_id: string | null
+          provincia_sinistro: string | null
+          ramo_sinistro: string | null
           responsabile_id: string | null
           search_vector: unknown
           stato: string
@@ -4399,6 +4409,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          cap_sinistro?: string | null
+          citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           compagnia_id?: string | null
@@ -4408,16 +4420,24 @@ export type Database = {
           created_at?: string | null
           data_apertura?: string
           data_chiusura?: string | null
+          data_denuncia?: string | null
           data_evento?: string | null
           descrizione?: string | null
+          dinamica?: string | null
           franchigia?: number | null
           id?: string
           importo_liquidato?: number | null
           importo_riserva?: number | null
+          indirizzo_sinistro?: string | null
+          liquidatore_id?: string | null
           luogo_sinistro?: string | null
+          medico_legale?: string | null
           note_perito?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
+          perito_id?: string | null
+          provincia_sinistro?: string | null
+          ramo_sinistro?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
           stato?: string
@@ -4428,6 +4448,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          cap_sinistro?: string | null
+          citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           compagnia_id?: string | null
@@ -4437,16 +4459,24 @@ export type Database = {
           created_at?: string | null
           data_apertura?: string
           data_chiusura?: string | null
+          data_denuncia?: string | null
           data_evento?: string | null
           descrizione?: string | null
+          dinamica?: string | null
           franchigia?: number | null
           id?: string
           importo_liquidato?: number | null
           importo_riserva?: number | null
+          indirizzo_sinistro?: string | null
+          liquidatore_id?: string | null
           luogo_sinistro?: string | null
+          medico_legale?: string | null
           note_perito?: string | null
           numero_sinistro?: string | null
           numero_sinistro_compagnia?: string | null
+          perito_id?: string | null
+          provincia_sinistro?: string | null
+          ramo_sinistro?: string | null
           responsabile_id?: string | null
           search_vector?: unknown
           stato?: string
@@ -4476,6 +4506,20 @@ export type Database = {
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_liquidatore_id_fkey"
+            columns: ["liquidatore_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_perito_id_fkey"
+            columns: ["perito_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
             referencedColumns: ["id"]
           },
           {
