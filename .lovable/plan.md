@@ -1,34 +1,39 @@
 
 
-## Piano: Fix visibilità Compagnie e Rami per utente cliente
+## Piano: Aggiornare stato titoli a "incassato" fino al 28/02/2026
 
-### Problema
-Le tabelle `compagnie` e `rami` hanno RLS policies che permettono SELECT solo a ruoli `admin`, `cfo`, `ufficio`, `produttore`, ecc. — ma **nessuna policy per il ruolo `cliente`**. Quindi i join nelle query (`compagnie(nome)`, `rami(descrizione)`) restituiscono `null`, mostrando "—" nella pagina dettaglio polizza e impedendo statistiche corrette nella dashboard.
+### Nota importante
+Il 2026 **non è bisestile** — febbraio ha 28 giorni, non 29. Uso quindi il 28/02/2026 come data limite.
 
-### Soluzione: 1 migrazione SQL
+### Dati coinvolti
+- **708 titoli** in stato "attivo" con `data_scadenza ≤ 2026-02-28`
+- **12 titoli** in stato "sospeso" con `data_scadenza ≤ 2026-02-28`
+- Totale: **720 titoli** da portare a "incassato"
 
-Aggiungere policy SELECT su `compagnie` e `rami` per il ruolo `cliente` (read-only):
+### Operazione
+
+Un singolo UPDATE via insert tool:
 
 ```sql
-CREATE POLICY "Cliente select compagnie"
-ON public.compagnie FOR SELECT TO authenticated
-USING (has_role(auth.uid(), 'cliente'));
-
-CREATE POLICY "Cliente select rami"
-ON public.rami FOR SELECT TO authenticated
-USING (has_role(auth.uid(), 'cliente'));
+UPDATE titoli
+SET stato = 'incassato',
+    importo_incassato = premio_lordo,
+    data_incasso = data_scadenza
+WHERE data_scadenza <= '2026-02-28'
+  AND stato IN ('attivo', 'sospeso');
 ```
 
-### Risultato
-- Dettaglio polizza mostrerà Compagnia e Ramo correttamente
-- Tabella polizze mostrerà i nomi compagnia reali
-- Grafici dashboard/sinistri avranno dati ramo corretti
+- `stato` → `'incassato'`
+- `importo_incassato` → copiato da `premio_lordo` (incasso totale)
+- `data_incasso` → copiato da `data_scadenza` (data realistica di incasso)
+
+### Risultato atteso
+- I KPI della dashboard CFO (Premi Incassati, Provvigioni) e i grafici "Premi per Compagnia" mostreranno dati reali
+- I report e le estrazioni filtrate per stato "incassato" funzioneranno correttamente
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Migrazione SQL | 2 policy SELECT per cliente su compagnie + rami |
-
-Nessuna modifica ai file frontend — le query già fetchano i dati correttamente.
+| Nessun file frontend | Solo operazione dati via insert tool |
 
