@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6"];
+const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
+const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
 
 const statoBadge: Record<string, string> = {
   aperto: "bg-blue-100 text-blue-800",
@@ -19,21 +22,11 @@ const statoBadge: Record<string, string> = {
   respinto: "bg-red-100 text-red-800",
 };
 
-const tipoLabels: Record<string, string> = {
-  incidente_stradale: "Incidente Stradale",
-  furto: "Furto",
-  incendio: "Incendio",
-  danni_acqua: "Danni Acqua",
-  RC_terzi: "RC Terzi",
-  infortunio: "Infortunio",
-  grandine: "Grandine",
-  altro: "Altro",
-};
-
 const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
 export default function ClienteSinistri() {
   const { user } = useAuth();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: sinistri = [] } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
@@ -42,7 +35,7 @@ export default function ClienteSinistri() {
       if (!clienteIds?.length) return [];
       const { data, error } = await supabase
         .from("sinistri")
-        .select("*, compagnie(nome), titoli(numero_titolo)")
+        .select("*, compagnie(nome), titoli(numero_titolo), anagrafiche_professionali!sinistri_perito_id_fkey(nome, cognome, ragione_sociale)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .order("data_apertura", { ascending: false });
       if (error) throw error;
@@ -56,12 +49,14 @@ export default function ClienteSinistri() {
   const riserve = sinistri.reduce((s: number, x: any) => s + (x.importo_riserva || 0), 0);
   const liquidato = sinistri.reduce((s: number, x: any) => s + (x.importo_liquidato || 0), 0);
 
-  // Pie data by tipo
-  const perTipo = sinistri.reduce((acc: any[], s: any) => {
-    const name = tipoLabels[s.tipo_sinistro] || s.tipo_sinistro || "Altro";
-    const existing = acc.find(a => a.name === name);
+  // Pie - Sinistri per Ramo (aperti vs chiusi)
+  const sinPerRamo = sinistri.reduce((acc: any[], s: any) => {
+    const ramo = s.ramo_sinistro || "Altro";
+    const isOpen = !["chiuso", "respinto"].includes(s.stato);
+    const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
+    const existing = acc.find(a => a.name === key);
     if (existing) existing.value++;
-    else acc.push({ name, value: 1 });
+    else acc.push({ name: key, value: 1, ramo, isOpen });
     return acc;
   }, []);
 
@@ -79,6 +74,10 @@ export default function ClienteSinistri() {
     { label: "Riserve Totali", value: fmt(riserve), icon: DollarSign, color: "text-red-600", bg: "bg-red-100", border: "#dc2626" },
     { label: "Liquidato", value: fmt(liquidato), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-100", border: "#0d9488" },
   ];
+
+  const toggleExpand = (id: string) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
 
   return (
     <div className="space-y-6">
@@ -115,14 +114,17 @@ export default function ClienteSinistri() {
       {sinistri.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Distribuzione per Tipo</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Sinistri per Ramo (Aperti vs Chiusi)</CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={perTipo} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={4} dataKey="value" label={({ name, value }) => `${name} (${value})`} labelLine={false}>
-                    {perTipo.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={50} outerRadius={95} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
+                    {sinPerRamo.map((entry, i) => (
+                      <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
+                    ))}
                   </Pie>
                   <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -131,7 +133,7 @@ export default function ClienteSinistri() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base">Riserve vs Liquidato</CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={barData}>
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
@@ -156,9 +158,10 @@ export default function ClienteSinistri() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-8"></TableHead>
                     <TableHead>N. Sinistro</TableHead>
-                    <TableHead>Tipo</TableHead>
+                    <TableHead>Ramo</TableHead>
                     <TableHead>Polizza</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead>Luogo</TableHead>
@@ -169,16 +172,88 @@ export default function ClienteSinistri() {
                 </TableHeader>
                 <TableBody>
                   {sinistri.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
-                      <TableCell>{tipoLabels[s.tipo_sinistro] || s.tipo_sinistro || "—"}</TableCell>
-                      <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
-                      <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
-                      <TableCell className="max-w-[200px] truncate">{s.luogo_sinistro || "—"}</TableCell>
-                      <TableCell className="text-right font-medium">{s.importo_riserva ? fmt(s.importo_riserva) : "—"}</TableCell>
-                      <TableCell className="text-right font-medium text-emerald-600">{s.importo_liquidato ? fmt(s.importo_liquidato) : "—"}</TableCell>
-                      <TableCell>{s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "—"}</TableCell>
-                    </TableRow>
+                    <>
+                      <TableRow
+                        key={s.id}
+                        className="cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => toggleExpand(s.id)}
+                      >
+                        <TableCell className="w-8 px-2">
+                          {expandedId === s.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs font-normal">{s.ramo_sinistro || "—"}</Badge>
+                        </TableCell>
+                        <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
+                        <TableCell><Badge className={statoBadge[s.stato] || ""}>{s.stato?.replace(/_/g, " ")}</Badge></TableCell>
+                        <TableCell className="max-w-[200px] truncate">{s.citta_sinistro || s.luogo_sinistro || "—"}</TableCell>
+                        <TableCell className="text-right font-medium">{s.importo_riserva ? fmt(s.importo_riserva) : "—"}</TableCell>
+                        <TableCell className="text-right font-medium text-emerald-600">{s.importo_liquidato ? fmt(s.importo_liquidato) : "—"}</TableCell>
+                        <TableCell>{s.data_evento ? format(new Date(s.data_evento), "dd/MM/yyyy") : "—"}</TableCell>
+                      </TableRow>
+
+                      {/* Expanded Detail Panel */}
+                      {expandedId === s.id && (
+                        <TableRow key={`${s.id}-detail`}>
+                          <TableCell colSpan={9} className="bg-muted/20 p-0">
+                            <div className="p-4 space-y-4">
+                              {/* Dinamica */}
+                              {s.dinamica && (
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Dinamica del sinistro</p>
+                                  <p className="text-sm">{s.dinamica}</p>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Indirizzo */}
+                                <div className="space-y-2">
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"><MapPin className="h-3 w-3" /> Luogo sinistro</p>
+                                  <div className="text-sm space-y-0.5">
+                                    {s.indirizzo_sinistro && <p>{s.indirizzo_sinistro}</p>}
+                                    <p>{[s.cap_sinistro, s.citta_sinistro, s.provincia_sinistro ? `(${s.provincia_sinistro})` : null].filter(Boolean).join(" ") || s.luogo_sinistro || "—"}</p>
+                                  </div>
+                                </div>
+
+                                {/* Persone coinvolte */}
+                                <div className="space-y-2">
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"><User className="h-3 w-3" /> Soggetti coinvolti</p>
+                                  <div className="text-sm space-y-1">
+                                    {s.controparte && <p><span className="text-muted-foreground">Controparte:</span> {s.controparte}</p>}
+                                    {s.medico_legale && <p><span className="text-muted-foreground">Medico legale:</span> {s.medico_legale}</p>}
+                                    {s.anagrafiche_professionali && (
+                                      <p><span className="text-muted-foreground">Perito:</span> {s.anagrafiche_professionali.cognome} {s.anagrafiche_professionali.nome}</p>
+                                    )}
+                                    {s.targa_veicolo && <p><span className="text-muted-foreground">Targa:</span> {s.targa_veicolo}</p>}
+                                  </div>
+                                </div>
+
+                                {/* Importi e dati */}
+                                <div className="space-y-2">
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"><FileText className="h-3 w-3" /> Dettaglio economico</p>
+                                  <div className="text-sm space-y-1">
+                                    {s.numero_sinistro_compagnia && <p><span className="text-muted-foreground">N° Compagnia:</span> {s.numero_sinistro_compagnia}</p>}
+                                    {s.data_denuncia && <p><span className="text-muted-foreground">Data denuncia:</span> {format(new Date(s.data_denuncia), "dd/MM/yyyy")}</p>}
+                                    {s.franchigia != null && s.franchigia > 0 && <p><span className="text-muted-foreground">Franchigia:</span> {fmt(s.franchigia)}</p>}
+                                    {s.costo_preventivato != null && <p><span className="text-muted-foreground">Costo preventivato:</span> {fmt(s.costo_preventivato)}</p>}
+                                    {s.costo_effettivo != null && <p><span className="text-muted-foreground">Costo effettivo:</span> {fmt(s.costo_effettivo)}</p>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Note perito */}
+                              {s.note_perito && (
+                                <div className="border-t pt-3">
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Note del perito</p>
+                                  <p className="text-sm italic">{s.note_perito}</p>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   ))}
                 </TableBody>
               </Table>

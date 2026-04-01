@@ -10,6 +10,8 @@ import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 
 const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4"];
+const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
+const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
 
 const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
@@ -30,7 +32,7 @@ const ClienteDashboard = () => {
 
       const [polRes, sinRes, notRes] = await Promise.all([
         supabase.from("titoli").select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, compagnia_id, ramo_id, descrizione_polizza, compagnie(nome), rami(descrizione)").in("cliente_anagrafica_id", ids),
-        supabase.from("sinistri").select("id, numero_sinistro, stato, tipo_sinistro, importo_riserva, importo_liquidato, data_evento, titoli(numero_titolo)").in("cliente_anagrafica_id", ids).order("data_apertura", { ascending: false }),
+        supabase.from("sinistri").select("id, numero_sinistro, stato, tipo_sinistro, importo_riserva, importo_liquidato, data_evento, data_apertura, ramo_sinistro, titoli(numero_titolo)").in("cliente_anagrafica_id", ids).order("data_apertura", { ascending: false }),
         supabase.from("notifiche").select("id", { count: "exact" }).eq("letto", false),
       ]);
 
@@ -64,6 +66,37 @@ const ClienteDashboard = () => {
     else acc.push({ name, value: p.premio_lordo || 0 });
     return acc;
   }, []).sort((a, b) => b.value - a.value);
+
+  // Sinistri per Ramo (aperti vs chiusi) - pie chart data
+  const sinPerRamo = sinistri.reduce((acc: any[], s: any) => {
+    const ramo = s.ramo_sinistro || "Altro";
+    const isOpen = !["chiuso", "respinto"].includes(s.stato);
+    const key = `${ramo} (${isOpen ? "Aperti" : "Chiusi"})`;
+    const existing = acc.find(a => a.name === key);
+    if (existing) existing.value++;
+    else acc.push({ name: key, value: 1, ramo, isOpen });
+    return acc;
+  }, []);
+
+  // Rapporto Premi/Sinistri per Anno
+  const anniPremi: Record<string, { premi: number; sinistri: number }> = {};
+  polizze.forEach(p => {
+    const anno = p.durata_da ? new Date(p.durata_da).getFullYear().toString() : null;
+    if (anno) {
+      if (!anniPremi[anno]) anniPremi[anno] = { premi: 0, sinistri: 0 };
+      anniPremi[anno].premi += (p.premio_lordo || 0);
+    }
+  });
+  sinistri.forEach(s => {
+    const anno = s.data_apertura ? new Date(s.data_apertura).getFullYear().toString() : null;
+    if (anno) {
+      if (!anniPremi[anno]) anniPremi[anno] = { premi: 0, sinistri: 0 };
+      anniPremi[anno].sinistri += (s.importo_liquidato || s.importo_riserva || 0);
+    }
+  });
+  const barPremiSinistri = Object.entries(anniPremi)
+    .map(([anno, v]) => ({ anno, premi: v.premi, sinistri: v.sinistri }))
+    .sort((a, b) => a.anno.localeCompare(b.anno));
 
   const kpis = [
     { title: "Polizze Attive", value: attive.length, icon: Shield, color: "text-emerald-600", bg: "bg-emerald-100", link: "/cliente/polizze" },
@@ -150,9 +183,9 @@ const ClienteDashboard = () => {
         </div>
       )}
 
-      {/* Bottom Row */}
+      {/* Bottom Row - Scadenze + 2 nuovi grafici sinistri */}
       {!loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Prossime Scadenze */}
           <Card>
             <CardHeader className="pb-2">
@@ -180,32 +213,50 @@ const ClienteDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Sinistri Recenti */}
+          {/* Pie - Sinistri per Ramo (Aperti vs Chiusi) */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-orange-500" /> Sinistri Recenti
+                <AlertTriangle className="h-4 w-4 text-orange-500" /> Sinistri per Ramo
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {sinistri.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nessun sinistro</p>
-              ) : sinistri.slice(0, 5).map(s => (
-                <div key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{s.numero_sinistro}</p>
-                    <p className="text-xs text-muted-foreground">{s.titoli?.numero_titolo}</p>
-                  </div>
-                  <div className="text-right">
-                    <Badge className={
-                      s.stato === "chiuso" ? "bg-green-100 text-green-800" :
-                      s.stato === "aperto" ? "bg-blue-100 text-blue-800" :
-                      "bg-orange-100 text-orange-800"
-                    }>{s.stato?.replace(/_/g, " ")}</Badge>
-                    {(s.importo_riserva || 0) > 0 && <p className="text-xs text-muted-foreground mt-0.5">Riserva {fmt(s.importo_riserva)}</p>}
-                  </div>
-                </div>
-              ))}
+            <CardContent>
+              {sinPerRamo.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={sinPerRamo} cx="50%" cy="50%" innerRadius={45} outerRadius={85} paddingAngle={2} dataKey="value" label={({ name, value }) => `${value}`} labelLine={false}>
+                      {sinPerRamo.map((entry, i) => (
+                        <Cell key={i} fill={entry.isOpen ? COLORS_OPEN[i % COLORS_OPEN.length] : COLORS_CLOSED[i % COLORS_CLOSED.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : <p className="text-sm text-muted-foreground text-center py-12">Nessun sinistro</p>}
+            </CardContent>
+          </Card>
+
+          {/* Bar - Rapporto Premi/Sinistri per Anno */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-teal-600" /> Premi vs Sinistri per Anno
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {barPremiSinistri.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={barPremiSinistri}>
+                    <XAxis dataKey="anno" tick={{ fontSize: 12 }} />
+                    <YAxis tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Legend />
+                    <Bar dataKey="premi" name="Premi Pagati" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sinistri" name="Sinistri Liquidati" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <p className="text-sm text-muted-foreground text-center py-12">Nessun dato</p>}
             </CardContent>
           </Card>
         </div>
