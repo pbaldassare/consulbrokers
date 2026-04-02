@@ -1,48 +1,34 @@
 
 
-## Piano: Fix RPC + Nuovi grafici CFO (solo dati reali)
+## Piano: Rimuovere riferimenti a Varese dal cliente "Comune di Varese"
 
-### Problema
-- `cfo_premi_per_compagnia` fa JOIN via `prodotti` (`prodotto_id` sempre NULL) → grafico vuoto
-- `cfo_report_titoli` stesso problema → compagnia/produttore sempre "—"
-- Mancano grafici per Ramo e Produttore
+### Dati da modificare
 
-### Dati reali verificati nel DB (titoli incassati)
+Il cliente `16f2caf6-c840-4b2c-b504-6968ca698ad7` (Comune di Varese) ha questi riferimenti da rendere generici:
 
-| Dimensione | Record con dato | Top entry |
-|---|---|---|
-| Compagnia (`compagnia_id`) | 530/720 | AON €10.5M, ALLIANZ €480K |
-| Ramo (`ramo_id`) | ~720/720 | RCT/RCO €9.4M, Infortuni €1.4M |
-| Produttore (`produttore_nome`) | 357/720 | COMODO EGIDIO €9.4M |
+| Campo | Attuale | Nuovo |
+|-------|---------|-------|
+| `ragione_sociale` | Comune di Varese | Comune |
+| `email` | protocollo@comune.varese.it | protocollo@comune.it |
+| `pec` | protocollo@pec.comune.varese.it | protocollo@pec.comune.it |
+| `citta_sede` | Varese | (vuoto o generico) |
+| `provincia_sede` | VA | (vuoto o generico) |
+| `cap_sede` | 21100 | (vuoto o generico) |
+| `telefono` | 0332 255111 | (da rimuovere?) |
+| `note` | "...Comune di ~80.000 abitanti..." | Togliere riferimenti specifici |
 
-### Modifiche
+Inoltre vanno aggiornati:
+- **`profiles`** (email: protocollo@comune.varese.it → protocollo@comune.it)
+- **`auth.users`** (email: protocollo@comune.varese.it → protocollo@comune.it) — serve Edge Function con service_role
 
-**1. Migrazione SQL — Riscrivere 2 funzioni + creare 2 nuove**
+### Azione
 
-- **`cfo_premi_per_compagnia`**: JOIN diretto `titoli.compagnia_id → compagnie` (invece di `prodotti → compagnie`). Aggiungere parametri `_ufficio_id`, `_compagnia_id`, `_produttore_nome`.
+**1. Migrazione SQL** per aggiornare `clienti` e `profiles`:
+- UPDATE clienti SET ragione_sociale, email, pec, citta_sede, provincia_sede, cap_sede, note (pulite)
+- UPDATE profiles SET email
 
-- **`cfo_report_titoli`**: JOIN diretto `titoli.compagnia_id → compagnie`, `titoli.ramo_id → rami`, `titoli.cliente_anagrafica_id → clienti`. Usare `titoli.produttore_nome`. Sostituire parametro `_produttore_id` con `_produttore_nome text`.
+**2. Edge Function** (o update auth via admin API) per cambiare email in `auth.users` — necessario perché è l'email di login
 
-- **NUOVA `cfo_premi_per_ramo`**: Aggregazione premi incassati per ramo (`titoli.ramo_id → rami`), top 15, filtri date/ufficio.
-
-- **NUOVA `cfo_premi_per_produttore`**: Aggregazione per `produttore_nome`, top 15, filtri date/ufficio.
-
-**2. Frontend `AreaCFO.tsx`**
-
-- Aggiungere filtri **Compagnia** (SearchableSelect, lista lunga) e **Produttore** (select con valori distinti `produttore_nome` dal DB) nei filtri globali
-- Passare `_compagnia_id` e `_produttore_nome` alle query `cfo_kpi`, `cfo_premi_per_compagnia`, report
-- Aggiungere 2 nuovi grafici nella griglia:
-  - **Premi per Ramo** — BarChart orizzontale, top 15
-  - **Premi per Produttore** — BarChart orizzontale, top 15
-- Aggiornare il report per usare `_produttore_nome` al posto di `_produttore_id`, e mostrare colonna Ramo
-
-### File coinvolti
-
-| File | Azione |
-|------|--------|
-| Migrazione SQL | DROP+CREATE 2 RPC + CREATE 2 nuove |
-| `src/pages/AreaCFO.tsx` | Filtri globali, 2 nuovi grafici, query aggiornate |
-
-### Zero dati inventati
-Tutto viene da dati reali già presenti nelle tabelle `titoli`, `compagnie`, `rami`. Nessun seed o dato fittizio.
+### Nota
+Il secondo cliente a Varese (FARMACCOUNT SRL) non ha riferimenti email a varese.it, quindi resta invariato. Confermi di voler rendere generici anche indirizzo/CAP/provincia/telefono, o solo le email e ragione sociale?
 
