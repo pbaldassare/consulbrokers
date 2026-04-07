@@ -1,34 +1,43 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '@supabase/supabase-js/cors'
 
 const BROWSER_USE_API_KEY = Deno.env.get('BROWSER_USE_API_KEY')!;
 const MONDOAPPALTI_USER = Deno.env.get('MONDOAPPALTI_USER')!;
 const MONDOAPPALTI_PASSWORD = Deno.env.get('MONDOAPPALTI_PASSWORD')!;
 const API_BASE = 'https://api.browser-use.com/api/v3';
 
-interface SearchFilters {
-  keyword?: string;
-  regioni?: string[];
-  regione?: string;
-  importoMin?: string;
-  importoMax?: string;
-  statoBando?: string;
-  dataDa?: string;
-  dataA?: string;
-  fonte?: string;
+// Region name mapping: UI label → portal-friendly name
+const REGION_MAP: Record<string, string> = {
+  "Emilia-Romagna": "Emilia Romagna",
+  "Friuli Venezia Giulia": "Friuli Venezia Giulia",
+  "Trentino-Alto Adige": "Trentino Alto Adige",
+  "Valle d'Aosta": "Valle d'Aosta",
+};
+
+function normalizeRegione(uiName: string): string {
+  return REGION_MAP[uiName] || uiName;
 }
 
-function buildTaskPrompt(filters: SearchFilters): string {
+interface StartRequest {
+  action: 'start';
+  regioni?: string[];
+  importoMin?: string;
+  importoMax?: string;
+  dataDa?: string;
+  dataA?: string;
+}
+
+interface StatusRequest {
+  action: 'status';
+  sessionIds: string[];
+}
+
+function buildTaskPrompt(regioni: string[], filters: { importoMin?: string; importoMax?: string; dataDa?: string; dataA?: string }): string {
   const parts: string[] = [];
 
   parts.push(`Vai sul sito https://www.mondoappalti.it e effettua il login con username "${MONDOAPPALTI_USER}" e password "${MONDOAPPALTI_PASSWORD}".`);
-  parts.push(`Dopo il login, cerca gare d'appalto relative a brokeraggio assicurativo.`);
-  parts.push(`Usa come parola chiave di ricerca: "brokeraggio assicurativo".`);
+  parts.push(`Dopo il login, vai nella sezione di ricerca gare/bandi.`);
+  parts.push(`Cerca con la parola chiave "brokeraggio assicurativo".`);
 
-  // Handle multi-region
-  const regioni = filters.regioni || (filters.regione && filters.regione !== 'tutte' ? [filters.regione] : []);
   if (regioni.length > 0) {
     parts.push(`Filtra per le seguenti regioni: ${regioni.join(', ')}.`);
   }
@@ -39,7 +48,6 @@ function buildTaskPrompt(filters: SearchFilters): string {
   if (filters.dataA) {
     parts.push(`Filtra i bandi pubblicati fino al ${filters.dataA}.`);
   }
-
   if (filters.importoMin) {
     parts.push(`Con importo minimo di €${filters.importoMin}.`);
   }
@@ -47,17 +55,21 @@ function buildTaskPrompt(filters: SearchFilters): string {
     parts.push(`Con importo massimo di €${filters.importoMax}.`);
   }
 
-  parts.push(`Per ogni bando trovato (massimo 20 risultati), restituisci i dati in formato JSON come array di oggetti con questi campi:
-- "titolo": titolo del bando
-- "ente": ente committente/stazione appaltante
-- "importo": importo in euro come numero (null se non disponibile)
-- "scadenza": data di scadenza nel formato "dd/MM/yyyy" (null se non disponibile)
-- "stato": uno tra "aperto", "scaduto", "in_valutazione"
-- "dataPublicazione": data di pubblicazione nel formato "dd/MM/yyyy"
-- "link": URL diretto al bando
-- "categoria": categoria o tipologia del bando (null se non disponibile)
+  parts.push(`Se non trovi risultati con "brokeraggio assicurativo", prova anche con "broker assicurativo" o "servizi di intermediazione assicurativa".`);
 
-Rispondi SOLO con il JSON array, senza testo aggiuntivo. Se non trovi risultati rispondi con un array vuoto [].`);
+  parts.push(`Scorri tutti i risultati visibili (massimo 20). Per ogni bando/gara trovata, estrai i dati e restituiscili in formato JSON come array di oggetti con ESATTAMENTE questi campi:
+- "scheda_id": codice o numero della scheda/gara (stringa)
+- "tipologia": tipologia della gara (es. "Servizi", "Forniture")
+- "oggetto": oggetto o titolo del bando (stringa)
+- "stazione_appaltante": nome dell'ente/stazione appaltante
+- "localita": luogo (città o provincia)
+- "regione": regione
+- "importo": importo in euro come numero (senza simboli, senza punti delle migliaia; usa il punto come separatore decimale). Se il valore è "150.739,73 €" scrivi 150739.73. Se non disponibile scrivi null.
+- "scadenza": data di scadenza nel formato "dd/MM/yyyy" (null se non disponibile)
+- "cig": codice CIG se presente (null se non disponibile)
+- "link": URL diretto alla pagina del bando
+
+Rispondi SOLO con il JSON array, senza testo prima o dopo. Se non trovi risultati rispondi con [].`);
 
   return parts.join(' ');
 }
@@ -84,35 +96,29 @@ async function createSession(task: string): Promise<string> {
   return data.id;
 }
 
-async function pollSession(sessionId: string, maxWaitMs = 180000): Promise<string | null> {
-  const start = Date.now();
+async function checkSession(sessionId: string): Promise<{ status: string; output: string | null }> {
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    headers: { 'X-Browser-Use-API-Key': BROWSER_USE_API_KEY },
+  });
 
-  while (Date.now() - start < maxWaitMs) {
-    const res = await fetch(`${API_BASE}/sessions/${sessionId}`, {
-      headers: {
-        'X-Browser-Use-API-Key': BROWSER_USE_API_KEY,
-      },
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Failed to poll session: ${res.status} ${err}`);
-    }
-
-    const session = await res.json();
-    const status = session.status;
-
-    if (status === 'idle' || status === 'stopped') {
-      return session.output || null;
-    }
-    if (status === 'error' || status === 'timed_out') {
-      throw new Error(`Session ${status}: ${session.output || 'unknown error'}`);
-    }
-
-    await new Promise(r => setTimeout(r, 3000));
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to check session: ${res.status} ${err}`);
   }
 
-  throw new Error('Session timed out after 3 minutes');
+  const session = await res.json();
+  return { status: session.status, output: session.output || null };
+}
+
+function parseImportoItaliano(val: any): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number') return val;
+  const s = String(val).replace(/[€\s]/g, '').trim();
+  if (!s || s === 'N/A' || s === '-') return null;
+  // Handle Italian format: 150.739,73 → 150739.73
+  const cleaned = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? null : n;
 }
 
 function parseOutput(output: string | null): any[] {
@@ -127,14 +133,38 @@ function parseOutput(output: string | null): any[] {
   } catch {
     const match = output.match(/\[[\s\S]*\]/);
     if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return [];
-      }
+      try { return JSON.parse(match[0]); } catch { return []; }
     }
     return [];
   }
+}
+
+function mapBando(b: any, i: number) {
+  return {
+    id: b.scheda_id || b.id || `bando-${Date.now()}-${i}`,
+    titolo: b.oggetto || b.titolo || b.tipologia || 'Titolo non disponibile',
+    ente: b.stazione_appaltante || b.ente || 'Ente non specificato',
+    importo: parseImportoItaliano(b.importo),
+    scadenza: b.scadenza || null,
+    stato: b.stato || 'aperto',
+    dataPublicazione: b.dataPublicazione || b.dataPubblicazione || '',
+    link: b.link || null,
+    categoria: b.tipologia || b.categoria || null,
+    scheda_id: b.scheda_id || null,
+    cig: b.cig || null,
+    localita: b.localita || null,
+    regione: b.regione || null,
+  };
+}
+
+// Batch regions into groups of 3
+function batchRegioni(regioni: string[], batchSize = 3): string[][] {
+  if (regioni.length === 0) return [[]];
+  const batches: string[][] = [];
+  for (let i = 0; i < regioni.length; i += batchSize) {
+    batches.push(regioni.slice(i, i + batchSize));
+  }
+  return batches;
 }
 
 Deno.serve(async (req) => {
@@ -147,35 +177,87 @@ Deno.serve(async (req) => {
       throw new Error('BROWSER_USE_API_KEY not configured');
     }
 
-    const filters: SearchFilters = await req.json();
-    const task = buildTaskPrompt(filters);
+    const body = await req.json();
+    const action = body.action || 'start';
 
-    console.log('Creating Browser Use session with task:', task.substring(0, 200));
+    // ── ACTION: STATUS ──
+    if (action === 'status') {
+      const { sessionIds } = body as StatusRequest;
+      if (!sessionIds || !Array.isArray(sessionIds)) {
+        return new Response(JSON.stringify({ error: 'sessionIds required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    const sessionId = await createSession(task);
-    console.log('Session created:', sessionId);
+      const results: { sessionId: string; status: string; bandi: any[] }[] = [];
 
-    const output = await pollSession(sessionId);
-    console.log('Session completed, output length:', output?.length || 0);
+      for (const sid of sessionIds) {
+        try {
+          const { status, output } = await checkSession(sid);
 
-    const bandi = parseOutput(output);
+          let bandi: any[] = [];
+          if (status === 'idle' || status === 'stopped') {
+            const raw = parseOutput(output);
+            bandi = raw.map(mapBando);
+          }
 
-    const risultati = bandi.map((b: any, i: number) => ({
-      id: b.id || `bando-${Date.now()}-${i}`,
-      titolo: b.titolo || 'Titolo non disponibile',
-      ente: b.ente || 'Ente non specificato',
-      importo: b.importo != null ? Number(b.importo) : null,
-      scadenza: b.scadenza || null,
-      stato: b.stato || 'aperto',
-      dataPublicazione: b.dataPublicazione || b.dataPubblicazione || '',
-      link: b.link || null,
-      categoria: b.categoria || null,
-    }));
+          results.push({ sessionId: sid, status, bandi });
+        } catch (err: any) {
+          results.push({ sessionId: sid, status: 'error', bandi: [] });
+        }
+      }
 
-    return new Response(JSON.stringify({ bandi: risultati }), {
+      // Aggregate
+      const allDone = results.every(r => ['idle', 'stopped', 'error', 'timed_out'].includes(r.status));
+      const allBandi = results.flatMap(r => r.bandi);
+
+      // Deduplicate by scheda_id or link
+      const seen = new Set<string>();
+      const dedupBandi = allBandi.filter(b => {
+        const key = b.scheda_id || b.link || b.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      return new Response(JSON.stringify({
+        done: allDone,
+        sessions: results.map(r => ({ sessionId: r.sessionId, status: r.status, count: r.bandi.length })),
+        bandi: dedupBandi,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── ACTION: START ──
+    const { regioni = [], importoMin, importoMax, dataDa, dataA } = body as StartRequest;
+
+    // Normalize region names
+    const normalizedRegioni = (regioni || []).map(normalizeRegione);
+    const batches = batchRegioni(normalizedRegioni);
+
+    console.log(`Starting ${batches.length} session(s) for ${normalizedRegioni.length} regions`);
+
+    const sessionIds: string[] = [];
+    const filters = { importoMin, importoMax, dataDa, dataA };
+
+    for (const batch of batches) {
+      const task = buildTaskPrompt(batch, filters);
+      console.log('Creating session for regions:', batch.join(', ') || 'tutte');
+      const sid = await createSession(task);
+      sessionIds.push(sid);
+      console.log('Session created:', sid);
+    }
+
+    return new Response(JSON.stringify({
+      sessionIds,
+      totalBatches: batches.length,
+      message: `Avviate ${batches.length} sessione/i di ricerca`,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('Error in cerca-bandi:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Errore durante la ricerca' }),
