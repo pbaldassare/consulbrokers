@@ -384,20 +384,24 @@ const ProspectDetail = () => {
                   <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-1.5">
-                      <Label>Prodotto *</Label>
-                      <Input value={trattativaForm.prodotto} onChange={(e) => setTrattativaForm({ ...trattativaForm, prodotto: e.target.value })} placeholder="Es: RC Auto" />
+                      <Label>Ramo</Label>
+                      <SearchableSelect options={ramiOptions} value={trattativaForm.ramo_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, ramo_id: v })} placeholder="Seleziona ramo..." />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Compagnia *</Label>
-                      <Input value={trattativaForm.compagnia} onChange={(e) => setTrattativaForm({ ...trattativaForm, compagnia: e.target.value })} placeholder="Es: UnipolSai" />
+                      <Label>Compagnia</Label>
+                      <SearchableSelect options={compagnieOptions} value={trattativaForm.compagnia_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, compagnia_id: v })} placeholder="Seleziona compagnia..." />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Premio Previsto (€)</Label>
                       <Input type="number" value={trattativaForm.premio_previsto} onChange={(e) => setTrattativaForm({ ...trattativaForm, premio_previsto: e.target.value })} placeholder="0.00" />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label>Note</Label>
+                      <Textarea value={trattativaForm.note} onChange={(e) => setTrattativaForm({ ...trattativaForm, note: e.target.value })} placeholder="Note..." rows={3} />
+                    </div>
                     <div className="flex justify-end gap-2 pt-2">
                       <Button variant="outline" onClick={() => setTrattativaOpen(false)}>Annulla</Button>
-                      <Button onClick={() => createTrattativaMutation.mutate()} disabled={createTrattativaMutation.isPending || !trattativaForm.prodotto || !trattativaForm.compagnia}>
+                      <Button onClick={() => createTrattativaMutation.mutate()} disabled={createTrattativaMutation.isPending}>
                         Crea Trattativa
                       </Button>
                     </div>
