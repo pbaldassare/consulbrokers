@@ -814,7 +814,10 @@ export default function ClienteDetail() {
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
         <TabsContent value="timeline"><TimelineTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
 
-        <TabsContent value="anagrafica" className="space-y-6">
+        <TabsContent value="trattative">
+          <TrattativeClienteSection clienteId={id!} />
+        </TabsContent>
+
           {/* Dati Anagrafici */}
           <Card>
             <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
