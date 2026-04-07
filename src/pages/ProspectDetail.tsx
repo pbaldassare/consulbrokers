@@ -418,8 +418,8 @@ const ProspectDetail = () => {
                 {trattative.map((t) => (
                   <div key={t.id} className="border border-border rounded-lg p-4 flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-foreground">{t.prodotto}</p>
-                      <p className="text-sm text-muted-foreground">{t.compagnia} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
+                      <p className="font-medium text-foreground">{(t as any).ramo?.descrizione || t.prodotto || "—"}</p>
+                      <p className="text-sm text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
                       {t.data_chiusura && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Chiusa il {format(new Date(t.data_chiusura), "dd/MM/yyyy")}
