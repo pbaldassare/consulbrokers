@@ -173,9 +173,10 @@ const ProspectDetail = () => {
     mutationFn: async () => {
       const payload = {
         prospect_id: id!,
-        prodotto: trattativaForm.prodotto,
-        compagnia: trattativaForm.compagnia,
+        ramo_id: trattativaForm.ramo_id || null,
+        compagnia_id: trattativaForm.compagnia_id || null,
         premio_previsto: trattativaForm.premio_previsto ? parseFloat(trattativaForm.premio_previsto) : null,
+        note: trattativaForm.note || null,
         stato: "aperta",
         created_by: profile?.id || null,
       };
@@ -186,7 +187,7 @@ const ProspectDetail = () => {
         azione: "creazione_trattativa",
         entita_tipo: "prospect",
         entita_id: id!,
-        dettagli_json: { trattativa_id: data.id, prodotto: trattativaForm.prodotto, compagnia: trattativaForm.compagnia },
+        dettagli_json: { trattativa_id: data.id, ramo_id: trattativaForm.ramo_id, compagnia_id: trattativaForm.compagnia_id },
       });
 
       // Update prospect stato if still "nuovo"
@@ -207,7 +208,7 @@ const ProspectDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["prospect", id] });
       queryClient.invalidateQueries({ queryKey: ["log_attivita", "prospect", id] });
       toast.success("Trattativa creata");
-      setTrattativaForm({ prodotto: "", compagnia: "", premio_previsto: "" });
+      setTrattativaForm({ ramo_id: "", compagnia_id: "", premio_previsto: "", note: "" });
       setTrattativaOpen(false);
     },
     onError: (err: Error) => {
