@@ -82,13 +82,29 @@ const ProspectDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trattative")
-        .select("*")
+        .select("*, ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome)")
         .eq("prospect_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!id,
+  });
+
+  const { data: ramiOptions = [] } = useQuery({
+    queryKey: ["rami_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rami").select("id, codice, descrizione").eq("attivo", true).order("codice");
+      return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
+    },
+  });
+
+  const { data: compagnieOptions = [] } = useQuery({
+    queryKey: ["compagnie_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      return (data || []).map((c) => ({ value: c.id, label: c.nome }));
+    },
   });
 
   const trattativeIds = trattative?.map((t) => t.id) || [];
