@@ -71,7 +71,7 @@ async function createSession(task: string): Promise<string> {
     },
     body: JSON.stringify({
       task,
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-flash',
     }),
   });
 
