@@ -1,29 +1,56 @@
 
+Piano aggiornato: far uscire davvero i bandi da MondoAppalti
 
-## Piano: Multi-regione e keyword fissa "Brokeraggio assicurativo"
+Diagnosi trovata
+- La sessione Browser Use parte correttamente, ma oggi la Edge Function aspetta in modo sincrono e va in timeout dopo 3 minuti.
+- Il frontend perde la connessione ancora prima (`Failed to fetch`), quindi una ricerca lunga non è affidabile in una sola chiamata.
+- I nomi regione della UI non coincidono sempre con quelli che compaiono nel dato reale (`Emilia-Romagna` vs `Emilia Romagna`, `Friuli Venezia Giulia` vs `Friuli`).
+- Il parser attuale si aspetta campi generici (`titolo`, `ente`), mentre il JSON reale di MondoAppalti ha campi tipo `scheda_id`, `tipologia`, `stazione_appaltante`, `localita`, `regione`, `scadenza`, `importo`, `cig`.
 
-### Modifiche
+Cosa implementerò
+1. Rifattorizzare `supabase/functions/cerca-bandi/index.ts` in modalità asincrona:
+   - `action: "start"` crea la/e sessione/i Browser Use e restituisce subito `sessionId`
+   - `action: "status"` controlla lo stato e restituisce i risultati appena pronti
+   - tempo massimo esteso a 8-10 minuti, ma senza lasciare aperta la stessa richiesta HTTP
 
-**1. `src/pages/BandiPubbliciPage.tsx`**
-- Rimuovere i chip keyword — la ricerca usa sempre "Brokeraggio assicurativo" come keyword fissa (precompilata e non modificabile, o nascosta)
-- Cambiare il filtro regione da selezione singola a **selezione multipla** con checkbox: l'utente può selezionare piu regioni contemporaneamente
-- Mostrare le regioni selezionate come badge/chip rimovibili
-- Il campo keyword diventa read-only con valore "Brokeraggio assicurativo" oppure viene nascosto del tutto (l'utente cerca solo per regione/data/importo)
+2. Rendere la multi-regione affidabile:
+   - mappa UI -> nomi usati dal portale
+   - batching automatico delle regioni (es. 2-3 per sessione) invece di una sola sessione enorme
+   - merge finale e deduplica per `scheda_id` o `link`
 
-**2. `supabase/functions/cerca-bandi/index.ts`**
-- Il parametro `regione` diventa un array di stringhe `regioni: string[]`
-- Il prompt Browser Use elenca tutte le regioni selezionate: "Cerca bandi nelle regioni: Piemonte, Lombardia, Lazio"
-- La keyword nel prompt diventa fissa: "brokeraggio assicurativo" (ignorando eventuali keyword dal frontend)
+3. Migliorare il prompt Browser Use:
+   - login esplicito
+   - navigazione guidata alla ricerca bandi
+   - keyword fissa `Brokeraggio assicurativo`
+   - se la ricerca esatta torna vuota, secondo tentativo automatico più ampio ma sempre nel perimetro assicurativo
+   - richiesta di output nel formato reale del portale, non solo nel formato generico attuale
 
-### Dettaglio UI regioni multi-select
-- Un dropdown con checkbox per ogni regione + "Seleziona tutte"
-- Sotto il dropdown, badge rimovibili per le regioni selezionate
-- Il conteggio regioni selezionate visibile nel trigger del dropdown
+4. Rafforzare il parser:
+   - supporto sia allo schema attuale sia allo schema reale del JSON che hai caricato
+   - parsing corretto degli importi italiani (`150.739,73 €`)
+   - mapping UI:
+     - `titolo` <- `oggetto` oppure fallback a `tipologia`
+     - `ente` <- `stazione_appaltante`
+     - `categoria` <- `tipologia`
+   - aggiunta ai risultati di `scheda_id`, `cig`, `localita`, `regione`
 
-### File coinvolti
+5. Aggiornare `src/pages/BandiPubbliciPage.tsx`:
+   - avvio ricerca + polling automatico
+   - stato avanzamento tipo “ricerca regioni 2/4”
+   - risultati parziali appena arrivano
+   - errore chiaro solo quando tutte le sessioni falliscono o scadono
 
-| File | Azione |
-|------|--------|
-| `src/pages/BandiPubbliciPage.tsx` | Rimuovere chip, keyword fissa, regione multi-select |
-| `supabase/functions/cerca-bandi/index.ts` | Accettare array regioni, keyword fissa nel prompt |
+6. Mettere test minimi di sicurezza:
+   - fixture basata sul JSON fornito
+   - test per normalizzazione regioni
+   - test per parsing e mapping del payload MondoAppalti
 
+File coinvolti
+- `supabase/functions/cerca-bandi/index.ts`
+- `src/pages/BandiPubbliciPage.tsx`
+
+Dettagli tecnici
+- Nessuna modifica database necessaria
+- `supabase/config.toml` è già compatibile
+- Non userò il campo `regione` restituito dal portale per scartare risultati lato client, perché il campione mostra valori non sempre coerenti
+- Se anche così Browser Use resta troppo fragile, il passo successivo sarà sostituire la parte visuale con chiamate dirette all’endpoint dati del portale, se disponibile dopo login
