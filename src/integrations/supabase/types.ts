@@ -5097,42 +5097,68 @@ export type Database = {
       }
       trattative: {
         Row: {
+          cliente_id: string | null
           compagnia: string | null
+          compagnia_id: string | null
           created_at: string | null
           created_by: string | null
           data_chiusura: string | null
           id: string
+          note: string | null
           premio_previsto: number | null
           prodotto: string | null
           prospect_id: string | null
+          ramo_id: string | null
           stato: string
           updated_at: string | null
         }
         Insert: {
+          cliente_id?: string | null
           compagnia?: string | null
+          compagnia_id?: string | null
           created_at?: string | null
           created_by?: string | null
           data_chiusura?: string | null
           id?: string
+          note?: string | null
           premio_previsto?: number | null
           prodotto?: string | null
           prospect_id?: string | null
+          ramo_id?: string | null
           stato?: string
           updated_at?: string | null
         }
         Update: {
+          cliente_id?: string | null
           compagnia?: string | null
+          compagnia_id?: string | null
           created_at?: string | null
           created_by?: string | null
           data_chiusura?: string | null
           id?: string
+          note?: string | null
           premio_previsto?: number | null
           prodotto?: string | null
           prospect_id?: string | null
+          ramo_id?: string | null
           stato?: string
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "trattative_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattative_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trattative_created_by_fkey"
             columns: ["created_by"]
@@ -5145,6 +5171,13 @@ export type Database = {
             columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "prospect"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattative_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
             referencedColumns: ["id"]
           },
         ]

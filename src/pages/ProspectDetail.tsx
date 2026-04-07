@@ -26,6 +26,7 @@ import {
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import DocumentiTab from "@/components/DocumentiTab";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
@@ -60,7 +61,7 @@ const ProspectDetail = () => {
   const { profile } = useAuth();
   const [trattativaOpen, setTrattativaOpen] = useState(false);
   const [trattativaForm, setTrattativaForm] = useState({
-    prodotto: "", compagnia: "", premio_previsto: "",
+    ramo_id: "", compagnia_id: "", premio_previsto: "", note: "",
   });
 
   const { data: prospect, isLoading } = useQuery({
@@ -82,13 +83,29 @@ const ProspectDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trattative")
-        .select("*")
+        .select("*, ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome)")
         .eq("prospect_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!id,
+  });
+
+  const { data: ramiOptions = [] } = useQuery({
+    queryKey: ["rami_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rami").select("id, codice, descrizione").eq("attivo", true).order("codice");
+      return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
+    },
+  });
+
+  const { data: compagnieOptions = [] } = useQuery({
+    queryKey: ["compagnie_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      return (data || []).map((c) => ({ value: c.id, label: c.nome }));
+    },
   });
 
   const trattativeIds = trattative?.map((t) => t.id) || [];
@@ -157,9 +174,10 @@ const ProspectDetail = () => {
     mutationFn: async () => {
       const payload = {
         prospect_id: id!,
-        prodotto: trattativaForm.prodotto,
-        compagnia: trattativaForm.compagnia,
+        ramo_id: trattativaForm.ramo_id || null,
+        compagnia_id: trattativaForm.compagnia_id || null,
         premio_previsto: trattativaForm.premio_previsto ? parseFloat(trattativaForm.premio_previsto) : null,
+        note: trattativaForm.note || null,
         stato: "aperta",
         created_by: profile?.id || null,
       };
@@ -170,7 +188,7 @@ const ProspectDetail = () => {
         azione: "creazione_trattativa",
         entita_tipo: "prospect",
         entita_id: id!,
-        dettagli_json: { trattativa_id: data.id, prodotto: trattativaForm.prodotto, compagnia: trattativaForm.compagnia },
+        dettagli_json: { trattativa_id: data.id, ramo_id: trattativaForm.ramo_id, compagnia_id: trattativaForm.compagnia_id },
       });
 
       // Update prospect stato if still "nuovo"
@@ -191,7 +209,7 @@ const ProspectDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["prospect", id] });
       queryClient.invalidateQueries({ queryKey: ["log_attivita", "prospect", id] });
       toast.success("Trattativa creata");
-      setTrattativaForm({ prodotto: "", compagnia: "", premio_previsto: "" });
+      setTrattativaForm({ ramo_id: "", compagnia_id: "", premio_previsto: "", note: "" });
       setTrattativaOpen(false);
     },
     onError: (err: Error) => {
@@ -367,20 +385,24 @@ const ProspectDetail = () => {
                   <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-1.5">
-                      <Label>Prodotto *</Label>
-                      <Input value={trattativaForm.prodotto} onChange={(e) => setTrattativaForm({ ...trattativaForm, prodotto: e.target.value })} placeholder="Es: RC Auto" />
+                      <Label>Ramo</Label>
+                      <SearchableSelect options={ramiOptions} value={trattativaForm.ramo_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, ramo_id: v })} placeholder="Seleziona ramo..." />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Compagnia *</Label>
-                      <Input value={trattativaForm.compagnia} onChange={(e) => setTrattativaForm({ ...trattativaForm, compagnia: e.target.value })} placeholder="Es: UnipolSai" />
+                      <Label>Compagnia</Label>
+                      <SearchableSelect options={compagnieOptions} value={trattativaForm.compagnia_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, compagnia_id: v })} placeholder="Seleziona compagnia..." />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Premio Previsto (€)</Label>
                       <Input type="number" value={trattativaForm.premio_previsto} onChange={(e) => setTrattativaForm({ ...trattativaForm, premio_previsto: e.target.value })} placeholder="0.00" />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label>Note</Label>
+                      <Textarea value={trattativaForm.note} onChange={(e) => setTrattativaForm({ ...trattativaForm, note: e.target.value })} placeholder="Note..." rows={3} />
+                    </div>
                     <div className="flex justify-end gap-2 pt-2">
                       <Button variant="outline" onClick={() => setTrattativaOpen(false)}>Annulla</Button>
-                      <Button onClick={() => createTrattativaMutation.mutate()} disabled={createTrattativaMutation.isPending || !trattativaForm.prodotto || !trattativaForm.compagnia}>
+                      <Button onClick={() => createTrattativaMutation.mutate()} disabled={createTrattativaMutation.isPending}>
                         Crea Trattativa
                       </Button>
                     </div>
@@ -396,8 +418,8 @@ const ProspectDetail = () => {
                 {trattative.map((t) => (
                   <div key={t.id} className="border border-border rounded-lg p-4 flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-foreground">{t.prodotto}</p>
-                      <p className="text-sm text-muted-foreground">{t.compagnia} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
+                      <p className="font-medium text-foreground">{(t as any).ramo?.descrizione || t.prodotto || "—"}</p>
+                      <p className="text-sm text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
                       {t.data_chiusura && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Chiusa il {format(new Date(t.data_chiusura), "dd/MM/yyyy")}
