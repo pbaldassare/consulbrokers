@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { FileText, Search, Plus } from "lucide-react";
+import { FileText, Search, Plus, Landmark } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
