@@ -1,48 +1,29 @@
 
 
-## Piano: Integrazione MondoAppalti.it per Ricerca Bandi Assicurativi
-
-### Obiettivo
-Aggiornare la Edge Function `cerca-bandi` per navigare su **mondoappalti.it**, effettuare login con le credenziali fornite, e cercare gare d'appalto rilevanti per broker assicurativi, con filtri per regione e data.
+## Piano: Multi-regione e keyword fissa "Brokeraggio assicurativo"
 
 ### Modifiche
 
-**1. Nuovi Secrets**
-- `MONDOAPPALTI_USER` = `TR02369`
-- `MONDOAPPALTI_PASSWORD` = `Piemonte2026!`
+**1. `src/pages/BandiPubbliciPage.tsx`**
+- Rimuovere i chip keyword — la ricerca usa sempre "Brokeraggio assicurativo" come keyword fissa (precompilata e non modificabile, o nascosta)
+- Cambiare il filtro regione da selezione singola a **selezione multipla** con checkbox: l'utente può selezionare piu regioni contemporaneamente
+- Mostrare le regioni selezionate come badge/chip rimovibili
+- Il campo keyword diventa read-only con valore "Brokeraggio assicurativo" oppure viene nascosto del tutto (l'utente cerca solo per regione/data/importo)
 
-Salvati come secret Supabase per sicurezza (non hardcoded).
+**2. `supabase/functions/cerca-bandi/index.ts`**
+- Il parametro `regione` diventa un array di stringhe `regioni: string[]`
+- Il prompt Browser Use elenca tutte le regioni selezionate: "Cerca bandi nelle regioni: Piemonte, Lombardia, Lazio"
+- La keyword nel prompt diventa fissa: "brokeraggio assicurativo" (ignorando eventuali keyword dal frontend)
 
-**2. Aggiornare `supabase/functions/cerca-bandi/index.ts`**
-- Cambiare il prompt Browser Use per navigare `mondoappalti.it`
-- Aggiungere step di login (utente + password)
-- Costruire il task con focus su parole chiave settore assicurativo/broker: "assicurazione", "brokeraggio", "polizza", "intermediazione assicurativa", "servizi assicurativi", "RCA", "RC professionale"
-- Filtri per regione e intervallo date di pubblicazione
-- Il browser AI farà: login → ricerca → estrazione risultati → output JSON
-
-**3. Aggiornare `src/pages/BandiPubbliciPage.tsx`**
-- Aggiungere un selettore "Fonte" (MondoAppalti come default, predisposto per future fonti)
-- Aggiungere parole chiave predefinite per il settore assicurativo come chip cliccabili: "Servizi assicurativi", "Brokeraggio", "Polizze", "RCA", "RC Professionale", "Intermediazione"
-- Migliorare i filtri regione/data già presenti (sono già funzionanti)
-
-### Flusso Browser Use
-
-```text
-1. Vai su mondoappalti.it
-2. Login con credenziali (username + password)
-3. Cerca bandi con keyword assicurativa + filtri regione/data
-4. Estrai risultati: titolo, ente, importo, scadenza, link, categoria
-5. Restituisci JSON strutturato
-```
+### Dettaglio UI regioni multi-select
+- Un dropdown con checkbox per ogni regione + "Seleziona tutte"
+- Sotto il dropdown, badge rimovibili per le regioni selezionate
+- Il conteggio regioni selezionate visibile nel trigger del dropdown
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Secrets `MONDOAPPALTI_USER`, `MONDOAPPALTI_PASSWORD` | Aggiungere |
-| `supabase/functions/cerca-bandi/index.ts` | Aggiornare prompt per mondoappalti.it con login |
-| `src/pages/BandiPubbliciPage.tsx` | Aggiungere chip keywords assicurative + selettore fonte |
-
-### Sicurezza
-Le credenziali non saranno mai nel codice sorgente, solo nei secrets Supabase accessibili dalla Edge Function.
+| `src/pages/BandiPubbliciPage.tsx` | Rimuovere chip, keyword fissa, regione multi-select |
+| `supabase/functions/cerca-bandi/index.ts` | Accettare array regioni, keyword fissa nel prompt |
 
