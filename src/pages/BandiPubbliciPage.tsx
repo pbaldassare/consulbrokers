@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -31,6 +31,10 @@ interface BandoResult {
   dataPublicazione: string;
   link: string | null;
   categoria: string | null;
+  scheda_id?: string | null;
+  cig?: string | null;
+  localita?: string | null;
+  regione?: string | null;
 }
 
 const regioniItaliane = [
@@ -41,6 +45,8 @@ const regioniItaliane = [
 ];
 
 const KEYWORD_FISSA = "Brokeraggio assicurativo";
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLL_TIME_MS = 10 * 60 * 1000; // 10 minutes
 
 const statoBadgeVariant = (stato: string) => {
   switch (stato) {
@@ -74,6 +80,12 @@ export default function BandiPubbliciPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [fonte, setFonte] = useState("mondoappalti");
   const [regioniOpen, setRegioniOpen] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [progressMsg, setProgressMsg] = useState("");
+  const [sessionsStatus, setSessionsStatus] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+
+  const pollingRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const toggleRegione = (regione: string) => {
     setRegioniSelezionate(prev =>
@@ -95,50 +107,151 @@ export default function BandiPubbliciPage() {
     setRegioniSelezionate(prev => prev.filter(r => r !== regione));
   };
 
+  const stopPolling = useCallback(() => {
+    pollingRef.current = false;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
   const cercaBandi = async () => {
     setLoading(true);
     setHasSearched(true);
     setRisultati([]);
     setElapsedSeconds(0);
+    setSearchError(null);
+    setProgressMsg("Avvio ricerca...");
+    setSessionsStatus({ done: 0, total: 0 });
+    stopPolling();
 
-    const timer = setInterval(() => {
+    // Elapsed time counter
+    const elapsedTimer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
 
     try {
-      const { data, error } = await supabase.functions.invoke('cerca-bandi', {
+      // Step 1: Start sessions
+      const { data: startData, error: startError } = await supabase.functions.invoke('cerca-bandi', {
         body: {
-          keyword: KEYWORD_FISSA,
+          action: 'start',
           regioni: regioniSelezionate.length > 0 ? regioniSelezionate : undefined,
           importoMin: importoMin || undefined,
           importoMax: importoMax || undefined,
-          statoBando: statoBando || undefined,
           dataDa: dataDa ? format(dataDa, "yyyy-MM-dd") : undefined,
           dataA: dataA ? format(dataA, "yyyy-MM-dd") : undefined,
-          fonte,
         },
       });
 
-      if (error) throw error;
+      if (startError) throw startError;
 
-      const bandi = data?.bandi || [];
-      setRisultati(bandi);
+      const sessionIds: string[] = startData?.sessionIds || [];
+      const totalBatches = startData?.totalBatches || sessionIds.length;
 
-      if (bandi.length === 0) {
-        toast.info("Nessun bando trovato con i criteri specificati");
-      } else {
-        toast.success(`${bandi.length} bando/i trovati`);
+      if (sessionIds.length === 0) {
+        throw new Error("Nessuna sessione avviata");
       }
+
+      setSessionsStatus({ done: 0, total: totalBatches });
+      setProgressMsg(`Ricerca avviata: ${totalBatches} sessione/i`);
+
+      // Step 2: Poll for results
+      pollingRef.current = true;
+      const pollStart = Date.now();
+
+      const poll = async () => {
+        if (!pollingRef.current) return;
+
+        // Check timeout
+        if (Date.now() - pollStart > MAX_POLL_TIME_MS) {
+          stopPolling();
+          clearInterval(elapsedTimer);
+          setLoading(false);
+          setSearchError("La ricerca ha superato il tempo massimo. Riprova con meno regioni.");
+          return;
+        }
+
+        try {
+          const { data: statusData, error: statusError } = await supabase.functions.invoke('cerca-bandi', {
+            body: {
+              action: 'status',
+              sessionIds,
+            },
+          });
+
+          if (statusError) {
+            console.error('Poll error:', statusError);
+            return; // Keep polling, might be transient
+          }
+
+          const sessions = statusData?.sessions || [];
+          const doneCount = sessions.filter((s: any) =>
+            ['idle', 'stopped', 'error', 'timed_out'].includes(s.status)
+          ).length;
+
+          setSessionsStatus({ done: doneCount, total: totalBatches });
+
+          const runningCount = totalBatches - doneCount;
+          if (runningCount > 0) {
+            setProgressMsg(`Ricerca in corso: ${doneCount}/${totalBatches} sessioni completate`);
+          }
+
+          // Show partial results as they come
+          const bandi = statusData?.bandi || [];
+          if (bandi.length > 0) {
+            setRisultati(bandi);
+          }
+
+          if (statusData?.done) {
+            // All done
+            stopPolling();
+            clearInterval(elapsedTimer);
+            setLoading(false);
+            setRisultati(bandi);
+
+            if (bandi.length === 0) {
+              const hasErrors = sessions.some((s: any) => s.status === 'error' || s.status === 'timed_out');
+              if (hasErrors) {
+                setSearchError("Alcune sessioni hanno avuto errori. Riprova o riduci il numero di regioni.");
+                toast.error("Ricerca completata con errori");
+              } else {
+                toast.info("Nessun bando trovato con i criteri specificati");
+              }
+            } else {
+              toast.success(`${bandi.length} bando/i trovati`);
+            }
+            setProgressMsg("");
+          }
+        } catch (err: any) {
+          console.error('Poll exception:', err);
+          // Don't stop polling on transient errors
+        }
+      };
+
+      // First poll after 8 seconds (give BrowserUse time to start)
+      setTimeout(() => {
+        if (pollingRef.current) {
+          poll();
+          timerRef.current = setInterval(poll, POLL_INTERVAL_MS);
+        }
+      }, 8000);
+
     } catch (err: any) {
-      console.error('Errore ricerca bandi:', err);
-      toast.error(err.message || "Errore durante la ricerca dei bandi");
-    } finally {
-      clearInterval(timer);
+      console.error('Errore avvio ricerca bandi:', err);
+      clearInterval(elapsedTimer);
       setLoading(false);
+      setSearchError(err.message || "Errore durante l'avvio della ricerca");
+      toast.error(err.message || "Errore durante la ricerca dei bandi");
     }
   };
 
   const resetFiltri = () => {
+    stopPolling();
     setRegioniSelezionate([]);
     setImportoMin("");
     setImportoMax("");
@@ -147,6 +260,8 @@ export default function BandiPubbliciPage() {
     setDataA(undefined);
     setRisultati([]);
     setHasSearched(false);
+    setSearchError(null);
+    setProgressMsg("");
   };
 
   const regioniLabel = regioniSelezionate.length === 0
@@ -202,6 +317,12 @@ export default function BandiPubbliciPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {loading ? "Ricerca..." : "Cerca Bandi"}
             </Button>
+            {loading && (
+              <Button variant="outline" onClick={() => { stopPolling(); setLoading(false); setProgressMsg(""); }} className="gap-2">
+                <X className="h-4 w-4" />
+                Annulla
+              </Button>
+            )}
           </div>
 
           {/* Filtri avanzati */}
@@ -399,12 +520,47 @@ export default function BandiPubbliciPage() {
             <div>
               <h3 className="text-lg font-medium">Il browser AI sta cercando su MondoAppalti.it...</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Login, navigazione e analisi dei risultati in corso. Può richiedere 30-90 secondi.
+                {progressMsg || "Login, navigazione e analisi dei risultati in corso."}
               </p>
+              {sessionsStatus.total > 0 && (
+                <div className="mt-2">
+                  <div className="w-64 mx-auto bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.max(5, (sessionsStatus.done / sessionsStatus.total) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Sessioni: {sessionsStatus.done}/{sessionsStatus.total} completate
+                  </p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-2">
-                Tempo trascorso: {elapsedSeconds}s
+                Tempo trascorso: {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
               </p>
+              {risultati.length > 0 && (
+                <p className="text-sm text-primary font-medium mt-2">
+                  {risultati.length} risultato/i trovati finora...
+                </p>
+              )}
             </div>
+          </CardContent>
+        </Card>
+      ) : searchError ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Search className="mx-auto h-16 w-16 text-destructive/30 mb-4" />
+            <h3 className="text-lg font-medium text-destructive">
+              Errore nella ricerca
+            </h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              {searchError}
+            </p>
+            {risultati.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Sono stati comunque trovati {risultati.length} risultato/i parziali.
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : risultati.length === 0 ? (
@@ -419,7 +575,10 @@ export default function BandiPubbliciPage() {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : null}
+
+      {/* Results list (shown even during loading for partial results) */}
+      {risultati.length > 0 && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {risultati.length} risultat{risultati.length === 1 ? "o" : "i"} trovati su MondoAppalti.it
@@ -438,7 +597,7 @@ export default function BandiPubbliciPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-6 text-sm">
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                   {bando.importo != null && (
                     <div>
                       <span className="text-muted-foreground">Importo: </span>
@@ -455,8 +614,22 @@ export default function BandiPubbliciPage() {
                   )}
                   {bando.categoria && (
                     <div>
-                      <span className="text-muted-foreground">Categoria: </span>
+                      <span className="text-muted-foreground">Tipologia: </span>
                       <span>{bando.categoria}</span>
+                    </div>
+                  )}
+                  {bando.cig && (
+                    <div>
+                      <span className="text-muted-foreground">CIG: </span>
+                      <span className="font-mono text-xs">{bando.cig}</span>
+                    </div>
+                  )}
+                  {(bando.localita || bando.regione) && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">
+                        {[bando.localita, bando.regione].filter(Boolean).join(', ')}
+                      </span>
                     </div>
                   )}
                   {bando.link && (
