@@ -11,12 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface BandoResult {
   id: string;
@@ -67,21 +69,54 @@ export default function BandiPubbliciPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Placeholder per integrazione API esterna
   const cercaBandi = async () => {
+    if (!keyword.trim() && !regione && !statoBando) {
+      toast.warning("Inserisci almeno una parola chiave o un filtro per cercare");
+      return;
+    }
+
     setLoading(true);
     setHasSearched(true);
-
-    // TODO: Integrare API esterna qui
-    // I parametri di ricerca disponibili sono:
-    // - keyword, regione, importoMin, importoMax, statoBando, dataDa, dataA
-    // La funzione dovrà popolare setRisultati() con i dati dall'API
-
-    // Simulazione delay
-    await new Promise((r) => setTimeout(r, 500));
     setRisultati([]);
-    setLoading(false);
+    setElapsedSeconds(0);
+
+    // Timer to show elapsed time
+    const timer = setInterval(() => {
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('cerca-bandi', {
+        body: {
+          keyword,
+          regione: regione || undefined,
+          importoMin: importoMin || undefined,
+          importoMax: importoMax || undefined,
+          statoBando: statoBando || undefined,
+          dataDa: dataDa ? format(dataDa, "yyyy-MM-dd") : undefined,
+          dataA: dataA ? format(dataA, "yyyy-MM-dd") : undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      const bandi = data?.bandi || [];
+      setRisultati(bandi);
+
+      if (bandi.length === 0) {
+        toast.info("Nessun bando trovato con i criteri specificati");
+      } else {
+        toast.success(`${bandi.length} bando/i trovati`);
+      }
+    } catch (err: any) {
+      console.error('Errore ricerca bandi:', err);
+      toast.error(err.message || "Errore durante la ricerca dei bandi");
+    } finally {
+      clearInterval(timer);
+      setLoading(false);
+    }
   };
 
   const resetFiltri = () => {
@@ -102,7 +137,7 @@ export default function BandiPubbliciPage() {
         <Landmark className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold">Bandi Pubblici</h1>
-          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto pubbliche</p>
+          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto pubbliche tramite AI</p>
         </div>
       </div>
 
@@ -117,20 +152,22 @@ export default function BandiPubbliciPage() {
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 className="pl-10"
-                onKeyDown={(e) => e.key === "Enter" && cercaBandi()}
+                onKeyDown={(e) => e.key === "Enter" && !loading && cercaBandi()}
+                disabled={loading}
               />
             </div>
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
               className="gap-2"
+              disabled={loading}
             >
               <Filter className="h-4 w-4" />
               Filtri
             </Button>
             <Button onClick={cercaBandi} disabled={loading} className="gap-2">
-              <Search className="h-4 w-4" />
-              Cerca
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {loading ? "Ricerca..." : "Cerca"}
             </Button>
           </div>
 
@@ -159,6 +196,7 @@ export default function BandiPubbliciPage() {
                   placeholder="0"
                   value={importoMin}
                   onChange={(e) => setImportoMin(e.target.value)}
+                  disabled={loading}
                 />
               </div>
 
@@ -169,6 +207,7 @@ export default function BandiPubbliciPage() {
                   placeholder="Nessun limite"
                   value={importoMax}
                   onChange={(e) => setImportoMax(e.target.value)}
+                  disabled={loading}
                 />
               </div>
 
@@ -197,6 +236,7 @@ export default function BandiPubbliciPage() {
                         "w-full justify-start text-left font-normal",
                         !dataDa && "text-muted-foreground"
                       )}
+                      disabled={loading}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {dataDa ? format(dataDa, "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
@@ -224,6 +264,7 @@ export default function BandiPubbliciPage() {
                         "w-full justify-start text-left font-normal",
                         !dataA && "text-muted-foreground"
                       )}
+                      disabled={loading}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {dataA ? format(dataA, "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
@@ -242,7 +283,7 @@ export default function BandiPubbliciPage() {
               </div>
 
               <div className="col-span-full flex justify-end">
-                <Button variant="ghost" onClick={resetFiltri}>
+                <Button variant="ghost" onClick={resetFiltri} disabled={loading}>
                   Resetta filtri
                 </Button>
               </div>
@@ -260,15 +301,26 @@ export default function BandiPubbliciPage() {
               Inserisci i criteri di ricerca per trovare bandi pubblici
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-2">
-              Utilizza la barra di ricerca e i filtri per cercare gare d'appalto e bandi
+              Il browser AI navigherà i portali di bandi pubblici per trovare i risultati
             </p>
           </CardContent>
         </Card>
       ) : loading ? (
         <Card>
-          <CardContent className="py-16 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Ricerca in corso...</p>
+          <CardContent className="py-16 text-center space-y-4">
+            <div className="flex items-center justify-center gap-3">
+              <Bot className="h-8 w-8 text-primary animate-pulse" />
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium">Il browser AI sta cercando bandi...</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Navigazione e analisi dei portali in corso. Questa operazione può richiedere 30-90 secondi.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Tempo trascorso: {elapsedSeconds}s
+              </p>
+            </div>
           </CardContent>
         </Card>
       ) : risultati.length === 0 ? (
@@ -279,7 +331,7 @@ export default function BandiPubbliciPage() {
               Nessun bando trovato
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-2">
-              API non ancora collegata. I risultati appariranno qui una volta integrata l'API dei bandi.
+              Prova a modificare i criteri di ricerca o usa parole chiave diverse
             </p>
           </CardContent>
         </Card>

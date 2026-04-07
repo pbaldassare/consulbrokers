@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.provision-corrispondenti-users]
 verify_jwt = false
+
+[functions.cerca-bandi]
+verify_jwt = false
