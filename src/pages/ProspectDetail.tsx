@@ -60,7 +60,7 @@ const ProspectDetail = () => {
   const { profile } = useAuth();
   const [trattativaOpen, setTrattativaOpen] = useState(false);
   const [trattativaForm, setTrattativaForm] = useState({
-    prodotto: "", compagnia: "", premio_previsto: "",
+    ramo_id: "", compagnia_id: "", premio_previsto: "", note: "",
   });
 
   const { data: prospect, isLoading } = useQuery({
