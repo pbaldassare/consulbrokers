@@ -290,6 +290,96 @@ export type Database = {
           },
         ]
       }
+      bandi_pubblici: {
+        Row: {
+          cig: string | null
+          created_at: string
+          ente: string | null
+          id: string
+          importo: number | null
+          link: string | null
+          localita: string | null
+          oggetto: string | null
+          regione: string | null
+          scadenza: string | null
+          scheda_id: string
+          stato: string
+          tipologia: string | null
+          titolo: string | null
+          updated_at: string
+        }
+        Insert: {
+          cig?: string | null
+          created_at?: string
+          ente?: string | null
+          id?: string
+          importo?: number | null
+          link?: string | null
+          localita?: string | null
+          oggetto?: string | null
+          regione?: string | null
+          scadenza?: string | null
+          scheda_id: string
+          stato?: string
+          tipologia?: string | null
+          titolo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cig?: string | null
+          created_at?: string
+          ente?: string | null
+          id?: string
+          importo?: number | null
+          link?: string | null
+          localita?: string | null
+          oggetto?: string | null
+          regione?: string | null
+          scadenza?: string | null
+          scheda_id?: string
+          stato?: string
+          tipologia?: string | null
+          titolo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bandi_trattative: {
+        Row: {
+          bando_id: string
+          created_at: string
+          id: string
+          trattativa_id: string
+        }
+        Insert: {
+          bando_id: string
+          created_at?: string
+          id?: string
+          trattativa_id: string
+        }
+        Update: {
+          bando_id?: string
+          created_at?: string
+          id?: string
+          trattativa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bandi_trattative_bando_id_fkey"
+            columns: ["bando_id"]
+            isOneToOne: false
+            referencedRelation: "bandi_pubblici"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bandi_trattative_trattativa_id_fkey"
+            columns: ["trattativa_id"]
+            isOneToOne: false
+            referencedRelation: "trattative"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorie_prodotto: {
         Row: {
           created_at: string | null
@@ -4144,6 +4234,38 @@ export type Database = {
           {
             foreignKeyName: "report_salvati_creato_da_fkey"
             columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ricerche_bandi: {
+        Row: {
+          eseguita_da: string | null
+          eseguita_il: string
+          id: string
+          regioni: string[] | null
+          risultati_count: number | null
+        }
+        Insert: {
+          eseguita_da?: string | null
+          eseguita_il?: string
+          id?: string
+          regioni?: string[] | null
+          risultati_count?: number | null
+        }
+        Update: {
+          eseguita_da?: string | null
+          eseguita_il?: string
+          id?: string
+          regioni?: string[] | null
+          risultati_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ricerche_bandi_eseguita_da_fkey"
+            columns: ["eseguita_da"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
