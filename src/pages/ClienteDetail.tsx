@@ -418,6 +418,162 @@ function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: 
   );
 }
 
+/* ── Trattative Cliente Sub-component ── */
+const STATI_TRATTATIVA = [
+  { value: "aperta", label: "Aperta", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
+  { value: "in_negoziazione", label: "In Negoziazione", color: "bg-kpi-yellow-bg text-kpi-yellow-text border-kpi-yellow-border" },
+  { value: "chiusa_vinta", label: "Chiusa Vinta", color: "bg-kpi-green-bg text-kpi-green-text border-kpi-green-border" },
+  { value: "chiusa_persa", label: "Chiusa Persa", color: "bg-destructive/10 text-destructive border-destructive/30" },
+];
+
+function TrattativeClienteSection({ clienteId }: { clienteId: string }) {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({ ramo_id: "", compagnia_id: "", premio_previsto: "", note: "" });
+
+  const { data: trattative = [] } = useQuery({
+    queryKey: ["trattative_cliente", clienteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trattative")
+        .select("*, ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome)")
+        .eq("cliente_id", clienteId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: ramiOpts = [] } = useQuery({
+    queryKey: ["rami_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rami").select("id, codice, descrizione").eq("attivo", true).order("codice");
+      return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
+    },
+  });
+
+  const { data: compagnieOpts = [] } = useQuery({
+    queryKey: ["compagnie_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      return (data || []).map((c) => ({ value: c.id, label: c.nome }));
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        cliente_id: clienteId,
+        ramo_id: form.ramo_id || null,
+        compagnia_id: form.compagnia_id || null,
+        premio_previsto: form.premio_previsto ? parseFloat(form.premio_previsto) : null,
+        note: form.note || null,
+        stato: "aperta",
+        created_by: profile?.id || null,
+      };
+      const { data, error } = await supabase.from("trattative").insert(payload).select().single();
+      if (error) throw error;
+      await logAttivita({
+        azione: "creazione_trattativa",
+        entita_tipo: "cliente",
+        entita_id: clienteId,
+        dettagli_json: { trattativa_id: data.id },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trattative_cliente", clienteId] });
+      toast.success("Trattativa creata");
+      setForm({ ramo_id: "", compagnia_id: "", premio_previsto: "", note: "" });
+      setCreateOpen(false);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const updateStato = useMutation({
+    mutationFn: async ({ id, newStato, oldStato }: { id: string; newStato: string; oldStato: string }) => {
+      const update: Record<string, unknown> = { stato: newStato, updated_at: new Date().toISOString() };
+      if (newStato === "chiusa_vinta" || newStato === "chiusa_persa") update.data_chiusura = new Date().toISOString();
+      const { error } = await supabase.from("trattative").update(update).eq("id", id);
+      if (error) throw error;
+      const azione = (newStato === "chiusa_vinta" || newStato === "chiusa_persa") ? "chiusura_trattativa" : "modifica_stato_trattativa";
+      await logAttivita({ azione, entita_tipo: "trattativa", entita_id: id, dettagli_json: { cliente_id: clienteId, stato_precedente: oldStato, nuovo_stato: newStato } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trattative_cliente", clienteId] });
+      toast.success("Trattativa aggiornata");
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardTitle className="text-base">Trattative ({trattative.length})</CardTitle>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm"><Plus className="w-4 h-4 mr-1" />Nuova Trattativa</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label>Ramo</Label>
+                <SearchableSelect options={ramiOpts} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona ramo..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Compagnia</Label>
+                <SearchableSelect options={compagnieOpts} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Seleziona compagnia..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Premio Previsto (€)</Label>
+                <Input type="number" value={form.premio_previsto} onChange={(e) => setForm({ ...form, premio_previsto: e.target.value })} placeholder="0.00" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Note</Label>
+                <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note..." rows={3} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
+                <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>Crea Trattativa</Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        {trattative.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Nessuna trattativa</p>
+        ) : (
+          <div className="space-y-3">
+            {trattative.map((t: any) => (
+              <div key={t.id} className="border border-border rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">{t.ramo?.descrizione || t.prodotto || "—"}</p>
+                  <p className="text-sm text-muted-foreground">{t.compagnia_rel?.nome || t.compagnia || "—"} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
+                  {t.note && <p className="text-xs text-muted-foreground mt-1">{t.note}</p>}
+                </div>
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const s = STATI_TRATTATIVA.find((x) => x.value === t.stato);
+                    return s ? <span className={`inline-flex items-center text-xs font-medium px-2.5 py-0.5 rounded-full border ${s.color}`}>{s.label}</span> : <Badge variant="secondary">{t.stato}</Badge>;
+                  })()}
+                  <Select value={t.stato} onValueChange={(v) => updateStato.mutate({ id: t.id, newStato: v, oldStato: t.stato })}>
+                    <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STATI_TRATTATIVA.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 export default function ClienteDetail() {
   const { id } = useParams();
