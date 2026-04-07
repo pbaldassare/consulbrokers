@@ -160,14 +160,10 @@ function mapBando(b: any, i: number) {
   };
 }
 
-// Batch regions into groups of 3
-function batchRegioni(regioni: string[], batchSize = 3): string[][] {
-  if (regioni.length === 0) return [[]];
-  const batches: string[][] = [];
-  for (let i = 0; i < regioni.length; i += batchSize) {
-    batches.push(regioni.slice(i, i + batchSize));
-  }
-  return batches;
+// No batching — single session with all regions to stay within free tier limits
+function batchRegioni(regioni: string[]): string[][] {
+  // Always return a single batch with all regions
+  return [regioni];
 }
 
 Deno.serve(async (req) => {
