@@ -382,12 +382,13 @@ const TrattativeList = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tipo</TableHead>
+365:                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
                 <TableHead>Ramo</TableHead>
                 <TableHead>Compagnia</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>
+                <TableHead>Bando</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Azione</TableHead>
               </TableRow>
@@ -403,6 +404,27 @@ const TrattativeList = () => {
                   <TableCell className="text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
                   <TableCell>{getStatoBadge(t.stato)}</TableCell>
+                  <TableCell>
+                    {(t as any).bandi_collegati?.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {(t as any).bandi_collegati.map((b: any) => (
+                          <a
+                            key={b.id}
+                            href={b.link || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Landmark className="h-3 w-3" />
+                            {b.ente || b.titolo || b.scheda_id}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {format(new Date(t.created_at), "dd/MM/yyyy", { locale: it })}
                   </TableCell>
