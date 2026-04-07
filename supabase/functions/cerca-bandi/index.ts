@@ -129,7 +129,13 @@ async function checkSession(sessionId: string): Promise<{ status: string; output
   }
 
   const session = await res.json();
-  return { status: session.status, output: session.output || null };
+  // Browser Use API may return the result in different fields depending on version
+  const output = session.output || session.result || session.final_result || null;
+  console.log(`Session ${sessionId} status=${session.status}, output length=${output ? String(output).length : 0}, raw keys=${Object.keys(session).join(',')}`);
+  if (output) {
+    console.log(`Session ${sessionId} raw output (first 500 chars):`, String(output).substring(0, 500));
+  }
+  return { status: session.status, output: typeof output === 'string' ? output : output ? JSON.stringify(output) : null };
 }
 
 function parseImportoItaliano(val: any): number | null {
