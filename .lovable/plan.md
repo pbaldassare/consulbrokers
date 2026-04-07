@@ -1,56 +1,28 @@
 
-Piano aggiornato: far uscire davvero i bandi da MondoAppalti
 
-Diagnosi trovata
-- La sessione Browser Use parte correttamente, ma oggi la Edge Function aspetta in modo sincrono e va in timeout dopo 3 minuti.
-- Il frontend perde la connessione ancora prima (`Failed to fetch`), quindi una ricerca lunga non è affidabile in una sola chiamata.
-- I nomi regione della UI non coincidono sempre con quelli che compaiono nel dato reale (`Emilia-Romagna` vs `Emilia Romagna`, `Friuli Venezia Giulia` vs `Friuli`).
-- Il parser attuale si aspetta campi generici (`titolo`, `ente`), mentre il JSON reale di MondoAppalti ha campi tipo `scheda_id`, `tipologia`, `stazione_appaltante`, `localita`, `regione`, `scadenza`, `importo`, `cig`.
+## Piano: Polling a 30s e parsing corretto dei risultati Browser Use
 
-Cosa implementerò
-1. Rifattorizzare `supabase/functions/cerca-bandi/index.ts` in modalità asincrona:
-   - `action: "start"` crea la/e sessione/i Browser Use e restituisce subito `sessionId`
-   - `action: "status"` controlla lo stato e restituisce i risultati appena pronti
-   - tempo massimo esteso a 8-10 minuti, ma senza lasciare aperta la stessa richiesta HTTP
+### Problema
+1. Il polling ogni 5 secondi e inutile — Browser Use impiega minuti, non secondi
+2. I dati tornano dal Browser Use nel formato corretto (il JSON che hai incollato) ma il parser/mapper potrebbe non estrarli bene dalla risposta della sessione
 
-2. Rendere la multi-regione affidabile:
-   - mappa UI -> nomi usati dal portale
-   - batching automatico delle regioni (es. 2-3 per sessione) invece di una sola sessione enorme
-   - merge finale e deduplica per `scheda_id` o `link`
+### Modifiche
 
-3. Migliorare il prompt Browser Use:
-   - login esplicito
-   - navigazione guidata alla ricerca bandi
-   - keyword fissa `Brokeraggio assicurativo`
-   - se la ricerca esatta torna vuota, secondo tentativo automatico più ampio ma sempre nel perimetro assicurativo
-   - richiesta di output nel formato reale del portale, non solo nel formato generico attuale
+**1. `src/pages/BandiPubbliciPage.tsx`**
+- Cambiare `POLL_INTERVAL_MS` da 5000 a 30000 (30 secondi)
+- Cambiare il primo poll delay da 8000 a 30000 (primo poll dopo 30s, non 8s)
 
-4. Rafforzare il parser:
-   - supporto sia allo schema attuale sia allo schema reale del JSON che hai caricato
-   - parsing corretto degli importi italiani (`150.739,73 €`)
-   - mapping UI:
-     - `titolo` <- `oggetto` oppure fallback a `tipologia`
-     - `ente` <- `stazione_appaltante`
-     - `categoria` <- `tipologia`
-   - aggiunta ai risultati di `scheda_id`, `cig`, `localita`, `regione`
+**2. `supabase/functions/cerca-bandi/index.ts`**
+- Migliorare `parseOutput` per gestire il caso in cui Browser Use restituisce il JSON dentro blocchi markdown (```json ... ```) o con testo aggiuntivo prima/dopo
+- Aggiungere log del raw output ricevuto dalla sessione per debug
+- Verificare che `checkSession` legga il campo corretto della risposta API (potrebbe essere `output`, `result`, o `final_result` a seconda della versione API)
 
-5. Aggiornare `src/pages/BandiPubbliciPage.tsx`:
-   - avvio ricerca + polling automatico
-   - stato avanzamento tipo “ricerca regioni 2/4”
-   - risultati parziali appena arrivano
-   - errore chiaro solo quando tutte le sessioni falliscono o scadono
+**3. Rideploy della edge function**
 
-6. Mettere test minimi di sicurezza:
-   - fixture basata sul JSON fornito
-   - test per normalizzazione regioni
-   - test per parsing e mapping del payload MondoAppalti
+### Dettagli tecnici
 
-File coinvolti
-- `supabase/functions/cerca-bandi/index.ts`
-- `src/pages/BandiPubbliciPage.tsx`
+| File | Cosa cambia |
+|------|------------|
+| `src/pages/BandiPubbliciPage.tsx` | `POLL_INTERVAL_MS = 30000`, primo poll a 30s |
+| `supabase/functions/cerca-bandi/index.ts` | Log raw output, parsing robusto markdown/text wrapper, check campi API response |
 
-Dettagli tecnici
-- Nessuna modifica database necessaria
-- `supabase/config.toml` è già compatibile
-- Non userò il campo `regione` restituito dal portale per scartare risultati lato client, perché il campione mostra valori non sempre coerenti
-- Se anche così Browser Use resta troppo fragile, il passo successivo sarà sostituire la parte visuale con chiamate dirette all’endpoint dati del portale, se disponibile dopo login
