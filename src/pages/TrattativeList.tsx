@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
-import { FileText, Search, Plus } from "lucide-react";
+import { FileText, Search, Plus, Landmark } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -66,7 +66,27 @@ const TrattativeList = () => {
         .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+
+      // Fetch linked bandi for all trattative
+      const ids = (data || []).map((t) => t.id);
+      let bandiMap: Record<string, any[]> = {};
+      if (ids.length > 0) {
+        const { data: links } = await supabase
+          .from("bandi_trattative")
+          .select("trattativa_id, bando:bando_id(id, titolo, ente, scheda_id, link)")
+          .in("trattativa_id", ids);
+        if (links) {
+          for (const l of links) {
+            if (!bandiMap[l.trattativa_id]) bandiMap[l.trattativa_id] = [];
+            bandiMap[l.trattativa_id].push(l.bando);
+          }
+        }
+      }
+
+      return (data || []).map((t) => ({
+        ...t,
+        bandi_collegati: bandiMap[t.id] || [],
+      }));
     },
   });
 
@@ -362,12 +382,13 @@ const TrattativeList = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tipo</TableHead>
+365:                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
                 <TableHead>Ramo</TableHead>
                 <TableHead>Compagnia</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>
+                <TableHead>Bando</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Azione</TableHead>
               </TableRow>
@@ -383,6 +404,27 @@ const TrattativeList = () => {
                   <TableCell className="text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
                   <TableCell>{getStatoBadge(t.stato)}</TableCell>
+                  <TableCell>
+                    {(t as any).bandi_collegati?.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {(t as any).bandi_collegati.map((b: any) => (
+                          <a
+                            key={b.id}
+                            href={b.link || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Landmark className="h-3 w-3" />
+                            {b.ente || b.titolo || b.scheda_id}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {format(new Date(t.created_at), "dd/MM/yyyy", { locale: it })}
                   </TableCell>
