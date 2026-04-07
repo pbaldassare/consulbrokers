@@ -151,21 +151,32 @@ function parseImportoItaliano(val: any): number | null {
 function parseOutput(output: string | null): any[] {
   if (!output) return [];
 
+  // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+  let cleaned = output.trim();
+  const mdMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (mdMatch) {
+    cleaned = mdMatch[1].trim();
+  }
+
+  // Try direct parse first
   try {
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(cleaned);
     if (Array.isArray(parsed)) return parsed;
     if (parsed.bandi && Array.isArray(parsed.bandi)) return parsed.bandi;
     if (parsed.results && Array.isArray(parsed.results)) return parsed.results;
     return [];
   } catch {
-    const match = output.match(/\[[\s\S]*\]/);
+    // Fallback: find the first JSON array in the text
+    const match = cleaned.match(/\[[\s\S]*\]/);
     if (match) {
       try {
         return JSON.parse(match[0]);
       } catch {
+        console.warn('parseOutput: found array pattern but failed to parse');
         return [];
       }
     }
+    console.warn('parseOutput: no JSON array found in output');
     return [];
   }
 }

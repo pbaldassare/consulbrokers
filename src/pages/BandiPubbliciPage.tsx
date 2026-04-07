@@ -285,7 +285,7 @@ export default function BandiPubbliciPage() {
             void poll();
           }, POLL_INTERVAL_MS);
         }
-      }, 8000);
+      }, 30000);
     } catch (err: any) {
       console.error("Errore avvio ricerca bandi:", err);
       stopPolling();
