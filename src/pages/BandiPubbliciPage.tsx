@@ -45,7 +45,7 @@ const regioniItaliane = [
 ];
 
 const KEYWORD_FISSA = "Brokeraggio assicurativo";
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 30000;
 const MAX_POLL_TIME_MS = 10 * 60 * 1000;
 const START_RETRY_FALLBACK_SECONDS = 15;
 const MAX_START_WAIT_MS = 2 * 60 * 1000;
@@ -285,7 +285,7 @@ export default function BandiPubbliciPage() {
             void poll();
           }, POLL_INTERVAL_MS);
         }
-      }, 8000);
+      }, 30000);
     } catch (err: any) {
       console.error("Errore avvio ricerca bandi:", err);
       stopPolling();
