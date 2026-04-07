@@ -1,47 +1,48 @@
 
 
-## Piano: Integrazione Browser Use per ricerca Bandi Pubblici
+## Piano: Integrazione MondoAppalti.it per Ricerca Bandi Assicurativi
 
-### Approccio
-Creare una Edge Function che usa l'API Browser Use per navigare siti di bandi pubblici (es. serviziocontrattipubblici.it, ANAC, SimoG) e restituire risultati strutturati. L'utente cerca dalla UI, la Edge Function invia il task al browser AI, che naviga i portali e restituisce i bandi trovati.
-
-### Architettura
-
-```text
-UI (BandiPubbliciPage) → Edge Function → Browser Use API → Siti bandi pubblici
-                                              ↓
-                                     Risultati strutturati (JSON)
-```
+### Obiettivo
+Aggiornare la Edge Function `cerca-bandi` per navigare su **mondoappalti.it**, effettuare login con le credenziali fornite, e cercare gare d'appalto rilevanti per broker assicurativi, con filtri per regione e data.
 
 ### Modifiche
 
-**1. Secret `BROWSER_USE_API_KEY`**
-- Salvare la chiave `bu_8Zu1X1M6lnYQcuIuKoACw2m4qQdG5MrWlYD1oHaVg4E` come secret del progetto
+**1. Nuovi Secrets**
+- `MONDOAPPALTI_USER` = `TR02369`
+- `MONDOAPPALTI_PASSWORD` = `Piemonte2026!`
 
-**2. Nuova Edge Function `supabase/functions/cerca-bandi/index.ts`**
-- Riceve i filtri dal frontend (keyword, regione, importo, stato)
-- Costruisce un task in linguaggio naturale per Browser Use, es: "Cerca bandi pubblici su serviziocontrattipubblici.it con parola chiave 'assicurazione' nella regione 'Lombardia'. Per ogni bando restituisci: titolo, ente, importo, scadenza, stato, link"
-- Chiama `POST https://api.browser-use.com/api/v3/sessions` con structured output (JSON schema per lista bandi)
-- Polling del task fino a completamento
-- Restituisce i risultati strutturati al frontend
-- CORS headers inclusi
+Salvati come secret Supabase per sicurezza (non hardcoded).
+
+**2. Aggiornare `supabase/functions/cerca-bandi/index.ts`**
+- Cambiare il prompt Browser Use per navigare `mondoappalti.it`
+- Aggiungere step di login (utente + password)
+- Costruire il task con focus su parole chiave settore assicurativo/broker: "assicurazione", "brokeraggio", "polizza", "intermediazione assicurativa", "servizi assicurativi", "RCA", "RC professionale"
+- Filtri per regione e intervallo date di pubblicazione
+- Il browser AI farà: login → ricerca → estrazione risultati → output JSON
 
 **3. Aggiornare `src/pages/BandiPubbliciPage.tsx`**
-- La funzione `cercaBandi` chiama la edge function via `supabase.functions.invoke('cerca-bandi', { body: filtri })`
-- Mostra spinner durante l'attesa (può richiedere 30-60s per la navigazione AI)
-- Messaggio che indica "Il browser AI sta cercando bandi..." durante il caricamento
-- Popola i risultati con i dati restituiti
+- Aggiungere un selettore "Fonte" (MondoAppalti come default, predisposto per future fonti)
+- Aggiungere parole chiave predefinite per il settore assicurativo come chip cliccabili: "Servizi assicurativi", "Brokeraggio", "Polizze", "RCA", "RC Professionale", "Intermediazione"
+- Migliorare i filtri regione/data già presenti (sono già funzionanti)
+
+### Flusso Browser Use
+
+```text
+1. Vai su mondoappalti.it
+2. Login con credenziali (username + password)
+3. Cerca bandi con keyword assicurativa + filtri regione/data
+4. Estrai risultati: titolo, ente, importo, scadenza, link, categoria
+5. Restituisci JSON strutturato
+```
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Secret `BROWSER_USE_API_KEY` | Aggiungere tramite tool |
-| `supabase/functions/cerca-bandi/index.ts` | Nuovo — edge function con Browser Use API v3 |
-| `src/pages/BandiPubbliciPage.tsx` | Aggiornare cercaBandi per chiamare edge function |
+| Secrets `MONDOAPPALTI_USER`, `MONDOAPPALTI_PASSWORD` | Aggiungere |
+| `supabase/functions/cerca-bandi/index.ts` | Aggiornare prompt per mondoappalti.it con login |
+| `src/pages/BandiPubbliciPage.tsx` | Aggiungere chip keywords assicurative + selettore fonte |
 
-### Note
-- Browser Use può impiegare 30-60 secondi per completare la ricerca (naviga siti reali)
-- Il task verrà ottimizzato man mano che testiamo i risultati
-- Si potranno aggiungere altri siti di bandi in futuro modificando il prompt
+### Sicurezza
+Le credenziali non saranno mai nel codice sorgente, solo nei secrets Supabase accessibili dalla Edge Function.
 
