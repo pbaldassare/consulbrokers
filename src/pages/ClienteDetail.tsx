@@ -818,6 +818,7 @@ export default function ClienteDetail() {
           <TrattativeClienteSection clienteId={id!} />
         </TabsContent>
 
+        <TabsContent value="anagrafica" className="space-y-6">
           {/* Dati Anagrafici */}
           <Card>
             <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
