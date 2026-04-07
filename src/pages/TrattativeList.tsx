@@ -66,7 +66,27 @@ const TrattativeList = () => {
         .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+
+      // Fetch linked bandi for all trattative
+      const ids = (data || []).map((t) => t.id);
+      let bandiMap: Record<string, any[]> = {};
+      if (ids.length > 0) {
+        const { data: links } = await supabase
+          .from("bandi_trattative")
+          .select("trattativa_id, bando:bando_id(id, titolo, ente, scheda_id, link)")
+          .in("trattativa_id", ids);
+        if (links) {
+          for (const l of links) {
+            if (!bandiMap[l.trattativa_id]) bandiMap[l.trattativa_id] = [];
+            bandiMap[l.trattativa_id].push(l.bando);
+          }
+        }
+      }
+
+      return (data || []).map((t) => ({
+        ...t,
+        bandi_collegati: bandiMap[t.id] || [],
+      }));
     },
   });
 
