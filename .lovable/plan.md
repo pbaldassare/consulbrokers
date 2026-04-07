@@ -1,48 +1,47 @@
 
 
-## Piano: Sezione "Bandi Pubblici" — Motore di Ricerca
+## Piano: Integrazione Browser Use per ricerca Bandi Pubblici
 
-### Obiettivo
-Creare una nuova pagina "Bandi Pubblici" accessibile dal menu laterale, con un'interfaccia di ricerca predisposta per integrare API esterne di bandi pubblici (che l'utente fornirà in seguito).
+### Approccio
+Creare una Edge Function che usa l'API Browser Use per navigare siti di bandi pubblici (es. serviziocontrattipubblici.it, ANAC, SimoG) e restituire risultati strutturati. L'utente cerca dalla UI, la Edge Function invia il task al browser AI, che naviga i portali e restituisce i bandi trovati.
+
+### Architettura
+
+```text
+UI (BandiPubbliciPage) → Edge Function → Browser Use API → Siti bandi pubblici
+                                              ↓
+                                     Risultati strutturati (JSON)
+```
 
 ### Modifiche
 
-**1. Nuova pagina `src/pages/BandiPubbliciPage.tsx`**
-- Header con titolo "Bandi Pubblici"
-- Barra di ricerca con campo testo + filtri:
-  - Parola chiave (input testo)
-  - Regione / Provincia (select)
-  - Importo min/max
-  - Stato bando (Aperto / Scaduto / In valutazione)
-  - Data pubblicazione da/a
-- Pulsante "Cerca"
-- Area risultati con Card per ogni bando contenente:
-  - Titolo bando
-  - Ente committente
-  - Importo
-  - Scadenza
-  - Stato (badge colorato)
-  - Link al bando originale
-- Stato vuoto iniziale: messaggio "Inserisci i criteri di ricerca per trovare bandi pubblici"
-- Predisposta per collegare API esterne (funzioni placeholder pronte)
+**1. Secret `BROWSER_USE_API_KEY`**
+- Salvare la chiave `bu_8Zu1X1M6lnYQcuIuKoACw2m4qQdG5MrWlYD1oHaVg4E` come secret del progetto
 
-**2. Route `src/routes/archivi.tsx`**
-- Aggiungere route `/bandi-pubblici`
+**2. Nuova Edge Function `supabase/functions/cerca-bandi/index.ts`**
+- Riceve i filtri dal frontend (keyword, regione, importo, stato)
+- Costruisce un task in linguaggio naturale per Browser Use, es: "Cerca bandi pubblici su serviziocontrattipubblici.it con parola chiave 'assicurazione' nella regione 'Lombardia'. Per ogni bando restituisci: titolo, ente, importo, scadenza, stato, link"
+- Chiama `POST https://api.browser-use.com/api/v3/sessions` con structured output (JSON schema per lista bandi)
+- Polling del task fino a completamento
+- Restituisce i risultati strutturati al frontend
+- CORS headers inclusi
 
-**3. Sidebar `src/components/AppSidebar.tsx`**
-- Aggiungere voce "Bandi Pubblici" nel menu (icona `Search` o `Landmark`), come voce singola sotto "Trattative"
-
-**4. `src/App.tsx`**
-- Import della nuova route (già coperto da `archiviRoutes`)
+**3. Aggiornare `src/pages/BandiPubbliciPage.tsx`**
+- La funzione `cercaBandi` chiama la edge function via `supabase.functions.invoke('cerca-bandi', { body: filtri })`
+- Mostra spinner durante l'attesa (può richiedere 30-60s per la navigazione AI)
+- Messaggio che indica "Il browser AI sta cercando bandi..." durante il caricamento
+- Popola i risultati con i dati restituiti
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| `src/pages/BandiPubbliciPage.tsx` | Nuovo — pagina completa con UI ricerca |
-| `src/routes/archivi.tsx` | Aggiungere route |
-| `src/components/AppSidebar.tsx` | Aggiungere voce menu |
+| Secret `BROWSER_USE_API_KEY` | Aggiungere tramite tool |
+| `supabase/functions/cerca-bandi/index.ts` | Nuovo — edge function con Browser Use API v3 |
+| `src/pages/BandiPubbliciPage.tsx` | Aggiornare cercaBandi per chiamare edge function |
 
 ### Note
-Nessuna API collegata per ora — la struttura è pronta per ricevere le API che l'utente fornirà. I risultati verranno mostrati solo quando le API saranno integrate.
+- Browser Use può impiegare 30-60 secondi per completare la ricerca (naviga siti reali)
+- Il task verrà ottimizzato man mano che testiamo i risultati
+- Si potranno aggiungere altri siti di bandi in futuro modificando il prompt
 
