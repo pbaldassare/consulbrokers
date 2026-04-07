@@ -7,8 +7,8 @@ const BROWSER_USE_API_KEY = Deno.env.get('BROWSER_USE_API_KEY')!;
 const MONDOAPPALTI_USER = Deno.env.get('MONDOAPPALTI_USER')!;
 const MONDOAPPALTI_PASSWORD = Deno.env.get('MONDOAPPALTI_PASSWORD')!;
 const API_BASE = 'https://api.browser-use.com/api/v3';
+const START_RETRY_AFTER_SECONDS = 15;
 
-// Region name mapping: UI label → portal-friendly name
 const REGION_MAP: Record<string, string> = {
   "Emilia-Romagna": "Emilia Romagna",
   "Friuli Venezia Giulia": "Friuli Venezia Giulia",
@@ -32,6 +32,13 @@ interface StartRequest {
 interface StatusRequest {
   action: 'status';
   sessionIds: string[];
+}
+
+interface CreateSessionResult {
+  sessionId?: string;
+  rateLimited?: boolean;
+  retryAfterSeconds?: number;
+  error?: string;
 }
 
 function buildTaskPrompt(regioni: string[], filters: { importoMin?: string; importoMax?: string; dataDa?: string; dataA?: string }): string {
@@ -77,7 +84,7 @@ Rispondi SOLO con il JSON array, senza testo prima o dopo. Se non trovi risultat
   return parts.join(' ');
 }
 
-async function createSession(task: string): Promise<string> {
+async function createSession(task: string): Promise<CreateSessionResult> {
   const res = await fetch(`${API_BASE}/sessions`, {
     method: 'POST',
     headers: {
@@ -90,13 +97,25 @@ async function createSession(task: string): Promise<string> {
     }),
   });
 
+  if (res.status === 429) {
+    const err = await res.text();
+    const retryAfterHeader = Number(res.headers.get('retry-after') ?? '');
+    return {
+      rateLimited: true,
+      retryAfterSeconds: Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+        ? retryAfterHeader
+        : START_RETRY_AFTER_SECONDS,
+      error: err,
+    };
+  }
+
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Failed to create session: ${res.status} ${err}`);
   }
 
   const data = await res.json();
-  return data.id;
+  return { sessionId: data.id };
 }
 
 async function checkSession(sessionId: string): Promise<{ status: string; output: string | null }> {
@@ -118,7 +137,6 @@ function parseImportoItaliano(val: any): number | null {
   if (typeof val === 'number') return val;
   const s = String(val).replace(/[€\s]/g, '').trim();
   if (!s || s === 'N/A' || s === '-') return null;
-  // Handle Italian format: 150.739,73 → 150739.73
   const cleaned = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(cleaned);
   return isNaN(n) ? null : n;
@@ -136,7 +154,11 @@ function parseOutput(output: string | null): any[] {
   } catch {
     const match = output.match(/\[[\s\S]*\]/);
     if (match) {
-      try { return JSON.parse(match[0]); } catch { return []; }
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return [];
+      }
     }
     return [];
   }
@@ -160,9 +182,7 @@ function mapBando(b: any, i: number) {
   };
 }
 
-// No batching — single session with all regions to stay within free tier limits
 function batchRegioni(regioni: string[]): string[][] {
-  // Always return a single batch with all regions
   return [regioni];
 }
 
@@ -179,12 +199,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action || 'start';
 
-    // ── ACTION: STATUS ──
     if (action === 'status') {
       const { sessionIds } = body as StatusRequest;
       if (!sessionIds || !Array.isArray(sessionIds)) {
         return new Response(JSON.stringify({ error: 'sessionIds required' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -201,18 +221,15 @@ Deno.serve(async (req) => {
           }
 
           results.push({ sessionId: sid, status, bandi });
-        } catch (err: any) {
+        } catch {
           results.push({ sessionId: sid, status: 'error', bandi: [] });
         }
       }
 
-      // Aggregate
-      const allDone = results.every(r => ['idle', 'stopped', 'error', 'timed_out'].includes(r.status));
-      const allBandi = results.flatMap(r => r.bandi);
-
-      // Deduplicate by scheda_id or link
+      const allDone = results.every((r) => ['idle', 'stopped', 'error', 'timed_out'].includes(r.status));
+      const allBandi = results.flatMap((r) => r.bandi);
       const seen = new Set<string>();
-      const dedupBandi = allBandi.filter(b => {
+      const dedupBandi = allBandi.filter((b) => {
         const key = b.scheda_id || b.link || b.id;
         if (seen.has(key)) return false;
         seen.add(key);
@@ -221,17 +238,14 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         done: allDone,
-        sessions: results.map(r => ({ sessionId: r.sessionId, status: r.status, count: r.bandi.length })),
+        sessions: results.map((r) => ({ sessionId: r.sessionId, status: r.status, count: r.bandi.length })),
         bandi: dedupBandi,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // ── ACTION: START ──
     const { regioni = [], importoMin, importoMax, dataDa, dataA } = body as StartRequest;
-
-    // Normalize region names
     const normalizedRegioni = (regioni || []).map(normalizeRegione);
     const batches = batchRegioni(normalizedRegioni);
 
@@ -243,19 +257,39 @@ Deno.serve(async (req) => {
     for (const batch of batches) {
       const task = buildTaskPrompt(batch, filters);
       console.log('Creating session for regions:', batch.join(', ') || 'tutte');
-      const sid = await createSession(task);
-      sessionIds.push(sid);
-      console.log('Session created:', sid);
+      const result = await createSession(task);
+
+      if (result.rateLimited) {
+        console.warn('Browser Use rate limited while creating session:', result.error || 'unknown error');
+        return new Response(JSON.stringify({
+          status: 'rate_limited',
+          retryable: true,
+          retryAfterSeconds: result.retryAfterSeconds ?? START_RETRY_AFTER_SECONDS,
+          sessionIds,
+          totalBatches: batches.length,
+          message: 'Browser Use è temporaneamente occupato. Nuovo tentativo necessario.',
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!result.sessionId) {
+        throw new Error('Browser Use session id missing');
+      }
+
+      sessionIds.push(result.sessionId);
+      console.log('Session created:', result.sessionId);
     }
 
     return new Response(JSON.stringify({
+      status: 'started',
+      retryable: false,
       sessionIds,
       totalBatches: batches.length,
       message: `Avviate ${batches.length} sessione/i di ricerca`,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error: any) {
     console.error('Error in cerca-bandi:', error);
     return new Response(
