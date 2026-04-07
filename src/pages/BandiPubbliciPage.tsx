@@ -39,6 +39,17 @@ const regioniItaliane = [
   "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto",
 ];
 
+const keywordChips = [
+  "Servizi assicurativi",
+  "Brokeraggio",
+  "Polizze",
+  "RCA",
+  "RC Professionale",
+  "Intermediazione assicurativa",
+  "Cauzioni",
+  "Infortuni",
+];
+
 const statoBadgeVariant = (stato: string) => {
   switch (stato) {
     case "aperto": return "default";
@@ -68,12 +79,13 @@ export default function BandiPubbliciPage() {
   const [risultati, setRisultati] = useState<BandoResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [fonte, setFonte] = useState("mondoappalti");
 
   const cercaBandi = async () => {
-    if (!keyword.trim() && !regione && !statoBando) {
-      toast.warning("Inserisci almeno una parola chiave o un filtro per cercare");
+    if (!keyword.trim() && !regione) {
+      toast.warning("Inserisci almeno una parola chiave o seleziona una regione");
       return;
     }
 
@@ -82,7 +94,6 @@ export default function BandiPubbliciPage() {
     setRisultati([]);
     setElapsedSeconds(0);
 
-    // Timer to show elapsed time
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
@@ -97,6 +108,7 @@ export default function BandiPubbliciPage() {
           statoBando: statoBando || undefined,
           dataDa: dataDa ? format(dataDa, "yyyy-MM-dd") : undefined,
           dataA: dataA ? format(dataA, "yyyy-MM-dd") : undefined,
+          fonte,
         },
       });
 
@@ -131,19 +143,53 @@ export default function BandiPubbliciPage() {
     setHasSearched(false);
   };
 
+  const handleChipClick = (chip: string) => {
+    setKeyword(chip);
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Landmark className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold">Bandi Pubblici</h1>
-          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto pubbliche tramite AI</p>
+          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto per broker assicurativi</p>
         </div>
       </div>
 
       {/* Barra di ricerca principale */}
       <Card>
         <CardContent className="pt-6 space-y-4">
+          {/* Fonte */}
+          <div className="flex items-center gap-4">
+            <Label className="whitespace-nowrap">Fonte:</Label>
+            <Select value={fonte} onValueChange={setFonte}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mondoappalti">MondoAppalti.it</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Keyword chips */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Ricerche rapide settore assicurativo:</Label>
+            <div className="flex flex-wrap gap-2">
+              {keywordChips.map((chip) => (
+                <Badge
+                  key={chip}
+                  variant={keyword === chip ? "default" : "outline"}
+                  className="cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => !loading && handleChipClick(chip)}
+                >
+                  {chip}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -298,10 +344,10 @@ export default function BandiPubbliciPage() {
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">
-              Inserisci i criteri di ricerca per trovare bandi pubblici
+              Seleziona una keyword rapida o inserisci i criteri di ricerca
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-2">
-              Il browser AI navigherà i portali di bandi pubblici per trovare i risultati
+              Il browser AI navigherà MondoAppalti.it per trovare bandi nel settore assicurativo
             </p>
           </CardContent>
         </Card>
@@ -313,9 +359,9 @@ export default function BandiPubbliciPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
             <div>
-              <h3 className="text-lg font-medium">Il browser AI sta cercando bandi...</h3>
+              <h3 className="text-lg font-medium">Il browser AI sta cercando su MondoAppalti.it...</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Navigazione e analisi dei portali in corso. Questa operazione può richiedere 30-90 secondi.
+                Login, navigazione e analisi dei risultati in corso. Può richiedere 30-90 secondi.
               </p>
               <p className="text-xs text-muted-foreground mt-2">
                 Tempo trascorso: {elapsedSeconds}s
@@ -338,7 +384,7 @@ export default function BandiPubbliciPage() {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            {risultati.length} risultat{risultati.length === 1 ? "o" : "i"} trovati
+            {risultati.length} risultat{risultati.length === 1 ? "o" : "i"} trovati su MondoAppalti.it
           </p>
           {risultati.map((bando) => (
             <Card key={bando.id} className="hover:shadow-md transition-shadow">
