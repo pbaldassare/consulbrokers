@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -39,16 +40,7 @@ const regioniItaliane = [
   "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto",
 ];
 
-const keywordChips = [
-  "Servizi assicurativi",
-  "Brokeraggio",
-  "Polizze",
-  "RCA",
-  "RC Professionale",
-  "Intermediazione assicurativa",
-  "Cauzioni",
-  "Infortuni",
-];
+const KEYWORD_FISSA = "Brokeraggio assicurativo";
 
 const statoBadgeVariant = (stato: string) => {
   switch (stato) {
@@ -69,8 +61,7 @@ const statoLabel = (stato: string) => {
 };
 
 export default function BandiPubbliciPage() {
-  const [keyword, setKeyword] = useState("");
-  const [regione, setRegione] = useState<string>("");
+  const [regioniSelezionate, setRegioniSelezionate] = useState<string[]>([]);
   const [importoMin, setImportoMin] = useState("");
   const [importoMax, setImportoMax] = useState("");
   const [statoBando, setStatoBando] = useState<string>("");
@@ -82,13 +73,29 @@ export default function BandiPubbliciPage() {
   const [showFilters, setShowFilters] = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [fonte, setFonte] = useState("mondoappalti");
+  const [regioniOpen, setRegioniOpen] = useState(false);
+
+  const toggleRegione = (regione: string) => {
+    setRegioniSelezionate(prev =>
+      prev.includes(regione)
+        ? prev.filter(r => r !== regione)
+        : [...prev, regione]
+    );
+  };
+
+  const toggleTutte = () => {
+    if (regioniSelezionate.length === regioniItaliane.length) {
+      setRegioniSelezionate([]);
+    } else {
+      setRegioniSelezionate([...regioniItaliane]);
+    }
+  };
+
+  const removeRegione = (regione: string) => {
+    setRegioniSelezionate(prev => prev.filter(r => r !== regione));
+  };
 
   const cercaBandi = async () => {
-    if (!keyword.trim() && !regione) {
-      toast.warning("Inserisci almeno una parola chiave o seleziona una regione");
-      return;
-    }
-
     setLoading(true);
     setHasSearched(true);
     setRisultati([]);
@@ -101,8 +108,8 @@ export default function BandiPubbliciPage() {
     try {
       const { data, error } = await supabase.functions.invoke('cerca-bandi', {
         body: {
-          keyword,
-          regione: regione || undefined,
+          keyword: KEYWORD_FISSA,
+          regioni: regioniSelezionate.length > 0 ? regioniSelezionate : undefined,
           importoMin: importoMin || undefined,
           importoMax: importoMax || undefined,
           statoBando: statoBando || undefined,
@@ -132,8 +139,7 @@ export default function BandiPubbliciPage() {
   };
 
   const resetFiltri = () => {
-    setKeyword("");
-    setRegione("");
+    setRegioniSelezionate([]);
     setImportoMin("");
     setImportoMax("");
     setStatoBando("");
@@ -143,9 +149,11 @@ export default function BandiPubbliciPage() {
     setHasSearched(false);
   };
 
-  const handleChipClick = (chip: string) => {
-    setKeyword(chip);
-  };
+  const regioniLabel = regioniSelezionate.length === 0
+    ? "Tutte le regioni"
+    : regioniSelezionate.length === regioniItaliane.length
+      ? "Tutte le regioni selezionate"
+      : `${regioniSelezionate.length} region${regioniSelezionate.length === 1 ? 'e' : 'i'}`;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -153,55 +161,34 @@ export default function BandiPubbliciPage() {
         <Landmark className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold">Bandi Pubblici</h1>
-          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto per broker assicurativi</p>
+          <p className="text-muted-foreground">Ricerca bandi e gare d'appalto — {KEYWORD_FISSA}</p>
         </div>
       </div>
 
-      {/* Barra di ricerca principale */}
       <Card>
         <CardContent className="pt-6 space-y-4">
-          {/* Fonte */}
-          <div className="flex items-center gap-4">
-            <Label className="whitespace-nowrap">Fonte:</Label>
-            <Select value={fonte} onValueChange={setFonte}>
-              <SelectTrigger className="w-[220px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mondoappalti">MondoAppalti.it</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Keyword chips */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Ricerche rapide settore assicurativo:</Label>
-            <div className="flex flex-wrap gap-2">
-              {keywordChips.map((chip) => (
-                <Badge
-                  key={chip}
-                  variant={keyword === chip ? "default" : "outline"}
-                  className="cursor-pointer hover:bg-primary/10 transition-colors"
-                  onClick={() => !loading && handleChipClick(chip)}
-                >
-                  {chip}
-                </Badge>
-              ))}
+          {/* Fonte e keyword fissa */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">Fonte:</Label>
+              <Select value={fonte} onValueChange={setFonte}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mondoappalti">MondoAppalti.it</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">Keyword:</Label>
+              <Badge variant="secondary" className="text-sm py-1 px-3">
+                {KEYWORD_FISSA}
+              </Badge>
             </div>
           </div>
 
           <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Cerca per parola chiave, ente, oggetto..."
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                className="pl-10"
-                onKeyDown={(e) => e.key === "Enter" && !loading && cercaBandi()}
-                disabled={loading}
-              />
-            </div>
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
@@ -213,122 +200,173 @@ export default function BandiPubbliciPage() {
             </Button>
             <Button onClick={cercaBandi} disabled={loading} className="gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              {loading ? "Ricerca..." : "Cerca"}
+              {loading ? "Ricerca..." : "Cerca Bandi"}
             </Button>
           </div>
 
           {/* Filtri avanzati */}
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
+            <div className="space-y-4 pt-4 border-t">
+              {/* Multi-select regioni */}
               <div className="space-y-2">
-                <Label>Regione</Label>
-                <Select value={regione} onValueChange={setRegione}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tutte le regioni" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tutte">Tutte le regioni</SelectItem>
-                    {regioniItaliane.map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                <Label>Regioni</Label>
+                <Popover open={regioniOpen} onOpenChange={setRegioniOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                      disabled={loading}
+                    >
+                      {regioniLabel}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[350px] p-0" align="start">
+                    <div className="p-3 border-b">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="tutte-regioni"
+                          checked={regioniSelezionate.length === regioniItaliane.length}
+                          onCheckedChange={toggleTutte}
+                        />
+                        <label htmlFor="tutte-regioni" className="text-sm font-medium cursor-pointer">
+                          Seleziona tutte
+                        </label>
+                      </div>
+                    </div>
+                    <div className="max-h-[250px] overflow-y-auto p-2 space-y-1">
+                      {regioniItaliane.map((regione) => (
+                        <div key={regione} className="flex items-center space-x-2 py-1 px-1 rounded hover:bg-accent cursor-pointer" onClick={() => toggleRegione(regione)}>
+                          <Checkbox
+                            id={`regione-${regione}`}
+                            checked={regioniSelezionate.includes(regione)}
+                            onCheckedChange={() => toggleRegione(regione)}
+                          />
+                          <label htmlFor={`regione-${regione}`} className="text-sm cursor-pointer flex-1">
+                            {regione}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Badge regioni selezionate */}
+                {regioniSelezionate.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {regioniSelezionate.map((regione) => (
+                      <Badge key={regione} variant="secondary" className="gap-1 pr-1">
+                        {regione}
+                        <button
+                          onClick={() => removeRegione(regione)}
+                          className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                          disabled={loading}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Importo minimo (€)</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={importoMin}
-                  onChange={(e) => setImportoMin(e.target.value)}
-                  disabled={loading}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Importo minimo (€)</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={importoMin}
+                    onChange={(e) => setImportoMin(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Importo massimo (€)</Label>
+                  <Input
+                    type="number"
+                    placeholder="Nessun limite"
+                    value={importoMax}
+                    onChange={(e) => setImportoMax(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Stato bando</Label>
+                  <Select value={statoBando} onValueChange={setStatoBando}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tutti gli stati" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tutti">Tutti</SelectItem>
+                      <SelectItem value="aperto">Aperto</SelectItem>
+                      <SelectItem value="scaduto">Scaduto</SelectItem>
+                      <SelectItem value="in_valutazione">In valutazione</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Pubblicato dal</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dataDa && "text-muted-foreground"
+                        )}
+                        disabled={loading}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dataDa ? format(dataDa, "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dataDa}
+                        onSelect={setDataDa}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Pubblicato fino al</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dataA && "text-muted-foreground"
+                        )}
+                        disabled={loading}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dataA ? format(dataA, "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dataA}
+                        onSelect={setDataA}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Importo massimo (€)</Label>
-                <Input
-                  type="number"
-                  placeholder="Nessun limite"
-                  value={importoMax}
-                  onChange={(e) => setImportoMax(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Stato bando</Label>
-                <Select value={statoBando} onValueChange={setStatoBando}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tutti gli stati" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tutti">Tutti</SelectItem>
-                    <SelectItem value="aperto">Aperto</SelectItem>
-                    <SelectItem value="scaduto">Scaduto</SelectItem>
-                    <SelectItem value="in_valutazione">In valutazione</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Pubblicato dal</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dataDa && "text-muted-foreground"
-                      )}
-                      disabled={loading}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataDa ? format(dataDa, "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dataDa}
-                      onSelect={setDataDa}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Pubblicato fino al</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dataA && "text-muted-foreground"
-                      )}
-                      disabled={loading}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataA ? format(dataA, "dd/MM/yyyy", { locale: it }) : "Seleziona data"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dataA}
-                      onSelect={setDataA}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="col-span-full flex justify-end">
+              <div className="flex justify-end">
                 <Button variant="ghost" onClick={resetFiltri} disabled={loading}>
                   Resetta filtri
                 </Button>
@@ -344,10 +382,10 @@ export default function BandiPubbliciPage() {
           <CardContent className="py-16 text-center">
             <Landmark className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground">
-              Seleziona una keyword rapida o inserisci i criteri di ricerca
+              Seleziona le regioni e clicca "Cerca Bandi"
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-2">
-              Il browser AI navigherà MondoAppalti.it per trovare bandi nel settore assicurativo
+              Il browser AI navigherà MondoAppalti.it per trovare bandi di brokeraggio assicurativo
             </p>
           </CardContent>
         </Card>
@@ -377,7 +415,7 @@ export default function BandiPubbliciPage() {
               Nessun bando trovato
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-2">
-              Prova a modificare i criteri di ricerca o usa parole chiave diverse
+              Prova a modificare i criteri di ricerca o selezionare altre regioni
             </p>
           </CardContent>
         </Card>

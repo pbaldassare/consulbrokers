@@ -10,6 +10,7 @@ const API_BASE = 'https://api.browser-use.com/api/v3';
 
 interface SearchFilters {
   keyword?: string;
+  regioni?: string[];
   regione?: string;
   importoMin?: string;
   importoMax?: string;
@@ -23,16 +24,13 @@ function buildTaskPrompt(filters: SearchFilters): string {
   const parts: string[] = [];
 
   parts.push(`Vai sul sito https://www.mondoappalti.it e effettua il login con username "${MONDOAPPALTI_USER}" e password "${MONDOAPPALTI_PASSWORD}".`);
-  parts.push(`Dopo il login, cerca gare d'appalto relative al settore assicurativo e brokeraggio.`);
+  parts.push(`Dopo il login, cerca gare d'appalto relative a brokeraggio assicurativo.`);
+  parts.push(`Usa come parola chiave di ricerca: "brokeraggio assicurativo".`);
 
-  if (filters.keyword) {
-    parts.push(`Usa come parola chiave di ricerca: "${filters.keyword}".`);
-  } else {
-    parts.push(`Cerca con parole chiave come "servizi assicurativi" o "brokeraggio" o "polizza" o "intermediazione assicurativa".`);
-  }
-
-  if (filters.regione && filters.regione !== 'tutte') {
-    parts.push(`Filtra per la regione "${filters.regione}".`);
+  // Handle multi-region
+  const regioni = filters.regioni || (filters.regione && filters.regione !== 'tutte' ? [filters.regione] : []);
+  if (regioni.length > 0) {
+    parts.push(`Filtra per le seguenti regioni: ${regioni.join(', ')}.`);
   }
 
   if (filters.dataDa) {
