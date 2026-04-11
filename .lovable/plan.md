@@ -1,13 +1,10 @@
 
 
-## Piano: Nascondere la sezione FatturaPA
+## Piano: Aggiornare la API key di Browser Use
 
-### Modifiche
+### Modifica
 
-| File | Cosa |
-|------|------|
-| `src/components/AppSidebar.tsx` | Rimuovo il gruppo "FatturaPA" (righe 157-169) dalla sidebar |
-| `src/routes/contabilita.tsx` | Commento le 4 route `/fatturapa/*` (righe 44-48) |
+Aggiorno il secret `BROWSER_USE_API_KEY` con il nuovo valore `bu_z-V1NVlnhlmMdHGa1GDjMYz2tEFJEUJ0QauAyCaPXj0`.
 
-Le pagine placeholder restano nel repo per eventuale riattivazione futura.
+Nessuna modifica al codice -- la Edge Function `cerca-bandi` già legge da `Deno.env.get('BROWSER_USE_API_KEY')`. Login e password MondoAppalti restano invariati.
 
