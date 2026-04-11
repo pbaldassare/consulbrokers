@@ -189,13 +189,17 @@ export default function CalendarioTrattativePage() {
       </div>
 
       {/* Detail dialog */}
-      {selectedTrattativaId && (
-        <TrattativaDetailDialog
-          trattativaId={selectedTrattativaId}
-          open={!!selectedTrattativaId}
-          onOpenChange={(open) => { if (!open) setSelectedTrattativaId(null); }}
-        />
-      )}
+      {selectedTrattativaId && (() => {
+        const t = trattative.find((tr) => tr.id === selectedTrattativaId);
+        if (!t) return null;
+        return (
+          <TrattativaDetailDialog
+            trattativa={t}
+            open={!!selectedTrattativaId}
+            onOpenChange={(open) => { if (!open) setSelectedTrattativaId(null); }}
+          />
+        );
+      })()}
     </div>
   );
 }
