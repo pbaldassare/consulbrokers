@@ -398,14 +398,40 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
                     </div>
                   )}
                   {entitaId && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px]">
-                        ✓ {entitaLabel}
-                      </Badge>
-                      {autoLinkedClientUserId && (
-                        <Badge variant="outline" className="text-[10px] text-primary">
-                          👤 Cliente auto-collegato
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px]">
+                          ✓ {entitaLabel}
                         </Badge>
+                        {loadingRelated && (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" /> Ricerca collegati...
+                          </Badge>
+                        )}
+                      </div>
+                      {autoLinkedUsers.length > 0 && (
+                        <div className="bg-primary/5 rounded-md p-2 space-y-1">
+                          <p className="text-[10px] font-semibold text-primary">
+                            Auto-collegati: {autoLinkedUsers.length} utenti
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {(() => {
+                              const grouped: Record<string, number> = {};
+                              autoLinkedUsers.forEach(u => {
+                                const r = u.ruolo || "staff";
+                                grouped[r] = (grouped[r] || 0) + 1;
+                              });
+                              return Object.entries(grouped).map(([ruolo, count]) => (
+                                <Badge key={ruolo} variant="outline" className="text-[9px] px-1.5 py-0 capitalize">
+                                  {count} {ruolo}
+                                </Badge>
+                              ));
+                            })()}
+                          </div>
+                          <div className="text-[9px] text-muted-foreground max-h-16 overflow-auto">
+                            {autoLinkedUsers.map(u => u.nome).filter(Boolean).join(", ")}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
