@@ -234,6 +234,15 @@ const TrattativeList = () => {
   const filtered = trattative?.filter((t) => {
     if (filtroStato !== "tutti" && t.stato !== filtroStato) return false;
     if (filtroUfficio !== "tutti" && t.ufficio_id !== filtroUfficio) return false;
+    if (filtroTipo !== "tutti") {
+      if (filtroTipo === "cliente" && !t.cliente_id) return false;
+      if (filtroTipo === "prospect" && t.cliente_id) return false;
+    }
+    if (filtroCompagnia !== "tutti" && t.compagnia_id !== filtroCompagnia) return false;
+    if (filtroScadenzaDa && t.data_scadenza && t.data_scadenza < filtroScadenzaDa) return false;
+    if (filtroScadenzaDa && !t.data_scadenza) return false;
+    if (filtroScadenzaA && t.data_scadenza && t.data_scadenza > filtroScadenzaA) return false;
+    if (filtroScadenzaA && !t.data_scadenza) return false;
     if (filtroSearch) {
       const search = filtroSearch.toLowerCase();
       const soggetto = getSoggettoName(t).toLowerCase();
