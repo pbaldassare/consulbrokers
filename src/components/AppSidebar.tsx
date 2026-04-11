@@ -153,21 +153,7 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  {
-    type: "group",
-    group: {
-      label: "FatturaPA",
-      icon: Receipt,
-      permissionKey: "contabilita",
-      children: [
-        { label: "Anagrafiche", path: "/fatturapa/anagrafiche", icon: Users },
-        { label: "Gestione", path: "/fatturapa/gestione", icon: Settings },
-        { label: "Estrazione XML", path: "/backup-export", icon: FileOutput },
-        { label: "Intermediazione", path: "/fatturapa/intermediazione", icon: ArrowRightLeft },
-        { label: "Import Fatture Acquisto", path: "/fatturapa/import-fatture", icon: Import },
-      ],
-    },
-  },
+  /* FatturaPA — nascosto, pagine mantenute nel repo */
   {
     type: "group",
     group: {
