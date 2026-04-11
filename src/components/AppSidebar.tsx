@@ -156,25 +156,6 @@ const sidebarEntries: SidebarEntry[] = [
   {
     type: "group",
     group: {
-      label: "Cont. Generale",
-      icon: BarChart3,
-      permissionKey: "cfo_area",
-      children: [
-        { label: "Piano dei Conti", path: "/cont-generale/anagrafiche", icon: Landmark },
-        { label: "Primanota", path: "/cont-generale/primanota", icon: FileText },
-        { label: "Scadenziario", path: "/cont-generale/scadenziario", icon: CalendarCheck },
-        { label: "Elab. Periodiche", path: "/cont-generale/elab-periodiche", icon: CalendarCheck },
-        { label: "Fornitori", path: "/cont-generale/fornitori", icon: Building2 },
-        { label: "Clienti", path: "/cont-generale/clienti", icon: Users },
-        { label: "Import Bancario", path: "/cont-generale/import-bancario", icon: Import },
-        { label: "Elab. Annuali", path: "/cont-generale/elab-annuali", icon: ClipboardList },
-        { label: "Dichiarativi/CU", path: "/cont-generale/dichiarativi", icon: FileStack },
-      ],
-    },
-  },
-  {
-    type: "group",
-    group: {
       label: "FatturaPA",
       icon: Receipt,
       permissionKey: "contabilita",

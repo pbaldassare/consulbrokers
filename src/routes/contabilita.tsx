@@ -39,17 +39,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/check-primanota" element={<PlaceholderPage title="Check Primanota" description="Verifica e quadratura primanota" icon={ListChecks} />} />
     <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
 
-    {/* CONT. GENERALE */}
-    
-    <Route path="/cont-generale/anagrafiche" element={<PianoDeiContiPage />} />
-    <Route path="/cont-generale/primanota" element={<PrimanotaGeneralePage />} />
-    <Route path="/cont-generale/scadenziario" element={<ScadenziarioPage />} />
-    <Route path="/cont-generale/elab-periodiche" element={<ElabPeriodichePage />} />
-    <Route path="/cont-generale/fornitori" element={<FornitoriPage />} />
-    <Route path="/cont-generale/clienti" element={<ClientiContabGeneralePage />} />
-    <Route path="/cont-generale/import-bancario" element={<BancaImport />} />
-    <Route path="/cont-generale/elab-annuali" element={<ElabAnnualiPage />} />
-    <Route path="/cont-generale/dichiarativi" element={<DichiarativiCUPage />} />
+    {/* CONT. GENERALE — nascosto, pagine mantenute nel repo */}
 
     {/* FATTURAPA */}
     <Route path="/fatturapa/anagrafiche" element={<PlaceholderPage title="Anagrafiche FatturaPA" description="Anagrafiche per fatturazione elettronica" icon={Users} />} />
