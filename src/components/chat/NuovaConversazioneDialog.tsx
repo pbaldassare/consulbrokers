@@ -185,15 +185,21 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     enabled: open && ambito === "contestuale" && entitaTipo !== "argomento" && entitaRicerca.length >= 2,
   });
 
-  // Auto-add client user when entity is selected
+  // Auto-add all related users when entity is selected
   useEffect(() => {
-    if (autoLinkedClientUserId && visibileCliente) {
+    if (autoLinkedUsers.length > 0) {
+      const relatedIds = autoLinkedUsers.map(u => u.userId).filter(id => id !== profile?.id);
       setSelectedUsers((prev) => {
-        if (prev.includes(autoLinkedClientUserId!)) return prev;
-        return [...prev, autoLinkedClientUserId!];
+        const set = new Set(prev);
+        relatedIds.forEach(id => set.add(id));
+        return Array.from(set);
       });
+      // Auto-enable visibile_cliente if any client user is found
+      if (autoLinkedUsers.some(u => u.ruolo === "cliente")) {
+        setVisibileCliente(true);
+      }
     }
-  }, [autoLinkedClientUserId, visibileCliente]);
+  }, [autoLinkedUsers, profile?.id]);
 
   const currentUsersList = sezioneUtenti === "staff" ? (utentiStaff || []) : (utentiClienti || []);
 
