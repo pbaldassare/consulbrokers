@@ -1,19 +1,13 @@
 
 
-## Piano: Nascondere la sezione Contabilità Generale
+## Piano: Nascondere la sezione FatturaPA
 
-### Cosa farò
+### Modifiche
 
-Commentare o rimuovere il gruppo "Cont. Generale" dall'array dei menu items in `src/components/AppSidebar.tsx` (righe ~157-173). Questo nasconde l'intera sezione dalla sidebar senza toccare le pagine o le route — se in futuro serve, basta riabilitarla.
+| File | Cosa |
+|------|------|
+| `src/components/AppSidebar.tsx` | Rimuovo il gruppo "FatturaPA" (righe 157-169) dalla sidebar |
+| `src/routes/contabilita.tsx` | Commento le 4 route `/fatturapa/*` (righe 44-48) |
 
-Rimuoverò anche le route corrispondenti da `src/App.tsx` (o dal file route dedicato) per evitare che qualcuno acceda direttamente via URL.
-
-### File coinvolti
-
-| File | Modifica |
-|------|----------|
-| `src/components/AppSidebar.tsx` | Rimuovo il blocco del gruppo "Cont. Generale" (righe 157-173) |
-| File route che monta le pagine `/cont-generale/*` | Commento/rimuovo le route |
-
-Le pagine stesse restano nel repo — non le cancello, così si possono riattivare facilmente.
+Le pagine placeholder restano nel repo per eventuale riattivazione futura.
 
