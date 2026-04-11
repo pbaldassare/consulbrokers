@@ -9,15 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { TrattativaDetailDialog } from "@/components/trattative/TrattativaDetailDialog";
 import { STATI_TRATTATIVA_FULL, getStatoLabel, getStatoColor } from "@/components/trattative/StatoPipeline";
 import { toast } from "sonner";
-import { FileText, Search, Plus, Landmark } from "lucide-react";
+import { FileText, Search, Plus, Landmark, Archive } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -62,6 +64,9 @@ const TrattativeList = () => {
   const [form, setForm] = useState<TrattativaForm>({ ...emptyForm });
   const [selectedTrattativa, setSelectedTrattativa] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveMode, setArchiveMode] = useState<"selected" | "all_closed">("selected");
 
   const { data: trattative, isLoading } = useQuery({
     queryKey: ["trattative_all"],
@@ -69,6 +74,7 @@ const TrattativeList = () => {
       const { data, error } = await supabase
         .from("trattative")
         .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)")
+        .or("archiviata.eq.false,archiviata.is.null")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
@@ -184,6 +190,28 @@ const TrattativeList = () => {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: async (mode: "selected" | "all_closed") => {
+      if (mode === "selected") {
+        const ids = Array.from(selectedIds);
+        if (!ids.length) return;
+        const { error } = await supabase.from("trattative").update({ archiviata: true }).in("id", ids);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("trattative").update({ archiviata: true }).in("stato", ["chiusa_vinta", "chiusa_persa"]).or("archiviata.eq.false,archiviata.is.null");
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
+      queryClient.invalidateQueries({ queryKey: ["trattative_storico"] });
+      toast.success("Trattative archiviate");
+      setSelectedIds(new Set());
+      setArchiveDialogOpen(false);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const getSoggettoName = (t: any) => {
     if (t.cliente) {
       return t.cliente.tipo_cliente === "privato"
@@ -234,10 +262,19 @@ const TrattativeList = () => {
             </p>
           </div>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-1.5"><Plus className="w-4 h-4" />Nuova Trattativa</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("selected"); setArchiveDialogOpen(true); }}>
+              <Archive className="w-4 h-4" />Archivia ({selectedIds.size})
+            </Button>
+          )}
+          <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("all_closed"); setArchiveDialogOpen(true); }}>
+            <Archive className="w-4 h-4" />Archivia chiuse
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-1.5"><Plus className="w-4 h-4" />Nuova Trattativa</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
@@ -302,6 +339,7 @@ const TrattativeList = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -338,6 +376,18 @@ const TrattativeList = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered?.length > 0 && filtered.every((t) => selectedIds.has(t.id))}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedIds(new Set(filtered?.map((t) => t.id) || []));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
@@ -353,6 +403,16 @@ const TrattativeList = () => {
             <TableBody>
               {filtered.map((t) => (
                 <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(t)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(t.id)}
+                      onCheckedChange={(checked) => {
+                        const next = new Set(selectedIds);
+                        if (checked) next.add(t.id); else next.delete(t.id);
+                        setSelectedIds(next);
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="text-center">
                     {PRIORITA_ICONS[t.priorita || "media"] || "🟡"}
                   </TableCell>
@@ -405,6 +465,23 @@ const TrattativeList = () => {
           }}
         />
       )}
+
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archivia trattative</AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveMode === "selected"
+                ? `Stai per archiviare ${selectedIds.size} trattativa/e selezionata/e. Le trattative archiviate saranno visibili nello Storico.`
+                : "Stai per archiviare tutte le trattative chiuse (vinte e perse). Saranno visibili nello Storico."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => archiveMutation.mutate(archiveMode)}>Conferma</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
