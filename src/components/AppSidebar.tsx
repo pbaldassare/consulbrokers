@@ -43,6 +43,7 @@ import {
   ListChecks,
   DollarSign,
   CalendarCheck,
+  CalendarDays,
   FileOutput,
   Import,
   ArrowRightLeft,
@@ -83,6 +84,7 @@ const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Trattative", path: "/trattative", icon: ArrowRightLeft, permissionKey: "titoli" } },
+  { type: "single", item: { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays, permissionKey: "titoli" } },
   { type: "single", item: { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Comunicazioni", path: "/comunicazioni", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
   {
