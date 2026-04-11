@@ -50,6 +50,7 @@ import {
   Database,
   Lock,
   Map,
+  Archive,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
