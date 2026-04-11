@@ -5549,6 +5549,7 @@ export type Database = {
       }
       trattative: {
         Row: {
+          archiviata: boolean | null
           assegnato_a: string | null
           cliente_id: string | null
           compagnia: string | null
@@ -5574,6 +5575,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archiviata?: boolean | null
           assegnato_a?: string | null
           cliente_id?: string | null
           compagnia?: string | null
@@ -5599,6 +5601,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archiviata?: boolean | null
           assegnato_a?: string | null
           cliente_id?: string | null
           compagnia?: string | null
