@@ -164,12 +164,22 @@ const sezioni = [
     ],
   },
   {
+    area: "Anagrafiche Utenti",
+    icon: Users,
+    pagine: [
+      { nome: "Gestione Utenti", desc: "Anagrafica utenti interni con ruoli e assegnazioni", ruoli: ["admin", "ufficio"] },
+      { nome: "Anagrafiche Professionali", desc: "Gestione periti, medici, legali, carrozzerie e altri professionisti collegati", ruoli: ["admin", "ufficio", "backoffice"] },
+      { nome: "Crea Utente", desc: "Creazione nuovo utente con assegnazione ruolo e sede", ruoli: ["admin"] },
+      { nome: "Utenti di Rete", desc: "Lista utenti con modifica ruoli, permessi e stato attivazione", ruoli: ["admin"] },
+      { nome: "Gestione Sedi", desc: "Configurazione sedi operative dell'agenzia", ruoli: ["admin"] },
+    ],
+  },
+  {
     area: "Archivi",
     icon: FolderOpen,
     pagine: [
       { nome: "Clienti", desc: "Lista unificata di tutti i clienti (privati, aziende, enti) con ricerca avanzata multi-campo", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
       { nome: "Dettaglio Cliente", desc: "Scheda completa del cliente con dati anagrafici, polizze, sinistri, documenti e timeline", ruoli: ["admin", "ufficio", "produttore", "backoffice", "corrispondente"] },
-      { nome: "Anagrafiche Professionali", desc: "Gestione periti, medici, legali, carrozzerie e altri professionisti collegati", ruoli: ["admin", "ufficio", "backoffice"] },
     ],
   },
   {
@@ -257,15 +267,10 @@ const sezioni = [
     area: "Sistema",
     icon: Settings,
     pagine: [
-      { nome: "Impostazioni", desc: "Configurazione parametri generali del sistema e della sede", ruoli: ["admin", "ufficio"] },
-      { nome: "Crea Utente", desc: "Creazione nuovo utente con assegnazione ruolo e sede", ruoli: ["admin"] },
-      { nome: "Gestione Utenti", desc: "Lista utenti con modifica ruoli, permessi e stato attivazione", ruoli: ["admin"] },
       { nome: "Anomalie Sistema", desc: "Monitoraggio anomalie, errori e incongruenze nei dati", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Backup & Export", desc: "Esportazione dati e backup del database", ruoli: ["admin"] },
-      { nome: "Manutenzione", desc: "Operazioni di manutenzione tecnica del sistema", ruoli: ["admin"] },
       { nome: "Tabelle di Base", desc: "Gestione tabelle di lookup (rami, zone, indotti, settori, ecc.)", ruoli: ["admin"] },
       { nome: "Compagnie", desc: "Anagrafica compagnie assicurative con categorie e prodotti", ruoli: ["admin"] },
-      { nome: "Gestione Sedi", desc: "Configurazione sedi operative dell'agenzia", ruoli: ["admin"] },
       { nome: "Template Email", desc: "Modelli email personalizzabili per comunicazioni automatiche", ruoli: ["admin", "ufficio"] },
       { nome: "Sitemap", desc: "Questa pagina — organigramma ruoli e mappa funzionale", ruoli: ["admin"] },
     ],

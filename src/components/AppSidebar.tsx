@@ -182,10 +182,8 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "impostazioni",
       adminOnly: true,
       children: [
-        { label: "Impostazioni", path: "/impostazioni", icon: Settings },
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
-        { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
         { label: "Template Email", path: "/template", icon: Mail },
