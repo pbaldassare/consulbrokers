@@ -30,7 +30,7 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
       if (!canaleId) return [];
       const { data } = await supabase
         .from("chat_messaggi_interni")
-        .select("*, profiles:mittente_id(nome, cognome)")
+        .select("*, profiles:mittente_id(nome, cognome, ruolo)")
         .eq("canale_id", canaleId)
         .order("created_at", { ascending: true });
       return data || [];
