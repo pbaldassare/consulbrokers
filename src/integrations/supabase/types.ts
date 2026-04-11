@@ -298,6 +298,7 @@ export type Database = {
           ente_tipo: string | null
           id: string
           importo: number | null
+          keyword: string | null
           link: string | null
           localita: string | null
           oggetto: string | null
@@ -318,6 +319,7 @@ export type Database = {
           ente_tipo?: string | null
           id?: string
           importo?: number | null
+          keyword?: string | null
           link?: string | null
           localita?: string | null
           oggetto?: string | null
@@ -338,6 +340,7 @@ export type Database = {
           ente_tipo?: string | null
           id?: string
           importo?: number | null
+          keyword?: string | null
           link?: string | null
           localita?: string | null
           oggetto?: string | null
@@ -5555,6 +5558,7 @@ export type Database = {
           data_apertura: string | null
           data_chiusura: string | null
           data_scadenza: string | null
+          fonte: string | null
           id: string
           motivo_chiusura: string | null
           note: string | null
@@ -5579,6 +5583,7 @@ export type Database = {
           data_apertura?: string | null
           data_chiusura?: string | null
           data_scadenza?: string | null
+          fonte?: string | null
           id?: string
           motivo_chiusura?: string | null
           note?: string | null
@@ -5603,6 +5608,7 @@ export type Database = {
           data_apertura?: string | null
           data_chiusura?: string | null
           data_scadenza?: string | null
+          fonte?: string | null
           id?: string
           motivo_chiusura?: string | null
           note?: string | null
