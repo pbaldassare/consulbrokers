@@ -7,37 +7,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send } from "lucide-react";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
+import { findAllRelatedUsers } from "@/lib/findRelatedUsers";
 
 interface ChatTabProps {
   entitaTipo: string;
   entitaId: string;
-}
-
-async function findClienteUserId(entitaTipo: string, entitaId: string): Promise<string | null> {
-  let clienteId: string | null = null;
-
-  if (entitaTipo === "cliente") {
-    const { data } = await supabase.from("clienti").select("user_id").eq("id", entitaId).maybeSingle();
-    return data?.user_id || null;
-  }
-
-  if (entitaTipo === "titolo") {
-    const { data } = await supabase.from("titoli").select("cliente_anagrafica_id").eq("id", entitaId).maybeSingle();
-    clienteId = data?.cliente_anagrafica_id || null;
-  } else if (entitaTipo === "sinistro") {
-    const { data } = await supabase.from("sinistri").select("cliente_anagrafica_id").eq("id", entitaId).maybeSingle();
-    clienteId = data?.cliente_anagrafica_id || null;
-  } else if (entitaTipo === "trattativa") {
-    const { data } = await supabase.from("trattative").select("cliente_id").eq("id", entitaId).maybeSingle();
-    clienteId = data?.cliente_id || null;
-  }
-
-  if (clienteId) {
-    const { data } = await supabase.from("clienti").select("user_id").eq("id", clienteId).maybeSingle();
-    return data?.user_id || null;
-  }
-
-  return null;
 }
 
 export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
@@ -83,14 +57,18 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
           ruolo_canale: "admin",
         });
 
-        // Auto-add client user if found
-        const clienteUserId = await findClienteUserId(entitaTipo, entitaId);
-        if (clienteUserId && clienteUserId !== user.id) {
-          await supabase.from("chat_canali_membri").insert({
-            canale_id: canale.id,
-            user_id: clienteUserId,
-            ruolo_canale: "membro",
-          });
+        // Find ALL related users (client, producers, office staff, commercials)
+        const relatedUsers = await findAllRelatedUsers(entitaTipo, entitaId);
+        const otherUsers = relatedUsers.filter(u => u.userId !== user.id);
+
+        if (otherUsers.length > 0) {
+          await supabase.from("chat_canali_membri").insert(
+            otherUsers.map(u => ({
+              canale_id: canale.id,
+              user_id: u.userId,
+              ruolo_canale: "membro",
+            }))
+          );
         }
 
         return canale.id;
@@ -105,7 +83,7 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
       if (!canaleId) return [];
       const { data } = await supabase
         .from("chat_messaggi_interni")
-        .select("*, profiles:mittente_id(nome, cognome)")
+        .select("*, profiles:mittente_id(nome, cognome, ruolo)")
         .eq("canale_id", canaleId)
         .order("created_at", { ascending: true });
       return data || [];
@@ -145,11 +123,22 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
         messaggio: msg.trim(),
       });
 
+      // Get user profile for logging
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("ruolo")
+        .eq("id", user.id)
+        .maybeSingle();
+
       await logAttivita({
         azione: "messaggio_chat",
         entita_tipo: entitaTipo,
         entita_id: entitaId,
-        dettagli_json: { preview: msg.trim().slice(0, 50) },
+        dettagli_json: {
+          preview: msg.trim().slice(0, 50),
+          mittente_ruolo: userProfile?.ruolo || "sconosciuto",
+          canale_id: canaleId,
+        },
       });
     },
     onSuccess: () => {
@@ -168,6 +157,11 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
                 <span className="text-xs font-semibold text-foreground">
                   {m.profiles ? `${m.profiles.nome} ${m.profiles.cognome}` : "—"}
                 </span>
+                {m.profiles?.ruolo && (
+                  <span className="text-[10px] text-muted-foreground capitalize bg-muted px-1.5 py-0.5 rounded">
+                    {m.profiles.ruolo}
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">{format(new Date(m.created_at), "dd/MM HH:mm")}</span>
               </div>
               <p className="text-sm text-foreground bg-muted/50 rounded-lg px-3 py-2 mt-1 inline-block">{m.messaggio}</p>
