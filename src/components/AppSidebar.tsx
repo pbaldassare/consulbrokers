@@ -131,7 +131,7 @@ const sidebarEntries: SidebarEntry[] = [
   },
   {
     type: "single",
-    single: { label: "Archivio Documentale", path: "/portafoglio/documentale", icon: HardDrive, permissionKey: "portafoglio" },
+    item: { label: "Archivio Documentale", path: "/portafoglio/documentale", icon: HardDrive, permissionKey: "portafoglio" },
   },
   {
     type: "group",
