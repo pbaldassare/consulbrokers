@@ -14,17 +14,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { TrattativaDetailDialog } from "@/components/trattative/TrattativaDetailDialog";
+import { STATI_TRATTATIVA_FULL, getStatoLabel, getStatoColor } from "@/components/trattative/StatoPipeline";
 import { toast } from "sonner";
 import { FileText, Search, Plus, Landmark } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-
-const STATI_TRATTATIVA = [
-  { value: "aperta", label: "Aperta", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
-  { value: "in_negoziazione", label: "In Negoziazione", color: "bg-kpi-yellow-bg text-kpi-yellow-text border-kpi-yellow-border" },
-  { value: "chiusa_vinta", label: "Chiusa Vinta", color: "bg-kpi-green-bg text-kpi-green-text border-kpi-green-border" },
-  { value: "chiusa_persa", label: "Chiusa Persa", color: "bg-destructive/10 text-destructive border-destructive/30" },
-];
 
 interface TrattativaForm {
   tipo_soggetto: "prospect" | "cliente";
@@ -32,7 +27,9 @@ interface TrattativaForm {
   cliente_id: string;
   ramo_id: string;
   compagnia_id: string;
+  ufficio_id: string;
   premio_previsto: string;
+  priorita: string;
   note: string;
 }
 
@@ -42,8 +39,17 @@ const emptyForm: TrattativaForm = {
   cliente_id: "",
   ramo_id: "",
   compagnia_id: "",
+  ufficio_id: "",
   premio_previsto: "",
+  priorita: "media",
   note: "",
+};
+
+const PRIORITA_ICONS: Record<string, string> = {
+  urgente: "🔴",
+  alta: "🟠",
+  media: "🟡",
+  bassa: "🟢",
 };
 
 const TrattativeList = () => {
@@ -51,23 +57,21 @@ const TrattativeList = () => {
   const { profile } = useAuth();
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
+  const [filtroUfficio, setFiltroUfficio] = useState("tutti");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<TrattativaForm>({ ...emptyForm });
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<TrattativaForm>({ ...emptyForm });
+  const [selectedTrattativa, setSelectedTrattativa] = useState<any>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
-  // Fetch trattative with joins
   const { data: trattative, isLoading } = useQuery({
     queryKey: ["trattative_all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trattative")
-        .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome)")
+        .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Fetch linked bandi for all trattative
       const ids = (data || []).map((t) => t.id);
       let bandiMap: Record<string, any[]> = {};
       if (ids.length > 0) {
@@ -90,7 +94,6 @@ const TrattativeList = () => {
     },
   });
 
-  // Lookup data
   const { data: prospects = [] } = useQuery({
     queryKey: ["prospect_lookup"],
     queryFn: async () => {
@@ -126,7 +129,14 @@ const TrattativeList = () => {
     },
   });
 
-  // Create mutation
+  const { data: uffici = [] } = useQuery({
+    queryKey: ["uffici_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("uffici").select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
+      return (data || []).map((u) => ({ value: u.id, label: u.nome_ufficio }));
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, unknown> = {
@@ -134,8 +144,11 @@ const TrattativeList = () => {
         created_by: profile?.id || null,
         ramo_id: form.ramo_id || null,
         compagnia_id: form.compagnia_id || null,
+        ufficio_id: form.ufficio_id || null,
         premio_previsto: form.premio_previsto ? parseFloat(form.premio_previsto) : null,
+        priorita: form.priorita || "media",
         note: form.note || null,
+        data_apertura: new Date().toISOString().split("T")[0],
       };
       if (form.tipo_soggetto === "prospect") {
         payload.prospect_id = form.prospect_id;
@@ -144,6 +157,14 @@ const TrattativeList = () => {
       }
       const { data, error } = await supabase.from("trattative").insert(payload).select().single();
       if (error) throw error;
+
+      // Log evento nella timeline
+      await supabase.from("trattativa_eventi").insert({
+        trattativa_id: data.id,
+        tipo_evento: "cambio_stato",
+        descrizione: "Trattativa creata con stato: Aperta",
+        created_by: profile?.id,
+      });
 
       const entitaId = form.tipo_soggetto === "prospect" ? form.prospect_id : form.cliente_id;
       await logAttivita({
@@ -163,79 +184,6 @@ const TrattativeList = () => {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  // Update mutation (for edit dialog)
-  const updateMutation = useMutation({
-    mutationFn: async () => {
-      if (!editId) return;
-      const existing = trattative?.find((t) => t.id === editId);
-      const changes: Record<string, unknown> = {};
-      const dettagli: Record<string, unknown> = {};
-
-      const newRamo = editForm.ramo_id || null;
-      const newCompagnia = editForm.compagnia_id || null;
-      const newPremio = editForm.premio_previsto ? parseFloat(editForm.premio_previsto) : null;
-      const newNote = editForm.note || null;
-
-      if (newRamo !== (existing?.ramo_id || null)) {
-        changes.ramo_id = newRamo;
-        dettagli.ramo_precedente = existing?.ramo_id;
-        dettagli.ramo_nuovo = newRamo;
-      }
-      if (newCompagnia !== (existing?.compagnia_id || null)) {
-        changes.compagnia_id = newCompagnia;
-        dettagli.compagnia_precedente = existing?.compagnia_id;
-        dettagli.compagnia_nuova = newCompagnia;
-      }
-      if (newPremio !== (existing?.premio_previsto ? Number(existing.premio_previsto) : null)) {
-        changes.premio_previsto = newPremio;
-        dettagli.premio_precedente = existing?.premio_previsto;
-        dettagli.premio_nuovo = newPremio;
-      }
-      if (newNote !== (existing?.note || null)) {
-        changes.note = newNote;
-      }
-
-      if (Object.keys(changes).length === 0) return;
-
-      changes.updated_at = new Date().toISOString();
-      const { error } = await supabase.from("trattative").update(changes).eq("id", editId);
-      if (error) throw error;
-
-      await logAttivita({
-        azione: "modifica_trattativa",
-        entita_tipo: "trattativa",
-        entita_id: editId,
-        dettagli_json: dettagli,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
-      toast.success("Trattativa aggiornata");
-      setEditOpen(false);
-      setEditId(null);
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  // Stato change mutation
-  const updateStato = useMutation({
-    mutationFn: async ({ id, newStato, oldStato }: { id: string; newStato: string; oldStato: string }) => {
-      const update: Record<string, unknown> = { stato: newStato, updated_at: new Date().toISOString() };
-      if (newStato === "chiusa_vinta" || newStato === "chiusa_persa") {
-        update.data_chiusura = new Date().toISOString();
-      }
-      const { error } = await supabase.from("trattative").update(update).eq("id", id);
-      if (error) throw error;
-
-      const azione = (newStato === "chiusa_vinta" || newStato === "chiusa_persa") ? "chiusura_trattativa" : "modifica_stato_trattativa";
-      await logAttivita({ azione, entita_tipo: "trattativa", entita_id: id, dettagli_json: { stato_precedente: oldStato, nuovo_stato: newStato } });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
-      toast.success("Trattativa aggiornata");
-    },
-  });
-
   const getSoggettoName = (t: any) => {
     if (t.cliente) {
       return t.cliente.tipo_cliente === "privato"
@@ -248,14 +196,9 @@ const TrattativeList = () => {
     return "—";
   };
 
-  const getSoggettoTipo = (t: any) => {
-    if (t.cliente_id) return "Cliente";
-    if (t.prospect_id) return "Prospect";
-    return "—";
-  };
-
   const filtered = trattative?.filter((t) => {
     if (filtroStato !== "tutti" && t.stato !== filtroStato) return false;
+    if (filtroUfficio !== "tutti" && t.ufficio_id !== filtroUfficio) return false;
     if (filtroSearch) {
       const search = filtroSearch.toLowerCase();
       const soggetto = getSoggettoName(t).toLowerCase();
@@ -266,25 +209,9 @@ const TrattativeList = () => {
     return true;
   });
 
-  const getStatoBadge = (stato: string) => {
-    const s = STATI_TRATTATIVA.find((x) => x.value === stato);
-    return s ? (
-      <span className={`inline-flex items-center text-xs font-medium px-2.5 py-0.5 rounded-full border ${s.color}`}>{s.label}</span>
-    ) : <Badge variant="secondary">{stato}</Badge>;
-  };
-
-  const openEdit = (t: any) => {
-    setEditId(t.id);
-    setEditForm({
-      tipo_soggetto: t.cliente_id ? "cliente" : "prospect",
-      prospect_id: t.prospect_id || "",
-      cliente_id: t.cliente_id || "",
-      ramo_id: t.ramo_id || "",
-      compagnia_id: t.compagnia_id || "",
-      premio_previsto: t.premio_previsto ? String(t.premio_previsto) : "",
-      note: t.note || "",
-    });
-    setEditOpen(true);
+  const openDetail = (t: any) => {
+    setSelectedTrattativa(t);
+    setDetailOpen(true);
   };
 
   const canCreate = form.tipo_soggetto === "prospect" ? !!form.prospect_id : !!form.cliente_id;
@@ -302,7 +229,9 @@ const TrattativeList = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Trattative</h1>
-            <p className="text-sm text-muted-foreground">Tutte le trattative commerciali</p>
+            <p className="text-sm text-muted-foreground">
+              {trattative?.length || 0} trattative totali • {trattative?.filter((t) => !["chiusa_vinta", "chiusa_persa"].includes(t.stato)).length || 0} attive
+            </p>
           </div>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -330,13 +259,33 @@ const TrattativeList = () => {
                   <SearchableSelect options={clienti} value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })} placeholder="Cerca cliente..." />
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label>Ramo</Label>
-                <SearchableSelect options={rami} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona ramo..." />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Ramo</Label>
+                  <SearchableSelect options={rami} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Ramo..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Compagnia</Label>
+                  <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Compagnia..." />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Compagnia</Label>
-                <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Seleziona compagnia..." />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Ufficio</Label>
+                  <SearchableSelect options={uffici} value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })} placeholder="Ufficio..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Priorità</Label>
+                  <Select value={form.priorita} onValueChange={(v) => setForm({ ...form, priorita: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bassa">🟢 Bassa</SelectItem>
+                      <SelectItem value="media">🟡 Media</SelectItem>
+                      <SelectItem value="alta">🟠 Alta</SelectItem>
+                      <SelectItem value="urgente">🔴 Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Premio Previsto (€)</Label>
@@ -344,7 +293,7 @@ const TrattativeList = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>Note</Label>
-                <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note sulla trattativa..." rows={3} />
+                <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note..." rows={3} />
               </div>
             </div>
             <DialogFooter>
@@ -364,7 +313,14 @@ const TrattativeList = () => {
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
-            {STATI_TRATTATIVA.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            {STATI_TRATTATIVA_FULL.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
+          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutti gli uffici</SelectItem>
+            {uffici.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -382,59 +338,55 @@ const TrattativeList = () => {
           <Table>
             <TableHeader>
               <TableRow>
-365:                 <TableHead>Tipo</TableHead>
+                <TableHead className="w-8"></TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
                 <TableHead>Ramo</TableHead>
                 <TableHead>Compagnia</TableHead>
+                <TableHead>Ufficio</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead>Bando</TableHead>
                 <TableHead>Data</TableHead>
-                <TableHead>Azione</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((t) => (
-                <TableRow key={t.id} className="cursor-pointer" onClick={() => openEdit(t)}>
+                <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(t)}>
+                  <TableCell className="text-center">
+                    {PRIORITA_ICONS[t.priorita || "media"] || "🟡"}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant={t.cliente_id ? "default" : "secondary"}>{getSoggettoTipo(t)}</Badge>
+                    <Badge variant={t.cliente_id ? "default" : "secondary"}>
+                      {t.cliente_id ? "Cliente" : "Prospect"}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{getSoggettoName(t)}</TableCell>
                   <TableCell className="text-muted-foreground">{(t as any).ramo?.descrizione || t.prodotto || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{(t as any).ufficio?.nome_ufficio || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
-                  <TableCell>{getStatoBadge(t.stato)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center text-xs font-medium px-2.5 py-0.5 rounded-full text-white ${getStatoColor(t.stato)}`}>
+                      {getStatoLabel(t.stato)}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     {(t as any).bandi_collegati?.length > 0 ? (
                       <div className="flex flex-col gap-1">
                         {(t as any).bandi_collegati.map((b: any) => (
-                          <a
-                            key={b.id}
-                            href={b.link || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <a key={b.id} href={b.link || "#"} target="_blank" rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                          >
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                             <Landmark className="h-3 w-3" />
                             {b.ente || b.titolo || b.scheda_id}
                           </a>
                         ))}
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {format(new Date(t.created_at), "dd/MM/yyyy", { locale: it })}
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select value={t.stato} onValueChange={(v) => updateStato.mutate({ id: t.id, newStato: v, oldStato: t.stato })}>
-                      <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {STATI_TRATTATIVA.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
                   </TableCell>
                 </TableRow>
               ))}
@@ -443,34 +395,16 @@ const TrattativeList = () => {
         </Card>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Modifica Trattativa</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>Ramo</Label>
-              <SearchableSelect options={rami} value={editForm.ramo_id} onValueChange={(v) => setEditForm({ ...editForm, ramo_id: v })} placeholder="Seleziona ramo..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Compagnia</Label>
-              <SearchableSelect options={compagnie} value={editForm.compagnia_id} onValueChange={(v) => setEditForm({ ...editForm, compagnia_id: v })} placeholder="Seleziona compagnia..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Premio Previsto (€)</Label>
-              <Input type="number" value={editForm.premio_previsto} onChange={(e) => setEditForm({ ...editForm, premio_previsto: e.target.value })} placeholder="0.00" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Note</Label>
-              <Textarea value={editForm.note} onChange={(e) => setEditForm({ ...editForm, note: e.target.value })} placeholder="Note sulla trattativa..." rows={4} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Annulla</Button>
-            <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>Salva Modifiche</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {selectedTrattativa && (
+        <TrattativaDetailDialog
+          trattativa={selectedTrattativa}
+          open={detailOpen}
+          onOpenChange={(open) => {
+            setDetailOpen(open);
+            if (!open) setSelectedTrattativa(null);
+          }}
+        />
+      )}
     </div>
   );
 };
