@@ -31,7 +31,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
