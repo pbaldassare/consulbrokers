@@ -10,6 +10,7 @@ import { Send, CheckCheck, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import ConfermeStatus from "./ConfermeStatus";
+import { logAttivita } from "@/lib/logAttivita";
 
 interface ChatAreaProps {
   canaleId: string | null;
