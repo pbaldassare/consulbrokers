@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -20,8 +21,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { SearchableSelect } from "@/components/SearchableSelect";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -49,6 +59,7 @@ interface BandoResult {
   trattative_count?: number;
   pdf_url?: string | null;
   pdf_path?: string | null;
+  keyword?: string | null;
 }
 
 const regioniItaliane = [
@@ -82,12 +93,11 @@ const statoLabel = (stato: string) => {
   }
 };
 
-// Upsert bandi into DB, returns count of upserted
-async function upsertBandiToDB(bandi: BandoResult[]) {
+// Upsert bandi into DB with keyword
+async function upsertBandiToDB(bandi: BandoResult[], keyword: string) {
   const rows = bandi
     .filter((b) => b.scheda_id)
     .map((b) => {
-      // Parse scadenza from dd/MM/yyyy to yyyy-MM-dd
       let scadenzaDate: string | null = null;
       if (b.scadenza) {
         const parts = b.scadenza.split("/");
@@ -110,6 +120,7 @@ async function upsertBandiToDB(bandi: BandoResult[]) {
         regione: b.regione || null,
         stato: b.stato || "aperto",
         pdf_url: b.pdf_url || null,
+        keyword: keyword,
       };
     });
 
@@ -124,6 +135,32 @@ async function upsertBandiToDB(bandi: BandoResult[]) {
     throw error;
   }
   return rows.length;
+}
+
+// Auto-create prospects from enti
+async function autoCreateProspects(bandi: BandoResult[], ufficio_id: string | undefined) {
+  const entiUnici = [...new Set(bandi.map(b => b.ente).filter(Boolean))];
+  let created = 0;
+  for (const ente of entiUnici) {
+    // Check if already exists
+    const { data: existing } = await supabase
+      .from("prospect")
+      .select("id")
+      .eq("ragione_sociale", ente)
+      .limit(1);
+    
+    if (existing && existing.length > 0) continue;
+
+    const { error } = await supabase.from("prospect").insert({
+      ragione_sociale: ente,
+      tipo_cliente: "ente",
+      fonte: "API Mondoappalti",
+      stato: "nuovo",
+      ufficio_id: ufficio_id || null,
+    });
+    if (!error) created++;
+  }
+  return created;
 }
 
 async function logRicerca(regioni: string[], count: number, userId: string | undefined) {
@@ -155,11 +192,17 @@ export default function BandiPubbliciPage() {
   const [progressMsg, setProgressMsg] = useState("");
   const [sessionsStatus, setSessionsStatus] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [showStoria, setShowStoria] = useState(false);
+  const [apiCallCount, setApiCallCount] = useState(0);
 
-  // Dialog collega trattativa
-  const [collegaOpen, setCollegaOpen] = useState(false);
-  const [collegaBandoId, setCollegaBandoId] = useState<string | null>(null);
-  const [selectedTrattativaId, setSelectedTrattativaId] = useState("");
+  // Dialog crea trattativa
+  const [creaTrattativaOpen, setCreaTrattativaOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [creatingTrattativa, setCreatingTrattativa] = useState(false);
+  const [selectedBando, setSelectedBando] = useState<any>(null);
+  const [trattativaProdotto, setTrattativaProdotto] = useState("");
+  const [trattativaNote, setTrattativaNote] = useState("");
+  const [trattativaPremio, setTrattativaPremio] = useState("");
+  const [trattativaScadenza, setTrattativaScadenza] = useState("");
 
   const pollingRef = useRef(false);
   const searchActiveRef = useRef(false);
@@ -199,29 +242,6 @@ export default function BandiPubbliciPage() {
         .limit(10);
       if (error) throw error;
       return data || [];
-    },
-  });
-
-  // Load trattative for linking
-  const { data: trattativeOptions = [] } = useQuery({
-    queryKey: ["trattative_for_link"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trattative")
-        .select("id, stato, prospect:prospect_id(nome, cognome), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data || []).map((t: any) => {
-        let label = t.id.substring(0, 8);
-        if (t.cliente) {
-          label = t.cliente.tipo_cliente === "privato"
-            ? `${t.cliente.cognome || ""} ${t.cliente.nome || ""}`.trim()
-            : t.cliente.ragione_sociale || label;
-        } else if (t.prospect) {
-          label = `${t.prospect.cognome || ""} ${t.prospect.nome || ""}`.trim();
-        }
-        return { value: t.id, label: `${label} (${t.stato})` };
-      });
     },
   });
 
@@ -270,6 +290,7 @@ export default function BandiPubbliciPage() {
     setSearchError(null);
     setProgressMsg("Avvio ricerca...");
     setSessionsStatus({ done: 0, total: 0 });
+    setApiCallCount(prev => prev + 1);
 
     elapsedTimerRef.current = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
@@ -353,12 +374,14 @@ export default function BandiPubbliciPage() {
             setRisultatiLive(bandi);
             setProgressMsg("");
 
-            // Persist to DB
+            // Persist to DB with keyword
             if (bandi.length > 0) {
               try {
-                await upsertBandiToDB(bandi);
+                await upsertBandiToDB(bandi, KEYWORD_FISSA);
+                // Auto-create prospects from enti
+                const prospectCount = await autoCreateProspects(bandi, profile?.ufficio_id);
                 await refetchBandi();
-                toast.success(`${bandi.length} bando/i trovati e salvati`);
+                toast.success(`${bandi.length} bando/i trovati e salvati. ${prospectCount > 0 ? `${prospectCount} nuovi prospect creati.` : ""}`);
               } catch {
                 toast.warning("Bandi trovati ma errore nel salvataggio");
               }
@@ -372,7 +395,6 @@ export default function BandiPubbliciPage() {
               }
             }
 
-            // Log ricerca
             await logRicerca(regioniSelezionate, bandi.length, profile?.id);
             queryClient.invalidateQueries({ queryKey: ["ricerche_bandi_recenti"] });
           }
@@ -411,29 +433,81 @@ export default function BandiPubbliciPage() {
     setElapsedSeconds(0);
   };
 
-  const openCollegaDialog = (bandoDbId: string) => {
-    setCollegaBandoId(bandoDbId);
-    setSelectedTrattativaId("");
-    setCollegaOpen(true);
+  const openCreaTrattativaDialog = (bando: any) => {
+    setSelectedBando(bando);
+    // Pre-fill fields
+    setTrattativaProdotto(bando.keyword || KEYWORD_FISSA);
+    setTrattativaPremio(bando.importo ? String(bando.importo) : "");
+    setTrattativaScadenza(bando.scadenza || "");
+    const noteLines = [
+      bando.titolo || bando.oggetto || "",
+      bando.cig ? `CIG: ${bando.cig}` : "",
+      bando.link ? `Link: ${bando.link}` : "",
+    ].filter(Boolean).join("\n");
+    setTrattativaNote(noteLines);
+    setCreaTrattativaOpen(true);
   };
 
-  const collegaTrattativa = async () => {
-    if (!collegaBandoId || !selectedTrattativaId) return;
-    const { error } = await supabase.from("bandi_trattative").insert({
-      bando_id: collegaBandoId,
-      trattativa_id: selectedTrattativaId,
-    });
-    if (error) {
-      if (error.code === "23505") {
-        toast.info("Questa trattativa è già collegata a questo bando");
+  const handleConfirmCreaTrattativa = async () => {
+    if (!selectedBando) return;
+    setCreatingTrattativa(true);
+
+    try {
+      // Find or create prospect from ente
+      let prospectId: string | null = null;
+      const { data: existingProspect } = await supabase
+        .from("prospect")
+        .select("id")
+        .eq("ragione_sociale", selectedBando.ente)
+        .limit(1);
+
+      if (existingProspect && existingProspect.length > 0) {
+        prospectId = existingProspect[0].id;
       } else {
-        toast.error("Errore nel collegamento: " + error.message);
+        const { data: newProspect, error: pErr } = await supabase.from("prospect").insert({
+          ragione_sociale: selectedBando.ente,
+          tipo_cliente: "ente",
+          fonte: "API Mondoappalti",
+          stato: "nuovo",
+          ufficio_id: profile?.ufficio_id || null,
+        }).select("id").single();
+        if (pErr) throw pErr;
+        prospectId = newProspect.id;
       }
-      return;
+
+      // Create trattativa
+      const { data: trattativa, error: tErr } = await supabase.from("trattative").insert({
+        prospect_id: prospectId,
+        prodotto: trattativaProdotto || null,
+        premio_previsto: trattativaPremio ? Number(trattativaPremio) : null,
+        data_scadenza: trattativaScadenza || null,
+        note: trattativaNote || null,
+        stato: "aperta",
+        fonte: "API Mondoappalti",
+        ufficio_id: profile?.ufficio_id || null,
+        created_by: profile?.id || null,
+        data_apertura: new Date().toISOString().split("T")[0],
+      }).select("id").single();
+
+      if (tErr) throw tErr;
+
+      // Link bando-trattativa
+      await supabase.from("bandi_trattative").insert({
+        bando_id: selectedBando.id,
+        trattativa_id: trattativa.id,
+      });
+
+      toast.success("Trattativa creata e collegata al bando!");
+      setCreaTrattativaOpen(false);
+      setConfirmOpen(false);
+      refetchBandi();
+      queryClient.invalidateQueries({ queryKey: ["trattative"] });
+    } catch (err: any) {
+      console.error("Errore creazione trattativa:", err);
+      toast.error("Errore: " + (err.message || "Impossibile creare la trattativa"));
+    } finally {
+      setCreatingTrattativa(false);
     }
-    toast.success("Trattativa collegata al bando");
-    setCollegaOpen(false);
-    refetchBandi();
   };
 
   const regioniLabel = regioniSelezionate.length === 0
@@ -442,7 +516,6 @@ export default function BandiPubbliciPage() {
       ? "Tutte le regioni selezionate"
       : `${regioniSelezionate.length} region${regioniSelezionate.length === 1 ? 'e' : 'i'}`;
 
-  // Use DB data as primary, merge with live results if searching
   const displayBandi = bandiDB.length > 0 ? bandiDB : [];
 
   return (
@@ -453,7 +526,13 @@ export default function BandiPubbliciPage() {
           <h1 className="text-3xl font-bold">Bandi Pubblici</h1>
           <p className="text-muted-foreground">Ricerca bandi e gare d'appalto — {KEYWORD_FISSA}</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          {apiCallCount > 0 && (
+            <Badge variant="outline" className="gap-1.5 py-1">
+              <Zap className="h-3.5 w-3.5" />
+              {apiCallCount} chiamat{apiCallCount === 1 ? "a" : "e"} API
+            </Badge>
+          )}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowStoria(!showStoria)}>
             <History className="h-4 w-4" />
             Ricerche recenti
@@ -686,6 +765,12 @@ export default function BandiPubbliciPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {bando.keyword && (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Tag className="h-3 w-3" />
+                        {bando.keyword}
+                      </Badge>
+                    )}
                     {bando.trattative_count > 0 && (
                       <Badge variant="outline" className="gap-1">
                         <Link2 className="h-3 w-3" />
@@ -731,8 +816,13 @@ export default function BandiPubbliciPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2 ml-auto">
-                    <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => openCollegaDialog(bando.id)}>
-                      <Link2 className="h-3 w-3" /> Collega trattativa
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-1 h-7 text-xs"
+                      onClick={() => openCreaTrattativaDialog(bando)}
+                    >
+                      <Plus className="h-3 w-3" /> Crea Trattativa
                     </Button>
                     {bando.pdf_path ? (
                       <Button
@@ -791,29 +881,103 @@ export default function BandiPubbliciPage() {
         </Card>
       )}
 
-      {/* Dialog: Collega trattativa */}
-      <Dialog open={collegaOpen} onOpenChange={setCollegaOpen}>
-        <DialogContent className="max-w-md">
+      {/* Dialog: Crea Trattativa da Bando */}
+      <Dialog open={creaTrattativaOpen} onOpenChange={setCreaTrattativaOpen}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Collega a trattativa</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Crea Trattativa dal Bando
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>Seleziona trattativa</Label>
-              <SearchableSelect
-                options={trattativeOptions}
-                value={selectedTrattativaId}
-                onValueChange={setSelectedTrattativaId}
-                placeholder="Cerca trattativa..."
-              />
+          {selectedBando && (
+            <div className="space-y-4 pt-2">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                <p className="text-sm font-medium">{selectedBando.titolo || selectedBando.oggetto}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Building className="h-3 w-3" />
+                  {selectedBando.ente}
+                </p>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <Tag className="h-3 w-3" />
+                    {selectedBando.keyword || KEYWORD_FISSA}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">Fonte: API Mondoappalti</Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Prodotto</Label>
+                  <Input
+                    value={trattativaProdotto}
+                    onChange={(e) => setTrattativaProdotto(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Premio previsto (€)</Label>
+                  <Input
+                    type="number"
+                    value={trattativaPremio}
+                    onChange={(e) => setTrattativaPremio(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Scadenza</Label>
+                <Input
+                  type="date"
+                  value={trattativaScadenza}
+                  onChange={(e) => setTrattativaScadenza(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Note</Label>
+                <Textarea
+                  value={trattativaNote}
+                  onChange={(e) => setTrattativaNote(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                Il prospect <strong>{selectedBando.ente}</strong> verrà creato automaticamente se non esiste già. La trattativa sarà collegata a questo bando.
+              </div>
             </div>
-          </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCollegaOpen(false)}>Annulla</Button>
-            <Button onClick={collegaTrattativa} disabled={!selectedTrattativaId}>Collega</Button>
+            <Button variant="outline" onClick={() => setCreaTrattativaOpen(false)}>Annulla</Button>
+            <Button onClick={() => setConfirmOpen(true)} className="gap-1">
+              <Plus className="h-4 w-4" /> Crea Trattativa
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Conferma creazione */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma creazione trattativa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
+              prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
+              {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
+              <br />Vuoi procedere?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={creatingTrattativa}>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCreaTrattativa} disabled={creatingTrattativa}>
+              {creatingTrattativa ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
