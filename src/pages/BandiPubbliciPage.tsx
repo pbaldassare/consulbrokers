@@ -21,7 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History } from "lucide-react";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,6 +35,7 @@ interface BandoResult {
   id: string;
   titolo: string;
   ente: string;
+  ente_tipo?: string | null;
   importo: number | null;
   scadenza: string | null;
   stato: "aperto" | "scaduto" | "in_valutazione";
@@ -46,6 +47,8 @@ interface BandoResult {
   localita?: string | null;
   regione?: string | null;
   trattative_count?: number;
+  pdf_url?: string | null;
+  pdf_path?: string | null;
 }
 
 const regioniItaliane = [
@@ -97,6 +100,7 @@ async function upsertBandiToDB(bandi: BandoResult[]) {
         titolo: b.titolo || null,
         oggetto: b.titolo || null,
         ente: b.ente || null,
+        ente_tipo: b.ente_tipo || null,
         tipologia: b.categoria || null,
         importo: b.importo ?? null,
         scadenza: scadenzaDate,
@@ -105,6 +109,7 @@ async function upsertBandiToDB(bandi: BandoResult[]) {
         localita: b.localita || null,
         regione: b.regione || null,
         stato: b.stato || "aperto",
+        pdf_url: b.pdf_url || null,
       };
     });
 
@@ -672,7 +677,13 @@ export default function BandiPubbliciPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <CardTitle className="text-lg">{bando.titolo || bando.oggetto}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">{bando.ente}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Building className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-sm font-medium text-foreground">{bando.ente}</span>
+                      {bando.ente_tipo && (
+                        <Badge variant="outline" className="text-xs">{bando.ente_tipo}</Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {bando.trattative_count > 0 && (
@@ -723,6 +734,40 @@ export default function BandiPubbliciPage() {
                     <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => openCollegaDialog(bando.id)}>
                       <Link2 className="h-3 w-3" /> Collega trattativa
                     </Button>
+                    {bando.pdf_path ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={async () => {
+                          const { data } = await supabase.storage.from("documenti_generali").createSignedUrl(bando.pdf_path!, 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                          else toast.error("Errore apertura PDF");
+                        }}
+                      >
+                        <FileText className="h-3 w-3" /> Apri PDF
+                      </Button>
+                    ) : bando.pdf_url ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={async () => {
+                          toast.info("Download PDF in corso...");
+                          const { error } = await supabase.functions.invoke("scarica-bando-pdf", {
+                            body: { bando_id: bando.id, pdf_url: bando.pdf_url },
+                          });
+                          if (error) {
+                            toast.error("Errore download PDF: " + error.message);
+                          } else {
+                            toast.success("PDF scaricato e salvato");
+                            refetchBandi();
+                          }
+                        }}
+                      >
+                        <FileDown className="h-3 w-3" /> Scarica PDF
+                      </Button>
+                    ) : null}
                     {bando.link && (
                       <a href={bando.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-sm">
                         Vedi bando <ExternalLink className="h-3 w-3" />

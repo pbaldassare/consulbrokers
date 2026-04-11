@@ -295,11 +295,14 @@ export type Database = {
           cig: string | null
           created_at: string
           ente: string | null
+          ente_tipo: string | null
           id: string
           importo: number | null
           link: string | null
           localita: string | null
           oggetto: string | null
+          pdf_path: string | null
+          pdf_url: string | null
           regione: string | null
           scadenza: string | null
           scheda_id: string
@@ -312,11 +315,14 @@ export type Database = {
           cig?: string | null
           created_at?: string
           ente?: string | null
+          ente_tipo?: string | null
           id?: string
           importo?: number | null
           link?: string | null
           localita?: string | null
           oggetto?: string | null
+          pdf_path?: string | null
+          pdf_url?: string | null
           regione?: string | null
           scadenza?: string | null
           scheda_id: string
@@ -329,11 +335,14 @@ export type Database = {
           cig?: string | null
           created_at?: string
           ente?: string | null
+          ente_tipo?: string | null
           id?: string
           importo?: number | null
           link?: string | null
           localita?: string | null
           oggetto?: string | null
+          pdf_path?: string | null
+          pdf_url?: string | null
           regione?: string | null
           scadenza?: string | null
           scheda_id?: string

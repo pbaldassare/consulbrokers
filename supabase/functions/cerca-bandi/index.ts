@@ -67,17 +67,19 @@ function buildTaskPrompt(regioni: string[], filters: { importoMin?: string; impo
 
   parts.push(`Se non trovi risultati con "brokeraggio assicurativo", prova anche con "broker assicurativo" o "servizi di intermediazione assicurativa".`);
 
-  parts.push(`Scorri tutti i risultati visibili (massimo 20). Per ogni bando/gara trovata, estrai i dati e restituiscili in formato JSON come array di oggetti con ESATTAMENTE questi campi:
+  parts.push(`Scorri tutti i risultati visibili (massimo 20). Per ogni bando/gara trovata, ENTRA nella scheda di dettaglio del bando per ottenere tutte le informazioni disponibili. Estrai i dati e restituiscili in formato JSON come array di oggetti con ESATTAMENTE questi campi:
 - "scheda_id": codice o numero della scheda/gara (stringa)
 - "tipologia": tipologia della gara (es. "Servizi", "Forniture")
 - "oggetto": oggetto o titolo del bando (stringa)
-- "stazione_appaltante": nome dell'ente/stazione appaltante
+- "stazione_appaltante": nome COMPLETO dell'ente che promulga/pubblica il bando (es. "Comune di Milano", "ASL Roma 1", "Università degli Studi di Bologna", "INAIL - Direzione Regionale Lombardia"). NON scrivere solo "Stazione Appaltante" generico, scrivi il NOME REALE dell'ente.
+- "ente_tipo": tipo dell'ente appaltante (es. "Comune", "ASL", "Regione", "Provincia", "Università", "Ministero", "Azienda Ospedaliera", "INAIL", "Camera di Commercio", "Consorzio", "Altro")
 - "localita": luogo (città o provincia)
 - "regione": regione
 - "importo": importo in euro come numero (senza simboli, senza punti delle migliaia; usa il punto come separatore decimale). Se il valore è "150.739,73 €" scrivi 150739.73. Se non disponibile scrivi null.
 - "scadenza": data di scadenza nel formato "dd/MM/yyyy" (null se non disponibile)
 - "cig": codice CIG se presente (null se non disponibile)
 - "link": URL diretto alla pagina del bando
+- "pdf_url": nella scheda di dettaglio del bando, cerca un link per scaricare il bando in formato PDF (es. "Scarica bando", "Documentazione di gara", "Bando di gara PDF"). Se trovi un link diretto al file PDF, inseriscilo qui. Se non c'è un PDF disponibile, scrivi null.
 
 Rispondi SOLO con il JSON array, senza testo prima o dopo. Se non trovi risultati rispondi con [].`);
 
@@ -186,6 +188,7 @@ function mapBando(b: any, i: number) {
     id: b.scheda_id || b.id || `bando-${Date.now()}-${i}`,
     titolo: b.oggetto || b.titolo || b.tipologia || 'Titolo non disponibile',
     ente: b.stazione_appaltante || b.ente || 'Ente non specificato',
+    ente_tipo: b.ente_tipo || null,
     importo: parseImportoItaliano(b.importo),
     scadenza: b.scadenza || null,
     stato: b.stato || 'aperto',
@@ -196,6 +199,7 @@ function mapBando(b: any, i: number) {
     cig: b.cig || null,
     localita: b.localita || null,
     regione: b.regione || null,
+    pdf_url: b.pdf_url || null,
   };
 }
 
