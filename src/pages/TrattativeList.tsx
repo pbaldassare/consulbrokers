@@ -74,6 +74,7 @@ const TrattativeList = () => {
       const { data, error } = await supabase
         .from("trattative")
         .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)")
+        .or("archiviata.eq.false,archiviata.is.null")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
