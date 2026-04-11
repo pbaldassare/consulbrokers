@@ -387,7 +387,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
         resetForm();
       }
     },
-    onError: () => toast.error("Errore nella creazione"),
+    onError: (err: any) => toast.error(err?.message || "Errore nella creazione della conversazione"),
   });
 
   const resetForm = () => {
@@ -656,9 +656,16 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
                     </div>
                   ))}
                   {participantsList.length === 0 && (
-                    <p className="text-center text-xs text-muted-foreground py-4">
-                      {entityTab === "libero" ? "Aggiungi partecipanti manualmente" : "Seleziona un'entità per auto-collegare i partecipanti"}
-                    </p>
+                    <div className="text-center py-4 space-y-1">
+                      <AlertTriangle className="h-4 w-4 mx-auto text-amber-500" />
+                      <p className="text-xs text-muted-foreground">
+                        {entitaId
+                          ? "Nessun utente collegato trovato. Aggiungi partecipanti manualmente."
+                          : entityTab === "libero"
+                            ? "Aggiungi partecipanti manualmente"
+                            : "Seleziona un'entità per auto-collegare i partecipanti"}
+                      </p>
+                    </div>
                   )}
                 </div>
               </ScrollArea>
