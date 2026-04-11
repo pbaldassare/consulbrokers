@@ -21,6 +21,7 @@ export const clienteRoutes = (
     <Route path="/cliente/polizze/:id" element={<ClientePolizzaDetail />} />
     <Route path="/cliente/documenti" element={<ClienteDocumenti />} />
     <Route path="/cliente/scadenze" element={<ClienteScadenze />} />
+    <Route path="/cliente/chat" element={<ClienteComunicazioni />} />
     <Route path="/cliente/comunicazioni" element={<ClienteComunicazioni />} />
     <Route path="/cliente/notifiche" element={<ClienteNotifiche />} />
     <Route path="/cliente/pagamenti" element={<ClientePagamenti />} />
