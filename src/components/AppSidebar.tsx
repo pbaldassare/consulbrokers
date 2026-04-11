@@ -131,6 +131,8 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Gestione Utenti", path: "/archivi/anagrafiche", icon: Briefcase },
         { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
+        { label: "Crea Utente", path: "/crea-utente", icon: UserPlus },
+        { label: "Utenti di Rete", path: "/gestione-utenti", icon: Users },
       ],
     },
   },
@@ -181,8 +183,6 @@ const sidebarEntries: SidebarEntry[] = [
       adminOnly: true,
       children: [
         { label: "Impostazioni", path: "/impostazioni", icon: Settings },
-        { label: "Crea Utente", path: "/crea-utente", icon: UserPlus },
-        { label: "Gestione Utenti", path: "/gestione-utenti", icon: Users },
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
