@@ -358,25 +358,50 @@ const TrattativeList = () => {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 items-end">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9 w-64" placeholder="Cerca soggetto, compagnia, bando..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
+          <Input className="pl-9 w-56" placeholder="Cerca soggetto, compagnia, bando..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
         </div>
+        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutti i tipi</SelectItem>
+            <SelectItem value="prospect">Prospect</SelectItem>
+            <SelectItem value="cliente">Cliente</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={filtroStato} onValueChange={setFiltroStato}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             {STATI_TRATTATIVA_FULL.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutte le compagnie</SelectItem>
+            {compagnie.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutti gli uffici</SelectItem>
             {uffici.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Scadenza da</Label>
+            <Input type="date" className="w-36 h-10" value={filtroScadenzaDa} onChange={(e) => setFiltroScadenzaDa(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Scadenza a</Label>
+            <Input type="date" className="w-36 h-10" value={filtroScadenzaA} onChange={(e) => setFiltroScadenzaA(e.target.value)} />
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
