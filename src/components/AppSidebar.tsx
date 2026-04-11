@@ -102,22 +102,11 @@ const sidebarEntries: SidebarEntry[] = [
   {
     type: "group",
     group: {
-      label: "Archivi",
-      icon: FolderOpen,
-      permissionKey: "dashboard",
-      children: [
-        { label: "Clienti", path: "/archivi/clienti", icon: Users },
-        { label: "Anagrafiche", path: "/archivi/anagrafiche", icon: Briefcase },
-      ],
-    },
-  },
-  {
-    type: "group",
-    group: {
       label: "Portafoglio",
       icon: Briefcase,
       permissionKey: "titoli",
       children: [
+        { label: "Clienti", path: "/archivi/clienti", icon: Users },
         { label: "Ricerca Polizze", path: "/titoli", icon: Search },
         { label: "Gestione Polizze", path: "/portafoglio/gestione-polizze", icon: Settings },
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
