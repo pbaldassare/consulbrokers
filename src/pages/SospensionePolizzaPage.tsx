@@ -47,7 +47,7 @@ const SospensionePolizzaPage = () => {
   });
 
   const handleConferma = () => {
-    console.log({ codiceCliente, selectedAE, numeroPolizza, riga, dataSospensione, limiteRiattivazione });
+    // TODO: implementare logica sospensione polizza
   };
 
   return (

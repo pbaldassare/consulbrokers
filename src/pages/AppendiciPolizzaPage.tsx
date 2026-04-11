@@ -49,15 +49,7 @@ const AppendiciPolizzaPage = () => {
   });
 
   const handleConferma = () => {
-    console.log({
-      codiceCliente,
-      selectedAE,
-      numeroPolizza,
-      riga,
-      appendice,
-      tipoOperazione,
-      polizzaAuto,
-    });
+    // TODO: implementare logica conferma appendice
   };
 
   return (

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { useNavigate } from "react-router-dom";
-import { Plus, Send, FileCode, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Plus, FileCode, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 
 const statoBadge: Record<string, "default" | "secondary" | "destructive" | "outline"> = {

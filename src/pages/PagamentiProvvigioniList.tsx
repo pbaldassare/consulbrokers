@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Download, FileText, DollarSign, Users, Calendar } from "lucide-react";
+import { Plus, FileText, DollarSign, Users } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
