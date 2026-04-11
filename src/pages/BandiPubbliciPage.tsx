@@ -1001,11 +1001,20 @@ export default function BandiPubbliciPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Conferma creazione trattativa</AlertDialogTitle>
-            <AlertDialogDescription>
-              Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
-              prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
-              {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
-              <br />Vuoi procedere?
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
+                  Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
+                  prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
+                  {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
+                </p>
+                {existingTrattative.length > 0 && (
+                  <p className="mt-2 font-semibold text-destructive">
+                    ⚠️ Attenzione: esiste già {existingTrattative.length} trattativa/e collegata/e a questo bando.
+                  </p>
+                )}
+                <p className="mt-2">Vuoi procedere?</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
