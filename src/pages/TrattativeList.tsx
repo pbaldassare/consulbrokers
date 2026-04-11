@@ -465,6 +465,23 @@ const TrattativeList = () => {
           }}
         />
       )}
+
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archivia trattative</AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveMode === "selected"
+                ? `Stai per archiviare ${selectedIds.size} trattativa/e selezionata/e. Le trattative archiviate saranno visibili nello Storico.`
+                : "Stai per archiviare tutte le trattative chiuse (vinte e perse). Saranno visibili nello Storico."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => archiveMutation.mutate(archiveMode)}>Conferma</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
