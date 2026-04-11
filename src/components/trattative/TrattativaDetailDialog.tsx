@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +22,11 @@ interface Props {
 export const TrattativaDetailDialog = ({ trattativa, open, onOpenChange }: Props) => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const [localStato, setLocalStato] = useState(trattativa?.stato);
+
+  useEffect(() => {
+    if (trattativa?.stato) setLocalStato(trattativa.stato);
+  }, [trattativa?.stato]);
 
   const getSoggettoName = () => {
     if (trattativa.cliente) {
@@ -47,8 +53,10 @@ export const TrattativaDetailDialog = ({ trattativa, open, onOpenChange }: Props
 
   const cambiaStato = useMutation({
     mutationFn: async (nuovoStato: string) => {
-      const oldStato = trattativa.stato;
+      const oldStato = localStato;
       if (nuovoStato === oldStato) return;
+
+      setLocalStato(nuovoStato);
 
       const update: Record<string, unknown> = { stato: nuovoStato, updated_at: new Date().toISOString() };
       if (nuovoStato === "chiusa_vinta" || nuovoStato === "chiusa_persa") {
@@ -67,7 +75,10 @@ export const TrattativaDetailDialog = ({ trattativa, open, onOpenChange }: Props
       queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
       toast.success("Stato aggiornato");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setLocalStato(trattativa.stato);
+      toast.error(e.message);
+    },
   });
 
   const refreshAll = () => {
@@ -100,7 +111,7 @@ export const TrattativaDetailDialog = ({ trattativa, open, onOpenChange }: Props
 
         <div className="py-3">
           <StatoPipeline
-            statoCorrente={trattativa.stato}
+            statoCorrente={localStato}
             onCambiaStato={(s) => cambiaStato.mutate(s)}
           />
         </div>
