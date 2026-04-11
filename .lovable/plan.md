@@ -1,57 +1,73 @@
 
 
-## Piano: Migliorare la ricerca bandi -- ente promotore, download PDF, salvataggio completo
+## Piano: Ristrutturazione completa modulo Trattative
 
 ### Problema attuale
-- Il prompt chiede la "stazione appaltante" ma non enfatizza abbastanza l'ente promotore
-- Non viene scaricato il PDF del bando
-- I dati in DB non includono il documento PDF
+Il modulo trattative è minimale: modale piccolo con pochi campi, nessun upload documenti, nessun log visibile, nessun calendario, nessun collegamento ufficio, gestione stati basilare.
 
-### Modifiche
+### Modifiche previste
 
-#### 1. Migrazione DB: aggiungere colonna `pdf_path` alla tabella `bandi_pubblici`
-```sql
-ALTER TABLE public.bandi_pubblici ADD COLUMN IF NOT EXISTS pdf_path text;
-```
-Per salvare il percorso del PDF nello storage Supabase.
+#### 1. Migrazione DB -- nuovi campi e tabelle
 
-#### 2. Edge Function `cerca-bandi/index.ts` -- migliorare il prompt
-- Aggiungere al prompt l'istruzione esplicita di estrarre il **nome completo dell'ente/stazione appaltante che promulga il bando** (non solo "stazione appaltante" generico)
-- Aggiungere il campo `"ente_tipo"` (es. Comune, ASL, Regione, Università, ecc.)
-- Chiedere al browser AI di **navigare nella scheda di ogni bando e scaricare/copiare il link diretto al PDF del bando** (campo `"pdf_url"`)
-- Mappare i nuovi campi nel `mapBando()`
+**Nuove colonne su `trattative`:**
+- `ufficio_id` (uuid, FK → uffici) -- collegamento obbligatorio all'ufficio
+- `data_apertura` (date, default CURRENT_DATE)
+- `data_scadenza` (date) -- deadline prevista
+- `priorita` (text: bassa/media/alta/urgente)
+- `prodotto` rinominato/mantenuto, aggiunta `sottoprodotto`
+- `premio_effettivo` (numeric) -- premio reale a chiusura
+- `motivo_chiusura` (text) -- perché vinta/persa
+- `assegnato_a` (uuid, FK → profiles) -- responsabile della trattativa
 
-#### 3. Edge Function `scarica-bando-pdf/index.ts` (nuova)
-Nuova Edge Function che:
-- Riceve `{ bando_id, pdf_url }` 
-- Scarica il PDF dall'URL
-- Lo carica nel bucket `documenti_generali` con path `bandi/{scheda_id}.pdf`
-- Aggiorna `bandi_pubblici.pdf_path` con il path storage
-- Gestisce CORS e autenticazione
+**Nuovi stati:** aperta → contatto → preventivo → in_negoziazione → proposta_inviata → chiusa_vinta → chiusa_persa → sospesa
 
-#### 4. Frontend `BandiPubbliciPage.tsx`
-- Mostrare l'ente in modo più prominente nella card (con icona Building)
-- Aggiungere bottone "Scarica PDF" per ogni bando con `pdf_url`
-- Il bottone chiama la nuova Edge Function per scaricare e salvare il PDF
-- Se il PDF è già salvato (`pdf_path` presente), mostrare un link diretto allo storage
-- Aggiungere nella card il campo `ente_tipo` se disponibile
+**Nuova tabella `trattativa_documenti`:**
+- id, trattativa_id (FK), nome_file, file_path (storage), tipo_documento, note, uploaded_by, created_at
+- RLS allineata a trattative
 
-#### 5. Upsert aggiornato
-- Salvare anche `pdf_url` e `ente_tipo` nel DB (dopo migrazione)
+**Nuova tabella `trattativa_eventi`:**
+- id, trattativa_id (FK), tipo_evento (nota/telefonata/email/appuntamento/cambio_stato/documento), descrizione, data_evento, created_by, created_at, dettagli_json
+- Questo è il log/timeline interno della trattativa visibile nel modale
+
+**Nuova tabella `trattativa_scadenze`:**
+- id, trattativa_id (FK), titolo, data_scadenza, completata, created_by, created_at
+- Per gestire reminder e calendario interno
+
+#### 2. Frontend -- Modale dettaglio trattativa completo
+
+Sostituzione del dialogo di modifica con un **modale full-width a tab**:
+
+- **Tab Dettagli**: tutti i campi (soggetto, ramo, compagnia, ufficio, premio previsto/effettivo, priorità, date apertura/scadenza, assegnato a, motivo chiusura, note). Modifica inline con salvataggio.
+- **Tab Timeline/Log**: lista cronologica di tutti gli eventi (cambio stato, modifiche campi, note manuali, telefonate, email). Possibilità di aggiungere note/eventi manualmente. Ogni cambio stato e modifica viene loggato automaticamente qui.
+- **Tab Documenti**: upload file collegati alla trattativa (preventivi, proposte, contratti). Lista documenti con download/anteprima.
+- **Tab Scadenze**: calendario semplice con scadenze/appuntamenti collegati. Aggiunta/completamento scadenze.
+
+#### 3. Gestione stati migliorata
+
+Pipeline visuale con gli 8 stati. Cambio stato con conferma e nota obbligatoria. Ogni transizione logga automaticamente un evento nella timeline. Per chiusa_vinta/persa richiede motivo_chiusura.
+
+#### 4. Lista trattative migliorata
+
+- Colonna ufficio nella tabella
+- Filtro per ufficio
+- Indicatore priorità
+- Conteggio documenti e scadenze aperte
 
 ### File coinvolti
 
 | File | Modifica |
 |------|----------|
-| Migrazione SQL | Aggiunta colonne `pdf_path`, `pdf_url`, `ente_tipo` |
-| `supabase/functions/cerca-bandi/index.ts` | Prompt migliorato + nuovo campo nel mapping |
-| `supabase/functions/scarica-bando-pdf/index.ts` | Nuova funzione per download e storage PDF |
-| `src/pages/BandiPubbliciPage.tsx` | UI migliorata per ente + bottone scarica PDF |
+| Migrazione SQL | Nuove colonne + 3 tabelle + RLS + indici |
+| `src/pages/TrattativeList.tsx` | Lista migliorata + apertura modale dettaglio |
+| `src/components/trattative/TrattativaDetailDialog.tsx` | **Nuovo** - Modale full con tab |
+| `src/components/trattative/TrattativaDettagliTab.tsx` | **Nuovo** - Tab dettagli/form |
+| `src/components/trattative/TrattativaTimelineTab.tsx` | **Nuovo** - Timeline eventi |
+| `src/components/trattative/TrattativaDocumentiTab.tsx` | **Nuovo** - Upload e lista documenti |
+| `src/components/trattative/TrattativaScadenzeTab.tsx` | **Nuovo** - Scadenze/calendario |
+| `src/components/trattative/StatoPipeline.tsx` | **Nuovo** - Barra stati visuale |
+| `src/integrations/supabase/types.ts` | Auto-aggiornato dopo migrazione |
 
 ### Dettagli tecnici
 
-**Prompt migliorato** (estratto chiave):
-> Per ogni bando, estrai il nome COMPLETO dell'ente che promulga/pubblica il bando (es. "Comune di Milano", "ASL Roma 1", "Università degli Studi di Bologna"), il tipo di ente (Comune, ASL, Regione, Università, Ministero, Azienda Ospedaliera, ecc.), e il link diretto al documento PDF del bando se disponibile nella pagina di dettaglio.
-
-**Edge Function scarica-bando-pdf**: usa `fetch()` per scaricare il PDF dall'URL, poi `supabase.storage.from('documenti_generali').upload()` per salvarlo, infine aggiorna il record in DB.
+I documenti vengono salvati nel bucket `documenti_generali` con path `trattative/{trattativa_id}/{filename}`. La timeline usa la tabella `trattativa_eventi` (separata da `log_attivita` per visibilità diretta nel modale). Le RLS delle nuove tabelle seguono lo stesso pattern delle trattative (admin all, ufficio own, produttore own).
 
