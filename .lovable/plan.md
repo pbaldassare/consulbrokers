@@ -1,34 +1,47 @@
 
 
-## Piano: Rimuovere Manutenzione e Impostazioni da Sistema + Aggiornare Sitemap
+## Piano: Riorganizzare voci Portafoglio e creare gruppo Provvigioni
 
 ### Cosa cambia
 
-1. **Sidebar (`src/components/AppSidebar.tsx`)**: Rimuovere le voci "Impostazioni" e "Manutenzione" dal gruppo Sistema (righe 185 e 188)
+1. **Rimuovere dal gruppo Portafoglio** le voci:
+   - "Regolazioni"
+   - "Rientro Documenti"
+   - "Import Titoli (Excel)"
+   - "Analisi Preventivo RCA"
 
-2. **Sitemap (`src/pages/SitemapPage.tsx`)**: Aggiornare la sezione "Sistema" rimuovendo "Impostazioni" e "Manutenzione". Aggiornare la sezione "Archivi" rinominandola in "Anagrafiche Utenti" e aggiungendo "Crea Utente", "Utenti di Rete" e "Gestione Sedi". Spostare "Crea Utente" e "Gestione Utenti" e "Gestione Sedi" dalla sezione Sistema alla nuova sezione Anagrafiche Utenti.
+2. **Aggiungere "Rimessa Premi"** al gruppo Portafoglio (attualmente è single standalone alla riga 197)
 
-### Risultato sidebar Sistema
+3. **Creare nuovo gruppo "Provvigioni"** (collassabile) con due sotto-voci:
+   - "Provvigioni Consul" → `/provvigioni-sede`
+   - "Pagamenti Provvigioni" → `/pagamenti-provvigioni`
+
+4. **Rimuovere** le voci single standalone "Provvigioni Consul", "Pagamenti Provvigioni" e "Rimessa Premi" (righe 195-197)
+
+### Risultato sidebar
 
 ```
-▸ Sistema
-    Anomalie Sistema
-    Backup & Export
-    Tabelle di Base
-    Compagnie
-    Template Email
-    Sitemap
+▸ Portafoglio
+    Clienti
+    Ricerca Polizze
+    Gestione Polizze
+    Estrazioni e Stampe
+    Collettive / Libri Matricola
+    Rimessa Premi             ← spostata qui
+...
+▸ Provvigioni                ← nuovo gruppo
+    Provvigioni Consul
+    Pagamenti Provvigioni
 ```
 
-### Risultato sitemap aggiornata
+### Aggiornamento Sitemap
 
-- Sezione "Archivi" → rinominata "Anagrafiche Utenti" con: Gestione Utenti, Anagrafiche Professionali, Crea Utente, Utenti di Rete, Gestione Sedi
-- Sezione "Sistema" senza: Impostazioni, Manutenzione, Crea Utente, Gestione Utenti, Gestione Sedi
+Riflettere le stesse modifiche nella pagina Sitemap: rimuovere le voci eliminate, aggiungere Rimessa Premi a Portafoglio, creare sezione Provvigioni.
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| `src/components/AppSidebar.tsx` | Rimuovere "Impostazioni" e "Manutenzione" dal gruppo Sistema |
-| `src/pages/SitemapPage.tsx` | Aggiornare sezioni per riflettere la nuova struttura sidebar |
+| `src/components/AppSidebar.tsx` | Rimuovere 4 voci da Portafoglio, aggiungere Rimessa Premi a Portafoglio, creare gruppo Provvigioni, rimuovere 3 single standalone |
+| `src/pages/SitemapPage.tsx` | Aggiornare sezioni per riflettere la nuova struttura |
 
