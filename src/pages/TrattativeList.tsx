@@ -190,6 +190,28 @@ const TrattativeList = () => {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: async (mode: "selected" | "all_closed") => {
+      if (mode === "selected") {
+        const ids = Array.from(selectedIds);
+        if (!ids.length) return;
+        const { error } = await supabase.from("trattative").update({ archiviata: true }).in("id", ids);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("trattative").update({ archiviata: true }).in("stato", ["chiusa_vinta", "chiusa_persa"]).or("archiviata.eq.false,archiviata.is.null");
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trattative_all"] });
+      queryClient.invalidateQueries({ queryKey: ["trattative_storico"] });
+      toast.success("Trattative archiviate");
+      setSelectedIds(new Set());
+      setArchiveDialogOpen(false);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const getSoggettoName = (t: any) => {
     if (t.cliente) {
       return t.cliente.tipo_cliente === "privato"
