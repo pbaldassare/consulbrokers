@@ -339,6 +339,7 @@ const TrattativeList = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
