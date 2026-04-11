@@ -1,51 +1,28 @@
 
 
-## Piano: Workflow Bandi Pubblici - Crea Trattativa e Auto-Prospect
+## Piano: Segnalazione trattativa gia esistente per evitare doppioni
 
-### Cosa cambia
+### Problema
+Quando l'utente clicca "Crea Trattativa" su un bando, non c'e' nessun controllo se esiste gia una trattativa collegata a quel bando (via `bandi_trattative`) o una trattativa con lo stesso prospect+prodotto. Si rischiano doppioni.
 
-1. **Counter chiamate API**: mostrare un contatore delle chiamate API effettuate nella sessione (es. "3 chiamate API") accanto al pulsante Cerca Bandi
+### Soluzione
+Nella funzione `openCreaTrattativaDialog`, prima di aprire il dialog, controllare:
 
-2. **Auto-salvataggio Prospect dall'ente**: quando arrivano i risultati, per ogni bando l'ente (es. "ISTITUTO COMPRENSIVO - MONDOVI' I") viene salvato come prospect in anagrafica automaticamente (upsert per ragione_sociale), con `fonte = "API Mondoappalti"` e `tipo_cliente = "ente"`
+1. **Trattativa gia collegata al bando**: query `bandi_trattative` per `bando_id` con join a `trattative` per ottenere stato e prodotto
+2. **Trattativa esistente per lo stesso prospect+prodotto**: query `trattative` dove `prospect_id` = prospect dell'ente e `prodotto` simile
 
-3. **Pulsante "Crea Trattativa" al posto di "Collega trattativa"**: il dialog attuale diventa un form di creazione trattativa (non piu' selezione da lista esistente). Campi pre-compilati dal bando:
-   - `prospect_id` = il prospect auto-creato dall'ente
-   - `prodotto` = keyword usata (es. "Brokeraggio assicurativo")
-   - `data_scadenza` = scadenza del bando
-   - `premio_previsto` = importo del bando
-   - `note` = titolo completo del bando + CIG + link
-   - `stato` = "aperta"
-   - Popup di conferma prima del salvataggio
+Se trovata, mostrare un **avviso visibile nel dialog** (banner giallo/arancione) con i dettagli della trattativa esistente (stato, data, prodotto). L'utente puo' comunque procedere se vuole, ma e' avvisato.
 
-4. **Colonna `fonte` nella tabella `trattative`**: migrazione DB per aggiungere `fonte TEXT` alla tabella trattative. Valorizzato con "API Mondoappalti" quando creata da bando
+Inoltre, il badge "N trattative" gia presente sulla card bando serve come indicatore visivo immediato.
 
-5. **Keyword visibile su ogni card**: mostrare un badge con la keyword di ricerca collegata (es. "Brokeraggio assicurativo") su ogni card bando. Salvare la keyword nel campo `tipologia` o in un nuovo campo `keyword` nella tabella `bandi_pubblici`
-
-6. **Collegamento bando-trattativa**: dopo la creazione, inserire il record in `bandi_trattative` per mantenere il link
-
-### Migrazione DB
-
-```sql
--- Aggiungere fonte alle trattative
-ALTER TABLE trattative ADD COLUMN IF NOT EXISTS fonte TEXT;
-
--- Aggiungere keyword ai bandi_pubblici (per tracciare la keyword usata)
-ALTER TABLE bandi_pubblici ADD COLUMN IF NOT EXISTS keyword TEXT;
-```
-
-### File coinvolti
+### Modifiche
 
 | File | Azione |
 |------|--------|
-| Migrazione SQL | Aggiungere `fonte` a trattative, `keyword` a bandi_pubblici |
-| `src/pages/BandiPubbliciPage.tsx` | Counter API, auto-prospect, dialog "Crea Trattativa", badge keyword, conferma salvataggio |
+| `src/pages/BandiPubbliciPage.tsx` | In `openCreaTrattativaDialog`: query per trattative esistenti collegate al bando. Mostrare banner di avviso nel dialog con dettagli. Anche nel popup di conferma segnalare il doppione. |
 
-### Flusso utente
-
-1. Utente cerca bandi → counter mostra "1 chiamata API"
-2. Arrivano risultati → per ogni ente viene creato/aggiornato un prospect automaticamente
-3. Su ogni card bando appare il badge "Brokeraggio assicurativo"
-4. Utente clicca "Crea Trattativa" → dialog con dati pre-compilati dal bando
-5. Utente conferma → trattativa salvata in DB con `fonte = "API Mondoappalti"`, collegata al bando e al prospect
-6. La trattativa appare nella lista trattative con la fonte indicata
+### Dettagli tecnici
+- Query: `supabase.from("bandi_trattative").select("trattativa_id, trattative(id, prodotto, stato, data_apertura, premio_previsto)").eq("bando_id", bando.id)`
+- Se risultati > 0: stato `existingTrattative` con array, mostrato come alert nel dialog
+- L'utente puo' comunque creare (non bloccante), ma il warning e' chiaro
 
