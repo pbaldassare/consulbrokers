@@ -64,6 +64,9 @@ const TrattativeList = () => {
   const [form, setForm] = useState<TrattativaForm>({ ...emptyForm });
   const [selectedTrattativa, setSelectedTrattativa] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveMode, setArchiveMode] = useState<"selected" | "all_closed">("selected");
 
   const { data: trattative, isLoading } = useQuery({
     queryKey: ["trattative_all"],
