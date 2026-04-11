@@ -944,7 +944,7 @@ export default function BandiPubbliciPage() {
                     <p className="text-xs mt-2">Puoi comunque crearne un'altra se necessario.</p>
                   </AlertDescription>
                 </Alert>
-              )
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
