@@ -269,7 +269,7 @@ const ClienteDashboard = () => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Link to="/cliente/upload"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">📤 Carica documento</Badge></Link>
-          <Link to="/cliente/comunicazioni"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">💬 Scrivi all'agenzia</Badge></Link>
+          <Link to="/cliente/chat"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">💬 Scrivi all'agenzia</Badge></Link>
           <Link to="/cliente/polizze"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">📋 Vedi polizze</Badge></Link>
           <Link to="/cliente/sinistri"><Badge variant="secondary" className="cursor-pointer px-3 py-1.5 text-sm hover:bg-muted">⚠️ Sinistri</Badge></Link>
         </CardContent>
