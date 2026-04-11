@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { UserCheck, Briefcase, FileText, AlertTriangle, Users } from "lucide-react";
+import { UserCheck, Briefcase, FileText, AlertTriangle, Users, Loader2 } from "lucide-react";
+import { findAllRelatedUsers, type RelatedUser } from "@/lib/findRelatedUsers";
 
 interface NuovaConversazioneDialogProps {
   open: boolean;
@@ -62,6 +63,8 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
   const [entitaLabel, setEntitaLabel] = useState<string>("");
   const [visibileCliente, setVisibileCliente] = useState(false);
   const [autoLinkedClientUserId, setAutoLinkedClientUserId] = useState<string | null>(null);
+  const [autoLinkedUsers, setAutoLinkedUsers] = useState<RelatedUser[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
 
   // Load internal staff
   const { data: utentiStaff } = useQuery({
@@ -182,15 +185,21 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     enabled: open && ambito === "contestuale" && entitaTipo !== "argomento" && entitaRicerca.length >= 2,
   });
 
-  // Auto-add client user when entity is selected
+  // Auto-add all related users when entity is selected
   useEffect(() => {
-    if (autoLinkedClientUserId && visibileCliente) {
+    if (autoLinkedUsers.length > 0) {
+      const relatedIds = autoLinkedUsers.map(u => u.userId).filter(id => id !== profile?.id);
       setSelectedUsers((prev) => {
-        if (prev.includes(autoLinkedClientUserId!)) return prev;
-        return [...prev, autoLinkedClientUserId!];
+        const set = new Set(prev);
+        relatedIds.forEach(id => set.add(id));
+        return Array.from(set);
       });
+      // Auto-enable visibile_cliente if any client user is found
+      if (autoLinkedUsers.some(u => u.ruolo === "cliente")) {
+        setVisibileCliente(true);
+      }
     }
-  }, [autoLinkedClientUserId, visibileCliente]);
+  }, [autoLinkedUsers, profile?.id]);
 
   const currentUsersList = sezioneUtenti === "staff" ? (utentiStaff || []) : (utentiClienti || []);
 
@@ -235,13 +244,23 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     return null;
   };
 
-  const handleSelectEntita = (r: EntitaResult) => {
+  const handleSelectEntita = async (r: EntitaResult) => {
     setEntitaId(r.id);
     setEntitaLabel(r.label);
     setEntitaRicerca(r.label);
-    if (r.clienteUserId) {
-      setAutoLinkedClientUserId(r.clienteUserId);
-      setVisibileCliente(true);
+    setAutoLinkedClientUserId(r.clienteUserId || null);
+
+    // Find ALL related users (client, producers, office staff, commercials)
+    if (entitaTipo !== "argomento") {
+      setLoadingRelated(true);
+      try {
+        const related = await findAllRelatedUsers(entitaTipo, r.id);
+        setAutoLinkedUsers(related);
+      } catch (e) {
+        console.error("Error finding related users:", e);
+      } finally {
+        setLoadingRelated(false);
+      }
     }
   };
 
@@ -323,6 +342,8 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     setEntitaRicerca("");
     setVisibileCliente(false);
     setAutoLinkedClientUserId(null);
+    setAutoLinkedUsers([]);
+    setLoadingRelated(false);
     setSezioneUtenti("staff");
   };
 
@@ -343,7 +364,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
           {ambito === "contestuale" && (
             <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
               <Label className="text-xs font-semibold">Collega a entità</Label>
-              <Select value={entitaTipo} onValueChange={(v) => { setEntitaTipo(v); setEntitaId(""); setEntitaLabel(""); setEntitaRicerca(""); setAutoLinkedClientUserId(null); }}>
+              <Select value={entitaTipo} onValueChange={(v) => { setEntitaTipo(v); setEntitaId(""); setEntitaLabel(""); setEntitaRicerca(""); setAutoLinkedClientUserId(null); setAutoLinkedUsers([]); }}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -377,14 +398,40 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
                     </div>
                   )}
                   {entitaId && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px]">
-                        ✓ {entitaLabel}
-                      </Badge>
-                      {autoLinkedClientUserId && (
-                        <Badge variant="outline" className="text-[10px] text-primary">
-                          👤 Cliente auto-collegato
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px]">
+                          ✓ {entitaLabel}
                         </Badge>
+                        {loadingRelated && (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" /> Ricerca collegati...
+                          </Badge>
+                        )}
+                      </div>
+                      {autoLinkedUsers.length > 0 && (
+                        <div className="bg-primary/5 rounded-md p-2 space-y-1">
+                          <p className="text-[10px] font-semibold text-primary">
+                            Auto-collegati: {autoLinkedUsers.length} utenti
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {(() => {
+                              const grouped: Record<string, number> = {};
+                              autoLinkedUsers.forEach(u => {
+                                const r = u.ruolo || "staff";
+                                grouped[r] = (grouped[r] || 0) + 1;
+                              });
+                              return Object.entries(grouped).map(([ruolo, count]) => (
+                                <Badge key={ruolo} variant="outline" className="text-[9px] px-1.5 py-0 capitalize">
+                                  {count} {ruolo}
+                                </Badge>
+                              ));
+                            })()}
+                          </div>
+                          <div className="text-[9px] text-muted-foreground max-h-16 overflow-auto">
+                            {autoLinkedUsers.map(u => u.nome).filter(Boolean).join(", ")}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

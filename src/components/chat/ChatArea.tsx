@@ -10,6 +10,7 @@ import { Send, CheckCheck, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import ConfermeStatus from "./ConfermeStatus";
+import { logAttivita } from "@/lib/logAttivita";
 
 interface ChatAreaProps {
   canaleId: string | null;
@@ -29,7 +30,7 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
       if (!canaleId) return [];
       const { data } = await supabase
         .from("chat_messaggi_interni")
-        .select("*, profiles:mittente_id(nome, cognome)")
+        .select("*, profiles:mittente_id(nome, cognome, ruolo)")
         .eq("canale_id", canaleId)
         .order("created_at", { ascending: true });
       return data || [];
@@ -98,6 +99,18 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
           );
         }
       }
+
+      // Log attivita
+      await logAttivita({
+        azione: "messaggio_chat_interno",
+        entita_tipo: "chat_canale",
+        entita_id: canaleId,
+        dettagli_json: {
+          preview: msg.trim().slice(0, 50),
+          mittente_ruolo: profile.ruolo || "sconosciuto",
+          richiedi_conferma: richiediConferma,
+        },
+      });
     },
     onSuccess: () => {
       setMsg("");
@@ -161,6 +174,11 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
                   <span className="text-xs font-semibold text-foreground">
                     {m.profiles ? `${m.profiles.nome || ""} ${m.profiles.cognome || ""}` : "—"}
                   </span>
+                  {m.profiles?.ruolo && (
+                    <span className="text-[9px] text-muted-foreground capitalize bg-muted px-1.5 py-0.5 rounded">
+                      {m.profiles.ruolo}
+                    </span>
+                  )}
                   <span className="text-[10px] text-muted-foreground">
                     {format(new Date(m.created_at), "dd/MM HH:mm")}
                   </span>
