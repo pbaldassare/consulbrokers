@@ -376,6 +376,18 @@ const TrattativeList = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered?.length > 0 && filtered.every((t) => selectedIds.has(t.id))}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedIds(new Set(filtered?.map((t) => t.id) || []));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
@@ -391,6 +403,16 @@ const TrattativeList = () => {
             <TableBody>
               {filtered.map((t) => (
                 <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(t)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(t.id)}
+                      onCheckedChange={(checked) => {
+                        const next = new Set(selectedIds);
+                        if (checked) next.add(t.id); else next.delete(t.id);
+                        setSelectedIds(next);
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="text-center">
                     {PRIORITA_ICONS[t.priorita || "media"] || "🟡"}
                   </TableCell>
