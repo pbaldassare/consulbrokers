@@ -84,9 +84,19 @@ type SidebarEntry =
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
-  { type: "single", item: { label: "Trattative", path: "/trattative", icon: ArrowRightLeft, permissionKey: "titoli" } },
-  { type: "single", item: { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays, permissionKey: "titoli" } },
-  { type: "single", item: { label: "Storico Trattative", path: "/trattative/storico", icon: Archive, permissionKey: "titoli" } },
+  {
+    type: "group",
+    group: {
+      label: "Trattative",
+      icon: ArrowRightLeft,
+      permissionKey: "titoli",
+      children: [
+        { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
+        { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
+        { label: "Storico", path: "/trattative/storico", icon: Archive },
+      ],
+    },
+  },
   { type: "single", item: { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Chat", path: "/chat", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
   {
