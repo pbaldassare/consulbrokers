@@ -364,7 +364,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
           {ambito === "contestuale" && (
             <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
               <Label className="text-xs font-semibold">Collega a entità</Label>
-              <Select value={entitaTipo} onValueChange={(v) => { setEntitaTipo(v); setEntitaId(""); setEntitaLabel(""); setEntitaRicerca(""); setAutoLinkedClientUserId(null); }}>
+              <Select value={entitaTipo} onValueChange={(v) => { setEntitaTipo(v); setEntitaId(""); setEntitaLabel(""); setEntitaRicerca(""); setAutoLinkedClientUserId(null); setAutoLinkedUsers([]); }}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
