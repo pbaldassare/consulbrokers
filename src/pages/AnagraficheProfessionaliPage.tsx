@@ -413,7 +413,7 @@ const AnagraficheProfessionaliPage = () => {
 
     if (isPeritiLegali) {
       return (
-        <TableRow key={item.id}>
+        <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(item)}>
           <TableCell>
             <div className="font-medium">{item.codice || "—"}</div>
             <div className="text-xs text-muted-foreground">{item.nome_breve || ""}</div>
@@ -429,7 +429,7 @@ const AnagraficheProfessionaliPage = () => {
           </TableCell>
           <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
           <TableCell className="text-center">
-            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+             <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
           </TableCell>
         </TableRow>
       );
@@ -444,7 +444,7 @@ const AnagraficheProfessionaliPage = () => {
       ].filter(Boolean);
       const bancaParts = [item.banca_riga1, item.banca_riga2, item.banca_riga3].filter(Boolean);
       return (
-        <TableRow key={item.id} className={item.annullato ? "opacity-50" : ""}>
+         <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">{item.ragione_sociale || item.cognome || item.nome || "—"}</TableCell>
           <TableCell>{item.sigla || "—"}</TableCell>
@@ -468,7 +468,7 @@ const AnagraficheProfessionaliPage = () => {
 
     if (isCorr || isNewCommercial) {
       return (
-        <TableRow key={item.id} className={item.annullato ? "opacity-50" : ""}>
+        <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">
             {item.cognome || item.ragione_sociale || "—"}
@@ -497,7 +497,7 @@ const AnagraficheProfessionaliPage = () => {
 
     // Liquidatori
     return (
-      <TableRow key={item.id}>
+      <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(item)}>
         <TableCell>
           <div className="font-medium">{item.codice || "—"}</div>
           <div className="text-xs text-muted-foreground">{item.nome_breve || ""}</div>
@@ -514,7 +514,7 @@ const AnagraficheProfessionaliPage = () => {
         </TableCell>
         <TableCell className="text-sm">{compName || "—"}</TableCell>
         <TableCell className="text-center">
-          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
         </TableCell>
       </TableRow>
     );
