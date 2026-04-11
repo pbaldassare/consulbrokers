@@ -1,58 +1,62 @@
 
 
-## Piano: Migliorare la creazione Chat Contestuale
+## Piano: Auto-collegamento intelligente di tutti gli attori nella Chat
 
-### Problemi attuali
-1. La lista utenti mostra SOLO staff interno — i clienti (ruolo=cliente) non compaiono mai
-2. Quando si collega a un cliente, non si aggiunge automaticamente l'utente-cliente come membro
-3. La ricerca entita e' minimale: le polizze mostrano solo numero, le trattative solo titolo, senza contesto (nome cliente, compagnia, ecc.)
-4. Non c'e' collegamento logico: se scelgo "Polizza", dovrebbe mostrarmi il cliente associato e aggiungerlo automaticamente
-5. Manca la possibilita' di aggiungere clienti come partecipanti alla chat
+### Problema attuale
+Quando si crea una chat collegata a una polizza, sinistro o trattativa, viene aggiunto solo il cliente (user_id). Non vengono inclusi automaticamente i soggetti collegati: corrispondenti, commerciali (AE, produttori), responsabili, staff dell'ufficio.
+
+### Soluzione
+Creare una funzione `findAllRelatedUsers` che, data un'entita (polizza, sinistro, trattativa, cliente), raccoglie TUTTI gli utenti collegati e li pre-seleziona come partecipanti alla chat.
+
+### Logica di raccolta utenti per tipo entita
+
+**Polizza (titolo)**:
+- `cliente_anagrafica_id` → `clienti.user_id` (il cliente)
+- `produttore_id` (il produttore assegnato alla polizza)
+- `ufficio_id` → tutti i profiles con quell'ufficio_id (staff dell'ufficio)
+- `codici_commerciali_cliente` con `cliente_id = cliente_anagrafica_id` → `profilo_id` (AE, corrispondenti, agenti)
+
+**Sinistro**:
+- `cliente_anagrafica_id` → `clienti.user_id`
+- `responsabile_id` (il responsabile del sinistro)
+- `titolo_id` → stessa logica della polizza (produttore, ufficio, commerciali)
+
+**Trattativa**:
+- `cliente_id` → `clienti.user_id`
+- `assegnato_a` (utente assegnato)
+- `ufficio_id` → staff ufficio
+- `codici_commerciali_cliente` con `cliente_id` → commerciali
+
+**Cliente**:
+- `clienti.user_id`
+- `codici_commerciali_cliente` con `cliente_id` → tutti i commerciali
+- `profiles` con `ufficio_id` del cliente (se ha un ufficio associato)
 
 ### Modifiche
 
-#### 1. `NuovaConversazioneDialog.tsx` — Riscrittura logica partecipanti e ricerca entita
+#### 1. `src/components/chat/NuovaConversazioneDialog.tsx`
+- Aggiungere funzione `findAllRelatedUsers(entitaTipo, entitaId)` che ritorna un array di `{ userId, ruolo, nome }` con tutti i soggetti collegati
+- Quando si seleziona un'entita, chiamare questa funzione e pre-selezionare TUTTI gli utenti trovati nella lista partecipanti
+- Mostrare un riepilogo visivo: "Auto-collegati: 3 staff, 1 cliente, 2 commerciali"
+- L'utente puo' comunque rimuovere o aggiungere altri partecipanti
 
-**Partecipanti**:
-- Aggiungere sezione "Clienti" oltre a "Staff" nella lista utenti
-- Quando `visibileCliente=true`, caricare anche i profili con `ruolo=cliente` e mostrarli in una sezione separata con badge "Cliente"
-- Filtro ruolo esteso: aggiungere opzione "Cliente" al dropdown ruoli
+#### 2. `src/components/ChatTab.tsx`
+- Aggiornare `findClienteUserId` → `findAllRelatedUserIds` con la stessa logica
+- Alla creazione automatica del canale, aggiungere TUTTI gli utenti collegati come membri (non solo il cliente)
 
-**Ricerca entita migliorata**:
-- **Cliente**: mostra tipo (Privato/Azienda), email, telefono nella riga risultato
-- **Polizza**: mostra `numero_titolo + nome cliente + compagnia + ramo` — query con join a `clienti` e `compagnie`
-- **Trattativa**: mostra `titolo + stato + nome cliente/prospect` — query con join
-- **Sinistro**: mostra `numero_sinistro + tipo + nome cliente + polizza collegata`
-
-**Auto-collegamento**:
-- Quando si seleziona un'entita (cliente/polizza/sinistro/trattativa), trovare automaticamente l'utente-cliente associato (tramite `clienti.user_id` o lookup `profiles` con `ruolo=cliente`) e pre-selezionarlo nella lista partecipanti
-- Il cliente viene aggiunto come membro con `ruolo_canale=membro`
-
-**Nome canale auto-generato**:
-- Se non specificato, generare automaticamente: es. "Polizza #12345 - Rossi Mario" o "Sinistro #SIN-001 - Bianchi"
-
-#### 2. `CanaliSidebar.tsx` — Mostrare info entita nei canali contestuali
-
-- Per i canali contestuali, mostrare il nome dell'entita collegata (non solo il tipo)
-- Query aggiuntiva per risolvere `entita_id` -> nome leggibile (cliente nome, numero polizza, ecc.)
-
-#### 3. `ChatTab.tsx` — Auto-aggiungere il cliente come membro
-
-- Quando crea un canale contestuale da una scheda entita, cercare l'utente-cliente associato e aggiungerlo automaticamente come membro
-- Per polizze: lookup `titoli.cliente_anagrafica_id` -> `clienti.id` -> `profiles` con match email
-- Per sinistri: lookup `sinistri.cliente_anagrafica_id` -> stessa logica
+#### 3. Logging migliorato
+- In `ChatArea.tsx`, il log gia include `mittente_id` nel messaggio (tabella `chat_messaggi_interni`)
+- Aggiungere `logAttivita` anche in `ChatArea.tsx` quando si invia un messaggio, con `dettagli_json: { mittente_ruolo: profile.ruolo, preview: msg.slice(0,50) }`
+- Ogni messaggio e' gia tracciato con `mittente_id` + timestamp nella tabella
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| `src/components/chat/NuovaConversazioneDialog.tsx` | Riscrittura: ricerca entita con join, lista utenti con clienti, auto-collegamento, nome auto |
-| `src/components/chat/CanaliSidebar.tsx` | Migliorare display nome canale contestuale con info entita |
-| `src/components/ChatTab.tsx` | Auto-aggiungere cliente come membro alla creazione canale |
+| `src/components/chat/NuovaConversazioneDialog.tsx` | Aggiungere `findAllRelatedUsers`, pre-selezionare tutti i collegati, riepilogo visivo |
+| `src/components/ChatTab.tsx` | Espandere auto-membership a tutti i collegati (non solo cliente) |
+| `src/components/chat/ChatArea.tsx` | Aggiungere `logAttivita` per ogni messaggio inviato con ruolo mittente |
 
-### Dettagli tecnici
-- Query entita con join: `titoli` -> `clienti` + `compagnie` + `rami` per mostrare contesto completo
-- Ricerca clienti-utente: `profiles` con `ruolo=cliente` per la lista partecipanti
-- Lookup cliente associato: tramite `clienti` -> match con `profiles` (stessa email o campo dedicato)
-- Nessuna modifica database, solo miglioramenti frontend
+### Nessuna modifica database
+Tutte le relazioni necessarie esistono gia: `codici_commerciali_cliente`, `titoli`, `sinistri`, `trattative`, `profiles`.
 
