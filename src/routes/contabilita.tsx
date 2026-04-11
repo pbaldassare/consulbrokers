@@ -41,11 +41,7 @@ export const contabilitaRoutes = (
 
     {/* CONT. GENERALE — nascosto, pagine mantenute nel repo */}
 
-    {/* FATTURAPA */}
-    <Route path="/fatturapa/anagrafiche" element={<PlaceholderPage title="Anagrafiche FatturaPA" description="Anagrafiche per fatturazione elettronica" icon={Users} />} />
-    <Route path="/fatturapa/gestione" element={<PlaceholderPage title="Gestione FatturaPA" description="Gestione fatture elettroniche" icon={Settings} />} />
-    <Route path="/fatturapa/intermediazione" element={<PlaceholderPage title="Intermediazione" description="Gestione intermediazione fatture" icon={ArrowRightLeft} />} />
-    <Route path="/fatturapa/import-fatture" element={<PlaceholderPage title="Import Fatture Acquisto" description="Importazione fatture di acquisto" icon={Import} />} />
+    {/* FATTURAPA — nascosto, pagine mantenute nel repo */}
 
     {/* RIMESSE & EXTRA CONTABILI */}
     <Route path="/rimessa-premi" element={<RimessaList />} />
