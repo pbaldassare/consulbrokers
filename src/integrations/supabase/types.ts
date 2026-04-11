@@ -5226,56 +5226,231 @@ export type Database = {
           },
         ]
       }
+      trattativa_documenti: {
+        Row: {
+          created_at: string | null
+          file_path: string
+          id: string
+          nome_file: string
+          note: string | null
+          tipo_documento: string | null
+          trattativa_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_path: string
+          id?: string
+          nome_file: string
+          note?: string | null
+          tipo_documento?: string | null
+          trattativa_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_path?: string
+          id?: string
+          nome_file?: string
+          note?: string | null
+          tipo_documento?: string | null
+          trattativa_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trattativa_documenti_trattativa_id_fkey"
+            columns: ["trattativa_id"]
+            isOneToOne: false
+            referencedRelation: "trattative"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattativa_documenti_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trattativa_eventi: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data_evento: string | null
+          descrizione: string
+          dettagli_json: Json | null
+          id: string
+          tipo_evento: string
+          trattativa_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data_evento?: string | null
+          descrizione: string
+          dettagli_json?: Json | null
+          id?: string
+          tipo_evento?: string
+          trattativa_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data_evento?: string | null
+          descrizione?: string
+          dettagli_json?: Json | null
+          id?: string
+          tipo_evento?: string
+          trattativa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trattativa_eventi_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattativa_eventi_trattativa_id_fkey"
+            columns: ["trattativa_id"]
+            isOneToOne: false
+            referencedRelation: "trattative"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trattativa_scadenze: {
+        Row: {
+          completata: boolean | null
+          created_at: string | null
+          created_by: string | null
+          data_scadenza: string
+          id: string
+          note: string | null
+          titolo: string
+          trattativa_id: string
+        }
+        Insert: {
+          completata?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          data_scadenza: string
+          id?: string
+          note?: string | null
+          titolo: string
+          trattativa_id: string
+        }
+        Update: {
+          completata?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          data_scadenza?: string
+          id?: string
+          note?: string | null
+          titolo?: string
+          trattativa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trattativa_scadenze_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattativa_scadenze_trattativa_id_fkey"
+            columns: ["trattativa_id"]
+            isOneToOne: false
+            referencedRelation: "trattative"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trattative: {
         Row: {
+          assegnato_a: string | null
           cliente_id: string | null
           compagnia: string | null
           compagnia_id: string | null
           created_at: string | null
           created_by: string | null
+          data_apertura: string | null
           data_chiusura: string | null
+          data_scadenza: string | null
           id: string
+          motivo_chiusura: string | null
           note: string | null
+          premio_effettivo: number | null
           premio_previsto: number | null
+          priorita: string | null
           prodotto: string | null
           prospect_id: string | null
           ramo_id: string | null
+          sottoprodotto: string | null
           stato: string
+          ufficio_id: string | null
           updated_at: string | null
         }
         Insert: {
+          assegnato_a?: string | null
           cliente_id?: string | null
           compagnia?: string | null
           compagnia_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          data_apertura?: string | null
           data_chiusura?: string | null
+          data_scadenza?: string | null
           id?: string
+          motivo_chiusura?: string | null
           note?: string | null
+          premio_effettivo?: number | null
           premio_previsto?: number | null
+          priorita?: string | null
           prodotto?: string | null
           prospect_id?: string | null
           ramo_id?: string | null
+          sottoprodotto?: string | null
           stato?: string
+          ufficio_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          assegnato_a?: string | null
           cliente_id?: string | null
           compagnia?: string | null
           compagnia_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          data_apertura?: string | null
           data_chiusura?: string | null
+          data_scadenza?: string | null
           id?: string
+          motivo_chiusura?: string | null
           note?: string | null
+          premio_effettivo?: number | null
           premio_previsto?: number | null
+          priorita?: string | null
           prodotto?: string | null
           prospect_id?: string | null
           ramo_id?: string | null
+          sottoprodotto?: string | null
           stato?: string
+          ufficio_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "trattative_assegnato_a_fkey"
+            columns: ["assegnato_a"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trattative_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -5309,6 +5484,13 @@ export type Database = {
             columns: ["ramo_id"]
             isOneToOne: false
             referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trattative_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
             referencedColumns: ["id"]
           },
         ]
