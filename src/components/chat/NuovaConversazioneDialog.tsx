@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { UserCheck, Briefcase, FileText, AlertTriangle, Users, Loader2 } from "lucide-react";
+import { UserCheck, Briefcase, FileText, AlertTriangle, Users, Loader2, X, Search, Plus } from "lucide-react";
 import { findAllRelatedUsers, type RelatedUser } from "@/lib/findRelatedUsers";
 
 interface NuovaConversazioneDialogProps {
@@ -32,20 +33,28 @@ const RUOLI_INTERNI = [
   { value: "cfo", label: "CFO" },
 ];
 
-const ENTITA_TIPI = [
-  { value: "cliente", label: "Cliente", icon: UserCheck },
-  { value: "trattativa", label: "Trattativa", icon: Briefcase },
-  { value: "titolo", label: "Polizza", icon: FileText },
-  { value: "sinistro", label: "Sinistro", icon: AlertTriangle },
-  { value: "argomento", label: "Argomento libero", icon: Users },
-];
-
 interface EntitaResult {
   id: string;
   label: string;
   subtitle?: string;
-  clienteUserId?: string | null;
+  tipo: string; // "cliente" | "prospect" | "titolo" | "trattativa" | "sinistro"
+  entitaTipo: string; // the DB entity type
 }
+
+const ROLE_COLORS: Record<string, string> = {
+  cliente: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  prospect: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  produttore: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  ufficio: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  commerciale: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  assegnato: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+  responsabile: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+  backoffice: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200",
+  contabilita: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
+  cfo: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200",
+  staff: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+};
 
 export default function NuovaConversazioneDialog({ open, onClose, onCreated, ambito = "interno" }: NuovaConversazioneDialogProps) {
   const { profile } = useAuth();
@@ -56,17 +65,34 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [nomeGruppo, setNomeGruppo] = useState("");
   const [tipo, setTipo] = useState<"diretto" | "gruppo" | "broadcast">("diretto");
-  const [sezioneUtenti, setSezioneUtenti] = useState<"staff" | "clienti">("staff");
 
-  const [entitaTipo, setEntitaTipo] = useState<string>("argomento");
+  // Unified entity selection
+  const [entityTab, setEntityTab] = useState<string>("clienti");
+  const [entitaTipo, setEntitaTipo] = useState<string>("");
   const [entitaId, setEntitaId] = useState<string>("");
   const [entitaLabel, setEntitaLabel] = useState<string>("");
   const [visibileCliente, setVisibileCliente] = useState(false);
-  const [autoLinkedClientUserId, setAutoLinkedClientUserId] = useState<string | null>(null);
   const [autoLinkedUsers, setAutoLinkedUsers] = useState<RelatedUser[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
+  const [entitaRicerca, setEntitaRicerca] = useState("");
+  const [addPartecipanteRicerca, setAddPartecipanteRicerca] = useState("");
+  const [showAddPartecipante, setShowAddPartecipante] = useState(false);
 
-  // Load internal staff
+  // Load all profiles for manual add
+  const { data: allProfiles } = useQuery({
+    queryKey: ["all_profiles_chat"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, ruolo, ufficio_id, email")
+        .eq("attivo", true)
+        .order("cognome");
+      return (data || []).filter((u: any) => u.id !== profile?.id);
+    },
+    enabled: open,
+  });
+
+  // Load staff for internal mode
   const { data: utentiStaff } = useQuery({
     queryKey: ["profiles_interni"],
     queryFn: async () => {
@@ -78,22 +104,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },
-    enabled: open,
-  });
-
-  // Load client users (only when contextual + visibileCliente)
-  const { data: utentiClienti } = useQuery({
-    queryKey: ["profiles_clienti"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome, ruolo, email")
-        .eq("attivo", true)
-        .eq("ruolo", "cliente")
-        .order("cognome");
-      return data || [];
-    },
-    enabled: open && ambito === "contestuale",
+    enabled: open && ambito === "interno",
   });
 
   const { data: uffici } = useQuery({
@@ -105,87 +116,122 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     enabled: open,
   });
 
-  // Rich entity search with joins
-  const [entitaRicerca, setEntitaRicerca] = useState("");
+  // Unified entity search
   const { data: entitaResults } = useQuery({
-    queryKey: ["entita_search_rich", entitaTipo, entitaRicerca],
+    queryKey: ["entita_search_unified", entityTab, entitaRicerca],
     queryFn: async (): Promise<EntitaResult[]> => {
-      if (entitaTipo === "argomento" || !entitaRicerca || entitaRicerca.length < 2) return [];
+      if (entityTab === "libero" || !entitaRicerca || entitaRicerca.length < 2) return [];
 
-      if (entitaTipo === "cliente") {
-        const { data } = await supabase
-          .from("clienti")
-          .select("id, nome, cognome, ragione_sociale, tipo_cliente, email, telefono, user_id")
-          .or(`cognome.ilike.%${entitaRicerca}%,ragione_sociale.ilike.%${entitaRicerca}%,nome.ilike.%${entitaRicerca}%,codice_fiscale.ilike.%${entitaRicerca}%`)
-          .limit(10);
-        return (data || []).map((c: any) => ({
+      if (entityTab === "clienti") {
+        // Search both clienti and prospect
+        const [clientiRes, prospectRes] = await Promise.all([
+          supabase
+            .from("clienti")
+            .select("id, nome, cognome, ragione_sociale, tipo_cliente, email, telefono, user_id")
+            .or(`cognome.ilike.%${entitaRicerca}%,ragione_sociale.ilike.%${entitaRicerca}%,nome.ilike.%${entitaRicerca}%,codice_fiscale.ilike.%${entitaRicerca}%`)
+            .limit(8),
+          supabase
+            .from("prospect")
+            .select("id, nome, cognome, ragione_sociale, tipo_cliente, email, telefono, user_id")
+            .or(`cognome.ilike.%${entitaRicerca}%,ragione_sociale.ilike.%${entitaRicerca}%,nome.ilike.%${entitaRicerca}%`)
+            .limit(8),
+        ]);
+
+        const clienti: EntitaResult[] = (clientiRes.data || []).map((c: any) => ({
           id: c.id,
           label: c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim(),
           subtitle: `${c.tipo_cliente || "Privato"} ${c.email ? `• ${c.email}` : ""} ${c.telefono ? `• ${c.telefono}` : ""}`.trim(),
-          clienteUserId: c.user_id || null,
+          tipo: "Cliente",
+          entitaTipo: "cliente",
         }));
+        const prospect: EntitaResult[] = (prospectRes.data || []).map((p: any) => ({
+          id: p.id,
+          label: p.ragione_sociale || `${p.cognome || ""} ${p.nome || ""}`.trim(),
+          subtitle: `${p.tipo_cliente || "Privato"} ${p.email ? `• ${p.email}` : ""} ${p.telefono ? `• ${p.telefono}` : ""}`.trim(),
+          tipo: "Prospect",
+          entitaTipo: "prospect",
+        }));
+        return [...clienti, ...prospect];
       }
 
-      if (entitaTipo === "titolo") {
+      if (entityTab === "polizze") {
         const { data } = await supabase
           .from("titoli")
-          .select("id, numero_titolo, cliente_anagrafica_id, compagnia_id, ramo_id, clienti:cliente_anagrafica_id(nome, cognome, ragione_sociale, user_id), compagnie:compagnia_id(nome)")
+          .select("id, numero_titolo, stato, cliente_anagrafica_id, compagnia_id, clienti:cliente_anagrafica_id(nome, cognome, ragione_sociale), compagnie:compagnia_id(nome)")
           .or(`numero_titolo.ilike.%${entitaRicerca}%`)
           .limit(10);
-        return (data || []).map((t: any) => {
+        
+        // Also search by client name
+        const { data: byClient } = await supabase
+          .from("titoli")
+          .select("id, numero_titolo, stato, cliente_anagrafica_id, compagnia_id, clienti:cliente_anagrafica_id!inner(nome, cognome, ragione_sociale), compagnie:compagnia_id(nome)")
+          .or(`clienti.cognome.ilike.%${entitaRicerca}%,clienti.ragione_sociale.ilike.%${entitaRicerca}%`, { referencedTable: "clienti" })
+          .limit(10);
+
+        const allTitoli = [...(data || []), ...(byClient || [])];
+        const seen = new Set<string>();
+        return allTitoli.filter((t: any) => {
+          if (seen.has(t.id)) return false;
+          seen.add(t.id);
+          return true;
+        }).slice(0, 12).map((t: any) => {
           const clienteNome = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
           const compNome = t.compagnie?.nome || "";
           return {
             id: t.id,
-            label: `${t.numero_titolo || t.id}`,
-            subtitle: `${clienteNome}${compNome ? ` • ${compNome}` : ""}`,
-            clienteUserId: t.clienti?.user_id || null,
+            label: t.numero_titolo || t.id.slice(0, 8),
+            subtitle: `${clienteNome}${compNome ? ` • ${compNome}` : ""}${t.stato ? ` • ${t.stato}` : ""}`,
+            tipo: "Polizza",
+            entitaTipo: "titolo",
           };
         });
       }
 
-      if (entitaTipo === "trattativa") {
+      if (entityTab === "trattative") {
         const { data } = await supabase
           .from("trattative")
-          .select("id, prodotto, stato, cliente_id, prospect_id, clienti:cliente_id(nome, cognome, ragione_sociale, user_id), prospect:prospect_id(nome, cognome, ragione_sociale)")
-          .or(`prodotto.ilike.%${entitaRicerca}%,stato.ilike.%${entitaRicerca}%`)
-          .limit(10);
+          .select("id, prodotto, stato, cliente_id, prospect_id, compagnia_id, clienti:cliente_id(nome, cognome, ragione_sociale), prospect:prospect_id(nome, cognome, ragione_sociale), compagnie:compagnia_id(nome)")
+          .or(`prodotto.ilike.%${entitaRicerca}%`)
+          .limit(12);
         return (data || []).map((t: any) => {
           const clienteNome = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
           const prospectNome = t.prospect?.ragione_sociale || `${t.prospect?.cognome || ""} ${t.prospect?.nome || ""}`.trim();
           const soggetto = clienteNome || prospectNome || "—";
+          const compNome = t.compagnie?.nome || "";
           return {
             id: t.id,
-            label: t.prodotto || `Trattativa`,
-            subtitle: `${soggetto} • ${t.stato || ""}`,
-            clienteUserId: t.clienti?.user_id || null,
+            label: t.prodotto || "Trattativa",
+            subtitle: `${soggetto}${compNome ? ` • ${compNome}` : ""} • ${t.stato || ""}`,
+            tipo: clienteNome ? "Cliente" : "Prospect",
+            entitaTipo: "trattativa",
           };
         });
       }
 
-      if (entitaTipo === "sinistro") {
+      if (entityTab === "sinistri") {
         const { data } = await supabase
           .from("sinistri")
-          .select("id, numero_sinistro, tipo_sinistro, stato, cliente_anagrafica_id, titolo_id, clienti:cliente_anagrafica_id(nome, cognome, ragione_sociale, user_id)")
+          .select("id, numero_sinistro, tipo_sinistro, stato, cliente_anagrafica_id, clienti:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
           .or(`numero_sinistro.ilike.%${entitaRicerca}%`)
           .limit(10);
         return (data || []).map((s: any) => {
           const clienteNome = s.clienti?.ragione_sociale || `${s.clienti?.cognome || ""} ${s.clienti?.nome || ""}`.trim();
           return {
             id: s.id,
-            label: s.numero_sinistro || s.id,
+            label: s.numero_sinistro || s.id.slice(0, 8),
             subtitle: `${s.tipo_sinistro || ""} • ${clienteNome} • ${s.stato || ""}`,
-            clienteUserId: s.clienti?.user_id || null,
+            tipo: "Sinistro",
+            entitaTipo: "sinistro",
           };
         });
       }
 
       return [];
     },
-    enabled: open && ambito === "contestuale" && entitaTipo !== "argomento" && entitaRicerca.length >= 2,
+    enabled: open && ambito === "contestuale" && entityTab !== "libero" && entitaRicerca.length >= 2,
   });
 
-  // Auto-add all related users when entity is selected
+  // When related users are found, auto-add them
   useEffect(() => {
     if (autoLinkedUsers.length > 0) {
       const relatedIds = autoLinkedUsers.map(u => u.userId).filter(id => id !== profile?.id);
@@ -194,20 +240,54 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
         relatedIds.forEach(id => set.add(id));
         return Array.from(set);
       });
-      // Auto-enable visibile_cliente if any client user is found
-      if (autoLinkedUsers.some(u => u.ruolo === "cliente")) {
+      if (autoLinkedUsers.some(u => u.ruolo === "cliente" || u.ruolo === "prospect")) {
         setVisibileCliente(true);
       }
     }
   }, [autoLinkedUsers, profile?.id]);
 
-  const currentUsersList = sezioneUtenti === "staff" ? (utentiStaff || []) : (utentiClienti || []);
+  const handleSelectEntita = async (r: EntitaResult) => {
+    setEntitaId(r.id);
+    setEntitaLabel(r.label);
+    setEntitaTipo(r.entitaTipo);
+    setEntitaRicerca("");
 
-  const utentiFiltrati = currentUsersList.filter((u: any) => {
-    if (sezioneUtenti === "staff") {
-      if (filtroRuolo !== "tutti" && u.ruolo !== filtroRuolo) return false;
-      if (filtroUfficio !== "tutti" && u.ufficio_id !== filtroUfficio) return false;
+    setLoadingRelated(true);
+    try {
+      const related = await findAllRelatedUsers(r.entitaTipo, r.id);
+      setAutoLinkedUsers(related);
+    } catch (e) {
+      console.error("Error finding related users:", e);
+    } finally {
+      setLoadingRelated(false);
     }
+  };
+
+  const clearEntita = () => {
+    setEntitaId("");
+    setEntitaLabel("");
+    setEntitaTipo("");
+    setAutoLinkedUsers([]);
+    setSelectedUsers([]);
+    setVisibileCliente(false);
+  };
+
+  // Manual add participant search
+  const filteredAddProfiles = (allProfiles || []).filter((u: any) => {
+    if (selectedUsers.includes(u.id)) return false;
+    if (!addPartecipanteRicerca || addPartecipanteRicerca.length < 2) return false;
+    const full = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
+    return full.includes(addPartecipanteRicerca.toLowerCase());
+  }).slice(0, 8);
+
+  const removeUser = (id: string) => {
+    setSelectedUsers(prev => prev.filter(x => x !== id));
+  };
+
+  // For internal mode
+  const utentiFiltrati = (utentiStaff || []).filter((u: any) => {
+    if (filtroRuolo !== "tutti" && u.ruolo !== filtroRuolo) return false;
+    if (filtroUfficio !== "tutti" && u.ufficio_id !== filtroUfficio) return false;
     if (ricerca) {
       const full = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
       if (!full.includes(ricerca.toLowerCase())) return false;
@@ -236,32 +316,12 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
 
   const generateAutoName = (): string | null => {
     if (nomeGruppo) return nomeGruppo;
-    if (entitaTipo === "argomento") return null;
+    if (entityTab === "libero" && !entitaLabel) return null;
     if (entitaLabel) {
-      const tipoLabel = ENTITA_TIPI.find(e => e.value === entitaTipo)?.label || "";
-      return `${tipoLabel}: ${entitaLabel}`;
+      const labels: Record<string, string> = { cliente: "Cliente", prospect: "Prospect", titolo: "Polizza", trattativa: "Trattativa", sinistro: "Sinistro" };
+      return `${labels[entitaTipo] || ""}: ${entitaLabel}`;
     }
     return null;
-  };
-
-  const handleSelectEntita = async (r: EntitaResult) => {
-    setEntitaId(r.id);
-    setEntitaLabel(r.label);
-    setEntitaRicerca(r.label);
-    setAutoLinkedClientUserId(r.clienteUserId || null);
-
-    // Find ALL related users (client, producers, office staff, commercials)
-    if (entitaTipo !== "argomento") {
-      setLoadingRelated(true);
-      try {
-        const related = await findAllRelatedUsers(entitaTipo, r.id);
-        setAutoLinkedUsers(related);
-      } catch (e) {
-        console.error("Error finding related users:", e);
-      } finally {
-        setLoadingRelated(false);
-      }
-    }
   };
 
   const createMutation = useMutation({
@@ -270,6 +330,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
 
       if (ambito === "contestuale") {
         const nome = generateAutoName();
+        const finalEntitaTipo = entityTab === "libero" ? "argomento" : entitaTipo;
         const { data: canale } = await supabase
           .from("chat_canali")
           .insert({
@@ -277,8 +338,8 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
             tipo: "gruppo",
             creato_da: profile.id,
             ambito: "contestuale",
-            entita_tipo: entitaTipo,
-            entita_id: entitaTipo === "argomento" ? null : entitaId || null,
+            entita_tipo: finalEntitaTipo,
+            entita_id: entityTab === "libero" ? null : entitaId || null,
             visibile_cliente: visibileCliente,
           })
           .select()
@@ -336,23 +397,38 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     setFiltroRuolo("tutti");
     setFiltroUfficio("tutti");
     setTipo("diretto");
-    setEntitaTipo("argomento");
+    setEntityTab("clienti");
+    setEntitaTipo("");
     setEntitaId("");
     setEntitaLabel("");
     setEntitaRicerca("");
     setVisibileCliente(false);
-    setAutoLinkedClientUserId(null);
     setAutoLinkedUsers([]);
     setLoadingRelated(false);
-    setSezioneUtenti("staff");
+    setAddPartecipanteRicerca("");
+    setShowAddPartecipante(false);
   };
 
-  const selectedStaffCount = selectedUsers.filter(id => (utentiStaff || []).some((u: any) => u.id === id)).length;
-  const selectedClientiCount = selectedUsers.filter(id => (utentiClienti || []).some((u: any) => u.id === id)).length;
+  // Build participant list with role info
+  const participantsList = selectedUsers.map(id => {
+    const linked = autoLinkedUsers.find(u => u.userId === id);
+    const prof = (allProfiles || []).find((p: any) => p.id === id);
+    return {
+      id,
+      nome: linked?.nome || (prof ? `${prof.cognome || ""} ${prof.nome || ""}`.trim() : id.slice(0, 8)),
+      ruolo: linked?.ruolo || prof?.ruolo || "staff",
+    };
+  });
+
+  // Group counts
+  const roleCounts: Record<string, number> = {};
+  participantsList.forEach(p => {
+    roleCounts[p.ruolo] = (roleCounts[p.ruolo] || 0) + 1;
+  });
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); resetForm(); } }}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {ambito === "contestuale" ? "Nuova Chat Contestuale" : "Nuova Conversazione"}
@@ -360,230 +436,243 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
         </DialogHeader>
 
         <div className="space-y-3">
-          {/* Contextual entity selection */}
+          {/* ========== CONTEXTUAL: Unified Entity Tabs ========== */}
           {ambito === "contestuale" && (
-            <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+            <div className="space-y-2">
               <Label className="text-xs font-semibold">Collega a entità</Label>
-              <Select value={entitaTipo} onValueChange={(v) => { setEntitaTipo(v); setEntitaId(""); setEntitaLabel(""); setEntitaRicerca(""); setAutoLinkedClientUserId(null); setAutoLinkedUsers([]); }}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ENTITA_TIPI.map((e) => (
-                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
-              {entitaTipo !== "argomento" && (
-                <div className="space-y-1">
-                  <Input
-                    value={entitaRicerca}
-                    onChange={(e) => { setEntitaRicerca(e.target.value); setEntitaId(""); setEntitaLabel(""); setAutoLinkedClientUserId(null); }}
-                    placeholder={`Cerca ${ENTITA_TIPI.find(e => e.value === entitaTipo)?.label}...`}
-                    className="h-8 text-xs"
-                  />
-                  {entitaResults && entitaResults.length > 0 && !entitaId && (
-                    <div className="border rounded-md max-h-40 overflow-auto bg-background">
-                      {entitaResults.map((r) => (
-                        <button
-                          key={r.id}
-                          onClick={() => handleSelectEntita(r)}
-                          className="w-full text-left px-3 py-2 hover:bg-muted border-b last:border-b-0"
-                        >
-                          <p className="text-xs font-medium">{r.label}</p>
-                          {r.subtitle && <p className="text-[10px] text-muted-foreground">{r.subtitle}</p>}
-                        </button>
+              {/* Selected entity chip */}
+              {entitaId ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-lg">
+                    <Badge className="text-[10px] capitalize">{entitaTipo === "titolo" ? "Polizza" : entitaTipo}</Badge>
+                    <span className="text-sm font-medium flex-1">{entitaLabel}</span>
+                    {loadingRelated && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={clearEntita}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+
+                  {/* Related users summary */}
+                  {autoLinkedUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-[10px] text-muted-foreground mr-1">Auto-collegati:</span>
+                      {Object.entries(roleCounts).map(([ruolo, count]) => (
+                        <Badge key={ruolo} className={`text-[9px] px-1.5 py-0 capitalize ${ROLE_COLORS[ruolo] || ROLE_COLORS.staff}`}>
+                          {count} {ruolo}
+                        </Badge>
                       ))}
                     </div>
                   )}
-                  {entitaId && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className="text-[10px]">
-                          ✓ {entitaLabel}
-                        </Badge>
-                        {loadingRelated && (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin mr-1" /> Ricerca collegati...
-                          </Badge>
-                        )}
+                </div>
+              ) : (
+                /* Tabs for entity type search */
+                <Tabs value={entityTab} onValueChange={(v) => { setEntityTab(v); setEntitaRicerca(""); }}>
+                  <TabsList className="w-full h-8">
+                    <TabsTrigger value="clienti" className="text-[10px] flex-1 h-6 px-1.5">
+                      <UserCheck className="h-3 w-3 mr-1" />Clienti/Prospect
+                    </TabsTrigger>
+                    <TabsTrigger value="polizze" className="text-[10px] flex-1 h-6 px-1.5">
+                      <FileText className="h-3 w-3 mr-1" />Polizze
+                    </TabsTrigger>
+                    <TabsTrigger value="trattative" className="text-[10px] flex-1 h-6 px-1.5">
+                      <Briefcase className="h-3 w-3 mr-1" />Trattative
+                    </TabsTrigger>
+                    <TabsTrigger value="sinistri" className="text-[10px] flex-1 h-6 px-1.5">
+                      <AlertTriangle className="h-3 w-3 mr-1" />Sinistri
+                    </TabsTrigger>
+                    <TabsTrigger value="libero" className="text-[10px] flex-1 h-6 px-1.5">
+                      <Users className="h-3 w-3 mr-1" />Libero
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {entityTab !== "libero" && (
+                    <div className="mt-2 space-y-1">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={entitaRicerca}
+                          onChange={(e) => setEntitaRicerca(e.target.value)}
+                          placeholder={
+                            entityTab === "clienti" ? "Cerca per nome, ragione sociale, CF..." :
+                            entityTab === "polizze" ? "Cerca per numero polizza o nome cliente..." :
+                            entityTab === "trattative" ? "Cerca per prodotto..." :
+                            "Cerca per numero sinistro..."
+                          }
+                          className="h-8 text-xs pl-7"
+                        />
                       </div>
-                      {autoLinkedUsers.length > 0 && (
-                        <div className="bg-primary/5 rounded-md p-2 space-y-1">
-                          <p className="text-[10px] font-semibold text-primary">
-                            Auto-collegati: {autoLinkedUsers.length} utenti
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {(() => {
-                              const grouped: Record<string, number> = {};
-                              autoLinkedUsers.forEach(u => {
-                                const r = u.ruolo || "staff";
-                                grouped[r] = (grouped[r] || 0) + 1;
-                              });
-                              return Object.entries(grouped).map(([ruolo, count]) => (
-                                <Badge key={ruolo} variant="outline" className="text-[9px] px-1.5 py-0 capitalize">
-                                  {count} {ruolo}
-                                </Badge>
-                              ));
-                            })()}
+                      {entitaResults && entitaResults.length > 0 && (
+                        <ScrollArea className="max-h-44 border rounded-md bg-background">
+                          <div>
+                            {entitaResults.map((r) => (
+                              <button
+                                key={`${r.entitaTipo}-${r.id}`}
+                                onClick={() => handleSelectEntita(r)}
+                                className="w-full text-left px-3 py-2 hover:bg-muted border-b last:border-b-0 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${
+                                    r.tipo === "Cliente" ? ROLE_COLORS.cliente :
+                                    r.tipo === "Prospect" ? ROLE_COLORS.prospect :
+                                    "bg-muted"
+                                  }`}>
+                                    {r.tipo}
+                                  </Badge>
+                                  <span className="text-xs font-medium truncate">{r.label}</span>
+                                </div>
+                                {r.subtitle && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{r.subtitle}</p>}
+                              </button>
+                            ))}
                           </div>
-                          <div className="text-[9px] text-muted-foreground max-h-16 overflow-auto">
-                            {autoLinkedUsers.map(u => u.nome).filter(Boolean).join(", ")}
-                          </div>
-                        </div>
+                        </ScrollArea>
+                      )}
+                      {entitaRicerca.length >= 2 && entitaResults && entitaResults.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground text-center py-2">Nessun risultato</p>
                       )}
                     </div>
                   )}
-                </div>
+                </Tabs>
               )}
 
-              <div className="flex items-center gap-2 pt-1">
-                <Switch
-                  id="visibile_cliente"
-                  checked={visibileCliente}
-                  onCheckedChange={setVisibileCliente}
-                />
+              <div className="flex items-center gap-2">
+                <Switch id="visibile_cliente" checked={visibileCliente} onCheckedChange={setVisibileCliente} />
                 <Label htmlFor="visibile_cliente" className="text-xs">Visibile al cliente</Label>
               </div>
             </div>
           )}
 
-          {/* Tipo (only for internal) */}
+          {/* ========== INTERNAL: Type + filters ========== */}
           {ambito === "interno" && (
-            <div className="flex gap-2">
-              {(["diretto", "gruppo", "broadcast"] as const).map((t) => (
-                <Badge
-                  key={t}
-                  variant={tipo === t ? "default" : "outline"}
-                  className="cursor-pointer capitalize"
-                  onClick={() => { setTipo(t); setSelectedUsers([]); }}
-                >
-                  {t}
-                </Badge>
-              ))}
-            </div>
+            <>
+              <div className="flex gap-2">
+                {(["diretto", "gruppo", "broadcast"] as const).map((t) => (
+                  <Badge key={t} variant={tipo === t ? "default" : "outline"} className="cursor-pointer capitalize" onClick={() => { setTipo(t); setSelectedUsers([]); }}>
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+              {tipo !== "diretto" && (
+                <Input value={nomeGruppo} onChange={(e) => setNomeGruppo(e.target.value)} placeholder="Nome del gruppo (opzionale)" />
+              )}
+              <div className="flex gap-2">
+                <Select value={filtroRuolo} onValueChange={setFiltroRuolo}>
+                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Ruolo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tutti">Tutti i ruoli</SelectItem>
+                    {RUOLI_INTERNI.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
+                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Sede" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tutti">Tutti gli uffici</SelectItem>
+                    {(uffici || []).map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Input value={ricerca} onChange={(e) => setRicerca(e.target.value)} placeholder="Cerca staff per nome..." className="h-8 text-xs" />
+              {tipo !== "diretto" && utentiFiltrati.length > 0 && (
+                <Button variant="ghost" size="sm" className="text-xs" onClick={selectAllFiltered}>Seleziona tutti ({utentiFiltrati.length})</Button>
+              )}
+              <ScrollArea className="h-48 border rounded-lg">
+                <div className="p-1">
+                  {utentiFiltrati.map((u: any) => (
+                    <label key={u.id} className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-sm">
+                      <Checkbox checked={selectedUsers.includes(u.id)} onCheckedChange={() => toggleUser(u.id)} />
+                      <span className="font-medium flex-1">{u.cognome} {u.nome}</span>
+                      <span className="text-xs text-muted-foreground capitalize">{u.ruolo}</span>
+                    </label>
+                  ))}
+                  {!utentiFiltrati.length && <p className="text-center text-xs text-muted-foreground py-4">Nessun utente trovato</p>}
+                </div>
+              </ScrollArea>
+            </>
           )}
 
-          {(tipo !== "diretto" || ambito === "contestuale") && (
-            <Input
-              value={nomeGruppo}
-              onChange={(e) => setNomeGruppo(e.target.value)}
-              placeholder={ambito === "contestuale" && entitaLabel ? `Auto: ${ENTITA_TIPI.find(e => e.value === entitaTipo)?.label}: ${entitaLabel}` : "Nome del gruppo (opzionale)"}
-            />
-          )}
-
-          {/* Staff/Clienti toggle for contextual */}
+          {/* ========== CONTEXTUAL: Unified participants ========== */}
           {ambito === "contestuale" && (
-            <div className="flex gap-1">
-              <Badge
-                variant={sezioneUtenti === "staff" ? "default" : "outline"}
-                className="cursor-pointer text-xs"
-                onClick={() => setSezioneUtenti("staff")}
-              >
-                Staff {selectedStaffCount > 0 && `(${selectedStaffCount})`}
-              </Badge>
-              <Badge
-                variant={sezioneUtenti === "clienti" ? "default" : "outline"}
-                className="cursor-pointer text-xs"
-                onClick={() => setSezioneUtenti("clienti")}
-              >
-                Clienti {selectedClientiCount > 0 && `(${selectedClientiCount})`}
-              </Badge>
-            </div>
-          )}
+            <div className="space-y-2">
+              <Separator />
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Partecipanti ({participantsList.length})</Label>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setShowAddPartecipante(!showAddPartecipante)}>
+                  <Plus className="h-3 w-3 mr-1" /> Aggiungi
+                </Button>
+              </div>
 
-          {/* Filters (only for staff section) */}
-          {sezioneUtenti === "staff" && (
-            <div className="flex gap-2">
-              <Select value={filtroRuolo} onValueChange={setFiltroRuolo}>
-                <SelectTrigger className="h-8 text-xs flex-1">
-                  <SelectValue placeholder="Ruolo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tutti">Tutti i ruoli</SelectItem>
-                  {RUOLI_INTERNI.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filtroUfficio} onValueChange={setFiltroUfficio}>
-                <SelectTrigger className="h-8 text-xs flex-1">
-                  <SelectValue placeholder="Sede" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tutti">Tutti gli uffici</SelectItem>
-                  {(uffici || []).map((u: any) => (
-                    <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+              {/* Group name */}
+              <Input
+                value={nomeGruppo}
+                onChange={(e) => setNomeGruppo(e.target.value)}
+                placeholder={entitaLabel ? `Auto: ${entitaTipo === "titolo" ? "Polizza" : entitaTipo}: ${entitaLabel}` : "Nome conversazione (opzionale)"}
+                className="h-8 text-xs"
+              />
 
-          <Input
-            value={ricerca}
-            onChange={(e) => setRicerca(e.target.value)}
-            placeholder={sezioneUtenti === "staff" ? "Cerca staff per nome..." : "Cerca cliente per nome..."}
-            className="h-8 text-xs"
-          />
-
-          {(tipo !== "diretto" || ambito === "contestuale") && utentiFiltrati.length > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs" onClick={selectAllFiltered}>
-              Seleziona tutti ({utentiFiltrati.length})
-            </Button>
-          )}
-
-          {/* User list */}
-          <ScrollArea className="h-52 border rounded-lg">
-            <div className="p-1">
-              {utentiFiltrati.map((u: any) => {
-                const isAutoLinked = u.id === autoLinkedClientUserId;
-                return (
-                  <label
-                    key={u.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-sm"
-                  >
-                    <Checkbox
-                      checked={selectedUsers.includes(u.id)}
-                      onCheckedChange={() => toggleUser(u.id)}
+              {/* Manual add */}
+              {showAddPartecipante && (
+                <div className="space-y-1">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={addPartecipanteRicerca}
+                      onChange={(e) => setAddPartecipanteRicerca(e.target.value)}
+                      placeholder="Cerca utente per nome, email..."
+                      className="h-8 text-xs pl-7"
+                      autoFocus
                     />
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium">{u.cognome} {u.nome}</span>
-                      {sezioneUtenti === "staff" && (
-                        <span className="text-xs text-muted-foreground ml-2 capitalize">{u.ruolo}</span>
-                      )}
-                      {u.email && sezioneUtenti === "clienti" && (
-                        <span className="text-[10px] text-muted-foreground ml-2">{u.email}</span>
-                      )}
+                  </div>
+                  {filteredAddProfiles.length > 0 && (
+                    <div className="border rounded-md max-h-32 overflow-auto bg-background">
+                      {filteredAddProfiles.map((u: any) => (
+                        <button
+                          key={u.id}
+                          onClick={() => { setSelectedUsers(prev => [...prev, u.id]); setAddPartecipanteRicerca(""); }}
+                          className="w-full text-left px-3 py-1.5 hover:bg-muted border-b last:border-b-0 flex items-center gap-2"
+                        >
+                          <span className="text-xs font-medium">{u.cognome} {u.nome}</span>
+                          <Badge className={`text-[9px] px-1 py-0 ml-auto capitalize ${ROLE_COLORS[u.ruolo] || ROLE_COLORS.staff}`}>
+                            {u.ruolo}
+                          </Badge>
+                        </button>
+                      ))}
                     </div>
-                    {isAutoLinked && (
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-primary">Auto</Badge>
-                    )}
-                    {sezioneUtenti === "clienti" && (
-                      <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">Cliente</Badge>
-                    )}
-                  </label>
-                );
-              })}
-              {!utentiFiltrati.length && (
-                <p className="text-center text-xs text-muted-foreground py-4">Nessun utente trovato</p>
+                  )}
+                </div>
               )}
-            </div>
-          </ScrollArea>
 
-          {selectedUsers.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {selectedUsers.length} partecipante/i selezionato/i
-              {selectedStaffCount > 0 && selectedClientiCount > 0 && (
-                <span> ({selectedStaffCount} staff, {selectedClientiCount} clienti)</span>
-              )}
-            </p>
+              {/* Participants list */}
+              <ScrollArea className="max-h-40 border rounded-lg">
+                <div className="p-1">
+                  {participantsList.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-muted text-sm">
+                      <span className="text-xs font-medium flex-1 truncate">{p.nome}</span>
+                      <Badge className={`text-[9px] px-1.5 py-0 capitalize shrink-0 ${ROLE_COLORS[p.ruolo] || ROLE_COLORS.staff}`}>
+                        {p.ruolo}
+                      </Badge>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0 shrink-0" onClick={() => removeUser(p.id)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  {participantsList.length === 0 && (
+                    <p className="text-center text-xs text-muted-foreground py-4">
+                      {entityTab === "libero" ? "Aggiungi partecipanti manualmente" : "Seleziona un'entità per auto-collegare i partecipanti"}
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* ========== Summary + Create ========== */}
+          {selectedUsers.length > 0 && ambito === "interno" && (
+            <p className="text-xs text-muted-foreground">{selectedUsers.length} partecipante/i selezionato/i</p>
           )}
 
           <Button
             onClick={() => createMutation.mutate()}
-            disabled={selectedUsers.length === 0 || createMutation.isPending || (ambito === "contestuale" && entitaTipo !== "argomento" && !entitaId)}
+            disabled={selectedUsers.length === 0 || createMutation.isPending || (ambito === "contestuale" && entityTab !== "libero" && !entitaId)}
             className="w-full"
           >
             Crea conversazione
