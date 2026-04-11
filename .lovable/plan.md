@@ -1,34 +1,27 @@
 
 
-## Piano: Conferma cambio stato con dialog + fix errori silenziosi
+## Piano: Fix vincolo CHECK sugli stati trattativa
 
-### Problema
-1. Il cambio stato non funziona (probabilmente errore silenzioso non visibile)
-2. Manca un dialog di conferma prima del cambio stato
-3. I cambi stato devono essere loggati nella timeline (il codice c'è ma potrebbe fallire senza segnalare)
+### Problema trovato
+L'errore **non è RLS** ma un **CHECK constraint** sul database. La colonna `stato` della tabella `trattative` ha un vincolo che accetta solo 4 valori:
 
-### Modifiche
+```text
+aperta, in_negoziazione, chiusa_vinta, chiusa_persa
+```
 
-#### 1. `src/components/trattative/TrattativaDetailDialog.tsx`
-- Aggiungere un **AlertDialog di conferma** prima di cambiare stato: "Sei sicuro di voler cambiare lo stato da X a Y?"
-- Per stati terminali (chiusa_vinta, chiusa_persa) richiedere anche un **motivo_chiusura** nel dialog
-- Aggiungere error handling nell'`logEvento` (attualmente ignora errori di insert)
-- Aggiungere `console.error` e toast per errori nel log eventi
-- Aggiungere log nell'`onError` per debug
+Ma la nuova pipeline usa 8 stati (`contatto`, `preventivo`, `proposta_inviata`, `sospesa` sono rifiutati). Ogni tentativo di cambiare stato verso uno dei nuovi valori viene bloccato dal database.
 
-#### 2. `src/components/trattative/StatoPipeline.tsx`
-- Nessuna modifica - il componente è corretto, passa il click al parent
+### Soluzione
 
-#### Flusso dopo la modifica:
-1. Utente clicca su uno stato nella pipeline
-2. Si apre un AlertDialog: "Conferma cambio stato" con stato vecchio → stato nuovo
-3. Se stato terminale, campo testo per motivo chiusura
-4. Utente conferma → mutazione parte → log evento + aggiornamento DB
-5. Toast di successo/errore
+**Migrazione SQL** — una sola operazione:
+1. Eliminare il vincolo `trattative_stato_check` esistente
+2. Ricrearlo con tutti gli 8 stati: `aperta`, `contatto`, `preventivo`, `in_negoziazione`, `proposta_inviata`, `chiusa_vinta`, `chiusa_persa`, `sospesa`
+
+Nessuna modifica frontend necessaria — il codice è già corretto, è solo il database che rifiuta i nuovi valori.
 
 ### File coinvolti
 
 | File | Modifica |
 |------|----------|
-| `src/components/trattative/TrattativaDetailDialog.tsx` | AlertDialog conferma + error handling migliorato |
+| Nuova migrazione SQL | DROP + CREATE constraint con 8 stati |
 
