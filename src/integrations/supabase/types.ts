@@ -3927,54 +3927,216 @@ export type Database = {
       prospect: {
         Row: {
           assegnato_a: string | null
+          attenzione_di: string | null
+          attivita: string | null
+          azienda_stat: string | null
+          cap_alternativo: string | null
+          cap_fiscale: string | null
+          cap_residenza: string | null
+          cap_sede: string | null
+          cellulare: string | null
+          citta_alternativa: string | null
+          citta_fiscale: string | null
+          citta_residenza: string | null
+          citta_sede: string | null
+          cliente_associato: boolean | null
+          cliente_captive: boolean | null
+          codice_ateco: string | null
+          codice_fiscale: string | null
+          codice_fiscale_azienda: string | null
+          codice_ricerca: string | null
+          codice_sdi: string | null
           cognome: string | null
+          comune_nascita: string | null
+          contratto: string | null
           convertito_cliente_id: string | null
           created_at: string | null
+          data_nascita: string | null
           email: string | null
+          fascia_dipendenti: string | null
+          fascia_fatturato: string | null
+          fax: string | null
           fonte: string | null
+          forma_giuridica: string | null
+          gruppo_statistico: string | null
           id: string
+          indirizzo_alternativo: string | null
+          indirizzo_fiscale: string | null
+          indirizzo_residenza: string | null
+          indirizzo_sede: string | null
+          indotto: string | null
+          internazionale: boolean | null
+          luogo_nascita: string | null
+          matricola: string | null
+          nazione: string | null
           nome: string | null
           note: string | null
+          partita_iva: string | null
+          pec: string | null
+          provincia_alternativa: string | null
+          provincia_fiscale: string | null
+          provincia_nascita: string | null
+          provincia_residenza: string | null
+          provincia_sede: string | null
+          ragione_sociale: string | null
+          referente_cognome: string | null
+          referente_email: string | null
+          referente_nome: string | null
+          referente_telefono: string | null
+          riferimento: string | null
           search_vector: unknown
+          sesso: string | null
+          settore: string | null
           stato: string
           telefono: string | null
+          tipo_cliente: string
+          titolo: string | null
           ufficio_id: string | null
           updated_at: string | null
           user_id: string | null
+          zona: string | null
         }
         Insert: {
           assegnato_a?: string | null
+          attenzione_di?: string | null
+          attivita?: string | null
+          azienda_stat?: string | null
+          cap_alternativo?: string | null
+          cap_fiscale?: string | null
+          cap_residenza?: string | null
+          cap_sede?: string | null
+          cellulare?: string | null
+          citta_alternativa?: string | null
+          citta_fiscale?: string | null
+          citta_residenza?: string | null
+          citta_sede?: string | null
+          cliente_associato?: boolean | null
+          cliente_captive?: boolean | null
+          codice_ateco?: string | null
+          codice_fiscale?: string | null
+          codice_fiscale_azienda?: string | null
+          codice_ricerca?: string | null
+          codice_sdi?: string | null
           cognome?: string | null
+          comune_nascita?: string | null
+          contratto?: string | null
           convertito_cliente_id?: string | null
           created_at?: string | null
+          data_nascita?: string | null
           email?: string | null
+          fascia_dipendenti?: string | null
+          fascia_fatturato?: string | null
+          fax?: string | null
           fonte?: string | null
+          forma_giuridica?: string | null
+          gruppo_statistico?: string | null
           id?: string
+          indirizzo_alternativo?: string | null
+          indirizzo_fiscale?: string | null
+          indirizzo_residenza?: string | null
+          indirizzo_sede?: string | null
+          indotto?: string | null
+          internazionale?: boolean | null
+          luogo_nascita?: string | null
+          matricola?: string | null
+          nazione?: string | null
           nome?: string | null
           note?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          provincia_alternativa?: string | null
+          provincia_fiscale?: string | null
+          provincia_nascita?: string | null
+          provincia_residenza?: string | null
+          provincia_sede?: string | null
+          ragione_sociale?: string | null
+          referente_cognome?: string | null
+          referente_email?: string | null
+          referente_nome?: string | null
+          referente_telefono?: string | null
+          riferimento?: string | null
           search_vector?: unknown
+          sesso?: string | null
+          settore?: string | null
           stato?: string
           telefono?: string | null
+          tipo_cliente?: string
+          titolo?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          zona?: string | null
         }
         Update: {
           assegnato_a?: string | null
+          attenzione_di?: string | null
+          attivita?: string | null
+          azienda_stat?: string | null
+          cap_alternativo?: string | null
+          cap_fiscale?: string | null
+          cap_residenza?: string | null
+          cap_sede?: string | null
+          cellulare?: string | null
+          citta_alternativa?: string | null
+          citta_fiscale?: string | null
+          citta_residenza?: string | null
+          citta_sede?: string | null
+          cliente_associato?: boolean | null
+          cliente_captive?: boolean | null
+          codice_ateco?: string | null
+          codice_fiscale?: string | null
+          codice_fiscale_azienda?: string | null
+          codice_ricerca?: string | null
+          codice_sdi?: string | null
           cognome?: string | null
+          comune_nascita?: string | null
+          contratto?: string | null
           convertito_cliente_id?: string | null
           created_at?: string | null
+          data_nascita?: string | null
           email?: string | null
+          fascia_dipendenti?: string | null
+          fascia_fatturato?: string | null
+          fax?: string | null
           fonte?: string | null
+          forma_giuridica?: string | null
+          gruppo_statistico?: string | null
           id?: string
+          indirizzo_alternativo?: string | null
+          indirizzo_fiscale?: string | null
+          indirizzo_residenza?: string | null
+          indirizzo_sede?: string | null
+          indotto?: string | null
+          internazionale?: boolean | null
+          luogo_nascita?: string | null
+          matricola?: string | null
+          nazione?: string | null
           nome?: string | null
           note?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          provincia_alternativa?: string | null
+          provincia_fiscale?: string | null
+          provincia_nascita?: string | null
+          provincia_residenza?: string | null
+          provincia_sede?: string | null
+          ragione_sociale?: string | null
+          referente_cognome?: string | null
+          referente_email?: string | null
+          referente_nome?: string | null
+          referente_telefono?: string | null
+          riferimento?: string | null
           search_vector?: unknown
+          sesso?: string | null
+          settore?: string | null
           stato?: string
           telefono?: string | null
+          tipo_cliente?: string
+          titolo?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          zona?: string | null
         }
         Relationships: [
           {
