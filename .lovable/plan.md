@@ -1,47 +1,25 @@
 
 
-## Piano: Riorganizzare voci Portafoglio e creare gruppo Provvigioni
+## Piano: Spostare Prospect sotto il gruppo Trattative
 
 ### Cosa cambia
 
-1. **Rimuovere dal gruppo Portafoglio** le voci:
-   - "Regolazioni"
-   - "Rientro Documenti"
-   - "Import Titoli (Excel)"
-   - "Analisi Preventivo RCA"
-
-2. **Aggiungere "Rimessa Premi"** al gruppo Portafoglio (attualmente è single standalone alla riga 197)
-
-3. **Creare nuovo gruppo "Provvigioni"** (collassabile) con due sotto-voci:
-   - "Provvigioni Consul" → `/provvigioni-sede`
-   - "Pagamenti Provvigioni" → `/pagamenti-provvigioni`
-
-4. **Rimuovere** le voci single standalone "Provvigioni Consul", "Pagamenti Provvigioni" e "Rimessa Premi" (righe 195-197)
+1. **Rimuovere** la voce standalone "Prospect" (riga 86)
+2. **Aggiungere** "Prospect" come primo child del gruppo "Trattative" (prima di "Lista Trattative")
 
 ### Risultato sidebar
 
 ```
-▸ Portafoglio
-    Clienti
-    Ricerca Polizze
-    Gestione Polizze
-    Estrazioni e Stampe
-    Collettive / Libri Matricola
-    Rimessa Premi             ← spostata qui
-...
-▸ Provvigioni                ← nuovo gruppo
-    Provvigioni Consul
-    Pagamenti Provvigioni
+▸ Trattative
+    Prospect              ← spostato qui
+    Lista Trattative
+    Calendario
+    Storico
 ```
 
-### Aggiornamento Sitemap
-
-Riflettere le stesse modifiche nella pagina Sitemap: rimuovere le voci eliminate, aggiungere Rimessa Premi a Portafoglio, creare sezione Provvigioni.
-
-### File coinvolti
+### File coinvolto
 
 | File | Azione |
 |------|--------|
-| `src/components/AppSidebar.tsx` | Rimuovere 4 voci da Portafoglio, aggiungere Rimessa Premi a Portafoglio, creare gruppo Provvigioni, rimuovere 3 single standalone |
-| `src/pages/SitemapPage.tsx` | Aggiornare sezioni per riflettere la nuova struttura |
+| `src/components/AppSidebar.tsx` | Rimuovere single Prospect, aggiungere come primo child di Trattative |
 
