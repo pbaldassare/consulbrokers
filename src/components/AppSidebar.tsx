@@ -123,12 +123,15 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
         { label: "Regolazioni", path: "/portafoglio/regolazioni", icon: Grid3X3 },
-        { label: "Documentale", path: "/portafoglio/documentale", icon: HardDrive },
         { label: "Rientro Documenti", path: "/portafoglio/rientro-documenti", icon: Import },
         { label: "Import Titoli (Excel)", path: "/portafoglio/import-titoli", icon: FileUp },
         { label: "Analisi Preventivo RCA", path: "/portafoglio/analisi-preventivo-rca", icon: Shield },
       ],
     },
+  },
+  {
+    type: "single",
+    item: { label: "Archivio Documentale", path: "/portafoglio/documentale", icon: HardDrive, permissionKey: "portafoglio" },
   },
   {
     type: "group",
