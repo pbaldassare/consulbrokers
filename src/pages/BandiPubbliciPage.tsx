@@ -434,8 +434,9 @@ export default function BandiPubbliciPage() {
     setElapsedSeconds(0);
   };
 
-  const openCreaTrattativaDialog = (bando: any) => {
+  const openCreaTrattativaDialog = async (bando: any) => {
     setSelectedBando(bando);
+    setExistingTrattative([]);
     // Pre-fill fields
     setTrattativaProdotto(bando.keyword || KEYWORD_FISSA);
     setTrattativaPremio(bando.importo ? String(bando.importo) : "");
@@ -447,6 +448,23 @@ export default function BandiPubbliciPage() {
     ].filter(Boolean).join("\n");
     setTrattativaNote(noteLines);
     setCreaTrattativaOpen(true);
+
+    // Check for existing trattative linked to this bando
+    try {
+      const { data: linked } = await supabase
+        .from("bandi_trattative")
+        .select("trattativa_id, trattative:trattativa_id(id, prodotto, stato, data_apertura, premio_previsto, fonte)")
+        .eq("bando_id", bando.id);
+
+      if (linked && linked.length > 0) {
+        const trattative = linked
+          .map((l: any) => l.trattative)
+          .filter(Boolean);
+        setExistingTrattative(trattative);
+      }
+    } catch (err) {
+      console.error("Errore check trattative esistenti:", err);
+    }
   };
 
   const handleConfirmCreaTrattativa = async () => {
