@@ -777,7 +777,7 @@ const AnagraficheProfessionaliPage = () => {
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche</h1>
           <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti, Executive, Resp. Sede, Prod. Sede</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />Nuovo
         </Button>
       </div>
@@ -819,17 +819,17 @@ const AnagraficheProfessionaliPage = () => {
         ))}
       </Tabs>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nuovo {tipoLabel.slice(0, -1)}</DialogTitle>
+            <DialogTitle>{editingId ? `Modifica ${tipoLabel.slice(0, -1)}` : `Nuovo ${tipoLabel.slice(0, -1)}`}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
             {renderFormFields()}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Salvataggio..." : "Salva"}
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
               </Button>
             </DialogFooter>
           </form>
