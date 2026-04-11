@@ -1,42 +1,26 @@
 
 
-## Piano: Pagina Storico Trattative con archiviazione aggregata
+## Piano: Fix visualizzazione trattative - soggetto ente, bando semplificato, scadenza
 
-### Cosa viene creato
+### Problemi identificati
 
-Una nuova pagina **Storico Trattative** accessibile dal menu, che mostra tutte le trattative chiuse (vinte/perse) o archiviate, con possibilita di archiviare in blocco dalla lista principale.
+1. **Soggetto**: per i prospect di tipo "ente", il nome viene da `ragione_sociale` ma la query seleziona solo `nome, cognome`. L'ente risulta vuoto.
+2. **Colonna Ramo**: mostra il campo `prodotto` ("affidamento") che non e' utile. L'utente dice che il ramo non serve nella tabella.
+3. **Colonna Bando**: mostra il nome dell'ente, dovrebbe mostrare il titolo del bando in modo semplificato.
+4. **Colonna Data**: mostra `created_at`, dovrebbe mostrare `data_scadenza` (la scadenza del bando/trattativa).
 
-### Modifiche
+### Modifiche in `src/pages/TrattativeList.tsx`
 
-#### 1. Migrazione DB: aggiungere campo `archiviata`
-- Aggiungere `archiviata BOOLEAN DEFAULT false` alla tabella `trattative`
-- Indice su `archiviata` per query performanti
-
-#### 2. Nuova pagina `src/pages/StoricoTrattativePage.tsx`
-- Query tutte le trattative con `archiviata = true` OR `stato IN ('chiusa_vinta', 'chiusa_persa')`
-- Filtri: stato (vinta/persa/tutte), periodo (date range), ufficio, compagnia, ramo, fonte
-- KPI in alto: totale archiviate, vinte vs perse (conteggio e %), premio totale vinto, premio totale perso
-- Tabella con colonne: Tipo, Soggetto, Ramo, Compagnia, Premio, Stato, Motivo chiusura, Data chiusura, Fonte
-- Possibilita di riaprire una trattativa (rimettere `archiviata = false`, stato a "aperta")
-- Export CSV dei risultati filtrati
-
-#### 3. Azione aggregata in `TrattativeList.tsx`
-- Aggiungere checkbox su ogni riga + checkbox "seleziona tutto"
-- Pulsante "Archivia selezionate" (visibile solo admin): conferma con AlertDialog, poi update massivo `archiviata = true` sulle trattative selezionate
-- Pulsante rapido "Archivia tutte le chiuse": archivia in blocco tutte le `chiusa_vinta` e `chiusa_persa`
-- Le trattative archiviate spariscono dalla lista principale (filtro `archiviata = false` o `archiviata IS NULL`)
-
-#### 4. Routing e sidebar
-- Rotta `/trattative/storico` in `src/routes/archivi.tsx`
-- Voce nel sidebar sotto "Trattative" con icona Archive
+1. **Query prospect**: aggiungere `ragione_sociale, tipo_cliente` alla select del prospect join
+2. **`getSoggettoName`**: per prospect con `tipo_cliente === 'ente'`, usare `ragione_sociale`
+3. **Rimuovere colonna Ramo**: togliere header e cella "Ramo" dalla tabella
+4. **Colonna Bando**: mostrare titolo del bando abbreviato (primi ~60 caratteri) invece dell'ente
+5. **Colonna Data**: rinominare in "Scadenza" e mostrare `data_scadenza` invece di `created_at`
+6. **Filtro ricerca**: aggiornare per cercare anche su `ragione_sociale` e bando titolo
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Migrazione SQL | `ALTER TABLE trattative ADD COLUMN archiviata BOOLEAN DEFAULT false` |
-| `src/pages/StoricoTrattativePage.tsx` | Nuova pagina con filtri, KPI, tabella, riapertura, export |
-| `src/pages/TrattativeList.tsx` | Checkbox selezione, pulsanti archiviazione aggregata, filtro `archiviata = false` |
-| `src/routes/archivi.tsx` | Aggiungere rotta `/trattative/storico` |
-| `src/components/AppSidebar.tsx` | Voce "Storico Trattative" sotto Trattative |
+| `src/pages/TrattativeList.tsx` | Fix query prospect, getSoggettoName per enti, rimuovere Ramo, fix Bando e Data |
 
