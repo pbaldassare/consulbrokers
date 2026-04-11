@@ -54,6 +54,7 @@ export const sistemaRoutes = (
     <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
     <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
     <Route path="/report" element={<ReportPage />} />
+    <Route path="/chat" element={<ComunicazioniPage />} />
     <Route path="/comunicazioni" element={<ComunicazioniPage />} />
   </>
 );

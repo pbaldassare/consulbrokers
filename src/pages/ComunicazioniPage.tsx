@@ -8,28 +8,30 @@ export default function ComunicazioniPage() {
   const { profile } = useAuth();
   const [canaleAttivoId, setCanaleAttivoId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [ambito, setAmbito] = useState<"interno" | "contestuale">("interno");
 
   if (!profile) return null;
 
   return (
     <div className="h-[calc(100vh-4rem)] flex">
-      {/* Sidebar canali */}
       <div className="w-72 shrink-0">
         <CanaliSidebar
           canaleAttivoId={canaleAttivoId}
           onSelectCanale={setCanaleAttivoId}
           onNuovaConversazione={() => setDialogOpen(true)}
           userId={profile.id}
+          ambito={ambito}
+          onAmbitoChange={(a) => { setAmbito(a); setCanaleAttivoId(null); }}
+          showAmbitoToggle={true}
         />
       </div>
 
-      {/* Area chat */}
       <ChatArea canaleId={canaleAttivoId} />
 
-      {/* Dialog nuova conversazione */}
       <NuovaConversazioneDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
+        ambito={ambito}
         onCreated={(id) => {
           setCanaleAttivoId(id);
           setDialogOpen(false);

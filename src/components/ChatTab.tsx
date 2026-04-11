@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,17 +18,63 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
   const [msg, setMsg] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { data: messaggi } = useQuery({
-    queryKey: ["chat", entitaTipo, entitaId],
+  // Find or create a contextual channel for this entity
+  const { data: canaleId } = useQuery({
+    queryKey: ["chat_canale_contestuale", entitaTipo, entitaId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("chat_messaggi")
-        .select("*, profiles:mittente_id(nome, cognome)")
+      // Look for existing channel
+      const { data: existing } = await supabase
+        .from("chat_canali")
+        .select("id")
+        .eq("ambito", "contestuale")
         .eq("entita_tipo", entitaTipo)
         .eq("entita_id", entitaId)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) return existing.id;
+
+      // Create a new contextual channel
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: canale } = await supabase
+        .from("chat_canali")
+        .insert({
+          tipo: "gruppo",
+          ambito: "contestuale",
+          entita_tipo: entitaTipo,
+          entita_id: entitaId,
+          visibile_cliente: true,
+          creato_da: user.id,
+        })
+        .select()
+        .single();
+
+      if (canale) {
+        await supabase.from("chat_canali_membri").insert({
+          canale_id: canale.id,
+          user_id: user.id,
+          ruolo_canale: "admin",
+        });
+        return canale.id;
+      }
+      return null;
+    },
+  });
+
+  const { data: messaggi } = useQuery({
+    queryKey: ["chat_messaggi_interni", canaleId],
+    queryFn: async () => {
+      if (!canaleId) return [];
+      const { data } = await supabase
+        .from("chat_messaggi_interni")
+        .select("*, profiles:mittente_id(nome, cognome)")
+        .eq("canale_id", canaleId)
         .order("created_at", { ascending: true });
       return data || [];
     },
+    enabled: !!canaleId,
     refetchInterval: 5000,
   });
 
@@ -36,22 +82,46 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messaggi]);
 
-  const inviaMessaggio = async () => {
-    if (!msg.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      if (!msg.trim() || !canaleId) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    await supabase.from("chat_messaggi").insert({
-      entita_tipo: entitaTipo,
-      entita_id: entitaId,
-      mittente_id: user.id,
-      messaggio: msg.trim(),
-    });
+      // Ensure user is member
+      const { data: membership } = await supabase
+        .from("chat_canali_membri")
+        .select("id")
+        .eq("canale_id", canaleId)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    await logAttivita({ azione: "messaggio_chat", entita_tipo: entitaTipo, entita_id: entitaId, dettagli_json: { preview: msg.trim().slice(0, 50) } });
-    setMsg("");
-    qc.invalidateQueries({ queryKey: ["chat", entitaTipo, entitaId] });
-  };
+      if (!membership) {
+        await supabase.from("chat_canali_membri").insert({
+          canale_id: canaleId,
+          user_id: user.id,
+          ruolo_canale: "membro",
+        });
+      }
+
+      await supabase.from("chat_messaggi_interni").insert({
+        canale_id: canaleId,
+        mittente_id: user.id,
+        messaggio: msg.trim(),
+      });
+
+      await logAttivita({
+        azione: "messaggio_chat",
+        entita_tipo: entitaTipo,
+        entita_id: entitaId,
+        dettagli_json: { preview: msg.trim().slice(0, 50) },
+      });
+    },
+    onSuccess: () => {
+      setMsg("");
+      qc.invalidateQueries({ queryKey: ["chat_messaggi_interni", canaleId] });
+    },
+  });
 
   return (
     <div className="flex flex-col h-80 border rounded-lg">
@@ -76,11 +146,13 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
         <Input
           value={msg}
           onChange={e => setMsg(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && inviaMessaggio()}
+          onKeyDown={e => e.key === "Enter" && sendMutation.mutate()}
           placeholder="Scrivi un messaggio..."
           className="flex-1"
         />
-        <Button size="icon" onClick={inviaMessaggio} disabled={!msg.trim()}><Send className="h-4 w-4" /></Button>
+        <Button size="icon" onClick={() => sendMutation.mutate()} disabled={!msg.trim() || sendMutation.isPending}>
+          <Send className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

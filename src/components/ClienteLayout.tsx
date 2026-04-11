@@ -14,7 +14,7 @@ const navItems = [
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
   { to: "/cliente/documenti", label: "Documenti", icon: FileText },
   { to: "/cliente/scadenze", label: "Scadenze", icon: CalendarClock },
-  { to: "/cliente/comunicazioni", label: "Comunicazioni", icon: MessageSquare },
+  { to: "/cliente/chat", label: "Chat", icon: MessageSquare },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
   { to: "/cliente/upload", label: "Carica Doc", icon: Upload },

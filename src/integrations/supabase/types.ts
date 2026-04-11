@@ -520,28 +520,40 @@ export type Database = {
       }
       chat_canali: {
         Row: {
+          ambito: string
           created_at: string | null
           creato_da: string | null
+          entita_id: string | null
+          entita_tipo: string | null
           id: string
           nome: string | null
           tipo: string
           ufficio_id: string | null
+          visibile_cliente: boolean
         }
         Insert: {
+          ambito?: string
           created_at?: string | null
           creato_da?: string | null
+          entita_id?: string | null
+          entita_tipo?: string | null
           id?: string
           nome?: string | null
           tipo?: string
           ufficio_id?: string | null
+          visibile_cliente?: boolean
         }
         Update: {
+          ambito?: string
           created_at?: string | null
           creato_da?: string | null
+          entita_id?: string | null
+          entita_tipo?: string | null
           id?: string
           nome?: string | null
           tipo?: string
           ufficio_id?: string | null
+          visibile_cliente?: boolean
         }
         Relationships: [
           {
