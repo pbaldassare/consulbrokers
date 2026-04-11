@@ -13,16 +13,41 @@ interface ChatTabProps {
   entitaId: string;
 }
 
+async function findClienteUserId(entitaTipo: string, entitaId: string): Promise<string | null> {
+  let clienteId: string | null = null;
+
+  if (entitaTipo === "cliente") {
+    const { data } = await supabase.from("clienti").select("user_id").eq("id", entitaId).maybeSingle();
+    return data?.user_id || null;
+  }
+
+  if (entitaTipo === "titolo") {
+    const { data } = await supabase.from("titoli").select("cliente_anagrafica_id").eq("id", entitaId).maybeSingle();
+    clienteId = data?.cliente_anagrafica_id || null;
+  } else if (entitaTipo === "sinistro") {
+    const { data } = await supabase.from("sinistri").select("cliente_anagrafica_id").eq("id", entitaId).maybeSingle();
+    clienteId = data?.cliente_anagrafica_id || null;
+  } else if (entitaTipo === "trattativa") {
+    const { data } = await supabase.from("trattative").select("cliente_id").eq("id", entitaId).maybeSingle();
+    clienteId = data?.cliente_id || null;
+  }
+
+  if (clienteId) {
+    const { data } = await supabase.from("clienti").select("user_id").eq("id", clienteId).maybeSingle();
+    return data?.user_id || null;
+  }
+
+  return null;
+}
+
 export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
   const qc = useQueryClient();
   const [msg, setMsg] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Find or create a contextual channel for this entity
   const { data: canaleId } = useQuery({
     queryKey: ["chat_canale_contestuale", entitaTipo, entitaId],
     queryFn: async () => {
-      // Look for existing channel
       const { data: existing } = await supabase
         .from("chat_canali")
         .select("id")
@@ -34,7 +59,6 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
 
       if (existing) return existing.id;
 
-      // Create a new contextual channel
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
@@ -52,11 +76,23 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
         .single();
 
       if (canale) {
+        // Add creator as admin
         await supabase.from("chat_canali_membri").insert({
           canale_id: canale.id,
           user_id: user.id,
           ruolo_canale: "admin",
         });
+
+        // Auto-add client user if found
+        const clienteUserId = await findClienteUserId(entitaTipo, entitaId);
+        if (clienteUserId && clienteUserId !== user.id) {
+          await supabase.from("chat_canali_membri").insert({
+            canale_id: canale.id,
+            user_id: clienteUserId,
+            ruolo_canale: "membro",
+          });
+        }
+
         return canale.id;
       }
       return null;
@@ -88,7 +124,6 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Ensure user is member
       const { data: membership } = await supabase
         .from("chat_canali_membri")
         .select("id")

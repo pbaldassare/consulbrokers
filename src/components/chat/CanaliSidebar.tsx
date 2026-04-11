@@ -56,7 +56,7 @@ export default function CanaliSidebar({
   const { data: canali } = useQuery({
     queryKey: ["chat_canali", userId, ambito],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from("chat_canali")
         .select("*, chat_canali_membri(user_id, profiles:user_id(nome, cognome))")
         .eq("ambito", ambito)
@@ -67,13 +67,72 @@ export default function CanaliSidebar({
     refetchInterval: 10000,
   });
 
+  // Resolve entity names for contextual channels
+  const entitaIds = (canali || [])
+    .filter((c: any) => c.ambito === "contestuale" && c.entita_id && !c.nome)
+    .reduce((acc: Record<string, string[]>, c: any) => {
+      if (!acc[c.entita_tipo]) acc[c.entita_tipo] = [];
+      if (!acc[c.entita_tipo].includes(c.entita_id)) acc[c.entita_tipo].push(c.entita_id);
+      return acc;
+    }, {});
+
+  const { data: entitaNomi } = useQuery({
+    queryKey: ["entita_nomi_sidebar", JSON.stringify(entitaIds)],
+    queryFn: async () => {
+      const result: Record<string, string> = {};
+
+      if (entitaIds.cliente?.length) {
+        const { data } = await supabase.from("clienti").select("id, nome, cognome, ragione_sociale").in("id", entitaIds.cliente);
+        (data || []).forEach((c: any) => {
+          result[c.id] = c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim();
+        });
+      }
+      if (entitaIds.titolo?.length) {
+        const { data } = await supabase.from("titoli").select("id, numero_titolo, clienti:cliente_anagrafica_id(cognome, nome, ragione_sociale)").in("id", entitaIds.titolo);
+        (data || []).forEach((t: any) => {
+          const cl = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
+          result[t.id] = `${t.numero_titolo || ""}${cl ? ` - ${cl}` : ""}`;
+        });
+      }
+      if (entitaIds.trattativa?.length) {
+        const { data } = await supabase.from("trattative").select("id, prodotto, clienti:cliente_id(cognome, nome, ragione_sociale)").in("id", entitaIds.trattativa);
+        (data || []).forEach((t: any) => {
+          const cl = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
+          result[t.id] = `${t.prodotto || "Trattativa"}${cl ? ` - ${cl}` : ""}`;
+        });
+      }
+      if (entitaIds.sinistro?.length) {
+        const { data } = await supabase.from("sinistri").select("id, numero_sinistro, clienti:cliente_anagrafica_id(cognome, nome, ragione_sociale)").in("id", entitaIds.sinistro);
+        (data || []).forEach((s: any) => {
+          const cl = s.clienti?.ragione_sociale || `${s.clienti?.cognome || ""} ${s.clienti?.nome || ""}`.trim();
+          result[s.id] = `${s.numero_sinistro || ""}${cl ? ` - ${cl}` : ""}`;
+        });
+      }
+
+      return result;
+    },
+    enabled: Object.keys(entitaIds).length > 0,
+  });
+
+  const getDisplayName = (canale: any): string => {
+    if (canale.nome) return canale.nome;
+    if (canale.ambito === "contestuale" && canale.entita_id && entitaNomi?.[canale.entita_id]) {
+      return entitaNomi[canale.entita_id];
+    }
+    if (canale.tipo === "diretto" && canale.chat_canali_membri) {
+      const other = canale.chat_canali_membri.find((m: any) => m.user_id !== userId);
+      if (other?.profiles) return `${other.profiles.nome || ""} ${other.profiles.cognome || ""}`.trim();
+    }
+    return "Conversazione";
+  };
+
   const canaliFiltrati = (canali || []).filter((c: any) => {
     if (filtroTipo !== "tutti") {
       if (ambito === "interno" && c.tipo !== filtroTipo) return false;
       if (ambito === "contestuale" && c.entita_tipo !== filtroTipo) return false;
     }
     if (ricerca) {
-      const nomeCanale = getChannelDisplayName(c, userId).toLowerCase();
+      const nomeCanale = getDisplayName(c).toLowerCase();
       if (!nomeCanale.includes(ricerca.toLowerCase())) return false;
     }
     return true;
@@ -135,7 +194,7 @@ export default function CanaliSidebar({
             const Icon = ambito === "contestuale"
               ? (entitaIcons[canale.entita_tipo] || Users)
               : (tipoIcons[canale.tipo as keyof typeof tipoIcons] || Users);
-            const displayName = getChannelDisplayName(canale, userId);
+            const displayName = getDisplayName(canale);
             const subtitle = ambito === "contestuale"
               ? entitaLabels[canale.entita_tipo] || canale.entita_tipo
               : canale.tipo;
@@ -169,13 +228,4 @@ export default function CanaliSidebar({
       </ScrollArea>
     </div>
   );
-}
-
-function getChannelDisplayName(canale: any, userId: string): string {
-  if (canale.nome) return canale.nome;
-  if (canale.tipo === "diretto" && canale.chat_canali_membri) {
-    const other = canale.chat_canali_membri.find((m: any) => m.user_id !== userId);
-    if (other?.profiles) return `${other.profiles.nome || ""} ${other.profiles.cognome || ""}`.trim();
-  }
-  return "Conversazione";
 }
