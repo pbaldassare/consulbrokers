@@ -1,23 +1,34 @@
 
 
-## Piano: Correggere il cambio stato nel modale trattativa
+## Piano: Conferma cambio stato con dialog + fix errori silenziosi
 
 ### Problema
-Il cambio stato dalla pipeline nel modale non si riflette visivamente perché `selectedTrattativa` è una copia locale (snapshot) che non si aggiorna quando la query viene invalidata. Il dato in DB viene aggiornato correttamente, ma il modale continua a mostrare lo stato vecchio.
+1. Il cambio stato non funziona (probabilmente errore silenzioso non visibile)
+2. Manca un dialog di conferma prima del cambio stato
+3. I cambi stato devono essere loggati nella timeline (il codice c'è ma potrebbe fallire senza segnalare)
 
-### Soluzione
+### Modifiche
 
-**File: `src/pages/TrattativeList.tsx`**
-- Dopo la mutazione di cambio stato, aggiornare anche `selectedTrattativa` con il nuovo stato tramite callback `onOpenChange` o un meccanismo di refresh.
-- Passare una prop `onRefresh` al `TrattativaDetailDialog` che aggiorni `selectedTrattativa` con i dati freschi dalla query.
+#### 1. `src/components/trattative/TrattativaDetailDialog.tsx`
+- Aggiungere un **AlertDialog di conferma** prima di cambiare stato: "Sei sicuro di voler cambiare lo stato da X a Y?"
+- Per stati terminali (chiusa_vinta, chiusa_persa) richiedere anche un **motivo_chiusura** nel dialog
+- Aggiungere error handling nell'`logEvento` (attualmente ignora errori di insert)
+- Aggiungere `console.error` e toast per errori nel log eventi
+- Aggiungere log nell'`onError` per debug
 
-**File: `src/components/trattative/TrattativaDetailDialog.tsx`**
-- Dopo il successo di `cambiaStato`, aggiornare lo stato localmente nel trattativa object (optimistic update) oltre a invalidare la query, oppure ricaricare i dati della trattativa dal DB.
-- Approccio scelto: fare una `refetch` della singola trattativa dopo il cambio stato e propagare il dato aggiornato.
+#### 2. `src/components/trattative/StatoPipeline.tsx`
+- Nessuna modifica - il componente è corretto, passa il click al parent
 
-### Implementazione concreta
-1. In `TrattativaDetailDialog`, dopo `cambiaStato.onSuccess`, fare un fetch diretto della trattativa aggiornata e usare uno stato locale per il dato corrente
-2. In `TrattativeList`, passare un setter per aggiornare `selectedTrattativa` quando il dialog lo richiede
+#### Flusso dopo la modifica:
+1. Utente clicca su uno stato nella pipeline
+2. Si apre un AlertDialog: "Conferma cambio stato" con stato vecchio → stato nuovo
+3. Se stato terminale, campo testo per motivo chiusura
+4. Utente conferma → mutazione parte → log evento + aggiornamento DB
+5. Toast di successo/errore
 
-Modifica minima: usare `useState` locale nel dialog per tracciare lo stato corrente, sincronizzato con la prop ma aggiornabile dopo mutazione.
+### File coinvolti
+
+| File | Modifica |
+|------|----------|
+| `src/components/trattative/TrattativaDetailDialog.tsx` | AlertDialog conferma + error handling migliorato |
 
