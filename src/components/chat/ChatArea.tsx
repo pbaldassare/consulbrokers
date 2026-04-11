@@ -45,7 +45,7 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
       if (!canaleId) return [];
       const { data } = await supabase
         .from("chat_canali_membri")
-        .select("user_id")
+        .select("user_id, profiles:user_id(nome, cognome, ruolo)")
         .eq("canale_id", canaleId);
       return data || [];
     },
@@ -144,6 +144,26 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full">
+      {/* Channel members header */}
+      {membri && membri.length > 0 && (
+        <div className="border-b border-border bg-muted/30 px-4 py-2 flex items-center gap-2 flex-wrap">
+          <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-[10px] text-muted-foreground font-medium mr-1">Membri:</span>
+          {membri.map((m: any) => {
+            const nome = m.profiles ? `${m.profiles.nome || ""} ${m.profiles.cognome || ""}`.trim() : "—";
+            const ruolo = m.profiles?.ruolo || "";
+            return (
+              <span key={m.user_id} className="inline-flex items-center gap-1 text-[10px]">
+                <span className="font-medium text-foreground">{nome}</span>
+                {ruolo && (
+                  <span className="text-[9px] text-muted-foreground capitalize bg-muted px-1 py-0.5 rounded">{ruolo}</span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {/* Pending confirmation banner */}
       {pendingConferme && pendingConferme.length > 0 && (
         <div className="border-b border-border bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
