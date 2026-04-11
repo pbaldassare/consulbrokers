@@ -342,6 +342,8 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     setEntitaRicerca("");
     setVisibileCliente(false);
     setAutoLinkedClientUserId(null);
+    setAutoLinkedUsers([]);
+    setLoadingRelated(false);
     setSezioneUtenti("staff");
   };
 
