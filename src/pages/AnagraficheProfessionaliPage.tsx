@@ -99,6 +99,7 @@ const AnagraficheProfessionaliPage = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["anagrafiche_professionali", activeTab],
@@ -202,6 +203,118 @@ const AnagraficheProfessionaliPage = () => {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("Nessun record selezionato");
+      const resolvedUfficioId = isProduttore
+        ? (form.ufficio_id || profile?.ufficio_id || null)
+        : (profile?.ufficio_id || null);
+
+      const payload: Record<string, unknown> = {
+        codice: form.codice || null,
+        nome: form.nome || null,
+        nome_breve: form.nome_breve || null,
+        cognome: form.cognome || null,
+        ragione_sociale: form.ragione_sociale || null,
+        codice_fiscale: form.codice_fiscale || null,
+        partita_iva: form.partita_iva || null,
+        email: form.email || null,
+        pec: form.pec || null,
+        telefono: form.telefono || null,
+        cellulare: form.cellulare || null,
+        fax: form.fax || null,
+        indirizzo: form.indirizzo || null,
+        cap: form.cap || null,
+        citta: form.citta || null,
+        provincia: form.provincia || null,
+        compagnia_id: form.compagnia_id || null,
+        specializzazione: form.specializzazione || null,
+        albo_numero: form.albo_numero || null,
+        referente_nome: form.referente_nome || null,
+        referente_email: form.referente_email || null,
+        studio_ufficio: form.studio_ufficio || null,
+        note: form.note || null,
+        ufficio_id: resolvedUfficioId,
+        sigla: form.sigla || null,
+        banca_riga1: form.banca_riga1 || null,
+        banca_riga2: form.banca_riga2 || null,
+        banca_riga3: form.banca_riga3 || null,
+        nome_rui: form.nome_rui || null,
+        iscrizione_rui: form.iscrizione_rui || null,
+        numero_rui: form.numero_rui || null,
+        sezione_rui: form.sezione_rui || null,
+        percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
+        percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
+        codice_fornitore: form.codice_fornitore || null,
+        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
+        abi: form.abi || null,
+        cab: form.cab || null,
+        iban: form.iban || null,
+        intestatario_cc: form.intestatario_cc || null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("anagrafiche_professionali").update(payload as any).eq("id", editingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      setDialogOpen(false);
+      setForm(emptyForm);
+      setEditingId(null);
+      toast.success("Anagrafica aggiornata con successo");
+    },
+    onError: (e: Error) => {
+      toast.error("Errore durante l'aggiornamento");
+    },
+  });
+
+  const openEdit = (item: Anagrafica) => {
+    setEditingId(item.id);
+    setForm({
+      codice: item.codice || "",
+      nome: item.nome || "",
+      nome_breve: item.nome_breve || "",
+      cognome: item.cognome || "",
+      ragione_sociale: item.ragione_sociale || "",
+      codice_fiscale: item.codice_fiscale || "",
+      partita_iva: item.partita_iva || "",
+      email: item.email || "",
+      pec: item.pec || "",
+      telefono: item.telefono || "",
+      cellulare: item.cellulare || "",
+      fax: item.fax || "",
+      indirizzo: item.indirizzo || "",
+      cap: item.cap || "",
+      citta: item.citta || "",
+      provincia: item.provincia || "",
+      compagnia_id: item.compagnia_id || "",
+      specializzazione: item.specializzazione || "",
+      albo_numero: item.albo_numero || "",
+      referente_nome: item.referente_nome || "",
+      referente_email: item.referente_email || "",
+      studio_ufficio: item.studio_ufficio || "",
+      note: item.note || "",
+      ufficio_id: item.ufficio_id || "",
+      sigla: item.sigla || "",
+      banca_riga1: item.banca_riga1 || "",
+      banca_riga2: item.banca_riga2 || "",
+      banca_riga3: item.banca_riga3 || "",
+      nome_rui: item.nome_rui || "",
+      iscrizione_rui: item.iscrizione_rui || "",
+      numero_rui: item.numero_rui || "",
+      sezione_rui: item.sezione_rui || "",
+      percentuale_base: item.percentuale_base?.toString() || "",
+      percentuale_consulenza: item.percentuale_consulenza?.toString() || "",
+      codice_fornitore: item.codice_fornitore || "",
+      percentuale_ra: item.percentuale_ra?.toString() || "",
+      abi: item.abi || "",
+      cab: item.cab || "",
+      iban: item.iban || "",
+      intestatario_cc: item.intestatario_cc || "",
+    });
+    setDialogOpen(true);
+  };
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
       const { error } = await supabase.from("anagrafiche_professionali").update({ attivo }).eq("id", id);
@@ -300,7 +413,7 @@ const AnagraficheProfessionaliPage = () => {
 
     if (isPeritiLegali) {
       return (
-        <TableRow key={item.id}>
+        <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(item)}>
           <TableCell>
             <div className="font-medium">{item.codice || "—"}</div>
             <div className="text-xs text-muted-foreground">{item.nome_breve || ""}</div>
@@ -316,7 +429,7 @@ const AnagraficheProfessionaliPage = () => {
           </TableCell>
           <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
           <TableCell className="text-center">
-            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+             <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
           </TableCell>
         </TableRow>
       );
@@ -331,7 +444,7 @@ const AnagraficheProfessionaliPage = () => {
       ].filter(Boolean);
       const bancaParts = [item.banca_riga1, item.banca_riga2, item.banca_riga3].filter(Boolean);
       return (
-        <TableRow key={item.id} className={item.annullato ? "opacity-50" : ""}>
+         <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">{item.ragione_sociale || item.cognome || item.nome || "—"}</TableCell>
           <TableCell>{item.sigla || "—"}</TableCell>
@@ -355,7 +468,7 @@ const AnagraficheProfessionaliPage = () => {
 
     if (isCorr || isNewCommercial) {
       return (
-        <TableRow key={item.id} className={item.annullato ? "opacity-50" : ""}>
+        <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">
             {item.cognome || item.ragione_sociale || "—"}
@@ -384,7 +497,7 @@ const AnagraficheProfessionaliPage = () => {
 
     // Liquidatori
     return (
-      <TableRow key={item.id}>
+      <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(item)}>
         <TableCell>
           <div className="font-medium">{item.codice || "—"}</div>
           <div className="text-xs text-muted-foreground">{item.nome_breve || ""}</div>
@@ -401,7 +514,7 @@ const AnagraficheProfessionaliPage = () => {
         </TableCell>
         <TableCell className="text-sm">{compName || "—"}</TableCell>
         <TableCell className="text-center">
-          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
         </TableCell>
       </TableRow>
     );
@@ -664,7 +777,7 @@ const AnagraficheProfessionaliPage = () => {
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche</h1>
           <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti, Executive, Resp. Sede, Prod. Sede</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />Nuovo
         </Button>
       </div>
@@ -706,17 +819,17 @@ const AnagraficheProfessionaliPage = () => {
         ))}
       </Tabs>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nuovo {tipoLabel.slice(0, -1)}</DialogTitle>
+            <DialogTitle>{editingId ? `Modifica ${tipoLabel.slice(0, -1)}` : `Nuovo ${tipoLabel.slice(0, -1)}`}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
             {renderFormFields()}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Salvataggio..." : "Salva"}
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
               </Button>
             </DialogFooter>
           </form>
