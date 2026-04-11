@@ -926,6 +926,26 @@ export default function BandiPubbliciPage() {
                 </div>
               </div>
 
+              {existingTrattative.length > 0 && (
+                <Alert className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <AlertTitle className="text-yellow-800 dark:text-yellow-400">Trattativa già esistente per questo bando</AlertTitle>
+                  <AlertDescription className="text-yellow-700 dark:text-yellow-500">
+                    <div className="space-y-1 mt-1">
+                      {existingTrattative.map((t: any) => (
+                        <div key={t.id} className="text-xs flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{t.stato}</Badge>
+                          <span>{t.prodotto || "—"}</span>
+                          {t.data_apertura && <span className="text-muted-foreground">aperta il {format(new Date(t.data_apertura), "dd/MM/yyyy", { locale: it })}</span>}
+                          {t.premio_previsto && <span>€{Number(t.premio_previsto).toLocaleString("it-IT")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs mt-2">Puoi comunque crearne un'altra se necessario.</p>
+                  </AlertDescription>
+                </Alert>
+              )
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Prodotto</Label>
