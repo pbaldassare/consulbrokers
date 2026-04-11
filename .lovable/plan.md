@@ -1,86 +1,58 @@
 
 
-## Piano: Ristrutturazione Chat a due livelli
+## Piano: Migliorare la creazione Chat Contestuale
 
-### Situazione attuale
-- **Chat interna** (`/comunicazioni`): usa `chat_canali` + `chat_messaggi_interni` -- solo staff interno
-- **Chat contestuale** (`ChatTab`): usa `chat_messaggi` -- legata a entita (cliente, sinistro, titolo, prospect)
-- **Chat cliente** (`/cliente/comunicazioni`): placeholder vuoto, non funzionante
-- Le due chat sono completamente separate e non collegate
-
-### Obiettivo
-Unificare il sistema in una Chat a due livelli:
-1. **Chat Interna** (solo organizzazione) -- resta come oggi ma rinominata "Chat" nella sidebar
-2. **Chat Contestuale** (con clienti) -- collegata a trattativa, polizza, cliente, sinistro o argomento libero. Visibile anche dal portale cliente
+### Problemi attuali
+1. La lista utenti mostra SOLO staff interno — i clienti (ruolo=cliente) non compaiono mai
+2. Quando si collega a un cliente, non si aggiunge automaticamente l'utente-cliente come membro
+3. La ricerca entita e' minimale: le polizze mostrano solo numero, le trattative solo titolo, senza contesto (nome cliente, compagnia, ecc.)
+4. Non c'e' collegamento logico: se scelgo "Polizza", dovrebbe mostrarmi il cliente associato e aggiungerlo automaticamente
+5. Manca la possibilita' di aggiungere clienti come partecipanti alla chat
 
 ### Modifiche
 
-#### 1. Database -- Estendere `chat_canali` per supportare contesto
-Aggiungere colonne alla tabella `chat_canali`:
-- `ambito` (text, default 'interno') -- `interno` o `contestuale`
-- `entita_tipo` (text, nullable) -- `cliente`, `trattativa`, `titolo`, `sinistro`, `argomento`
-- `entita_id` (text, nullable) -- UUID dell'entita collegata
-- `visibile_cliente` (boolean, default false) -- se il cliente puo vedere/scrivere
+#### 1. `NuovaConversazioneDialog.tsx` — Riscrittura logica partecipanti e ricerca entita
 
-Questo permette di usare un unico sistema di canali per entrambi i livelli.
+**Partecipanti**:
+- Aggiungere sezione "Clienti" oltre a "Staff" nella lista utenti
+- Quando `visibileCliente=true`, caricare anche i profili con `ruolo=cliente` e mostrarli in una sezione separata con badge "Cliente"
+- Filtro ruolo esteso: aggiungere opzione "Cliente" al dropdown ruoli
 
-#### 2. Unificare i messaggi -- Migrare `ChatTab` a usare `chat_canali`
-Il `ChatTab` attualmente usa `chat_messaggi` (tabella separata). Lo modificheremo per:
-- Quando si apre una chat contestuale su un'entita, cercare/creare automaticamente un canale con `ambito='contestuale'` + `entita_tipo` + `entita_id`
-- Usare `chat_messaggi_interni` per i messaggi (un'unica tabella)
-- Loggare ogni messaggio con `logAttivita` come gia fa
+**Ricerca entita migliorata**:
+- **Cliente**: mostra tipo (Privato/Azienda), email, telefono nella riga risultato
+- **Polizza**: mostra `numero_titolo + nome cliente + compagnia + ramo` — query con join a `clienti` e `compagnie`
+- **Trattativa**: mostra `titolo + stato + nome cliente/prospect` — query con join
+- **Sinistro**: mostra `numero_sinistro + tipo + nome cliente + polizza collegata`
 
-#### 3. Pagina Chat (`/chat`) -- Rinominare e aggiungere tab ambito
-- Rinominare rotta da `/comunicazioni` a `/chat`
-- Aggiungere toggle "Interna" / "Contestuale" nella sidebar canali
-- In modalita Contestuale mostrare i canali legati a entita con badge tipo (Polizza, Cliente, Trattativa...)
-- "Nuova conversazione contestuale" permette di scegliere: entita da collegare + partecipanti
+**Auto-collegamento**:
+- Quando si seleziona un'entita (cliente/polizza/sinistro/trattativa), trovare automaticamente l'utente-cliente associato (tramite `clienti.user_id` o lookup `profiles` con `ruolo=cliente`) e pre-selezionarlo nella lista partecipanti
+- Il cliente viene aggiunto come membro con `ruolo_canale=membro`
 
-#### 4. Portale Cliente -- Attivare la chat
-`ClienteComunicazioni` diventa una vera chat:
-- Carica i canali dove `visibile_cliente = true` e il cliente e membro
-- Usa gli stessi componenti `ChatArea` gia esistenti
-- Il cliente vede solo i canali contestuali a lui collegati
-- Rinominare in "Chat" anche nel layout cliente
+**Nome canale auto-generato**:
+- Se non specificato, generare automaticamente: es. "Polizza #12345 - Rossi Mario" o "Sinistro #SIN-001 - Bianchi"
 
-#### 5. Sidebar e routing
-- Sidebar: "Comunicazioni" diventa "Chat" con icona `MessageSquare`
-- Rotta: `/comunicazioni` → `/chat` (con redirect per compatibilita)
-- Layout cliente: "Comunicazioni" → "Chat"
+#### 2. `CanaliSidebar.tsx` — Mostrare info entita nei canali contestuali
 
-#### 6. RLS -- Policy per ambito
-- I canali `interno` restano visibili solo a ruoli interni (come oggi)
-- I canali `contestuale` con `visibile_cliente = true` sono visibili anche al ruolo `cliente` se membro
+- Per i canali contestuali, mostrare il nome dell'entita collegata (non solo il tipo)
+- Query aggiuntiva per risolvere `entita_id` -> nome leggibile (cliente nome, numero polizza, ecc.)
+
+#### 3. `ChatTab.tsx` — Auto-aggiungere il cliente come membro
+
+- Quando crea un canale contestuale da una scheda entita, cercare l'utente-cliente associato e aggiungerlo automaticamente come membro
+- Per polizze: lookup `titoli.cliente_anagrafica_id` -> `clienti.id` -> `profiles` con match email
+- Per sinistri: lookup `sinistri.cliente_anagrafica_id` -> stessa logica
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Nuova migrazione SQL | ALTER TABLE `chat_canali` ADD ambito, entita_tipo, entita_id, visibile_cliente + RLS |
-| `src/components/chat/CanaliSidebar.tsx` | Tab Interna/Contestuale + badge entita |
-| `src/components/chat/NuovaConversazioneDialog.tsx` | Opzione per creare chat contestuale con selezione entita |
-| `src/components/ChatTab.tsx` | Riscrittura: crea/cerca canale contestuale, usa `chat_messaggi_interni` |
-| `src/pages/ComunicazioniPage.tsx` | Rinomina + passa prop ambito alla sidebar |
-| `src/pages/cliente/ClienteComunicazioni.tsx` | Riscrittura completa: chat funzionante con canali contestuali |
-| `src/components/AppSidebar.tsx` | Label "Comunicazioni" → "Chat" |
-| `src/components/ClienteLayout.tsx` | Label "Comunicazioni" → "Chat" |
-| `src/routes/sistema.tsx` | Rotta `/comunicazioni` → `/chat` |
-| `src/routes/cliente.tsx` | Rotta `/cliente/comunicazioni` → `/cliente/chat` |
-| `src/pages/cliente/ClienteDashboard.tsx` | Aggiorna link |
+| `src/components/chat/NuovaConversazioneDialog.tsx` | Riscrittura: ricerca entita con join, lista utenti con clienti, auto-collegamento, nome auto |
+| `src/components/chat/CanaliSidebar.tsx` | Migliorare display nome canale contestuale con info entita |
+| `src/components/ChatTab.tsx` | Auto-aggiungere cliente come membro alla creazione canale |
 
-### Flusso risultante
-
-```text
-STAFF (Admin/Ufficio/...)
-├── /chat
-│   ├── [Tab Interna] → canali diretti/gruppo/broadcast tra staff
-│   └── [Tab Contestuale] → canali legati a cliente/polizza/trattativa/sinistro
-│       ├── Creati automaticamente da ChatTab nelle schede entita
-│       └── Creati manualmente con "Nuova chat contestuale"
-
-CLIENTE (portale)
-├── /cliente/chat
-│   └── Vede solo canali contestuali dove e membro + visibile_cliente=true
-│       └── Puo scrivere e ricevere risposte dallo staff
-```
+### Dettagli tecnici
+- Query entita con join: `titoli` -> `clienti` + `compagnie` + `rami` per mostrare contesto completo
+- Ricerca clienti-utente: `profiles` con `ruolo=cliente` per la lista partecipanti
+- Lookup cliente associato: tramite `clienti` -> match con `profiles` (stessa email o campo dedicato)
+- Nessuna modifica database, solo miglioramenti frontend
 
