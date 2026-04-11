@@ -63,6 +63,8 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
   const [entitaLabel, setEntitaLabel] = useState<string>("");
   const [visibileCliente, setVisibileCliente] = useState(false);
   const [autoLinkedClientUserId, setAutoLinkedClientUserId] = useState<string | null>(null);
+  const [autoLinkedUsers, setAutoLinkedUsers] = useState<RelatedUser[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
 
   // Load internal staff
   const { data: utentiStaff } = useQuery({
