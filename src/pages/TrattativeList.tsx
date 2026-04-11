@@ -73,7 +73,7 @@ const TrattativeList = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trattative")
-        .select("*, prospect:prospect_id(nome, cognome, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)")
+        .select("*, prospect:prospect_id(nome, cognome, ragione_sociale, tipo_cliente, ufficio_id), cliente:cliente_id(nome, cognome, ragione_sociale, tipo_cliente), ramo:ramo_id(descrizione), compagnia_rel:compagnia_id(nome), profiles:created_by(nome, cognome), ufficio:ufficio_id(nome_ufficio), assegnato:assegnato_a(nome, cognome)")
         .or("archiviata.eq.false,archiviata.is.null")
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -219,7 +219,10 @@ const TrattativeList = () => {
         : t.cliente.ragione_sociale || "—";
     }
     if (t.prospect) {
-      return `${t.prospect.nome || ""} ${t.prospect.cognome || ""}`.trim();
+      if (t.prospect.tipo_cliente === "ente" || t.prospect.ragione_sociale) {
+        return t.prospect.ragione_sociale || "—";
+      }
+      return `${t.prospect.cognome || ""} ${t.prospect.nome || ""}`.trim() || "—";
     }
     return "—";
   };
@@ -230,9 +233,9 @@ const TrattativeList = () => {
     if (filtroSearch) {
       const search = filtroSearch.toLowerCase();
       const soggetto = getSoggettoName(t).toLowerCase();
-      const ramo = ((t as any).ramo?.descrizione || t.prodotto || "").toLowerCase();
       const comp = ((t as any).compagnia_rel?.nome || t.compagnia || "").toLowerCase();
-      if (!soggetto.includes(search) && !ramo.includes(search) && !comp.includes(search)) return false;
+      const bandoTitolo = ((t as any).bandi_collegati?.[0]?.titolo || "").toLowerCase();
+      if (!soggetto.includes(search) && !comp.includes(search) && !bandoTitolo.includes(search)) return false;
     }
     return true;
   });
@@ -345,7 +348,7 @@ const TrattativeList = () => {
       <div className="flex flex-wrap gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9 w-64" placeholder="Cerca soggetto, ramo, compagnia..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
+          <Input className="pl-9 w-64" placeholder="Cerca soggetto, compagnia, bando..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
         </div>
         <Select value={filtroStato} onValueChange={setFiltroStato}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
@@ -391,13 +394,12 @@ const TrattativeList = () => {
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
-                <TableHead>Ramo</TableHead>
                 <TableHead>Compagnia</TableHead>
                 <TableHead>Ufficio</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead>Bando</TableHead>
-                <TableHead>Data</TableHead>
+                <TableHead>Scadenza</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -422,7 +424,6 @@ const TrattativeList = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{getSoggettoName(t)}</TableCell>
-                  <TableCell className="text-muted-foreground">{(t as any).ramo?.descrizione || t.prodotto || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{(t as any).ufficio?.nome_ufficio || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
@@ -434,19 +435,23 @@ const TrattativeList = () => {
                   <TableCell>
                     {(t as any).bandi_collegati?.length > 0 ? (
                       <div className="flex flex-col gap-1">
-                        {(t as any).bandi_collegati.map((b: any) => (
-                          <a key={b.id} href={b.link || "#"} target="_blank" rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                            <Landmark className="h-3 w-3" />
-                            {b.ente || b.titolo || b.scheda_id}
-                          </a>
-                        ))}
+                        {(t as any).bandi_collegati.map((b: any) => {
+                          const label = b.titolo || b.scheda_id || "—";
+                          const short = label.length > 60 ? label.slice(0, 57) + "…" : label;
+                          return (
+                            <a key={b.id} href={b.link || "#"} target="_blank" rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                              <Landmark className="h-3 w-3 shrink-0" />
+                              {short}
+                            </a>
+                          );
+                        })}
                       </div>
                     ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {format(new Date(t.created_at), "dd/MM/yyyy", { locale: it })}
+                    {t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}
                   </TableCell>
                 </TableRow>
               ))}
