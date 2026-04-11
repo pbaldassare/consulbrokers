@@ -207,6 +207,15 @@ const sezioni = [
       { nome: "Duplicazione Polizza", desc: "Copia polizza esistente come base per nuova emissione", ruoli: ["admin", "ufficio"] },
       { nome: "Conferma Emittende", desc: "Conferma emissione polizze in attesa di validazione", ruoli: ["admin", "ufficio"] },
       { nome: "Titoli", desc: "Gestione titoli di incasso (quietanze, ricevute) collegati alle polizze", ruoli: ["admin", "ufficio", "contabilita"] },
+      { nome: "Rimessa Premi", desc: "Gestione rimesse premi alle compagnie con scadenze e saldi", ruoli: ["admin", "ufficio"] },
+    ],
+  },
+  {
+    area: "Provvigioni",
+    icon: Receipt,
+    pagine: [
+      { nome: "Provvigioni Consul", desc: "Gestione provvigioni per sede con dettaglio per compagnia e ramo", ruoli: ["admin", "ufficio"] },
+      { nome: "Pagamenti Provvigioni", desc: "Registrazione e monitoraggio pagamenti provvigioni ai produttori", ruoli: ["admin", "ufficio"] },
     ],
   },
   {
@@ -215,7 +224,6 @@ const sezioni = [
     pagine: [
       { nome: "Lista Sinistri", desc: "Elenco sinistri con filtri per stato, data, compagnia e tipo", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Dettaglio Sinistro", desc: "Scheda sinistro con cronologia, perizie, documenti e liquidazioni", ruoli: ["admin", "ufficio", "backoffice"] },
-      { nome: "Analisi Preventivo RCA", desc: "Strumento di analisi e simulazione preventivi RC Auto", ruoli: ["admin", "ufficio"] },
       { nome: "Doc Precontrattuale", desc: "Generazione documentazione precontrattuale obbligatoria", ruoli: ["admin", "ufficio"] },
     ],
   },
