@@ -244,13 +244,23 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     return null;
   };
 
-  const handleSelectEntita = (r: EntitaResult) => {
+  const handleSelectEntita = async (r: EntitaResult) => {
     setEntitaId(r.id);
     setEntitaLabel(r.label);
     setEntitaRicerca(r.label);
-    if (r.clienteUserId) {
-      setAutoLinkedClientUserId(r.clienteUserId);
-      setVisibileCliente(true);
+    setAutoLinkedClientUserId(r.clienteUserId || null);
+
+    // Find ALL related users (client, producers, office staff, commercials)
+    if (entitaTipo !== "argomento") {
+      setLoadingRelated(true);
+      try {
+        const related = await findAllRelatedUsers(entitaTipo, r.id);
+        setAutoLinkedUsers(related);
+      } catch (e) {
+        console.error("Error finding related users:", e);
+      } finally {
+        setLoadingRelated(false);
+      }
     }
   };
 
