@@ -262,10 +262,19 @@ const TrattativeList = () => {
             </p>
           </div>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-1.5"><Plus className="w-4 h-4" />Nuova Trattativa</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("selected"); setArchiveDialogOpen(true); }}>
+              <Archive className="w-4 h-4" />Archivia ({selectedIds.size})
+            </Button>
+          )}
+          <Button variant="outline" className="gap-1.5" onClick={() => { setArchiveMode("all_closed"); setArchiveDialogOpen(true); }}>
+            <Archive className="w-4 h-4" />Archivia chiuse
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-1.5"><Plus className="w-4 h-4" />Nuova Trattativa</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Nuova Trattativa</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
