@@ -123,6 +123,10 @@ const sidebarEntries: SidebarEntry[] = [
     item: { label: "Archivio Documentale", path: "/portafoglio/documentale", icon: HardDrive, permissionKey: "portafoglio" },
   },
   {
+    type: "single",
+    item: { label: "Anagrafiche Utenti", path: "/archivi/anagrafiche", icon: Briefcase, permissionKey: "dashboard" },
+  },
+  {
     type: "group",
     group: {
       label: "Sinistri",
