@@ -123,8 +123,16 @@ const sidebarEntries: SidebarEntry[] = [
     item: { label: "Archivio Documentale", path: "/portafoglio/documentale", icon: HardDrive, permissionKey: "portafoglio" },
   },
   {
-    type: "single",
-    item: { label: "Anagrafiche Utenti", path: "/archivi/anagrafiche", icon: Briefcase, permissionKey: "dashboard" },
+    type: "group",
+    group: {
+      label: "Anagrafiche Utenti",
+      icon: Briefcase,
+      permissionKey: "dashboard",
+      children: [
+        { label: "Gestione Utenti", path: "/archivi/anagrafiche", icon: Briefcase },
+        { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
+      ],
+    },
   },
   {
     type: "group",
@@ -180,7 +188,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Manutenzione", path: "/manutenzione", icon: Wrench },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
         { label: "Compagnie", path: "/compagnie", icon: Building2 },
-        { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
         { label: "Template Email", path: "/template", icon: Mail },
         { label: "Sitemap", path: "/sitemap", icon: Map },
       ],
