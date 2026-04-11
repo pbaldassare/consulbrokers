@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Search } from "lucide-react";
+import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DocPrecontrattualePage = () => {
