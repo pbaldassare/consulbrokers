@@ -1,28 +1,42 @@
 
 
-## Piano: Segnalazione trattativa gia esistente per evitare doppioni
+## Piano: Pagina Storico Trattative con archiviazione aggregata
 
-### Problema
-Quando l'utente clicca "Crea Trattativa" su un bando, non c'e' nessun controllo se esiste gia una trattativa collegata a quel bando (via `bandi_trattative`) o una trattativa con lo stesso prospect+prodotto. Si rischiano doppioni.
+### Cosa viene creato
 
-### Soluzione
-Nella funzione `openCreaTrattativaDialog`, prima di aprire il dialog, controllare:
-
-1. **Trattativa gia collegata al bando**: query `bandi_trattative` per `bando_id` con join a `trattative` per ottenere stato e prodotto
-2. **Trattativa esistente per lo stesso prospect+prodotto**: query `trattative` dove `prospect_id` = prospect dell'ente e `prodotto` simile
-
-Se trovata, mostrare un **avviso visibile nel dialog** (banner giallo/arancione) con i dettagli della trattativa esistente (stato, data, prodotto). L'utente puo' comunque procedere se vuole, ma e' avvisato.
-
-Inoltre, il badge "N trattative" gia presente sulla card bando serve come indicatore visivo immediato.
+Una nuova pagina **Storico Trattative** accessibile dal menu, che mostra tutte le trattative chiuse (vinte/perse) o archiviate, con possibilita di archiviare in blocco dalla lista principale.
 
 ### Modifiche
 
+#### 1. Migrazione DB: aggiungere campo `archiviata`
+- Aggiungere `archiviata BOOLEAN DEFAULT false` alla tabella `trattative`
+- Indice su `archiviata` per query performanti
+
+#### 2. Nuova pagina `src/pages/StoricoTrattativePage.tsx`
+- Query tutte le trattative con `archiviata = true` OR `stato IN ('chiusa_vinta', 'chiusa_persa')`
+- Filtri: stato (vinta/persa/tutte), periodo (date range), ufficio, compagnia, ramo, fonte
+- KPI in alto: totale archiviate, vinte vs perse (conteggio e %), premio totale vinto, premio totale perso
+- Tabella con colonne: Tipo, Soggetto, Ramo, Compagnia, Premio, Stato, Motivo chiusura, Data chiusura, Fonte
+- Possibilita di riaprire una trattativa (rimettere `archiviata = false`, stato a "aperta")
+- Export CSV dei risultati filtrati
+
+#### 3. Azione aggregata in `TrattativeList.tsx`
+- Aggiungere checkbox su ogni riga + checkbox "seleziona tutto"
+- Pulsante "Archivia selezionate" (visibile solo admin): conferma con AlertDialog, poi update massivo `archiviata = true` sulle trattative selezionate
+- Pulsante rapido "Archivia tutte le chiuse": archivia in blocco tutte le `chiusa_vinta` e `chiusa_persa`
+- Le trattative archiviate spariscono dalla lista principale (filtro `archiviata = false` o `archiviata IS NULL`)
+
+#### 4. Routing e sidebar
+- Rotta `/trattative/storico` in `src/routes/archivi.tsx`
+- Voce nel sidebar sotto "Trattative" con icona Archive
+
+### File coinvolti
+
 | File | Azione |
 |------|--------|
-| `src/pages/BandiPubbliciPage.tsx` | In `openCreaTrattativaDialog`: query per trattative esistenti collegate al bando. Mostrare banner di avviso nel dialog con dettagli. Anche nel popup di conferma segnalare il doppione. |
-
-### Dettagli tecnici
-- Query: `supabase.from("bandi_trattative").select("trattativa_id, trattative(id, prodotto, stato, data_apertura, premio_previsto)").eq("bando_id", bando.id)`
-- Se risultati > 0: stato `existingTrattative` con array, mostrato come alert nel dialog
-- L'utente puo' comunque creare (non bloccante), ma il warning e' chiaro
+| Migrazione SQL | `ALTER TABLE trattative ADD COLUMN archiviata BOOLEAN DEFAULT false` |
+| `src/pages/StoricoTrattativePage.tsx` | Nuova pagina con filtri, KPI, tabella, riapertura, export |
+| `src/pages/TrattativeList.tsx` | Checkbox selezione, pulsanti archiviazione aggregata, filtro `archiviata = false` |
+| `src/routes/archivi.tsx` | Aggiungere rotta `/trattative/storico` |
+| `src/components/AppSidebar.tsx` | Voce "Storico Trattative" sotto Trattative |
 
