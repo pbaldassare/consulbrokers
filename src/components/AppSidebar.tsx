@@ -111,10 +111,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Gestione Polizze", path: "/portafoglio/gestione-polizze", icon: Settings },
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
-        { label: "Regolazioni", path: "/portafoglio/regolazioni", icon: Grid3X3 },
-        { label: "Rientro Documenti", path: "/portafoglio/rientro-documenti", icon: Import },
-        { label: "Import Titoli (Excel)", path: "/portafoglio/import-titoli", icon: FileUp },
-        { label: "Analisi Preventivo RCA", path: "/portafoglio/analisi-preventivo-rca", icon: Shield },
+        { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send },
       ],
     },
   },
@@ -192,9 +189,18 @@ const sidebarEntries: SidebarEntry[] = [
     },
   },
   { type: "single", item: { label: "Area CFO", path: "/cfo", icon: BarChart3, permissionKey: "cfo_area" } },
-  { type: "single", item: { label: "Provvigioni Consul", path: "/provvigioni-sede", icon: Landmark, permissionKey: "provvigioni" } },
-  { type: "single", item: { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign, permissionKey: "provvigioni" } },
-  { type: "single", item: { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send, permissionKey: "rimessa_premi" } },
+  {
+    type: "group",
+    group: {
+      label: "Provvigioni",
+      icon: DollarSign,
+      permissionKey: "provvigioni",
+      children: [
+        { label: "Provvigioni Consul", path: "/provvigioni-sede", icon: Landmark },
+        { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign },
+      ],
+    },
+  },
   { type: "single", item: { label: "Notifiche", path: "/notifiche", icon: Bell, permissionKey: "dashboard" } },
 ];
 
