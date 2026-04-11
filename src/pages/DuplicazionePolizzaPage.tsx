@@ -56,10 +56,7 @@ const DuplicazionePolizzaPage = () => {
   });
 
   const handleConferma = () => {
-    console.log({
-      codiceCliente, selectedAE, numeroPolizza, riga, appendice, effetto,
-      tipoOperazione, docCodice, docNumero, docRiga, docAppendice, copiaArchivio,
-    });
+    // TODO: implementare logica duplicazione polizza
   };
 
   return (

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, FileText, Loader2, CheckCircle, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;

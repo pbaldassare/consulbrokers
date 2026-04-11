@@ -53,7 +53,7 @@ const RiattivazionePolizzaPage = () => {
   });
 
   const handleConferma = () => {
-    console.log({ codiceCliente, selectedAE, numeroNuova, rigaNuova, dataRiattivazione, numeroDaRiatt, rigaDaRiatt, copiaArchivio, polizzaAuto });
+    // TODO: implementare logica riattivazione polizza
   };
 
   return (

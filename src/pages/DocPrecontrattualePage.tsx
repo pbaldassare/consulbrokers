@@ -104,10 +104,7 @@ const DocPrecontrattualePage = () => {
   });
 
   const handleConferma = () => {
-    console.log("Doc precontrattuale:", {
-      codiceCliente, polizza, appendice, riferimento, codiceCompagnia,
-      modelloDistribuzione, collaborazioneAltri, sezioneII, tipoRemunerazione, sezioneIV,
-    });
+    // TODO: implementare logica conferma doc precontrattuale
   };
 
   return (
@@ -405,7 +402,7 @@ const DocPrecontrattualePage = () => {
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => console.log("Tutti gli allegati")}>Tutti gli Allegati</Button>
+          <Button variant="outline" onClick={() => toast.info("Funzionalità allegati in arrivo")}>Tutti gli Allegati</Button>
           <Button onClick={handleConferma}>Conferma</Button>
         </div>
       </div>

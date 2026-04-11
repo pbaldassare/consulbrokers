@@ -46,7 +46,7 @@ const StornoPolizzaPage = () => {
   });
 
   const handleConferma = () => {
-    console.log({ codiceCliente, selectedAE, numeroPolizza, riga, appendice });
+    // TODO: implementare logica storno polizza
   };
 
   return (
