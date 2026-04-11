@@ -37,6 +37,8 @@ export async function findAllRelatedUsers(
       await resolveSinistro(entitaId, add);
     } else if (entitaTipo === "trattativa") {
       await resolveTrattativa(entitaId, add);
+    } else if (entitaTipo === "prospect") {
+      await resolveProspect(entitaId, add);
     }
   } catch (e) {
     console.error("findAllRelatedUsers error:", e);
@@ -167,6 +169,54 @@ async function resolveTrattativa(trattativaId: string, add: AddFn) {
   // Cliente + commerciali
   if (trattativa.cliente_id) {
     await resolveCliente(trattativa.cliente_id, add);
+  }
+}
+
+async function resolveProspect(prospectId: string, add: AddFn) {
+  const { data: prospect } = await supabase
+    .from("prospect")
+    .select("user_id, assegnato_a, ufficio_id, nome, cognome, ragione_sociale")
+    .eq("id", prospectId)
+    .maybeSingle();
+
+  if (!prospect) return;
+
+  // Prospect user
+  if (prospect.user_id) {
+    add(prospect.user_id, "prospect", prospect.ragione_sociale || `${prospect.cognome || ""} ${prospect.nome || ""}`.trim());
+  }
+
+  // Assegnato a
+  if (prospect.assegnato_a) {
+    const { data: ass } = await supabase
+      .from("profiles")
+      .select("id, nome, cognome")
+      .eq("id", prospect.assegnato_a)
+      .maybeSingle();
+    if (ass) add(ass.id, "assegnato", `${ass.cognome || ""} ${ass.nome || ""}`.trim());
+  }
+
+  // Staff ufficio
+  if (prospect.ufficio_id) {
+    await addUfficioStaff(prospect.ufficio_id, add);
+  }
+
+  // Trattative collegate → assegnato_a
+  const { data: trattative } = await supabase
+    .from("trattative")
+    .select("assegnato_a")
+    .eq("prospect_id", prospectId)
+    .not("assegnato_a", "is", null);
+
+  for (const t of trattative || []) {
+    if (t.assegnato_a) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome")
+        .eq("id", t.assegnato_a)
+        .maybeSingle();
+      if (p) add(p.id, "assegnato", `${p.cognome || ""} ${p.nome || ""}`.trim());
+    }
   }
 }
 
