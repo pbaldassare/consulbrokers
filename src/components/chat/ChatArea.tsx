@@ -99,6 +99,18 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
           );
         }
       }
+
+      // Log attivita
+      await logAttivita({
+        azione: "messaggio_chat_interno",
+        entita_tipo: "chat_canale",
+        entita_id: canaleId,
+        dettagli_json: {
+          preview: msg.trim().slice(0, 50),
+          mittente_ruolo: profile.ruolo || "sconosciuto",
+          richiedi_conferma: richiediConferma,
+        },
+      });
     },
     onSuccess: () => {
       setMsg("");
