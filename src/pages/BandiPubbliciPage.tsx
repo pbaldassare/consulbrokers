@@ -204,7 +204,7 @@ export default function BandiPubbliciPage() {
   const [trattativaNote, setTrattativaNote] = useState("");
   const [trattativaPremio, setTrattativaPremio] = useState("");
   const [trattativaScadenza, setTrattativaScadenza] = useState("");
-
+  const [existingTrattative, setExistingTrattative] = useState<any[]>([]);
   const pollingRef = useRef(false);
   const searchActiveRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
