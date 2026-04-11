@@ -1,23 +1,34 @@
 
 
-## Piano: Collegare filtri a ogni colonna della tabella Trattative
+## Piano: Raggruppare Trattative, Calendario e Storico in un gruppo sidebar
 
-### Stato attuale
-I filtri esistenti sono: ricerca testuale, stato, ufficio. Mancano filtri per: tipo (prospect/cliente), compagnia, scadenza (range date).
+### Cosa cambia
 
-### Modifiche in `src/pages/TrattativeList.tsx`
+Le tre voci attualmente separate (righe 87-89) — "Trattative", "Calendario", "Storico Trattative" — vengono sostituite con un unico gruppo collassabile "Trattative" con icona `ArrowRightLeft`, contenente le tre sotto-voci.
 
-1. **Nuovo filtro Tipo soggetto**: Select con opzioni "Tutti", "Prospect", "Cliente" — filtra su `cliente_id` presente o meno
-2. **Nuovo filtro Compagnia**: Select con le compagnie gia caricate da `compagnie` lookup — filtra su `compagnia_id`
-3. **Nuovo filtro Scadenza (range date)**: Due input date (Da / A) per filtrare `data_scadenza` nel range selezionato
-4. **Aggiornare logica `filtered`**: Aggiungere i nuovi filtri alla catena di condizioni
+### Modifica in `src/components/AppSidebar.tsx`
 
-### Layout filtri
-Tutti i filtri sulla stessa riga flex-wrap: Ricerca | Tipo | Stato | Compagnia | Ufficio | Scadenza Da | Scadenza A
+Sostituire le righe 87-89 (tre `single` entries) con una `group` entry:
+
+```typescript
+{
+  type: "group",
+  group: {
+    label: "Trattative",
+    icon: ArrowRightLeft,
+    permissionKey: "titoli",
+    children: [
+      { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
+      { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
+      { label: "Storico", path: "/trattative/storico", icon: Archive },
+    ],
+  },
+},
+```
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| `src/pages/TrattativeList.tsx` | Aggiungere stati filtro (`filtroTipo`, `filtroCompagnia`, `filtroScadenzaDa`, `filtroScadenzaA`), Select per tipo e compagnia, input date per range scadenza, logica filtering |
+| `src/components/AppSidebar.tsx` | Raggruppare le 3 voci single in 1 group |
 
