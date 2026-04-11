@@ -174,6 +174,11 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
                   <span className="text-xs font-semibold text-foreground">
                     {m.profiles ? `${m.profiles.nome || ""} ${m.profiles.cognome || ""}` : "—"}
                   </span>
+                  {m.profiles?.ruolo && (
+                    <span className="text-[9px] text-muted-foreground capitalize bg-muted px-1.5 py-0.5 rounded">
+                      {m.profiles.ruolo}
+                    </span>
+                  )}
                   <span className="text-[10px] text-muted-foreground">
                     {format(new Date(m.created_at), "dd/MM HH:mm")}
                   </span>
