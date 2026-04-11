@@ -1,73 +1,23 @@
 
 
-## Piano: Ristrutturazione completa modulo Trattative
+## Piano: Correggere il cambio stato nel modale trattativa
 
-### Problema attuale
-Il modulo trattative è minimale: modale piccolo con pochi campi, nessun upload documenti, nessun log visibile, nessun calendario, nessun collegamento ufficio, gestione stati basilare.
+### Problema
+Il cambio stato dalla pipeline nel modale non si riflette visivamente perché `selectedTrattativa` è una copia locale (snapshot) che non si aggiorna quando la query viene invalidata. Il dato in DB viene aggiornato correttamente, ma il modale continua a mostrare lo stato vecchio.
 
-### Modifiche previste
+### Soluzione
 
-#### 1. Migrazione DB -- nuovi campi e tabelle
+**File: `src/pages/TrattativeList.tsx`**
+- Dopo la mutazione di cambio stato, aggiornare anche `selectedTrattativa` con il nuovo stato tramite callback `onOpenChange` o un meccanismo di refresh.
+- Passare una prop `onRefresh` al `TrattativaDetailDialog` che aggiorni `selectedTrattativa` con i dati freschi dalla query.
 
-**Nuove colonne su `trattative`:**
-- `ufficio_id` (uuid, FK → uffici) -- collegamento obbligatorio all'ufficio
-- `data_apertura` (date, default CURRENT_DATE)
-- `data_scadenza` (date) -- deadline prevista
-- `priorita` (text: bassa/media/alta/urgente)
-- `prodotto` rinominato/mantenuto, aggiunta `sottoprodotto`
-- `premio_effettivo` (numeric) -- premio reale a chiusura
-- `motivo_chiusura` (text) -- perché vinta/persa
-- `assegnato_a` (uuid, FK → profiles) -- responsabile della trattativa
+**File: `src/components/trattative/TrattativaDetailDialog.tsx`**
+- Dopo il successo di `cambiaStato`, aggiornare lo stato localmente nel trattativa object (optimistic update) oltre a invalidare la query, oppure ricaricare i dati della trattativa dal DB.
+- Approccio scelto: fare una `refetch` della singola trattativa dopo il cambio stato e propagare il dato aggiornato.
 
-**Nuovi stati:** aperta → contatto → preventivo → in_negoziazione → proposta_inviata → chiusa_vinta → chiusa_persa → sospesa
+### Implementazione concreta
+1. In `TrattativaDetailDialog`, dopo `cambiaStato.onSuccess`, fare un fetch diretto della trattativa aggiornata e usare uno stato locale per il dato corrente
+2. In `TrattativeList`, passare un setter per aggiornare `selectedTrattativa` quando il dialog lo richiede
 
-**Nuova tabella `trattativa_documenti`:**
-- id, trattativa_id (FK), nome_file, file_path (storage), tipo_documento, note, uploaded_by, created_at
-- RLS allineata a trattative
-
-**Nuova tabella `trattativa_eventi`:**
-- id, trattativa_id (FK), tipo_evento (nota/telefonata/email/appuntamento/cambio_stato/documento), descrizione, data_evento, created_by, created_at, dettagli_json
-- Questo è il log/timeline interno della trattativa visibile nel modale
-
-**Nuova tabella `trattativa_scadenze`:**
-- id, trattativa_id (FK), titolo, data_scadenza, completata, created_by, created_at
-- Per gestire reminder e calendario interno
-
-#### 2. Frontend -- Modale dettaglio trattativa completo
-
-Sostituzione del dialogo di modifica con un **modale full-width a tab**:
-
-- **Tab Dettagli**: tutti i campi (soggetto, ramo, compagnia, ufficio, premio previsto/effettivo, priorità, date apertura/scadenza, assegnato a, motivo chiusura, note). Modifica inline con salvataggio.
-- **Tab Timeline/Log**: lista cronologica di tutti gli eventi (cambio stato, modifiche campi, note manuali, telefonate, email). Possibilità di aggiungere note/eventi manualmente. Ogni cambio stato e modifica viene loggato automaticamente qui.
-- **Tab Documenti**: upload file collegati alla trattativa (preventivi, proposte, contratti). Lista documenti con download/anteprima.
-- **Tab Scadenze**: calendario semplice con scadenze/appuntamenti collegati. Aggiunta/completamento scadenze.
-
-#### 3. Gestione stati migliorata
-
-Pipeline visuale con gli 8 stati. Cambio stato con conferma e nota obbligatoria. Ogni transizione logga automaticamente un evento nella timeline. Per chiusa_vinta/persa richiede motivo_chiusura.
-
-#### 4. Lista trattative migliorata
-
-- Colonna ufficio nella tabella
-- Filtro per ufficio
-- Indicatore priorità
-- Conteggio documenti e scadenze aperte
-
-### File coinvolti
-
-| File | Modifica |
-|------|----------|
-| Migrazione SQL | Nuove colonne + 3 tabelle + RLS + indici |
-| `src/pages/TrattativeList.tsx` | Lista migliorata + apertura modale dettaglio |
-| `src/components/trattative/TrattativaDetailDialog.tsx` | **Nuovo** - Modale full con tab |
-| `src/components/trattative/TrattativaDettagliTab.tsx` | **Nuovo** - Tab dettagli/form |
-| `src/components/trattative/TrattativaTimelineTab.tsx` | **Nuovo** - Timeline eventi |
-| `src/components/trattative/TrattativaDocumentiTab.tsx` | **Nuovo** - Upload e lista documenti |
-| `src/components/trattative/TrattativaScadenzeTab.tsx` | **Nuovo** - Scadenze/calendario |
-| `src/components/trattative/StatoPipeline.tsx` | **Nuovo** - Barra stati visuale |
-| `src/integrations/supabase/types.ts` | Auto-aggiornato dopo migrazione |
-
-### Dettagli tecnici
-
-I documenti vengono salvati nel bucket `documenti_generali` con path `trattative/{trattativa_id}/{filename}`. La timeline usa la tabella `trattativa_eventi` (separata da `log_attivita` per visibilità diretta nel modale). Le RLS delle nuove tabelle seguono lo stesso pattern delle trattative (admin all, ufficio own, produttore own).
+Modifica minima: usare `useState` locale nel dialog per tracciare lo stato corrente, sincronizzato con la prop ma aggiornabile dopo mutazione.
 
