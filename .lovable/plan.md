@@ -1,34 +1,15 @@
 
 
-## Piano: Raggruppare Trattative, Calendario e Storico in un gruppo sidebar
+## Piano: Spostare Documentale come voce separata nella sidebar
 
 ### Cosa cambia
 
-Le tre voci attualmente separate (righe 87-89) — "Trattative", "Calendario", "Storico Trattative" — vengono sostituite con un unico gruppo collassabile "Trattative" con icona `ArrowRightLeft`, contenente le tre sotto-voci.
+1. **Rimuovere** la riga `{ label: "Documentale", path: "/portafoglio/documentale", icon: HardDrive }` dal gruppo "Portafoglio" (riga 126)
+2. **Aggiungere** una nuova voce `single` chiamata "Archivio Documentale" con icona `HardDrive` e path `/portafoglio/documentale` subito dopo il gruppo "Portafoglio" (o in posizione logica tra i gruppi)
 
-### Modifica in `src/components/AppSidebar.tsx`
-
-Sostituire le righe 87-89 (tre `single` entries) con una `group` entry:
-
-```typescript
-{
-  type: "group",
-  group: {
-    label: "Trattative",
-    icon: ArrowRightLeft,
-    permissionKey: "titoli",
-    children: [
-      { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
-      { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
-      { label: "Storico", path: "/trattative/storico", icon: Archive },
-    ],
-  },
-},
-```
-
-### File coinvolti
+### File coinvolto
 
 | File | Azione |
 |------|--------|
-| `src/components/AppSidebar.tsx` | Raggruppare le 3 voci single in 1 group |
+| `src/components/AppSidebar.tsx` | Rimuovere "Documentale" dal gruppo Portafoglio, aggiungere entry single "Archivio Documentale" |
 
