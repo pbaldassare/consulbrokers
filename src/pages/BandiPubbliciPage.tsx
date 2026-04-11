@@ -31,7 +31,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Search, Landmark, ExternalLink, CalendarIcon, Filter, Bot, Loader2, X, ChevronDown, MapPin, Link2, History, Building, FileDown, FileText, Plus, Zap, Tag, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -203,7 +204,7 @@ export default function BandiPubbliciPage() {
   const [trattativaNote, setTrattativaNote] = useState("");
   const [trattativaPremio, setTrattativaPremio] = useState("");
   const [trattativaScadenza, setTrattativaScadenza] = useState("");
-
+  const [existingTrattative, setExistingTrattative] = useState<any[]>([]);
   const pollingRef = useRef(false);
   const searchActiveRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -433,8 +434,9 @@ export default function BandiPubbliciPage() {
     setElapsedSeconds(0);
   };
 
-  const openCreaTrattativaDialog = (bando: any) => {
+  const openCreaTrattativaDialog = async (bando: any) => {
     setSelectedBando(bando);
+    setExistingTrattative([]);
     // Pre-fill fields
     setTrattativaProdotto(bando.keyword || KEYWORD_FISSA);
     setTrattativaPremio(bando.importo ? String(bando.importo) : "");
@@ -446,6 +448,23 @@ export default function BandiPubbliciPage() {
     ].filter(Boolean).join("\n");
     setTrattativaNote(noteLines);
     setCreaTrattativaOpen(true);
+
+    // Check for existing trattative linked to this bando
+    try {
+      const { data: linked } = await supabase
+        .from("bandi_trattative")
+        .select("trattativa_id, trattative:trattativa_id(id, prodotto, stato, data_apertura, premio_previsto, fonte)")
+        .eq("bando_id", bando.id);
+
+      if (linked && linked.length > 0) {
+        const trattative = linked
+          .map((l: any) => l.trattative)
+          .filter(Boolean);
+        setExistingTrattative(trattative);
+      }
+    } catch (err) {
+      console.error("Errore check trattative esistenti:", err);
+    }
   };
 
   const handleConfirmCreaTrattativa = async () => {
@@ -907,6 +926,26 @@ export default function BandiPubbliciPage() {
                 </div>
               </div>
 
+              {existingTrattative.length > 0 && (
+                <Alert className="border-destructive/30 bg-destructive/5">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <AlertTitle>Trattativa già esistente per questo bando</AlertTitle>
+                  <AlertDescription>
+                    <div className="space-y-1 mt-1">
+                      {existingTrattative.map((t: any) => (
+                        <div key={t.id} className="text-xs flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{t.stato}</Badge>
+                          <span>{t.prodotto || "—"}</span>
+                          {t.data_apertura && <span className="text-muted-foreground">aperta il {format(new Date(t.data_apertura), "dd/MM/yyyy", { locale: it })}</span>}
+                          {t.premio_previsto && <span>€{Number(t.premio_previsto).toLocaleString("it-IT")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs mt-2 text-muted-foreground">Puoi comunque crearne un'altra se necessario.</p>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Prodotto</Label>
@@ -962,11 +1001,20 @@ export default function BandiPubbliciPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Conferma creazione trattativa</AlertDialogTitle>
-            <AlertDialogDescription>
-              Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
-              prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
-              {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
-              <br />Vuoi procedere?
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
+                  Stai per creare una nuova trattativa per <strong>{selectedBando?.ente}</strong> con
+                  prodotto "{trattativaProdotto}" e fonte "API Mondoappalti".
+                  {trattativaPremio && <> Premio previsto: €{Number(trattativaPremio).toLocaleString("it-IT")}.</>}
+                </p>
+                {existingTrattative.length > 0 && (
+                  <p className="mt-2 font-semibold text-destructive">
+                    ⚠️ Attenzione: esiste già {existingTrattative.length} trattativa/e collegata/e a questo bando.
+                  </p>
+                )}
+                <p className="mt-2">Vuoi procedere?</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
