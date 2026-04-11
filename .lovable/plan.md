@@ -1,62 +1,51 @@
 
 
-## Piano: Auto-collegamento intelligente di tutti gli attori nella Chat
+## Piano: Unificare la selezione entita nella Nuova Chat Contestuale
 
-### Problema attuale
-Quando si crea una chat collegata a una polizza, sinistro o trattativa, viene aggiunto solo il cliente (user_id). Non vengono inclusi automaticamente i soggetti collegati: corrispondenti, commerciali (AE, produttori), responsabili, staff dell'ufficio.
+### Problema
+Il dialog attuale ha tab separate "Cliente" e "Polizza" come tipi entita distinti nel dropdown, ma in realta polizza e cliente sono collegati. L'utente deve poter cercare in modo unificato e fluido. Mancano anche prospect e trattative come entita ben collegate.
 
 ### Soluzione
-Creare una funzione `findAllRelatedUsers` che, data un'entita (polizza, sinistro, trattativa, cliente), raccoglie TUTTI gli utenti collegati e li pre-seleziona come partecipanti alla chat.
+Riscrivere la sezione "Collega a entita" del `NuovaConversazioneDialog.tsx` con un'unica interfaccia di ricerca unificata:
 
-### Logica di raccolta utenti per tipo entita
+#### 1. Ricerca unificata con tab per tipo
+Sostituire il dropdown entita + campo ricerca con **tab orizzontali** (Clienti/Prospect, Polizze, Trattative, Sinistri, Argomento libero). Ogni tab mostra risultati con contesto completo:
 
-**Polizza (titolo)**:
-- `cliente_anagrafica_id` → `clienti.user_id` (il cliente)
-- `produttore_id` (il produttore assegnato alla polizza)
-- `ufficio_id` → tutti i profiles con quell'ufficio_id (staff dell'ufficio)
-- `codici_commerciali_cliente` con `cliente_id = cliente_anagrafica_id` → `profilo_id` (AE, corrispondenti, agenti)
+- **Clienti/Prospect** (tab unica): cerca sia in `clienti` che in `prospect` contemporaneamente, mostrando badge "Cliente" o "Prospect" per distinguerli. Mostra tipo, email, telefono.
+- **Polizze**: cerca per numero titolo O per nome cliente. Mostra `numero_titolo + cliente + compagnia + stato`. Cliccando una polizza, si seleziona automaticamente anche il cliente collegato.
+- **Trattative**: cerca per prodotto O nome cliente/prospect. Mostra `prodotto + cliente/prospect + stato + compagnia`.
+- **Sinistri**: cerca per numero sinistro O nome cliente. Mostra `numero + tipo + cliente + stato`.
 
-**Sinistro**:
-- `cliente_anagrafica_id` → `clienti.user_id`
-- `responsabile_id` (il responsabile del sinistro)
-- `titolo_id` → stessa logica della polizza (produttore, ufficio, commerciali)
+#### 2. Selezione a cascata intelligente
+Quando si seleziona una **polizza**:
+- Auto-compila il cliente collegato (visibile come chip)
+- Chiama `findAllRelatedUsers` per pre-selezionare tutti i collegati
 
-**Trattativa**:
-- `cliente_id` → `clienti.user_id`
-- `assegnato_a` (utente assegnato)
-- `ufficio_id` → staff ufficio
-- `codici_commerciali_cliente` con `cliente_id` → commerciali
+Quando si seleziona un **cliente/prospect**:
+- Mostra le sue polizze/trattative attive come sotto-selezione opzionale
+- Chiama `findAllRelatedUsers` per il cliente
 
-**Cliente**:
-- `clienti.user_id`
-- `codici_commerciali_cliente` con `cliente_id` → tutti i commerciali
-- `profiles` con `ufficio_id` del cliente (se ha un ufficio associato)
+Quando si seleziona una **trattativa**:
+- Auto-compila il cliente o prospect collegato
+- `findAllRelatedUsers` include assegnato_a, ufficio, commerciali
 
-### Modifiche
+#### 3. Riepilogo partecipanti unificato
+Eliminare le tab Staff/Clienti separate. Mostrare una **lista unica** di partecipanti auto-collegati raggruppati per ruolo (badge colorati: Cliente, Produttore, Staff, Commerciale, Corrispondente). L'utente puo' aggiungere/rimuovere manualmente con un campo "Aggiungi partecipante" che cerca in tutti i profiles.
 
-#### 1. `src/components/chat/NuovaConversazioneDialog.tsx`
-- Aggiungere funzione `findAllRelatedUsers(entitaTipo, entitaId)` che ritorna un array di `{ userId, ruolo, nome }` con tutti i soggetti collegati
-- Quando si seleziona un'entita, chiamare questa funzione e pre-selezionare TUTTI gli utenti trovati nella lista partecipanti
-- Mostrare un riepilogo visivo: "Auto-collegati: 3 staff, 1 cliente, 2 commerciali"
-- L'utente puo' comunque rimuovere o aggiungere altri partecipanti
-
-#### 2. `src/components/ChatTab.tsx`
-- Aggiornare `findClienteUserId` → `findAllRelatedUserIds` con la stessa logica
-- Alla creazione automatica del canale, aggiungere TUTTI gli utenti collegati come membri (non solo il cliente)
-
-#### 3. Logging migliorato
-- In `ChatArea.tsx`, il log gia include `mittente_id` nel messaggio (tabella `chat_messaggi_interni`)
-- Aggiungere `logAttivita` anche in `ChatArea.tsx` quando si invia un messaggio, con `dettagli_json: { mittente_ruolo: profile.ruolo, preview: msg.slice(0,50) }`
-- Ogni messaggio e' gia tracciato con `mittente_id` + timestamp nella tabella
+#### 4. Estendere `findRelatedUsers.ts` per prospect
+Aggiungere `resolveProspect` alla funzione esistente:
+- `prospect.user_id` (se esiste)
+- `prospect.assegnato_a`
+- `prospect.ufficio_id` → staff ufficio
+- Trattative collegate al prospect → `assegnato_a`
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| `src/components/chat/NuovaConversazioneDialog.tsx` | Aggiungere `findAllRelatedUsers`, pre-selezionare tutti i collegati, riepilogo visivo |
-| `src/components/ChatTab.tsx` | Espandere auto-membership a tutti i collegati (non solo cliente) |
-| `src/components/chat/ChatArea.tsx` | Aggiungere `logAttivita` per ogni messaggio inviato con ruolo mittente |
+| `src/components/chat/NuovaConversazioneDialog.tsx` | Riscrittura: tab unificate, ricerca cross-entita, selezione a cascata, lista partecipanti unificata |
+| `src/lib/findRelatedUsers.ts` | Aggiungere `resolveProspect` per prospect con assegnato_a e ufficio |
 
 ### Nessuna modifica database
-Tutte le relazioni necessarie esistono gia: `codici_commerciali_cliente`, `titoli`, `sinistri`, `trattative`, `profiles`.
+Tutte le relazioni necessarie esistono gia nelle tabelle.
 
