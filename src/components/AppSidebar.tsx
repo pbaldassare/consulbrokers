@@ -83,7 +83,6 @@ type SidebarEntry =
 
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
-  { type: "single", item: { label: "Prospect", path: "/prospect", icon: Users, permissionKey: "dashboard" } },
   {
     type: "group",
     group: {
@@ -91,6 +90,7 @@ const sidebarEntries: SidebarEntry[] = [
       icon: ArrowRightLeft,
       permissionKey: "titoli",
       children: [
+        { label: "Prospect", path: "/prospect", icon: Users },
         { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
         { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
         { label: "Storico", path: "/trattative/storico", icon: Archive },
