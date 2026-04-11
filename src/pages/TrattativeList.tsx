@@ -60,6 +60,10 @@ const TrattativeList = () => {
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
   const [filtroUfficio, setFiltroUfficio] = useState("tutti");
+  const [filtroTipo, setFiltroTipo] = useState("tutti");
+  const [filtroCompagnia, setFiltroCompagnia] = useState("tutti");
+  const [filtroScadenzaDa, setFiltroScadenzaDa] = useState("");
+  const [filtroScadenzaA, setFiltroScadenzaA] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<TrattativaForm>({ ...emptyForm });
   const [selectedTrattativa, setSelectedTrattativa] = useState<any>(null);
