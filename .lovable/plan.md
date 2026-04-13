@@ -1,57 +1,38 @@
 
 
-## Piano: Importare quietanzamento Excel e correggere le pagine Portafoglio
+## Piano: Correggere i dati importati e il calcolo del totale lordo
 
-### 1. Creare una vista database per il portafoglio
+### 1. Correggere i premi sbagliati (3 polizze)
 
-Le pagine attualmente cercano colonne inesistenti (`numero_polizza`, `compagnia_nome`, `cliente_cognome`). Serve una **vista** `v_portafoglio_titoli` che unisce `titoli`, `clienti`, `compagnie` e `rami`:
+I premi delle polizze importate erano stati inseriti con valori errati (probabilmente confusi con altro campo):
 
-```sql
-CREATE VIEW v_portafoglio_titoli AS
-SELECT 
-  t.id, t.numero_titolo, t.stato, t.premio_lordo,
-  t.garanzia_da, t.garanzia_a, t.data_scadenza,
-  t.compagnia_id, t.ramo_id, t.ufficio_id,
-  t.ae_nome, t.specialist, t.produttore_nome,
-  t.provvigioni_firma, t.provvigioni_quietanza, t.filiale,
-  t.targa_telaio, t.rate,
-  c.nome AS compagnia_nome,
-  r.descrizione AS ramo_nome,
-  COALESCE(cli.ragione_sociale, cli.cognome || ' ' || cli.nome) AS cliente_nome_display,
-  cli.codice_ricerca AS cliente_codice
-FROM titoli t
-LEFT JOIN compagnie c ON c.id = t.compagnia_id
-LEFT JOIN rami r ON r.id = t.ramo_id
-LEFT JOIN clienti cli ON cli.id = t.cliente_anagrafica_id;
-```
+- `332437571`: da 2.917 → **337**
+- `332437574`: da 4.200 → **300**
+- `AXKY13OP`: da 2.190 → **243**
 
-### 2. Importare i dati mancanti dall'Excel
+### 2. Importare le 2 polizze mancanti
 
-Tramite script exec:
-- Parsare le 16 righe dell'Excel di quietanzamento
-- Confrontare ogni `Polizza` con `titoli.numero_titolo`
-- **3 polizze mancanti** (`332437571`, `332437574`, `AXKY13OP`): inserirle come nuovi titoli
-- **1 premio errato** (`9479008.`): aggiornare da -62.50 a 16.022,50
-- **13 polizze già presenti**: aggiornare i campi provvigioni attive/passive, targa, specialist, produttore se diversi
+- `RCM00010074404` — Lo Giudice Emilia Concetta, AmTrust, RC Professionale, Lordo 750, Fraz 3 (trimestrale), scadenza rata 19/04/2026
+- `6131402092` — Regione Campania, HDI, RC Auto, Lordo 63.050,22, scadenza rata 30/04/2026
 
-### 3. Riscrivere PortafoglioCaricoPage
+Per entrambe serve verificare/creare il cliente e associare la compagnia corretta.
 
-- Query sulla vista `v_portafoglio_titoli` filtrando su `data_scadenza` nel mese selezionato
-- Colonne: Polizza, Cliente, Compagnia, Ramo, Scadenza, Fraz, Lordo, Attive, Passive, AE, Specialist, Produttore
-- Filtri: ricerca testo, compagnia, ramo
-- Card riepilogativa con totale polizze e totale premio lordo del mese
+### 3. Correggere il calcolo del "Totale premio lordo"
 
-### 4. Riscrivere PortafoglioAttivePage
+Attualmente somma solo i record della pagina corrente (max 25). Serve una **query separata** che faccia `SUM(premio_lordo)` su tutti i record del mese (senza paginazione), così la card mostra sempre il totale reale.
 
-- Stessa vista, filtrando `stato = 'attivo' AND garanzia_a >= oggi`
-- Stesse colonne e filtri
+### 4. Aggiornare anche provvigioni attive/passive
+
+I 3 record importati non avevano le provvigioni corrette dall'Excel. Aggiornare:
+- `332437571`: Attive 65.60, Passive 26.24
+- `332437574`: Attive 35.33, Passive 14.13
+- `AXKY13OP`: Attive 20, Passive 0
 
 ### File coinvolti
 
 | File | Azione |
 |------|--------|
-| Migrazione SQL | Creare vista `v_portafoglio_titoli` con RLS |
-| `src/pages/PortafoglioCaricoPage.tsx` | Riscrivere query su vista, colonne corrette |
-| `src/pages/PortafoglioAttivePage.tsx` | Riscrivere query su vista, colonne corrette |
-| Script exec | Importare 3 polizze mancanti + aggiornare premio 9479008 |
+| Script DB (insert tool) | Correggere premi e provvigioni delle 3 polizze, inserire 2 mancanti |
+| `src/pages/PortafoglioCaricoPage.tsx` | Query separata per totale lordo globale del mese |
+| `src/pages/PortafoglioAttivePage.tsx` | Stessa correzione per il totale nella card |
 
