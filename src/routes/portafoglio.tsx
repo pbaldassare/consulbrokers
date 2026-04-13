@@ -31,7 +31,7 @@ export const portafoglioRoutes = (
   <>
     <Route path="/titoli" element={<TitoliList />} />
     <Route path="/titoli/:id" element={<TitoloDetail />} />
-    <Route path="/portafoglio" element={<PortafoglioList />} />
+    <Route path="/portafoglio" element={<PortafoglioPolizzePage />} />
     <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
     <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
