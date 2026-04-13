@@ -1,0 +1,165 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useNavigate } from "react-router-dom";
+import { Shield, Search } from "lucide-react";
+import { format } from "date-fns";
+import ServerPagination from "@/components/ServerPagination";
+
+const PAGE_SIZE = 25;
+
+const PortafoglioAttivePage = () => {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
+  const [filtroRamo, setFiltroRamo] = useState("tutti");
+  const [page, setPage] = useState(0);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  const { data: compagnie } = useQuery({
+    queryKey: ["compagnie-lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      return data || [];
+    },
+  });
+
+  const { data: rami } = useQuery({
+    queryKey: ["rami-lookup"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
+      return data || [];
+    },
+  });
+
+  const { data: result, isLoading } = useQuery({
+    queryKey: ["portafoglio-attive", search, filtroCompagnia, filtroRamo, page, today],
+    queryFn: async () => {
+      let q = supabase.from("titoli").select(
+        "id, numero_polizza, compagnia_nome, ramo_nome, cliente_cognome, cliente_nome, stato, garanzia_dal, garanzia_a, data_scadenza, premio_lordo, tipo_operazione",
+        { count: "exact" }
+      ).eq("stato", "attivo").gte("garanzia_a", today);
+
+      if (search) {
+        q = q.or(`numero_polizza.ilike.%${search}%,cliente_cognome.ilike.%${search}%,cliente_nome.ilike.%${search}%`);
+      }
+      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
+      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+
+      const { data, count } = await q
+        .order("garanzia_a", { ascending: true })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      return { data: data || [], count: count || 0 };
+    },
+  });
+
+  const polizze = result?.data || [];
+  const totalCount = result?.count || 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Polizze Attive</h1>
+        <p className="text-sm text-muted-foreground">Polizze in corso di validità</p>
+      </div>
+
+      <Card>
+        <CardContent className="flex items-center gap-4 p-4">
+          <div className="rounded-lg bg-primary/10 p-3">
+            <Shield className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Polizze attive</p>
+            <p className="text-2xl font-bold text-foreground">{totalCount}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filtri */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca per n° polizza, cliente..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            className="pl-9"
+          />
+        </div>
+        <Select value={filtroCompagnia} onValueChange={(v) => { setFiltroCompagnia(v); setPage(0); }}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Compagnia" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutte">Tutte le compagnie</SelectItem>
+            {compagnie?.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroRamo} onValueChange={(v) => { setFiltroRamo(v); setPage(0); }}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Ramo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutti i rami</SelectItem>
+            {rami?.map((r) => (
+              <SelectItem key={r.id} value={r.id}>{r.descrizione}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Tabella */}
+      {isLoading ? (
+        <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
+      ) : polizze.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">Nessuna polizza trovata</div>
+      ) : (
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>N° Polizza</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Compagnia</TableHead>
+                <TableHead>Ramo</TableHead>
+                <TableHead>Decorrenza</TableHead>
+                <TableHead>Scadenza</TableHead>
+                <TableHead className="text-right">Premio</TableHead>
+                <TableHead>Stato</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {polizze.map((p: any) => (
+                <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
+                  <TableCell className="font-medium">{p.numero_polizza || "—"}</TableCell>
+                  <TableCell>{[p.cliente_cognome, p.cliente_nome].filter(Boolean).join(" ") || "—"}</TableCell>
+                  <TableCell>{p.compagnia_nome || "—"}</TableCell>
+                  <TableCell>{p.ramo_nome || "—"}</TableCell>
+                  <TableCell>{p.garanzia_dal ? format(new Date(p.garanzia_dal), "dd/MM/yyyy") : "—"}</TableCell>
+                  <TableCell>{p.garanzia_a ? format(new Date(p.garanzia_a), "dd/MM/yyyy") : "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {p.premio_lordo != null ? `€ ${Number(p.premio_lordo).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="default">{p.stato}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+        </>
+      )}
+    </div>
+  );
+};
+
+export default PortafoglioAttivePage;

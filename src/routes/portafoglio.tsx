@@ -1,4 +1,4 @@
-import { Route } from "react-router-dom";
+import { Route, Navigate } from "react-router-dom";
 import PlaceholderPage from "@/components/PlaceholderPage";
 import ProvvigioniSedePage from "@/pages/ProvvigioniSedePage";
 import TitoliList from "@/pages/TitoliList";
@@ -17,21 +17,23 @@ import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 
 import DocumentalePage from "@/pages/DocumentalePage";
-import PortafoglioPolizzePage from "@/pages/PortafoglioPolizzePage";
+import PortafoglioAttivePage from "@/pages/PortafoglioAttivePage";
+import PortafoglioCaricoPage from "@/pages/PortafoglioCaricoPage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
 import PortafoglioPerClientePage from "@/pages/estrazioni/PortafoglioPerClientePage";
 import PortafoglioPerCompagniaPage from "@/pages/estrazioni/PortafoglioPerCompagniaPage";
 import PremiProvvigioniPage from "@/pages/estrazioni/PremiProvvigioniPage";
 import PremiScopertiGarantitiPage from "@/pages/estrazioni/PremiScopertiGarantitiPage";
 import ECClientiPage from "@/pages/estrazioni/ECClientiPage";
-import { BookOpen, ClipboardList, FileCheck, FileUp } from "lucide-react";
-
+import { BookOpen } from "lucide-react";
 
 export const portafoglioRoutes = (
   <>
     <Route path="/titoli" element={<TitoliList />} />
     <Route path="/titoli/:id" element={<TitoloDetail />} />
-    <Route path="/portafoglio" element={<PortafoglioPolizzePage />} />
+    <Route path="/portafoglio" element={<Navigate to="/portafoglio/attive" replace />} />
+    <Route path="/portafoglio/attive" element={<PortafoglioAttivePage />} />
+    <Route path="/portafoglio/carico" element={<PortafoglioCaricoPage />} />
     <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
     <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
