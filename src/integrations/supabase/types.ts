@@ -1408,6 +1408,13 @@ export type Database = {
             referencedRelation: "titoli"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "conducenti_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: true
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
         ]
       }
       dettaglio_riparto: {
@@ -1481,6 +1488,13 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dettaglio_riparto_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]
@@ -2997,6 +3011,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "movimenti_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "movimenti_polizza_ufficio_id_fkey"
             columns: ["ufficio_id"]
             isOneToOne: false
@@ -3149,6 +3170,13 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_restituzione_dettaglio_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]
@@ -3607,6 +3635,13 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premi_garanzia_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]
@@ -4256,6 +4291,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "provvigioni_generate_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "provvigioni_generate_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -4490,6 +4532,13 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_dettaglio_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
         ]
@@ -4842,6 +4891,13 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistri_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
           {
@@ -5870,6 +5926,13 @@ export type Database = {
             referencedRelation: "titoli"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "veicoli_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: true
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -5888,6 +5951,63 @@ export type Database = {
           uscite: number | null
         }
         Relationships: []
+      }
+      v_portafoglio_titoli: {
+        Row: {
+          ae_nome: string | null
+          cliente_anagrafica_id: string | null
+          cliente_codice: string | null
+          cliente_nome_display: string | null
+          compagnia_id: string | null
+          compagnia_nome: string | null
+          data_scadenza: string | null
+          filiale: string | null
+          garanzia_a: string | null
+          garanzia_da: string | null
+          id: string | null
+          numero_titolo: string | null
+          premio_lordo: number | null
+          produttore_nome: string | null
+          provvigioni_firma: number | null
+          provvigioni_quietanza: number | null
+          ramo_id: string | null
+          ramo_nome: string | null
+          rate: number | null
+          specialist: string | null
+          stato: string | null
+          targa_telaio: string | null
+          ufficio_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_cliente_anagrafica_id_fkey"
+            columns: ["cliente_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
