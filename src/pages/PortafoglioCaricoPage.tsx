@@ -65,7 +65,23 @@ const PortafoglioCaricoPage = () => {
 
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
-  const totalePremio = polizze.reduce((sum: number, p: any) => sum + (Number(p.premio_lordo) || 0), 0);
+
+  // Global sum query (not limited by pagination)
+  const { data: totaleData } = useQuery({
+    queryKey: ["portafoglio-carico-totale", search, filtroCompagnia, filtroRamo, caricoStart, caricoEnd],
+    queryFn: async () => {
+      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
+        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd);
+      if (search) {
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+      }
+      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
+      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      const { data } = await q;
+      return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
+    },
+  });
+  const totalePremio = totaleData ?? 0;
 
   const fmtCurrency = (v: number | null) =>
     v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
@@ -129,7 +145,7 @@ const PortafoglioCaricoPage = () => {
               <Euro className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Totale premio lordo (pagina)</p>
+              <p className="text-sm text-muted-foreground">Totale premio lordo</p>
               <p className="text-2xl font-bold text-foreground">{fmtCurrency(totalePremio)}</p>
             </div>
           </CardContent>
