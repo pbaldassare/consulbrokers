@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Search, ChevronLeft, ChevronRight, Euro } from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
@@ -45,13 +45,13 @@ const PortafoglioCaricoPage = () => {
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroCompagnia, filtroRamo, page, caricoStart, caricoEnd],
     queryFn: async () => {
-      let q = supabase.from("titoli").select(
-        "id, numero_polizza, compagnia_nome, ramo_nome, cliente_cognome, cliente_nome, stato, garanzia_dal, garanzia_a, data_scadenza, premio_lordo, tipo_operazione",
+      let q = supabase.from("v_portafoglio_titoli" as any).select(
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
         { count: "exact" }
       ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd);
 
       if (search) {
-        q = q.or(`numero_polizza.ilike.%${search}%,cliente_cognome.ilike.%${search}%,cliente_nome.ilike.%${search}%`);
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
       if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
       if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
@@ -65,6 +65,19 @@ const PortafoglioCaricoPage = () => {
 
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
+  const totalePremio = polizze.reduce((sum: number, p: any) => sum + (Number(p.premio_lordo) || 0), 0);
+
+  const fmtCurrency = (v: number | null) =>
+    v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
+
+  const fmtDate = (d: string | null) =>
+    d ? format(new Date(d), "dd/MM/yyyy") : "—";
+
+  const frazLabel = (r: number | null) => {
+    if (!r) return "—";
+    const map: Record<number, string> = { 1: "Ann.", 2: "Sem.", 3: "Trim.", 4: "Quad.", 12: "Mens." };
+    return map[r] || String(r);
+  };
 
   const statoBadgeVariant = (stato: string) => {
     switch (stato) {
@@ -96,26 +109,38 @@ const PortafoglioCaricoPage = () => {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex items-center gap-4 p-4">
-          <div className="rounded-lg bg-accent/50 p-3">
-            <Clock className="h-6 w-6 text-accent-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Carico {format(caricoDate, "MMMM yyyy", { locale: it })}
-            </p>
-            <p className="text-2xl font-bold text-foreground">{totalCount}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-lg bg-accent/50 p-3">
+              <Clock className="h-6 w-6 text-accent-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Polizze in scadenza
+              </p>
+              <p className="text-2xl font-bold text-foreground">{totalCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-lg bg-primary/10 p-3">
+              <Euro className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Totale premio lordo (pagina)</p>
+              <p className="text-2xl font-bold text-foreground">{fmtCurrency(totalePremio)}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Filtri */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Cerca per n° polizza, cliente..."
+            placeholder="Cerca per n° polizza, cliente, codice..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
@@ -145,45 +170,54 @@ const PortafoglioCaricoPage = () => {
         </Select>
       </div>
 
-      {/* Tabella */}
       {isLoading ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
       ) : polizze.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">Nessuna polizza trovata per questo mese</div>
       ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>N° Polizza</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Compagnia</TableHead>
-                <TableHead>Ramo</TableHead>
-                <TableHead>Decorrenza</TableHead>
-                <TableHead>Scadenza</TableHead>
-                <TableHead className="text-right">Premio</TableHead>
-                <TableHead>Stato</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {polizze.map((p: any) => (
-                <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
-                  <TableCell className="font-medium">{p.numero_polizza || "—"}</TableCell>
-                  <TableCell>{[p.cliente_cognome, p.cliente_nome].filter(Boolean).join(" ") || "—"}</TableCell>
-                  <TableCell>{p.compagnia_nome || "—"}</TableCell>
-                  <TableCell>{p.ramo_nome || "—"}</TableCell>
-                  <TableCell>{p.garanzia_dal ? format(new Date(p.garanzia_dal), "dd/MM/yyyy") : "—"}</TableCell>
-                  <TableCell>{p.garanzia_a ? format(new Date(p.garanzia_a), "dd/MM/yyyy") : "—"}</TableCell>
-                  <TableCell className="text-right">
-                    {p.premio_lordo != null ? `€ ${Number(p.premio_lordo).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>N° Polizza</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Ramo</TableHead>
+                  <TableHead>Scadenza</TableHead>
+                  <TableHead>Fraz</TableHead>
+                  <TableHead className="text-right">Lordo</TableHead>
+                  <TableHead className="text-right">Attive</TableHead>
+                  <TableHead className="text-right">Passive</TableHead>
+                  <TableHead>AE</TableHead>
+                  <TableHead>Specialist</TableHead>
+                  <TableHead>Produttore</TableHead>
+                  <TableHead>Stato</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {polizze.map((p: any) => (
+                  <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
+                    <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                    <TableCell>{p.cliente_nome_display || "—"}</TableCell>
+                    <TableCell>{p.compagnia_nome || "—"}</TableCell>
+                    <TableCell>{p.ramo_nome || "—"}</TableCell>
+                    <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
+                    <TableCell>{frazLabel(p.rate)}</TableCell>
+                    <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
+                    <TableCell className="text-right">{fmtCurrency(p.provvigioni_firma)}</TableCell>
+                    <TableCell className="text-right">{fmtCurrency(p.provvigioni_quietanza)}</TableCell>
+                    <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
+                    <TableCell className="text-sm">{p.specialist || "—"}</TableCell>
+                    <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
           <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
