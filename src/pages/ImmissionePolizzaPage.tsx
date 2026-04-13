@@ -18,6 +18,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
+import { useVehicleMakes, useVehicleModels } from "@/hooks/useNHTSAVehicles";
+import { useRcaSettori, useRcaUsi } from "@/hooks/useRcaLookups";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -998,18 +1001,18 @@ const ImmissionePolizzaPage = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Settore</Label>
-                <SearchableSelect className="h-8 text-xs" value={vSettore} onValueChange={setVSettore} placeholder="—"
-                  options={["Autovetture","Motocicli","Ciclomotori","Autocarri","Macchine Agricole","Macchine Operatrici","Rimorchi","Natanti"].map(v => ({ value: v, label: v }))} />
+                <SearchableSelect className="h-8 text-xs" value={vSettoreId} onValueChange={(v) => { setVSettoreId(v); setVUso(""); const s = rcaSettori?.find(s => s.value === v); if (s) setVSettore(s.descrizione); }} placeholder="—"
+                  options={rcaSettori || []} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo Veicolo</Label>
                 <SearchableSelect className="h-8 text-xs" value={vTipoVeicolo} onValueChange={setVTipoVeicolo} placeholder="—"
-                  options={["AUTOVETTURA","MOTOCICLO","CICLOMOTORE","AUTOCARRO","AUTOBUS","RIMORCHIO","MACCHINA AGRICOLA","MACCHINA OPERATRICE"].map(v => ({ value: v, label: v }))} />
+                  options={TIPI_VEICOLO} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Uso</Label>
                 <SearchableSelect className="h-8 text-xs" value={vUso} onValueChange={setVUso} placeholder="—"
-                  options={["PRIVATO","PUBBLICO","PROMISCUO","PROPRIO","TERZI","NOLEGGIO"].map(v => ({ value: v, label: v }))} />
+                  options={rcaUsi || []} disabled={!vSettoreId} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Provincia Circolazione</Label>
@@ -1017,11 +1020,13 @@ const ImmissionePolizzaPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Marca</Label>
-                <Input value={vMarca} onChange={(e) => setVMarca(e.target.value)} className="h-8 text-xs" />
+                <SearchableSelect className="h-8 text-xs" value={vMarca} onValueChange={(v) => { setVMarca(v); setVModello(""); }} placeholder="Cerca marca..."
+                  options={vehicleMakes || []} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Modello</Label>
-                <Input value={vModello} onChange={(e) => setVModello(e.target.value)} className="h-8 text-xs" />
+                <SearchableSelect className="h-8 text-xs" value={vModello} onValueChange={setVModello} placeholder="Cerca modello..."
+                  options={vehicleModels || []} disabled={!vMarca} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Versione</Label>
@@ -1041,7 +1046,8 @@ const ImmissionePolizzaPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Classe B/M</Label>
-                <Input value={vClasseBm} onChange={(e) => setVClasseBm(e.target.value)} className="h-8 text-xs" />
+                <SearchableSelect className="h-8 text-xs" value={vClasseBm} onValueChange={setVClasseBm} placeholder="—"
+                  options={CLASSI_MERITO} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Immatricolazione</Label>
