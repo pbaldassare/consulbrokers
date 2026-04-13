@@ -107,6 +107,7 @@ const ImmissionePolizzaPage = () => {
   // === RCA AUTO State ===
   // Veicolo
   const [vSettore, setVSettore] = useState("Autovetture");
+  const [vSettoreId, setVSettoreId] = useState("");
   const [vTipoVeicolo, setVTipoVeicolo] = useState("AUTOVETTURA");
   const [vUso, setVUso] = useState("PRIVATO");
   const [vMarca, setVMarca] = useState("");
@@ -119,6 +120,12 @@ const ImmissionePolizzaPage = () => {
   const [vAnnoAcquisto, setVAnnoAcquisto] = useState("");
   const [vProvinciaCircolazione, setVProvinciaCircolazione] = useState("");
   const [vClasseBm, setVClasseBm] = useState("");
+
+  // RCA lookup hooks
+  const { data: rcaSettori } = useRcaSettori();
+  const { data: rcaUsi } = useRcaUsi(vSettoreId);
+  const { data: vehicleMakes } = useVehicleMakes();
+  const { data: vehicleModels } = useVehicleModels(vMarca);
   const [vMass1, setVMass1] = useState("0");
   const [vMass2, setVMass2] = useState("0");
   const [vMass3, setVMass3] = useState("0");
