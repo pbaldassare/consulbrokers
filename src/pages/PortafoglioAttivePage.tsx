@@ -62,6 +62,22 @@ const PortafoglioAttivePage = () => {
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
 
+  // Global sum query for total premium
+  const { data: totaleData } = useQuery({
+    queryKey: ["portafoglio-attive-totale", search, filtroCompagnia, filtroRamo, today],
+    queryFn: async () => {
+      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
+        .eq("stato", "attivo").gte("garanzia_a", today);
+      if (search) {
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+      }
+      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
+      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      const { data } = await q;
+      return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
+    },
+  });
+
   const fmtCurrency = (v: number | null) =>
     v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
 
