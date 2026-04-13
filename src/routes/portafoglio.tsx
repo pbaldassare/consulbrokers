@@ -17,7 +17,7 @@ import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 import AnalisiPreventivoRCAPage from "@/pages/AnalisiPreventivoRCAPage";
 import DocumentalePage from "@/pages/DocumentalePage";
-import PortafoglioList from "@/pages/PortafoglioList";
+import PortafoglioPolizzePage from "@/pages/PortafoglioPolizzePage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
 import PortafoglioPerClientePage from "@/pages/estrazioni/PortafoglioPerClientePage";
 import PortafoglioPerCompagniaPage from "@/pages/estrazioni/PortafoglioPerCompagniaPage";
@@ -31,7 +31,7 @@ export const portafoglioRoutes = (
   <>
     <Route path="/titoli" element={<TitoliList />} />
     <Route path="/titoli/:id" element={<TitoloDetail />} />
-    <Route path="/portafoglio" element={<PortafoglioList />} />
+    <Route path="/portafoglio" element={<PortafoglioPolizzePage />} />
     <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
     <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />

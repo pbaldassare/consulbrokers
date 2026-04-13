@@ -107,7 +107,7 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "titoli",
       children: [
         { label: "Clienti", path: "/archivi/clienti", icon: Users },
-        { label: "Ricerca Polizze", path: "/titoli", icon: Search },
+        { label: "Portafoglio Polizze", path: "/portafoglio", icon: Search },
         { label: "Gestione Polizze", path: "/portafoglio/gestione-polizze", icon: Settings },
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
