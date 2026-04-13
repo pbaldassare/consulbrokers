@@ -15,7 +15,7 @@ import SospensionePolizzaPage from "@/pages/SospensionePolizzaPage";
 import RiattivazionePolizzaPage from "@/pages/RiattivazionePolizzaPage";
 import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
-import AnalisiPreventivoRCAPage from "@/pages/AnalisiPreventivoRCAPage";
+
 import DocumentalePage from "@/pages/DocumentalePage";
 import PortafoglioPolizzePage from "@/pages/PortafoglioPolizzePage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
@@ -51,11 +51,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PremiScopertiGarantitiPage />} />
     <Route path="/portafoglio/estrazioni/ec-clienti" element={<ECClientiPage />} />
     <Route path="/portafoglio/collettive" element={<PlaceholderPage title="Collettive / Libri Matricola" description="Gestione polizze collettive e libri matricola" icon={BookOpen} />} />
-    <Route path="/portafoglio/regolazioni" element={<PlaceholderPage title="Regolazioni" description="Regolazioni premio polizze" icon={ClipboardList} />} />
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
-    <Route path="/portafoglio/rientro-documenti" element={<PlaceholderPage title="Rientro Documenti" description="Gestione rientro documenti dalle compagnie" icon={FileCheck} />} />
-    <Route path="/portafoglio/import-titoli" element={<PlaceholderPage title="Import Titoli (Excel)" description="Importazione massiva titoli da file Excel" icon={FileUp} />} />
-    <Route path="/portafoglio/analisi-preventivo-rca" element={<AnalisiPreventivoRCAPage />} />
     <Route path="/provvigioni-sede" element={<ProvvigioniSedePage />} />
   </>
 );
