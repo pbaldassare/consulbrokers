@@ -17,7 +17,7 @@ import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 import AnalisiPreventivoRCAPage from "@/pages/AnalisiPreventivoRCAPage";
 import DocumentalePage from "@/pages/DocumentalePage";
-import PortafoglioList from "@/pages/PortafoglioList";
+import PortafoglioPolizzePage from "@/pages/PortafoglioPolizzePage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
 import PortafoglioPerClientePage from "@/pages/estrazioni/PortafoglioPerClientePage";
 import PortafoglioPerCompagniaPage from "@/pages/estrazioni/PortafoglioPerCompagniaPage";
