@@ -18,6 +18,11 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 
 const fmt = (v: any) => v ?? "—";
@@ -151,6 +156,66 @@ const TitoloDetail = () => {
     },
     enabled: !!id,
   });
+
+  // --- Regolazione edit state ---
+  const [editingReg, setEditingReg] = useState(false);
+  const [regForm, setRegForm] = useState({
+    regolazione: false, periodicita: "", tipo_scadenza: "",
+    giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
+  });
+
+  const startEditReg = () => {
+    if (titolo) {
+      setRegForm({
+        regolazione: titolo.regolazione ?? false,
+        periodicita: titolo.periodicita ?? "",
+        tipo_scadenza: titolo.tipo_scadenza ?? "",
+        giorni_presentazione: titolo.giorni_presentazione ?? 0,
+        tipo_lettera_regolazione: titolo.tipo_lettera_regolazione ?? "",
+        libro_matricola: titolo.libro_matricola ?? "",
+      });
+    }
+    setEditingReg(true);
+  };
+
+  const saveRegMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("titoli")
+        .update({
+          regolazione: regForm.regolazione,
+          periodicita: regForm.periodicita || null,
+          tipo_scadenza: regForm.tipo_scadenza || null,
+          giorni_presentazione: regForm.giorni_presentazione,
+          tipo_lettera_regolazione: regForm.tipo_lettera_regolazione || null,
+          libro_matricola: regForm.libro_matricola || null,
+        })
+        .eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      toast.success("Regolazione aggiornata");
+      setEditingReg(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const periodicitaOpts = [
+    { value: "annuale", label: "Annuale" },
+    { value: "semestrale", label: "Semestrale" },
+    { value: "trimestrale", label: "Trimestrale" },
+    { value: "mensile", label: "Mensile" },
+  ];
+  const tipoScadenzaOpts = [
+    { value: "no_scadenza", label: "No scadenza" },
+    { value: "a_scadenza", label: "A scadenza" },
+  ];
+  const tipoLetteraOpts = [
+    { value: "standard", label: "Standard" },
+    { value: "personalizzata", label: "Personalizzata" },
+    { value: "nessuna", label: "Nessuna" },
+  ];
 
   const changeStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
@@ -297,14 +362,97 @@ const TitoloDetail = () => {
 
       {/* REGOLAZIONE */}
       <SectionCollapsible title="Regolazione" icon={Shield} defaultOpen={false}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-          <FieldRow label="Regolazione" value={fmtBool(t.regolazione)} />
-          <FieldRow label="Periodicità" value={fmt(t.periodicita)} />
-          <FieldRow label="Tipo Scadenza" value={fmt(t.tipo_scadenza)} />
-          <FieldRow label="GG Presentazione" value={fmt(t.giorni_presentazione)} />
-          <FieldRow label="Tipo Lettera" value={fmt(t.tipo_lettera_regolazione)} />
-          <FieldRow label="Libro Matricola" value={fmt(t.libro_matricola)} />
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingReg ? (
+            <Button variant="ghost" size="sm" onClick={startEditReg}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditingReg(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => saveRegMutation.mutate()} disabled={saveRegMutation.isPending}>
+                {saveRegMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </>
+          )}
         </div>
+
+        {!editingReg ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+            <FieldRow label="Regolazione" value={fmtBool(t.regolazione)} />
+            <FieldRow label="Periodicità" value={fmt(t.periodicita)} />
+            <FieldRow label="Tipo Scadenza" value={fmt(t.tipo_scadenza)} />
+            <FieldRow label="GG Presentazione" value={fmt(t.giorni_presentazione)} />
+            <FieldRow label="Tipo Lettera" value={fmt(t.tipo_lettera_regolazione)} />
+            <FieldRow label="Libro Matricola" value={fmt(t.libro_matricola)} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="reg-check"
+                checked={regForm.regolazione}
+                onCheckedChange={(v) => setRegForm(p => ({ ...p, regolazione: !!v }))}
+              />
+              <Label htmlFor="reg-check">Regolazione attiva</Label>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Periodicità</Label>
+              <SearchableSelect
+                options={periodicitaOpts}
+                value={regForm.periodicita}
+                onValueChange={(v) => setRegForm(p => ({ ...p, periodicita: v }))}
+                placeholder="Seleziona periodicità"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Tipo Scadenza</Label>
+              <SearchableSelect
+                options={tipoScadenzaOpts}
+                value={regForm.tipo_scadenza}
+                onValueChange={(v) => setRegForm(p => ({ ...p, tipo_scadenza: v }))}
+                placeholder="Seleziona tipo scadenza"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">GG Presentazione</Label>
+              <Input
+                type="number"
+                value={regForm.giorni_presentazione}
+                onChange={(e) => setRegForm(p => ({ ...p, giorni_presentazione: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Tipo Lettera</Label>
+              <SearchableSelect
+                options={tipoLetteraOpts}
+                value={regForm.tipo_lettera_regolazione}
+                onValueChange={(v) => setRegForm(p => ({ ...p, tipo_lettera_regolazione: v }))}
+                placeholder="Seleziona tipo lettera"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Libro Matricola</Label>
+              <RadioGroup
+                value={regForm.libro_matricola}
+                onValueChange={(v) => setRegForm(p => ({ ...p, libro_matricola: v }))}
+                className="flex gap-4 mt-1"
+              >
+                {["no", "auto", "altro"].map(v => (
+                  <div key={v} className="flex items-center gap-1">
+                    <RadioGroupItem value={v} id={`lm-${v}`} />
+                    <Label htmlFor={`lm-${v}`} className="text-sm capitalize">{v}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+        )}
       </SectionCollapsible>
 
       {/* COMMERCIALE & SPLIT */}
