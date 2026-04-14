@@ -58,6 +58,7 @@ const SectionCollapsible = ({ title, icon: Icon, children, defaultOpen = true }:
 };
 
 const TitoloDetail = () => {
+  // v2 - regolazione editabile
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
