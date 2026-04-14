@@ -193,15 +193,8 @@ const RimessaList = () => {
     },
     onError: (e: any) => toast.error(e.message || "Errore nell'annullamento"),
   });
-    },
-    onSuccess: () => {
-      toast.success("Rimessa confermata e archiviata");
-      setConfirmDialog(null);
-      queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
-      queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });
-    },
-    onError: (e: any) => toast.error(e.message || "Errore nella conferma"),
-  });
+
+
 
   const { data: rimesseResult, isLoading } = useQuery({
     queryKey: ["rimessa_premi", page, filtroStato, meseDa, meseA],
