@@ -199,6 +199,7 @@ const sidebarEntries: SidebarEntry[] = [
       permissionKey: "provvigioni",
       children: [
         { label: "Provvigioni Consul", path: "/provvigioni-sede", icon: Landmark },
+        { label: "Provvigioni Maturate", path: "/provvigioni-maturate", icon: TrendingUp },
         { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign },
       ],
     },
