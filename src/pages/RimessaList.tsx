@@ -411,33 +411,50 @@ const RimessaList = () => {
                     <TableHead>IBAN</TableHead>
                     <TableHead>Data Pagamento</TableHead>
                     <TableHead>Stato</TableHead>
-                    <TableHead>Creata da</TableHead>
-                    <TableHead>Data</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rimesse.map((r: any) => (
-                    <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
-                      <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
-                      <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
-                      <TableCell className="text-right font-mono">€ {(r.totale_importi ?? 0).toFixed(2)}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.iban_utilizzato || "—"}</TableCell>
-                      <TableCell>{r.data_pagamento_rimessa ? format(new Date(r.data_pagamento_rimessa), "dd/MM/yyyy") : "—"}</TableCell>
-                      <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
-                      <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
-                      <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {rimesse.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna rimessa archiviata</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-export default RimessaList;
+                     <TableHead>Creata da</TableHead>
+                     <TableHead>Data</TableHead>
+                     <TableHead className="w-10"></TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {rimesse.map((r: any) => (
+                     <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
+                       <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
+                       <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
+                       <TableCell className="text-right font-mono">€ {(r.totale_importi ?? 0).toFixed(2)}</TableCell>
+                       <TableCell className="font-mono text-xs">{r.iban_utilizzato || "—"}</TableCell>
+                       <TableCell>{r.data_pagamento_rimessa ? format(new Date(r.data_pagamento_rimessa), "dd/MM/yyyy") : "—"}</TableCell>
+                       <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
+                       <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
+                       <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                       <TableCell>
+                         <Button
+                           size="sm"
+                           variant="ghost"
+                           className="h-7 text-xs text-destructive hover:text-destructive"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (window.confirm(`Annullare la rimessa per ${r.compagnie?.nome || "questa compagnia"}? I titoli torneranno nel riepilogo.`)) {
+                               revertMutation.mutate(r.id);
+                             }
+                           }}
+                           disabled={revertMutation.isPending}
+                         >
+                           <Undo2 className="w-3 h-3 mr-1" />Annulla
+                         </Button>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                   {rimesse.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna rimessa archiviata</TableCell></TableRow>}
+                 </TableBody>
+               </Table>
+               <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+             </>
+           )}
+         </CardContent>
+       </Card>
+     </div>
+   );
+ };
+ 
+ export default RimessaList;
