@@ -1,39 +1,36 @@
 
 
-## Piano: Aggiornare polizza 2013/07/2035147 (COMUNE DI POMIGLIANO D'ARCO - INCENDIO)
+## Piano: Aggiornare polizza 450315855 (BRIGUORI CARLO - CORPI IMBARCAZIONI)
 
 ### Differenze DB → Screenshot Legacy
 
 | Campo | Valore DB | Valore Legacy (corretto) |
 |-------|-----------|-------------------------|
-| `durata_a` | 2025-04-22 | **2026-04-22** (biennale) |
-| `garanzia_da` | 2024-04-22 | **2025-04-22** |
-| `premio_netto` | 642.12 | **583.74** |
-| `addizionali` | 0 | **58.38** |
-| `provvigioni_quietanza` | 20.55 | **51.37** |
-| `comp_assicurativa` | 2025-04-22 | **2025-04-29** |
-| `id_legacy` | 138676 | **142636** |
-| `giorni_presentazione` | null | **0** |
+| `provvigioni_quietanza` | 47.48 | **118.70** |
+| `premio_netto_quietanza` | null | **1695.75** |
+| `tasse_quietanza` | null | **211.97** |
 | `tipo_scadenza` | null | **no scadenza** |
+| `giorni_presentazione` | null | **0** |
 
 ### Campi già corretti
-- Numero: 2013/07/2035147 ✓ | Riga: 0 ✓
-- Compagnia: REA114 / Reale Mutua ✓
-- Ramo: INCENDIO ✓ | Gruppo: INCENDIO FURTO RISCHI TECNOLOGICI ✓
+- Numero: 450315855 ✓ | Riga: 0 ✓
+- Compagnia: GEN110 / Generali Italia ✓
+- Ramo: CORPI IMBARCAZIONI DIPOR. ✓ | Gruppo: CORPI ✓
 - AE: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
-- Premio lordo: 785 ✓ | Tasse: 142.88 ✓
-- Provvigioni firma: 51.37 ✓
-- Data incasso/competenza: 09/06/2025 ✓
+- Premio lordo: 1907.72 ✓ | Netto: 1695.75 ✓ | Tasse: 211.97 ✓ | Addizionali: 0 ✓
+- Provvigioni firma: 118.70 ✓
+- Durata: 24/04/2025 - 24/04/2026 ✓ | Anni: 1 ✓
+- Garanzia: 24/04/2025 - 24/04/2026 ✓
+- Data incasso/competenza: 22/04/2025 ✓
 - Conto incasso: CRED. VS CB CONSULTING (I7591) ✓
 - Mora: 15gg ✓ | Rate: 1 ✓ | Periodicità: annuale ✓
 - Tipo rinnovo: Tacito rinnovo ✓
-- Descrizione: MODULI AERONAUTICI SPARTITRAFFICO ZONA PONTE (CIG: B15E982E61) ✓
+- Descrizione: RINNOVO BRIGUORI 2025/26 - valore assicurato € 170.000,00 ✓
+- id_legacy: 142524 ✓
 
 ### Azione
-Migrazione SQL per UPDATE dei 9 campi sulla riga `eef00590-01db-48b0-9f6c-847c445ec52a`.
+UPDATE tramite tool insert dei 5 campi sulla riga `9cf0ec5e-3fa4-414f-b01e-18cfb032f7d5`.
 
 ### File coinvolti
-| File | Azione |
-|------|--------|
-| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 9 campi |
+Nessun file — solo operazione dati via Supabase insert tool.
 
