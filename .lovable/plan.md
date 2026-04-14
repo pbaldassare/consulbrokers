@@ -1,46 +1,44 @@
 
 
-## Piano: Aggiornare polizza 9479008. (COMUNE DI AFRAGOLA - VITA COLLETTIVA)
+## Piano: Aggiornare polizza 01.51130/03 (CONSULBROKERS - CAUZIONI DEFINITIVE)
 
-Record ID: `074979de-381b-4775-9549-de3fbef5cf6b`
+Record ID: `7938cab5-45f5-4a38-895e-0aa785967f76`
 
 ### Differenze DB → Screenshot Legacy
 
 | Campo | Valore DB | Valore Legacy (corretto) |
 |-------|-----------|-------------------------|
-| `durata_a` | 2025-04-30 | **2026-04-30** (biennale) |
-| `garanzia_da` | 2024-04-30 | **2025-04-30** |
-| `premio_netto` | -62.50 | **15960.50** |
-| `tasse` | 0 | **62.00** |
-| `no_calcolo_tasse` | false | **true** |
-| `provvigioni_quietanza` | 1276.84 | **2553.68** |
-| `premio_netto_quietanza` | null | **15960.50** |
-| `tasse_quietanza` | null | **62.00** |
-| `data_competenza` | 2025-04-29 | **2025-05-15** |
-| `comp_assicurativa` | 2025-04-30 | **2025-04-29** |
-| `tipo_rinnovo` | A | **S** (Riformare alla scadenza) |
+| `anni_durata` | 1 | **3** |
+| `premio_netto` | 88.89 | **74.08** |
+| `addizionali` | 0 | **14.81** |
+| `provvigioni_quietanza` | 0 | **17.78** |
+| `premio_netto_quietanza` | null | **74.08** |
+| `addizionali_quietanza` | 0 | **14.81** |
+| `tasse_quietanza` | null | **11.11** |
 | `tipo_scadenza` | null | **no scadenza** |
 | `giorni_presentazione` | null | **0** |
-| `id_legacy` | 139158 | **142789** |
 
-### Campi gia corretti
-- Numero: 9479008. ✓ | Riga: 0 ✓
-- Compagnia: UNISCI / SCIACCA ASSICURAZIONI ✓
-- Gruppo: ZV / VITA ✓
+### Campi già corretti
+- Numero: 01.51130/03 ✓ | Riga: 0 ✓
+- Compagnia: S2C001 / S2C SPA ✓
+- Ramo: CAUZIONI DEFINITIVE ✓ | Gruppo: CREDITO CAUZIONI ✓
 - AE: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
-- Premio lordo: 16022.50 ✓ | Provvigioni firma: 2553.68 ✓
-- Addizionali: 0 ✓
-- Durata da: 30/04/2024 ✓ | Garanzia a: 30/04/2026 ✓
-- Data incasso: 29/04/2025 ✓
-- Conto incasso: CRED. VS CB CONSULTING (V1753) ✓
-- Mora: 15gg ✓ | Rate: 1 ✓
-- Descrizione: TCM VIGILI URBANI ✓
+- Premio lordo: 100 ✓ | Tasse: 11.11 ✓
+- Provvigioni firma: 17.78 ✓
+- Durata: 30/10/2025 - 30/04/2026 ✓
+- Garanzia: 30/10/2025 - 30/04/2026 ✓
+- Data incasso/competenza: 19/11/2025 ✓
+- Conto incasso: CASSA NAPOLI ✓
+- Mora: 15gg ✓ | Rate: 1 ✓ | Periodicità: annuale ✓
+- Tipo rinnovo: Tacito rinnovo ✓
+- Descrizione: AZ. SANITARIA PROV. DI PALERMO 8PROROGA... ✓
+- id_legacy: 158708 ✓
 
 ### Azione
-Migrazione SQL per UPDATE dei 14 campi sulla riga `074979de-381b-4775-9549-de3fbef5cf6b`.
+Migrazione SQL per UPDATE dei 9 campi sulla riga `7938cab5-45f5-4a38-895e-0aa785967f76`.
 
 ### File coinvolti
 | File | Azione |
 |------|--------|
-| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 14 campi |
+| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 9 campi |
 
