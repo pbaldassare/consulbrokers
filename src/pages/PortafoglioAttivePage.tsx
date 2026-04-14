@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Shield, Search } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 
 const PAGE_SIZE = 25;
@@ -19,8 +21,11 @@ const PortafoglioAttivePage = () => {
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
   const [filtroRamo, setFiltroRamo] = useState("tutti");
   const [page, setPage] = useState(0);
+  const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");
+  const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const fineMese = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie-lookup"],
