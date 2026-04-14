@@ -12,6 +12,17 @@ import { useNavigate } from "react-router-dom";
 
 const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
 
+const tipoBadge = (tipo: string | null) => {
+  switch (tipo) {
+    case "commerciale":
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-300" variant="outline">Commerciale</Badge>;
+    case "sede":
+      return <Badge className="bg-purple-100 text-purple-800 border-purple-300" variant="outline">Sede</Badge>;
+    default:
+      return <Badge className="bg-gray-100 text-gray-600 border-gray-300" variant="outline">—</Badge>;
+  }
+};
+
 const ProvvigioniMaturatePage = () => {
   const navigate = useNavigate();
   const [meseCorrente, setMeseCorrente] = useState(new Date());
@@ -26,7 +37,7 @@ const ProvvigioniMaturatePage = () => {
       const { data } = await supabase
         .from("provvigioni_generate")
         .select(`
-          id, percentuale, importo_provvigione, calcolata_il, pagata,
+          id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario,
           titoli!inner(
             id, numero_titolo, premio_lordo, data_messa_cassa, stato,
             compagnie!titoli_compagnia_id_fkey(nome),
@@ -35,6 +46,7 @@ const ProvvigioniMaturatePage = () => {
           profiles!provvigioni_generate_user_id_fkey(nome, cognome)
         `)
         .eq("pagata", false)
+        .neq("tipo_destinatario", "consul")
         .gte("titoli.data_messa_cassa", meseDa)
         .lte("titoli.data_messa_cassa", meseA)
         .order("calcolata_il", { ascending: true })
@@ -43,7 +55,7 @@ const ProvvigioniMaturatePage = () => {
     },
   });
 
-  // Sort by data_messa_cassa client-side (since we can't order by joined column)
+  // Sort by data_messa_cassa client-side
   const sorted = [...provvigioni].sort((a: any, b: any) => {
     const dA = a.titoli?.data_messa_cassa || "";
     const dB = b.titoli?.data_messa_cassa || "";
@@ -51,7 +63,7 @@ const ProvvigioniMaturatePage = () => {
   });
 
   const totMaturato = sorted.reduce((s, p: any) => s + (p.importo_provvigione || 0), 0);
-  const utentiUnici = new Set(sorted.map((p: any) => p.profiles?.cognome)).size;
+  const utentiUnici = new Set(sorted.map((p: any) => p.profiles?.cognome).filter(Boolean)).size;
 
   return (
     <div className="p-6 space-y-6">
@@ -115,6 +127,7 @@ const ProvvigioniMaturatePage = () => {
                 <TableHead>Ramo</TableHead>
                 <TableHead className="text-right">Premio</TableHead>
                 <TableHead>Data Messa a Cassa</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Destinatario</TableHead>
                 <TableHead className="text-right">Provvigione</TableHead>
                 <TableHead>Stato</TableHead>
@@ -122,9 +135,9 @@ const ProvvigioniMaturatePage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8">Caricamento...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8">Caricamento...</TableCell></TableRow>
               ) : sorted.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessuna provvigione maturata nel periodo selezionato</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessuna provvigione maturata nel periodo selezionato</TableCell></TableRow>
               ) : (
                 sorted.map((p: any, i) => (
                   <TableRow key={p.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
@@ -137,6 +150,7 @@ const ProvvigioniMaturatePage = () => {
                         ? format(new Date(p.titoli.data_messa_cassa), "dd/MM/yyyy")
                         : "—"}
                     </TableCell>
+                    <TableCell>{tipoBadge(p.tipo_destinatario)}</TableCell>
                     <TableCell>
                       {p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : "—"}
                     </TableCell>

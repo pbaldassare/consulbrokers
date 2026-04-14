@@ -105,6 +105,9 @@ const PortafoglioCaricoPage = () => {
         dettagli_json: { data_messa_cassa: today, data_pagamento: today, data_decorrenza_rinnovo: today },
       });
 
+      // Genera provvigioni automaticamente
+      supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: titoloId } }).catch(() => {});
+
       toast.success("Polizza messa a cassa");
       invalidateQueries();
     } catch (err: any) {
@@ -167,7 +170,11 @@ const PortafoglioCaricoPage = () => {
         data_pagamento: today,
         data_decorrenza_rinnovo: today,
       }).eq("id", p.id);
-      if (error) ko++; else ok++;
+      if (error) ko++; else {
+        ok++;
+        // Genera provvigioni per ogni polizza messa a cassa
+        supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: p.id } }).catch(() => {});
+      }
     }
     if (ok > 0) {
       await logAttivita({

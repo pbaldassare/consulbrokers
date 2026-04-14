@@ -20,16 +20,72 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch titolo
+    // Fetch titolo with all needed fields
     const { data: titolo, error: tErr } = await supabaseAdmin
       .from("titoli")
-      .select("*, prodotti(id, nome_prodotto)")
+      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato")
       .eq("id", titolo_id)
       .single();
     if (tErr || !titolo) throw new Error("Titolo non trovato");
     if (titolo.stato !== "incassato") throw new Error("Titolo non incassato");
 
-    // Get produttore profile for ruolo
+    // Delete old provvigioni for this titolo
+    await supabaseAdmin.from("provvigioni_generate").delete().eq("titolo_id", titolo_id);
+
+    const provvQuietanza = titolo.provvigioni_quietanza;
+
+    // === PRIMARY PATH: use provvigioni_quietanza from titolo ===
+    if (provvQuietanza != null && provvQuietanza > 0) {
+      const percComm = titolo.percentuale_commerciale ?? 0;
+      const commercialeId = titolo.commerciale_id;
+      const rows: any[] = [];
+
+      if (percComm > 0 && commercialeId) {
+        // Commerciale gets their share
+        const importoComm = Math.round((provvQuietanza * percComm) / 100 * 100) / 100;
+        rows.push({
+          titolo_id,
+          user_id: commercialeId,
+          percentuale: percComm,
+          importo_provvigione: importoComm,
+          tipo_destinatario: "commerciale",
+        });
+
+        // Consul gets the rest
+        const importoConsul = Math.round((provvQuietanza - importoComm) * 100) / 100;
+        if (importoConsul > 0) {
+          rows.push({
+            titolo_id,
+            user_id: null,
+            percentuale: 100 - percComm,
+            importo_provvigione: importoConsul,
+            tipo_destinatario: "consul",
+          });
+        }
+      } else {
+        // No commerciale — everything goes to Consul
+        rows.push({
+          titolo_id,
+          user_id: null,
+          percentuale: 100,
+          importo_provvigione: Math.round(provvQuietanza * 100) / 100,
+          tipo_destinatario: "consul",
+        });
+      }
+
+      const { data: inserted, error: iErr } = await supabaseAdmin
+        .from("provvigioni_generate")
+        .insert(rows)
+        .select();
+      if (iErr) throw iErr;
+
+      return new Response(
+        JSON.stringify({ message: `Provvigioni generate: ${inserted.length}`, provvigioni: inserted }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === FALLBACK PATH: use matrice_provvigioni (legacy) ===
     let produttoreRuolo: string | null = null;
     if (titolo.produttore_id) {
       const { data: prof } = await supabaseAdmin
@@ -40,7 +96,6 @@ Deno.serve(async (req) => {
       produttoreRuolo = prof?.ruolo ?? null;
     }
 
-    // Fetch all matching matrice rules for this product
     const { data: regole } = await supabaseAdmin
       .from("matrice_provvigioni")
       .select("*")
@@ -54,25 +109,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Priority: 1) user_id match, 2) ufficio_id match, 3) ruolo match
     let bestRule = null;
-
-    // Priority 1: user-specific
     if (titolo.produttore_id) {
       bestRule = regole.find((r) => r.user_id === titolo.produttore_id) ?? null;
     }
-
-    // Priority 2: ufficio-specific
     if (!bestRule && titolo.ufficio_id) {
       bestRule = regole.find((r) => !r.user_id && r.ufficio_id === titolo.ufficio_id) ?? null;
     }
-
-    // Priority 3: ruolo-based
     if (!bestRule && produttoreRuolo) {
       bestRule = regole.find((r) => !r.user_id && !r.ufficio_id && r.ruolo === produttoreRuolo) ?? null;
     }
-
-    // Fallback: any rule without specifics
     if (!bestRule) {
       bestRule = regole.find((r) => !r.user_id && !r.ufficio_id && !r.ruolo) ?? null;
     }
@@ -84,19 +130,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Calculate
     const base = titolo.importo_incassato ?? titolo.premio_lordo ?? 0;
     let importo = 0;
     if (bestRule.tipo_calcolo === "percentuale") {
       importo = (base * bestRule.percentuale_provvigione) / 100;
     } else {
-      importo = bestRule.percentuale_provvigione; // fisso
+      importo = bestRule.percentuale_provvigione;
     }
 
-    // Delete old provvigioni for this titolo
-    await supabaseAdmin.from("provvigioni_generate").delete().eq("titolo_id", titolo_id);
-
-    // Insert new
     const { data: prov, error: pErr } = await supabaseAdmin
       .from("provvigioni_generate")
       .insert({
@@ -104,10 +145,10 @@ Deno.serve(async (req) => {
         user_id: titolo.produttore_id,
         percentuale: bestRule.percentuale_provvigione,
         importo_provvigione: Math.round(importo * 100) / 100,
+        tipo_destinatario: titolo.produttore_id ? "commerciale" : "consul",
       })
       .select()
       .single();
-
     if (pErr) throw pErr;
 
     return new Response(
