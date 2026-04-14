@@ -1,28 +1,20 @@
 
 
-## Piano: Rimessa Premi e Provvigioni basate sulla Messa a Cassa
+## Piano: Aggiungere sezione Messa a Cassa nel dettaglio polizza
 
 ### Obiettivo
-Collegare la pagina Rimessa Premi al mese corrente mostrando solo i titoli "messi a cassa" nel mese selezionato. Stessa logica per Provvigioni Consul.
+Sotto la card "Operazioni" in `TitoloDetail.tsx`, aggiungere una nuova card "Messa a Cassa" che mostra lo stato incasso e permette di mettere a cassa / annullare incasso direttamente dalla singola polizza.
 
-### 1. Rimessa Premi (`src/pages/RimessaList.tsx`)
-- Aggiungere un selettore mese (come nel Carico del Mese: frecce sx/dx + label mese/anno)
-- Rimuovere filtro "Tutte le compagnie" dalla lista
-- Default: mese corrente
-- Il pulsante "Nuova Rimessa" nel dialog passa anche il range date del mese selezionato
-- Sotto la lista rimesse, aggiungere una sezione "Titoli messi a cassa nel mese" che mostra un riepilogo raggruppato per compagnia dei titoli con `stato = 'incassato'` e `data_messa_cassa` nel range del mese selezionato, non ancora associati a una rimessa
+### Cosa viene aggiunto
 
-### 2. Edge function `gestione-rimessa` (`supabase/functions/gestione-rimessa/index.ts`)
-- Aggiungere parametri `data_da` e `data_a` nell'azione `crea`
-- Filtrare i titoli incassati anche per `data_messa_cassa` nel range specificato (non più tutti gli incassati di sempre)
+**Nuova card "Messa a Cassa"** (visibile solo per polizze attive o incassate):
+- Se la polizza è **attiva**: pulsante "Metti a Cassa" che imposta `stato = 'incassato'` e le 3 date (data_messa_cassa, data_pagamento, data_decorrenza_rinnovo) a oggi
+- Se la polizza è **incassata**: mostra le 3 date in formato leggibile + pulsante "Annulla Incasso" per fare revert
+- Le date vengono mostrate sempre: Data Messa a Cassa, Data Pagamento, Data Decorrenza Rinnovo
 
-### 3. Provvigioni Consul (`src/pages/ProvvigioniSedePage.tsx`)
-- Sostituire i filtri data liberi con il selettore mese (stile Carico del Mese)
-- Filtrare i titoli per `data_messa_cassa` nel range del mese selezionato (solo quelli effettivamente incassati)
-- Mantenere il filtro compagnia opzionale
-
-### File coinvolti
-- `src/pages/RimessaList.tsx` — selettore mese, rimuovi filtro compagnia, riepilogo titoli incassati
-- `src/pages/ProvvigioniSedePage.tsx` — selettore mese, filtro per data_messa_cassa
-- `supabase/functions/gestione-rimessa/index.ts` — filtro per range date nella creazione rimessa
+### Dettagli tecnici
+- File: `src/pages/TitoloDetail.tsx`
+- Aggiornare `changeStatoMutation` per gestire anche le 3 date quando si passa a "incassato" (update con data_messa_cassa, data_pagamento, data_decorrenza_rinnovo = today) e azzerarle quando si fa revert ad "attivo"
+- La card si posiziona subito dopo la card Operazioni (riga ~306)
+- Stile coerente con le altre card della pagina
 
