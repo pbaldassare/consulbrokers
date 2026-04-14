@@ -1,45 +1,37 @@
 
 
-## Piano: Dropdown dinamici per dati veicolo RCA
+## Piano: Aggiornare polizza 2013/03/2163641 (COMUNE DI POMIGLIANO D'ARCO)
 
-### Stato attuale
-- **Settore** e **Uso**: già gestiti dalle tabelle `rca_settori` e `rca_usi` con relazione gerarchica
-- **Marca/Modello**: campi testo liberi senza validazione
-- **Classe B/M**: campo testo libero
-- **Tipo Veicolo**: campo testo libero
+### Differenze DB → Screenshot Legacy
 
-### Cosa fare
+| Campo | Valore DB | Valore Legacy (corretto) |
+|-------|-----------|-------------------------|
+| `durata_a` | 2025-04-22 | **2026-04-22** (biennale) |
+| `garanzia_da` | 2024-04-22 | **2025-04-22** (annualità corrente) |
+| `premio_netto` | 445.80 | **405.27** |
+| `addizionali` | 0 | **40.53** |
+| `provvigioni_quietanza` | 14.84 | **35.66** |
+| `comp_assicurativa` | 2025-04-22 | **2025-04-29** |
+| `id_legacy` | 138677 | **142635** |
+| `giorni_presentazione` | null | **0** |
 
-#### 1. Dropdown Classe di Merito (statico)
-Creare un array statico con le 18 classi CU (1-18) per un semplice `<Select>`. Non serve tabella DB.
+### Campi già corretti
+- Numero: 2013/03/2163641 ✓
+- Compagnia: REA114 / Reale Mutua ✓
+- Ramo: R.C.T./R.C.O. ✓ | Gruppo: R.C.T. ✓
+- AE: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
+- Premio lordo: 545 ✓ | Tasse: 99.20 ✓
+- Provvigioni firma: 35.66 ✓
+- Data incasso/competenza: 09/06/2025 ✓
+- Conto incasso: CRED. VS CB CONSULTING (I7591) ✓
+- Descrizione: MODULI AERONAUTICI SPARTITRAFFICO ZONA PONTE (CIG: B15E982E61) ✓
+- Mora: 15gg ✓ | Rate: 1 ✓ | Periodicità: annuale ✓
 
-#### 2. Dropdown Marca (API NHTSA)
-Usare l'API gratuita NHTSA vPIC per popolare il dropdown marca:
-- Endpoint: `https://vpic.nhtsa.dot.gov/api/vehicles/GetAllMakes?format=json`
-- Caricare una volta e cacheare (sono ~10.000 marche)
-- Usare `SearchableSelect` per filtrare digitando
-
-#### 3. Dropdown Modello (API NHTSA, dipendente dalla marca)
-Quando l'utente seleziona una marca, caricare i modelli:
-- Endpoint: `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMake/{marca}?format=json`
-- Dropdown filtrato con `SearchableSelect`
-
-#### 4. Dropdown Tipo Veicolo (statico da settore)
-Mappare i 16 settori ai tipi veicolo standard (AUTOVETTURA, AUTOCARRO, MOTOCICLO, ecc.) con un array statico.
-
-#### 5. Dropdown Settore e Uso (da DB, già esistenti)
-Collegare i dropdown esistenti `rca_settori` → `rca_usi` (filtro gerarchico per settore_id) nel form di immissione veicolo.
+### Azione
+Migrazione SQL per UPDATE degli 8 campi sulla riga `f4dd11ef-c7df-4b88-946d-80690ff54f3f`.
 
 ### File coinvolti
 | File | Azione |
 |------|--------|
-| `src/hooks/useNHTSAVehicles.ts` | Nuovo hook per fetch marche e modelli da API NHTSA |
-| `src/lib/rcaConstants.ts` | Array statici per classi BM (1-18) e tipi veicolo |
-| Form immissione veicolo (da identificare) | Sostituire input testo con SearchableSelect per marca, modello, classe BM, settore, uso |
-
-### Note tecniche
-- L'API NHTSA è gratuita e non richiede API key
-- Le marche vengono cachate in memoria dopo il primo fetch
-- I modelli vengono caricati on-demand alla selezione della marca
-- Settore e Uso usano le tabelle `rca_settori`/`rca_usi` già popolate
+| `supabase/migrations/` | Nuovo file SQL con UPDATE dei campi |
 
