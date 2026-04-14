@@ -1,49 +1,44 @@
 
-Problema reale
 
-Do I know what the issue is? Sì.
+## Piano: Sezione Regolazione editabile nel dettaglio polizza
 
-Ho verificato il flusso:
-- sei nella pagina appendici in modalità creazione (`/portafoglio/appendici?...` senza `appendiceId`)
-- i click su Salva stanno facendo veri `POST` su `appendici_polizza`
-- dopo ogni creazione il form torna subito pronto per una nuova appendice e precompila il numero successivo
-- quindi i click successivi non aggiornano il record appena creato: generano nuove appendici (`2`, `3`, `4`, ...)
+### Obiettivo
+Trasformare la sezione "Regolazione" in `TitoloDetail.tsx` da sola lettura a completamente modificabile, con salvataggio diretto su database.
 
-Quindi il bug non è nel database: è nel flusso UI dopo la creazione.
+### Intervento in `src/pages/TitoloDetail.tsx`
 
-Intervento
+1. **Aggiungere stato locale per i campi regolazione**
+   - `editingRegolazione` (boolean) per toggle view/edit
+   - Stato per ogni campo: `regolazione` (checkbox), `periodicita` (select), `tipo_scadenza` (select), `giorni_presentazione` (number), `tipo_lettera_regolazione` (select), `libro_matricola` (radio)
+   - Inizializzazione dai dati correnti del titolo quando si entra in edit
 
-1. Stabilizzare create/update in `src/pages/AppendiciPolizzaPage.tsx`
-- far ritornare anche la create con `.insert(...).select().single()`
-- dopo una creazione chiamare `startEdit(recordCreato)` invece di `resetForm()`
-- impostare `appendiceId` nell’URL, così la pagina resta agganciata al record appena creato
-- dopo il primo salvataggio il bottone deve diventare `Aggiorna Appendice`, non restare in create mode
+2. **Sostituire i `FieldRow` nella sezione Regolazione con input editabili**
+   - Checkbox per "Regolazione Sì/No"
+   - SearchableSelect per Periodicità (annuale, semestrale, trimestrale, mensile)
+   - SearchableSelect per Tipo Scadenza (no_scadenza, a_scadenza)
+   - Input number per GG Presentazione
+   - SearchableSelect per Tipo Lettera (standard, personalizzata, nessuna)
+   - RadioGroup per Libro Matricola (no, auto, altro)
+   - Stessi controlli e opzioni già usati in `ImmissionePolizzaPage.tsx`
 
-2. Creare una vera azione “Nuova Appendice”
-- aggiungere un pulsante dedicato per uscire dal record corrente
-- solo questo pulsante farà reset del form, rimozione di `appendiceId` e preparazione del numero successivo
-- il successo del salvataggio non deve più aprire automaticamente una nuova appendice
+3. **Pulsante Modifica/Salva nell'header della sezione**
+   - Icona matita per entrare in edit
+   - Pulsanti "Salva" e "Annulla" visibili in modalità edit
 
-3. Bloccare i salvataggi ripetuti
-- aggiungere un guard anti-doppio click sincrono oltre a `isPending`
-- disabilitare Salva/Aggiorna quando non ci sono modifiche reali da salvare
-- in create mode evitare che un form appena resettato possa generare subito un’altra appendice per click ripetuti
+4. **Mutation di aggiornamento**
+   - `supabase.from("titoli").update({...campi_regolazione}).eq("id", titoloId)`
+   - Invalidazione query dopo il salvataggio
+   - Toast di conferma
 
-4. Rifiniture UX
-- toast distinti: `Appendice creata` / `Appendice aggiornata`
-- riga in modifica sempre evidenziata
-- pulsanti chiari: `Nuova Appendice`, `Aggiorna Appendice`, `Annulla modifica`
+### Import aggiuntivi necessari
+- `Checkbox`, `Label`, `RadioGroup`, `RadioGroupItem` dai componenti UI
+- `SearchableSelect` dal componente custom
+- `Input` dal componente UI
 
-Verifica finale
-- creare una nuova appendice e cliccare Salva più volte: deve restare sullo stesso record, non crearne altre
-- dopo la create il pulsante deve essere `Aggiorna Appendice`
-- solo cliccando `Nuova Appendice` deve comparire il numero successivo
-- senza modifiche reali il salvataggio non deve partire
-- verificare che il deep-link da `/titoli/:id` continui a funzionare
+### File coinvolto
+- `src/pages/TitoloDetail.tsx`
 
-File coinvolto
-- `src/pages/AppendiciPolizzaPage.tsx`
+### Dettaglio tecnico
+- Nessuna migrazione database: i campi `regolazione`, `periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola` esistono già nella tabella `titoli`
+- Pattern coerente con i controlli già presenti in `ImmissionePolizzaPage.tsx`
 
-Dettaglio tecnico
-- nessuna migrazione database necessaria per correggere questo bug
-- il fix è interamente nel flusso client di create/edit e nel blocco dei salvataggi ripetuti
