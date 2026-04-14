@@ -217,6 +217,7 @@ const TitoloDetail = () => {
     { value: "nessuna", label: "Nessuna" },
   ];
 
+  const changeStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
       const vecchioStato = titolo?.stato;
       const { error } = await supabase.from("titoli").update({ stato: nuovoStato, updated_at: new Date().toISOString() }).eq("id", id!);
