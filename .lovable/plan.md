@@ -1,50 +1,55 @@
 
 Obiettivo
 
-Rendere davvero modificabile un’appendice dal punto in cui la stai guardando ora (`/titoli/:id`), senza costringerti a intuire un flusso nascosto.
+Far sì che il salvataggio di un’appendice in modifica aggiorni sempre il record corrente e non apra la creazione di una nuova appendice finché l’utente non sceglie esplicitamente di uscire dalla modifica.
 
-Problema rilevato
+Problema trovato
 
-- La modifica completa esiste già in `src/pages/AppendiciPolizzaPage.tsx` (`startEdit`, `update`, gestione file).
-- In `src/pages/TitoloDetail.tsx`, invece, la tab “Appendici” è solo lettura: elenco + pulsante “Nuova Appendice”, ma nessuna azione sul record esistente.
-- Quindi il problema non è il database: manca il collegamento alla modalità modifica dalla schermata che stai usando.
+Ho verificato il flusso reale:
+- il primo click in modifica esegue correttamente un `PATCH` su `appendici_polizza`
+- subito dopo, `onSuccess` chiama `resetForm()`, quindi azzera `editingId`
+- la pagina resta con `appendiceId` nell’URL ma torna in modalità creazione
+- i salvataggi successivi fanno `POST` e generano appendici nuove (`2`, `3`, ...)
 
-Piano di intervento
+Quindi il bug non è nel database: è nello stato UI dopo l’update.
 
-1. `src/pages/TitoloDetail.tsx`
-   - aggiungere una colonna “Azioni” nella tab Appendici
-   - per ogni riga mostrare:
-     - Modifica
-     - Visualizza testo, se presente
-     - Download file, se presente
-   - il click su “Modifica” aprirà la pagina gestione appendici passando anche `appendiceId=<id>` nei query params
+Intervento
 
-2. `src/pages/AppendiciPolizzaPage.tsx`
-   - leggere `appendiceId` dai query params
-   - quando la lista appendici è caricata, cercare quel record e aprirlo automaticamente in modalità edit
-   - precompilare tutti i campi: numero, date, tipo, oggetto, testo, note, file
-   - mantenere stato, pulsanti e comportamento già esistenti per “Aggiorna Appendice”
+1. Correggere il post-save in `src/pages/AppendiciPolizzaPage.tsx`
+- distinguere in modo stabile create vs update dentro la mutation
+- dopo un update non chiamare `resetForm()`
+- restare in modalità modifica e lasciare il bottone su `Aggiorna Appendice`
+- chiamare `resetForm()` solo dopo una vera creazione
 
-3. Rifiniture UX
-   - evidenziare la riga in modifica
-   - se l’`appendiceId` non esiste più, mostrare un messaggio chiaro
-   - rendere più chiaro il pulsante alto del dettaglio polizza, lasciando “Nuova Appendice” per la creazione e la matita sulle righe per la modifica
+2. Riallineare form, file e record salvato
+- far ritornare dalla mutation il record aggiornato (`update(...).select().single()`)
+- dopo il salvataggio richiamare `startEdit(recordSalvato)` così si aggiornano anche `existingFilePath`, `existingFileName`, `file`, `removeExistingFile`
+- evitare che una seconda modifica riusi riferimenti file vecchi o già rimossi
 
-4. Verifica finale
-   - aprire `/titoli/:id`
-   - entrare nella tab Appendici
-   - cliccare “Modifica” su un’appendice esistente
-   - verificare che si apra già compilata nella pagina appendici
-   - modificare testo, oggetto, tipo, date o file
-   - salvare e controllare che il dettaglio polizza mostri i dati aggiornati
+3. Sistemare il deep-link di modifica
+- usare anche `setSearchParams`
+- rendere `appendiceId` la fonte di verità della modalità edit
+- quando si entra in modifica, mantenere/impostare `appendiceId`
+- quando si annulla la modifica o si vuole creare una nuova appendice, rimuovere `appendiceId` dall’URL
+- semplificare o rimuovere `deepLinkHandled`, che oggi blocca il rientro corretto in edit dopo i refresh dati
 
-File coinvolti
+4. Rifiniture UX
+- mantenere sempre `Aggiorna Appendice` in edit e usare `Crea Appendice` in create
+- lasciare evidenziata la riga in modifica
+- toast distinti: `Appendice aggiornata` / `Appendice creata`
 
-- `src/pages/TitoloDetail.tsx`
+Verifica finale
+
+- aprire un’appendice da `/titoli/:id`
+- modificare oggetto, note, testo o file e salvare
+- verificare che parta solo `PATCH`, non `POST`
+- cliccare di nuovo salva senza uscire: deve aggiornare sempre lo stesso record
+- cliccare “Annulla modifica” o tornare a create mode: solo da lì il salvataggio deve creare un nuovo record
+
+File coinvolto
+
 - `src/pages/AppendiciPolizzaPage.tsx`
 
-Dettagli tecnici
+Dettaglio tecnico
 
-- Nessuna migrazione database necessaria
-- Riutilizzo della logica CRUD già presente in `AppendiciPolizzaPage`
-- La correzione chiave è il deep-link di modifica tramite query param `appendiceId`
+Nessuna migrazione database necessaria.
