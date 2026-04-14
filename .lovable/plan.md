@@ -1,44 +1,50 @@
 
 
-## Piano: Sezione Regolazione editabile nel dettaglio polizza
+## Piano: Implementare Sospensione e Riattivazione polizze
 
-### Obiettivo
-Trasformare la sezione "Regolazione" in `TitoloDetail.tsx` da sola lettura a completamente modificabile, con salvataggio diretto su database.
+### Situazione attuale
+- **`handleConferma`** in `SospensionePolizzaPage.tsx` e `RiattivazionePolizzaPage.tsx` sono entrambi **TODO vuoti** — non salvano nulla in database.
+- La tabella `titoli` ha il campo `stato` (vincolo: 'attivo','sospeso','scaduto','incassato') ma **non ha** `data_sospensione` ne `limite_riattivazione`.
+- Le polizze sospese sono già visibili in **Portafoglio Storico** (`PortafoglioStoricoPage.tsx`), che filtra per `stato IN (scaduto, sospeso)`.
 
-### Intervento in `src/pages/TitoloDetail.tsx`
+### Interventi
 
-1. **Aggiungere stato locale per i campi regolazione**
-   - `editingRegolazione` (boolean) per toggle view/edit
-   - Stato per ogni campo: `regolazione` (checkbox), `periodicita` (select), `tipo_scadenza` (select), `giorni_presentazione` (number), `tipo_lettera_regolazione` (select), `libro_matricola` (radio)
-   - Inizializzazione dai dati correnti del titolo quando si entra in edit
+**1. Migrazione database — aggiungere campi sospensione su `titoli`**
+```sql
+ALTER TABLE titoli ADD COLUMN data_sospensione date;
+ALTER TABLE titoli ADD COLUMN limite_riattivazione date;
+ALTER TABLE titoli ADD COLUMN data_riattivazione date;
+ALTER TABLE titoli ADD COLUMN motivo_sospensione text;
+```
 
-2. **Sostituire i `FieldRow` nella sezione Regolazione con input editabili**
-   - Checkbox per "Regolazione Sì/No"
-   - SearchableSelect per Periodicità (annuale, semestrale, trimestrale, mensile)
-   - SearchableSelect per Tipo Scadenza (no_scadenza, a_scadenza)
-   - Input number per GG Presentazione
-   - SearchableSelect per Tipo Lettera (standard, personalizzata, nessuna)
-   - RadioGroup per Libro Matricola (no, auto, altro)
-   - Stessi controlli e opzioni già usati in `ImmissionePolizzaPage.tsx`
+**2. Implementare `handleConferma` in `SospensionePolizzaPage.tsx`**
+- Validare campi obbligatori (polizza, data sospensione)
+- Trovare il titolo tramite `numero_titolo` (o `id` se `paramTitoloId` presente)
+- Aggiornare `titoli` con: `stato = 'sospeso'`, `data_sospensione`, `limite_riattivazione`, `motivo_sospensione`
+- Creare un movimento in `movimenti_polizza` di tipo "SO" (sospensione) per tracciamento storico
+- Log attività + toast di conferma
+- Redirect al dettaglio titolo
 
-3. **Pulsante Modifica/Salva nell'header della sezione**
-   - Icona matita per entrare in edit
-   - Pulsanti "Salva" e "Annulla" visibili in modalità edit
+**3. Implementare `handleConferma` in `RiattivazionePolizzaPage.tsx`**
+- Validare campi obbligatori (polizza da riattivare, data riattivazione)
+- Aggiornare il titolo sospeso: `stato = 'attivo'`, `data_riattivazione`
+- Creare un movimento in `movimenti_polizza` di tipo "RA" (riattivazione)
+- Log attività + toast + redirect
 
-4. **Mutation di aggiornamento**
-   - `supabase.from("titoli").update({...campi_regolazione}).eq("id", titoloId)`
-   - Invalidazione query dopo il salvataggio
-   - Toast di conferma
+**4. Visualizzare i sospesi — il flusso esiste già**
+- **Portafoglio Storico** (`/portafoglio/storico`) mostra già le polizze sospese con filtro per stato
+- Aggiungere nel filtro stato un'opzione esplicita "Sospeso" per filtrare solo i sospesi
+- Nella tabella storico, mostrare `data_sospensione` e `limite_riattivazione` come colonne aggiuntive
+- Nella riga della polizza sospesa, aggiungere un pulsante diretto "Riattiva" che naviga a `/portafoglio/riattivazione?polizza=...&titoloId=...`
 
-### Import aggiuntivi necessari
-- `Checkbox`, `Label`, `RadioGroup`, `RadioGroupItem` dai componenti UI
-- `SearchableSelect` dal componente custom
-- `Input` dal componente UI
+### File coinvolti
+- **Migrazione SQL** — nuovi campi su `titoli`
+- `src/pages/SospensionePolizzaPage.tsx` — logica salvataggio
+- `src/pages/RiattivazionePolizzaPage.tsx` — logica salvataggio
+- `src/pages/PortafoglioStoricoPage.tsx` — colonne extra + pulsante Riattiva
 
-### File coinvolto
-- `src/pages/TitoloDetail.tsx`
-
-### Dettaglio tecnico
-- Nessuna migrazione database: i campi `regolazione`, `periodicita`, `tipo_scadenza`, `giorni_presentazione`, `tipo_lettera_regolazione`, `libro_matricola` esistono già nella tabella `titoli`
-- Pattern coerente con i controlli già presenti in `ImmissionePolizzaPage.tsx`
+### Riepilogo flusso utente
+1. Da dettaglio polizza → click "Sospensione" → compila data e limite → Conferma → polizza diventa "sospeso"
+2. Vai a Portafoglio Storico → filtra per "Sospeso" → vedi tutte le sospese con date e limite
+3. Click "Riattiva" sulla riga → si apre pagina riattivazione precompilata → Conferma → polizza torna "attivo"
 
