@@ -1,23 +1,22 @@
 
 
-## Piano: Rimuovere tutti i dati demo dalla contabilità
+## Piano: Rimuovere dati demo da Pagamenti Provvigioni
 
 ### Dati da eliminare
 
-| Tabella | Record | Tipo |
+| Tabella | Record | Note |
 |---------|--------|------|
-| `incroci_bancari` | 80 | Tutti collegati a estratti/movimenti demo |
-| `estratti_conto` | 140 | Tutti con `[DEMO]` nella descrizione |
-| `movimenti_contabili` | 960 | Tutti con `[DEMO]` nella descrizione |
+| `pagamenti_provvigioni` | 16 | Tutti con riferimento `PAG-DEMO-0001` |
+| `pagamenti_provvigioni_righe` | 0 | Già vuota |
 
-### Ordine di eliminazione (per rispettare le FK)
-1. `DELETE FROM incroci_bancari` — dipende da estratti_conto e movimenti_contabili
-2. `DELETE FROM estratti_conto` — tutti demo
-3. `DELETE FROM movimenti_contabili` — tutti demo
+### Migrazione SQL
+```sql
+DELETE FROM public.pagamenti_provvigioni;
+```
 
 ### Risultato
-Le pagine Contabilità Ufficio (cruscotto, distinta giornaliera, quadratura premi, chiusura contabile) mostreranno "Nessun dato" finché non verranno inseriti movimenti reali. La distinta giornaliera esistente (1 record reale del 14/04/2026) resta intatta.
+La pagina Pagamenti Provvigioni mostrerà "Nessun dato" con i contatori a zero, pronta per dati reali.
 
 ### File coinvolti
-- Nessuna modifica al codice — solo eliminazione dati via tool di inserimento/update
+- Nessuna modifica al codice — solo eliminazione dati via migrazione
 
