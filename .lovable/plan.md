@@ -1,21 +1,29 @@
 
 
-## Piano: Nascondere "Cambia Stato" per polizze storico
+## Piano: Azioni operative per polizze attive nel dettaglio titolo
 
-### Logica
-Una polizza è "storica" se:
-- `stato` è `scaduto` o `sospeso`, oppure
-- `stato` è `attivo` ma `garanzia_a < oggi`
+### Problema attuale
+La card "Cambia Stato" mostra pulsanti generici (creato, incassato, stornato, annullato) che non corrispondono alle operazioni reali del ciclo vita di una polizza. Le pagine operative (Sospensione, Riattivazione, Storno, Duplicazione, Appendici, Regolazione) esistono già ma non sono collegate dal dettaglio polizza.
 
-Per queste polizze, il blocco "Cambia Stato" (righe 181-189 di `TitoloDetail.tsx`) non deve essere visibile.
+### Cosa cambia
+Nel dettaglio polizza (`TitoloDetail.tsx`), per le **polizze attive** (non storico), sostituire la card "Cambia Stato" con una card **"Operazioni"** che mostra pulsanti specifici:
 
-### Azione
-In `src/pages/TitoloDetail.tsx`, wrappare la Card "Cambia Stato" con una condizione:
+| Pulsante | Navigazione | Icona |
+|----------|------------|-------|
+| Sospensione | `/portafoglio/sospensione` | `Clock` |
+| Riattivazione | `/portafoglio/riattivazione` | `CheckSquare` |
+| Duplicazione | `/portafoglio/duplicazione` | `FileStack` |
+| Appendici | `/portafoglio/appendici` | `FileText` |
+| Storno | `/portafoglio/storno` | `ArrowRightLeft` |
+| Regolazione | (scroll alla sezione Regolazione) | `RefreshCw` |
+| Annullamento | Conferma + update stato "annullato" | `XCircle` |
 
-```typescript
-const isStorico = t.stato === "scaduto" || t.stato === "sospeso" || 
-  (t.stato === "attivo" && t.garanzia_a && new Date(t.garanzia_a) < new Date());
-```
+Ogni pulsante naviga alla pagina operativa corrispondente, pre-compilando il numero polizza come parametro query (es. `/portafoglio/sospensione?polizza=ITCGNC35122`).
 
-Se `isStorico` è true, la card viene nascosta. Nessun altro file coinvolto.
+L'annullamento resta inline con dialog di conferma, perché è un'azione terminale.
+
+Per le polizze **storico**, la card resta nascosta (logica già implementata).
+
+### File coinvolti
+- `src/pages/TitoloDetail.tsx` — sostituire card "Cambia Stato" con card "Operazioni" e pulsanti navigazione
 
