@@ -1,47 +1,44 @@
 
 
-## Piano: Completare dati polizze 332437571 e 332437574 (COMUNE DI SANTA MARINA SALINA)
+## Piano: Aggiornare polizza 332437574 (COMUNE DI SANTA MARINA SALINA - R.C.T./R.C.O)
 
-### Record coinvolti
-1. **332437571** — `d046ffeb-2ed1-43cc-ba03-a07cfb838804` (NC - INFORTUNI CUMULATIVA)
-2. **332437574** — `66c6cf18-5fc9-4a29-b593-133f2eabe70d` (PC - R.C.T./R.C.O)
+Record ID: `66c6cf18-5fc9-4a29-b593-133f2eabe70d`
 
-### Dati dallo screenshot legacy (quietanzamento Sedi Sicilia)
+### Differenze DB → Screenshot Legacy
 
-| Campo | Polizza 332437571 | Polizza 332437574 |
-|-------|-------------------|-------------------|
-| Cliente | COMUNE DI SANTA MARINA SALINA | idem |
-| Codice cliente legacy | 006975 | 006975 |
-| Descrizione | CIG: B6554C6288 | CIG: B6554C6288 |
-| Scadenza | 04/04/2026 ✓ | 04/04/2026 ✓ |
-| Mora | 15 ✓ | 15 ✓ |
-| Lordo | 337,00 ✓ | 300,00 ✓ |
-| Provv firma | 65,60 ✓ | 35,33 ✓ |
-| Incasso titolo prec | 05/05/2025 | 05/05/2025 |
-| Fraz (rate) | 1 ✓ | 1 ✓ |
-| Tipo rinnovo | Tacito rinnovo ✓ | Tacito rinnovo ✓ |
-| A/E | CT (SEDE CATANIA) ✓ | CT ✓ |
-| Filiale | SS (Sedi Sicilia) ✓ | SS ✓ |
-| Compagnia | ASSISUD ✓ | ASSISUD ✓ |
+| Campo | Valore DB | Valore Legacy (corretto) |
+|-------|-----------|-------------------------|
+| `premio_netto` | null | **245.39** |
+| `tasse` | null | **54.61** |
+| `premio_netto_quietanza` | null | **245.39** |
+| `tasse_quietanza` | null | **54.61** |
+| `provvigioni_quietanza` | 14.13 | **35.33** |
+| `garanzia_a` | 2026-04-30 | **2026-04-04** |
+| `data_competenza` | null | **2025-04-04** |
+| `comp_assicurativa` | null | **2025-04-04** |
+| `copertura_da` | null | **2025-04-04** |
+| `copertura_giorni` | null | **1059** |
+| `conto_incasso` | null | **CRED. VS CB CONSULTING (I7591)** |
+| `conto_incasso_codice` | null | **060201000067** |
+| `id_legacy` | null | **142424** |
 
-### Campi da aggiornare (comuni a entrambe)
-
-| Campo | Valore attuale | Valore corretto |
-|-------|---------------|-----------------|
-| `cliente_id` | null | **827e49d7-e80e-4d8d-9e38-9494ac502497** |
-| `descrizione_polizza` | null | **CIG: B6554C6288** |
-| `data_incasso` | null | **2025-05-05** |
-| `durata_da` | null | **2025-04-04** (annuale, scadenza 04/04/2026) |
-| `durata_a` | null | **2026-04-04** |
-| `garanzia_da` | null | **2025-04-04** |
-| `gruppo_ramo` | null | **INFORTUNI** (per 571) / **R.C.T.** (per 574) |
-| `tipo_scadenza` | null | **no scadenza** |
-| `giorni_presentazione` | null | **0** |
-| `produttore_nome` | INTERFIDI SRL | verificare se corretto o da svuotare |
+### Campi già corretti
+- Numero: 332437574 ✓ | Riga: 0 ✓ | Appendice: null ✓
+- Compagnia: ASSISA / ASSISUD ✓ | Ramo: R.C.T./R.C.O ✓ | Gruppo: R.C.T. ✓
+- AE: SEDE CATANIA ✓ | Specialist: GUARRACINO GAETANO ✓
+- Cliente: 827e49d7 ✓ | Filiale: SS ✓
+- Durata da: 2025-04-04 ✓ | Durata a: 2026-04-04 ✓ | Anni: 1 ✓
+- Garanzia da: 2025-04-04 ✓
+- Premio lordo: 300 ✓ | Provvigioni firma: 35.33 ✓ | Addizionali: 0 ✓
+- Rate: 1 ✓ | Periodicità: annuale ✓ | Mora: 15 ✓
+- Tipo rinnovo: tacito_rinnovo ✓ | Tipo scadenza: no scadenza ✓
+- Data incasso: 2025-05-05 ✓ | Descrizione: CIG: B6554C6288 ✓
 
 ### Azione
-UPDATE via insert tool sulle 2 righe con i campi mancanti.
+UPDATE via migration dei 13 campi sulla riga `66c6cf18-5fc9-4a29-b593-133f2eabe70d`.
 
 ### File coinvolti
-Nessun file di codice — solo operazioni dati sul DB.
+| File | Azione |
+|------|--------|
+| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 13 campi |
 
