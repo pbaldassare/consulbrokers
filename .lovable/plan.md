@@ -1,27 +1,23 @@
 
 
-## Piano: Fix navigazione polizze + esclusione rimesse confermate dal riepilogo + revert storico
+## Piano: Rimuovere tutti i dati demo dalla contabilità
 
-### 3 problemi da risolvere
+### Dati da eliminare
 
-**1. Link polizze errato**: Il click sulla polizza naviga a `/portafoglio/${id}` (PortafoglioDetail) anziché `/titoli/${id}` (TitoloDetail). Fix: cambiare `navigate(`/portafoglio/${t.id}`)` → `navigate(`/titoli/${t.id}`)`.
+| Tabella | Record | Tipo |
+|---------|--------|------|
+| `incroci_bancari` | 80 | Tutti collegati a estratti/movimenti demo |
+| `estratti_conto` | 140 | Tutti con `[DEMO]` nella descrizione |
+| `movimenti_contabili` | 960 | Tutti con `[DEMO]` nella descrizione |
 
-**2. Dopo conferma rimessa, rimuovere dal riepilogo**: Attualmente le polizze confermate restano nel riepilogo. Bisogna escludere i titoli che sono già collegati a una rimessa confermata. Approccio:
-- Dopo aver confermato una rimessa, i titoli collegati sono in `rimessa_dettaglio`
-- Nella query `titoli-cassa-mese`, dopo aver caricato i titoli incassati, filtrare via quelli il cui `id` è già presente in `rimessa_dettaglio` (sotto-query o fetch separata)
+### Ordine di eliminazione (per rispettare le FK)
+1. `DELETE FROM incroci_bancari` — dipende da estratti_conto e movimenti_contabili
+2. `DELETE FROM estratti_conto` — tutti demo
+3. `DELETE FROM movimenti_contabili` — tutti demo
 
-**3. Revert dallo storico**: Aggiungere un pulsante "Annulla" su ogni rimessa nello storico che:
-- Elimina i record da `rimessa_dettaglio` per quella rimessa
-- Elimina il record da `rimessa_premi`
-- I titoli tornano automaticamente nel riepilogo (perché non più in `rimessa_dettaglio`)
-- Log dell'operazione
+### Risultato
+Le pagine Contabilità Ufficio (cruscotto, distinta giornaliera, quadratura premi, chiusura contabile) mostreranno "Nessun dato" finché non verranno inseriti movimenti reali. La distinta giornaliera esistente (1 record reale del 14/04/2026) resta intatta.
 
-### File coinvolto
-- `src/pages/RimessaList.tsx`
-
-### Dettagli tecnici
-- Fix riga 288: `/portafoglio/` → `/titoli/`
-- Query titoli: aggiungere fetch di `rimessa_dettaglio` per il mese e filtrare `titoli` i cui ID non sono già collegati
-- Mutation `revertMutation`: delete da `rimessa_dettaglio` + delete da `rimessa_premi` + invalidate queries
-- Pulsante "Annulla" nello storico con conferma (window.confirm)
+### File coinvolti
+- Nessuna modifica al codice — solo eliminazione dati via tool di inserimento/update
 
