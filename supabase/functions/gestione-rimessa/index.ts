@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, rimessa_id, compagnia_id, ufficio_id, created_by } = await req.json();
+    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -22,13 +22,17 @@ Deno.serve(async (req) => {
     if (action === "crea") {
       if (!compagnia_id) throw new Error("compagnia_id richiesto");
 
-      // Find incassati titoli for this compagnia not already in a rimessa
-      const { data: titoli, error: tErr } = await supabaseAdmin
+      // Find incassati titoli for this compagnia, filtered by data_messa_cassa range
+      let q = supabaseAdmin
         .from("titoli")
-        .select("id, importo_incassato, prodotto_id, prodotti!inner(compagnia_id)")
+        .select("id, importo_incassato")
         .eq("stato", "incassato")
-        .eq("prodotti.compagnia_id", compagnia_id);
+        .eq("compagnia_id", compagnia_id);
 
+      if (data_da) q = q.gte("data_messa_cassa", data_da);
+      if (data_a) q = q.lte("data_messa_cassa", data_a);
+
+      const { data: titoli, error: tErr } = await q;
       if (tErr) throw tErr;
 
       // Filter out titoli already in another rimessa
@@ -41,7 +45,7 @@ Deno.serve(async (req) => {
 
       if (available.length === 0) {
         return new Response(
-          JSON.stringify({ error: "Nessun titolo incassato disponibile per questa compagnia" }),
+          JSON.stringify({ error: "Nessun titolo incassato disponibile per questa compagnia nel periodo selezionato" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -78,7 +82,7 @@ Deno.serve(async (req) => {
           azione: "creazione_rimessa",
           entita_tipo: "rimessa_premi",
           entita_id: rimessa.id,
-          dettagli_json: { compagnia_id, titoli_count: available.length, totale },
+          dettagli_json: { compagnia_id, titoli_count: available.length, totale, data_da, data_a },
         });
       }
 
@@ -91,7 +95,6 @@ Deno.serve(async (req) => {
     if (action === "genera_xml") {
       if (!rimessa_id) throw new Error("rimessa_id richiesto");
 
-      // Fetch rimessa with details
       const { data: rimessa, error: rErr } = await supabaseAdmin
         .from("rimessa_premi")
         .select("*, compagnie(nome, codice)")
@@ -104,7 +107,6 @@ Deno.serve(async (req) => {
         .select("*, titoli(numero_titolo, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, codice_prodotto))")
         .eq("rimessa_id", rimessa_id);
 
-      // Generate XML
       const now = new Date().toISOString();
       let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
       xml += `<RimessaPremi>\n`;
@@ -135,13 +137,11 @@ Deno.serve(async (req) => {
       xml += `  </Titoli>\n`;
       xml += `</RimessaPremi>`;
 
-      // Save XML
       await supabaseAdmin
         .from("rimessa_premi")
         .update({ xml_output: xml, stato: "pronta", updated_at: now })
         .eq("id", rimessa_id);
 
-      // Log
       if (created_by) {
         await supabaseAdmin.from("log_attivita").insert({
           user_id: created_by,
