@@ -165,6 +165,62 @@ const TitoloDetail = () => {
     giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
   });
 
+  // --- Commerciale edit state ---
+  const [editingComm, setEditingComm] = useState(false);
+  const [commForm, setCommForm] = useState({ anagrafica_commerciale_id: "" as string | null, percentuale_commerciale: 100 });
+
+  const { data: anagraficheComm = [] } = useQuery({
+    queryKey: ["anagrafiche-commerciali"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali" as any)
+        .select("id, ragione_sociale, cognome, nome, percentuale_base, tipo")
+        .eq("attivo", true)
+        .in("tipo", ["corrispondente", "account_executive", "executive", "produttore_sede"])
+        .order("ragione_sociale");
+      return (data || []).map((a: any) => ({
+        value: a.id,
+        label: a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim(),
+        percentuale_base: a.percentuale_base ?? 0,
+      }));
+    },
+    enabled: editingComm,
+  });
+
+  const startEditComm = () => {
+    if (titolo) {
+      setCommForm({
+        anagrafica_commerciale_id: (titolo as any).anagrafica_commerciale_id ?? null,
+        percentuale_commerciale: titolo.percentuale_commerciale ?? 100,
+      });
+    }
+    setEditingComm(true);
+  };
+
+  const saveCommMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("titoli")
+        .update({
+          anagrafica_commerciale_id: commForm.anagrafica_commerciale_id || null,
+          percentuale_commerciale: commForm.percentuale_commerciale,
+        } as any)
+        .eq("id", id!);
+      if (error) throw error;
+      // Ricalcola provvigioni se incassato
+      if (titolo?.stato === "incassato") {
+        await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
+      toast.success("Commerciale aggiornato");
+      setEditingComm(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const startEditReg = () => {
     if (titolo) {
       setRegForm({
@@ -528,23 +584,64 @@ const TitoloDetail = () => {
 
       {/* COMMERCIALE & SPLIT */}
       <SectionCollapsible title="Commerciale & Provvigioni" icon={Percent}>
-        {(() => {
-          const percComm = t.percentuale_commerciale ?? 100;
-          const provvAgenzia = t.premio_lordo && t.provvigioni_firma ? t.provvigioni_firma : null;
-          const commName = t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede";
-          return (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-              <FieldRow label="Commerciale" value={commName} />
-              <FieldRow label="% Commerciale" value={`${percComm}%`} />
-              {provvAgenzia != null && (
-                <>
-                  <FieldRow label="Provv. Commerciale" value={fmtEuro(provvAgenzia * percComm / 100)} />
-                  <FieldRow label="Provv. Sede" value={fmtEuro(provvAgenzia * (100 - percComm) / 100)} />
-                </>
-              )}
+        {editingComm ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">Commerciale</Label>
+                <SearchableSelect
+                  options={[{ value: "__none__", label: "— Nessuno (Sede) —" }, ...anagraficheComm]}
+                  value={commForm.anagrafica_commerciale_id || "__none__"}
+                  onValueChange={(v) => {
+                    const sel = anagraficheComm.find((a: any) => a.value === v);
+                    setCommForm({
+                      anagrafica_commerciale_id: v === "__none__" ? null : v,
+                      percentuale_commerciale: sel ? sel.percentuale_base || 100 : 100,
+                    });
+                  }}
+                  placeholder="Seleziona commerciale..."
+                />
+              </div>
+              <div>
+                <Label className="text-xs">% Commerciale</Label>
+                <Input
+                  type="number" min={0} max={100}
+                  value={commForm.percentuale_commerciale}
+                  onChange={(e) => setCommForm({ ...commForm, percentuale_commerciale: Number(e.target.value) })}
+                />
+              </div>
             </div>
-          );
-        })()}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => saveCommMutation.mutate()} disabled={saveCommMutation.isPending}>
+                {saveCommMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingComm(false)}>Annulla</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {(() => {
+              const percComm = t.percentuale_commerciale ?? 100;
+              const provvQ = t.provvigioni_quietanza;
+              const commName = t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+                  <FieldRow label="Commerciale" value={commName} />
+                  <FieldRow label="% Commerciale" value={`${percComm}%`} />
+                  {provvQ != null && provvQ > 0 && (
+                    <>
+                      <FieldRow label="Provv. Commerciale" value={fmtEuro(provvQ * percComm / 100)} />
+                      <FieldRow label="Provv. Consul" value={fmtEuro(provvQ * (100 - percComm) / 100)} />
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm}>
+              <Pencil className="w-3 h-3 mr-1" /> Modifica
+            </Button>
+          </>
+        )}
       </SectionCollapsible>
 
       {/* IMPORTI */}
