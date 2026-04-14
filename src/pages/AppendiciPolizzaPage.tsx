@@ -359,16 +359,28 @@ const AppendiciPolizzaPage = () => {
 
         <div className="flex justify-end gap-2 pt-2">
           {editingId && (
-            <Button variant="outline" onClick={() => {
-              resetForm();
-              setSearchParams((prev) => {
-                const next = new URLSearchParams(prev);
-                next.delete("appendiceId");
-                return next;
-              });
-            }}>
-              <X className="w-4 h-4 mr-1" />Annulla modifica
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => {
+                resetForm();
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete("appendiceId");
+                  return next;
+                });
+              }}>
+                <Plus className="w-4 h-4 mr-1" />Nuova Appendice
+              </Button>
+              <Button variant="outline" onClick={() => {
+                resetForm();
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete("appendiceId");
+                  return next;
+                });
+              }}>
+                <X className="w-4 h-4 mr-1" />Annulla modifica
+              </Button>
+            </>
           )}
           <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>
             Chiudi
