@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,37 @@ import { Search } from "lucide-react";
 
 const SospensionePolizzaPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const paramPolizza = searchParams.get("polizza") || "";
+  const paramRiga = searchParams.get("riga") || "";
+  const paramClienteId = searchParams.get("clienteId") || "";
+  const paramTitoloId = searchParams.get("titoloId") || "";
+  const fromDettaglio = !!(paramPolizza && paramClienteId);
 
   const [codiceCliente, setCodiceCliente] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
-  const [numeroPolizza, setNumeroPolizza] = useState("");
-  const [riga, setRiga] = useState("");
+  const [numeroPolizza, setNumeroPolizza] = useState(paramPolizza);
+  const [riga, setRiga] = useState(paramRiga);
   const [dataSospensione, setDataSospensione] = useState("");
   const [limiteRiattivazione, setLimiteRiattivazione] = useState("");
 
-  const { data: clienteData } = useQuery({
+  // Fetch cliente by ID when coming from dettaglio
+  const { data: clienteFromId } = useQuery({
+    queryKey: ["cliente-by-id-sosp", paramClienteId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale")
+        .eq("id", paramClienteId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!paramClienteId,
+  });
+
+  // Fetch cliente by search
+  const { data: clienteFromSearch } = useQuery({
     queryKey: ["cliente-lookup-sosp", codiceCliente],
     queryFn: async () => {
       if (!codiceCliente || codiceCliente.length < 2) return null;
@@ -30,8 +52,16 @@ const SospensionePolizzaPage = () => {
         .maybeSingle();
       return data;
     },
-    enabled: codiceCliente.length >= 2,
+    enabled: !fromDettaglio && codiceCliente.length >= 2,
   });
+
+  const clienteData = fromDettaglio ? clienteFromId : clienteFromSearch;
+
+  useEffect(() => {
+    if (clienteFromId?.codice_fiscale && fromDettaglio) {
+      setCodiceCliente(clienteFromId.codice_fiscale);
+    }
+  }, [clienteFromId, fromDettaglio]);
 
   const { data: aeList } = useQuery({
     queryKey: ["ae-list-sosp"],
@@ -64,7 +94,7 @@ const SospensionePolizzaPage = () => {
           <div className="space-y-1.5 flex-1 max-w-[200px]">
             <Label htmlFor="codice-cliente-sosp">Codice</Label>
             <div className="relative">
-              <Input id="codice-cliente-sosp" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" />
+              <Input id="codice-cliente-sosp" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
               <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             </div>
           </div>
@@ -93,13 +123,13 @@ const SospensionePolizzaPage = () => {
           <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
             <Label htmlFor="numero-polizza-sosp">Numero</Label>
             <div className="relative">
-              <Input id="numero-polizza-sosp" value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" />
+              <Input id="numero-polizza-sosp" value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
               <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             </div>
           </div>
           <div className="space-y-1.5 w-[80px]">
             <Label htmlFor="riga-sosp">Riga</Label>
-            <Input id="riga-sosp" value={riga} onChange={(e) => setRiga(e.target.value)} />
+            <Input id="riga-sosp" value={riga} onChange={(e) => setRiga(e.target.value)} readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="data-sosp">Data Sospensione</Label>
@@ -128,7 +158,7 @@ const SospensionePolizzaPage = () => {
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
-        <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
         <Button onClick={handleConferma}>Conferma</Button>
       </div>
     </div>
