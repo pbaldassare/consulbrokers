@@ -39,7 +39,7 @@ const ProvvigioniMaturatePage = () => {
         .select(`
           id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario,
           titoli!inner(
-            id, numero_titolo, premio_lordo, data_messa_cassa, stato,
+            id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome,
             compagnie!titoli_compagnia_id_fkey(nome),
             rami!titoli_ramo_id_fkey(codice, descrizione)
           ),
@@ -152,7 +152,7 @@ const ProvvigioniMaturatePage = () => {
                     </TableCell>
                     <TableCell>{tipoBadge(p.tipo_destinatario)}</TableCell>
                     <TableCell>
-                      {p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : "—"}
+                      {p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—")}
                     </TableCell>
                     <TableCell className="text-right font-semibold">{fmtEuro(p.importo_provvigione)}</TableCell>
                     <TableCell>
