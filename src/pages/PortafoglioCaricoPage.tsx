@@ -161,7 +161,7 @@ const PortafoglioCaricoPage = () => {
     let ok = 0, ko = 0;
     for (const p of attive) {
       const dates = getDates(p.id);
-      const { error } = await supabase.from("titoli").update({
+      const { error } = await (supabase.from("titoli") as any).update({
         stato: "incassato",
         data_incasso: dates.data_messa_cassa,
         data_messa_cassa: dates.data_messa_cassa,
