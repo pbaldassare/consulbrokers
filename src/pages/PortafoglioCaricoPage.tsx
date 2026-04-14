@@ -44,7 +44,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["compagnie-lookup"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
+      return (data || []) as { id: string; nome: string }[];
     },
   });
 
@@ -52,7 +52,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["rami-lookup"],
     queryFn: async () => {
       const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
-      return data || [];
+      return (data || []) as { id: string; descrizione: string }[];
     },
   });
 
