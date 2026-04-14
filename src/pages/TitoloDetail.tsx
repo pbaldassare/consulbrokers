@@ -249,6 +249,18 @@ const TitoloDetail = () => {
     onError: (err: any) => toast.error("Errore"),
   });
 
+  const updateDateMutation = useMutation({
+    mutationFn: async ({ field, value }: { field: string; value: string | null }) => {
+      const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() } as any).eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      toast.success("Data aggiornata");
+    },
+    onError: () => toast.error("Errore aggiornamento data"),
+  });
+
   if (isLoading) return <p className="text-muted-foreground p-8">Caricamento...</p>;
   if (!titolo) return <p className="text-destructive p-8">Titolo non trovato</p>;
 
@@ -326,9 +338,28 @@ const TitoloDetail = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-3 gap-4">
-              <FieldRow label="Data Messa a Cassa" value={fmtDate(t.data_messa_cassa)} />
-              <FieldRow label="Data Pagamento" value={fmtDate(t.data_pagamento)} />
-              <FieldRow label="Data Decorrenza Rinnovo" value={fmtDate(t.data_decorrenza_rinnovo)} />
+              {t.stato === "incassato" ? (
+                <>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Data Messa a Cassa</label>
+                    <Input type="date" className="mt-1" value={t.data_messa_cassa || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_messa_cassa", value: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Data Pagamento</label>
+                    <Input type="date" className="mt-1" value={t.data_pagamento || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_pagamento", value: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Data Decorrenza Rinnovo</label>
+                    <Input type="date" className="mt-1" value={t.data_decorrenza_rinnovo || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_decorrenza_rinnovo", value: e.target.value })} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <FieldRow label="Data Messa a Cassa" value="—" />
+                  <FieldRow label="Data Pagamento" value="—" />
+                  <FieldRow label="Data Decorrenza Rinnovo" value="—" />
+                </>
+              )}
             </div>
             {t.stato === "attivo" && (
               <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => changeStatoMutation.mutate("incassato")} disabled={changeStatoMutation.isPending}>
