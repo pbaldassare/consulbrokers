@@ -140,6 +140,19 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  const { data: appendiciPolizza = [] } = useQuery({
+    queryKey: ["appendici-polizza", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("appendici_polizza")
+        .select("*")
+        .eq("titolo_id", id!)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
   const changeStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
       const vecchioStato = titolo?.stato;
