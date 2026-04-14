@@ -1,16 +1,15 @@
 
 
-## Piano: Forzare il refresh della pagina Carico del Mese
+## Piano: Rimuovere filtro compagnie e rinominare filtro stato
 
-### Diagnosi
-Il codice sorgente di `PortafoglioCaricoPage.tsx` contiene già tutte le modifiche richieste (checkbox, filtro stato, colorazione gialla, bulk actions). I dati si caricano correttamente dal database (16 polizze per aprile 2026). Il problema è che il browser sta mostrando una versione cached/vecchia della pagina.
+### Modifiche su `src/pages/PortafoglioCaricoPage.tsx`
 
-### Intervento
-Nessuna modifica al codice necessaria. Il file è già corretto. Serve solo forzare un rebuild/refresh:
+1. **Rimuovere il filtro "Tutte le compagnie"** — eliminare il Select delle compagnie (righe 342-352) e la query lookup compagnie (righe 40-46), lo stato `filtroCompagnia` e il suo uso nella query
+2. **Rinominare le opzioni del filtro stato incasso**:
+   - "Tutti" → "Tutte" (o simile, opzione per vedere entrambi)
+   - "Da incassare" → "Da mettere a cassa"
+   - "Incassati" → "Messe a cassa"
 
-1. **Aggiungere un commento innocuo** al file `PortafoglioCaricoPage.tsx` per triggerare il hot-reload di Vite
-2. Verificare che il preview si aggiorni con la nuova UI
-
-### Risultato atteso
-La pagina mostrerà: checkbox di selezione, filtro "Stato incasso", pulsanti bulk "Metti a Cassa" / "Annulla Incasso", righe gialle per gli incassati.
+### File coinvolto
+- `src/pages/PortafoglioCaricoPage.tsx`
 
