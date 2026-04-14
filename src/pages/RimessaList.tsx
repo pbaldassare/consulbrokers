@@ -297,7 +297,7 @@ const RimessaList = () => {
                                   const lordo = t.premio_lordo || 0;
                                   const provv = (t.provvigioni_firma || 0) + (t.provvigioni_quietanza || 0);
                                   return (
-                                    <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/portafoglio/${t.id}`)}>
+                                    <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/titoli/${t.id}`)}>
                                       <TableCell className="font-mono text-sm">{t.numero_titolo || "—"}</TableCell>
                                       <TableCell className="text-sm">{clienteDisplay(t)}</TableCell>
                                       <TableCell className="text-right font-mono text-sm">€ {lordo.toFixed(2)}</TableCell>
