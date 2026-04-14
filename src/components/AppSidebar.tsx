@@ -51,6 +51,7 @@ import {
   Lock,
   Map,
   Archive,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
