@@ -178,15 +178,17 @@ const TitoloDetail = () => {
         </Badge>
       </div>
 
-      {/* Cambio stato */}
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-sm">Cambia Stato</CardTitle></CardHeader>
-        <CardContent className="flex gap-2 flex-wrap">
-          {statiTitolo.filter((s) => s !== t.stato).map((s) => (
-            <Button key={s} variant="outline" size="sm" onClick={() => changeStatoMutation.mutate(s)} disabled={changeStatoMutation.isPending}>{s}</Button>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Cambio stato — nascosto per polizze storico */}
+      {!(t.stato === "scaduto" || t.stato === "sospeso" || (t.stato === "attivo" && t.garanzia_a && new Date(t.garanzia_a) < new Date())) && (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Cambia Stato</CardTitle></CardHeader>
+          <CardContent className="flex gap-2 flex-wrap">
+            {statiTitolo.filter((s) => s !== t.stato).map((s) => (
+              <Button key={s} variant="outline" size="sm" onClick={() => changeStatoMutation.mutate(s)} disabled={changeStatoMutation.isPending}>{s}</Button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* CONTRATTO */}
       <SectionCollapsible title="Contratto" icon={FileText}>
