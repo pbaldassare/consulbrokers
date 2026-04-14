@@ -26,7 +26,7 @@ const PortafoglioCaricoPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   
-  const [filtroRamo, setFiltroRamo] = useState("tutti");
+  
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [page, setPage] = useState(0);
   const [caricoDate, setCaricoDate] = useState(new Date());
@@ -38,16 +38,8 @@ const PortafoglioCaricoPage = () => {
   const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
 
 
-  const { data: rami } = useQuery({
-    queryKey: ["rami-lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
-      return (data || []) as { id: string; descrizione: string }[];
-    },
-  });
-
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroRamo, filtroStato, page, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo",
