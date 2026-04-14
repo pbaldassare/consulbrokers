@@ -158,7 +158,29 @@ const RimessaList = () => {
         entita_tipo: "rimessa_premi",
         entita_id: (rimessa as any).id,
         dettagli_json: { compagnia: gruppo.nome, n_titoli: gruppo.count, totale: gruppo.da_rimettere, iban: ibanSelezionato },
+  });
+
+  // Revert rimessa mutation
+  const revertMutation = useMutation({
+    mutationFn: async (rimessaId: string) => {
+      const { error: dErr } = await supabase.from("rimessa_dettaglio").delete().eq("rimessa_id", rimessaId);
+      if (dErr) throw dErr;
+      const { error: rErr } = await supabase.from("rimessa_premi").delete().eq("id", rimessaId);
+      if (rErr) throw rErr;
+      await logAttivita({
+        azione: "annullamento_rimessa",
+        entita_tipo: "rimessa_premi",
+        entita_id: rimessaId,
       });
+    },
+    onSuccess: () => {
+      toast.success("Rimessa annullata — i titoli sono tornati nel riepilogo");
+      queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });
+      queryClient.invalidateQueries({ queryKey: ["rimessa-dettaglio-used"] });
+    },
+    onError: (e: any) => toast.error(e.message || "Errore nell'annullamento"),
+  });
 
       return rimessa;
     },
