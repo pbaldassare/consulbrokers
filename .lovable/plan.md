@@ -1,21 +1,15 @@
 
 
-## Piano: Filtro "Escludi scadenze mese corrente" in Polizze Attive
+## Piano: Nascondere filtro compagnie e aggiungere ricerca nel dropdown rami
 
 ### Cosa cambia
-Aggiunta di un toggle (Switch) nella barra filtri che, quando attivo, esclude le polizze con `data_scadenza` nel mese corrente (aprile 2026). Di default il toggle sarà **attivo** (escludi scadenze del mese), così la lista mostra solo polizze che non sono anche nel carico del mese.
+1. **Rimuovere** il Select "Tutte le compagnie" (righe 134-144) e la relativa query lookup compagnie (righe 30-36) e lo stato `filtroCompagnia` (riga 21). Rimuovere anche i riferimenti a `filtroCompagnia` nelle query dati e totali.
 
-### Logica filtro
-Quando il toggle è attivo, aggiungere alle query:
-- Calcolare primo e ultimo giorno del mese corrente
-- Filtrare con `.not("data_scadenza", "gte", primoDelMese).not("data_scadenza", "lte", ultimoDelMese)` oppure equivalente `.or(data_scadenza.lt.YYYY-MM-01,data_scadenza.gt.YYYY-MM-30)`
-
-### UI
-Accanto ai filtri esistenti (search, compagnia, ramo), un componente Switch + Label:
-```
-[✓] Escludi scadenze del mese
-```
+2. **Aggiungere ricerca nel dropdown rami**: Sostituire il Select rami con un componente che supporti la ricerca testuale (tipo Combobox/Popover con Input + lista filtrata), così l'utente può digitare per trovare il ramo desiderato.
 
 ### File coinvolto
-- `src/pages/PortafoglioAttivePage.tsx` — nuovo stato `escludiMeseCorrente`, Switch UI, filtro query
+- `src/pages/PortafoglioAttivePage.tsx`
+  - Eliminare stato `filtroCompagnia`, query `compagnie-lookup`, Select compagnie
+  - Rimuovere `.eq("compagnia_id", filtroCompagnia)` dalle query dati e totali
+  - Sostituire Select rami con Popover + Command (pattern già usato in altri componenti del progetto come `SearchableSelect`) per ricerca testuale
 
