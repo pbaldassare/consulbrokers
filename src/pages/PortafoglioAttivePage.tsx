@@ -153,6 +153,16 @@ const PortafoglioAttivePage = () => {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2 ml-auto">
+          <Switch
+            id="escludi-mese"
+            checked={escludiMeseCorrente}
+            onCheckedChange={(v) => { setEscludiMeseCorrente(v); setPage(0); }}
+          />
+          <Label htmlFor="escludi-mese" className="text-sm cursor-pointer whitespace-nowrap">
+            Escludi scadenze del mese
+          </Label>
+        </div>
       </div>
 
       {isLoading ? (
