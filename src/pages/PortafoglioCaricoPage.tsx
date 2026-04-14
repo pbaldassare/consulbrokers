@@ -49,7 +49,6 @@ const PortafoglioCaricoPage = () => {
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
-      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
 
@@ -64,14 +63,14 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroRamo, filtroStato, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
         .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
-      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
       const { data } = await q;
