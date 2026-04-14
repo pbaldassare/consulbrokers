@@ -1,47 +1,34 @@
 
 
-## Piano: Riparare la vista v_portafoglio_titoli
+## Piano: Migliorare la Messa a Cassa nel Carico del Mese
 
-### Problema
-La migrazione precedente ha ricreato la vista `v_portafoglio_titoli` perdendo tre colonne calcolate essenziali usate da tutte le pagine del portafoglio:
-- `cliente_nome_display` (COALESCE di ragione_sociale / cognome+nome)
-- `cliente_codice` (da `clienti.codice_ricerca`)
-- `ramo_nome` (alias di `rami.descrizione`)
+### Modifiche richieste
 
-Questo causa il "Nessuna polizza trovata" perché le query PostgREST falliscono silenziosamente quando richiedono colonne inesistenti.
+**1. Selezione multipla con checkbox**
+- Rimuovere il pulsante "Metti a Cassa Tutti"
+- Aggiungere una colonna checkbox a sinistra di ogni riga
+- Checkbox nell'header per selezionare/deselezionare tutte le visibili
+- Pulsante "Metti a Cassa Selezionati (N)" appare solo quando ci sono righe selezionate (solo attive)
+- Stato `selectedIds: Set<string>` per tracciare le selezioni
 
-### Intervento
+**2. Revert da incassato → attivo**
+- Per le righe incassate, il pulsante nella colonna Azione diventa "Annulla Incasso"
+- Resetta `stato = 'attivo'`, e cancella `data_incasso`, `data_messa_cassa`, `data_pagamento`, `data_decorrenza_rinnovo`
+- Funziona anche in bulk: se selezioni righe incassate, appare "Annulla Incasso Selezionati (N)"
 
-**Migrazione SQL** — ricreare la vista con le colonne mancanti ripristinate:
+**3. Semplificare le date**
+- Rimuovere le 3 colonne separate di date input dalla tabella (troppo incasinato)
+- Tenere una sola colonna "Messa a Cassa" che mostra la data se incassata
+- Le 3 date vengono impostate automaticamente a oggi al momento del click su "Cassa"; se serve modificarle si fa dal dettaglio titolo
 
-```sql
-DROP VIEW IF EXISTS v_portafoglio_titoli;
+**4. Filtro incassato/non incassato**
+- Aggiungere un filtro Select con opzioni: "Tutti", "Da incassare", "Incassati"
+- Default: "Tutti"
 
-CREATE VIEW v_portafoglio_titoli AS
-SELECT
-  t.*,
-  c.nome AS compagnia_nome,
-  c.codice AS compagnia_codice,
-  r.descrizione AS ramo_nome,
-  r.codice AS ramo_codice,
-  COALESCE(cl.ragione_sociale, TRIM(COALESCE(cl.cognome,'') || ' ' || COALESCE(cl.nome,''))) AS cliente_nome_display,
-  cl.codice_ricerca AS cliente_codice,
-  cl.cognome AS cliente_cognome,
-  cl.nome AS cliente_nome,
-  cl.ragione_sociale AS cliente_ragione_sociale,
-  cl.codice_fiscale AS cliente_codice_fiscale,
-  cl.tipo_cliente AS cliente_tipo,
-  u.nome_ufficio
-FROM titoli t
-LEFT JOIN compagnie c ON c.id = t.compagnia_id
-LEFT JOIN rami r ON r.id = t.ramo_id
-LEFT JOIN prodotti p ON p.id = t.prodotto_id
-LEFT JOIN clienti cl ON cl.id = t.cliente_anagrafica_id
-LEFT JOIN uffici u ON u.id = t.ufficio_id;
-```
+**5. Colorazione righe**
+- Righe incassate: sfondo giallo chiaro (`bg-yellow-50`)
+- Righe attive: sfondo standard (bianco)
 
-**Nessuna modifica al codice** — le pagine PortafoglioAttive, Carico e Storico usano già i nomi corretti.
-
-### File coinvolto
-- Una sola migrazione SQL
+### File coinvolti
+- `src/pages/PortafoglioCaricoPage.tsx` — riscrittura della UI
 
