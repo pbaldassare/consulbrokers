@@ -4614,9 +4614,13 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           data_creazione: string | null
+          data_pagamento_rimessa: string | null
+          iban_utilizzato: string | null
           id: string
+          n_titoli: number | null
           stato: string
           totale_importi: number | null
+          totale_provvigioni: number | null
           ufficio_id: string | null
           updated_at: string | null
           xml_output: string | null
@@ -4628,9 +4632,13 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data_creazione?: string | null
+          data_pagamento_rimessa?: string | null
+          iban_utilizzato?: string | null
           id?: string
+          n_titoli?: number | null
           stato?: string
           totale_importi?: number | null
+          totale_provvigioni?: number | null
           ufficio_id?: string | null
           updated_at?: string | null
           xml_output?: string | null
@@ -4642,9 +4650,13 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data_creazione?: string | null
+          data_pagamento_rimessa?: string | null
+          iban_utilizzato?: string | null
           id?: string
+          n_titoli?: number | null
           stato?: string
           totale_importi?: number | null
+          totale_provvigioni?: number | null
           ufficio_id?: string | null
           updated_at?: string | null
           xml_output?: string | null
