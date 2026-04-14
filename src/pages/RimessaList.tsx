@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Send, ChevronLeft, ChevronRight, Package, ChevronDown, ChevronUp, ExternalLink, Check } from "lucide-react";
+import { Send, ChevronLeft, ChevronRight, Package, ChevronDown, ChevronUp, ExternalLink, Check, Undo2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
@@ -56,9 +56,18 @@ const RimessaList = () => {
   const meseA = format(endOfMonth(meseCorrente), "yyyy-MM-dd");
   const meseLabel = format(meseCorrente, "MMMM yyyy", { locale: it });
 
+  // Fetch titoli già collegati a rimesse
+  const { data: usedTitoliIds = [] } = useQuery({
+    queryKey: ["rimessa-dettaglio-used"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rimessa_dettaglio").select("titolo_id");
+      return (data || []).map((r: any) => r.titolo_id);
+    },
+  });
+
   // Titoli messi a cassa nel mese con dettagli per espansione
   const { data: titoliCassa = [] } = useQuery({
-    queryKey: ["titoli-cassa-mese", meseDa, meseA],
+    queryKey: ["titoli-cassa-mese", meseDa, meseA, usedTitoliIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
@@ -68,8 +77,11 @@ const RimessaList = () => {
         .lte("data_messa_cassa", meseA);
       if (error) throw error;
 
+      const usedSet = new Set(usedTitoliIds);
+      const filtered = (data || []).filter((t: any) => !usedSet.has(t.id));
+
       const map: Record<string, GruppoCompagnia> = {};
-      for (const t of (data || []) as any[]) {
+      for (const t of filtered as any[]) {
         const cId = t.compagnia_id || "sconosciuta";
         const cNome = t.compagnie?.nome || "Senza compagnia";
         if (!map[cId]) map[cId] = { nome: cNome, count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0, compagnia_id: cId, titoli: [] };
@@ -155,9 +167,34 @@ const RimessaList = () => {
       setConfirmDialog(null);
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });
+      queryClient.invalidateQueries({ queryKey: ["rimessa-dettaglio-used"] });
     },
     onError: (e: any) => toast.error(e.message || "Errore nella conferma"),
   });
+
+  // Revert rimessa mutation
+  const revertMutation = useMutation({
+    mutationFn: async (rimessaId: string) => {
+      const { error: dErr } = await supabase.from("rimessa_dettaglio").delete().eq("rimessa_id", rimessaId);
+      if (dErr) throw dErr;
+      const { error: rErr } = await supabase.from("rimessa_premi").delete().eq("id", rimessaId);
+      if (rErr) throw rErr;
+      await logAttivita({
+        azione: "annullamento_rimessa",
+        entita_tipo: "rimessa_premi",
+        entita_id: rimessaId,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Rimessa annullata — i titoli sono tornati nel riepilogo");
+      queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });
+      queryClient.invalidateQueries({ queryKey: ["rimessa-dettaglio-used"] });
+    },
+    onError: (e: any) => toast.error(e.message || "Errore nell'annullamento"),
+  });
+
+
 
   const { data: rimesseResult, isLoading } = useQuery({
     queryKey: ["rimessa_premi", page, filtroStato, meseDa, meseA],
@@ -285,7 +322,7 @@ const RimessaList = () => {
                                   const lordo = t.premio_lordo || 0;
                                   const provv = (t.provvigioni_firma || 0) + (t.provvigioni_quietanza || 0);
                                   return (
-                                    <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/portafoglio/${t.id}`)}>
+                                    <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/titoli/${t.id}`)}>
                                       <TableCell className="font-mono text-sm">{t.numero_titolo || "—"}</TableCell>
                                       <TableCell className="text-sm">{clienteDisplay(t)}</TableCell>
                                       <TableCell className="text-right font-mono text-sm">€ {lordo.toFixed(2)}</TableCell>
@@ -377,33 +414,50 @@ const RimessaList = () => {
                     <TableHead>IBAN</TableHead>
                     <TableHead>Data Pagamento</TableHead>
                     <TableHead>Stato</TableHead>
-                    <TableHead>Creata da</TableHead>
-                    <TableHead>Data</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rimesse.map((r: any) => (
-                    <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
-                      <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
-                      <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
-                      <TableCell className="text-right font-mono">€ {(r.totale_importi ?? 0).toFixed(2)}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.iban_utilizzato || "—"}</TableCell>
-                      <TableCell>{r.data_pagamento_rimessa ? format(new Date(r.data_pagamento_rimessa), "dd/MM/yyyy") : "—"}</TableCell>
-                      <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
-                      <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
-                      <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {rimesse.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna rimessa archiviata</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-export default RimessaList;
+                     <TableHead>Creata da</TableHead>
+                     <TableHead>Data</TableHead>
+                     <TableHead className="w-10"></TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {rimesse.map((r: any) => (
+                     <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
+                       <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
+                       <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
+                       <TableCell className="text-right font-mono">€ {(r.totale_importi ?? 0).toFixed(2)}</TableCell>
+                       <TableCell className="font-mono text-xs">{r.iban_utilizzato || "—"}</TableCell>
+                       <TableCell>{r.data_pagamento_rimessa ? format(new Date(r.data_pagamento_rimessa), "dd/MM/yyyy") : "—"}</TableCell>
+                       <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
+                       <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
+                       <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                       <TableCell>
+                         <Button
+                           size="sm"
+                           variant="ghost"
+                           className="h-7 text-xs text-destructive hover:text-destructive"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (window.confirm(`Annullare la rimessa per ${r.compagnie?.nome || "questa compagnia"}? I titoli torneranno nel riepilogo.`)) {
+                               revertMutation.mutate(r.id);
+                             }
+                           }}
+                           disabled={revertMutation.isPending}
+                         >
+                           <Undo2 className="w-3 h-3 mr-1" />Annulla
+                         </Button>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                   {rimesse.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna rimessa archiviata</TableCell></TableRow>}
+                 </TableBody>
+               </Table>
+               <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+             </>
+           )}
+         </CardContent>
+       </Card>
+     </div>
+   );
+ };
+ 
+ export default RimessaList;
