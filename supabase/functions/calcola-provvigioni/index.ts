@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     // Fetch titolo with all needed fields
     const { data: titolo, error: tErr } = await supabaseAdmin
       .from("titoli")
-      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato")
+      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato, anagrafica_commerciale_id, produttore_nome")
       .eq("id", titolo_id)
       .single();
     if (tErr || !titolo) throw new Error("Titolo non trovato");
@@ -36,16 +36,23 @@ Deno.serve(async (req) => {
 
     // === PRIMARY PATH: use provvigioni_quietanza from titolo ===
     if (provvQuietanza != null && provvQuietanza > 0) {
-      const percComm = titolo.percentuale_commerciale ?? 0;
-      const commercialeId = titolo.commerciale_id;
+      const percComm = titolo.percentuale_commerciale ?? 100;
+      // Determine if there's a real commercial agent (not Consul)
+      const hasCommerciale = titolo.anagrafica_commerciale_id != null || titolo.commerciale_id != null;
+      const isConsulOnly = !hasCommerciale || percComm >= 100;
+      
+      // Build commerciale identifier for tipo_destinatario
+      const commercialeUserId = titolo.commerciale_id; // profiles FK (may be null)
+      const commercialeName = titolo.produttore_nome;
+      
       const rows: any[] = [];
 
-      if (percComm > 0 && commercialeId) {
+      if (!isConsulOnly && percComm > 0) {
         // Commerciale gets their share
         const importoComm = Math.round((provvQuietanza * percComm) / 100 * 100) / 100;
         rows.push({
           titolo_id,
-          user_id: commercialeId,
+          user_id: commercialeUserId || null,
           percentuale: percComm,
           importo_provvigione: importoComm,
           tipo_destinatario: "commerciale",
@@ -63,7 +70,7 @@ Deno.serve(async (req) => {
           });
         }
       } else {
-        // No commerciale — everything goes to Consul
+        // No commerciale or 100% — everything goes to Consul
         rows.push({
           titolo_id,
           user_id: null,
