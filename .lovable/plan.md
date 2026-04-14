@@ -1,44 +1,32 @@
 
 
-## Piano: Aggiornare polizza 332437574 (COMUNE DI SANTA MARINA SALINA - R.C.T./R.C.O)
+## Piano: Correggere comp_assicurativa polizza 01.51130/03
 
-Record ID: `66c6cf18-5fc9-4a29-b593-133f2eabe70d`
+Record ID: `7938cab5-45f5-4a38-895e-0aa785967f76`
 
-### Differenze DB → Screenshot Legacy
+### Differenza trovata
 
 | Campo | Valore DB | Valore Legacy (corretto) |
 |-------|-----------|-------------------------|
-| `premio_netto` | null | **245.39** |
-| `tasse` | null | **54.61** |
-| `premio_netto_quietanza` | null | **245.39** |
-| `tasse_quietanza` | null | **54.61** |
-| `provvigioni_quietanza` | 14.13 | **35.33** |
-| `garanzia_a` | 2026-04-30 | **2026-04-04** |
-| `data_competenza` | null | **2025-04-04** |
-| `comp_assicurativa` | null | **2025-04-04** |
-| `copertura_da` | null | **2025-04-04** |
-| `copertura_giorni` | null | **1059** |
-| `conto_incasso` | null | **CRED. VS CB CONSULTING (I7591)** |
-| `conto_incasso_codice` | null | **060201000067** |
-| `id_legacy` | null | **142424** |
+| `comp_assicurativa` | 2025-10-30 | **2025-11-19** |
 
 ### Campi già corretti
-- Numero: 332437574 ✓ | Riga: 0 ✓ | Appendice: null ✓
-- Compagnia: ASSISA / ASSISUD ✓ | Ramo: R.C.T./R.C.O ✓ | Gruppo: R.C.T. ✓
-- AE: SEDE CATANIA ✓ | Specialist: GUARRACINO GAETANO ✓
-- Cliente: 827e49d7 ✓ | Filiale: SS ✓
-- Durata da: 2025-04-04 ✓ | Durata a: 2026-04-04 ✓ | Anni: 1 ✓
-- Garanzia da: 2025-04-04 ✓
-- Premio lordo: 300 ✓ | Provvigioni firma: 35.33 ✓ | Addizionali: 0 ✓
-- Rate: 1 ✓ | Periodicità: annuale ✓ | Mora: 15 ✓
-- Tipo rinnovo: tacito_rinnovo ✓ | Tipo scadenza: no scadenza ✓
-- Data incasso: 2025-05-05 ✓ | Descrizione: CIG: B6554C6288 ✓
+- Numero: 01.51130/03 ✓ | Riga: 0 ✓ | id_legacy: 158708 ✓
+- Compagnia: S2C ✓ | Ramo: CAUZIONI DEFINITIVE ✓ | Gruppo: CREDITO CAUZIONI ✓
+- A/E: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
+- Descrizione: AZ. SANITARIA PROV. DI PALERMO 8PROROGA 30.10.2025 AL 30.04.2026 ✓
+- Durata da: 30/10/2025 ✓ | Durata a: 30/04/2026 ✓ | Anni: 3 ✓
+- Garanzia da: 30/10/2025 ✓ | Garanzia a: 30/04/2026 ✓
+- Competenza: 19/11/2025 ✓ | Incasso: 19/11/2025 ✓ | Mora: 15 ✓
+- Netto firma: 74.08 ✓ | Addizionali: 14.81 ✓ | Tasse: 11.11 ✓ | Lordo: 100 ✓ | Provv: 17.78 ✓
+- Quietanza: 74.08/14.81/11.11/17.78 ✓
+- Rate: 1 ✓ | Periodicità: annuale ✓ | Tipo rinnovo: tacito ✓
+- Tipo scadenza: no scadenza ✓ | Giorni pres: 0 ✓
+- Conto incasso: CASSA NAPOLI ✓
 
 ### Azione
-UPDATE via migration dei 13 campi sulla riga `66c6cf18-5fc9-4a29-b593-133f2eabe70d`.
+UPDATE del campo `comp_assicurativa` da `2025-10-30` a `2025-11-19` tramite insert tool.
 
 ### File coinvolti
-| File | Azione |
-|------|--------|
-| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 13 campi |
+Nessun file di codice — solo operazione dati sul DB.
 
