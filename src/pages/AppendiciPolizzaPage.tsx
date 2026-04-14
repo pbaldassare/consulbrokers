@@ -133,6 +133,18 @@ const AppendiciPolizzaPage = () => {
     }
   }, [appendici, editingId]);
 
+  // Deep-link: auto-open edit mode if appendiceId is in query params
+  const paramAppendiceId = searchParams.get("appendiceId") || "";
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+  useEffect(() => {
+    if (deepLinkHandled || !paramAppendiceId || appendici.length === 0) return;
+    const target = appendici.find((a: any) => a.id === paramAppendiceId);
+    if (target) {
+      startEdit(target);
+      setDeepLinkHandled(true);
+    }
+  }, [paramAppendiceId, appendici, deepLinkHandled]);
+
   // Save / Update
   const saveMutation = useMutation({
     mutationFn: async () => {

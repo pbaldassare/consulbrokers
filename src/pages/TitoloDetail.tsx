@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Copy, ArrowRightLeft, XCircle, Download, Eye, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Copy, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -624,6 +624,7 @@ const TitoloDetail = () => {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Oggetto</TableHead>
                       <TableHead>File</TableHead>
+                      <TableHead className="w-28">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -635,6 +636,33 @@ const TitoloDetail = () => {
                         <TableCell><Badge variant="outline" className="capitalize">{a.tipo}</Badge></TableCell>
                         <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
                         <TableCell className="text-sm">{a.nome_file || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Modifica" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}&appendiceId=${a.id}`)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            {a.testo && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizza testo" onClick={() => {
+                                const w = window.open("", "_blank");
+                                if (w) { w.document.write(`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2rem">${a.testo}</pre>`); }
+                              }}>
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                            {a.file_path && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
+                                const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
+                                if (error || !data) return;
+                                const url = URL.createObjectURL(data);
+                                const link = document.createElement("a");
+                                link.href = url; link.download = a.nome_file || "file"; link.click();
+                                URL.revokeObjectURL(url);
+                              }}>
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
