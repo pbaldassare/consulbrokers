@@ -147,17 +147,18 @@ const AppendiciPolizzaPage = () => {
 
   // Save / Update
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<{ wasUpdate: boolean; record?: any }> => {
       if (!paramTitoloId) throw new Error("Titolo non specificato");
       if (!numeroAppendice.trim()) throw new Error("Numero appendice obbligatorio");
+
+      const currentEditingId = editingId;
 
       let filePath: string | null = null;
       let nomeFile: string | null = null;
 
       // Handle file upload / removal
       if (file) {
-        // Remove old file if replacing
-        if (editingId && existingFilePath) {
+        if (currentEditingId && existingFilePath) {
           await supabase.storage.from("documenti_titoli").remove([existingFilePath]);
         }
         const path = `appendici/${paramTitoloId}/${Date.now()}_${file.name}`;
@@ -165,13 +166,11 @@ const AppendiciPolizzaPage = () => {
         if (uploadErr) throw uploadErr;
         filePath = path;
         nomeFile = file.name;
-      } else if (editingId && removeExistingFile && existingFilePath) {
-        // User wants to remove file without replacement
+      } else if (currentEditingId && removeExistingFile && existingFilePath) {
         await supabase.storage.from("documenti_titoli").remove([existingFilePath]);
         filePath = null;
         nomeFile = null;
-      } else if (editingId && existingFilePath && !removeExistingFile) {
-        // Keep existing file
+      } else if (currentEditingId && existingFilePath && !removeExistingFile) {
         filePath = existingFilePath;
         nomeFile = existingFileName;
       }
@@ -189,21 +188,35 @@ const AppendiciPolizzaPage = () => {
         note: note.trim() || null,
       };
 
-      if (editingId) {
-        const { error } = await supabase.from("appendici_polizza").update(payload).eq("id", editingId);
+      if (currentEditingId) {
+        const { data, error } = await supabase.from("appendici_polizza").update(payload).eq("id", currentEditingId).select().single();
         if (error) throw error;
+        return { wasUpdate: true, record: data };
       } else {
         const { error } = await supabase.from("appendici_polizza").insert({
           ...payload,
           created_by: user?.id || null,
         });
         if (error) throw error;
+        return { wasUpdate: false };
       }
     },
-    onSuccess: () => {
-      toast.success(editingId ? "Appendice aggiornata" : "Appendice salvata con successo");
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
-      resetForm();
+      if (result.wasUpdate && result.record) {
+        toast.success("Appendice aggiornata");
+        // Stay in edit mode with refreshed data
+        startEdit(result.record);
+      } else {
+        toast.success("Appendice creata con successo");
+        resetForm();
+        // Remove appendiceId from URL if present
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("appendiceId");
+          return next;
+        });
+      }
     },
     onError: (err: any) => toast.error(err.message || "Errore nel salvataggio"),
   });
