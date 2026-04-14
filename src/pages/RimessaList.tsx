@@ -1,16 +1,12 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Send, ChevronLeft, ChevronRight, Package } from "lucide-react";
-import { toast } from "sonner";
+import { Send, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
@@ -21,11 +17,6 @@ const statiRimessa = ["bozza", "pronta", "inviata", "errore"];
 
 const RimessaList = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [compagniaId, setCompagniaId] = useState("");
-  const [ufficioId, setUfficioId] = useState("");
   const [filtroStato, setFiltroStato] = useState("all");
   const [page, setPage] = useState(0);
   const [meseCorrente, setMeseCorrente] = useState(new Date());
@@ -34,23 +25,44 @@ const RimessaList = () => {
   const meseA = format(endOfMonth(meseCorrente), "yyyy-MM-dd");
   const meseLabel = format(meseCorrente, "MMMM yyyy", { locale: it });
 
-  const { data: compagnie = [] } = useQuery({
-    queryKey: ["compagnie_attive"],
+  // Titoli messi a cassa nel mese, con dati per calcolo rimessa
+  const { data: titoliCassa = [] } = useQuery({
+    queryKey: ["titoli-cassa-mese", meseDa, meseA],
     queryFn: async () => {
-      const { data, error } = await supabase.from("compagnie").select("*").eq("attiva", true).order("nome");
+      const { data, error } = await supabase
+        .from("titoli")
+        .select("id, premio_lordo, provvigioni_firma, provvigioni_quietanza, compagnia_id, compagnie:compagnie!titoli_compagnia_id_fkey(nome)")
+        .eq("stato", "incassato")
+        .gte("data_messa_cassa", meseDa)
+        .lte("data_messa_cassa", meseA);
       if (error) throw error;
-      return data;
+
+      // Group by compagnia
+      const map: Record<string, { nome: string; count: number; premio_lordo: number; provvigioni: number; da_rimettere: number; compagnia_id: string }> = {};
+      for (const t of (data || []) as any[]) {
+        const cId = t.compagnia_id || "sconosciuta";
+        const cNome = t.compagnie?.nome || "Senza compagnia";
+        if (!map[cId]) map[cId] = { nome: cNome, count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0, compagnia_id: cId };
+        const lordo = t.premio_lordo || 0;
+        const provv = (t.provvigioni_firma || 0) + (t.provvigioni_quietanza || 0);
+        map[cId].count++;
+        map[cId].premio_lordo += lordo;
+        map[cId].provvigioni += provv;
+        map[cId].da_rimettere += lordo - provv;
+      }
+      return Object.values(map).sort((a, b) => b.da_rimettere - a.da_rimettere);
     },
   });
 
-  const { data: uffici = [] } = useQuery({
-    queryKey: ["uffici"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("uffici").select("*").eq("attivo", true).order("nome_ufficio");
-      if (error) throw error;
-      return data;
-    },
-  });
+  const totali = titoliCassa.reduce(
+    (acc, g) => ({
+      count: acc.count + g.count,
+      premio_lordo: acc.premio_lordo + g.premio_lordo,
+      provvigioni: acc.provvigioni + g.provvigioni,
+      da_rimettere: acc.da_rimettere + g.da_rimettere,
+    }),
+    { count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0 }
+  );
 
   const { data: rimesseResult, isLoading } = useQuery({
     queryKey: ["rimessa_premi", page, filtroStato, meseDa, meseA],
@@ -71,56 +83,8 @@ const RimessaList = () => {
     },
   });
 
-  // Titoli messi a cassa nel mese selezionato, raggruppati per compagnia
-  const { data: titoliCassa = [] } = useQuery({
-    queryKey: ["titoli-cassa-mese", meseDa, meseA],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("titoli")
-        .select("id, importo_incassato, compagnia_id, compagnie:compagnie!titoli_compagnia_id_fkey(nome)")
-        .eq("stato", "incassato")
-        .gte("data_messa_cassa", meseDa)
-        .lte("data_messa_cassa", meseA);
-      if (error) throw error;
-
-      // Check which are already in a rimessa
-      const { data: usati } = await supabase.from("rimessa_dettaglio").select("titolo_id");
-      const usatiSet = new Set((usati || []).map((r: any) => r.titolo_id));
-
-      // Group by compagnia
-      const map: Record<string, { nome: string; count: number; totale: number; compagnia_id: string }> = {};
-      for (const t of (data || []) as any[]) {
-        if (usatiSet.has(t.id)) continue;
-        const cId = t.compagnia_id || "sconosciuta";
-        const cNome = t.compagnie?.nome || "Senza compagnia";
-        if (!map[cId]) map[cId] = { nome: cNome, count: 0, totale: 0, compagnia_id: cId };
-        map[cId].count++;
-        map[cId].totale += t.importo_incassato || 0;
-      }
-      return Object.values(map).sort((a, b) => b.totale - a.totale);
-    },
-  });
-
   const rimesse = rimesseResult?.data || [];
   const totalCount = rimesseResult?.count || 0;
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
-        body: { action: "crea", compagnia_id: compagniaId, ufficio_id: ufficioId || null, created_by: user?.id, data_da: meseDa, data_a: meseA },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
-      queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });
-      setOpen(false); setCompagniaId(""); setUfficioId("");
-      toast.success(`Rimessa creata con ${data.titoli_count} titoli`);
-    },
-    onError: (err: any) => toast.error(err.message || "Errore"),
-  });
 
   const statoBadge = (s: string) => {
     switch (s) {
@@ -133,37 +97,9 @@ const RimessaList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Rimessa Premi</h1>
-          <p className="text-muted-foreground">Aggregazione titoli incassati per invio alle compagnie</p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Nuova Rimessa</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nuova Rimessa Premi — {meseLabel}</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Verranno inclusi i titoli messi a cassa dal {format(startOfMonth(meseCorrente), "dd/MM/yyyy")} al {format(endOfMonth(meseCorrente), "dd/MM/yyyy")}.</p>
-              <div>
-                <Label>Compagnia *</Label>
-                <Select value={compagniaId} onValueChange={setCompagniaId}>
-                  <SelectTrigger><SelectValue placeholder="Seleziona compagnia" /></SelectTrigger>
-                  <SelectContent>{compagnie.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Sede</Label>
-                <Select value={ufficioId} onValueChange={setUfficioId}>
-                  <SelectTrigger><SelectValue placeholder="Opzionale" /></SelectTrigger>
-                  <SelectContent>{uffici.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Button onClick={() => createMutation.mutate()} disabled={!compagniaId || createMutation.isPending} className="w-full">Crea Rimessa</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Rimessa Premi</h1>
+        <p className="text-muted-foreground">Riepilogo premi messi a cassa per compagnia</p>
       </div>
 
       {/* Selettore mese + filtro stato */}
@@ -186,17 +122,21 @@ const RimessaList = () => {
         </Select>
       </div>
 
-      {/* Riepilogo titoli messi a cassa nel mese */}
-      {titoliCassa.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Package className="w-5 h-5" />Titoli messi a cassa — disponibili per rimessa</CardTitle></CardHeader>
-          <CardContent>
+      {/* Riepilogo premi per compagnia */}
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Package className="w-5 h-5" />Riepilogo Messa a Cassa — {meseLabel}</CardTitle></CardHeader>
+        <CardContent>
+          {titoliCassa.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Nessun titolo messo a cassa nel mese selezionato</p>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Compagnia</TableHead>
                   <TableHead className="text-right">Titoli</TableHead>
-                  <TableHead className="text-right">Totale €</TableHead>
+                  <TableHead className="text-right">Premio Lordo</TableHead>
+                  <TableHead className="text-right">Provvigioni</TableHead>
+                  <TableHead className="text-right">Da Rimettere</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -204,16 +144,27 @@ const RimessaList = () => {
                   <TableRow key={g.compagnia_id}>
                     <TableCell className="font-medium">{g.nome}</TableCell>
                     <TableCell className="text-right">{g.count}</TableCell>
-                    <TableCell className="text-right font-mono">€ {g.totale.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">€ {g.premio_lordo.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">€ {g.provvigioni.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">€ {g.da_rimettere.toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell className="font-bold">Totale</TableCell>
+                  <TableCell className="text-right font-bold">{totali.count}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">€ {totali.premio_lordo.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">€ {totali.provvigioni.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">€ {totali.da_rimettere.toFixed(2)}</TableCell>
+                </TableRow>
+              </TableFooter>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Lista rimesse */}
+      {/* Lista rimesse storiche */}
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Send className="w-5 h-5" />Rimesse ({totalCount})</CardTitle></CardHeader>
         <CardContent>
