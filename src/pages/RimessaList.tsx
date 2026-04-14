@@ -158,6 +158,18 @@ const RimessaList = () => {
         entita_tipo: "rimessa_premi",
         entita_id: (rimessa as any).id,
         dettagli_json: { compagnia: gruppo.nome, n_titoli: gruppo.count, totale: gruppo.da_rimettere, iban: ibanSelezionato },
+      });
+
+      return rimessa;
+    },
+    onSuccess: () => {
+      toast.success("Rimessa confermata e archiviata");
+      setConfirmDialog(null);
+      queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });
+      queryClient.invalidateQueries({ queryKey: ["rimessa-dettaglio-used"] });
+    },
+    onError: (e: any) => toast.error(e.message || "Errore nella conferma"),
   });
 
   // Revert rimessa mutation
@@ -181,8 +193,6 @@ const RimessaList = () => {
     },
     onError: (e: any) => toast.error(e.message || "Errore nell'annullamento"),
   });
-
-      return rimessa;
     },
     onSuccess: () => {
       toast.success("Rimessa confermata e archiviata");
