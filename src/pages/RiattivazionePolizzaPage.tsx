@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { logAttivita } from "@/lib/logAttivita";
 
 const RiattivazionePolizzaPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
 
   const paramPolizza = searchParams.get("polizza") || "";
@@ -62,9 +65,66 @@ const RiattivazionePolizzaPage = () => {
     },
   });
 
-  const handleConferma = () => {
-    // TODO: implementare logica riattivazione polizza
-  };
+  const riattivazioneMutation = useMutation({
+    mutationFn: async () => {
+      if (!dataRiattivazione) throw new Error("Data riattivazione obbligatoria");
+
+      // Find titolo to reactivate
+      let titoloId = paramTitoloId;
+      if (!titoloId && numeroDaRiatt) {
+        const { data: found } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("numero_titolo", numeroDaRiatt.trim())
+          .eq("stato", "sospeso")
+          .limit(1)
+          .maybeSingle();
+        if (!found) throw new Error("Polizza sospesa non trovata");
+        titoloId = found.id;
+      }
+      if (!titoloId) throw new Error("Specificare una polizza da riattivare");
+
+      // Update titolo
+      const { error: errUp } = await supabase
+        .from("titoli")
+        .update({
+          stato: "attivo",
+          data_riattivazione: dataRiattivazione,
+        } as any)
+        .eq("id", titoloId);
+      if (errUp) throw errUp;
+
+      // Insert movement
+      await supabase.from("movimenti_polizza").insert({
+        titolo_id: titoloId,
+        tipo_documento: "RA",
+        data_movimento: dataRiattivazione,
+        descrizione: "Riattivazione polizza",
+        stato: "attivo",
+      } as any);
+
+      // Log
+      await logAttivita({
+        azione: "riattivazione_polizza",
+        entita_tipo: "titolo",
+        entita_id: titoloId,
+        dettagli_json: { data_riattivazione: dataRiattivazione },
+      });
+
+      return titoloId;
+    },
+    onSuccess: (titoloId) => {
+      queryClient.invalidateQueries({ queryKey: ["titolo"] });
+      queryClient.invalidateQueries({ queryKey: ["portafoglio"] });
+      toast.success("Polizza riattivata con successo");
+      navigate(`/titoli/${titoloId}`);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Errore durante la riattivazione");
+    },
+  });
+
+  const handleConferma = () => riattivazioneMutation.mutate();
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -118,7 +178,7 @@ const RiattivazionePolizzaPage = () => {
             <Input id="riga-nuova-riatt" value={rigaNuova} onChange={(e) => setRigaNuova(e.target.value)} />
           </div>
           <div className="space-y-1.5 w-[180px]">
-            <Label htmlFor="data-riatt">Data Riattivazione</Label>
+            <Label htmlFor="data-riatt">Data Riattivazione *</Label>
             <Input id="data-riatt" type="date" value={dataRiattivazione} onChange={(e) => setDataRiattivazione(e.target.value)} />
           </div>
         </div>
@@ -167,7 +227,10 @@ const RiattivazionePolizzaPage = () => {
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
-        <Button onClick={handleConferma}>Conferma</Button>
+        <Button onClick={handleConferma} disabled={riattivazioneMutation.isPending}>
+          {riattivazioneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Conferma
+        </Button>
       </div>
     </div>
   );

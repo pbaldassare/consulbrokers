@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Search } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Search, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { logAttivita } from "@/lib/logAttivita";
 
 const SospensionePolizzaPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
 
   const paramPolizza = searchParams.get("polizza") || "";
@@ -24,8 +28,8 @@ const SospensionePolizzaPage = () => {
   const [riga, setRiga] = useState(paramRiga);
   const [dataSospensione, setDataSospensione] = useState("");
   const [limiteRiattivazione, setLimiteRiattivazione] = useState("");
+  const [motivo, setMotivo] = useState("");
 
-  // Fetch cliente by ID when coming from dettaglio
   const { data: clienteFromId } = useQuery({
     queryKey: ["cliente-by-id-sosp", paramClienteId],
     queryFn: async () => {
@@ -39,7 +43,6 @@ const SospensionePolizzaPage = () => {
     enabled: !!paramClienteId,
   });
 
-  // Fetch cliente by search
   const { data: clienteFromSearch } = useQuery({
     queryKey: ["cliente-lookup-sosp", codiceCliente],
     queryFn: async () => {
@@ -76,9 +79,68 @@ const SospensionePolizzaPage = () => {
     },
   });
 
-  const handleConferma = () => {
-    // TODO: implementare logica sospensione polizza
-  };
+  const sospensioneMutation = useMutation({
+    mutationFn: async () => {
+      if (!dataSospensione) throw new Error("Data sospensione obbligatoria");
+
+      // Find titolo
+      let titoloId = paramTitoloId;
+      if (!titoloId && numeroPolizza) {
+        const { data: found } = await supabase
+          .from("titoli")
+          .select("id")
+          .eq("numero_titolo", numeroPolizza.trim())
+          .eq("stato", "attivo")
+          .limit(1)
+          .maybeSingle();
+        if (!found) throw new Error("Polizza non trovata o non attiva");
+        titoloId = found.id;
+      }
+      if (!titoloId) throw new Error("Specificare una polizza");
+
+      // Update titolo
+      const { error: errUp } = await supabase
+        .from("titoli")
+        .update({
+          stato: "sospeso",
+          data_sospensione: dataSospensione,
+          limite_riattivazione: limiteRiattivazione || null,
+          motivo_sospensione: motivo || null,
+        } as any)
+        .eq("id", titoloId);
+      if (errUp) throw errUp;
+
+      // Insert movement
+      await supabase.from("movimenti_polizza").insert({
+        titolo_id: titoloId,
+        tipo_documento: "SO",
+        data_movimento: dataSospensione,
+        descrizione: `Sospensione polizza${motivo ? ": " + motivo : ""}`,
+        stato: "sospeso",
+      } as any);
+
+      // Log
+      await logAttivita({
+        azione: "sospensione_polizza",
+        entita_tipo: "titolo",
+        entita_id: titoloId,
+        dettagli_json: { data_sospensione: dataSospensione, limite_riattivazione: limiteRiattivazione, motivo },
+      });
+
+      return titoloId;
+    },
+    onSuccess: (titoloId) => {
+      queryClient.invalidateQueries({ queryKey: ["titolo"] });
+      queryClient.invalidateQueries({ queryKey: ["portafoglio"] });
+      toast.success("Polizza sospesa con successo");
+      navigate(`/titoli/${titoloId}`);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Errore durante la sospensione");
+    },
+  });
+
+  const handleConferma = () => sospensioneMutation.mutate();
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -132,13 +194,17 @@ const SospensionePolizzaPage = () => {
             <Input id="riga-sosp" value={riga} onChange={(e) => setRiga(e.target.value)} readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
           </div>
           <div className="space-y-1.5 w-[180px]">
-            <Label htmlFor="data-sosp">Data Sospensione</Label>
+            <Label htmlFor="data-sosp">Data Sospensione *</Label>
             <Input id="data-sosp" type="date" value={dataSospensione} onChange={(e) => setDataSospensione(e.target.value)} />
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="limite-riatt">Limite Riattivazione</Label>
             <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => setLimiteRiattivazione(e.target.value)} />
           </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="motivo-sosp">Motivo</Label>
+          <Textarea id="motivo-sosp" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={2} />
         </div>
       </fieldset>
 
@@ -159,7 +225,10 @@ const SospensionePolizzaPage = () => {
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
-        <Button onClick={handleConferma}>Conferma</Button>
+        <Button onClick={handleConferma} disabled={sospensioneMutation.isPending}>
+          {sospensioneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Conferma
+        </Button>
       </div>
     </div>
   );
