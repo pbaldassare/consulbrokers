@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, Trash2, Download, Eye, Pencil, X } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Eye, Pencil, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
