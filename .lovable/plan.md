@@ -1,22 +1,26 @@
 
 
-## Piano: Rimuovere dati demo da Pagamenti Provvigioni
+## Piano: Pagina "Provvigioni Maturate" + ordinamento per data messa a cassa
 
-### Dati da eliminare
+### Flusso logico
+1. Polizza viene messa a cassa → genera provvigioni in `provvigioni_generate`
+2. **Provvigioni Maturate** (nuova pagina) → mostra tutte le provvigioni non pagate (`pagata = false`), raggruppate per utente, ordinate per data messa a cassa del titolo
+3. Da qui si procede al **Pagamento Provvigioni** (pagina esistente) per creare la distinta di pagamento
 
-| Tabella | Record | Note |
-|---------|--------|------|
-| `pagamenti_provvigioni` | 16 | Tutti con riferimento `PAG-DEMO-0001` |
-| `pagamenti_provvigioni_righe` | 0 | Già vuota |
+### 1. Nuova pagina `ProvvigioniMaturatePage.tsx`
+- Query su `provvigioni_generate` con `pagata = false`, join su `titoli` (per `data_messa_cassa`, `numero_titolo`, `premio_lordo`) e `profiles` (per nome commerciale)
+- Ordinamento per `titoli.data_messa_cassa` ascendente (le più vecchie prima)
+- KPI in alto: Totale maturato, N. provvigioni, N. utenti coinvolti
+- Selettore mese (come in Provvigioni Consul)
+- Tabella con colonne: Polizza, Compagnia, Ramo, Premio, Data Messa a Cassa, Destinatario, Importo Provvigione, Stato
+- Pulsante "Vai a Pagamento" che porta a `/pagamenti-provvigioni`
 
-### Migrazione SQL
-```sql
-DELETE FROM public.pagamenti_provvigioni;
-```
+### 2. Route e sidebar
+- Route: `/provvigioni-maturate` in `src/routes/portafoglio.tsx`
+- Sidebar: aggiungere "Provvigioni Maturate" nel gruppo Provvigioni in `AppSidebar.tsx`, tra "Provvigioni Consul" e "Pagamenti Provvigioni"
 
-### Risultato
-La pagina Pagamenti Provvigioni mostrerà "Nessun dato" con i contatori a zero, pronta per dati reali.
-
-### File coinvolti
-- Nessuna modifica al codice — solo eliminazione dati via migrazione
+### 3. File coinvolti
+- **Nuovo**: `src/pages/ProvvigioniMaturatePage.tsx`
+- **Modifica**: `src/routes/portafoglio.tsx` — aggiunta route
+- **Modifica**: `src/components/AppSidebar.tsx` — aggiunta voce sidebar
 
