@@ -179,14 +179,50 @@ const TitoloDetail = () => {
         </Badge>
       </div>
 
-      {/* Cambio stato — nascosto per polizze storico */}
+      {/* Operazioni — nascosto per polizze storico */}
       {!(t.stato === "scaduto" || t.stato === "sospeso" || (t.stato === "attivo" && t.garanzia_a && new Date(t.garanzia_a) < new Date())) && (
         <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-sm">Cambia Stato</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            {statiTitolo.filter((s) => s !== t.stato).map((s) => (
-              <Button key={s} variant="outline" size="sm" onClick={() => changeStatoMutation.mutate(s)} disabled={changeStatoMutation.isPending}>{s}</Button>
-            ))}
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/sospensione?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+              <Clock className="w-4 h-4 mr-1" /> Sospensione
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+              <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+              <Copy className="w-4 h-4 mr-1" /> Duplicazione
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+              <FileText className="w-4 h-4 mr-1" /> Appendici
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/storno?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+              <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => document.getElementById("regolazione-section")?.scrollIntoView({ behavior: "smooth" })}>
+              <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
+                  <XCircle className="w-4 h-4 mr-1" /> Annullamento
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Conferma Annullamento</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Sei sicuro di voler annullare la polizza {t.numero_titolo}? Questa azione è irreversibile.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => changeStatoMutation.mutate("annullato")} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Conferma Annullamento
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       )}
