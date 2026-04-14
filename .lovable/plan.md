@@ -1,37 +1,39 @@
 
 
-## Piano: Aggiornare polizza 2013/03/2163641 (COMUNE DI POMIGLIANO D'ARCO)
+## Piano: Aggiornare polizza 2013/07/2035147 (COMUNE DI POMIGLIANO D'ARCO - INCENDIO)
 
 ### Differenze DB → Screenshot Legacy
 
 | Campo | Valore DB | Valore Legacy (corretto) |
 |-------|-----------|-------------------------|
 | `durata_a` | 2025-04-22 | **2026-04-22** (biennale) |
-| `garanzia_da` | 2024-04-22 | **2025-04-22** (annualità corrente) |
-| `premio_netto` | 445.80 | **405.27** |
-| `addizionali` | 0 | **40.53** |
-| `provvigioni_quietanza` | 14.84 | **35.66** |
+| `garanzia_da` | 2024-04-22 | **2025-04-22** |
+| `premio_netto` | 642.12 | **583.74** |
+| `addizionali` | 0 | **58.38** |
+| `provvigioni_quietanza` | 20.55 | **51.37** |
 | `comp_assicurativa` | 2025-04-22 | **2025-04-29** |
-| `id_legacy` | 138677 | **142635** |
+| `id_legacy` | 138676 | **142636** |
 | `giorni_presentazione` | null | **0** |
+| `tipo_scadenza` | null | **no scadenza** |
 
 ### Campi già corretti
-- Numero: 2013/03/2163641 ✓
+- Numero: 2013/07/2035147 ✓ | Riga: 0 ✓
 - Compagnia: REA114 / Reale Mutua ✓
-- Ramo: R.C.T./R.C.O. ✓ | Gruppo: R.C.T. ✓
+- Ramo: INCENDIO ✓ | Gruppo: INCENDIO FURTO RISCHI TECNOLOGICI ✓
 - AE: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
-- Premio lordo: 545 ✓ | Tasse: 99.20 ✓
-- Provvigioni firma: 35.66 ✓
+- Premio lordo: 785 ✓ | Tasse: 142.88 ✓
+- Provvigioni firma: 51.37 ✓
 - Data incasso/competenza: 09/06/2025 ✓
 - Conto incasso: CRED. VS CB CONSULTING (I7591) ✓
-- Descrizione: MODULI AERONAUTICI SPARTITRAFFICO ZONA PONTE (CIG: B15E982E61) ✓
 - Mora: 15gg ✓ | Rate: 1 ✓ | Periodicità: annuale ✓
+- Tipo rinnovo: Tacito rinnovo ✓
+- Descrizione: MODULI AERONAUTICI SPARTITRAFFICO ZONA PONTE (CIG: B15E982E61) ✓
 
 ### Azione
-Migrazione SQL per UPDATE degli 8 campi sulla riga `f4dd11ef-c7df-4b88-946d-80690ff54f3f`.
+Migrazione SQL per UPDATE dei 9 campi sulla riga `eef00590-01db-48b0-9f6c-847c445ec52a`.
 
 ### File coinvolti
 | File | Azione |
 |------|--------|
-| `supabase/migrations/` | Nuovo file SQL con UPDATE dei campi |
+| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 9 campi |
 
