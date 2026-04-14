@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -12,14 +10,14 @@ import { useNavigate } from "react-router-dom";
 import { Shield, Search } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
+import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 
 const PAGE_SIZE = 25;
 
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
-  const [filtroRamo, setFiltroRamo] = useState("tutti");
+  const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
@@ -27,24 +25,16 @@ const PortafoglioAttivePage = () => {
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const fineMese = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
-  const { data: compagnie } = useQuery({
-    queryKey: ["compagnie-lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
-    },
-  });
-
   const { data: rami } = useQuery({
     queryKey: ["rami-lookup"],
     queryFn: async () => {
       const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
-      return data || [];
+      return (data || []).map((r) => ({ value: r.id, label: r.descrizione }));
     },
   });
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-attive", search, filtroCompagnia, filtroRamo, page, today, escludiMeseCorrente],
+    queryKey: ["portafoglio-attive", search, filtroRamo, page, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
@@ -58,8 +48,7 @@ const PortafoglioAttivePage = () => {
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
-      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
-      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      if (filtroRamo) q = q.eq("ramo_id", filtroRamo);
 
       const { data, count } = await q
         .order("garanzia_a", { ascending: true })
@@ -71,9 +60,8 @@ const PortafoglioAttivePage = () => {
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
 
-  // Global sum query for total premium
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-attive-totale", search, filtroCompagnia, filtroRamo, today, escludiMeseCorrente],
+    queryKey: ["portafoglio-attive-totale", search, filtroRamo, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
         .eq("stato", "attivo").gte("garanzia_a", today);
@@ -83,8 +71,7 @@ const PortafoglioAttivePage = () => {
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
-      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
-      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      if (filtroRamo) q = q.eq("ramo_id", filtroRamo);
       const { data } = await q;
       return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
     },
@@ -131,28 +118,14 @@ const PortafoglioAttivePage = () => {
             className="pl-9"
           />
         </div>
-        <Select value={filtroCompagnia} onValueChange={(v) => { setFiltroCompagnia(v); setPage(0); }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Compagnia" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutte">Tutte le compagnie</SelectItem>
-            {compagnie?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filtroRamo} onValueChange={(v) => { setFiltroRamo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Ramo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutti i rami</SelectItem>
-            {rami?.map((r) => (
-              <SelectItem key={r.id} value={r.id}>{r.descrizione}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterSearchableSelect
+          value={filtroRamo}
+          onValueChange={(v) => { setFiltroRamo(v); setPage(0); }}
+          options={rami || []}
+          placeholder="Ramo"
+          allLabel="Tutti i rami"
+          className="w-[220px]"
+        />
         <div className="flex items-center gap-2 ml-auto">
           <Switch
             id="escludi-mese"
