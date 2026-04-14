@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, Trash2, Download, Eye, Pencil, X } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Eye, Pencil, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -193,27 +193,27 @@ const AppendiciPolizzaPage = () => {
         if (error) throw error;
         return { wasUpdate: true, record: data };
       } else {
-        const { error } = await supabase.from("appendici_polizza").insert({
+        const { data, error } = await supabase.from("appendici_polizza").insert({
           ...payload,
           created_by: user?.id || null,
-        });
+        }).select().single();
         if (error) throw error;
-        return { wasUpdate: false };
+        return { wasUpdate: false, record: data };
       }
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
-      if (result.wasUpdate && result.record) {
+      if (result.wasUpdate) {
         toast.success("Appendice aggiornata");
-        // Stay in edit mode with refreshed data
-        startEdit(result.record);
       } else {
         toast.success("Appendice creata con successo");
-        resetForm();
-        // Remove appendiceId from URL if present
+      }
+      // Always switch to edit mode on the saved record
+      if (result.record) {
+        startEdit(result.record);
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
-          next.delete("appendiceId");
+          next.set("appendiceId", result.record.id);
           return next;
         });
       }
@@ -359,16 +359,28 @@ const AppendiciPolizzaPage = () => {
 
         <div className="flex justify-end gap-2 pt-2">
           {editingId && (
-            <Button variant="outline" onClick={() => {
-              resetForm();
-              setSearchParams((prev) => {
-                const next = new URLSearchParams(prev);
-                next.delete("appendiceId");
-                return next;
-              });
-            }}>
-              <X className="w-4 h-4 mr-1" />Annulla modifica
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => {
+                resetForm();
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete("appendiceId");
+                  return next;
+                });
+              }}>
+                <Plus className="w-4 h-4 mr-1" />Nuova Appendice
+              </Button>
+              <Button variant="outline" onClick={() => {
+                resetForm();
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete("appendiceId");
+                  return next;
+                });
+              }}>
+                <X className="w-4 h-4 mr-1" />Annulla modifica
+              </Button>
+            </>
           )}
           <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>
             Chiudi
