@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
-
+import { Download, Eye, Trash2 } from "lucide-react";
 
 
 const fmt = (v: any) => v ?? "—";
