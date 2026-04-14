@@ -221,7 +221,18 @@ const TitoloDetail = () => {
   const changeStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
       const vecchioStato = titolo?.stato;
-      const { error } = await supabase.from("titoli").update({ stato: nuovoStato, updated_at: new Date().toISOString() }).eq("id", id!);
+      const today = new Date().toISOString().slice(0, 10);
+      const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
+      if (nuovoStato === "incassato") {
+        updatePayload.data_messa_cassa = today;
+        updatePayload.data_pagamento = today;
+        updatePayload.data_decorrenza_rinnovo = today;
+      } else if (nuovoStato === "attivo" && vecchioStato === "incassato") {
+        updatePayload.data_messa_cassa = null;
+        updatePayload.data_pagamento = null;
+        updatePayload.data_decorrenza_rinnovo = null;
+      }
+      const { error } = await supabase.from("titoli").update(updatePayload).eq("id", id!);
       if (error) throw error;
       if (user) {
         await logAttivita({ azione: "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato } });
@@ -301,6 +312,34 @@ const TitoloDetail = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MESSA A CASSA */}
+      {(t.stato === "attivo" || t.stato === "incassato") && (
+        <Card className={t.stato === "incassato" ? "border-yellow-400 bg-yellow-50" : ""}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> Messa a Cassa
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 gap-4">
+              <FieldRow label="Data Messa a Cassa" value={fmtDate(t.data_messa_cassa)} />
+              <FieldRow label="Data Pagamento" value={fmtDate(t.data_pagamento)} />
+              <FieldRow label="Data Decorrenza Rinnovo" value={fmtDate(t.data_decorrenza_rinnovo)} />
+            </div>
+            {t.stato === "attivo" && (
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => changeStatoMutation.mutate("incassato")} disabled={changeStatoMutation.isPending}>
+                <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
+              </Button>
+            )}
+            {t.stato === "incassato" && (
+              <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => changeStatoMutation.mutate("attivo")} disabled={changeStatoMutation.isPending}>
+                <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
