@@ -19,7 +19,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
 
-const statiTitolo = ["creato", "incassato", "stornato", "annullato"];
+
 
 const fmt = (v: any) => v ?? "—";
 const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { locale: it }) : "—";
