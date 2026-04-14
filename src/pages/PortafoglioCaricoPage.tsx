@@ -1,14 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, CheckCheck } from "lucide-react";
+import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
@@ -16,12 +17,6 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 
 const PAGE_SIZE = 25;
-
-type DateOverrides = Record<string, {
-  data_messa_cassa: string;
-  data_pagamento: string;
-  data_decorrenza_rinnovo: string;
-}>;
 
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
@@ -31,9 +26,10 @@ const PortafoglioCaricoPage = () => {
   const [search, setSearch] = useState("");
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
   const [filtroRamo, setFiltroRamo] = useState("tutti");
+  const [filtroStato, setFiltroStato] = useState("tutti");
   const [page, setPage] = useState(0);
   const [caricoDate, setCaricoDate] = useState(new Date());
-  const [dateOverrides, setDateOverrides] = useState<DateOverrides>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -57,7 +53,7 @@ const PortafoglioCaricoPage = () => {
   });
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroCompagnia, filtroRamo, page, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico", search, filtroCompagnia, filtroRamo, filtroStato, page, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo",
@@ -69,6 +65,8 @@ const PortafoglioCaricoPage = () => {
       }
       if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
       if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      if (filtroStato === "attivo") q = q.eq("stato", "attivo");
+      if (filtroStato === "incassato") q = q.eq("stato", "incassato");
 
       const { data, count } = await q
         .order("data_scadenza", { ascending: true })
@@ -81,7 +79,7 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroCompagnia, filtroRamo, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroCompagnia, filtroRamo, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
         .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
@@ -90,27 +88,13 @@ const PortafoglioCaricoPage = () => {
       }
       if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
       if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+      if (filtroStato === "attivo") q = q.eq("stato", "attivo");
+      if (filtroStato === "incassato") q = q.eq("stato", "incassato");
       const { data } = await q;
       return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
     },
   });
   const totalePremio = totaleData ?? 0;
-
-  const getDates = (id: string) => {
-    const today = todayStr();
-    return dateOverrides[id] || {
-      data_messa_cassa: today,
-      data_pagamento: today,
-      data_decorrenza_rinnovo: today,
-    };
-  };
-
-  const setDateField = (id: string, field: keyof DateOverrides[string], value: string) => {
-    setDateOverrides(prev => ({
-      ...prev,
-      [id]: { ...getDates(id), [field]: value },
-    }));
-  };
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
@@ -118,15 +102,15 @@ const PortafoglioCaricoPage = () => {
   };
 
   const mettiACassa = useCallback(async (titoloId: string) => {
-    const dates = getDates(titoloId);
+    const today = todayStr();
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
       const { error } = await (supabase.from("titoli") as any).update({
         stato: "incassato",
-        data_incasso: dates.data_messa_cassa,
-        data_messa_cassa: dates.data_messa_cassa,
-        data_pagamento: dates.data_pagamento,
-        data_decorrenza_rinnovo: dates.data_decorrenza_rinnovo,
+        data_incasso: today,
+        data_messa_cassa: today,
+        data_pagamento: today,
+        data_decorrenza_rinnovo: today,
       }).eq("id", titoloId);
 
       if (error) throw error;
@@ -135,7 +119,7 @@ const PortafoglioCaricoPage = () => {
         azione: "messa_a_cassa",
         entita_tipo: "titolo",
         entita_id: titoloId,
-        dettagli_json: dates,
+        dettagli_json: { data_messa_cassa: today, data_pagamento: today, data_decorrenza_rinnovo: today },
       });
 
       toast.success("Polizza messa a cassa");
@@ -149,26 +133,58 @@ const PortafoglioCaricoPage = () => {
         return next;
       });
     }
-  }, [dateOverrides]);
+  }, []);
 
-  const mettiACassaTutti = useCallback(async () => {
-    const attive = polizze.filter((p: any) => p.stato === "attivo");
-    if (attive.length === 0) {
-      toast.info("Nessuna polizza attiva da mettere a cassa");
-      return;
+  const annullaIncasso = useCallback(async (titoloId: string) => {
+    setLoadingIds(prev => new Set(prev).add(titoloId));
+    try {
+      const { error } = await (supabase.from("titoli") as any).update({
+        stato: "attivo",
+        data_incasso: null,
+        data_messa_cassa: null,
+        data_pagamento: null,
+        data_decorrenza_rinnovo: null,
+      }).eq("id", titoloId);
+
+      if (error) throw error;
+
+      await logAttivita({
+        azione: "annulla_incasso",
+        entita_tipo: "titolo",
+        entita_id: titoloId,
+        dettagli_json: {},
+      });
+
+      toast.success("Incasso annullato");
+      invalidateQueries();
+    } catch (err: any) {
+      toast.error("Errore: " + (err.message || "operazione fallita"));
+    } finally {
+      setLoadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(titoloId);
+        return next;
+      });
     }
+  }, []);
+
+  const selectedAttive = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo"), [polizze, selectedIds]);
+  const selectedIncassate = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "incassato"), [polizze, selectedIds]);
+
+  const bulkMettiACassa = useCallback(async () => {
+    if (selectedAttive.length === 0) return;
     setBulkLoading(true);
+    const today = todayStr();
     let ok = 0, ko = 0;
-    for (const p of attive) {
-      const dates = getDates(p.id);
+    for (const p of selectedAttive) {
       const { error } = await (supabase.from("titoli") as any).update({
         stato: "incassato",
-        data_incasso: dates.data_messa_cassa,
-        data_messa_cassa: dates.data_messa_cassa,
-        data_pagamento: dates.data_pagamento,
-        data_decorrenza_rinnovo: dates.data_decorrenza_rinnovo,
+        data_incasso: today,
+        data_messa_cassa: today,
+        data_pagamento: today,
+        data_decorrenza_rinnovo: today,
       }).eq("id", p.id);
-      if (error) { ko++; } else { ok++; }
+      if (error) ko++; else ok++;
     }
     if (ok > 0) {
       await logAttivita({
@@ -179,9 +195,54 @@ const PortafoglioCaricoPage = () => {
       });
     }
     toast.success(`${ok} polizze messe a cassa${ko > 0 ? `, ${ko} errori` : ""}`);
+    setSelectedIds(new Set());
     invalidateQueries();
     setBulkLoading(false);
-  }, [polizze, dateOverrides]);
+  }, [selectedAttive]);
+
+  const bulkAnnullaIncasso = useCallback(async () => {
+    if (selectedIncassate.length === 0) return;
+    setBulkLoading(true);
+    let ok = 0, ko = 0;
+    for (const p of selectedIncassate) {
+      const { error } = await (supabase.from("titoli") as any).update({
+        stato: "attivo",
+        data_incasso: null,
+        data_messa_cassa: null,
+        data_pagamento: null,
+        data_decorrenza_rinnovo: null,
+      }).eq("id", p.id);
+      if (error) ko++; else ok++;
+    }
+    if (ok > 0) {
+      await logAttivita({
+        azione: "annulla_incasso_massiva",
+        entita_tipo: "titolo",
+        entita_id: "batch",
+        dettagli_json: { annullate: ok, errori: ko },
+      });
+    }
+    toast.success(`${ok} incassi annullati${ko > 0 ? `, ${ko} errori` : ""}`);
+    setSelectedIds(new Set());
+    invalidateQueries();
+    setBulkLoading(false);
+  }, [selectedIncassate]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === polizze.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(polizze.map(p => p.id)));
+    }
+  };
 
   const fmtCurrency = (v: number | null) =>
     v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
@@ -198,14 +259,10 @@ const PortafoglioCaricoPage = () => {
   const statoBadgeVariant = (stato: string) => {
     switch (stato) {
       case "attivo": return "default" as const;
-      case "sospeso": return "secondary" as const;
-      case "scaduto": return "destructive" as const;
       case "incassato": return "outline" as const;
       default: return "secondary" as const;
     }
   };
-
-  const polizzeAttive = polizze.filter((p: any) => p.stato === "attivo");
 
   return (
     <div className="space-y-6">
@@ -215,29 +272,36 @@ const PortafoglioCaricoPage = () => {
           <p className="text-sm text-muted-foreground">Polizze in scadenza da confermare o rinnovare</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); }}>
-              <ChevronLeft className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[140px] text-center capitalize">
+            {format(caricoDate, "MMMM yyyy", { locale: it })}
+          </span>
+          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Bulk action buttons */}
+      {(selectedAttive.length > 0 || selectedIncassate.length > 0) && (
+        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+          <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
+          {selectedAttive.length > 0 && (
+            <Button size="sm" onClick={bulkMettiACassa} disabled={bulkLoading} className="gap-1">
+              <Banknote className="h-3.5 w-3.5" />
+              {bulkLoading ? "In corso..." : `Metti a Cassa (${selectedAttive.length})`}
             </Button>
-            <span className="text-sm font-medium min-w-[140px] text-center capitalize">
-              {format(caricoDate, "MMMM yyyy", { locale: it })}
-            </span>
-            <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); }}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          {polizzeAttive.length > 0 && (
-            <Button
-              onClick={mettiACassaTutti}
-              disabled={bulkLoading}
-              className="gap-2"
-            >
-              <CheckCheck className="h-4 w-4" />
-              {bulkLoading ? "In corso..." : `Metti a Cassa Tutti (${polizzeAttive.length})`}
+          )}
+          {selectedIncassate.length > 0 && (
+            <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
+              <Undo2 className="h-3.5 w-3.5" />
+              {bulkLoading ? "In corso..." : `Annulla Incasso (${selectedIncassate.length})`}
             </Button>
           )}
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
@@ -296,6 +360,16 @@ const PortafoglioCaricoPage = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={filtroStato} onValueChange={(v) => { setFiltroStato(v); setPage(0); }}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Stato incasso" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutti</SelectItem>
+            <SelectItem value="attivo">Da incassare</SelectItem>
+            <SelectItem value="incassato">Incassati</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -308,6 +382,12 @@ const PortafoglioCaricoPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={polizze.length > 0 && selectedIds.size === polizze.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Compagnia</TableHead>
@@ -319,18 +399,25 @@ const PortafoglioCaricoPage = () => {
                   <TableHead>Produttore</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead className="text-center">Messa a Cassa</TableHead>
-                  <TableHead className="text-center">Pagamento</TableHead>
-                  <TableHead className="text-center">Decorrenza</TableHead>
                   <TableHead className="text-center">Azione</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {polizze.map((p: any) => {
-                  const isAttivo = p.stato === "attivo";
-                  const dates = getDates(p.id);
+                  const isIncassato = p.stato === "incassato";
                   const isProcessing = loadingIds.has(p.id);
                   return (
-                    <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
+                    <TableRow
+                      key={p.id}
+                      className={`cursor-pointer ${isIncassato ? "bg-yellow-50 hover:bg-yellow-100/70" : ""}`}
+                      onClick={() => navigate(`/titoli/${p.id}`)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(p.id)}
+                          onCheckedChange={() => toggleSelect(p.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
@@ -343,44 +430,22 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>
                         <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
                       </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {isAttivo ? (
-                          <Input
-                            type="date"
-                            value={dates.data_messa_cassa}
-                            onChange={(e) => setDateField(p.id, "data_messa_cassa", e.target.value)}
-                            className="w-[130px] h-8 text-xs mx-auto"
-                          />
-                        ) : (
-                          <span className="text-xs">{fmtDate(p.data_messa_cassa)}</span>
-                        )}
+                      <TableCell className="text-center text-xs">
+                        {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
                       </TableCell>
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {isAttivo ? (
-                          <Input
-                            type="date"
-                            value={dates.data_pagamento}
-                            onChange={(e) => setDateField(p.id, "data_pagamento", e.target.value)}
-                            className="w-[130px] h-8 text-xs mx-auto"
-                          />
+                        {isIncassato ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={isProcessing}
+                            onClick={() => annullaIncasso(p.id)}
+                            className="gap-1 h-8 text-xs"
+                          >
+                            <Undo2 className="h-3.5 w-3.5" />
+                            {isProcessing ? "..." : "Annulla"}
+                          </Button>
                         ) : (
-                          <span className="text-xs">{fmtDate(p.data_pagamento)}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {isAttivo ? (
-                          <Input
-                            type="date"
-                            value={dates.data_decorrenza_rinnovo}
-                            onChange={(e) => setDateField(p.id, "data_decorrenza_rinnovo", e.target.value)}
-                            className="w-[130px] h-8 text-xs mx-auto"
-                          />
-                        ) : (
-                          <span className="text-xs">{fmtDate(p.data_decorrenza_rinnovo)}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {isAttivo ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -391,8 +456,6 @@ const PortafoglioCaricoPage = () => {
                             <Banknote className="h-3.5 w-3.5" />
                             {isProcessing ? "..." : "Cassa"}
                           </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">✓</span>
                         )}
                       </TableCell>
                     </TableRow>
