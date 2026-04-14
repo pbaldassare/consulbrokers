@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -11,43 +11,53 @@ import { Search } from "lucide-react";
 
 const RiattivazionePolizzaPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const paramPolizza = searchParams.get("polizza") || "";
+  const paramRiga = searchParams.get("riga") || "";
+  const paramClienteId = searchParams.get("clienteId") || "";
+  const paramTitoloId = searchParams.get("titoloId") || "";
+  const fromDettaglio = !!(paramPolizza && paramClienteId);
 
   const [codiceCliente, setCodiceCliente] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
-  // Nuova polizza emessa
   const [numeroNuova, setNumeroNuova] = useState("");
   const [rigaNuova, setRigaNuova] = useState("");
   const [dataRiattivazione, setDataRiattivazione] = useState("");
-  // Polizza da riattivare
-  const [numeroDaRiatt, setNumeroDaRiatt] = useState("");
-  const [rigaDaRiatt, setRigaDaRiatt] = useState("");
+  const [numeroDaRiatt, setNumeroDaRiatt] = useState(paramPolizza);
+  const [rigaDaRiatt, setRigaDaRiatt] = useState(paramRiga);
   const [copiaArchivio, setCopiaArchivio] = useState(false);
   const [polizzaAuto, setPolizzaAuto] = useState(true);
 
-  const { data: clienteData } = useQuery({
+  const { data: clienteFromId } = useQuery({
+    queryKey: ["cliente-by-id-riatt", paramClienteId],
+    queryFn: async () => {
+      const { data } = await supabase.from("clienti").select("id, nome, cognome, ragione_sociale, codice_fiscale").eq("id", paramClienteId).maybeSingle();
+      return data;
+    },
+    enabled: !!paramClienteId,
+  });
+
+  const { data: clienteFromSearch } = useQuery({
     queryKey: ["cliente-lookup-riatt", codiceCliente],
     queryFn: async () => {
       if (!codiceCliente || codiceCliente.length < 2) return null;
-      const { data } = await supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale")
-        .or(`codice_fiscale.ilike.%${codiceCliente}%,partita_iva.ilike.%${codiceCliente}%`)
-        .limit(1)
-        .maybeSingle();
+      const { data } = await supabase.from("clienti").select("id, nome, cognome, ragione_sociale, codice_fiscale").or(`codice_fiscale.ilike.%${codiceCliente}%,partita_iva.ilike.%${codiceCliente}%`).limit(1).maybeSingle();
       return data;
     },
-    enabled: codiceCliente.length >= 2,
+    enabled: !fromDettaglio && codiceCliente.length >= 2,
   });
+
+  const clienteData = fromDettaglio ? clienteFromId : clienteFromSearch;
+
+  useEffect(() => {
+    if (clienteFromId?.codice_fiscale && fromDettaglio) setCodiceCliente(clienteFromId.codice_fiscale);
+  }, [clienteFromId, fromDettaglio]);
 
   const { data: aeList } = useQuery({
     queryKey: ["ae-list-riatt"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla")
-        .eq("tipo", "account_executive")
-        .eq("attivo", true)
-        .order("cognome");
+      const { data } = await supabase.from("anagrafiche_professionali").select("id, codice, cognome, nome, sigla").eq("tipo", "account_executive").eq("attivo", true).order("cognome");
       return data || [];
     },
   });
@@ -70,7 +80,7 @@ const RiattivazionePolizzaPage = () => {
           <div className="space-y-1.5 flex-1 max-w-[200px]">
             <Label htmlFor="codice-cliente-riatt">Codice</Label>
             <div className="relative">
-              <Input id="codice-cliente-riatt" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" />
+              <Input id="codice-cliente-riatt" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
               <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             </div>
           </div>
@@ -139,13 +149,13 @@ const RiattivazionePolizzaPage = () => {
           <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
             <Label htmlFor="numero-da-riatt">Numero</Label>
             <div className="relative">
-              <Input id="numero-da-riatt" value={numeroDaRiatt} onChange={(e) => setNumeroDaRiatt(e.target.value)} placeholder="N° polizza" />
+              <Input id="numero-da-riatt" value={numeroDaRiatt} onChange={(e) => setNumeroDaRiatt(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
               <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             </div>
           </div>
           <div className="space-y-1.5 w-[80px]">
             <Label htmlFor="riga-da-riatt">Riga</Label>
-            <Input id="riga-da-riatt" value={rigaDaRiatt} onChange={(e) => setRigaDaRiatt(e.target.value)} />
+            <Input id="riga-da-riatt" value={rigaDaRiatt} onChange={(e) => setRigaDaRiatt(e.target.value)} readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -156,7 +166,7 @@ const RiattivazionePolizzaPage = () => {
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
-        <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
         <Button onClick={handleConferma}>Conferma</Button>
       </div>
     </div>

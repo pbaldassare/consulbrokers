@@ -184,19 +184,19 @@ const TitoloDetail = () => {
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/sospensione?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/sospensione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <Clock className="w-4 h-4 mr-1" /> Sospensione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <Copy className="w-4 h-4 mr-1" /> Duplicazione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/storno?polizza=${encodeURIComponent(t.numero_titolo || "")}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/storno?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
             <Button variant="outline" size="sm" onClick={() => document.getElementById("regolazione-section")?.scrollIntoView({ behavior: "smooth" })}>
