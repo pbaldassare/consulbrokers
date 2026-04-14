@@ -1,44 +1,40 @@
 
 
-## Piano: Aggiornare polizza 6131402092 (REGIONE CAMPANIA - R.C. AUTO)
+## Piano: Aggiornare polizza RCM00010074404 (LO GIUDICE EMILIA CONCETTA - R.C. PROFESSIONALE)
 
-Record ID: `19ccbe09-c0fa-400a-a2ce-8b9cf0cde0a5`
+Record ID: `4889d069-31b7-47f1-b178-5877a6a33035`
 
 ### Differenze DB → Screenshot Legacy
 
 | Campo | Valore DB | Valore Legacy (corretto) |
 |-------|-----------|-------------------------|
-| `durata_a` | 2026-04-30 | **2027-04-30** (biennale) |
-| `anni_durata` | 1 | **2** |
-| `premio_netto` | 55615.34 | **24235.34** |
-| `addizionali` | 0 | **31380.00** |
-| `provvigioni_quietanza` | 1043.94 | **2609.86** |
-| `premio_netto_quietanza` | null | **24235.34** |
-| `addizionali_quietanza` | 0 | **31380.00** |
-| `tasse_quietanza` | null | **7434.88** |
+| `data_competenza` | 2026-01-05 | **2026-01-19** |
+| `comp_assicurativa` | 2026-01-19 | **2026-01-05** |
+| `periodicita` | annuale | **quadrimestrale** |
 | `tipo_rinnovo` | R | **A** (Tacito rinnovo) |
 | `tipo_scadenza` | null | **no scadenza** |
 | `giorni_presentazione` | null | **0** |
-| `data_competenza` | 2025-05-10 | **2025-04-30** |
+| `premio_netto_quietanza` | null | **613.49** |
+| `tasse_quietanza` | null | **136.51** |
 
 ### Campi già corretti
-- Numero: 6131402092 ✓ | Riga: 0 ✓
-- Compagnia: AMISNA / R.AS. RISCHI ASSICURATIVI SRL HDI ASS.NI ✓
-- Ramo: R.C. AUTO ✓ | Gruppo: R.C.A. ✓
-- AE: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
-- Premio lordo: 63050.22 ✓ | Tasse: 7434.88 ✓
-- Provvigioni firma: 2609.86 ✓
-- Durata da: 30/04/2025 ✓ | Garanzia: 30/04/2025 - 30/04/2026 ✓
-- Data incasso: 10/05/2025 ✓
-- Mora: 15gg ✓ | Rate: 1 ✓ | Periodicità: annuale ✓
-- Descrizione: RCA LIBRO MATRICOLA + INFORTUNI CONDUCENTE ✓
-- id_legacy: 142628 ✓
+- Numero: RCM00010074404 ✓ | Riga: 0 ✓
+- Compagnia: AMTRUST ASSICURAZIONI SPA ✓
+- Ramo: R.C. PROFESSIONALE ✓ | Gruppo: R.C.T. ✓
+- AE: SEDE NAPOLI ✓ | Specialist: Gestione Milano ✓
+- Premio lordo: 750 ✓ | Tasse: 136.51 ✓ | Netto: 613.49 ✓ | Addizionali: 0 ✓
+- Provvigioni firma: 110.43 ✓ | Provvigioni quietanza: 110.43 ✓
+- Durata: 19/01/2026 - 19/01/2027 ✓ | Anni: 1 ✓
+- Garanzia: 19/01/2026 - 19/04/2026 ✓
+- Data incasso: 10/02/2026 ✓ | Conto: BCC COMP 3292 ✓
+- Mora: 15gg ✓ | Rate: 3 ✓
+- id_legacy: 161593 ✓
 
 ### Azione
-Migrazione SQL per UPDATE dei 12 campi sulla riga `19ccbe09-c0fa-400a-a2ce-8b9cf0cde0a5`.
+Migrazione SQL per UPDATE degli 8 campi sulla riga `4889d069-31b7-47f1-b178-5877a6a33035`.
 
 ### File coinvolti
 | File | Azione |
 |------|--------|
-| `supabase/migrations/` | Nuovo file SQL con UPDATE dei 12 campi |
+| `supabase/migrations/` | Nuovo file SQL con UPDATE degli 8 campi |
 
