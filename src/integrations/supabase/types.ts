@@ -6046,10 +6046,12 @@ export type Database = {
           cambio: number | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
+          cliente_codice: string | null
           cliente_codice_fiscale: string | null
           cliente_cognome: string | null
           cliente_id: string | null
           cliente_nome: string | null
+          cliente_nome_display: string | null
           cliente_ragione_sociale: string | null
           cliente_tipo: string | null
           commerciale_id: string | null
@@ -6106,8 +6108,8 @@ export type Database = {
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           ramo_codice: string | null
-          ramo_descrizione: string | null
           ramo_id: string | null
+          ramo_nome: string | null
           rate: number | null
           regolazione: boolean | null
           riga: number | null
