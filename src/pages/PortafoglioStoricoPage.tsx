@@ -4,27 +4,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro } from "lucide-react";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
-import { it } from "date-fns/locale";
+import { Archive, Search } from "lucide-react";
+import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 
 const PAGE_SIZE = 25;
 
-const PortafoglioCaricoPage = () => {
+const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
   const [filtroRamo, setFiltroRamo] = useState("tutti");
+  const [filtroStato, setFiltroStato] = useState("tutti");
   const [page, setPage] = useState(0);
-  const [caricoDate, setCaricoDate] = useState(new Date());
 
-  const caricoStart = format(startOfMonth(caricoDate), "yyyy-MM-dd");
-  const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
+  const today = format(new Date(), "yyyy-MM-dd");
 
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie-lookup"],
@@ -42,22 +39,34 @@ const PortafoglioCaricoPage = () => {
     },
   });
 
+  const buildFilter = (q: any) => {
+    // Storico: scaduto, sospeso, oppure attivo ma con garanzia scaduta
+    if (filtroStato === "tutti") {
+      q = q.or(`stato.in.(scaduto,sospeso),and(stato.eq.attivo,garanzia_a.lt.${today})`);
+    } else {
+      q = q.eq("stato", filtroStato);
+      if (filtroStato === "attivo") {
+        q = q.lt("garanzia_a", today);
+      }
+    }
+    if (search) {
+      q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+    }
+    if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
+    if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+    return q;
+  };
+
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroCompagnia, filtroRamo, page, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-storico", search, filtroCompagnia, filtroRamo, filtroStato, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
         { count: "exact" }
-      ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
-
-      if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
-      }
-      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
-      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
-
+      );
+      q = buildFilter(q);
       const { data, count } = await q
-        .order("data_scadenza", { ascending: true })
+        .order("data_scadenza", { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       return { data: data || [], count: count || 0 };
     },
@@ -65,23 +74,6 @@ const PortafoglioCaricoPage = () => {
 
   const polizze = result?.data || [];
   const totalCount = result?.count || 0;
-
-  // Global sum query (not limited by pagination)
-  const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroCompagnia, filtroRamo, caricoStart, caricoEnd],
-    queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
-      if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
-      }
-      if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
-      if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
-      const { data } = await q;
-      return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
-    },
-  });
-  const totalePremio = totaleData ?? 0;
 
   const fmtCurrency = (v: number | null) =>
     v != null ? `€ ${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—";
@@ -107,50 +99,22 @@ const PortafoglioCaricoPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Carico del Mese</h1>
-          <p className="text-sm text-muted-foreground">Polizze in scadenza da confermare o rinnovare</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); }}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[140px] text-center capitalize">
-            {format(caricoDate, "MMMM yyyy", { locale: it })}
-          </span>
-          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); }}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
+        <p className="text-sm text-muted-foreground">Polizze scadute, sospese o con copertura terminata</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-accent/50 p-3">
-              <Clock className="h-6 w-6 text-accent-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Polizze in scadenza
-              </p>
-              <p className="text-2xl font-bold text-foreground">{totalCount}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <Euro className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Totale premio lordo</p>
-              <p className="text-2xl font-bold text-foreground">{fmtCurrency(totalePremio)}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="flex items-center gap-4 p-4">
+          <div className="rounded-lg bg-muted p-3">
+            <Archive className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Polizze in archivio</p>
+            <p className="text-2xl font-bold text-foreground">{totalCount}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
@@ -162,6 +126,17 @@ const PortafoglioCaricoPage = () => {
             className="pl-9"
           />
         </div>
+        <Select value={filtroStato} onValueChange={(v) => { setFiltroStato(v); setPage(0); }}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Stato" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Tutti gli stati</SelectItem>
+            <SelectItem value="scaduto">Scaduto</SelectItem>
+            <SelectItem value="sospeso">Sospeso</SelectItem>
+            <SelectItem value="attivo">Attivo (garanzia scaduta)</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={filtroCompagnia} onValueChange={(v) => { setFiltroCompagnia(v); setPage(0); }}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Compagnia" />
@@ -189,7 +164,7 @@ const PortafoglioCaricoPage = () => {
       {isLoading ? (
         <div className="text-center py-10 text-muted-foreground">Caricamento...</div>
       ) : polizze.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground">Nessuna polizza trovata per questo mese</div>
+        <div className="text-center py-10 text-muted-foreground">Nessuna polizza trovata nello storico</div>
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -241,4 +216,4 @@ const PortafoglioCaricoPage = () => {
   );
 };
 
-export default PortafoglioCaricoPage;
+export default PortafoglioStoricoPage;

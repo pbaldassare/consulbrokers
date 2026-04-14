@@ -19,6 +19,7 @@ import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 import DocumentalePage from "@/pages/DocumentalePage";
 import PortafoglioAttivePage from "@/pages/PortafoglioAttivePage";
 import PortafoglioCaricoPage from "@/pages/PortafoglioCaricoPage";
+import PortafoglioStoricoPage from "@/pages/PortafoglioStoricoPage";
 import PortafoglioDetail from "@/pages/PortafoglioDetail";
 import PortafoglioPerClientePage from "@/pages/estrazioni/PortafoglioPerClientePage";
 import PortafoglioPerCompagniaPage from "@/pages/estrazioni/PortafoglioPerCompagniaPage";
@@ -34,6 +35,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/portafoglio/attive" element={<PortafoglioAttivePage />} />
     <Route path="/portafoglio/carico" element={<PortafoglioCaricoPage />} />
+    <Route path="/portafoglio/storico" element={<PortafoglioStoricoPage />} />
     <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
     <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
