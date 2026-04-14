@@ -1,25 +1,42 @@
 
 
-## Piano: Fix flusso provvigioni maturate (3 problemi)
+## Piano: Rendere editabile la sezione Commerciale nel dettaglio polizza + auto-match produttore
 
 ### Situazione attuale
-- Tutte le polizze incassate hanno `commerciale_id = NULL` e `percentuale_commerciale = 100` → provvigioni solo per Consulbroker
-- `data_messa_cassa` non viene popolata durante la messa a cassa in `PortafoglioCaricoPage`
-- `provvigioni_generate` è vuota — la edge function non genera record
+- `commerciale_id` su `titoli` ha FK verso `profiles`, ma i veri produttori commerciali sono in `anagrafiche_professionali` (senza account utente)
+- I dati reali usano `produttore_nome` (testo) per identificare il commerciale (es. "AMATO MARCELLINO", "SCIORIO NICOLA")
+- `anagrafiche_professionali` ha `percentuale_base` (la % di provvigione del commerciale) per ogni produttore
+- Tutte le 723 polizze incassate hanno `commerciale_id = NULL` e `percentuale_commerciale = 100`
 
 ### Cosa fare
 
-**1. Popolare `data_messa_cassa` alla messa a cassa**
-In `PortafoglioCaricoPage.tsx`, aggiungere `data_messa_cassa: new Date().toISOString().split('T')[0]` nell'update che cambia lo stato a `incassato`.
+**1. Migrazione DB: aggiungere `anagrafica_commerciale_id` a `titoli`**
+- Nuova colonna `anagrafica_commerciale_id UUID REFERENCES anagrafiche_professionali(id)` — permette di linkare il produttore commerciale reale senza toccare il FK esistente verso `profiles`
+- Non rimuoviamo `commerciale_id` per retrocompatibilità
 
-**2. Fix edge function `calcola-provvigioni`**
-La funzione attuale potrebbe avere errori o non gestire il caso `commerciale_id = null`. Verificare i log e correggere per generare almeno la riga Consul quando `provvigioni_quietanza > 0`.
+**2. Backfill automatico via UPDATE**
+- Matchare `titoli.produttore_nome` con `anagrafiche_professionali.ragione_sociale` per popolare `anagrafica_commerciale_id`
+- Impostare `percentuale_commerciale` dalla `percentuale_base` dell'anagrafica (dove > 0)
+- Polizze con `produttore_nome = 'Consulbrokers Digital Srl'` restano con % 100 (nessun commerciale)
 
-**3. Risposta alla domanda**
-No, al momento nessun commerciale è collegato alle polizze incassate. Le provvigioni sono tutte al 100% per Consulbroker. Per avere provvigioni per altri destinatari, bisogna prima assegnare un `commerciale_id` e una `percentuale_commerciale < 100` alle polizze nel dettaglio titolo.
+**3. Rendere editabile la sezione "Commerciale & Provvigioni" in TitoloDetail**
+- Aggiungere un pulsante "Modifica" nella sezione
+- SearchableSelect per scegliere il commerciale da `anagrafiche_professionali` (tipo corrispondente/AE)
+- Input per `percentuale_commerciale` (pre-popolato da `percentuale_base` dell'anagrafica selezionata)
+- Pulsante "Salva" che aggiorna `anagrafica_commerciale_id` e `percentuale_commerciale` sul titolo
+
+**4. Aggiornare Edge Function `calcola-provvigioni`**
+- Se `anagrafica_commerciale_id` è valorizzato, usare quello per identificare il destinatario commerciale
+- Lo split resta: `provvigioni_quietanza * percentuale_commerciale / 100` per il commerciale, il resto per Consul
+
+**5. Ricalcolo provvigioni per polizze già incassate**
+- Dopo il backfill, ricalcolare le provvigioni per le polizze che ora hanno un commerciale assegnato
+- Eliminare le vecchie righe Consul al 100% e generare lo split corretto
 
 ### File coinvolti
-- **Modifica**: `src/pages/PortafoglioCaricoPage.tsx` — aggiungere `data_messa_cassa` nell'update
-- **Modifica**: `supabase/functions/calcola-provvigioni/index.ts` — fix generazione record
-- **Verifica**: log edge function per capire perché non genera record
+- **Migrazione**: aggiunta `anagrafica_commerciale_id` a `titoli`
+- **Data update**: backfill `anagrafica_commerciale_id` e `percentuale_commerciale` tramite match su `produttore_nome`
+- **Modifica**: `src/pages/TitoloDetail.tsx` — sezione Commerciale editabile
+- **Modifica**: `supabase/functions/calcola-provvigioni/index.ts` — supporto `anagrafica_commerciale_id`
+- **Script**: ricalcolo provvigioni per polizze esistenti con commerciale assegnato
 
