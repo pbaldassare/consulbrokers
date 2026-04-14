@@ -5236,6 +5236,7 @@ export type Database = {
           addizionali: number | null
           addizionali_quietanza: number | null
           ae_nome: string | null
+          anagrafica_commerciale_id: string | null
           anni_durata: number | null
           appendice: string | null
           cambio: number | null
@@ -5325,6 +5326,7 @@ export type Database = {
           addizionali?: number | null
           addizionali_quietanza?: number | null
           ae_nome?: string | null
+          anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
           appendice?: string | null
           cambio?: number | null
@@ -5414,6 +5416,7 @@ export type Database = {
           addizionali?: number | null
           addizionali_quietanza?: number | null
           ae_nome?: string | null
+          anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
           appendice?: string | null
           cambio?: number | null
@@ -5500,6 +5503,13 @@ export type Database = {
           vincolo?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_cliente_anagrafica_id_fkey"
             columns: ["cliente_anagrafica_id"]
