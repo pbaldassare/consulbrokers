@@ -1,41 +1,27 @@
 
 
-## Piano: Rimessa Premi interattiva con conferma, IBAN e storico
+## Piano: Fix navigazione polizze + esclusione rimesse confermate dal riepilogo + revert storico
 
-### Obiettivo
-Rendere la tabella riepilogo cliccabile per vedere le polizze, aggiungere un pulsante "Conferma Rimessa" per ogni compagnia con selezione IBAN e data, e salvare tutto nello storico in database.
+### 3 problemi da risolvere
 
-### 1. Migrazione DB — Nuovi campi su `rimessa_premi`
-Aggiungere colonne per tracciare IBAN e data pagamento rimessa:
-- `iban_utilizzato TEXT` — IBAN selezionato per il pagamento
-- `data_pagamento_rimessa DATE` — data del pagamento alla compagnia
-- `n_titoli INTEGER` — numero titoli inclusi
-- `totale_provvigioni NUMERIC` — provvigioni trattenute
+**1. Link polizze errato**: Il click sulla polizza naviga a `/portafoglio/${id}` (PortafoglioDetail) anziché `/titoli/${id}` (TitoloDetail). Fix: cambiare `navigate(`/portafoglio/${t.id}`)` → `navigate(`/titoli/${t.id}`)`.
 
-### 2. Espansione righe per compagnia (`RimessaList.tsx`)
-- Ogni riga compagnia diventa cliccabile/espandibile
-- Al click mostra la lista dei titoli messi a cassa per quella compagnia (numero_titolo, cliente, premio_lordo, provvigioni, netto)
-- Ogni titolo è cliccabile e naviga a `/portafoglio/{id}`
+**2. Dopo conferma rimessa, rimuovere dal riepilogo**: Attualmente le polizze confermate restano nel riepilogo. Bisogna escludere i titoli che sono già collegati a una rimessa confermata. Approccio:
+- Dopo aver confermato una rimessa, i titoli collegati sono in `rimessa_dettaglio`
+- Nella query `titoli-cassa-mese`, dopo aver caricato i titoli incassati, filtrare via quelli il cui `id` è già presente in `rimessa_dettaglio` (sotto-query o fetch separata)
 
-### 3. Pulsante "Conferma Rimessa" per compagnia
-- In fondo alla sezione espansa di ogni compagnia, pulsante "Conferma Rimessa"
-- Al click apre un Dialog con:
-  - **Data pagamento** (default: oggi)
-  - **IBAN compagnia** — Select dropdown con gli IBAN dalla tabella `compagnie` (campo `iban` già presente, 768 compagnie lo hanno)
-  - Riepilogo importo da rimettere
-  - Pulsante "Conferma" per salvare
+**3. Revert dallo storico**: Aggiungere un pulsante "Annulla" su ogni rimessa nello storico che:
+- Elimina i record da `rimessa_dettaglio` per quella rimessa
+- Elimina il record da `rimessa_premi`
+- I titoli tornano automaticamente nel riepilogo (perché non più in `rimessa_dettaglio`)
+- Log dell'operazione
 
-### 4. Logica di salvataggio
-- Insert in `rimessa_premi` con: compagnia_id, totale_importi (netto da rimettere), iban_utilizzato, data_pagamento_rimessa, n_titoli, totale_provvigioni, stato = "inviata", created_by
-- Insert in `rimessa_dettaglio` per ogni titolo incluso
-- Log in `log_attivita`
-- Invalidare queries per aggiornare riepilogo e storico
+### File coinvolto
+- `src/pages/RimessaList.tsx`
 
-### 5. Storico rimesse (già presente, da arricchire)
-- La sezione "Rimesse" in basso mostra anche IBAN e data pagamento
-- Cliccando si va al dettaglio esistente (`RimessaDetail.tsx`)
-
-### File coinvolti
-- Migrazione SQL: aggiunta colonne `iban_utilizzato`, `data_pagamento_rimessa`, `n_titoli`, `totale_provvigioni` su `rimessa_premi`
-- `src/pages/RimessaList.tsx` — righe espandibili, dialog conferma, dropdown IBAN, salvataggio
+### Dettagli tecnici
+- Fix riga 288: `/portafoglio/` → `/titoli/`
+- Query titoli: aggiungere fetch di `rimessa_dettaglio` per il mese e filtrare `titoli` i cui ID non sono già collegati
+- Mutation `revertMutation`: delete da `rimessa_dettaglio` + delete da `rimessa_premi` + invalidate queries
+- Pulsante "Annulla" nello storico con conferma (window.confirm)
 
