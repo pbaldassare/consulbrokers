@@ -193,27 +193,27 @@ const AppendiciPolizzaPage = () => {
         if (error) throw error;
         return { wasUpdate: true, record: data };
       } else {
-        const { error } = await supabase.from("appendici_polizza").insert({
+        const { data, error } = await supabase.from("appendici_polizza").insert({
           ...payload,
           created_by: user?.id || null,
-        });
+        }).select().single();
         if (error) throw error;
-        return { wasUpdate: false };
+        return { wasUpdate: false, record: data };
       }
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
-      if (result.wasUpdate && result.record) {
+      if (result.wasUpdate) {
         toast.success("Appendice aggiornata");
-        // Stay in edit mode with refreshed data
-        startEdit(result.record);
       } else {
         toast.success("Appendice creata con successo");
-        resetForm();
-        // Remove appendiceId from URL if present
+      }
+      // Always switch to edit mode on the saved record
+      if (result.record) {
+        startEdit(result.record);
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
-          next.delete("appendiceId");
+          next.set("appendiceId", result.record.id);
           return next;
         });
       }
