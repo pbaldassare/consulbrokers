@@ -56,9 +56,18 @@ const RimessaList = () => {
   const meseA = format(endOfMonth(meseCorrente), "yyyy-MM-dd");
   const meseLabel = format(meseCorrente, "MMMM yyyy", { locale: it });
 
+  // Fetch titoli già collegati a rimesse
+  const { data: usedTitoliIds = [] } = useQuery({
+    queryKey: ["rimessa-dettaglio-used"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rimessa_dettaglio").select("titolo_id");
+      return (data || []).map((r: any) => r.titolo_id);
+    },
+  });
+
   // Titoli messi a cassa nel mese con dettagli per espansione
   const { data: titoliCassa = [] } = useQuery({
-    queryKey: ["titoli-cassa-mese", meseDa, meseA],
+    queryKey: ["titoli-cassa-mese", meseDa, meseA, usedTitoliIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
@@ -68,8 +77,11 @@ const RimessaList = () => {
         .lte("data_messa_cassa", meseA);
       if (error) throw error;
 
+      const usedSet = new Set(usedTitoliIds);
+      const filtered = (data || []).filter((t: any) => !usedSet.has(t.id));
+
       const map: Record<string, GruppoCompagnia> = {};
-      for (const t of (data || []) as any[]) {
+      for (const t of filtered as any[]) {
         const cId = t.compagnia_id || "sconosciuta";
         const cNome = t.compagnie?.nome || "Senza compagnia";
         if (!map[cId]) map[cId] = { nome: cNome, count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0, compagnia_id: cId, titoli: [] };
