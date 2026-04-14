@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Send, ChevronLeft, ChevronRight, Package, ChevronDown, ChevronUp, ExternalLink, Check } from "lucide-react";
+import { Send, ChevronLeft, ChevronRight, Package, ChevronDown, ChevronUp, ExternalLink, Check, Undo2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
