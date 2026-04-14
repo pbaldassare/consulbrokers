@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Shield, Search } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 
 const PAGE_SIZE = 25;
@@ -19,8 +21,11 @@ const PortafoglioAttivePage = () => {
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
   const [filtroRamo, setFiltroRamo] = useState("tutti");
   const [page, setPage] = useState(0);
+  const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");
+  const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const fineMese = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie-lookup"],
@@ -39,12 +44,16 @@ const PortafoglioAttivePage = () => {
   });
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-attive", search, filtroCompagnia, filtroRamo, page, today],
+    queryKey: ["portafoglio-attive", search, filtroCompagnia, filtroRamo, page, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
         { count: "exact" }
       ).eq("stato", "attivo").gte("garanzia_a", today);
+
+      if (escludiMeseCorrente) {
+        q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
+      }
 
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
@@ -64,10 +73,13 @@ const PortafoglioAttivePage = () => {
 
   // Global sum query for total premium
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-attive-totale", search, filtroCompagnia, filtroRamo, today],
+    queryKey: ["portafoglio-attive-totale", search, filtroCompagnia, filtroRamo, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
         .eq("stato", "attivo").gte("garanzia_a", today);
+      if (escludiMeseCorrente) {
+        q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
+      }
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
@@ -141,6 +153,16 @@ const PortafoglioAttivePage = () => {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2 ml-auto">
+          <Switch
+            id="escludi-mese"
+            checked={escludiMeseCorrente}
+            onCheckedChange={(v) => { setEscludiMeseCorrente(v); setPage(0); }}
+          />
+          <Label htmlFor="escludi-mese" className="text-sm cursor-pointer whitespace-nowrap">
+            Escludi scadenze del mese
+          </Label>
+        </div>
       </div>
 
       {isLoading ? (
