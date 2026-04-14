@@ -4324,6 +4324,7 @@ export type Database = {
           importo_provvigione: number | null
           pagata: boolean | null
           percentuale: number | null
+          tipo_destinatario: string | null
           titolo_id: string
           user_id: string | null
         }
@@ -4333,6 +4334,7 @@ export type Database = {
           importo_provvigione?: number | null
           pagata?: boolean | null
           percentuale?: number | null
+          tipo_destinatario?: string | null
           titolo_id: string
           user_id?: string | null
         }
@@ -4342,6 +4344,7 @@ export type Database = {
           importo_provvigione?: number | null
           pagata?: boolean | null
           percentuale?: number | null
+          tipo_destinatario?: string | null
           titolo_id?: string
           user_id?: string | null
         }
