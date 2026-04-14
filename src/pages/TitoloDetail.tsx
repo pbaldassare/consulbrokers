@@ -604,6 +604,46 @@ const TitoloDetail = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="appendici">
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">Appendici registrate per questa polizza</p>
+                <Button size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+                  <FileText className="w-4 h-4 mr-1" /> Nuova Appendice
+                </Button>
+              </div>
+              {appendiciPolizza.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nessuna appendice registrata.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">N°</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Effetto</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Oggetto</TableHead>
+                      <TableHead>File</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(appendiciPolizza as any[]).map((a: any) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="font-mono font-bold">{a.numero_appendice}</TableCell>
+                        <TableCell className="text-sm">{a.data_appendice ? format(new Date(a.data_appendice), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                        <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                        <TableCell><Badge variant="outline" className="capitalize">{a.tipo}</Badge></TableCell>
+                        <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
+                        <TableCell className="text-sm">{a.nome_file || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="garanzie">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Garanzie — in fase di sviluppo. Qui verranno mostrate le coperture e garanzie della polizza.</CardContent></Card>
         </TabsContent>
