@@ -236,6 +236,69 @@ export type Database = {
           },
         ]
       }
+      appendici_polizza: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data_appendice: string | null
+          data_effetto: string | null
+          file_path: string | null
+          id: string
+          nome_file: string | null
+          note: string | null
+          numero_appendice: string
+          oggetto: string | null
+          testo: string | null
+          tipo: string | null
+          titolo_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data_appendice?: string | null
+          data_effetto?: string | null
+          file_path?: string | null
+          id?: string
+          nome_file?: string | null
+          note?: string | null
+          numero_appendice: string
+          oggetto?: string | null
+          testo?: string | null
+          tipo?: string | null
+          titolo_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data_appendice?: string | null
+          data_effetto?: string | null
+          file_path?: string | null
+          id?: string
+          nome_file?: string | null
+          note?: string | null
+          numero_appendice?: string
+          oggetto?: string | null
+          testo?: string | null
+          tipo?: string | null
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appendici_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appendici_polizza_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banca_documenti: {
         Row: {
           created_at: string | null
