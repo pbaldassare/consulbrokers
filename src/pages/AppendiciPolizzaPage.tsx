@@ -30,7 +30,7 @@ const TIPI_APPENDICE = [
 
 const AppendiciPolizzaPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
