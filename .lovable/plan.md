@@ -1,41 +1,33 @@
 
 
-## Piano: Ripristinare polizza 204366651 come record separato
+## Piano: Distinguere Polizze Attive, Carico del Mese e Storico Polizze
 
-### Situazione attuale
-- Il record `a6f960c1` è stato aggiornato da `204366651` (ASSISUD, €1.340,06) a `G02.013.0000051933` (ETISICURA, €1.096,48, scadenza 2027-04-10)
-- Il carico aprile 2026 mostra 15 polizze per €88.611,44 — mancano €1.340,06 rispetto all'Excel (€89.951,50)
+### Logica attuale (problemi)
+- **Polizze Attive**: `stato = 'attivo' AND garanzia_a >= oggi` — OK
+- **Carico del Mese**: filtra solo per `data_scadenza` nel mese, senza considerare lo stato — potrebbe includere polizze già scadute o sospese
+- **Storico Polizze**: non esiste come pagina separata
 
-### Azione
-Inserire un **nuovo record** in `titoli` con i dati originali della polizza 204366651:
+### Definizioni corrette
 
-| Campo | Valore |
-|-------|--------|
-| numero_titolo | 204366651 |
-| compagnia_id | 4d21f189 (ASSISUD) |
-| cliente_anagrafica_id | a17c3f40 (RENT AND EVENTS SRL) |
-| ramo_id | 8bb44856 (R. C. AUTOVEICOLI) |
-| id_legacy | 142490 |
-| data_scadenza | 2026-04-09 |
-| durata_da | 2025-04-09 |
-| durata_a | 2026-04-09 |
-| garanzia_da | 2025-04-09 |
-| garanzia_a | 2026-04-09 |
-| data_competenza | 2025-04-16 |
-| comp_assicurativa | 2025-04-09 |
-| premio_netto | 1107.84 |
-| addizionali | 0 |
-| tasse | 232.22 |
-| premio_lordo | 1340.06 |
-| provvigioni_firma | 117.12 |
-| provvigioni_quietanza | 46.85 |
-| stato | attivo |
-| Campi ereditati | ae_nome, specialist, periodicita, mora, disdetta, tipo_rinnovo, descrizione_polizza, ecc. dal record originale |
+| Sezione | Filtro | Scopo |
+|---------|--------|-------|
+| **Polizze Attive** | `stato = 'attivo' AND garanzia_a >= oggi` | Polizze in vigore, copertura valida |
+| **Carico del Mese** | `data_scadenza nel mese selezionato AND stato IN ('attivo', 'incassato')` | Quietanzamento e rinnovi del mese — solo polizze operative |
+| **Storico Polizze** | `stato IN ('scaduto', 'sospeso') OR (stato = 'attivo' AND garanzia_a < oggi)` | Archivio polizze non più in vigore |
 
-### Risultato atteso
-- Carico aprile 2026: **16 polizze**, totale lordo **€89.951,50** (allineato con Excel)
-- La polizza G02.013.0000051933 resta invariata (scadenza 2027)
+### Azioni
+
+1. **Aggiornare `PortafoglioCaricoPage.tsx`** — aggiungere filtro `stato IN ('attivo', 'incassato')` alla query per escludere polizze scadute/sospese dal carico
+
+2. **Creare `PortafoglioStoricoPage.tsx`** — nuova pagina con la stessa struttura tabellare delle altre, che mostra polizze scadute, sospese o con garanzia scaduta. Stessi filtri (ricerca, compagnia, ramo) e paginazione server-side
+
+3. **Aggiungere route** in `src/routes/portafoglio.tsx` per `/portafoglio/storico`
+
+4. **Aggiungere voce sidebar** in `AppSidebar.tsx`: "Storico Polizze" con icona `Archive`, dopo "Carico del Mese"
 
 ### File coinvolti
-Nessun file di codice — solo INSERT dati via insert tool.
+- `src/pages/PortafoglioCaricoPage.tsx` — aggiunta filtro stato
+- `src/pages/PortafoglioStoricoPage.tsx` — nuova pagina
+- `src/routes/portafoglio.tsx` — nuova route
+- `src/components/AppSidebar.tsx` — nuova voce menu
 
