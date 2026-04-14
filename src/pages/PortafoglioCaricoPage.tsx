@@ -77,7 +77,7 @@ const PortafoglioCaricoPage = () => {
     },
   });
 
-  const polizze = result?.data || [];
+  const polizze = (result?.data || []) as any[];
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
