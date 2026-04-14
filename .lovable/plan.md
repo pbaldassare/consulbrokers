@@ -1,41 +1,47 @@
 
 
-## Piano: Aggiornare polizza 39526Q (ASSOCIAZIONE ASIS CB AIUTO IMMEDIATO - ASSISTENZA)
+## Piano: Completare dati polizze 332437571 e 332437574 (COMUNE DI SANTA MARINA SALINA)
 
-Record ID: `3ce97739-5576-42b5-987b-1d9e0386e934`
+### Record coinvolti
+1. **332437571** — `d046ffeb-2ed1-43cc-ba03-a07cfb838804` (NC - INFORTUNI CUMULATIVA)
+2. **332437574** — `66c6cf18-5fc9-4a29-b593-133f2eabe70d` (PC - R.C.T./R.C.O)
 
-### Differenze DB → Screenshot Legacy
+### Dati dallo screenshot legacy (quietanzamento Sedi Sicilia)
 
-| Campo | Valore DB | Valore Legacy (corretto) |
-|-------|-----------|-------------------------|
-| `durata_a` | 2022-04-30 | **2026-04-30** |
-| `garanzia_da` | 2021-04-30 | **2025-04-30** |
-| `data_competenza` | 2025-05-22 | **2025-04-30** |
-| `comp_assicurativa` | 2025-04-30 | **2025-05-22** |
-| `provvigioni_quietanza` | 81.82 | **204.54** |
-| `premio_netto_quietanza` | null | **1363.63** |
-| `tasse_quietanza` | null | **136.37** |
-| `tipo_rinnovo` | R | **A** (Tacito rinnovo) |
+| Campo | Polizza 332437571 | Polizza 332437574 |
+|-------|-------------------|-------------------|
+| Cliente | COMUNE DI SANTA MARINA SALINA | idem |
+| Codice cliente legacy | 006975 | 006975 |
+| Descrizione | CIG: B6554C6288 | CIG: B6554C6288 |
+| Scadenza | 04/04/2026 ✓ | 04/04/2026 ✓ |
+| Mora | 15 ✓ | 15 ✓ |
+| Lordo | 337,00 ✓ | 300,00 ✓ |
+| Provv firma | 65,60 ✓ | 35,33 ✓ |
+| Incasso titolo prec | 05/05/2025 | 05/05/2025 |
+| Fraz (rate) | 1 ✓ | 1 ✓ |
+| Tipo rinnovo | Tacito rinnovo ✓ | Tacito rinnovo ✓ |
+| A/E | CT (SEDE CATANIA) ✓ | CT ✓ |
+| Filiale | SS (Sedi Sicilia) ✓ | SS ✓ |
+| Compagnia | ASSISUD ✓ | ASSISUD ✓ |
+
+### Campi da aggiornare (comuni a entrambe)
+
+| Campo | Valore attuale | Valore corretto |
+|-------|---------------|-----------------|
+| `cliente_id` | null | **827e49d7-e80e-4d8d-9e38-9494ac502497** |
+| `descrizione_polizza` | null | **CIG: B6554C6288** |
+| `data_incasso` | null | **2025-05-05** |
+| `durata_da` | null | **2025-04-04** (annuale, scadenza 04/04/2026) |
+| `durata_a` | null | **2026-04-04** |
+| `garanzia_da` | null | **2025-04-04** |
+| `gruppo_ramo` | null | **INFORTUNI** (per 571) / **R.C.T.** (per 574) |
 | `tipo_scadenza` | null | **no scadenza** |
 | `giorni_presentazione` | null | **0** |
-| `id_legacy` | 116383 | **142633** |
-
-### Campi già corretti
-- Numero: 39526Q ✓ | Riga: 0 ✓
-- Compagnia: EUR000 / EUROP ASSISTANCE ITALIA SPA ✓
-- Ramo: ASSISTENZA ✓ | Gruppo: ASSISTENZA ✓
-- AE: SEDE NAPOLI ✓ | Specialist: GUARRACINO GAETANO ✓
-- Premio lordo: 1500 ✓ | Netto: 1363.63 ✓ | Tasse: 136.37 ✓ | Addizionali: 0 ✓
-- Provvigioni firma: 204.54 ✓
-- Durata da: 30/04/2021 ✓ | Garanzia a: 30/04/2026 ✓
-- Periodicità: annuale ✓ | Anni: 1 ✓ | Rate: 1 ✓ | Mora: 15gg ✓
-- Stato: attivo ✓
+| `produttore_nome` | INTERFIDI SRL | verificare se corretto o da svuotare |
 
 ### Azione
-Migrazione SQL per UPDATE degli 11 campi sulla riga `3ce97739-5576-42b5-987b-1d9e0386e934`.
+UPDATE via insert tool sulle 2 righe con i campi mancanti.
 
 ### File coinvolti
-| File | Azione |
-|------|--------|
-| `supabase/migrations/` | Nuovo file SQL con UPDATE degli 11 campi |
+Nessun file di codice — solo operazioni dati sul DB.
 
