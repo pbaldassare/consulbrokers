@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Archive, Search } from "lucide-react";
+import { Archive, Search, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 
@@ -40,7 +41,6 @@ const PortafoglioStoricoPage = () => {
   });
 
   const buildFilter = (q: any) => {
-    // Storico: scaduto, sospeso, oppure attivo ma con garanzia scaduta
     if (filtroStato === "tutti") {
       q = q.or(`stato.in.(scaduto,sospeso),and(stato.eq.attivo,garanzia_a.lt.${today})`);
     } else {
@@ -61,7 +61,7 @@ const PortafoglioStoricoPage = () => {
     queryKey: ["portafoglio-storico", search, filtroCompagnia, filtroRamo, filtroStato, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id",
         { count: "exact" }
       );
       q = buildFilter(q);
@@ -181,9 +181,10 @@ const PortafoglioStoricoPage = () => {
                   <TableHead className="text-right">Attive</TableHead>
                   <TableHead className="text-right">Passive</TableHead>
                   <TableHead>AE</TableHead>
-                  <TableHead>Specialist</TableHead>
-                  <TableHead>Produttore</TableHead>
                   <TableHead>Stato</TableHead>
+                  <TableHead>Dt. Sosp.</TableHead>
+                  <TableHead>Lim. Riatt.</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -199,10 +200,26 @@ const PortafoglioStoricoPage = () => {
                     <TableCell className="text-right">{fmtCurrency(p.provvigioni_firma)}</TableCell>
                     <TableCell className="text-right">{fmtCurrency(p.provvigioni_quietanza)}</TableCell>
                     <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
-                    <TableCell className="text-sm">{p.specialist || "—"}</TableCell>
-                    <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{fmtDate(p.data_sospensione)}</TableCell>
+                    <TableCell className="text-sm">{fmtDate(p.limite_riattivazione)}</TableCell>
+                    <TableCell>
+                      {p.stato === "sospeso" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(p.numero_titolo || "")}&clienteId=${p.cliente_anagrafica_id || ""}&titoloId=${p.id}`);
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Riattiva
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

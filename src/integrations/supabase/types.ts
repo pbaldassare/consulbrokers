@@ -5235,7 +5235,9 @@ export type Database = {
           created_at: string | null
           data_competenza: string | null
           data_incasso: string | null
+          data_riattivazione: string | null
           data_scadenza: string | null
+          data_sospensione: string | null
           descrizione_polizza: string | null
           disdetta_mesi: number | null
           durata_a: string | null
@@ -5253,7 +5255,9 @@ export type Database = {
           indicizzata: boolean | null
           libro_matricola: string | null
           limite_mora: string | null
+          limite_riattivazione: string | null
           mora_giorni: number | null
+          motivo_sospensione: string | null
           no_calcolo_tasse: boolean | null
           note: string | null
           numero_titolo: string | null
@@ -5317,7 +5321,9 @@ export type Database = {
           created_at?: string | null
           data_competenza?: string | null
           data_incasso?: string | null
+          data_riattivazione?: string | null
           data_scadenza?: string | null
+          data_sospensione?: string | null
           descrizione_polizza?: string | null
           disdetta_mesi?: number | null
           durata_a?: string | null
@@ -5335,7 +5341,9 @@ export type Database = {
           indicizzata?: boolean | null
           libro_matricola?: string | null
           limite_mora?: string | null
+          limite_riattivazione?: string | null
           mora_giorni?: number | null
+          motivo_sospensione?: string | null
           no_calcolo_tasse?: boolean | null
           note?: string | null
           numero_titolo?: string | null
@@ -5399,7 +5407,9 @@ export type Database = {
           created_at?: string | null
           data_competenza?: string | null
           data_incasso?: string | null
+          data_riattivazione?: string | null
           data_scadenza?: string | null
+          data_sospensione?: string | null
           descrizione_polizza?: string | null
           disdetta_mesi?: number | null
           durata_a?: string | null
@@ -5417,7 +5427,9 @@ export type Database = {
           indicizzata?: boolean | null
           libro_matricola?: string | null
           limite_mora?: string | null
+          limite_riattivazione?: string | null
           mora_giorni?: number | null
+          motivo_sospensione?: string | null
           no_calcolo_tasse?: boolean | null
           note?: string | null
           numero_titolo?: string | null
