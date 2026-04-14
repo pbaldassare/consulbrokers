@@ -157,7 +157,66 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
-  const changeStatoMutation = useMutation({
+  // --- Regolazione edit state ---
+  const [editingReg, setEditingReg] = useState(false);
+  const [regForm, setRegForm] = useState({
+    regolazione: false, periodicita: "", tipo_scadenza: "",
+    giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
+  });
+
+  const startEditReg = () => {
+    if (titolo) {
+      setRegForm({
+        regolazione: titolo.regolazione ?? false,
+        periodicita: titolo.periodicita ?? "",
+        tipo_scadenza: titolo.tipo_scadenza ?? "",
+        giorni_presentazione: titolo.giorni_presentazione ?? 0,
+        tipo_lettera_regolazione: titolo.tipo_lettera_regolazione ?? "",
+        libro_matricola: titolo.libro_matricola ?? "",
+      });
+    }
+    setEditingReg(true);
+  };
+
+  const saveRegMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("titoli")
+        .update({
+          regolazione: regForm.regolazione,
+          periodicita: regForm.periodicita || null,
+          tipo_scadenza: regForm.tipo_scadenza || null,
+          giorni_presentazione: regForm.giorni_presentazione,
+          tipo_lettera_regolazione: regForm.tipo_lettera_regolazione || null,
+          libro_matricola: regForm.libro_matricola || null,
+        })
+        .eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      toast.success("Regolazione aggiornata");
+      setEditingReg(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const periodicitaOpts = [
+    { value: "annuale", label: "Annuale" },
+    { value: "semestrale", label: "Semestrale" },
+    { value: "trimestrale", label: "Trimestrale" },
+    { value: "mensile", label: "Mensile" },
+  ];
+  const tipoScadenzaOpts = [
+    { value: "no_scadenza", label: "No scadenza" },
+    { value: "a_scadenza", label: "A scadenza" },
+  ];
+  const tipoLetteraOpts = [
+    { value: "standard", label: "Standard" },
+    { value: "personalizzata", label: "Personalizzata" },
+    { value: "nessuna", label: "Nessuna" },
+  ];
+
     mutationFn: async (nuovoStato: string) => {
       const vecchioStato = titolo?.stato;
       const { error } = await supabase.from("titoli").update({ stato: nuovoStato, updated_at: new Date().toISOString() }).eq("id", id!);
