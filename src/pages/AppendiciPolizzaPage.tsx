@@ -359,7 +359,14 @@ const AppendiciPolizzaPage = () => {
 
         <div className="flex justify-end gap-2 pt-2">
           {editingId && (
-            <Button variant="outline" onClick={resetForm}>
+            <Button variant="outline" onClick={() => {
+              resetForm();
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete("appendiceId");
+                return next;
+              });
+            }}>
               <X className="w-4 h-4 mr-1" />Annulla modifica
             </Button>
           )}
