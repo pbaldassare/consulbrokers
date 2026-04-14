@@ -2,43 +2,34 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Landmark, TrendingUp, Users } from "lucide-react";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import { Landmark, TrendingUp, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { it } from "date-fns/locale";
 
 const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
 
 const ProvvigioniSedePage = () => {
-  const [dataDa, setDataDa] = useState("");
-  const [dataA, setDataA] = useState("");
-  const [filterCompagnia, setFilterCompagnia] = useState("");
+  const [meseCorrente, setMeseCorrente] = useState(new Date());
 
-  const { data: compagnie = [] } = useQuery({
-    queryKey: ["compagnie-provv-sede"],
-    queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
-      return data || [];
-    },
-  });
+  const meseDa = format(startOfMonth(meseCorrente), "yyyy-MM-dd");
+  const meseA = format(endOfMonth(meseCorrente), "yyyy-MM-dd");
+  const meseLabel = format(meseCorrente, "MMMM yyyy", { locale: it });
 
   const { data: titoli = [], isLoading } = useQuery({
-    queryKey: ["provvigioni-sede", dataDa, dataA, filterCompagnia],
+    queryKey: ["provvigioni-sede", meseDa, meseA],
     queryFn: async () => {
-      let q = supabase
+      const { data } = await supabase
         .from("titoli")
         .select("id, numero_titolo, premio_lordo, provvigioni_firma, percentuale_commerciale, stato, compagnia_diretta:compagnie!titoli_compagnia_id_fkey(nome), ramo:rami!titoli_ramo_id_fkey(codice, descrizione), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome), prodotti(nome_prodotto)")
+        .eq("stato", "incassato")
         .not("provvigioni_firma", "is", null)
+        .gte("data_messa_cassa", meseDa)
+        .lte("data_messa_cassa", meseA)
         .order("created_at", { ascending: false })
         .limit(500);
-
-      if (dataDa) q = q.gte("durata_da", dataDa);
-      if (dataA) q = q.lte("durata_da", dataA);
-      if (filterCompagnia) q = q.eq("compagnia_id", filterCompagnia);
-
-      const { data } = await q;
       return data || [];
     },
   });
@@ -61,7 +52,7 @@ const ProvvigioniSedePage = () => {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Provvigioni Consul</h1>
-        <p className="text-sm text-muted-foreground mt-1">Riepilogo provvigioni residue Consul</p>
+        <p className="text-sm text-muted-foreground mt-1">Riepilogo provvigioni residue Consul per mese di messa a cassa</p>
       </div>
 
       {/* KPI */}
@@ -95,29 +86,15 @@ const ProvvigioniSedePage = () => {
         </Card>
       </div>
 
-      {/* Filtri */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="space-y-1">
-          <Label className="text-xs">Da</Label>
-          <Input type="date" value={dataDa} onChange={(e) => setDataDa(e.target.value)} className="h-8 text-xs w-36" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">A</Label>
-          <Input type="date" value={dataA} onChange={(e) => setDataA(e.target.value)} className="h-8 text-xs w-36" />
-        </div>
-        <div className="space-y-1 w-56">
-          <Label className="text-xs">Compagnia</Label>
-          <SearchableSelect
-            className="h-8 text-xs"
-            value={filterCompagnia}
-            onValueChange={setFilterCompagnia}
-            placeholder="— Tutte —"
-            options={[
-              { value: "", label: "Tutte" },
-              ...compagnie.map((c) => ({ value: c.id, label: c.nome })),
-            ]}
-          />
-        </div>
+      {/* Selettore mese */}
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMeseCorrente(prev => subMonths(prev, 1))}>
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <span className="text-sm font-semibold capitalize min-w-[140px] text-center">{meseLabel}</span>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMeseCorrente(prev => addMonths(prev, 1))}>
+          <ChevronRight className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* Tabella */}
@@ -166,7 +143,7 @@ const ProvvigioniSedePage = () => {
                 })}
                 {titoli.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">Nessun dato</TableCell>
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">Nessun dato nel mese selezionato</TableCell>
                   </TableRow>
                 )}
               </TableBody>
