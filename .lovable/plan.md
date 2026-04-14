@@ -1,55 +1,49 @@
 
-Obiettivo
+Problema reale
 
-Far sì che il salvataggio di un’appendice in modifica aggiorni sempre il record corrente e non apra la creazione di una nuova appendice finché l’utente non sceglie esplicitamente di uscire dalla modifica.
+Do I know what the issue is? Sì.
 
-Problema trovato
+Ho verificato il flusso:
+- sei nella pagina appendici in modalità creazione (`/portafoglio/appendici?...` senza `appendiceId`)
+- i click su Salva stanno facendo veri `POST` su `appendici_polizza`
+- dopo ogni creazione il form torna subito pronto per una nuova appendice e precompila il numero successivo
+- quindi i click successivi non aggiornano il record appena creato: generano nuove appendici (`2`, `3`, `4`, ...)
 
-Ho verificato il flusso reale:
-- il primo click in modifica esegue correttamente un `PATCH` su `appendici_polizza`
-- subito dopo, `onSuccess` chiama `resetForm()`, quindi azzera `editingId`
-- la pagina resta con `appendiceId` nell’URL ma torna in modalità creazione
-- i salvataggi successivi fanno `POST` e generano appendici nuove (`2`, `3`, ...)
-
-Quindi il bug non è nel database: è nello stato UI dopo l’update.
+Quindi il bug non è nel database: è nel flusso UI dopo la creazione.
 
 Intervento
 
-1. Correggere il post-save in `src/pages/AppendiciPolizzaPage.tsx`
-- distinguere in modo stabile create vs update dentro la mutation
-- dopo un update non chiamare `resetForm()`
-- restare in modalità modifica e lasciare il bottone su `Aggiorna Appendice`
-- chiamare `resetForm()` solo dopo una vera creazione
+1. Stabilizzare create/update in `src/pages/AppendiciPolizzaPage.tsx`
+- far ritornare anche la create con `.insert(...).select().single()`
+- dopo una creazione chiamare `startEdit(recordCreato)` invece di `resetForm()`
+- impostare `appendiceId` nell’URL, così la pagina resta agganciata al record appena creato
+- dopo il primo salvataggio il bottone deve diventare `Aggiorna Appendice`, non restare in create mode
 
-2. Riallineare form, file e record salvato
-- far ritornare dalla mutation il record aggiornato (`update(...).select().single()`)
-- dopo il salvataggio richiamare `startEdit(recordSalvato)` così si aggiornano anche `existingFilePath`, `existingFileName`, `file`, `removeExistingFile`
-- evitare che una seconda modifica riusi riferimenti file vecchi o già rimossi
+2. Creare una vera azione “Nuova Appendice”
+- aggiungere un pulsante dedicato per uscire dal record corrente
+- solo questo pulsante farà reset del form, rimozione di `appendiceId` e preparazione del numero successivo
+- il successo del salvataggio non deve più aprire automaticamente una nuova appendice
 
-3. Sistemare il deep-link di modifica
-- usare anche `setSearchParams`
-- rendere `appendiceId` la fonte di verità della modalità edit
-- quando si entra in modifica, mantenere/impostare `appendiceId`
-- quando si annulla la modifica o si vuole creare una nuova appendice, rimuovere `appendiceId` dall’URL
-- semplificare o rimuovere `deepLinkHandled`, che oggi blocca il rientro corretto in edit dopo i refresh dati
+3. Bloccare i salvataggi ripetuti
+- aggiungere un guard anti-doppio click sincrono oltre a `isPending`
+- disabilitare Salva/Aggiorna quando non ci sono modifiche reali da salvare
+- in create mode evitare che un form appena resettato possa generare subito un’altra appendice per click ripetuti
 
 4. Rifiniture UX
-- mantenere sempre `Aggiorna Appendice` in edit e usare `Crea Appendice` in create
-- lasciare evidenziata la riga in modifica
-- toast distinti: `Appendice aggiornata` / `Appendice creata`
+- toast distinti: `Appendice creata` / `Appendice aggiornata`
+- riga in modifica sempre evidenziata
+- pulsanti chiari: `Nuova Appendice`, `Aggiorna Appendice`, `Annulla modifica`
 
 Verifica finale
-
-- aprire un’appendice da `/titoli/:id`
-- modificare oggetto, note, testo o file e salvare
-- verificare che parta solo `PATCH`, non `POST`
-- cliccare di nuovo salva senza uscire: deve aggiornare sempre lo stesso record
-- cliccare “Annulla modifica” o tornare a create mode: solo da lì il salvataggio deve creare un nuovo record
+- creare una nuova appendice e cliccare Salva più volte: deve restare sullo stesso record, non crearne altre
+- dopo la create il pulsante deve essere `Aggiorna Appendice`
+- solo cliccando `Nuova Appendice` deve comparire il numero successivo
+- senza modifiche reali il salvataggio non deve partire
+- verificare che il deep-link da `/titoli/:id` continui a funzionare
 
 File coinvolto
-
 - `src/pages/AppendiciPolizzaPage.tsx`
 
 Dettaglio tecnico
-
-Nessuna migrazione database necessaria.
+- nessuna migrazione database necessaria per correggere questo bug
+- il fix è interamente nel flusso client di create/edit e nel blocco dei salvataggi ripetuti
