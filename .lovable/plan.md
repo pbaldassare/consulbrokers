@@ -1,26 +1,41 @@
 
 
-## Piano: Pagina "Provvigioni Maturate" + ordinamento per data messa a cassa
+## Piano: Generazione automatica provvigioni alla messa a cassa + split commerciale/Consul
 
-### Flusso logico
-1. Polizza viene messa a cassa → genera provvigioni in `provvigioni_generate`
-2. **Provvigioni Maturate** (nuova pagina) → mostra tutte le provvigioni non pagate (`pagata = false`), raggruppate per utente, ordinate per data messa a cassa del titolo
-3. Da qui si procede al **Pagamento Provvigioni** (pagina esistente) per creare la distinta di pagamento
+### Situazione attuale
+- La **messa a cassa** in `PortafoglioCaricoPage` NON chiama `calcola-provvigioni` — quindi `provvigioni_generate` resta vuota
+- La edge function `calcola-provvigioni` cerca `produttore_id` e `matrice_provvigioni`, ma i dati reali hanno `produttore_id = null` e usano i campi `provvigioni_quietanza` e `percentuale_commerciale` direttamente sul titolo
+- I destinatari delle provvigioni sono 2 categorie:
+  - **Commerciale** (AE, corrispondente, produttore) — `commerciale_id` con `percentuale_commerciale`
+  - **Consul** (l'agenzia) — riceve il residuo `(100 - percentuale_commerciale)`
+- I campi `provvigioni_quietanza` contengono già l'importo provvigione di agenzia per ogni polizza
 
-### 1. Nuova pagina `ProvvigioniMaturatePage.tsx`
-- Query su `provvigioni_generate` con `pagata = false`, join su `titoli` (per `data_messa_cassa`, `numero_titolo`, `premio_lordo`) e `profiles` (per nome commerciale)
-- Ordinamento per `titoli.data_messa_cassa` ascendente (le più vecchie prima)
-- KPI in alto: Totale maturato, N. provvigioni, N. utenti coinvolti
-- Selettore mese (come in Provvigioni Consul)
-- Tabella con colonne: Polizza, Compagnia, Ramo, Premio, Data Messa a Cassa, Destinatario, Importo Provvigione, Stato
-- Pulsante "Vai a Pagamento" che porta a `/pagamenti-provvigioni`
+### Cosa fare
 
-### 2. Route e sidebar
-- Route: `/provvigioni-maturate` in `src/routes/portafoglio.tsx`
-- Sidebar: aggiungere "Provvigioni Maturate" nel gruppo Provvigioni in `AppSidebar.tsx`, tra "Provvigioni Consul" e "Pagamenti Provvigioni"
+**1. Aggiornare la Edge Function `calcola-provvigioni`**
+- Nuovo approccio: usa `provvigioni_quietanza` dal titolo come base provvigione agenzia
+- Se `percentuale_commerciale < 100` e `commerciale_id` esiste → genera 2 righe in `provvigioni_generate`:
+  - Riga commerciale: `importo = provvigioni_quietanza * percentuale_commerciale / 100`, `user_id = commerciale_id`
+  - Riga Consul: `importo = provvigioni_quietanza * (100 - percentuale_commerciale) / 100`, `user_id = null` (o un user Consul fisso)
+- Se `percentuale_commerciale = 100` e nessun `commerciale_id` → genera 1 riga Consul con `provvigioni_quietanza` intero
+- Fallback alla logica attuale `matrice_provvigioni` se `provvigioni_quietanza` è null
 
-### 3. File coinvolti
-- **Nuovo**: `src/pages/ProvvigioniMaturatePage.tsx`
-- **Modifica**: `src/routes/portafoglio.tsx` — aggiunta route
-- **Modifica**: `src/components/AppSidebar.tsx` — aggiunta voce sidebar
+**2. Chiamare `calcola-provvigioni` dalla messa a cassa**
+- In `PortafoglioCaricoPage.tsx`, dopo l'update a `incassato`, invocare `supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id } })`
+- Sia nel singolo `mettiACassa` che nel `bulkMettiACassa`
+
+**3. Aggiungere colonna `tipo_destinatario` a `provvigioni_generate`**
+- Nuova colonna `tipo_destinatario TEXT` con valori: `commerciale`, `consul`, `sede`
+- Permette di distinguere chi riceve cosa nella pagina Provvigioni Maturate
+
+**4. Aggiornare la pagina `ProvvigioniMaturatePage`**
+- Mostrare il tipo destinatario con badge colorato
+- Filtrare: mostra solo provvigioni NON Consul (quelle Consul vanno già in Provvigioni Consul)
+- Aggiungere colonna "Tipo" (Commerciale / Sede)
+
+### File coinvolti
+- **Modifica**: `supabase/functions/calcola-provvigioni/index.ts` — nuova logica di calcolo
+- **Modifica**: `src/pages/PortafoglioCaricoPage.tsx` — invocare calcolo dopo messa a cassa
+- **Migrazione**: aggiunta colonna `tipo_destinatario` a `provvigioni_generate`
+- **Modifica**: `src/pages/ProvvigioniMaturatePage.tsx` — mostrare tipo destinatario
 
