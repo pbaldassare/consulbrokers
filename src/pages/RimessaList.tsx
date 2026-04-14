@@ -186,7 +186,7 @@ const RimessaList = () => {
                     <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/rimessa-premi/${r.id}`)}>
                       <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
                       <TableCell>{r.uffici?.nome_ufficio || "—"}</TableCell>
-                      <TableCell className="font-mono">€ {r.totale_importi?.toFixed(2) ?? "0.00"}</TableCell>
+                      <TableCell className="font-mono">€ {(r.totale_importi ?? 0).toFixed(2)}</TableCell>
                       <TableCell><Badge variant={statoBadge(r.stato)}>{r.stato}</Badge></TableCell>
                       <TableCell>{r.profiles ? `${r.profiles.nome} ${r.profiles.cognome}` : "—"}</TableCell>
                       <TableCell>{r.data_creazione ? format(new Date(r.data_creazione), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
