@@ -5234,7 +5234,10 @@ export type Database = {
           conto_incasso: string | null
           created_at: string | null
           data_competenza: string | null
+          data_decorrenza_rinnovo: string | null
           data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
           data_riattivazione: string | null
           data_scadenza: string | null
           data_sospensione: string | null
@@ -5320,7 +5323,10 @@ export type Database = {
           conto_incasso?: string | null
           created_at?: string | null
           data_competenza?: string | null
+          data_decorrenza_rinnovo?: string | null
           data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
           data_riattivazione?: string | null
           data_scadenza?: string | null
           data_sospensione?: string | null
@@ -5406,7 +5412,10 @@ export type Database = {
           conto_incasso?: string | null
           created_at?: string | null
           data_competenza?: string | null
+          data_decorrenza_rinnovo?: string | null
           data_incasso?: string | null
+          data_messa_cassa?: string | null
+          data_pagamento?: string | null
           data_riattivazione?: string | null
           data_scadenza?: string | null
           data_sospensione?: string | null
@@ -6029,29 +6038,103 @@ export type Database = {
       }
       v_portafoglio_titoli: {
         Row: {
+          addizionali: number | null
+          addizionali_quietanza: number | null
           ae_nome: string | null
+          anni_durata: number | null
+          appendice: string | null
+          cambio: number | null
+          cig_rif: string | null
           cliente_anagrafica_id: string | null
-          cliente_codice: string | null
-          cliente_nome_display: string | null
+          cliente_codice_fiscale: string | null
+          cliente_cognome: string | null
+          cliente_id: string | null
+          cliente_nome: string | null
+          cliente_ragione_sociale: string | null
+          cliente_tipo: string | null
+          commerciale_id: string | null
+          comp_assicurativa: string | null
+          comp_contabile: string | null
+          compagnia_codice: string | null
           compagnia_id: string | null
           compagnia_nome: string | null
+          conto_incasso: string | null
+          created_at: string | null
+          data_competenza: string | null
+          data_decorrenza_rinnovo: string | null
+          data_incasso: string | null
+          data_messa_cassa: string | null
+          data_pagamento: string | null
+          data_riattivazione: string | null
           data_scadenza: string | null
+          data_sospensione: string | null
+          descrizione_polizza: string | null
+          disdetta_mesi: number | null
+          durata_a: string | null
+          durata_da: string | null
+          emissione_fee: boolean | null
           filiale: string | null
+          formato_elettronico: boolean | null
           garanzia_a: string | null
           garanzia_da: string | null
+          giorni_presentazione: number | null
+          gruppo_ramo: string | null
           id: string | null
+          id_legacy: number | null
+          importo_incassato: number | null
+          indicizzata: boolean | null
+          libro_matricola: string | null
+          limite_mora: string | null
+          limite_riattivazione: string | null
+          mora_giorni: number | null
+          motivo_sospensione: string | null
+          no_calcolo_tasse: boolean | null
+          nome_ufficio: string | null
+          note: string | null
           numero_titolo: string | null
+          pag_diretto_compagnia: boolean | null
+          percentuale_commerciale: number | null
+          percentuale_riparto: number | null
+          periodicita: string | null
           premio_lordo: number | null
+          premio_netto: number | null
+          premio_netto_quietanza: number | null
+          prodotto_id: string | null
+          prodotto_nome: string | null
+          produttore_id: string | null
           produttore_nome: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
+          ramo_codice: string | null
+          ramo_descrizione: string | null
           ramo_id: string | null
-          ramo_nome: string | null
           rate: number | null
+          regolazione: boolean | null
+          riga: number | null
+          rimborso: boolean | null
+          risk_type: string | null
+          search_vector: unknown
+          sostituisce_appendice: string | null
+          sostituisce_polizza: string | null
+          sostituisce_riga: number | null
           specialist: string | null
           stato: string | null
+          storno_appendice: string | null
+          storno_polizza: string | null
+          storno_riga: number | null
           targa_telaio: string | null
+          tasse: number | null
+          tasse_quietanza: number | null
+          tipo_incasso: string | null
+          tipo_lettera_regolazione: string | null
+          tipo_mandatario: string | null
+          tipo_portafoglio: string | null
+          tipo_rinnovo: string | null
+          tipo_scadenza: string | null
           ufficio_id: string | null
+          updated_at: string | null
+          valuta: string | null
+          vincolo: string | null
         }
         Relationships: [
           {
@@ -6062,10 +6145,38 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "titoli_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_commerciale_id_fkey"
+            columns: ["commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "titoli_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_prodotto_id_fkey"
+            columns: ["prodotto_id"]
+            isOneToOne: false
+            referencedRelation: "prodotti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_produttore_id_fkey"
+            columns: ["produttore_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
