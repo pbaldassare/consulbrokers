@@ -11,11 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, FileText, Upload, Trash2, Download, Eye } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Eye, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
@@ -36,6 +40,7 @@ const AppendiciPolizzaPage = () => {
   const paramTitoloId = searchParams.get("titoloId") || "";
 
   // Form state
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [numeroAppendice, setNumeroAppendice] = useState("");
   const [dataAppendice, setDataAppendice] = useState(new Date().toISOString().slice(0, 10));
   const [dataEffetto, setDataEffetto] = useState("");
@@ -46,6 +51,44 @@ const AppendiciPolizzaPage = () => {
   const [file, setFile] = useState<File | null>(null);
   const [contentTab, setContentTab] = useState("testo");
   const [viewText, setViewText] = useState<string | null>(null);
+  // Track existing file when editing
+  const [existingFilePath, setExistingFilePath] = useState<string | null>(null);
+  const [existingFileName, setExistingFileName] = useState<string | null>(null);
+  const [removeExistingFile, setRemoveExistingFile] = useState(false);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setNumeroAppendice("");
+    setDataAppendice(new Date().toISOString().slice(0, 10));
+    setDataEffetto("");
+    setOggetto("");
+    setTipo("modifica");
+    setTesto("");
+    setNote("");
+    setFile(null);
+    setContentTab("testo");
+    setExistingFilePath(null);
+    setExistingFileName(null);
+    setRemoveExistingFile(false);
+  };
+
+  const startEdit = (a: any) => {
+    setEditingId(a.id);
+    setNumeroAppendice(a.numero_appendice || "");
+    setDataAppendice(a.data_appendice || "");
+    setDataEffetto(a.data_effetto || "");
+    setOggetto(a.oggetto || "");
+    setTipo(a.tipo || "modifica");
+    setTesto(a.testo || "");
+    setNote(a.note || "");
+    setFile(null);
+    setExistingFilePath(a.file_path || null);
+    setExistingFileName(a.nome_file || null);
+    setRemoveExistingFile(false);
+    setContentTab(a.testo ? "testo" : a.file_path ? "file" : "testo");
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Lookup cliente
   const { data: clienteData } = useQuery({
@@ -57,7 +100,6 @@ const AppendiciPolizzaPage = () => {
     enabled: !!paramClienteId,
   });
 
-  // Lookup titolo per ottenere titolo_id reale
   const { data: titoloData } = useQuery({
     queryKey: ["titolo-appendici", paramTitoloId],
     queryFn: async () => {
@@ -67,7 +109,6 @@ const AppendiciPolizzaPage = () => {
     enabled: !!paramTitoloId,
   });
 
-  // Lista appendici esistenti per questo titolo
   const { data: appendici = [], isLoading: loadingAppendici } = useQuery({
     queryKey: ["appendici-polizza", paramTitoloId],
     queryFn: async () => {
@@ -81,17 +122,18 @@ const AppendiciPolizzaPage = () => {
     enabled: !!paramTitoloId,
   });
 
-  // Suggerisci prossimo numero appendice
+  // Auto-suggest next number only when creating
   useEffect(() => {
+    if (editingId) return;
     if (appendici.length > 0 && !numeroAppendice) {
       const maxNum = Math.max(...appendici.map((a: any) => parseInt(a.numero_appendice) || 0));
       setNumeroAppendice(String(maxNum + 1));
     } else if (appendici.length === 0 && !numeroAppendice) {
       setNumeroAppendice("1");
     }
-  }, [appendici]);
+  }, [appendici, editingId]);
 
-  // Salva appendice
+  // Save / Update
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!paramTitoloId) throw new Error("Titolo non specificato");
@@ -100,17 +142,29 @@ const AppendiciPolizzaPage = () => {
       let filePath: string | null = null;
       let nomeFile: string | null = null;
 
-      // Upload file se presente
+      // Handle file upload / removal
       if (file) {
-        const ext = file.name.split(".").pop();
+        // Remove old file if replacing
+        if (editingId && existingFilePath) {
+          await supabase.storage.from("documenti_titoli").remove([existingFilePath]);
+        }
         const path = `appendici/${paramTitoloId}/${Date.now()}_${file.name}`;
         const { error: uploadErr } = await supabase.storage.from("documenti_titoli").upload(path, file);
         if (uploadErr) throw uploadErr;
         filePath = path;
         nomeFile = file.name;
+      } else if (editingId && removeExistingFile && existingFilePath) {
+        // User wants to remove file without replacement
+        await supabase.storage.from("documenti_titoli").remove([existingFilePath]);
+        filePath = null;
+        nomeFile = null;
+      } else if (editingId && existingFilePath && !removeExistingFile) {
+        // Keep existing file
+        filePath = existingFilePath;
+        nomeFile = existingFileName;
       }
 
-      const { error } = await supabase.from("appendici_polizza").insert({
+      const payload = {
         titolo_id: paramTitoloId,
         numero_appendice: numeroAppendice.trim(),
         data_appendice: dataAppendice || null,
@@ -121,25 +175,28 @@ const AppendiciPolizzaPage = () => {
         file_path: filePath,
         nome_file: nomeFile,
         note: note.trim() || null,
-        created_by: user?.id || null,
-      });
-      if (error) throw error;
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from("appendici_polizza").update(payload).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("appendici_polizza").insert({
+          ...payload,
+          created_by: user?.id || null,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Appendice salvata con successo");
+      toast.success(editingId ? "Appendice aggiornata" : "Appendice salvata con successo");
       queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
-      // Reset form
-      setOggetto("");
-      setTesto("");
-      setNote("");
-      setFile(null);
-      setDataEffetto("");
-      setNumeroAppendice("");
+      resetForm();
     },
     onError: (err: any) => toast.error(err.message || "Errore nel salvataggio"),
   });
 
-  // Elimina appendice
+  // Delete
   const deleteMutation = useMutation({
     mutationFn: async (appendice: any) => {
       if (appendice.file_path) {
@@ -151,11 +208,12 @@ const AppendiciPolizzaPage = () => {
     onSuccess: () => {
       toast.success("Appendice eliminata");
       queryClient.invalidateQueries({ queryKey: ["appendici-polizza", paramTitoloId] });
+      // If we were editing the deleted one, reset
+      resetForm();
     },
     onError: () => toast.error("Errore nell'eliminazione"),
   });
 
-  // Download file
   const handleDownload = async (filePath: string, nomeFile: string) => {
     const { data, error } = await supabase.storage.from("documenti_titoli").download(filePath);
     if (error || !data) { toast.error("Errore download"); return; }
@@ -180,7 +238,7 @@ const AppendiciPolizzaPage = () => {
         <p className="text-sm text-muted-foreground mt-1">Crea e gestisci appendici per la polizza {paramPolizza}</p>
       </div>
 
-      {/* INFO POLIZZA (read-only) */}
+      {/* INFO POLIZZA */}
       <fieldset className="border border-border rounded-lg p-5 space-y-3">
         <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Polizza</legend>
         <div className="flex items-center gap-6 flex-wrap text-sm">
@@ -190,10 +248,12 @@ const AppendiciPolizzaPage = () => {
         </div>
       </fieldset>
 
-      {/* NUOVA APPENDICE */}
+      {/* FORM APPENDICE */}
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Nuova Appendice</legend>
-        
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">
+          {editingId ? `Modifica Appendice #${numeroAppendice}` : "Nuova Appendice"}
+        </legend>
+
         <div className="flex gap-4 flex-wrap">
           <div className="space-y-1.5 w-[120px]">
             <Label>N° Appendice</Label>
@@ -246,10 +306,23 @@ const AppendiciPolizzaPage = () => {
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => { setFile(e.target.files?.[0] || null); setRemoveExistingFile(false); }}
                 className="text-sm"
               />
               {file && <p className="text-sm font-medium text-foreground">📎 {file.name}</p>}
+              {/* Show existing file info when editing */}
+              {editingId && existingFileName && !removeExistingFile && !file && (
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <span className="text-muted-foreground">File attuale:</span>
+                  <span className="font-medium">{existingFileName}</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-destructive hover:text-destructive" onClick={() => setRemoveExistingFile(true)}>
+                    <X className="w-3 h-3 mr-1" />Rimuovi
+                  </Button>
+                </div>
+              )}
+              {editingId && removeExistingFile && !file && (
+                <p className="text-sm text-destructive">Il file verrà rimosso al salvataggio</p>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -260,11 +333,16 @@ const AppendiciPolizzaPage = () => {
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
+          {editingId && (
+            <Button variant="outline" onClick={resetForm}>
+              <X className="w-4 h-4 mr-1" />Annulla modifica
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>
             Chiudi
           </Button>
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Salvataggio..." : "Salva Appendice"}
+            {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
           </Button>
         </div>
       </fieldset>
@@ -289,12 +367,12 @@ const AppendiciPolizzaPage = () => {
                   <TableHead>Tipo</TableHead>
                   <TableHead>Oggetto</TableHead>
                   <TableHead>File</TableHead>
-                  <TableHead className="w-24">Azioni</TableHead>
+                  <TableHead className="w-28">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {appendici.map((a: any) => (
-                  <TableRow key={a.id}>
+                  <TableRow key={a.id} className={editingId === a.id ? "bg-accent/30" : ""}>
                     <TableCell className="font-mono font-bold">{a.numero_appendice}</TableCell>
                     <TableCell className="text-sm">{a.data_appendice ? format(new Date(a.data_appendice), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
                     <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
@@ -316,9 +394,30 @@ const AppendiciPolizzaPage = () => {
                             <Eye className="w-3.5 h-3.5" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(a)} title="Elimina">
-                          <Trash2 className="w-3.5 h-3.5" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(a)} title="Modifica">
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Elimina">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Sei sicuro di voler eliminare l'appendice #{a.numero_appendice}? Questa azione non può essere annullata.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annulla</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteMutation.mutate(a)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Elimina
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -329,7 +428,7 @@ const AppendiciPolizzaPage = () => {
         )}
       </fieldset>
 
-      {/* Dialog per visualizzare testo appendice */}
+      {/* Dialog visualizza testo */}
       <Dialog open={!!viewText} onOpenChange={() => setViewText(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
