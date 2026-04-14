@@ -1,29 +1,44 @@
 
 
-## Piano: Azioni operative per polizze attive nel dettaglio titolo
+## Piano: Collegare le operazioni alla polizza corrente
 
-### Problema attuale
-La card "Cambia Stato" mostra pulsanti generici (creato, incassato, stornato, annullato) che non corrispondono alle operazioni reali del ciclo vita di una polizza. Le pagine operative (Sospensione, Riattivazione, Storno, Duplicazione, Appendici, Regolazione) esistono già ma non sono collegate dal dettaglio polizza.
+### Problema
+Quando si clicca un'operazione (Sospensione, Riattivazione, ecc.) dal dettaglio polizza, la navigazione passa solo il `numero_titolo` come query param. Le pagine operative ignorano completamente i query params e richiedono di cercare manualmente cliente e polizza da zero.
 
-### Cosa cambia
-Nel dettaglio polizza (`TitoloDetail.tsx`), per le **polizze attive** (non storico), sostituire la card "Cambia Stato" con una card **"Operazioni"** che mostra pulsanti specifici:
+### Soluzione
+Passare dal dettaglio titolo tutti i dati necessari via query params (`polizza`, `riga`, `clienteId`, `titolo_id`) e fare in modo che ogni pagina operativa li legga con `useSearchParams` per pre-compilare i campi e caricare automaticamente i dati del cliente.
 
-| Pulsante | Navigazione | Icona |
-|----------|------------|-------|
-| Sospensione | `/portafoglio/sospensione` | `Clock` |
-| Riattivazione | `/portafoglio/riattivazione` | `CheckSquare` |
-| Duplicazione | `/portafoglio/duplicazione` | `FileStack` |
-| Appendici | `/portafoglio/appendici` | `FileText` |
-| Storno | `/portafoglio/storno` | `ArrowRightLeft` |
-| Regolazione | (scroll alla sezione Regolazione) | `RefreshCw` |
-| Annullamento | Conferma + update stato "annullato" | `XCircle` |
+### Modifiche
 
-Ogni pulsante naviga alla pagina operativa corrispondente, pre-compilando il numero polizza come parametro query (es. `/portafoglio/sospensione?polizza=ITCGNC35122`).
+**1. `TitoloDetail.tsx`** — Arricchire i query params nei pulsanti operazione
+Invece di passare solo `polizza=NUMERO`, passare anche `riga`, `clienteId` (da `cliente_anagrafica`), e `titoloId`:
+```
+/portafoglio/sospensione?polizza=ITCGNC35122&riga=0&clienteId=UUID&titoloId=UUID
+```
 
-L'annullamento resta inline con dialog di conferma, perché è un'azione terminale.
+**2. `SospensionePolizzaPage.tsx`** — Leggere searchParams
+- Importare `useSearchParams`
+- Inizializzare `numeroPolizza`, `riga` dai params
+- Se `clienteId` presente, fare fetch diretto del cliente e pre-compilare i campi
+- Disabilitare i campi pre-compilati (readonly) quando si arriva dal dettaglio
 
-Per le polizze **storico**, la card resta nascosta (logica già implementata).
+**3. `RiattivazionePolizzaPage.tsx`** — Stesso pattern
+- Pre-compilare `numeroDaRiatt`, `rigaDaRiatt` e cliente
 
-### File coinvolti
-- `src/pages/TitoloDetail.tsx` — sostituire card "Cambia Stato" con card "Operazioni" e pulsanti navigazione
+**4. `DuplicazionePolizzaPage.tsx`** — Stesso pattern
+- Pre-compilare `numeroPolizza`, `riga` e cliente
+
+**5. `AppendiciPolizzaPage.tsx`** — Stesso pattern
+- Pre-compilare `numeroPolizza`, `riga` e cliente
+
+**6. `StornoPolizzaPage.tsx`** — Stesso pattern
+- Pre-compilare `numeroPolizza`, `riga` e cliente
+
+### File coinvolti (6 file)
+- `src/pages/TitoloDetail.tsx` — query params arricchiti
+- `src/pages/SospensionePolizzaPage.tsx` — lettura params + pre-fill
+- `src/pages/RiattivazionePolizzaPage.tsx` — lettura params + pre-fill
+- `src/pages/DuplicazionePolizzaPage.tsx` — lettura params + pre-fill
+- `src/pages/AppendiciPolizzaPage.tsx` — lettura params + pre-fill
+- `src/pages/StornoPolizzaPage.tsx` — lettura params + pre-fill
 
