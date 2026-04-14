@@ -1,14 +1,23 @@
 
 
-## Piano: Correzione import duplicati in TitoloDetail.tsx
+## Piano: Appendici con modifica completa (edit, cancella, aggiorna testo/file)
 
-### Problema identificato
-In `src/pages/TitoloDetail.tsx`, la riga 21 importa `Download, Eye, Trash2` da `lucide-react`, ma c'è già un import da `lucide-react` alla riga 12. Questa doppia dichiarazione causa un errore JavaScript a runtime ("Identifier already declared" o simile) che impedisce il caricamento dell'intero bundle dell'applicazione, facendo "esplodere" tutte le pagine.
+### Problema
+Attualmente le appendici possono solo essere create e cancellate. Non è possibile modificare un'appendice esistente (testo, oggetto, tipo, date, file allegato, note).
 
 ### Soluzione
-- **Riga 21**: eliminare l'import duplicato `import { Download, Eye, Trash2 } from "lucide-react";`
-- **Riga 12**: aggiungere `Download, Eye, Trash2` all'import esistente da `lucide-react`
+Aggiungere la modalità **editing** nella stessa pagina `AppendiciPolizzaPage.tsx`:
+
+1. **Pulsante "Modifica"** (icona Edit/Pencil) nella colonna azioni di ogni riga della tabella, accanto a Visualizza e Elimina.
+
+2. **Click su Modifica** → popola il form "Nuova Appendice" con i dati dell'appendice selezionata (numero, date, tipo, oggetto, testo, note). Il titolo della fieldset cambia in "Modifica Appendice #N". Il pulsante Salva diventa "Aggiorna Appendice".
+
+3. **Aggiornamento**: usa `.update()` su `appendici_polizza` anziché `.insert()`. Se viene caricato un nuovo file, elimina il vecchio dallo storage prima di uploadare il nuovo. Se l'utente cancella il file senza sostituirlo, rimuove `file_path`/`nome_file`.
+
+4. **Pulsante "Annulla modifica"** per tornare alla modalità creazione e resettare il form.
+
+5. **Conferma eliminazione**: aggiungere un `AlertDialog` prima di cancellare un'appendice per evitare eliminazioni accidentali.
 
 ### File coinvolto
-- `src/pages/TitoloDetail.tsx` — merge dei due import lucide-react in uno solo
+- `src/pages/AppendiciPolizzaPage.tsx` — aggiunta stato `editingId`, logica di populate form, mutation update, UI pulsante modifica + annulla + conferma eliminazione
 
