@@ -1,26 +1,30 @@
 
 
-## Piano: Spostare "Area Riservata" nell'header accanto ai badge
+## Piano: Spostare "Area Riservata" accanto al tab Anagrafica
 
 ### Cosa cambia
 
-La card `AreaRiservataCard` viene rimossa dal fondo del tab Anagrafica e il suo pulsante/badge viene integrato nell'header del ClienteDetail (riga 1070-1097), accanto al badge "Attivo/Disattivo" e al badge "Portale".
+1. **Rimuovere `AreaRiservataHeaderButton` dall'header** (riga 1054) — non più accanto al badge Attivo/Disattivo
 
-### Modifiche in `src/pages/ClienteDetail.tsx`
+2. **Aggiungere il pulsante "Area Riservata" accanto al tab Anagrafica** nella `TabsList` (riga 1075):
+   - Un pulsante separato (non un TabTrigger) posizionato dopo "Anagrafica"
+   - Se area non attiva: pulsante "Attiva Area Riservata" (verde)
+   - Se area attiva: badge con stato + pulsante "Gestisci"
 
-**1. Header (riga ~1081-1088)** — Aggiungere un pulsante "Attiva Area Riservata" (se `area_riservata_tipo === 'nessuna'` o assente) oppure mostrare il badge portale + un dropdown/pulsante per gestire (modifica tipo / disattiva). Il click apre lo stesso Dialog con anteprima email e select tipo accesso.
+3. **Semplificare il Dialog**:
+   - Mostra l'anteprima email **editabile** (textarea con HTML di default, personalizzabile)
+   - Select con due opzioni: "Solo Visualizzazione" / "Attiva" (caricamento dati)
+   - Pulsante "Invia e Attiva"
+   - Rimuovere la parte "Gestisci" complessa — solo attiva/disattiva e cambia tipo
 
-**2. Rimuovere `<AreaRiservataCard>` dal tab Anagrafica** (riga ~1370) — Non serve più in basso.
+4. **Badge area riservata** visibile nella TabsList accanto al pulsante
 
-**3. Il Dialog resta identico** — Anteprima email, select tipo, pulsanti Invia e Attiva / Modifica / Disattiva. Viene solo spostato il trigger nell'header.
-
-### Layout header risultante
+### Layout risultante TabsList
 
 ```text
-[← ] Nome Cliente                    [Attivo] [Portale: Sola Lettura] [Attiva Area Riservata] [Modifica]
-      Cliente Privato / Azienda
+Polizze | Sinistri | Aziende | Documenti | Chat | Timeline | Trattative | Anagrafica | [🟢 Area Riservata Attiva] oppure [Attiva Area Riservata]
 ```
 
-- Se portale non attivo: pulsante "Attiva Area Riservata" (verde, con icona Globe)
-- Se portale attivo: badge portale + pulsante piccolo "Gestisci Portale" che apre il dialog per modificare tipo o disattivare
+### File coinvolti
+- **`src/pages/ClienteDetail.tsx`**: spostare il trigger del pulsante dalla riga 1054 nella TabsList, semplificare il dialog con email editabile in textarea
 
