@@ -1079,16 +1079,19 @@ export default function ClienteDetail() {
 
       {/* Tabs - positioned right after header */}
       <Tabs defaultValue="polizze">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({polizze.length})</TabsTrigger>
-          <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
-          <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
-          <TabsTrigger value="documenti">Documenti</TabsTrigger>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
-          <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center flex-wrap gap-1">
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({polizze.length})</TabsTrigger>
+            <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
+            <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
+            <TabsTrigger value="documenti">Documenti</TabsTrigger>
+            <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
+            <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
+          </TabsList>
+          <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
+        </div>
 
         <TabsContent value="polizze">
           <Card>
