@@ -71,19 +71,32 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, prodotto_id, ufficio_id, produttore_id, data_incasso, prodotti!titoli_prodotto_id_fkey(compagnia_id)")
-        .not("prodotto_id", "is", null);
+        .select("premio_lordo, importo_incassato, prodotto_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, prodotti!titoli_prodotto_id_fkey(compagnia_id)")
+        .not("prodotto_id", "is", null)
+        .eq("stato", "incassato");
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
       if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
-      if (filters.periodo_dal) query = query.gte("data_incasso", format(filters.periodo_dal, "yyyy-MM-dd"));
-      if (filters.periodo_al) query = query.lte("data_incasso", format(filters.periodo_al, "yyyy-MM-dd"));
+      if (filters.periodo_dal) query = query.gte("data_messa_cassa", format(filters.periodo_dal, "yyyy-MM-dd"));
+      if (filters.periodo_al) query = query.lte("data_messa_cassa", format(filters.periodo_al, "yyyy-MM-dd"));
 
       const { data: titoli, error } = await query;
       if (error) throw error;
 
+      // Fetch rimesse totals per compagnia
+      const { data: rimesseAgg } = await supabase
+        .from("rimessa_premi")
+        .select("compagnia_id, totale_importi")
+        .neq("stato", "errore");
+      const rimesseMap = new Map<string, number>();
+      for (const r of rimesseAgg || []) {
+        if (r.compagnia_id) {
+          rimesseMap.set(r.compagnia_id, (rimesseMap.get(r.compagnia_id) || 0) + Number(r.totale_importi || 0));
+        }
+      }
+
       const compagniaMap = new Map((compagnie || []).map(c => [c.id, c]));
-      const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number }> = {};
+      const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number; gia_rimesso: number }> = {};
 
       for (const t of titoli || []) {
         const prod = t.prodotti as any;
@@ -92,9 +105,10 @@ const ECCompagniaContabPage = () => {
         const comp = compagniaMap.get(prod.compagnia_id);
         const key = prod.compagnia_id;
         if (!grouped[key]) {
-          grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0 };
+          grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0, gia_rimesso: rimesseMap.get(key) || 0 };
         }
         grouped[key].lordo += Number(t.premio_lordo) || 0;
+        grouped[key].provvigioni += (Number(t.provvigioni_firma) || 0) + (Number(t.provvigioni_quietanza) || 0);
       }
       return Object.values(grouped).sort((a, b) => b.lordo - a.lordo);
     },
@@ -148,12 +162,14 @@ const ECCompagniaContabPage = () => {
   const rows = data || [];
   const totLordo = rows.reduce((s, r) => s + r.lordo, 0);
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
+  const totRimesso = rows.reduce((s, r) => s + r.gia_rimesso, 0);
+  const totDaRimettere = totLordo - totProvv - totRimesso;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
   const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al;
 
   const exportCSV = () => {
-    const header = "Compagnia,Codice,Località,Mail,Lordo,Provvigioni\n";
-    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${r.comune}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)}`).join("\n");
+    const header = "Compagnia,Codice,Località,Mail,Lordo,Provvigioni,Già Rimesso,Da Rimettere\n";
+    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${r.comune}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${r.gia_rimesso.toFixed(2)},${(r.lordo - r.provvigioni - r.gia_rimesso).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_compagnia.csv"; a.click();
@@ -164,7 +180,8 @@ const ECCompagniaContabPage = () => {
     { label: "N. Compagnie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
-    { label: "Saldo", value: fmt(totLordo - totProvv), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
+    { label: "Già Rimesso", value: fmt(totRimesso), icon: Send, color: "text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400" },
+    { label: "Da Rimettere", value: fmt(totDaRimettere), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
   ];
 
   return (
@@ -187,7 +204,7 @@ const ECCompagniaContabPage = () => {
         </TabsList>
 
         <TabsContent value="estratto-conto" className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {kpiCards.map((kpi) => (
               <Card key={kpi.label}><CardContent className="p-4 flex items-center gap-4">
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.color)}><kpi.icon className="w-5 h-5" /></div>
@@ -213,24 +230,32 @@ const ECCompagniaContabPage = () => {
           <div className="border rounded-lg">
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Località</TableHead><TableHead>Mail</TableHead>
+                <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Località</TableHead>
                 <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
+                <TableHead className="text-right">Già Rimesso</TableHead><TableHead className="text-right">Da Rimettere</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
                 ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-                ) : rows.map((r) => (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun dato — conferma la Messa a Cassa per vedere i dati</TableCell></TableRow>
+                ) : rows.map((r) => {
+                  const daRimettere = r.lordo - r.provvigioni - r.gia_rimesso;
+                  return (
                   <TableRow key={r.compagnia_id}>
                     <TableCell className="font-medium">{r.nome}</TableCell><TableCell>{r.codice}</TableCell><TableCell>{r.comune}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.mail}</TableCell><TableCell className="text-right">{fmt(r.lordo)}</TableCell><TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
+                    <TableCell className="text-right">{fmt(r.lordo)}</TableCell><TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
+                    <TableCell className="text-right text-purple-600 dark:text-purple-400">{fmt(r.gia_rimesso)}</TableCell>
+                    <TableCell className="text-right font-semibold text-teal-600 dark:text-teal-400">{fmt(daRimettere)}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
               {rows.length > 0 && <TableFooter><TableRow>
-                <TableCell colSpan={4} className="font-bold">Totale</TableCell>
+                <TableCell colSpan={3} className="font-bold">Totale</TableCell>
                 <TableCell className="text-right font-bold">{fmt(totLordo)}</TableCell><TableCell className="text-right font-bold">{fmt(totProvv)}</TableCell>
+                <TableCell className="text-right font-bold text-purple-600 dark:text-purple-400">{fmt(totRimesso)}</TableCell>
+                <TableCell className="text-right font-bold text-teal-600 dark:text-teal-400">{fmt(totDaRimettere)}</TableCell>
               </TableRow></TableFooter>}
             </Table>
           </div>
