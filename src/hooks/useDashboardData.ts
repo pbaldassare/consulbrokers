@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface ChatNonRisposta {
+  canaleId: string;
+  canaleNome: string;
+  mittente: string;
+  testo: string;
+  data: string;
+}
+
 export interface AdminData {
   rinnoviMeseCount: number;
   rinnoviMeseImporto: number;
@@ -10,11 +18,9 @@ export interface AdminData {
   incassiIeriImporto: number;
   incassiMeseCount: number;
   incassiMeseImporto: number;
-  polizzeAttive: number;
-  portafoglioTotale: number;
   raccoltaPremiAnno: number;
   nuoviClientiMese: number;
-  attivitaRecenti: { id: string; azione: string; utente: string; data: string; entita_tipo: string }[];
+  chatNonRisposte: ChatNonRisposta[];
 }
 
 export interface UfficioData {
@@ -95,37 +101,71 @@ export function useDashboardData(ruolo: string) {
     const ieri = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
     const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().substring(0, 10);
 
+    const { data: { user } } = await supabase.auth.getUser();
+
     const [
       { data: rinnoviMese },
       { data: rinnoviOggi },
       { data: incassiIeri },
       { data: incassiMese },
-      { count: polizzeAttive },
-      { data: portafoglioData },
       { data: raccoltaAnno },
       { count: nuoviClientiMese },
-      { data: logData },
     ] = await Promise.all([
       supabase.from("titoli").select("premio_lordo").gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth),
       supabase.from("titoli").select("premio_lordo").eq("data_scadenza", oggi),
       supabase.from("titoli").select("premio_lordo").eq("data_messa_cassa", ieri),
       supabase.from("titoli").select("premio_lordo").gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth),
-      supabase.from("titoli").select("*", { count: "exact", head: true }).eq("stato", "attivo"),
-      supabase.from("titoli").select("premio_lordo").eq("stato", "attivo"),
       supabase.from("titoli").select("premio_lordo").gte("data_messa_cassa", startOfYear),
       supabase.from("clienti").select("*", { count: "exact", head: true }).gte("created_at", startOfMonth),
-      supabase.from("log_attivita").select("id, azione, created_at, entita_tipo, user_id, profiles:user_id(nome, cognome)").order("created_at", { ascending: false }).limit(10),
     ]);
 
     const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
 
-    const attivitaRecenti = (logData || []).map((l: any) => ({
-      id: l.id,
-      azione: l.azione || "",
-      utente: l.profiles ? `${l.profiles.nome || ""} ${l.profiles.cognome || ""}`.trim() : "Sistema",
-      data: l.created_at,
-      entita_tipo: l.entita_tipo || "",
-    }));
+    // Chat non risposte
+    let chatNonRisposte: ChatNonRisposta[] = [];
+    if (user) {
+      const { data: memberships } = await supabase
+        .from("chat_canali_membri")
+        .select("canale_id")
+        .eq("user_id", user.id);
+
+      if (memberships && memberships.length > 0) {
+        const canaleIds = memberships.map((m: any) => m.canale_id);
+        
+        // Fetch channels info
+        const { data: canali } = await supabase
+          .from("chat_canali")
+          .select("id, nome")
+          .in("id", canaleIds);
+
+        // For each channel, get the last message
+        const chatPromises = canaleIds.map((cId: string) =>
+          supabase
+            .from("chat_messaggi_interni")
+            .select("id, messaggio, mittente_id, created_at, profiles:mittente_id(nome, cognome)")
+            .eq("canale_id", cId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+        );
+
+        const chatResults = await Promise.all(chatPromises);
+
+        chatResults.forEach((res, idx) => {
+          const msg = res.data?.[0];
+          if (msg && msg.mittente_id !== user.id) {
+            const canale = canali?.find((c: any) => c.id === canaleIds[idx]);
+            const prof = msg.profiles as any;
+            chatNonRisposte.push({
+              canaleId: canaleIds[idx],
+              canaleNome: canale?.nome || "Chat",
+              mittente: prof ? `${prof.nome || ""} ${prof.cognome || ""}`.trim() : "Utente",
+              testo: msg.messaggio || "",
+              data: msg.created_at || "",
+            });
+          }
+        });
+      }
+    }
 
     setAdmin({
       rinnoviMeseCount: rinnoviMese?.length || 0,
@@ -136,11 +176,9 @@ export function useDashboardData(ruolo: string) {
       incassiIeriImporto: sumPremio(incassiIeri),
       incassiMeseCount: incassiMese?.length || 0,
       incassiMeseImporto: sumPremio(incassiMese),
-      polizzeAttive: polizzeAttive || 0,
-      portafoglioTotale: sumPremio(portafoglioData),
       raccoltaPremiAnno: sumPremio(raccoltaAnno),
       nuoviClientiMese: nuoviClientiMese || 0,
-      attivitaRecenti,
+      chatNonRisposte,
     });
   };
 
@@ -160,12 +198,8 @@ export function useDashboardData(ruolo: string) {
     ]);
 
     const incassiRecenti = (movimenti || []).reduce((s: number, m: any) => s + (m.importo || 0), 0);
-    const oggi = new Date();
-    const fra30 = new Date();
-    fra30.setDate(fra30.getDate() + 30);
-    const scadenze30gg = (titoli || []).filter((t: any) => t.stato === "attivo").length; // simplified
+    const scadenze30gg = (titoli || []).filter((t: any) => t.stato === "attivo").length;
 
-    // Incassi mensili
     const mesiMap: Record<string, number> = {};
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
     for (let i = 5; i >= 0; i--) {
@@ -174,7 +208,6 @@ export function useDashboardData(ruolo: string) {
       mesiMap[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`] = 0;
     }
 
-    // Sinistri per stato
     const statoMap: Record<string, number> = {};
     (sinistriAll || []).forEach((s: any) => {
       statoMap[s.stato] = (statoMap[s.stato] || 0) + 1;
@@ -209,7 +242,6 @@ export function useDashboardData(ruolo: string) {
 
     const provvigioniDaLiquidare = (provvigioni || []).reduce((s: number, p: any) => s + (p.importo_provvigione || 0), 0);
 
-    // Provvigioni mensili
     const mesiMap: Record<string, number> = {};
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
     for (let i = 5; i >= 0; i--) {
