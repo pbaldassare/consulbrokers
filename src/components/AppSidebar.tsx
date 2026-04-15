@@ -161,7 +161,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Cruscotto del Giorno", path: "/contabilita/cruscotto", icon: LayoutDashboard },
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
         { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare },
-        { label: "Quadratura Premi", path: "/contabilita/quadratura-premi", icon: Search },
+        
         { label: "Chiusura Contabile", path: "/contabilita/chiusura-contabile", icon: Lock },
         { label: "Avvisi Incasso", path: "/contabilita/avvisi-incasso", icon: Bell },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
