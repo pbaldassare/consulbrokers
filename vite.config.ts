@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
-    __APP_VERSION__: JSON.stringify(new Date().toISOString()),
+    'globalThis.__APP_VERSION__': JSON.stringify(new Date().toISOString()),
   },
   server: {
     host: "::",
