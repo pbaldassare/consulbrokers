@@ -1,24 +1,32 @@
 
 
-## Piano: Semplificare il modale "Area Riservata"
+## Piano: Collegare Rimessa Premi a E/C Compagnia e Incassi e Coperture
 
-### Problema attuale
-Il pulsante "Attiva Area Riservata" nella TabsList non apre correttamente il modale. Inoltre il pulsante "Modifica" nell'header e la logica "Gestisci" creano confusione.
+### Situazione attuale
+- **Rimessa Premi** (`/rimessa-premi`) è una pagina separata nel menu sotto "Portafoglio" che mostra lo storico delle rimesse create
+- **E/C Compagnia** (`/contabilita/ec-compagnia`) mostra un estratto conto per compagnia basato sui titoli
+- **Incassi e Coperture** (`/contabilita`) è dove si creano le rimesse (conferma rimessa per compagnia)
+
+Il problema: "Rimessa Premi" duplica concettualmente l'E/C Compagnia e dovrebbe essere accessibile da Incassi e Coperture, non come pagina separata nel Portafoglio.
 
 ### Cosa cambia
 
-**1. Rimuovere il pulsante "Modifica" dall'header** (riga 1076) — il pulsante "Modifica" dell'anagrafica resta solo se serve per i campi del cliente, ma NON deve interferire con l'area riservata.
+**1. Rimuovere "Rimessa Premi" dalla sidebar Portafoglio**
+- Togliere la voce `{ label: "Rimessa Premi", path: "/rimessa-premi", icon: Send }` dalla sezione Portafoglio in `AppSidebar.tsx`
 
-**2. Riscrivere `AreaRiservataHeaderButton`** — semplificato:
-- Se area NON attiva: pulsante verde "Attiva Area Riservata" → click apre **un unico Dialog** con:
-  - Textarea con email precompilata (dati cliente: nome, email come username, password Consul123!, link portale)
-  - Select tipo accesso: Solo Visualizzazione / Attiva
-  - Pulsante "Invia e Attiva"
-- Se area ATTIVA: badge stato (verde/arancione) + possibilità di cliccare per aprire lo stesso Dialog in modalità gestione (cambia tipo o disattiva)
-- Rimuovere la modalità "edit" separata e il pulsante "Gestisci" — tutto in un unico flusso
+**2. Integrare lo storico rimesse nella pagina E/C Compagnia**
+- Aggiungere un tab o una sezione "Storico Rimesse" nella pagina `ECCompagniaContabPage.tsx` che mostri la tabella delle rimesse (compagnia, sede, importo, IBAN, data pagamento, stato) — la stessa logica attuale di `RimessaList.tsx`
+- In questo modo E/C Compagnia diventa il punto unico per vedere sia l'estratto conto sia le rimesse effettuate
 
-**3. Assicurarsi che il click apra il Dialog** — il problema attuale è probabilmente che il `DialogTrigger` manca o il `dialogOpen` non viene settato. Verificare che `openActivateDialog()` venga chiamato correttamente dal click del pulsante.
+**3. Aggiungere link "Storico Rimesse" da Incassi e Coperture**
+- In `ContabilitaUfficio.tsx`, dopo la conferma rimessa, aggiungere un pulsante/link "Vedi Storico Rimesse" che porta a `/contabilita/ec-compagnia` (tab rimesse)
+- Oppure aggiungere un collegamento diretto nella parte superiore della pagina
+
+**4. Mantenere le route esistenti**
+- Le route `/rimessa-premi` e `/rimessa-premi/:id` restano funzionanti (per link diretti e notifiche) ma non compaiono più nella sidebar
 
 ### File coinvolti
-- **`src/pages/ClienteDetail.tsx`**: riscrivere `AreaRiservataHeaderButton` — un solo Dialog, email precompilata editabile, select tipo, pulsante invio. Rimuovere complessità "edit mode" / "Gestisci".
+- **`src/components/AppSidebar.tsx`** — rimuovere voce "Rimessa Premi" dal menu Portafoglio
+- **`src/pages/contabilita/ECCompagniaContabPage.tsx`** — aggiungere tab "Storico Rimesse" con la tabella delle rimesse
+- **`src/pages/ContabilitaUfficio.tsx`** — aggiungere link a E/C Compagnia / Storico Rimesse
 
