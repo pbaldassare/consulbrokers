@@ -1,32 +1,26 @@
 
 
-## Piano: Collegare Rimessa Premi a E/C Compagnia e Incassi e Coperture
+## Piano: Collegare Messa a Cassa ai dati E/C Compagnia
 
-### Situazione attuale
-- **Rimessa Premi** (`/rimessa-premi`) è una pagina separata nel menu sotto "Portafoglio" che mostra lo storico delle rimesse create
-- **E/C Compagnia** (`/contabilita/ec-compagnia`) mostra un estratto conto per compagnia basato sui titoli
-- **Incassi e Coperture** (`/contabilita`) è dove si creano le rimesse (conferma rimessa per compagnia)
-
-Il problema: "Rimessa Premi" duplica concettualmente l'E/C Compagnia e dovrebbe essere accessibile da Incassi e Coperture, non come pagina separata nel Portafoglio.
+### Problema
+Il tab "Estratto Conto" in E/C Compagnia attualmente mostra **tutti i titoli** indipendentemente dallo stato. Quando si conferma la "Messa a Cassa" in Incassi e Coperture (stato → `incassato`), quei dati non vengono filtrati correttamente nell'E/C Compagnia.
 
 ### Cosa cambia
 
-**1. Rimuovere "Rimessa Premi" dalla sidebar Portafoglio**
-- Togliere la voce `{ label: "Rimessa Premi", path: "/rimessa-premi", icon: Send }` dalla sezione Portafoglio in `AppSidebar.tsx`
+**1. Filtrare titoli per `stato = 'incassato'` nel tab Estratto Conto**
+- La query attuale (riga 72-98 di `ECCompagniaContabPage.tsx`) non filtra per stato. Aggiungere `.eq("stato", "incassato")` per mostrare solo i titoli messi a cassa.
 
-**2. Integrare lo storico rimesse nella pagina E/C Compagnia**
-- Aggiungere un tab o una sezione "Storico Rimesse" nella pagina `ECCompagniaContabPage.tsx` che mostri la tabella delle rimesse (compagnia, sede, importo, IBAN, data pagamento, stato) — la stessa logica attuale di `RimessaList.tsx`
-- In questo modo E/C Compagnia diventa il punto unico per vedere sia l'estratto conto sia le rimesse effettuate
+**2. Aggiungere colonna "Da Rimettere" e "Già Rimesso"**
+- Calcolare `da_rimettere = lordo - provvigioni` per ogni compagnia
+- Incrociare con `rimessa_premi` per mostrare quanto è già stato rimesso e quanto resta da rimettere
+- Aggiungere le colonne nella tabella: Lordo, Provvigioni, **Già Rimesso**, **Da Rimettere**
 
-**3. Aggiungere link "Storico Rimesse" da Incassi e Coperture**
-- In `ContabilitaUfficio.tsx`, dopo la conferma rimessa, aggiungere un pulsante/link "Vedi Storico Rimesse" che porta a `/contabilita/ec-compagnia` (tab rimesse)
-- Oppure aggiungere un collegamento diretto nella parte superiore della pagina
+**3. Aggiornare i KPI**
+- Aggiungere KPI "Da Rimettere" e "Già Rimesso" accanto ai KPI esistenti
 
-**4. Mantenere le route esistenti**
-- Le route `/rimessa-premi` e `/rimessa-premi/:id` restano funzionanti (per link diretti e notifiche) ma non compaiono più nella sidebar
+**4. Aggiungere filtro per `data_messa_cassa`**
+- I filtri periodo (`periodo_dal`, `periodo_al`) dovrebbero applicarsi su `data_messa_cassa` (non `data_incasso`) per coerenza col flusso di cassa
 
 ### File coinvolti
-- **`src/components/AppSidebar.tsx`** — rimuovere voce "Rimessa Premi" dal menu Portafoglio
-- **`src/pages/contabilita/ECCompagniaContabPage.tsx`** — aggiungere tab "Storico Rimesse" con la tabella delle rimesse
-- **`src/pages/ContabilitaUfficio.tsx`** — aggiungere link a E/C Compagnia / Storico Rimesse
+- **`src/pages/contabilita/ECCompagniaContabPage.tsx`** — query filtrata per incassato, aggiunta calcolo rimesse, nuove colonne e KPI
 
