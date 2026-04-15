@@ -220,7 +220,9 @@ const ContabilitaUfficio = () => {
       return rimessa;
     },
     onSuccess: () => {
-      toast.success("Rimessa confermata e archiviata");
+      toast.success("Rimessa confermata e archiviata", {
+        action: { label: "Vedi Storico", onClick: () => navigate("/contabilita/ec-compagnia") },
+      });
       setConfirmDialog(null);
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-cassa-mese"] });

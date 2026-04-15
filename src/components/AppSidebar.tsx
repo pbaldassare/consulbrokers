@@ -114,7 +114,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Gestione Polizze", path: "/portafoglio/gestione-polizze", icon: Settings },
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
-        { label: "Rimessa Premi", path: "/rimessa-premi", icon: Send },
       ],
     },
   },
