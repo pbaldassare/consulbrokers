@@ -742,13 +742,7 @@ export default function ClienteDetail() {
     onError: (err: any) => console.error("Provisioning error:", err.message),
   });
 
-  const provisionedRef = useRef(false);
-  useEffect(() => {
-    if (cliente && !cliente.user_id && cliente.email && !provisionedRef.current) {
-      provisionedRef.current = true;
-      provisionMutation.mutate(cliente.id);
-    }
-  }, [cliente]);
+  // Auto-provisioning removed — activation is now manual via "Area Riservata" card
 
   if (!cliente) return null;
 
@@ -870,6 +864,11 @@ export default function ClienteDetail() {
         <Badge variant={cliente.attivo ? "default" : "secondary"}>
           {cliente.attivo ? "Attivo" : "Disattivo"}
         </Badge>
+        {(cliente as any).area_riservata_tipo && (cliente as any).area_riservata_tipo !== "nessuna" && (
+          <Badge variant="outline" className={(cliente as any).area_riservata_tipo === "completa" ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
+            Portale: {(cliente as any).area_riservata_tipo === "completa" ? "Completo" : "Sola Lettura"}
+          </Badge>
+        )}
         {editMode ? (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
@@ -1149,6 +1148,9 @@ export default function ClienteDetail() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+
+          {/* Area Riservata */}
+          <AreaRiservataCard cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
         </TabsContent>
       </Tabs>
 
