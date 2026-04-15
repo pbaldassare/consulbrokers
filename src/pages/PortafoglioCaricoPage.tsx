@@ -417,6 +417,7 @@ const PortafoglioCaricoPage = () => {
                           </Button>
                         ) : isIncassato ? (
                           <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
                           <Button
                             size="sm"
                             variant="outline"
