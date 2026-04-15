@@ -289,18 +289,25 @@ const TitoloDetail = () => {
   ];
 
   const changeStatoMutation = useMutation({
-    mutationFn: async (nuovoStato: string) => {
+    mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
+      const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
+      const cassaData = typeof params === "string" ? undefined : params.cassaData;
       const vecchioStato = titolo?.stato;
-      const today = new Date().toISOString().slice(0, 10);
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
-      if (nuovoStato === "incassato") {
-        updatePayload.data_messa_cassa = today;
-        updatePayload.data_pagamento = today;
-        updatePayload.data_decorrenza_rinnovo = today;
+      if (nuovoStato === "incassato" && cassaData) {
+        updatePayload.data_messa_cassa = cassaData.dataMessaCassa;
+        updatePayload.data_pagamento = cassaData.dataPagamento;
+        updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
+        updatePayload.tipo_pagamento = cassaData.tipoPagamento;
+        if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
+          updatePayload.banca_pagamento = cassaData.banca;
+        }
       } else if (nuovoStato === "attivo" && vecchioStato === "incassato") {
         updatePayload.data_messa_cassa = null;
         updatePayload.data_pagamento = null;
         updatePayload.data_decorrenza_rinnovo = null;
+        updatePayload.tipo_pagamento = null;
+        updatePayload.banca_pagamento = null;
       }
       const { error } = await supabase.from("titoli").update(updatePayload).eq("id", id!);
       if (error) throw error;
@@ -315,6 +322,7 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
       toast.success("Stato aggiornato");
+      setCassaDialogOpen(false);
     },
     onError: (err: any) => toast.error("Errore"),
   });
