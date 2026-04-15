@@ -160,6 +160,18 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // --- Cassa dialog state ---
+  const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [cassaForm, setCassaForm] = useState({ dataMessaCassa: todayStr, dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "contanti", banca: "" });
+
+  const bancheItaliane = [
+    "Intesa Sanpaolo", "UniCredit", "BNL - BNP Paribas", "BPER Banca", "Banco BPM",
+    "Monte dei Paschi di Siena", "Crédit Agricole Italia", "Poste Italiane",
+    "Banca Mediolanum", "Banca Sella", "Fineco Bank", "CheBanca!", "ING Italia",
+    "Deutsche Bank Italia", "Banca Popolare di Sondrio", "Altro",
+  ];
+
   // --- Regolazione edit state ---
   const [editingReg, setEditingReg] = useState(false);
   const [regForm, setRegForm] = useState({
