@@ -1145,7 +1145,7 @@ const ClientiList = () => {
                 })}
                 {clienti.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground">
                       Nessun cliente trovato
                     </TableCell>
                   </TableRow>
