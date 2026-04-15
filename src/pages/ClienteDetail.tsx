@@ -575,11 +575,12 @@ function TrattativeClienteSection({ clienteId }: { clienteId: string }) {
   );
 }
 
-/* ── Area Riservata Card ── */
-function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () => void }) {
+/* ── Area Riservata Header Button ── */
+function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpdate: () => void }) {
   const [tipo, setTipo] = useState<string>("sola_lettura");
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"activate" | "edit">("activate");
 
   const currentTipo = (cliente as any).area_riservata_tipo || "nessuna";
   const isActive = currentTipo !== "nessuna";
@@ -607,7 +608,6 @@ function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () =
         .eq("id", cliente.id);
       if (updErr) throw updErr;
 
-      // Try to send activation email (will fail silently if email domain not configured)
       try {
         await supabase.functions.invoke("send-transactional-email", {
           body: {
@@ -618,7 +618,7 @@ function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () =
           },
         });
       } catch {
-        // Email sending not configured yet — activation still succeeds
+        // Email sending not configured yet
       }
 
       toast.success("Area riservata attivata con successo");
@@ -639,6 +639,7 @@ function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () =
         .eq("id", cliente.id);
       if (error) throw error;
       toast.success("Area riservata disattivata");
+      setDialogOpen(false);
       onUpdate();
     } catch (err: any) {
       toast.error("Errore: " + err.message);
@@ -646,8 +647,17 @@ function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () =
     setSaving(false);
   };
 
-  const badgeColor = currentTipo === "completa" ? "border-green-500 text-green-600" : currentTipo === "sola_lettura" ? "border-orange-500 text-orange-600" : "border-muted text-muted-foreground";
-  const badgeLabel = currentTipo === "completa" ? "Completo" : currentTipo === "sola_lettura" ? "Sola Lettura" : "Non attivo";
+  const handleUpdateTipo = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("clienti").update({ area_riservata_tipo: tipo } as any).eq("id", cliente.id);
+      if (error) throw error;
+      toast.success("Tipo accesso aggiornato");
+      setDialogOpen(false);
+      onUpdate();
+    } catch (err: any) { toast.error(err.message); }
+    setSaving(false);
+  };
 
   const emailPreviewHtml = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -675,120 +685,80 @@ function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () =
   `;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Globe className="h-4 w-4 text-primary" /> Area Riservata Cliente
-          <Badge variant="outline" className={badgeColor}>{badgeLabel}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!cliente.email && (
-          <p className="text-xs text-destructive">⚠ Inserire l'email del cliente prima di attivare l'area riservata.</p>
-        )}
+    <>
+      {isActive ? (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={currentTipo === "completa" ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
+            Portale: {currentTipo === "completa" ? "Completo" : "Sola Lettura"}
+          </Badge>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setTipo(currentTipo); setDialogMode("edit"); setDialogOpen(true); }}>
+            Gestisci
+          </Button>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8" disabled={!cliente.email} onClick={() => { setTipo("sola_lettura"); setDialogMode("activate"); setDialogOpen(true); }}>
+          <Globe className="h-3.5 w-3.5" />
+          Attiva Area Riservata
+        </Button>
+      )}
 
-        {isActive && (
-          <div className="space-y-3">
-            <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
-              <p><span className="text-muted-foreground">Username:</span> <span className="font-mono font-medium">{cliente.email}</span></p>
-              <p><span className="text-muted-foreground">Password di default:</span> <span className="font-mono font-medium">Consul123!</span></p>
-              <p><span className="text-muted-foreground">Tipo accesso:</span> <span className="font-medium">{badgeLabel}</span></p>
-              {cliente.user_id && <p className="text-green-600">✓ Account creato</p>}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{dialogMode === "activate" ? "Attiva Area Riservata" : "Gestisci Area Riservata"} — {clienteName}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Tipo di Accesso</Label>
+              <Select value={tipo} onValueChange={setTipo}>
+                <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sola_lettura">Sola Lettura (consultazione e messaggi)</SelectItem>
+                  <SelectItem value="completa">Completa (lettura + caricamento documenti)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => { setTipo(currentTipo); setDialogOpen(true); }} disabled={!cliente.email}>
-                Modifica Tipo Accesso
-              </Button>
-              <Button size="sm" variant="destructive" onClick={handleDeactivate} disabled={saving}>
+
+            {dialogMode === "activate" && (
+              <div>
+                <Label className="text-xs mb-2 block">Anteprima Email di Attivazione</Label>
+                <div className="border rounded-lg overflow-hidden bg-white">
+                  <div dangerouslySetInnerHTML={{ __html: emailPreviewHtml }} />
+                </div>
+              </div>
+            )}
+
+            {dialogMode === "edit" && isActive && (
+              <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
+                <p><span className="text-muted-foreground">Username:</span> <span className="font-mono font-medium">{cliente.email}</span></p>
+                <p><span className="text-muted-foreground">Password di default:</span> <span className="font-mono font-medium">Consul123!</span></p>
+                {cliente.user_id && <p className="text-green-600">✓ Account creato</p>}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {dialogMode === "edit" && (
+              <Button variant="destructive" size="sm" onClick={handleDeactivate} disabled={saving} className="mr-auto">
                 Disattiva
               </Button>
-            </div>
-          </div>
-        )}
-
-        {!isActive && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5" disabled={!cliente.email}>
+            )}
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
+            {dialogMode === "activate" ? (
+              <Button onClick={handleActivate} disabled={saving} className="gap-1.5">
                 <Key className="h-3.5 w-3.5" />
-                Attiva Area Riservata
+                {saving ? "Attivazione..." : "Invia e Attiva"}
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Attiva Area Riservata — {clienteName}</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-xs">Tipo di Accesso</Label>
-                  <Select value={tipo} onValueChange={setTipo}>
-                    <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sola_lettura">Sola Lettura (consultazione e messaggi)</SelectItem>
-                      <SelectItem value="completa">Completa (lettura + caricamento documenti)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-xs mb-2 block">Anteprima Email di Attivazione</Label>
-                  <div className="border rounded-lg overflow-hidden bg-white">
-                    <div dangerouslySetInnerHTML={{ __html: emailPreviewHtml }} />
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-                <Button onClick={handleActivate} disabled={saving} className="gap-1.5">
-                  <Key className="h-3.5 w-3.5" />
-                  {saving ? "Attivazione..." : "Invia e Attiva"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {isActive && dialogOpen && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Modifica Tipo Accesso — {clienteName}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-xs">Tipo di Accesso</Label>
-                  <Select value={tipo} onValueChange={setTipo}>
-                    <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sola_lettura">Sola Lettura</SelectItem>
-                      <SelectItem value="completa">Completa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-                <Button onClick={async () => {
-                  setSaving(true);
-                  try {
-                    const { error } = await supabase.from("clienti").update({ area_riservata_tipo: tipo } as any).eq("id", cliente.id);
-                    if (error) throw error;
-                    toast.success("Tipo accesso aggiornato");
-                    setDialogOpen(false);
-                    onUpdate();
-                  } catch (err: any) { toast.error(err.message); }
-                  setSaving(false);
-                }} disabled={saving || tipo === currentTipo}>
-                  Aggiorna
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-      </CardContent>
-    </Card>
+            ) : (
+              <Button onClick={handleUpdateTipo} disabled={saving || tipo === currentTipo}>
+                {saving ? "Salvataggio..." : "Aggiorna"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
