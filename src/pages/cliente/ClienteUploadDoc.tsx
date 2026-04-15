@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, CheckCircle } from "lucide-react";
+import { Upload, CheckCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 const ClienteUploadDoc = () => {
@@ -12,16 +12,36 @@ const ClienteUploadDoc = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(null);
+  const [areaType, setAreaType] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from("clienti")
-      .select("id")
+      .select("id, area_riservata_tipo")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => setClienteId(data?.id ?? null));
+      .then(({ data }) => {
+        setClienteId(data?.id ?? null);
+        setAreaType((data as any)?.area_riservata_tipo ?? null);
+      });
   }, [user]);
+
+  if (areaType && areaType !== "completa") {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <ShieldAlert className="h-5 w-5 text-destructive" /> Accesso non disponibile
+        </h1>
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Il caricamento documenti non è abilitato per il tuo account.<br />
+            Contatta la tua agenzia per maggiori informazioni.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleUpload = async () => {
     if (!file || !clienteId || !user) return;

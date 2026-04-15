@@ -575,6 +575,88 @@ function TrattativeClienteSection({ clienteId }: { clienteId: string }) {
   );
 }
 
+/* ── Area Riservata Card ── */
+function AreaRiservataCard({ cliente, onUpdate }: { cliente: any; onUpdate: () => void }) {
+  const [tipo, setTipo] = useState<string>((cliente as any).area_riservata_tipo || "nessuna");
+  const [saving, setSaving] = useState(false);
+
+  const currentTipo = (cliente as any).area_riservata_tipo || "nessuna";
+
+  const handleActivate = async () => {
+    setSaving(true);
+    try {
+      // If no user_id yet, provision the user first
+      if (!cliente.user_id && tipo !== "nessuna") {
+        if (!cliente.email) {
+          toast.error("Email mancante — impossibile creare l'account");
+          setSaving(false);
+          return;
+        }
+        const { error } = await supabase.functions.invoke("create-cliente-user", {
+          body: { cliente_id: cliente.id },
+        });
+        if (error) throw error;
+      }
+
+      // Update area_riservata_tipo
+      const { error: updErr } = await supabase
+        .from("clienti")
+        .update({ area_riservata_tipo: tipo } as any)
+        .eq("id", cliente.id);
+      if (updErr) throw updErr;
+
+      toast.success(tipo === "nessuna" ? "Area riservata disattivata" : "Area riservata aggiornata");
+      onUpdate();
+    } catch (err: any) {
+      toast.error("Errore: " + err.message);
+    }
+    setSaving(false);
+  };
+
+  const badgeColor = currentTipo === "completa" ? "border-green-500 text-green-600" : currentTipo === "sola_lettura" ? "border-orange-500 text-orange-600" : "border-muted text-muted-foreground";
+  const badgeLabel = currentTipo === "completa" ? "Completo" : currentTipo === "sola_lettura" ? "Sola Lettura" : "Non attivo";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Globe className="h-4 w-4 text-primary" /> Area Riservata Cliente
+          <Badge variant="outline" className={badgeColor}>{badgeLabel}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div>
+            <Label className="text-xs">Tipo Area Riservata</Label>
+            <Select value={tipo} onValueChange={setTipo}>
+              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nessuna">Nessuna</SelectItem>
+                <SelectItem value="sola_lettura">Sola Lettura</SelectItem>
+                <SelectItem value="completa">Completa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button size="sm" onClick={handleActivate} disabled={saving || tipo === currentTipo} className="gap-1.5">
+            <Key className="h-3.5 w-3.5" />
+            {!cliente.user_id && tipo !== "nessuna" ? "Attiva Account" : "Aggiorna"}
+          </Button>
+        </div>
+        {cliente.email && (
+          <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
+            <p><span className="text-muted-foreground">Username:</span> <span className="font-mono font-medium">{cliente.email}</span></p>
+            <p><span className="text-muted-foreground">Password di default:</span> <span className="font-mono font-medium">Consul123!</span></p>
+            {cliente.user_id && <p className="text-green-600">✓ Account creato</p>}
+          </div>
+        )}
+        {!cliente.email && (
+          <p className="text-xs text-destructive">⚠ Inserire l'email del cliente prima di attivare l'area riservata.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 export default function ClienteDetail() {
   const { id } = useParams();
