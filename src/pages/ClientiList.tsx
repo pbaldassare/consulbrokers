@@ -1129,6 +1129,7 @@ const ClientiList = () => {
                         )}
                       </TableCell>
                       <TableCell>
+                        <Badge variant={c.attivo ? "default" : "secondary"}>
                           {c.attivo ? "Attivo" : "Disattivo"}
                         </Badge>
                       </TableCell>
