@@ -18,6 +18,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
 import ChatTab from "@/components/ChatTab";
@@ -831,6 +832,28 @@ export default function ClienteDetail() {
     </div>
   );
 
+  const FieldAddress = ({ label, field, capField, cittaField, provinciaField }: { label: string; field: string; capField: string; cittaField: string; provinciaField: string }) => (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{ef[field] || "—"}</p>
+      ) : (
+        <AddressAutocomplete
+          value={ef[field] || ""}
+          onChange={(v) => updateField(field, v)}
+          onSelect={(components: AddressComponents) => {
+            updateField(field, components.indirizzo);
+            updateField(capField, components.cap);
+            updateField(cittaField, components.citta);
+            updateField(provinciaField, components.provincia);
+          }}
+          placeholder="Cerca indirizzo..."
+          className="h-8 text-xs"
+        />
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -997,25 +1020,34 @@ export default function ClienteDetail() {
                     <FieldInput label="Codice Fiscale" field="codice_fiscale" />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
                     <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
-                    <FieldInput label="Indirizzo Residenza" field="indirizzo_residenza" />
-                    <FieldDisplay label="Città" value={`${cliente.citta_residenza || ""} ${cliente.provincia_residenza ? `(${cliente.provincia_residenza})` : ""}`} />
-                    <FieldDisplay label="CAP" value={cliente.cap_residenza} />
+                    <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" />
+                    <FieldInput label="Città" field="citta_residenza" />
+                    <FieldInput label="Provincia" field="provincia_residenza" />
+                    <FieldInput label="CAP" field="cap_residenza" />
                   </>
                 ) : (
                   <>
                     <FieldInput label="Partita IVA" field="partita_iva" />
                     <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
-                    <FieldDisplay label="Codice SDI" value={cliente.codice_sdi} />
-                    <FieldDisplay label="Forma Giuridica" value={cliente.forma_giuridica?.toUpperCase()} />
-                    <FieldInput label="Sede" field="indirizzo_sede" />
-                    <FieldDisplay label="Città" value={`${cliente.citta_sede || ""} ${cliente.provincia_sede ? `(${cliente.provincia_sede})` : ""}`} />
+                    <FieldInput label="Codice SDI" field="codice_sdi" />
+                    <FieldSelect label="Forma Giuridica" field="forma_giuridica" options={[
+                      { value: "srl", label: "S.R.L." }, { value: "spa", label: "S.P.A." }, { value: "sas", label: "S.A.S." },
+                      { value: "snc", label: "S.N.C." }, { value: "ditta_individuale", label: "Ditta Individuale" },
+                      { value: "cooperativa", label: "Cooperativa" }, { value: "associazione", label: "Associazione" },
+                      { value: "ente_pubblico", label: "Ente Pubblico" }, { value: "fondazione", label: "Fondazione" },
+                      { value: "consorzio", label: "Consorzio" }, { value: "altro", label: "Altro" },
+                    ]} />
+                    <FieldAddress label="Sede" field="indirizzo_sede" capField="cap_sede" cittaField="citta_sede" provinciaField="provincia_sede" />
+                    <FieldInput label="Città Sede" field="citta_sede" />
+                    <FieldInput label="Provincia Sede" field="provincia_sede" />
+                    <FieldInput label="CAP Sede" field="cap_sede" />
                   </>
                 )}
-                <FieldDisplay label="Email" value={cliente.email} />
-                <FieldDisplay label="Telefono" value={cliente.telefono} />
+                <FieldInput label="Email" field="email" />
+                <FieldInput label="Telefono" field="telefono" />
                 <FieldInput label="Cellulare" field="cellulare" />
                 <FieldInput label="Fax" field="fax" />
-                <FieldDisplay label="PEC" value={cliente.pec} />
+                <FieldInput label="PEC" field="pec" />
                 <FieldInput label="Nazione" field="nazione" />
                 <FieldInput label="Attenzione di" field="attenzione_di" />
               </div>
@@ -1038,7 +1070,7 @@ export default function ClienteDetail() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Alternativo</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <FieldInput label="Indirizzo" field="indirizzo_alternativo" />
+                  <FieldAddress label="Indirizzo" field="indirizzo_alternativo" capField="cap_alternativo" cittaField="citta_alternativa" provinciaField="provincia_alternativa" />
                   <FieldInput label="CAP" field="cap_alternativo" />
                   <FieldInput label="Città" field="citta_alternativa" />
                   <FieldInput label="Provincia" field="provincia_alternativa" />
@@ -1047,7 +1079,7 @@ export default function ClienteDetail() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Fiscale</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <FieldInput label="Indirizzo" field="indirizzo_fiscale" />
+                  <FieldAddress label="Indirizzo" field="indirizzo_fiscale" capField="cap_fiscale" cittaField="citta_fiscale" provinciaField="provincia_fiscale" />
                   <FieldInput label="CAP" field="cap_fiscale" />
                   <FieldInput label="Città" field="citta_fiscale" />
                   <FieldInput label="Provincia" field="provincia_fiscale" />
