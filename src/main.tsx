@@ -3,7 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 
 // Build-time version stamp — changes on every deploy
-const APP_VERSION = __APP_VERSION__;
+const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? "unknown";
 
 // Force reload when a new version is deployed
 const prevVersion = localStorage.getItem("app_version");
