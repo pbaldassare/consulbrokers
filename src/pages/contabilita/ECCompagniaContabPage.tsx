@@ -162,12 +162,14 @@ const ECCompagniaContabPage = () => {
   const rows = data || [];
   const totLordo = rows.reduce((s, r) => s + r.lordo, 0);
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
+  const totRimesso = rows.reduce((s, r) => s + r.gia_rimesso, 0);
+  const totDaRimettere = totLordo - totProvv - totRimesso;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
   const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al;
 
   const exportCSV = () => {
-    const header = "Compagnia,Codice,Località,Mail,Lordo,Provvigioni\n";
-    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${r.comune}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)}`).join("\n");
+    const header = "Compagnia,Codice,Località,Mail,Lordo,Provvigioni,Già Rimesso,Da Rimettere\n";
+    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${r.comune}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${r.gia_rimesso.toFixed(2)},${(r.lordo - r.provvigioni - r.gia_rimesso).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_compagnia.csv"; a.click();
@@ -178,7 +180,8 @@ const ECCompagniaContabPage = () => {
     { label: "N. Compagnie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
-    { label: "Saldo", value: fmt(totLordo - totProvv), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
+    { label: "Già Rimesso", value: fmt(totRimesso), icon: Send, color: "text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400" },
+    { label: "Da Rimettere", value: fmt(totDaRimettere), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
   ];
 
   return (
