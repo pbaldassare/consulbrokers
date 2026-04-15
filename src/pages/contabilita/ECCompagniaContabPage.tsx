@@ -230,24 +230,32 @@ const ECCompagniaContabPage = () => {
           <div className="border rounded-lg">
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Località</TableHead><TableHead>Mail</TableHead>
+                <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Località</TableHead>
                 <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
+                <TableHead className="text-right">Già Rimesso</TableHead><TableHead className="text-right">Da Rimettere</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
                 ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-                ) : rows.map((r) => (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun dato — conferma la Messa a Cassa per vedere i dati</TableCell></TableRow>
+                ) : rows.map((r) => {
+                  const daRimettere = r.lordo - r.provvigioni - r.gia_rimesso;
+                  return (
                   <TableRow key={r.compagnia_id}>
                     <TableCell className="font-medium">{r.nome}</TableCell><TableCell>{r.codice}</TableCell><TableCell>{r.comune}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.mail}</TableCell><TableCell className="text-right">{fmt(r.lordo)}</TableCell><TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
+                    <TableCell className="text-right">{fmt(r.lordo)}</TableCell><TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
+                    <TableCell className="text-right text-purple-600 dark:text-purple-400">{fmt(r.gia_rimesso)}</TableCell>
+                    <TableCell className="text-right font-semibold text-teal-600 dark:text-teal-400">{fmt(daRimettere)}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
               {rows.length > 0 && <TableFooter><TableRow>
-                <TableCell colSpan={4} className="font-bold">Totale</TableCell>
+                <TableCell colSpan={3} className="font-bold">Totale</TableCell>
                 <TableCell className="text-right font-bold">{fmt(totLordo)}</TableCell><TableCell className="text-right font-bold">{fmt(totProvv)}</TableCell>
+                <TableCell className="text-right font-bold text-purple-600 dark:text-purple-400">{fmt(totRimesso)}</TableCell>
+                <TableCell className="text-right font-bold text-teal-600 dark:text-teal-400">{fmt(totDaRimettere)}</TableCell>
               </TableRow></TableFooter>}
             </Table>
           </div>
