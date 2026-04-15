@@ -64,7 +64,12 @@ const TitoloDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  // --- Annulla Incasso dialog state ---
+  const [annullaDialogOpen, setAnnullaDialogOpen] = useState(false);
+  const [annullaPassword, setAnnullaPassword] = useState("");
+  const [annullaLoading, setAnnullaLoading] = useState(false);
 
   const { data: titolo, isLoading } = useQuery({
     queryKey: ["titolo", id],
@@ -456,8 +461,8 @@ const TitoloDetail = () => {
                 <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
               </Button>
             )}
-            {t.stato === "incassato" && (
-              <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => changeStatoMutation.mutate("attivo")} disabled={changeStatoMutation.isPending}>
+            {t.stato === "incassato" && isAdmin && (
+              <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
                 <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
               </Button>
             )}
