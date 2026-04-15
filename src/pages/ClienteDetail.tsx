@@ -1067,7 +1067,6 @@ export default function ClienteDetail() {
         <Badge variant={cliente.attivo ? "default" : "secondary"}>
           {cliente.attivo ? "Attivo" : "Disattivo"}
         </Badge>
-        <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
         {editMode ? (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
