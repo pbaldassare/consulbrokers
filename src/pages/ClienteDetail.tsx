@@ -832,6 +832,28 @@ export default function ClienteDetail() {
     </div>
   );
 
+  const FieldAddress = ({ label, field, capField, cittaField, provinciaField }: { label: string; field: string; capField: string; cittaField: string; provinciaField: string }) => (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{ef[field] || "—"}</p>
+      ) : (
+        <AddressAutocomplete
+          value={ef[field] || ""}
+          onChange={(v) => updateField(field, v)}
+          onSelect={(components: AddressComponents) => {
+            updateField(field, components.indirizzo);
+            updateField(capField, components.cap);
+            updateField(cittaField, components.citta);
+            updateField(provinciaField, components.provincia);
+          }}
+          placeholder="Cerca indirizzo..."
+          className="h-8 text-xs"
+        />
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
