@@ -8,10 +8,11 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer,
 } from "recharts";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 // ── Shared Components ──
 
@@ -25,10 +26,13 @@ const variantMap: Record<Variant, { bg: string; border: string; icon: string }> 
   teal: { bg: "bg-kpi-teal-bg", border: "border-kpi-teal-border", icon: "text-kpi-teal-text" },
 };
 
-const SummaryCard = ({ label, value, sub, icon: Icon, variant, loading }: {
-  label: string; value: string; sub: string; icon: React.ElementType; variant: Variant; loading?: boolean;
+const SummaryCard = ({ label, value, sub, icon: Icon, variant, loading, onClick }: {
+  label: string; value: string; sub: string; icon: React.ElementType; variant: Variant; loading?: boolean; onClick?: () => void;
 }) => (
-  <div className="bg-card rounded-lg border border-border p-5 flex items-start justify-between">
+  <div
+    className={`bg-card rounded-lg border border-border p-5 flex items-start justify-between ${onClick ? "cursor-pointer hover:border-primary/50 hover:shadow-md transition-all" : ""}`}
+    onClick={onClick}
+  >
     <div>
       <p className="text-sm text-muted-foreground mb-1">{label}</p>
       {loading ? <Skeleton className="h-8 w-20" /> : <p className="text-2xl font-bold text-foreground">{value}</p>}
@@ -40,10 +44,13 @@ const SummaryCard = ({ label, value, sub, icon: Icon, variant, loading }: {
   </div>
 );
 
-const KpiCard = ({ label, value, sub, variant, icon: Icon, loading }: {
-  label: string; value: string; sub: string; variant: Variant; icon: React.ElementType; loading?: boolean;
+const KpiCard = ({ label, value, sub, variant, icon: Icon, loading, onClick }: {
+  label: string; value: string; sub: string; variant: Variant; icon: React.ElementType; loading?: boolean; onClick?: () => void;
 }) => (
-  <div className={`rounded-lg border p-5 ${variantMap[variant].bg} ${variantMap[variant].border}`}>
+  <div
+    className={`rounded-lg border p-5 ${variantMap[variant].bg} ${variantMap[variant].border} ${onClick ? "cursor-pointer hover:shadow-md transition-all" : ""}`}
+    onClick={onClick}
+  >
     <div className="flex items-center gap-2 mb-2">
       <Icon className={`w-4 h-4 ${variantMap[variant].icon}`} />
       <span className={`text-sm font-medium ${variantMap[variant].icon}`}>{label}</span>
@@ -107,45 +114,6 @@ const BarChartCard = ({ title, data, dataKey, loading }: { title: string; data: 
   </div>
 );
 
-const ActivityList = ({ title, items, loading }: {
-  title: string;
-  items: { id: string; azione: string; utente: string; data: string; entita_tipo: string }[];
-  loading?: boolean;
-}) => (
-  <div className="bg-card rounded-lg border border-border p-5">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Activity className="w-4 h-4 text-muted-foreground" />
-        <h3 className="font-semibold text-foreground">{title}</h3>
-      </div>
-    </div>
-    {loading ? (
-      <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-    ) : items.length === 0 ? (
-      <div className="text-muted-foreground text-sm py-8 text-center">Nessun dato disponibile</div>
-    ) : (
-      <div className="space-y-2">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Activity className="w-3.5 h-3.5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">{item.azione}</p>
-                <p className="text-xs text-muted-foreground">{item.utente} • {item.entita_tipo}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {item.data ? format(new Date(item.data), "dd MMM HH:mm", { locale: it }) : ""}
-            </span>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
-
 const PlaceholderChart = ({ title, icon: Icon }: { title: string; icon: React.ElementType }) => (
   <div className="bg-card rounded-lg border border-border p-5">
     <div className="flex items-center gap-2 mb-3">
@@ -175,21 +143,56 @@ const PlaceholderList = ({ title, icon: Icon }: { title: string; icon: React.Ele
 
 const AdminDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<typeof useDashboardData>["admin"] }) => {
   const d = data;
+  const navigate = useNavigate();
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} />
-        <SummaryCard label="Rinnovi di Oggi" value={String(d?.rinnoviOggiCount ?? 0)} sub={fmt(d?.rinnoviOggiImporto ?? 0)} icon={Calendar} variant="green" loading={loading} />
-        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} />
-        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} />
+        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/rinnovi")} />
+        <SummaryCard label="Rinnovi di Oggi" value={String(d?.rinnoviOggiCount ?? 0)} sub={fmt(d?.rinnoviOggiImporto ?? 0)} icon={Calendar} variant="green" loading={loading} onClick={() => navigate("/portafoglio/rinnovi")} />
+        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Polizze Attive" value={String(d?.polizzeAttive ?? 0)} sub="In portafoglio" variant="blue" icon={FileText} loading={loading} />
-        <KpiCard label="Portafoglio Totale" value={fmt(d?.portafoglioTotale ?? 0)} sub="Premio lordo attivo" variant="green" icon={TrendingUp} loading={loading} />
-        <KpiCard label="Raccolta Premi Anno" value={fmt(d?.raccoltaPremiAnno ?? 0)} sub="Incassato anno corrente" variant="teal" icon={BarChart3} loading={loading} />
-        <KpiCard label="Nuovi Clienti Mese" value={String(d?.nuoviClientiMese ?? 0)} sub="Questo mese" variant="yellow" icon={Users} loading={loading} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <KpiCard label="Raccolta Premi Anno" value={fmt(d?.raccoltaPremiAnno ?? 0)} sub="Incassato anno corrente" variant="teal" icon={BarChart3} loading={loading} onClick={() => navigate("/provvigioni-maturate")} />
+        <KpiCard label="Nuovi Clienti Mese" value={String(d?.nuoviClientiMese ?? 0)} sub="Questo mese" variant="yellow" icon={Users} loading={loading} onClick={() => navigate("/clienti")} />
       </div>
-      <ActivityList title="Attività Recenti" items={d?.attivitaRecenti ?? []} loading={loading} />
+      {/* Chat Non Risposte */}
+      <div className="bg-card rounded-lg border border-border p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="w-4 h-4 text-muted-foreground" />
+          <h3 className="font-semibold text-foreground">Chat Non Risposte</h3>
+        </div>
+        {loading ? (
+          <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : (d?.chatNonRisposte ?? []).length === 0 ? (
+          <div className="text-muted-foreground text-sm py-8 text-center">Nessuna chat in attesa di risposta</div>
+        ) : (
+          <div className="space-y-2">
+            {(d?.chatNonRisposte ?? []).map((chat) => (
+              <div
+                key={chat.canaleId}
+                className="flex items-center justify-between py-2 border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2 transition-colors"
+                onClick={() => navigate("/chat")}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{chat.canaleNome}</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[300px]">
+                      {chat.mittente}: {chat.testo}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
+                  {chat.data ? format(new Date(chat.data), "dd MMM HH:mm", { locale: it }) : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </>
   );
 };
