@@ -1094,6 +1094,7 @@ const ClientiList = () => {
                   <TableHead>Telefono</TableHead>
                    <TableHead>Città</TableHead>
                    <TableHead className="text-center">Polizze</TableHead>
+                   <TableHead>Portale</TableHead>
                    <TableHead>Stato</TableHead>
                   <TableHead>Attivo</TableHead>
                 </TableRow>
@@ -1121,6 +1122,13 @@ const ClientiList = () => {
                         )}
                       </TableCell>
                       <TableCell>
+                        {(c as any).area_riservata_tipo && (c as any).area_riservata_tipo !== "nessuna" ? (
+                          <Badge variant="outline" className="border-green-500 text-green-600 text-xs">Attivo</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={c.attivo ? "default" : "secondary"}>
                           {c.attivo ? "Attivo" : "Disattivo"}
                         </Badge>
@@ -1137,7 +1145,7 @@ const ClientiList = () => {
                 })}
                 {clienti.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground">
                       Nessun cliente trovato
                     </TableCell>
                   </TableRow>

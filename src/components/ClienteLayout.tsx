@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, CreditCard, Upload, LogOut, Menu, X, AlertTriangle, User, Building,
@@ -8,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const allNavItems = [
   { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/cliente/polizze", label: "Polizze", icon: Shield },
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
@@ -17,15 +18,32 @@ const navItems = [
   { to: "/cliente/chat", label: "Chat", icon: MessageSquare },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
-  { to: "/cliente/upload", label: "Carica Doc", icon: Upload },
+  { to: "/cliente/upload", label: "Carica Doc", icon: Upload, requiresCompleta: true },
   { to: "/cliente/anagrafica", label: "I Miei Dati", icon: User },
   { to: "/cliente/ufficio", label: "Il Mio Ufficio", icon: Building },
 ];
 
 const ClienteLayout = () => {
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [areaType, setAreaType] = useState<string>("completa");
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("clienti")
+      .select("area_riservata_tipo")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setAreaType((data as any)?.area_riservata_tipo || "nessuna");
+      });
+  }, [user]);
+
+  const navItems = allNavItems.filter(
+    (item) => !(item as any).requiresCompleta || areaType === "completa"
+  );
 
   const handleLogout = async () => {
     await signOut();

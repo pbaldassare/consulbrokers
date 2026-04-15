@@ -883,6 +883,7 @@ export type Database = {
       }
       clienti: {
         Row: {
+          area_riservata_tipo: string
           attenzione_di: string | null
           attivita: string | null
           attivo: boolean | null
@@ -964,6 +965,7 @@ export type Database = {
           zona: string | null
         }
         Insert: {
+          area_riservata_tipo?: string
           attenzione_di?: string | null
           attivita?: string | null
           attivo?: boolean | null
@@ -1045,6 +1047,7 @@ export type Database = {
           zona?: string | null
         }
         Update: {
+          area_riservata_tipo?: string
           attenzione_di?: string | null
           attivita?: string | null
           attivo?: boolean | null
