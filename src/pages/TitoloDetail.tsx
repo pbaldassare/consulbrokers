@@ -529,7 +529,48 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* CONTRATTO */}
+      {/* Dialog Conferma Annulla Incasso (solo admin) */}
+      <Dialog open={annullaDialogOpen} onOpenChange={setAnnullaDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Conferma Annullamento Incasso</DialogTitle>
+            <DialogDescription>Verifica la tua identità per procedere.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
+              <p className="text-sm font-medium text-destructive">
+                ⚠️ Operazione riservata agli amministratori. Inserisci la tua password per confermare l'annullamento dell'incasso.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Password</Label>
+              <Input type="password" value={annullaPassword} onChange={(e) => setAnnullaPassword(e.target.value)} placeholder="Inserisci la tua password" className="mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAnnullaDialogOpen(false)}>Annulla</Button>
+            <Button variant="destructive" disabled={!annullaPassword || annullaLoading} onClick={async () => {
+              setAnnullaLoading(true);
+              try {
+                const { error } = await supabase.auth.signInWithPassword({ email: user?.email || "", password: annullaPassword });
+                if (error) {
+                  toast.error("Password non corretta");
+                  return;
+                }
+                changeStatoMutation.mutate("attivo");
+                setAnnullaDialogOpen(false);
+              } catch {
+                toast.error("Errore di verifica");
+              } finally {
+                setAnnullaLoading(false);
+              }
+            }}>
+              Conferma Annullamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <SectionCollapsible title="Contratto" icon={FileText}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
           <FieldRow label="Compagnia" value={
