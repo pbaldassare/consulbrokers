@@ -1,28 +1,43 @@
 
 
-## Piano: Ridisegnare la Dashboard Admin con KPI operativi
+## Piano: Rimodellare la Dashboard Admin — rimuovere attività e KPI inutili, aggiungere chat non lette e click sui quadranti
 
 ### Cosa rimuovere
-- KPI: Utenti Attivi, Sinistri Aperti, Anomalie Critiche
-- Grafici: Distribuzione Polizze per Ramo (pie), Andamento Raccolta Premi (bar)
+- **Attività Recenti** (intero blocco in fondo)
+- **Polizze Attive** e **Portafoglio Totale** dalla riga 2
+- Codice/componenti inutilizzati: `ActivityList`, import Recharts (già non usati), `PlaceholderChart`, `PlaceholderList`
 
-### Cosa mostrare
+### Cosa modificare
 
-**Riga 1 — KPI principali (4 card):**
-- **Rinnovi del Mese**: count titoli con `data_scadenza` nel mese corrente + totale premio lordo (€89.951)
-- **Rinnovi di Oggi**: count titoli con `data_scadenza = oggi` + totale premio lordo (€2.000)
-- **Incassi Ieri**: count titoli con `data_messa_cassa = ieri` + totale premio lordo (€3.421)
-- **Incassi del Mese**: count titoli incassati nel mese + totale premio lordo (€3.421)
+**Riga 2 — ridotta a 2 card:**
+- **Raccolta Premi Anno** → resta, occupa metà riga
+- **Nuovi Clienti Mese** → resta, occupa metà riga
 
-**Riga 2 — Totali (4 card KPI colorate):**
-- **Polizze Attive**: 308 in portafoglio
-- **Portafoglio Totale**: €3.221.273 (somma premio lordo polizze attive)
-- **Raccolta Premi Anno**: somma premi incassati anno corrente
-- **Nuovi Clienti Mese**: count clienti creati nel mese
+**Nuova sezione — Chat Non Risposte:**
+- Query `chat_messaggi_interni` per trovare gli ultimi messaggi nei canali dell'utente dove l'ultimo messaggio NON è dell'utente corrente (= non ha risposto)
+- Mostrare lista con: nome canale, mittente ultimo messaggio, testo troncato, data/ora
+- Click su una riga → `navigate("/chat")` con il canale selezionato
 
-**Sotto**: Attività Recenti (resta com'è)
+**Click sui quadranti KPI — navigazione:**
+| Card | Destinazione |
+|------|-------------|
+| Rinnovi del Mese | `/portafoglio/rinnovi` |
+| Rinnovi di Oggi | `/portafoglio/rinnovi` |
+| Incassi Ieri | `/portafoglio/carico` |
+| Incassi del Mese | `/portafoglio/carico` |
+| Raccolta Premi Anno | `/provvigioni-maturate` |
+| Nuovi Clienti Mese | `/clienti` |
 
-### File coinvolti
-- **Modifica**: `src/hooks/useDashboardData.ts` — sostituire le query admin con rinnovi/incassi
-- **Modifica**: `src/pages/Dashboard.tsx` — nuove card AdminDashboard, rimuovere grafici
+### Dettagli tecnici
+
+**File: `src/hooks/useDashboardData.ts`**
+- Rimuovere dalla query admin: `polizzeAttive`, `portafoglioTotale`, `attivitaRecenti` e relative fetch
+- Aggiungere query per chat non risposte: fetch canali dell'utente → per ogni canale fetch ultimo messaggio → filtrare dove `mittente_id != user.id`
+- Nuovo campo in `AdminData`: `chatNonRisposte: { canaleId, canaleNome, mittente, testo, data }[]`
+
+**File: `src/pages/Dashboard.tsx`**
+- `SummaryCard` e `KpiCard` ricevono prop `onClick` opzionale → wrappare in `cursor-pointer` + `useNavigate`
+- Riga 2: da 4 a 2 colonne (`lg:grid-cols-2`)
+- Sostituire `ActivityList` con nuovo componente `ChatNonRisposte` — lista con icona chat, nome canale, ultimo messaggio troncato, click → navigate a `/chat`
+- Rimuovere componenti orfani (`PieChartCard`, `BarChartCard`, `PlaceholderChart`, `PlaceholderList`, import Recharts)
 
