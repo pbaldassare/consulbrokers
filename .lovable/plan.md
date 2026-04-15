@@ -1,50 +1,57 @@
 
 
-## Piano: Area Riservata Cliente con livelli di accesso e attivazione manuale
+## Piano: Pulsante "Attiva Area Riservata" con anteprima email e scelta tipo accesso
 
 ### Cosa cambia
 
-1. **Nuova colonna `area_riservata_tipo` su `clienti`** — enum con valori: `nessuna` (default), `sola_lettura`, `completa`. Traccia se il cliente ha il portale attivo e di che tipo.
+**1. Ristrutturazione del flusso di attivazione (`AreaRiservataCard` in `ClienteDetail.tsx`)**
 
-2. **Pulsante "Attiva Area Riservata" nel tab Anagrafica di ClienteDetail** — accanto ai dati del cliente, una card dedicata "Area Riservata" con:
-   - Badge stato attuale (Nessuna / Sola Lettura / Completa)
-   - Select per scegliere il tipo: Nessuna, Sola Lettura, Completa
-   - Pulsante "Attiva / Aggiorna" che:
-     - Se `user_id` mancante: chiama `create-cliente-user` per creare l'utente (email = username, password = Consul123!)
-     - Salva il `area_riservata_tipo` scelto su `clienti`
-   - Info: "Username: [email], Password di default: Consul123!"
+Il pulsante attuale viene rinominato **"Attiva Area Riservata"** e il flusso diventa:
+- Click → si apre un **Dialog** con:
+  - **Anteprima email** di attivazione (template HTML di default, personalizzabile in futuro)
+  - **Select** tipo accesso: Sola Lettura (default) / Completa
+  - **Pulsante "Invia e Attiva"**
+- L'email mostra: logo CBnet, messaggio di benvenuto, credenziali (email + password Consul123!), link al portale
+- La conferma: crea l'utente (se non esiste), salva il tipo, e invia l'email
 
-3. **Aggiornamento Edge Function `create-cliente-user`** — password cambiata da `Leone123!` a `Consul123!`
+**2. Configurazione dominio email**
 
-4. **Portale Cliente (`ClienteLayout`) — controllo accesso per tipo**:
-   - Se `area_riservata_tipo = 'sola_lettura'`: nascondere "Carica Doc" dalla sidebar; la pagina `/cliente/upload` mostra messaggio "Non autorizzato"
-   - Se `area_riservata_tipo = 'completa'`: tutto visibile (upload + chat attiva)
-   - Se `area_riservata_tipo = 'nessuna'`: il `ClienteGuard` blocca l'accesso
+Per inviare email serve un dominio configurato. Verrà mostrato il dialog di setup email domain per configurarlo. Dopo la configurazione:
+- Scaffold dei template email transazionali per l'invio dell'email di attivazione
+- Edge function dedicata per l'invio dell'email di attivazione area riservata
 
-5. **Badge "Portale" nella lista clienti (`ClientiList`)** — nuova colonna "Portale" nella tabella con badge colorato:
-   - Verde "Attivo" se `area_riservata_tipo` != `nessuna`
-   - Grigio "—" se `nessuna`
+**3. Template email di default**
 
-6. **Badge nel header di ClienteDetail** — accanto al badge Attivo/Disattivo, mostrare badge portale (es. "Portale: Sola Lettura" arancione, "Portale: Completo" verde)
+Email di attivazione con:
+- Header con logo CBnet
+- Testo: "La tua area riservata è stata attivata"
+- Credenziali: email + password di default
+- Link al portale cliente
+- Footer con dati agenzia
 
-### Dettaglio tecnico
+**4. Edge Function `send-activation-email`**
 
-**Migrazione DB:**
-```sql
-ALTER TABLE clienti ADD COLUMN area_riservata_tipo text NOT NULL DEFAULT 'nessuna';
--- Per i clienti che hanno già user_id, impostare 'sola_lettura'
-UPDATE clienti SET area_riservata_tipo = 'sola_lettura' WHERE user_id IS NOT NULL;
-```
+Nuova edge function che:
+- Riceve `cliente_id`, `tipo_accesso`, `email`, `nome`
+- Compone l'HTML dell'email con le credenziali
+- Invia tramite l'infrastruttura email di Lovable
 
-**File coinvolti:**
-- **Migrazione SQL**: aggiungere colonna `area_riservata_tipo`
-- **`supabase/functions/create-cliente-user/index.ts`**: password → `Consul123!`
-- **`src/pages/ClienteDetail.tsx`**: card "Area Riservata" nel tab anagrafica con pulsante attivazione e select tipo
-- **`src/pages/ClientiList.tsx`**: colonna + badge "Portale"
-- **`src/components/ClienteLayout.tsx`**: filtrare `navItems` in base al tipo area riservata (query su `clienti.area_riservata_tipo`)
-- **`src/components/ClienteGuard.tsx`**: verificare che `area_riservata_tipo != 'nessuna'` oltre al ruolo cliente
-- **`src/pages/cliente/ClienteUploadDoc.tsx`**: check accesso completo
+### Step di implementazione
 
-### Invio email di attivazione
-Per ora il pulsante crea l'utente e mostra le credenziali. L'invio email di attivazione richiede un dominio email configurato — verrà aggiunto come step successivo se necessario.
+1. **Setup dominio email** — configurare il dominio per l'invio
+2. **Scaffold email transazionale** — template per email di attivazione
+3. **Creare edge function `send-activation-email`** — invio email con credenziali
+4. **Modificare `AreaRiservataCard`** in `ClienteDetail.tsx`:
+   - Rinominare pulsante in "Attiva Area Riservata"
+   - Aggiungere Dialog con anteprima email + select tipo
+   - Default tipo = `sola_lettura`
+   - Al click "Invia e Attiva": crea utente → salva tipo → invia email
+5. **Deploy edge function**
+
+### File coinvolti
+- **Nuovo**: `supabase/functions/send-activation-email/index.ts`
+- **Modifica**: `src/pages/ClienteDetail.tsx` — nuovo Dialog con anteprima email e flusso attivazione
+
+### Prerequisito: dominio email
+Per prima cosa serve configurare un dominio email. Dopo l'approvazione del piano, verrà mostrato il dialog di configurazione.
 
