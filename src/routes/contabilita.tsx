@@ -30,7 +30,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/avvisi-incasso" element={<PlaceholderPage title="Avvisi Incasso" description="Gestione avvisi di incasso" icon={Bell} />} />
     <Route path="/contabilita/cruscotto" element={<CruscottoGiornaliero />} />
     <Route path="/contabilita/distinta-giornaliera" element={<DistintaGiornaliera />} />
-    <Route path="/contabilita/quadratura-premi" element={<QuadraturePremi />} />
+    {/* <Route path="/contabilita/quadratura-premi" element={<QuadraturePremi />} /> */}
     <Route path="/contabilita/chiusura-contabile" element={<ChiusuraContabile />} />
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
