@@ -1,57 +1,26 @@
 
 
-## Piano: Pulsante "Attiva Area Riservata" con anteprima email e scelta tipo accesso
+## Piano: Spostare "Area Riservata" nell'header accanto ai badge
 
 ### Cosa cambia
 
-**1. Ristrutturazione del flusso di attivazione (`AreaRiservataCard` in `ClienteDetail.tsx`)**
+La card `AreaRiservataCard` viene rimossa dal fondo del tab Anagrafica e il suo pulsante/badge viene integrato nell'header del ClienteDetail (riga 1070-1097), accanto al badge "Attivo/Disattivo" e al badge "Portale".
 
-Il pulsante attuale viene rinominato **"Attiva Area Riservata"** e il flusso diventa:
-- Click → si apre un **Dialog** con:
-  - **Anteprima email** di attivazione (template HTML di default, personalizzabile in futuro)
-  - **Select** tipo accesso: Sola Lettura (default) / Completa
-  - **Pulsante "Invia e Attiva"**
-- L'email mostra: logo CBnet, messaggio di benvenuto, credenziali (email + password Consul123!), link al portale
-- La conferma: crea l'utente (se non esiste), salva il tipo, e invia l'email
+### Modifiche in `src/pages/ClienteDetail.tsx`
 
-**2. Configurazione dominio email**
+**1. Header (riga ~1081-1088)** — Aggiungere un pulsante "Attiva Area Riservata" (se `area_riservata_tipo === 'nessuna'` o assente) oppure mostrare il badge portale + un dropdown/pulsante per gestire (modifica tipo / disattiva). Il click apre lo stesso Dialog con anteprima email e select tipo accesso.
 
-Per inviare email serve un dominio configurato. Verrà mostrato il dialog di setup email domain per configurarlo. Dopo la configurazione:
-- Scaffold dei template email transazionali per l'invio dell'email di attivazione
-- Edge function dedicata per l'invio dell'email di attivazione area riservata
+**2. Rimuovere `<AreaRiservataCard>` dal tab Anagrafica** (riga ~1370) — Non serve più in basso.
 
-**3. Template email di default**
+**3. Il Dialog resta identico** — Anteprima email, select tipo, pulsanti Invia e Attiva / Modifica / Disattiva. Viene solo spostato il trigger nell'header.
 
-Email di attivazione con:
-- Header con logo CBnet
-- Testo: "La tua area riservata è stata attivata"
-- Credenziali: email + password di default
-- Link al portale cliente
-- Footer con dati agenzia
+### Layout header risultante
 
-**4. Edge Function `send-activation-email`**
+```text
+[← ] Nome Cliente                    [Attivo] [Portale: Sola Lettura] [Attiva Area Riservata] [Modifica]
+      Cliente Privato / Azienda
+```
 
-Nuova edge function che:
-- Riceve `cliente_id`, `tipo_accesso`, `email`, `nome`
-- Compone l'HTML dell'email con le credenziali
-- Invia tramite l'infrastruttura email di Lovable
-
-### Step di implementazione
-
-1. **Setup dominio email** — configurare il dominio per l'invio
-2. **Scaffold email transazionale** — template per email di attivazione
-3. **Creare edge function `send-activation-email`** — invio email con credenziali
-4. **Modificare `AreaRiservataCard`** in `ClienteDetail.tsx`:
-   - Rinominare pulsante in "Attiva Area Riservata"
-   - Aggiungere Dialog con anteprima email + select tipo
-   - Default tipo = `sola_lettura`
-   - Al click "Invia e Attiva": crea utente → salva tipo → invia email
-5. **Deploy edge function**
-
-### File coinvolti
-- **Nuovo**: `supabase/functions/send-activation-email/index.ts`
-- **Modifica**: `src/pages/ClienteDetail.tsx` — nuovo Dialog con anteprima email e flusso attivazione
-
-### Prerequisito: dominio email
-Per prima cosa serve configurare un dominio email. Dopo l'approvazione del piano, verrà mostrato il dialog di configurazione.
+- Se portale non attivo: pulsante "Attiva Area Riservata" (verde, con icona Globe)
+- Se portale attivo: badge portale + pulsante piccolo "Gestisci Portale" che apre il dialog per modificare tipo o disattivare
 
