@@ -580,7 +580,6 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
   const [tipo, setTipo] = useState<string>("sola_lettura");
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"activate" | "edit">("activate");
   const [emailText, setEmailText] = useState("");
 
   const currentTipo = (cliente as any).area_riservata_tipo || "nessuna";
@@ -604,25 +603,16 @@ Si consiglia di cambiare la password al primo accesso.
 Cordiali saluti,
 Consulbrokers S.r.l.`;
 
-  const openActivateDialog = () => {
-    setTipo("sola_lettura");
-    setEmailText(buildDefaultEmail("sola_lettura"));
-    setDialogMode("activate");
+  const openDialog = () => {
+    const t = isActive ? currentTipo : "sola_lettura";
+    setTipo(t);
+    setEmailText(buildDefaultEmail(t));
     setDialogOpen(true);
   };
 
-  const openEditDialog = () => {
-    setTipo(currentTipo);
-    setDialogMode("edit");
-    setDialogOpen(true);
-  };
-
-  // Update email text when tipo changes during activation
   const handleTipoChange = (newTipo: string) => {
     setTipo(newTipo);
-    if (dialogMode === "activate") {
-      setEmailText(buildDefaultEmail(newTipo));
-    }
+    setEmailText(buildDefaultEmail(newTipo));
   };
 
   const handleActivate = async () => {
@@ -651,7 +641,7 @@ Consulbrokers S.r.l.`;
           body: {
             templateName: "client-portal-activation",
             recipientEmail: cliente.email,
-            idempotencyKey: `portal-activation-${cliente.id}`,
+            idempotencyKey: `portal-activation-${cliente.id}-${Date.now()}`,
             templateData: { name: clienteName, email: cliente.email, portalUrl, tipo, customText: emailText },
           },
         });
@@ -659,7 +649,7 @@ Consulbrokers S.r.l.`;
         // Email sending not configured yet
       }
 
-      toast.success("Area riservata attivata con successo");
+      toast.success(isActive ? "Area riservata aggiornata" : "Area riservata attivata con successo");
       setDialogOpen(false);
       onUpdate();
     } catch (err: any) {
@@ -685,32 +675,22 @@ Consulbrokers S.r.l.`;
     setSaving(false);
   };
 
-  const handleUpdateTipo = async () => {
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("clienti").update({ area_riservata_tipo: tipo } as any).eq("id", cliente.id);
-      if (error) throw error;
-      toast.success("Tipo accesso aggiornato");
-      setDialogOpen(false);
-      onUpdate();
-    } catch (err: any) { toast.error(err.message); }
-    setSaving(false);
-  };
-
   return (
     <>
       {isActive ? (
-        <div className="flex items-center gap-1.5 ml-2">
-          <Badge variant="outline" className={currentTipo === "completa" ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
-            <Globe className="h-3 w-3 mr-1" />
-            {currentTipo === "completa" ? "Portale Attivo" : "Portale Sola Lettura"}
-          </Badge>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={openEditDialog}>
-            Gestisci
-          </Button>
-        </div>
+        <Badge
+          variant="outline"
+          className={cn(
+            "cursor-pointer ml-2 gap-1",
+            currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"
+          )}
+          onClick={openDialog}
+        >
+          <Globe className="h-3 w-3" />
+          {currentTipo === "completa" ? "Area Riservata Attiva" : "Area Riservata (Sola Lettura)"}
+        </Badge>
       ) : (
-        <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8 ml-2" disabled={!cliente.email} onClick={openActivateDialog}>
+        <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8 ml-2" disabled={!cliente.email} onClick={openDialog}>
           <Globe className="h-3.5 w-3.5" />
           Attiva Area Riservata
         </Button>
@@ -719,7 +699,9 @@ Consulbrokers S.r.l.`;
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{dialogMode === "activate" ? "Attiva Area Riservata" : "Gestisci Area Riservata"} — {clienteName}</DialogTitle>
+            <DialogTitle>
+              {isActive ? "Gestione" : "Attivazione"} Area Riservata — {clienteName}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -734,43 +716,27 @@ Consulbrokers S.r.l.`;
               </Select>
             </div>
 
-            {dialogMode === "activate" && (
-              <div>
-                <Label className="text-xs mb-2 block">Email di Attivazione (personalizzabile)</Label>
-                <Textarea
-                  value={emailText}
-                  onChange={(e) => setEmailText(e.target.value)}
-                  className="min-h-[250px] font-mono text-xs"
-                />
-              </div>
-            )}
-
-            {dialogMode === "edit" && isActive && (
-              <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
-                <p><span className="text-muted-foreground">Username:</span> <span className="font-mono font-medium">{cliente.email}</span></p>
-                <p><span className="text-muted-foreground">Password di default:</span> <span className="font-mono font-medium">Consul123!</span></p>
-                {cliente.user_id && <p className="text-green-600">✓ Account creato</p>}
-              </div>
-            )}
+            <div>
+              <Label className="text-xs mb-2 block">Email di Attivazione (personalizzabile)</Label>
+              <Textarea
+                value={emailText}
+                onChange={(e) => setEmailText(e.target.value)}
+                className="min-h-[250px] font-mono text-xs"
+              />
+            </div>
           </div>
 
           <DialogFooter>
-            {dialogMode === "edit" && (
+            {isActive && (
               <Button variant="destructive" size="sm" onClick={handleDeactivate} disabled={saving} className="mr-auto">
                 Disattiva
               </Button>
             )}
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            {dialogMode === "activate" ? (
-              <Button onClick={handleActivate} disabled={saving} className="gap-1.5">
-                <Key className="h-3.5 w-3.5" />
-                {saving ? "Attivazione..." : "Invia e Attiva"}
-              </Button>
-            ) : (
-              <Button onClick={handleUpdateTipo} disabled={saving || tipo === currentTipo}>
-                {saving ? "Salvataggio..." : "Aggiorna"}
-              </Button>
-            )}
+            <Button onClick={handleActivate} disabled={saving} className="gap-1.5">
+              <Key className="h-3.5 w-3.5" />
+              {saving ? "Invio..." : "Invia e Attiva"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
