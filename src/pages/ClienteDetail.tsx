@@ -680,10 +680,7 @@ Consulbrokers S.r.l.`;
       {isActive ? (
         <Badge
           variant="outline"
-          className={cn(
-            "cursor-pointer ml-2 gap-1",
-            currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"
-          )}
+          className={`cursor-pointer ml-2 gap-1 ${currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"}`}
           onClick={openDialog}
         >
           <Globe className="h-3 w-3" />
