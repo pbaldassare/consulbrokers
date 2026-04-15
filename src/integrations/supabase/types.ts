@@ -5239,6 +5239,7 @@ export type Database = {
           anagrafica_commerciale_id: string | null
           anni_durata: number | null
           appendice: string | null
+          banca_pagamento: string | null
           cambio: number | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
@@ -5314,6 +5315,7 @@ export type Database = {
           tipo_incasso: string | null
           tipo_lettera_regolazione: string | null
           tipo_mandatario: string | null
+          tipo_pagamento: string | null
           tipo_portafoglio: string | null
           tipo_rinnovo: string | null
           tipo_scadenza: string | null
@@ -5329,6 +5331,7 @@ export type Database = {
           anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
           appendice?: string | null
+          banca_pagamento?: string | null
           cambio?: number | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
@@ -5404,6 +5407,7 @@ export type Database = {
           tipo_incasso?: string | null
           tipo_lettera_regolazione?: string | null
           tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
           tipo_portafoglio?: string | null
           tipo_rinnovo?: string | null
           tipo_scadenza?: string | null
@@ -5419,6 +5423,7 @@ export type Database = {
           anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
           appendice?: string | null
+          banca_pagamento?: string | null
           cambio?: number | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
@@ -5494,6 +5499,7 @@ export type Database = {
           tipo_incasso?: string | null
           tipo_lettera_regolazione?: string | null
           tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
           tipo_portafoglio?: string | null
           tipo_rinnovo?: string | null
           tipo_scadenza?: string | null

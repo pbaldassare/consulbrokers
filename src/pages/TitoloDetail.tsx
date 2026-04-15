@@ -23,6 +23,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 const fmt = (v: any) => v ?? "—";
@@ -158,6 +160,18 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // --- Cassa dialog state ---
+  const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [cassaForm, setCassaForm] = useState({ dataMessaCassa: todayStr, dataPagamento: todayStr, dataDecorrenza: todayStr, tipoPagamento: "contanti", banca: "" });
+
+  const bancheItaliane = [
+    "Intesa Sanpaolo", "UniCredit", "BNL - BNP Paribas", "BPER Banca", "Banco BPM",
+    "Monte dei Paschi di Siena", "Crédit Agricole Italia", "Poste Italiane",
+    "Banca Mediolanum", "Banca Sella", "Fineco Bank", "CheBanca!", "ING Italia",
+    "Deutsche Bank Italia", "Banca Popolare di Sondrio", "Altro",
+  ];
+
   // --- Regolazione edit state ---
   const [editingReg, setEditingReg] = useState(false);
   const [regForm, setRegForm] = useState({
@@ -275,18 +289,25 @@ const TitoloDetail = () => {
   ];
 
   const changeStatoMutation = useMutation({
-    mutationFn: async (nuovoStato: string) => {
+    mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
+      const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
+      const cassaData = typeof params === "string" ? undefined : params.cassaData;
       const vecchioStato = titolo?.stato;
-      const today = new Date().toISOString().slice(0, 10);
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
-      if (nuovoStato === "incassato") {
-        updatePayload.data_messa_cassa = today;
-        updatePayload.data_pagamento = today;
-        updatePayload.data_decorrenza_rinnovo = today;
+      if (nuovoStato === "incassato" && cassaData) {
+        updatePayload.data_messa_cassa = cassaData.dataMessaCassa;
+        updatePayload.data_pagamento = cassaData.dataPagamento;
+        updatePayload.data_decorrenza_rinnovo = cassaData.dataDecorrenza;
+        updatePayload.tipo_pagamento = cassaData.tipoPagamento;
+        if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
+          updatePayload.banca_pagamento = cassaData.banca;
+        }
       } else if (nuovoStato === "attivo" && vecchioStato === "incassato") {
         updatePayload.data_messa_cassa = null;
         updatePayload.data_pagamento = null;
         updatePayload.data_decorrenza_rinnovo = null;
+        updatePayload.tipo_pagamento = null;
+        updatePayload.banca_pagamento = null;
       }
       const { error } = await supabase.from("titoli").update(updatePayload).eq("id", id!);
       if (error) throw error;
@@ -301,6 +322,7 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
       toast.success("Stato aggiornato");
+      setCassaDialogOpen(false);
     },
     onError: (err: any) => toast.error("Errore"),
   });
@@ -408,6 +430,14 @@ const TitoloDetail = () => {
                     <label className="text-xs text-muted-foreground">Data Decorrenza Rinnovo</label>
                     <Input type="date" className="mt-1" value={t.data_decorrenza_rinnovo || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_decorrenza_rinnovo", value: e.target.value })} />
                   </div>
+                  <div>
+                    <FieldRow label="Tipo Pagamento" value={fmt(t.tipo_pagamento)} />
+                  </div>
+                  {t.tipo_pagamento === "bonifico" && t.banca_pagamento && (
+                    <div>
+                      <FieldRow label="Banca" value={fmt(t.banca_pagamento)} />
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -418,7 +448,11 @@ const TitoloDetail = () => {
               )}
             </div>
             {t.stato === "attivo" && (
-              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => changeStatoMutation.mutate("incassato")} disabled={changeStatoMutation.isPending}>
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                const today = new Date().toISOString().slice(0, 10);
+                setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                setCassaDialogOpen(true);
+              }} disabled={changeStatoMutation.isPending}>
                 <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
               </Button>
             )}
@@ -430,6 +464,65 @@ const TitoloDetail = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog Conferma Messa a Cassa */}
+      <Dialog open={cassaDialogOpen} onOpenChange={setCassaDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Conferma Messa a Cassa</DialogTitle>
+            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Data Messa a Cassa</Label>
+                <Input type="date" value={cassaForm.dataMessaCassa} onChange={(e) => setCassaForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Pagamento</Label>
+                <Input type="date" value={cassaForm.dataPagamento} onChange={(e) => setCassaForm(f => ({ ...f, dataPagamento: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Decorrenza Rinnovo</Label>
+                <Input type="date" value={cassaForm.dataDecorrenza} onChange={(e) => setCassaForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Tipo Pagamento</Label>
+              <Select value={cassaForm.tipoPagamento} onValueChange={(v) => setCassaForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contanti">Contanti</SelectItem>
+                  <SelectItem value="carta_credito">Carta di Credito</SelectItem>
+                  <SelectItem value="bonifico">Bonifico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {cassaForm.tipoPagamento === "bonifico" && (
+              <div>
+                <Label className="text-xs">Banca</Label>
+                <Select value={cassaForm.banca} onValueChange={(v) => setCassaForm(f => ({ ...f, banca: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
+                  <SelectContent>
+                    {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
+              <p className="text-sm font-medium text-destructive">
+                ⚠️ Attenzione: questa operazione è irreversibile. Una volta confermata, non sarà possibile annullare l'incasso.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCassaDialogOpen(false)}>Annulla</Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" disabled={changeStatoMutation.isPending || (cassaForm.tipoPagamento === "bonifico" && !cassaForm.banca)} onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: cassaForm })}>
+              <CheckSquare className="w-4 h-4 mr-1" /> Conferma Incasso
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* CONTRATTO */}
       <SectionCollapsible title="Contratto" icon={FileText}>
