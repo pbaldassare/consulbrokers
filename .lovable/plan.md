@@ -1,29 +1,17 @@
 
 
-## Piano: Spostare il "Riepilogo Messa a Cassa" nella pagina Contabilità — Incassi e Coperture
+## Piano: Nascondere la pagina Quadratura Premi
 
 ### Cosa cambia
+La pagina "Quadratura Premi" viene rimossa dalla sidebar e dalle route, ma il file sorgente resta nel repo.
 
-La sezione "Riepilogo Messa a Cassa" (card con tabella espandibile per compagnia, con navigatore mese e pulsante Conferma) viene **rimossa** da `RimessaList.tsx` e **aggiunta** in `ContabilitaUfficio.tsx` (pagina `/contabilita`, voce sidebar "Incassi e Coperture").
+### Modifiche
 
-### Dettaglio
+**1. `src/components/AppSidebar.tsx`**
+- Rimuovere la voce `{ label: "Quadratura Premi", path: "/contabilita/quadratura-premi", icon: Search }` dall'array dei sotto-menu Contabilità
 
-**1. Spostare in `ContabilitaUfficio.tsx`:**
-- Copiare le query: `rimessa-dettaglio-used` (titoli già collegati a rimesse) e `titoli-cassa-mese` (titoli incassati nel mese, raggruppati per compagnia)
-- Copiare gli state: `meseCorrente`, `expanded`, `confirmDialog`, `dataPagamento`, `ibanSelezionato`
-- Copiare la query `compagnia-iban` per il dialog conferma
-- Copiare la `confirmMutation` (creazione rimessa) e la `revertMutation` (annullamento)
-- Copiare il calcolo `totali` e le funzioni helper (`toggleExpand`, `clienteDisplay`, `openConfirm`)
-- Aggiungere il navigatore mese (frecce + label mese) sopra la card
-- Aggiungere la Card "Riepilogo Messa a Cassa" con tabella espandibile e pulsante Conferma per compagnia
-- Aggiungere il Dialog di conferma rimessa (con IBAN, data pagamento)
-- Aggiungere gli import necessari: `format`, `startOfMonth`, `endOfMonth`, `addMonths`, `subMonths`, `ChevronLeft`, `ChevronRight`, `Package`, `ChevronDown`, `ChevronUp`, `ExternalLink`, `Check`, `Send`, `useNavigate`
+**2. `src/routes/contabilita.tsx`**
+- Commentare o rimuovere la Route `<Route path="/contabilita/quadratura-premi" element={<QuadraturePremi />} />`
 
-**2. Rimuovere da `RimessaList.tsx`:**
-- Rimuovere la Card "Riepilogo Messa a Cassa" e tutto il codice collegato (query `titoli-cassa-mese`, `rimessa-dettaglio-used`, `compagnia-iban`, mutation `confirmMutation`, stati `expanded`, `confirmDialog`, `dataPagamento`, `ibanSelezionato`, calcolo `totali`, dialog conferma)
-- Mantenere solo la sezione "Storico Rimesse" con la tabella paginata e il filtro stato
-
-### File coinvolti
-- **Modifica**: `src/pages/ContabilitaUfficio.tsx` — aggiungere riepilogo messa a cassa con tutte le funzionalità
-- **Modifica**: `src/pages/RimessaList.tsx` — rimuovere la sezione riepilogo, tenere solo lo storico rimesse
+I file sorgente (`QuadraturePremi.tsx`) restano nel repo per eventuale riattivazione futura.
 
