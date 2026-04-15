@@ -178,20 +178,16 @@ const AdminDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Utenti Attivi" value={String(d?.utentiAttivi ?? 0)} sub="Totale nel sistema" icon={Users} variant="blue" loading={loading} />
-        <SummaryCard label="Polizze Attive" value={String(d?.polizzeAttive ?? 0)} sub="In gestione" icon={FileText} variant="green" loading={loading} />
-        <SummaryCard label="Sinistri Aperti" value={String(d?.sinistriAperti ?? 0)} sub="Da gestire" icon={ClipboardList} variant="orange" loading={loading} />
-        <SummaryCard label="Anomalie Critiche" value={String(d?.anomalieCritiche ?? 0)} sub="Da risolvere" icon={AlertCircle} variant="yellow" loading={loading} />
+        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} />
+        <SummaryCard label="Rinnovi di Oggi" value={String(d?.rinnoviOggiCount ?? 0)} sub={fmt(d?.rinnoviOggiImporto ?? 0)} icon={Calendar} variant="green" loading={loading} />
+        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} />
+        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Raccolta Premi" value={fmt(d?.raccoltaPremi ?? 0)} sub="Anno corrente" variant="green" icon={TrendingUp} loading={loading} />
-        <KpiCard label="Nuovi Clienti" value={String(d?.nuoviClienti ?? 0)} sub="Questo mese" variant="blue" icon={Users} loading={loading} />
-        <KpiCard label="Tasso Rinnovo" value={`${d?.tassoRinnovo ?? 0}%`} sub="Polizze rinnovate" variant="teal" icon={Target} loading={loading} />
-        <KpiCard label="Uffici Attivi" value={String(d?.ufficiAttivi ?? 0)} sub="Operativi" variant="yellow" icon={Building2} loading={loading} />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PieChartCard title="Distribuzione Polizze per Ramo" data={d?.polizzePerCategoria ?? []} loading={loading} />
-        <BarChartCard title="Andamento Raccolta Premi" data={d?.premiMensili ?? []} loading={loading} />
+        <KpiCard label="Polizze Attive" value={String(d?.polizzeAttive ?? 0)} sub="In portafoglio" variant="blue" icon={FileText} loading={loading} />
+        <KpiCard label="Portafoglio Totale" value={fmt(d?.portafoglioTotale ?? 0)} sub="Premio lordo attivo" variant="green" icon={TrendingUp} loading={loading} />
+        <KpiCard label="Raccolta Premi Anno" value={fmt(d?.raccoltaPremiAnno ?? 0)} sub="Incassato anno corrente" variant="teal" icon={BarChart3} loading={loading} />
+        <KpiCard label="Nuovi Clienti Mese" value={String(d?.nuoviClientiMese ?? 0)} sub="Questo mese" variant="yellow" icon={Users} loading={loading} />
       </div>
       <ActivityList title="Attività Recenti" items={d?.attivitaRecenti ?? []} loading={loading} />
     </>

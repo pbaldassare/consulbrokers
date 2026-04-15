@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface AdminData {
-  utentiAttivi: number;
+  rinnoviMeseCount: number;
+  rinnoviMeseImporto: number;
+  rinnoviOggiCount: number;
+  rinnoviOggiImporto: number;
+  incassiIeriCount: number;
+  incassiIeriImporto: number;
+  incassiMeseCount: number;
+  incassiMeseImporto: number;
   polizzeAttive: number;
-  sinistriAperti: number;
-  anomalieCritiche: number;
-  raccoltaPremi: number;
-  nuoviClienti: number;
-  tassoRinnovo: number;
-  ufficiAttivi: number;
-  polizzePerCategoria: { name: string; value: number }[];
-  premiMensili: { mese: string; importo: number }[];
+  portafoglioTotale: number;
+  raccoltaPremiAnno: number;
+  nuoviClientiMese: number;
   attivitaRecenti: { id: string; azione: string; utente: string; data: string; entita_tipo: string }[];
 }
 
@@ -89,69 +91,34 @@ export function useDashboardData(ruolo: string) {
   const startOfMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
 
   const loadAdmin = async () => {
+    const oggi = new Date().toISOString().substring(0, 10);
+    const ieri = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
+    const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().substring(0, 10);
+
     const [
-      { count: utentiAttivi },
+      { data: rinnoviMese },
+      { data: rinnoviOggi },
+      { data: incassiIeri },
+      { data: incassiMese },
       { count: polizzeAttive },
-      { count: sinistriAperti },
-      { count: anomalieCritiche },
-      { count: nuoviClienti },
-      { count: ufficiAttivi },
-      { data: titoli },
-      { data: sinistriAll },
+      { data: portafoglioData },
+      { data: raccoltaAnno },
+      { count: nuoviClientiMese },
       { data: logData },
-      { data: categData },
     ] = await Promise.all([
-      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("attivo", true),
+      supabase.from("titoli").select("premio_lordo").gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth),
+      supabase.from("titoli").select("premio_lordo").eq("data_scadenza", oggi),
+      supabase.from("titoli").select("premio_lordo").eq("data_messa_cassa", ieri),
+      supabase.from("titoli").select("premio_lordo").gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth),
       supabase.from("titoli").select("*", { count: "exact", head: true }).eq("stato", "attivo"),
-      supabase.from("sinistri").select("*", { count: "exact", head: true }).in("stato", ["aperto", "in_gestione"]),
-      supabase.from("anomalie_sistema").select("*", { count: "exact", head: true }).neq("stato", "risolta"),
+      supabase.from("titoli").select("premio_lordo").eq("stato", "attivo"),
+      supabase.from("titoli").select("premio_lordo").gte("data_messa_cassa", startOfYear),
       supabase.from("clienti").select("*", { count: "exact", head: true }).gte("created_at", startOfMonth),
-      supabase.from("filiali").select("*", { count: "exact", head: true }).eq("attivo", true),
-      supabase.from("titoli").select("importo_incassato, created_at, stato, prodotto_id").gte("created_at", `${currentYear - 1}-01-01`),
-      supabase.from("sinistri").select("stato"),
       supabase.from("log_attivita").select("id, azione, created_at, entita_tipo, user_id, profiles:user_id(nome, cognome)").order("created_at", { ascending: false }).limit(10),
-      supabase.from("titoli").select("id, prodotti!inner(nome_prodotto, categorie_prodotto!inner(nome))").eq("stato", "attivo"),
     ]);
 
-    // Raccolta premi anno corrente
-    const raccoltaPremi = (titoli || [])
-      .filter((t: any) => t.created_at >= startOfYear)
-      .reduce((sum: number, t: any) => sum + (t.importo_incassato || 0), 0);
+    const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
 
-    // Tasso rinnovo
-    const rinnovati = (titoli || []).filter((t: any) => t.stato === "attivo" && t.created_at >= startOfYear).length;
-    const scaduti = (titoli || []).filter((t: any) => t.stato === "scaduto" || t.stato === "attivo").length;
-    const tassoRinnovo = scaduti > 0 ? Math.round((rinnovati / scaduti) * 100) : 0;
-
-    // Polizze per categoria
-    const catMap: Record<string, number> = {};
-    (categData || []).forEach((t: any) => {
-      const catName = t.prodotti?.categorie_prodotto?.nome || "Altro";
-      catMap[catName] = (catMap[catName] || 0) + 1;
-    });
-    const polizzePerCategoria = Object.entries(catMap).map(([name, value]) => ({ name, value }));
-
-    // Premi mensili ultimi 12 mesi
-    const mesiMap: Record<string, number> = {};
-    const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      mesiMap[key] = 0;
-    }
-    (titoli || []).forEach((t: any) => {
-      if (t.created_at && t.importo_incassato) {
-        const key = t.created_at.substring(0, 7);
-        if (key in mesiMap) mesiMap[key] += t.importo_incassato;
-      }
-    });
-    const premiMensili = Object.entries(mesiMap).map(([k, v]) => {
-      const [, m] = k.split("-");
-      return { mese: monthNames[parseInt(m) - 1], importo: v };
-    });
-
-    // Attività recenti
     const attivitaRecenti = (logData || []).map((l: any) => ({
       id: l.id,
       azione: l.azione || "",
@@ -161,16 +128,18 @@ export function useDashboardData(ruolo: string) {
     }));
 
     setAdmin({
-      utentiAttivi: utentiAttivi || 0,
+      rinnoviMeseCount: rinnoviMese?.length || 0,
+      rinnoviMeseImporto: sumPremio(rinnoviMese),
+      rinnoviOggiCount: rinnoviOggi?.length || 0,
+      rinnoviOggiImporto: sumPremio(rinnoviOggi),
+      incassiIeriCount: incassiIeri?.length || 0,
+      incassiIeriImporto: sumPremio(incassiIeri),
+      incassiMeseCount: incassiMese?.length || 0,
+      incassiMeseImporto: sumPremio(incassiMese),
       polizzeAttive: polizzeAttive || 0,
-      sinistriAperti: sinistriAperti || 0,
-      anomalieCritiche: anomalieCritiche || 0,
-      raccoltaPremi,
-      nuoviClienti: nuoviClienti || 0,
-      tassoRinnovo,
-      ufficiAttivi: ufficiAttivi || 0,
-      polizzePerCategoria,
-      premiMensili,
+      portafoglioTotale: sumPremio(portafoglioData),
+      raccoltaPremiAnno: sumPremio(raccoltaAnno),
+      nuoviClientiMese: nuoviClientiMese || 0,
       attivitaRecenti,
     });
   };
