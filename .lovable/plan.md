@@ -1,43 +1,33 @@
 
 
-## Piano: Rimodellare la Dashboard Admin — rimuovere attività e KPI inutili, aggiungere chat non lette e click sui quadranti
+## Piano: Forzare il refresh della pagina con meta tag no-cache e version check
 
-### Cosa rimuovere
-- **Attività Recenti** (intero blocco in fondo)
-- **Polizze Attive** e **Portafoglio Totale** dalla riga 2
-- Codice/componenti inutilizzati: `ActivityList`, import Recharts (già non usati), `PlaceholderChart`, `PlaceholderList`
+### Problema
+Il codice Dashboard.tsx è già aggiornato, ma il browser dell'utente cacha `index.html` stesso (HTTP cache del browser/CDN), quindi continua a caricare i vecchi bundle JS. Lo script di pulizia SW in main.tsx funziona solo DOPO che il nuovo JS viene caricato — ma se index.html è cachato, carica ancora i vecchi script.
 
-### Cosa modificare
+### Soluzione
 
-**Riga 2 — ridotta a 2 card:**
-- **Raccolta Premi Anno** → resta, occupa metà riga
-- **Nuovi Clienti Mese** → resta, occupa metà riga
+**1. Aggiungere meta tag no-cache in `index.html`**
+```html
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+```
+Questo dice al browser di non cachare mai index.html.
 
-**Nuova sezione — Chat Non Risposte:**
-- Query `chat_messaggi_interni` per trovare gli ultimi messaggi nei canali dell'utente dove l'ultimo messaggio NON è dell'utente corrente (= non ha risposto)
-- Mostrare lista con: nome canale, mittente ultimo messaggio, testo troncato, data/ora
-- Click su una riga → `navigate("/chat")` con il canale selezionato
+**2. Aggiungere un meccanismo di version check in `main.tsx`**
+- Definire una costante `APP_VERSION` (timestamp del build)
+- All'avvio, confrontare con `localStorage.getItem("app_version")`
+- Se diverso: salvare la nuova versione e forzare `location.reload()` per scaricare i nuovi asset
+- Questo garantisce che anche se index.html è servito da cache CDN vecchia, al prossimo deploy con nuova versione il browser fa un hard reload
 
-**Click sui quadranti KPI — navigazione:**
-| Card | Destinazione |
-|------|-------------|
-| Rinnovi del Mese | `/portafoglio/rinnovi` |
-| Rinnovi di Oggi | `/portafoglio/rinnovi` |
-| Incassi Ieri | `/portafoglio/carico` |
-| Incassi del Mese | `/portafoglio/carico` |
-| Raccolta Premi Anno | `/provvigioni-maturate` |
-| Nuovi Clienti Mese | `/clienti` |
+**3. Pulizia aggiuntiva: rimuovere componenti orfani da Dashboard.tsx**
+- `PieChartCard`, `BarChartCard`, `PlaceholderChart`, `PlaceholderList` non sono più usati dall'AdminDashboard
+- Rimuovere import di Recharts non necessari per l'admin (ma servono ancora per UfficioDashboard e ProduttoreDashboard)
+- Pulizia degli import inutilizzati
 
-### Dettagli tecnici
-
-**File: `src/hooks/useDashboardData.ts`**
-- Rimuovere dalla query admin: `polizzeAttive`, `portafoglioTotale`, `attivitaRecenti` e relative fetch
-- Aggiungere query per chat non risposte: fetch canali dell'utente → per ogni canale fetch ultimo messaggio → filtrare dove `mittente_id != user.id`
-- Nuovo campo in `AdminData`: `chatNonRisposte: { canaleId, canaleNome, mittente, testo, data }[]`
-
-**File: `src/pages/Dashboard.tsx`**
-- `SummaryCard` e `KpiCard` ricevono prop `onClick` opzionale → wrappare in `cursor-pointer` + `useNavigate`
-- Riga 2: da 4 a 2 colonne (`lg:grid-cols-2`)
-- Sostituire `ActivityList` con nuovo componente `ChatNonRisposte` — lista con icona chat, nome canale, ultimo messaggio troncato, click → navigate a `/chat`
-- Rimuovere componenti orfani (`PieChartCard`, `BarChartCard`, `PlaceholderChart`, `PlaceholderList`, import Recharts)
+### File coinvolti
+- **Modifica**: `index.html` — meta tag no-cache
+- **Modifica**: `src/main.tsx` — version check con auto-reload
+- **Modifica**: `src/pages/Dashboard.tsx` — cleanup import/componenti orfani (opzionale)
 
