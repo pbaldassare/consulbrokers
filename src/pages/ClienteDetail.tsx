@@ -1070,7 +1070,7 @@ export default function ClienteDetail() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Alternativo</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <FieldInput label="Indirizzo" field="indirizzo_alternativo" />
+                  <FieldAddress label="Indirizzo" field="indirizzo_alternativo" capField="cap_alternativo" cittaField="citta_alternativa" provinciaField="provincia_alternativa" />
                   <FieldInput label="CAP" field="cap_alternativo" />
                   <FieldInput label="Città" field="citta_alternativa" />
                   <FieldInput label="Provincia" field="provincia_alternativa" />
@@ -1079,7 +1079,7 @@ export default function ClienteDetail() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Indirizzo Fiscale</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <FieldInput label="Indirizzo" field="indirizzo_fiscale" />
+                  <FieldAddress label="Indirizzo" field="indirizzo_fiscale" capField="cap_fiscale" cittaField="citta_fiscale" provinciaField="provincia_fiscale" />
                   <FieldInput label="CAP" field="cap_fiscale" />
                   <FieldInput label="Città" field="citta_fiscale" />
                   <FieldInput label="Provincia" field="provincia_fiscale" />
