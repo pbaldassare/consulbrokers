@@ -1,29 +1,27 @@
 
 
-## Piano: Popup di conferma "Metti a Cassa" con date, tipo pagamento e disclaimer
+## Piano: Annulla Incasso solo per Admin con conferma password
 
 ### Cosa cambia
-Il pulsante "Metti a Cassa" non eseguirà più direttamente la mutazione. Aprirà un Dialog di conferma con:
 
-**Campi nel popup:**
-1. **Data Messa a Cassa** — input date, default oggi
-2. **Data Pagamento** — input date, default oggi
-3. **Data Decorrenza Rinnovo** — input date, default oggi
-4. **Tipo Pagamento** — select con opzioni: Contanti, Carta di Credito, Bonifico
-5. **Banca** (visibile solo se Bonifico) — select con lista banche italiane comuni (Intesa Sanpaolo, UniCredit, BNL, BPER, Banco BPM, MPS, Crédit Agricole, Poste Italiane, ecc.)
-6. **Disclaimer rosso**: "Attenzione: questa operazione è irreversibile. Una volta confermata, non sarà possibile annullare l'incasso."
+**1. Visibilità pulsante "Annulla Incasso"**
+- Mostrare il pulsante solo se `isAdmin === true` (da `useAuth()`)
+- Gli utenti non-admin non vedranno il pulsante
 
-**Pulsanti:** Annulla / Conferma Incasso
+**2. Dialog di conferma con password**
+- Click su "Annulla Incasso" → apre un nuovo Dialog (non esegue direttamente la mutazione)
+- Il dialog contiene:
+  - Disclaimer rosso: "Operazione riservata agli amministratori. Inserisci la tua password per confermare l'annullamento dell'incasso."
+  - Campo password (input type="password")
+  - Pulsanti: Annulla / Conferma Annullamento
+- Alla conferma: verificare la password chiamando `supabase.auth.signInWithPassword({ email, password })` con l'email dell'utente corrente
+- Se la password è corretta → eseguire `changeStatoMutation.mutate("attivo")`
+- Se errata → mostrare toast di errore "Password non corretta"
 
-### Logica
-- Click "Metti a Cassa" → apre Dialog (stato locale `cassaDialogOpen`)
-- Conferma → chiama `changeStatoMutation` passando le date scelte + `tipo_pagamento` + eventuale banca
-- La mutation salva `data_messa_cassa`, `data_pagamento`, `data_decorrenza_rinnovo`, `tipo_pagamento` nel record `titoli`
+**3. Stessa logica per PortafoglioCaricoPage.tsx**
+- Il bulk "Annulla Incasso" va anch'esso protetto con `isAdmin` check
 
-### File coinvolto
-- **Modifica**: `src/pages/TitoloDetail.tsx`
-  - Aggiungere stato per il dialog e i campi form
-  - Sostituire il click diretto con apertura dialog
-  - Modificare `changeStatoMutation` per accettare le date e tipo pagamento dal form
-  - Aggiungere il Dialog con i campi e il disclaimer
+### File coinvolti
+- **Modifica**: `src/pages/TitoloDetail.tsx` — aggiungere `useAuth()`, condizione `isAdmin`, dialog password
+- **Modifica**: `src/pages/PortafoglioCaricoPage.tsx` — proteggere bulk annulla con `isAdmin`
 
