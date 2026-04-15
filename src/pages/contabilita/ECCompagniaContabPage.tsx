@@ -71,19 +71,32 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, prodotto_id, ufficio_id, produttore_id, data_incasso, prodotti!titoli_prodotto_id_fkey(compagnia_id)")
-        .not("prodotto_id", "is", null);
+        .select("premio_lordo, importo_incassato, prodotto_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, prodotti!titoli_prodotto_id_fkey(compagnia_id)")
+        .not("prodotto_id", "is", null)
+        .eq("stato", "incassato");
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
       if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
-      if (filters.periodo_dal) query = query.gte("data_incasso", format(filters.periodo_dal, "yyyy-MM-dd"));
-      if (filters.periodo_al) query = query.lte("data_incasso", format(filters.periodo_al, "yyyy-MM-dd"));
+      if (filters.periodo_dal) query = query.gte("data_messa_cassa", format(filters.periodo_dal, "yyyy-MM-dd"));
+      if (filters.periodo_al) query = query.lte("data_messa_cassa", format(filters.periodo_al, "yyyy-MM-dd"));
 
       const { data: titoli, error } = await query;
       if (error) throw error;
 
+      // Fetch rimesse totals per compagnia
+      const { data: rimesseAgg } = await supabase
+        .from("rimessa_premi")
+        .select("compagnia_id, totale_importi")
+        .neq("stato", "errore");
+      const rimesseMap = new Map<string, number>();
+      for (const r of rimesseAgg || []) {
+        if (r.compagnia_id) {
+          rimesseMap.set(r.compagnia_id, (rimesseMap.get(r.compagnia_id) || 0) + Number(r.totale_importi || 0));
+        }
+      }
+
       const compagniaMap = new Map((compagnie || []).map(c => [c.id, c]));
-      const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number }> = {};
+      const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number; gia_rimesso: number }> = {};
 
       for (const t of titoli || []) {
         const prod = t.prodotti as any;
@@ -92,9 +105,10 @@ const ECCompagniaContabPage = () => {
         const comp = compagniaMap.get(prod.compagnia_id);
         const key = prod.compagnia_id;
         if (!grouped[key]) {
-          grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0 };
+          grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0, gia_rimesso: rimesseMap.get(key) || 0 };
         }
         grouped[key].lordo += Number(t.premio_lordo) || 0;
+        grouped[key].provvigioni += (Number(t.provvigioni_firma) || 0) + (Number(t.provvigioni_quietanza) || 0);
       }
       return Object.values(grouped).sort((a, b) => b.lordo - a.lordo);
     },
