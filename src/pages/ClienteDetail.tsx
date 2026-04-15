@@ -581,11 +581,49 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"activate" | "edit">("activate");
+  const [emailText, setEmailText] = useState("");
 
   const currentTipo = (cliente as any).area_riservata_tipo || "nessuna";
   const isActive = currentTipo !== "nessuna";
   const clienteName = cliente.ragione_sociale || `${cliente.nome || ""} ${cliente.cognome || ""}`.trim() || "Cliente";
   const portalUrl = `${window.location.origin}/cliente`;
+
+  const buildDefaultEmail = (selectedTipo: string) => `Gentile ${clienteName},
+
+La sua area riservata è stata attivata. Può accedere al portale utilizzando le seguenti credenziali:
+
+Username: ${cliente.email || "—"}
+Password: Consul123!
+
+Tipo di accesso: ${selectedTipo === "completa" ? "Completo (lettura e caricamento documenti)" : "Solo Visualizzazione (consultazione e messaggi)"}
+
+Link al portale: ${portalUrl}
+
+Si consiglia di cambiare la password al primo accesso.
+
+Cordiali saluti,
+Consulbrokers S.r.l.`;
+
+  const openActivateDialog = () => {
+    setTipo("sola_lettura");
+    setEmailText(buildDefaultEmail("sola_lettura"));
+    setDialogMode("activate");
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = () => {
+    setTipo(currentTipo);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  // Update email text when tipo changes during activation
+  const handleTipoChange = (newTipo: string) => {
+    setTipo(newTipo);
+    if (dialogMode === "activate") {
+      setEmailText(buildDefaultEmail(newTipo));
+    }
+  };
 
   const handleActivate = async () => {
     setSaving(true);
@@ -614,7 +652,7 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
             templateName: "client-portal-activation",
             recipientEmail: cliente.email,
             idempotencyKey: `portal-activation-${cliente.id}`,
-            templateData: { name: clienteName, email: cliente.email, portalUrl, tipo },
+            templateData: { name: clienteName, email: cliente.email, portalUrl, tipo, customText: emailText },
           },
         });
       } catch {
@@ -659,44 +697,20 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
     setSaving(false);
   };
 
-  const emailPreviewHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #2563eb;">
-        <h2 style="color: #2563eb; margin: 0; font-size: 24px;">CBnet</h2>
-        <p style="color: #64748b; margin: 4px 0 0; font-size: 12px;">Consulbrokers Network</p>
-      </div>
-      <div style="padding: 30px 0;">
-        <h3 style="color: #1e293b; font-size: 18px;">Gentile ${clienteName},</h3>
-        <p style="color: #475569; line-height: 1.6;">La sua area riservata è stata attivata. Può accedere al portale utilizzando le seguenti credenziali:</p>
-        <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 4px 0; color: #334155;"><strong>Username:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${cliente.email || "—"}</code></p>
-          <p style="margin: 4px 0; color: #334155;"><strong>Password:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">Consul123!</code></p>
-        </div>
-        <p style="color: #475569; line-height: 1.6;">Tipo di accesso: <strong>${tipo === "completa" ? "Completo (lettura e caricamento documenti)" : "Sola Lettura (consultazione e messaggi)"}</strong></p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrl}" style="background: #2563eb; color: white; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: 600;">Accedi al Portale</a>
-        </div>
-        <p style="color: #94a3b8; font-size: 12px; margin-top: 30px;">Si consiglia di cambiare la password al primo accesso.</p>
-      </div>
-      <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center;">
-        <p style="color: #94a3b8; font-size: 11px; margin: 0;">Consulbrokers S.r.l. — Tutti i diritti riservati</p>
-      </div>
-    </div>
-  `;
-
   return (
     <>
       {isActive ? (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 ml-2">
           <Badge variant="outline" className={currentTipo === "completa" ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
-            Portale: {currentTipo === "completa" ? "Completo" : "Sola Lettura"}
+            <Globe className="h-3 w-3 mr-1" />
+            {currentTipo === "completa" ? "Portale Attivo" : "Portale Sola Lettura"}
           </Badge>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setTipo(currentTipo); setDialogMode("edit"); setDialogOpen(true); }}>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={openEditDialog}>
             Gestisci
           </Button>
         </div>
       ) : (
-        <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8" disabled={!cliente.email} onClick={() => { setTipo("sola_lettura"); setDialogMode("activate"); setDialogOpen(true); }}>
+        <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8 ml-2" disabled={!cliente.email} onClick={openActivateDialog}>
           <Globe className="h-3.5 w-3.5" />
           Attiva Area Riservata
         </Button>
@@ -711,21 +725,23 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
           <div className="space-y-4">
             <div>
               <Label className="text-xs">Tipo di Accesso</Label>
-              <Select value={tipo} onValueChange={setTipo}>
+              <Select value={tipo} onValueChange={handleTipoChange}>
                 <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sola_lettura">Sola Lettura (consultazione e messaggi)</SelectItem>
-                  <SelectItem value="completa">Completa (lettura + caricamento documenti)</SelectItem>
+                  <SelectItem value="sola_lettura">Solo Visualizzazione (consultazione e messaggi)</SelectItem>
+                  <SelectItem value="completa">Attiva (lettura + caricamento documenti)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {dialogMode === "activate" && (
               <div>
-                <Label className="text-xs mb-2 block">Anteprima Email di Attivazione</Label>
-                <div className="border rounded-lg overflow-hidden bg-white">
-                  <div dangerouslySetInnerHTML={{ __html: emailPreviewHtml }} />
-                </div>
+                <Label className="text-xs mb-2 block">Email di Attivazione (personalizzabile)</Label>
+                <Textarea
+                  value={emailText}
+                  onChange={(e) => setEmailText(e.target.value)}
+                  className="min-h-[250px] font-mono text-xs"
+                />
               </div>
             )}
 
