@@ -25,6 +25,7 @@ const todayStr = () => format(new Date(), "yyyy-MM-dd");
 const PortafoglioCaricoPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   
   
@@ -285,7 +286,7 @@ const PortafoglioCaricoPage = () => {
               {bulkLoading ? "In corso..." : `Metti a Cassa (${selectedAttive.length})`}
             </Button>
           )}
-          {selectedIncassate.length > 0 && (
+          {selectedIncassate.length > 0 && isAdmin && (
             <Button size="sm" variant="outline" onClick={bulkAnnullaIncasso} disabled={bulkLoading} className="gap-1">
               <Undo2 className="h-3.5 w-3.5" />
               {bulkLoading ? "In corso..." : `Annulla Incasso (${selectedIncassate.length})`}
@@ -403,7 +404,7 @@ const PortafoglioCaricoPage = () => {
                         {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
                       </TableCell>
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {isIncassato ? (
+                        {isIncassato && isAdmin ? (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -414,7 +415,8 @@ const PortafoglioCaricoPage = () => {
                             <Undo2 className="h-3.5 w-3.5" />
                             {isProcessing ? "..." : "Annulla"}
                           </Button>
-                        ) : (
+                        ) : isIncassato ? (
+                          <span className="text-xs text-muted-foreground">—</span>
                           <Button
                             size="sm"
                             variant="outline"
