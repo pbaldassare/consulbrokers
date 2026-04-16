@@ -44,7 +44,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
         { count: "exact" }
       ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
@@ -402,7 +402,15 @@ const PortafoglioCaricoPage = () => {
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
                       <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={statoBadgeVariant(p.stato)}>{p.stato}</Badge>
+                          {p.conferimento_gestito && !p.fondi_ricevuti && (
+                            <Badge variant="destructive" className="text-[10px] h-5">Att. Fondi</Badge>
+                          )}
+                          {p.conferimento_gestito && p.fondi_ricevuti && (
+                            <Badge className="bg-orange-500 text-white text-[10px] h-5 hover:bg-orange-600">Conf.</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center text-xs">
                         {isIncassato ? fmtDate(p.data_messa_cassa) : "—"}
