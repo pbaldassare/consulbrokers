@@ -482,20 +482,48 @@ const TitoloDetail = () => {
                 </>
               )}
             </div>
-            {t.stato === "attivo" && (
-              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                const today = new Date().toISOString().slice(0, 10);
-                setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
-                setCassaDialogOpen(true);
-              }} disabled={changeStatoMutation.isPending}>
-                <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
-              </Button>
+            {/* Badges conferimento gestito */}
+            {t.stato === "incassato" && t.conferimento_gestito && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-orange-500 text-white hover:bg-orange-600">Conferimento Gestito</Badge>
+                {!t.fondi_ricevuti ? (
+                  <>
+                    <Badge variant="destructive">In Attesa Fondi</Badge>
+                    <Button size="sm" variant="outline" className="h-7 text-xs border-green-500 text-green-600 hover:bg-green-50" onClick={() => segnaFondiRicevutiMutation.mutate()} disabled={segnaFondiRicevutiMutation.isPending}>
+                      <CheckSquare className="w-3 h-3 mr-1" /> Segna Fondi Ricevuti
+                    </Button>
+                  </>
+                ) : (
+                  <Badge className="bg-green-600 text-white hover:bg-green-700">Fondi Ricevuti</Badge>
+                )}
+              </div>
             )}
-            {t.stato === "incassato" && isAdmin && (
-              <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
-                <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
-              </Button>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              {t.stato === "attivo" && (
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                  setCassaDialogOpen(true);
+                }} disabled={changeStatoMutation.isPending}>
+                  <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
+                </Button>
+              )}
+              {t.stato === "attivo" && (
+                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  setConferimentoForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                  setConferimentoAccettato(false);
+                  setConferimentoDialogOpen(true);
+                }} disabled={changeStatoMutation.isPending}>
+                  <Shield className="w-4 h-4 mr-1" /> Conferimento Gestito
+                </Button>
+              )}
+              {t.stato === "incassato" && isAdmin && (
+                <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
+                  <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
