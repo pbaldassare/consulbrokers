@@ -413,11 +413,15 @@ const ECCompagniaContabPage = () => {
                                 <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
-                                <TableHead className="h-8 text-xs">Stato Fondi</TableHead>
+                                <TableHead className="h-8 text-xs">Tipo Pagamento</TableHead>
+                                <TableHead className="h-8 text-xs">Modalità Incasso</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {r.titoli.map((t) => (
+                              {r.titoli.map((t) => {
+                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : "—";
+                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : "secondary";
+                                return (
                                 <TableRow key={t.id} className="hover:bg-muted/50">
                                   <TableCell className="py-1 px-2">
                                     <Checkbox
@@ -430,14 +434,21 @@ const ECCompagniaContabPage = () => {
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
                                   <TableCell className="py-1">
-                                    {t.conferimento_gestito && !t.fondi_ricevuti ? (
-                                      <Badge variant="destructive" className="text-[10px] h-5">In Attesa Fondi</Badge>
-                                    ) : t.conferimento_gestito ? (
-                                      <Badge className="bg-green-600 text-white text-[10px] h-5 hover:bg-green-700">Fondi OK</Badge>
-                                    ) : null}
+                                    <Badge variant={tipoPagColor as any} className="text-[10px] h-5">{tipoPagLabel}</Badge>
+                                  </TableCell>
+                                  <TableCell className="py-1">
+                                    {t.conferimento_gestito ? (
+                                      <Badge variant={t.fondi_ricevuti ? "default" : "destructive"} className="text-[10px] h-5">
+                                        {t.fondi_ricevuti ? "Conf. Gestito ✓" : "In Attesa Fondi"}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] h-5">Incasso diretto</Badge>
+                                    )}
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                                );
+                              })}
+                            </TableBody>
                             </TableBody>
                           </Table>
                         </div>

@@ -20,6 +20,7 @@ type TitoloCassa = {
   compagnia_id: string | null;
   conferimento_gestito: boolean | null;
   fondi_ricevuti: boolean | null;
+  tipo_pagamento: string | null;
   compagnie: { nome: string } | null;
   clienti: { cognome: string | null; nome: string | null; ragione_sociale: string | null } | null;
 };
@@ -50,7 +51,7 @@ const ContabilitaUfficio = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, provvigioni_firma, provvigioni_quietanza, compagnia_id, conferimento_gestito, fondi_ricevuti, compagnie:compagnie!titoli_compagnia_id_fkey(nome), clienti:clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale)")
+        .select("id, numero_titolo, premio_lordo, provvigioni_firma, provvigioni_quietanza, compagnia_id, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie:compagnie!titoli_compagnia_id_fkey(nome), clienti:clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale)")
         .eq("stato", "incassato")
         .gte("data_messa_cassa", meseDa)
         .lte("data_messa_cassa", meseA);
