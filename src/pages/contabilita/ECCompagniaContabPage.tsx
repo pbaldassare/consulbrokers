@@ -10,7 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, PackagePlus, ChevronRight, ChevronDown, CreditCard } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
@@ -47,7 +48,6 @@ interface GroupedRow {
   mail: string;
   lordo: number;
   provvigioni: number;
-  gia_rimesso: number;
   data_min: string | null;
   data_max: string | null;
   titoli: TitoloDetail[];
@@ -62,6 +62,15 @@ interface PagaRimessaState {
   importoPagato: string;
   note: string;
   titoliIds?: string[];
+  titoliCount: number;
+}
+
+interface PreConfirmState {
+  open: boolean;
+  compagniaId: string;
+  compagniaNome: string;
+  titoliCount: number;
+  importo: number;
 }
 
 const defaultFilters: Filters = {
@@ -76,7 +85,10 @@ const ECCompagniaContabPage = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
-    open: false, compagniaId: "", compagniaNome: "", iban: "", importoTotale: 0, importoPagato: "", note: "",
+    open: false, compagniaId: "", compagniaNome: "", iban: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0,
+  });
+  const [preConfirm, setPreConfirm] = useState<PreConfirmState>({
+    open: false, compagniaId: "", compagniaNome: "", titoliCount: 0, importo: 0,
   });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
@@ -134,6 +146,12 @@ const ECCompagniaContabPage = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["ec-compagnia-contab", filters],
     queryFn: async () => {
+      // Fetch titoli already in rimessa_dettaglio to exclude them
+      const { data: rimessiRaw } = await supabase
+        .from("rimessa_dettaglio")
+        .select("titolo_id");
+      const rimessiSet = new Set((rimessiRaw || []).map((r) => r.titolo_id));
+
       let query = supabase
         .from("titoli")
         .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie(nome, codice, mail)")
@@ -148,26 +166,16 @@ const ECCompagniaContabPage = () => {
       const { data: titoli, error } = await query;
       if (error) throw error;
 
-      const { data: rimesseAgg } = await supabase
-        .from("rimessa_premi")
-        .select("compagnia_id, totale_importi")
-        .neq("stato", "errore");
-      const rimesseMap = new Map<string, number>();
-      for (const r of rimesseAgg || []) {
-        if (r.compagnia_id) {
-          rimesseMap.set(r.compagnia_id, (rimesseMap.get(r.compagnia_id) || 0) + Number(r.totale_importi || 0));
-        }
-      }
-
       const grouped: Record<string, GroupedRow> = {};
 
       for (const t of titoli || []) {
+        // Exclude titles already included in a rimessa
+        if (rimessiSet.has(t.id)) continue;
+
         const cId = (t as any).compagnia_id as string;
         if (!cId) continue;
         if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
-        // Apply tipo_pagamento filter
         if (filters.tipo_pagamento && (t as any).tipo_pagamento !== filters.tipo_pagamento) continue;
-        // Apply modalita_incasso filter
         const isGestito = !!(t as any).conferimento_gestito;
         const fondiOk = (t as any).fondi_ricevuti !== false;
         if (filters.modalita_incasso === "diretto" && isGestito) continue;
@@ -182,7 +190,6 @@ const ECCompagniaContabPage = () => {
             mail: comp?.mail || "",
             lordo: 0,
             provvigioni: 0,
-            gia_rimesso: rimesseMap.get(cId) || 0,
             data_min: null,
             data_max: null,
             titoli: [],
@@ -241,19 +248,39 @@ const ECCompagniaContabPage = () => {
     onError: (e: any) => toast.error(e.message || "Errore nella creazione della rimessa"),
   });
 
-  const handleOpenPagaDialog = (compagniaId: string, daRimettere: number) => {
+  const handleOpenPagaDialog = (compagniaId: string, daRimettere: number, titoli: TitoloDetail[]) => {
+    const selected = selectedTitoli[compagniaId];
+    const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
+    const count = titoliIds ? titoliIds.length : titoli.length;
+    const comp = compagnie?.find((c) => c.id === compagniaId);
+
+    // Show pre-confirmation AlertDialog first
+    setPreConfirm({
+      open: true,
+      compagniaId,
+      compagniaNome: comp?.nome || "N/D",
+      titoliCount: count,
+      importo: daRimettere,
+    });
+  };
+
+  const handlePreConfirmProceed = () => {
+    const compagniaId = preConfirm.compagniaId;
     const selected = selectedTitoli[compagniaId];
     const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
     const comp = compagnie?.find((c) => c.id === compagniaId);
+
+    setPreConfirm((prev) => ({ ...prev, open: false }));
     setPagaDialog({
       open: true,
       compagniaId,
       compagniaNome: comp?.nome || "N/D",
       iban: comp?.iban || "",
-      importoTotale: daRimettere,
-      importoPagato: daRimettere.toFixed(2),
+      importoTotale: preConfirm.importo,
+      importoPagato: preConfirm.importo.toFixed(2),
       note: "",
       titoliIds,
+      titoliCount: preConfirm.titoliCount,
     });
   };
 
@@ -279,8 +306,7 @@ const ECCompagniaContabPage = () => {
   const rows = data || [];
   const totLordo = rows.reduce((s, r) => s + r.lordo, 0);
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
-  const totRimesso = rows.reduce((s, r) => s + r.gia_rimesso, 0);
-  const totDaRimettere = totLordo - totProvv - totRimesso;
+  const totDaRimettere = totLordo - totProvv;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
   const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento || filters.modalita_incasso;
 
@@ -292,8 +318,8 @@ const ECCompagniaContabPage = () => {
   };
 
   const exportCSV = () => {
-    const header = "Compagnia,Codice,Data,Mail,Lordo,Provvigioni,Già Rimesso,Da Rimettere\n";
-    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${r.gia_rimesso.toFixed(2)},${(r.lordo - r.provvigioni - r.gia_rimesso).toFixed(2)}`).join("\n");
+    const header = "Compagnia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
+    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_compagnia.csv"; a.click();
@@ -304,7 +330,6 @@ const ECCompagniaContabPage = () => {
     { label: "N. Compagnie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
-    { label: "Già Rimesso", value: fmt(totRimesso), icon: Send, color: "text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400" },
     { label: "Da Rimettere", value: fmt(totDaRimettere), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
   ];
 
@@ -315,13 +340,13 @@ const ECCompagniaContabPage = () => {
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="w-5 h-5 text-primary" /></div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">E/C Compagnia</h1>
-            <p className="text-sm text-muted-foreground">Estratto conto per compagnia</p>
+            <p className="text-sm text-muted-foreground">Estratto conto per compagnia — solo titoli ancora da rimettere</p>
           </div>
         </div>
         <Button variant="outline" onClick={exportCSV} disabled={!rows.length}><Download className="mr-2 h-4 w-4" /> Esporta CSV</Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map((kpi) => (
           <Card key={kpi.label}><CardContent className="p-4 flex items-center gap-4">
             <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.color)}><kpi.icon className="w-5 h-5" /></div>
@@ -352,16 +377,16 @@ const ECCompagniaContabPage = () => {
             <TableHead className="w-[40px]"></TableHead>
             <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
-            <TableHead className="text-right">Già Rimesso</TableHead><TableHead className="text-right">Da Rimettere</TableHead>
+            <TableHead className="text-right">Da Rimettere</TableHead>
             <TableHead className="w-[180px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessun dato — conferma la Messa a Cassa per vedere i dati</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun titolo da rimettere</TableCell></TableRow>
             ) : rows.map((r) => {
-              const daRimettere = r.lordo - r.provvigioni - r.gia_rimesso;
+              const daRimettere = r.lordo - r.provvigioni;
               const isExpanded = expandedRows.has(r.compagnia_id);
               const selected = selectedTitoli[r.compagnia_id] || new Set();
               const selectedCount = selected.size;
@@ -376,7 +401,6 @@ const ECCompagniaContabPage = () => {
                     <TableCell className="text-sm">{formatDateRange(r.data_min, r.data_max)}</TableCell>
                     <TableCell className="text-right">{fmt(r.lordo)}</TableCell>
                     <TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
-                    <TableCell className="text-right text-purple-600 dark:text-purple-400">{fmt(r.gia_rimesso)}</TableCell>
                     <TableCell className="text-right font-semibold text-teal-600 dark:text-teal-400">{fmt(daRimettere)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {daRimettere > 0 && (
@@ -385,7 +409,7 @@ const ECCompagniaContabPage = () => {
                           variant="outline"
                           className="h-7 text-xs gap-1"
                           disabled={creaRimessaMutation.isPending}
-                          onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere)}
+                          onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere, r.titoli)}
                         >
                           <CreditCard className="h-3 w-3" />
                           {selectedCount > 0 ? `Paga Rimessa (${selectedCount})` : "Paga Rimessa"}
@@ -396,7 +420,7 @@ const ECCompagniaContabPage = () => {
                   {isExpanded && (
                     <TableRow key={`${r.compagnia_id}-header`} className="bg-muted/30 hover:bg-muted/30">
                       <TableCell></TableCell>
-                      <TableCell colSpan={8}>
+                      <TableCell colSpan={7}>
                         <div className="py-2">
                           <div className="flex items-center gap-2 mb-2">
                             <Checkbox
@@ -462,14 +486,31 @@ const ECCompagniaContabPage = () => {
             <TableCell></TableCell>
             <TableCell colSpan={3} className="font-bold">Totale</TableCell>
             <TableCell className="text-right font-bold">{fmt(totLordo)}</TableCell><TableCell className="text-right font-bold">{fmt(totProvv)}</TableCell>
-            <TableCell className="text-right font-bold text-purple-600 dark:text-purple-400">{fmt(totRimesso)}</TableCell>
             <TableCell className="text-right font-bold text-teal-600 dark:text-teal-400">{fmt(totDaRimettere)}</TableCell>
             <TableCell></TableCell>
           </TableRow></TableFooter>}
         </Table>
       </div>
 
-      {/* Dialog Paga Rimessa */}
+      {/* AlertDialog pre-conferma (Livello 1) */}
+      <AlertDialog open={preConfirm.open} onOpenChange={(open) => setPreConfirm((prev) => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma Rimessa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per creare una rimessa per <strong>{preConfirm.compagniaNome}</strong> con <strong>{preConfirm.titoliCount}</strong> titoli per un totale di <strong>{fmt(preConfirm.importo)}</strong>.
+              <br /><br />
+              Vuoi procedere con il pagamento?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePreConfirmProceed}>Procedi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog Paga Rimessa (Livello 2) */}
       <Dialog open={pagaDialog.open} onOpenChange={(open) => setPagaDialog((prev) => ({ ...prev, open }))}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -478,7 +519,7 @@ const ECCompagniaContabPage = () => {
               Paga Rimessa alla Compagnia
             </DialogTitle>
             <DialogDescription>
-              {pagaDialog.compagniaNome}
+              {pagaDialog.compagniaNome} — {pagaDialog.titoliCount} titoli
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
