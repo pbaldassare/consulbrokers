@@ -1,26 +1,39 @@
 
 
-## Piano: Pulire i titoli vecchi da E/C Compagnia
+## Piano: Data column + selezione titoli per rimessa
 
-### Situazione attuale
-- **720 titoli** con `stato = 'incassato'` e `data_messa_cassa = '2026-03-31'` — sono dati importati massivamente, NON passati dal flusso "Incassi e Coperture"
-- **3 titoli** con `data_messa_cassa` del 14-15 aprile 2026 — questi sono quelli reali fatti attraverso il flusso corretto
+### Cosa cambia
 
-### Soluzione
-Una migration SQL che resetta i 720 titoli vecchi:
-- `stato` torna a `'attivo'` (erano polizze attive prima dell'import)
-- `data_messa_cassa` torna a `NULL`
+**1. Colonna "Località" → "Data"**
+- Rimuovere la colonna `Località` dalla tabella
+- Aggiungere colonna `Data` che mostra il range delle date messa a cassa (o la data singola se unica)
 
-```sql
-UPDATE titoli
-SET stato = 'attivo',
-    data_messa_cassa = NULL
-WHERE stato = 'incassato'
-  AND data_messa_cassa = '2026-03-31';
-```
+**2. Riga espandibile con titoli individuali**
+- Ogni riga compagnia diventa espandibile (click su freccia/chevron)
+- Sotto la riga compagnia appare la lista dei singoli titoli incassati con: numero titolo, data messa a cassa, premio lordo, importo incassato, checkbox di selezione
+- L'utente seleziona i titoli desiderati e poi clicca "Crea Rimessa" solo per quelli selezionati
 
-Dopo questa operazione, E/C Compagnia mostrerà solo le 3 righe reali di aprile 2026 (raggruppate per le 3 compagnie corrispondenti).
+**3. Edge Function: accettare lista titoli_ids**
+- Aggiungere parametro opzionale `titoli_ids: string[]` all'azione `crea`
+- Se fornito, usare solo quei titoli invece di prendere tutti quelli disponibili per la compagnia
 
-### Nessuna modifica al codice frontend
-La query già filtra per `stato = 'incassato'` — basta pulire i dati nel DB.
+### Modifiche tecniche
+
+**`src/pages/contabilita/ECCompagniaContabPage.tsx`**
+- Query: aggiungere `id, numero_titolo, data_messa_cassa, importo_incassato` al select per avere i dettagli singoli
+- Raggruppamento: oltre ai totali, mantenere l'array dei titoli per compagnia
+- Stato: `expandedRows: Set<string>` per gestire apertura/chiusura, `selectedTitoli: Record<string, Set<string>>` per le selezioni
+- Tabella: riga principale con ChevronRight/Down + sotto-righe con checkbox per ogni titolo
+- Colonna Località → Data (mostra range `min – max` delle date_messa_cassa)
+- "Crea Rimessa" invia i `titoli_ids` selezionati (o tutti se nessuno selezionato)
+
+**`supabase/functions/gestione-rimessa/index.ts`**
+- Accettare `titoli_ids` nel body
+- Se presente, filtrare i titoli per quegli ID specifici invece di fare la query per compagnia
+
+### Flusso utente risultante
+1. Vede lista compagnie con totali aggregati
+2. Espande una compagnia → vede i titoli singoli con checkbox
+3. Seleziona quelli da rimettere → click "Crea Rimessa"
+4. La rimessa viene creata solo con i titoli scelti
 
