@@ -6,7 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, PackagePlus, ChevronRight, ChevronDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, PackagePlus, ChevronRight, ChevronDown, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
@@ -44,6 +47,17 @@ interface GroupedRow {
   titoli: TitoloDetail[];
 }
 
+interface PagaRimessaState {
+  open: boolean;
+  compagniaId: string;
+  compagniaNome: string;
+  iban: string;
+  importoTotale: number;
+  importoPagato: string;
+  note: string;
+  titoliIds?: string[];
+}
+
 const defaultFilters: Filters = {
   compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null,
 };
@@ -55,6 +69,9 @@ const ECCompagniaContabPage = () => {
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
+  const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
+    open: false, compagniaId: "", compagniaNome: "", iban: "", importoTotale: 0, importoPagato: "", note: "",
+  });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
   const toggleExpand = (compagniaId: string) => {
@@ -89,7 +106,7 @@ const ECCompagniaContabPage = () => {
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie-ec"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice, comune, mail").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, comune, mail, iban").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -177,7 +194,7 @@ const ECCompagniaContabPage = () => {
   });
 
   const creaRimessaMutation = useMutation({
-    mutationFn: async ({ compagniaId, titoliIds }: { compagniaId: string; titoliIds?: string[] }) => {
+    mutationFn: async ({ compagniaId, titoliIds, iban, importoPagato, note }: { compagniaId: string; titoliIds?: string[]; iban: string; importoPagato: number; note: string }) => {
       const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
         body: {
           action: "crea",
@@ -187,6 +204,9 @@ const ECCompagniaContabPage = () => {
           data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
           data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
           titoli_ids: titoliIds || undefined,
+          iban_utilizzato: iban,
+          importo_pagato: importoPagato,
+          note: note || undefined,
         },
       });
       if (error) throw error;
@@ -197,23 +217,46 @@ const ECCompagniaContabPage = () => {
       queryClient.invalidateQueries({ queryKey: ["ec-compagnia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
       setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
-      toast.success(`Rimessa creata — ${data.titoli_count} titoli inclusi`, {
-        action: {
-          label: "Vedi Storico",
-          onClick: () => navigate("/rimessa-premi"),
-        },
-      });
+      setPagaDialog((prev) => ({ ...prev, open: false }));
+      toast.success(`Rimessa pagata — ${data.titoli_count} titoli inclusi`);
+      navigate("/contabilita/storico-rimesse");
     },
     onError: (e: any) => toast.error(e.message || "Errore nella creazione della rimessa"),
   });
 
-  const handleCreaRimessa = (compagniaId: string) => {
+  const handleOpenPagaDialog = (compagniaId: string, daRimettere: number) => {
     const selected = selectedTitoli[compagniaId];
     const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
-    const count = titoliIds ? titoliIds.length : "tutti i";
-    if (window.confirm(`Creare rimessa con ${count} titoli?`)) {
-      creaRimessaMutation.mutate({ compagniaId, titoliIds });
+    const comp = compagnie?.find((c) => c.id === compagniaId);
+    setPagaDialog({
+      open: true,
+      compagniaId,
+      compagniaNome: comp?.nome || "N/D",
+      iban: comp?.iban || "",
+      importoTotale: daRimettere,
+      importoPagato: daRimettere.toFixed(2),
+      note: "",
+      titoliIds,
+    });
+  };
+
+  const handleConfermaPagamento = () => {
+    const importo = parseFloat(pagaDialog.importoPagato);
+    if (isNaN(importo) || importo <= 0) {
+      toast.error("Inserire un importo valido");
+      return;
     }
+    if (importo > pagaDialog.importoTotale) {
+      toast.error("L'importo pagato non può superare l'importo da rimettere");
+      return;
+    }
+    creaRimessaMutation.mutate({
+      compagniaId: pagaDialog.compagniaId,
+      titoliIds: pagaDialog.titoliIds,
+      iban: pagaDialog.iban,
+      importoPagato: importo,
+      note: pagaDialog.note,
+    });
   };
 
   const rows = data || [];
@@ -291,7 +334,7 @@ const ECCompagniaContabPage = () => {
             <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
             <TableHead className="text-right">Già Rimesso</TableHead><TableHead className="text-right">Da Rimettere</TableHead>
-            <TableHead className="w-[120px]">Azioni</TableHead>
+            <TableHead className="w-[180px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
@@ -323,10 +366,10 @@ const ECCompagniaContabPage = () => {
                           variant="outline"
                           className="h-7 text-xs gap-1"
                           disabled={creaRimessaMutation.isPending}
-                          onClick={() => handleCreaRimessa(r.compagnia_id)}
+                          onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere)}
                         >
-                          <PackagePlus className="h-3 w-3" />
-                          {selectedCount > 0 ? `Rimessa (${selectedCount})` : "Crea Rimessa"}
+                          <CreditCard className="h-3 w-3" />
+                          {selectedCount > 0 ? `Paga Rimessa (${selectedCount})` : "Paga Rimessa"}
                         </Button>
                       )}
                     </TableCell>
@@ -388,6 +431,68 @@ const ECCompagniaContabPage = () => {
           </TableRow></TableFooter>}
         </Table>
       </div>
+
+      {/* Dialog Paga Rimessa */}
+      <Dialog open={pagaDialog.open} onOpenChange={(open) => setPagaDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Paga Rimessa alla Compagnia
+            </DialogTitle>
+            <DialogDescription>
+              {pagaDialog.compagniaNome}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>IBAN Compagnia</Label>
+              <Input
+                value={pagaDialog.iban}
+                onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
+                placeholder="Inserisci IBAN"
+              />
+              {!pagaDialog.iban && (
+                <p className="text-xs text-amber-600">IBAN non trovato per questa compagnia. Inserirlo manualmente.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Importo da Rimettere</Label>
+              <p className="text-sm text-muted-foreground">{fmt(pagaDialog.importoTotale)}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Importo da Pagare</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max={pagaDialog.importoTotale}
+                value={pagaDialog.importoPagato}
+                onChange={(e) => setPagaDialog((prev) => ({ ...prev, importoPagato: e.target.value }))}
+              />
+              {parseFloat(pagaDialog.importoPagato) < pagaDialog.importoTotale && parseFloat(pagaDialog.importoPagato) > 0 && (
+                <p className="text-xs text-amber-600">Pagamento parziale — rimarranno {fmt(pagaDialog.importoTotale - parseFloat(pagaDialog.importoPagato))} da pagare</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Note (opzionale)</Label>
+              <Textarea
+                value={pagaDialog.note}
+                onChange={(e) => setPagaDialog((prev) => ({ ...prev, note: e.target.value }))}
+                placeholder="Note sul pagamento..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPagaDialog((prev) => ({ ...prev, open: false }))}>Annulla</Button>
+            <Button onClick={handleConfermaPagamento} disabled={creaRimessaMutation.isPending}>
+              <CreditCard className="h-4 w-4 mr-2" />
+              {creaRimessaMutation.isPending ? "Pagamento..." : "Conferma Pagamento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

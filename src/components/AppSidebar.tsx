@@ -165,6 +165,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Avvisi Incasso", path: "/contabilita/avvisi-incasso", icon: Bell },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "E/C Compagnia", path: "/contabilita/ec-compagnia", icon: Building2 },
+        { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Stampa Primanota", path: "/contabilita/stampa-primanota", icon: Printer },
         { label: "Check Primanota", path: "/contabilita/check-primanota", icon: ListChecks },

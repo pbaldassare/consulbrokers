@@ -8,6 +8,7 @@ import ChiusuraContabile from "@/pages/contabilita/ChiusuraContabile";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
+import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
 
 import PrimanotaGeneralePage from "@/pages/contGenerale/PrimanotaGeneralePage";
 import ScadenziarioPage from "@/pages/contGenerale/ScadenziarioPage";
@@ -35,6 +36,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
     <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
+    <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />
     <Route path="/contabilita/stampa-primanota" element={<PlaceholderPage title="Stampa Primanota" description="Stampa movimenti di primanota" icon={Printer} />} />
     <Route path="/contabilita/check-primanota" element={<PlaceholderPage title="Check Primanota" description="Verifica e quadratura primanota" icon={ListChecks} />} />
     <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />

@@ -4623,7 +4623,9 @@ export type Database = {
           data_pagamento_rimessa: string | null
           iban_utilizzato: string | null
           id: string
+          importo_pagato: number | null
           n_titoli: number | null
+          note: string | null
           stato: string
           totale_importi: number | null
           totale_provvigioni: number | null
@@ -4641,7 +4643,9 @@ export type Database = {
           data_pagamento_rimessa?: string | null
           iban_utilizzato?: string | null
           id?: string
+          importo_pagato?: number | null
           n_titoli?: number | null
+          note?: string | null
           stato?: string
           totale_importi?: number | null
           totale_provvigioni?: number | null
@@ -4659,7 +4663,9 @@ export type Database = {
           data_pagamento_rimessa?: string | null
           iban_utilizzato?: string | null
           id?: string
+          importo_pagato?: number | null
           n_titoli?: number | null
+          note?: string | null
           stato?: string
           totale_importi?: number | null
           totale_provvigioni?: number | null
