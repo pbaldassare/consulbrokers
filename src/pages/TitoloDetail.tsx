@@ -302,6 +302,7 @@ const TitoloDetail = () => {
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
       const cassaData = typeof params === "string" ? undefined : params.cassaData;
+      const isConferimento = typeof params !== "string" && (params as any).conferimentoGestito;
       const vecchioStato = titolo?.stato;
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
       if (nuovoStato === "incassato" && cassaData) {
@@ -312,17 +313,25 @@ const TitoloDetail = () => {
         if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
           updatePayload.banca_pagamento = cassaData.banca;
         }
+        if (isConferimento) {
+          updatePayload.conferimento_gestito = true;
+          updatePayload.fondi_ricevuti = false;
+          updatePayload.data_conferimento_gestito = new Date().toISOString().slice(0, 10);
+        }
       } else if (nuovoStato === "attivo" && vecchioStato === "incassato") {
         updatePayload.data_messa_cassa = null;
         updatePayload.data_pagamento = null;
         updatePayload.data_decorrenza_rinnovo = null;
         updatePayload.tipo_pagamento = null;
         updatePayload.banca_pagamento = null;
+        updatePayload.conferimento_gestito = false;
+        updatePayload.fondi_ricevuti = true;
+        updatePayload.data_conferimento_gestito = null;
       }
       const { error } = await supabase.from("titoli").update(updatePayload).eq("id", id!);
       if (error) throw error;
       if (user) {
-        await logAttivita({ azione: "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato } });
+        await logAttivita({ azione: isConferimento ? "conferimento_gestito" : "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato, conferimento_gestito: !!isConferimento } });
       }
       if (nuovoStato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
