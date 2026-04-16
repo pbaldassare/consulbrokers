@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { getDefaultRoute } from "@/lib/getDefaultRoute";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -13,7 +13,6 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
-  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,34 +21,23 @@ const LoginPage = () => {
     setLoading(false);
     if (error) {
       toast.error("Errore di accesso");
-    } else {
-      // Check role and permissions for redirect
-      const { data: { user: loggedUser } } = await supabase.auth.getUser();
-      if (loggedUser) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("ruolo, permessi_json")
-          .eq("id", loggedUser.id)
-          .maybeSingle();
-        if (profile?.ruolo === "cliente") {
-          navigate("/cliente", { replace: true });
-          return;
-        }
-        if (profile?.ruolo === "prospect") {
-          navigate("/prospect", { replace: true });
-          return;
-        }
-        // If no dashboard permission, redirect to first allowed area
-        const perms = profile?.permessi_json as Record<string, boolean> | null;
-        if (profile?.ruolo !== "admin" && perms && !perms.dashboard) {
-          if (perms.titoli) { navigate("/portafoglio/attive", { replace: true }); return; }
-          if (perms.contabilita) { navigate("/contabilita", { replace: true }); return; }
-          if (perms.portafoglio) { navigate("/portafoglio/documentale", { replace: true }); return; }
-          if (perms.anagrafiche) { navigate("/archivi/anagrafiche", { replace: true }); return; }
-        }
-      }
-      navigate("/", { replace: true });
+      return;
     }
+
+    // Fetch profile to determine landing route
+    const { data: { user: loggedUser } } = await supabase.auth.getUser();
+    let route = "/";
+    if (loggedUser) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("ruolo, permessi_json")
+        .eq("id", loggedUser.id)
+        .maybeSingle();
+      route = getDefaultRoute(profile);
+    }
+
+    // Hard navigation — forces browser to load the latest build assets
+    window.location.replace(route);
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
