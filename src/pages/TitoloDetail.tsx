@@ -71,6 +71,11 @@ const TitoloDetail = () => {
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
 
+  // --- Conferimento Gestito dialog state ---
+  const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
+  const [conferimentoAccettato, setConferimentoAccettato] = useState(false);
+  const [conferimentoForm, setConferimentoForm] = useState({ dataMessaCassa: "", dataPagamento: "", dataDecorrenza: "", tipoPagamento: "contanti", banca: "" });
+
   const { data: titolo, isLoading } = useQuery({
     queryKey: ["titolo", id],
     queryFn: async () => {
