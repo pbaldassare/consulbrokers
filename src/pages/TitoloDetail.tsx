@@ -596,13 +596,19 @@ const TitoloDetail = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-orange-400 bg-orange-50 p-3 text-sm text-orange-800 space-y-2">
-              <p className="font-semibold">⚠️ Dichiarazione di Responsabilità</p>
-              <p>Con la presente, ai sensi della Circolare IVASS n. 73/2020 e successive modificazioni, il sottoscritto dichiara di assumersi la piena responsabilità per l'incasso del premio assicurativo relativo alla polizza in oggetto, pur non avendo ancora ricevuto materialmente i fondi dal cliente.</p>
-              <p>L'intermediario si impegna a garantire la regolarità della copertura assicurativa e a dare tempestiva comunicazione dell'avvenuto ricevimento dei fondi.</p>
+              <p className="font-semibold">⚠️ Dichiarazione di Responsabilità — Circolare 02 Consulbrokers</p>
+              <p className="font-medium">Procedura operativa 03, punto 3:</p>
+              <p>Le polizze, una volta inserite <strong>NON DEVONO ESSERE GARANTITE</strong>, ma dovranno essere effettivamente incassate; casi particolari devono essere concordati <strong>PER ISCRITTO</strong> con la Direzione seguendo i criteri di seguito esposti:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Coperture fino ad euro <strong>1.000,00</strong>: occorre l'autorizzazione dell'Amministratore Delegato</li>
+                <li>Coperture fino ad euro <strong>10.000,00</strong>: occorre l'autorizzazione di due Amministratori Delegati</li>
+                <li>Coperture oltre euro <strong>10.000,00</strong>: occorre l'autorizzazione del CDA</li>
+              </ul>
+              <p>Tutto quanto non regolarizzato alla data di chiusura del mese non verrà rimesso alle compagnie entro il giorno 10 del mese successivo.</p>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="conferimento-accettato" checked={conferimentoAccettato} onCheckedChange={(v) => setConferimentoAccettato(!!v)} />
-              <Label htmlFor="conferimento-accettato" className="text-sm font-medium">Dichiaro di assumermi la responsabilità dell'incasso</Label>
+              <Label htmlFor="conferimento-accettato" className="text-sm font-medium">Dichiaro di aver ottenuto l'autorizzazione necessaria e di assumermi la responsabilità dell'incasso</Label>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
