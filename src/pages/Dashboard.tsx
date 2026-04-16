@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Users, Building2, FileText, BarChart3, TrendingUp, Target, ClipboardList,
   Activity, ArrowUpRight, AlertCircle, DollarSign, FileWarning, Receipt,
