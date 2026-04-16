@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Sparkles } from "lucide-react";
 import { LEVELS, getLevelByRole, ROLE_LABELS, UserLevel } from "@/lib/userLevels";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
 import CreateUserWizard from "@/components/utenti/CreateUserWizard";
@@ -15,11 +17,21 @@ import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
 import { toast } from "sonner";
 
 const GestioneUtentiPrivilegi = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filterLevel, setFilterLevel] = useState<UserLevel | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [sheetUser, setSheetUser] = useState<any | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("wizard") === "open") {
+      setCreateOpen(true);
+      searchParams.delete("wizard");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: users = [], refetch, isLoading } = useQuery({
     queryKey: ["users-priv"],
@@ -33,6 +45,20 @@ const GestioneUtentiPrivilegi = () => {
       if (error) throw error;
       return data || [];
     },
+  });
+
+  const { data: daProvisionare = [] } = useQuery({
+    queryKey: ["anagrafiche-no-account", users.length],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, nome, cognome, email, tipo")
+        .eq("attivo", true)
+        .not("email", "is", null);
+      const emails = new Set((users || []).map((u: any) => (u.email || "").toLowerCase()));
+      return (data || []).filter((a: any) => a.email && !emails.has(a.email.toLowerCase()));
+    },
+    enabled: users.length > 0,
   });
 
   const counts = useMemo(() => {
