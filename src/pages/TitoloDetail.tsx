@@ -362,6 +362,21 @@ const TitoloDetail = () => {
     onError: () => toast.error("Errore"),
   });
 
+  const annullaFondiMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("titoli").update({ fondi_ricevuti: false, updated_at: new Date().toISOString() }).eq("id", id!);
+      if (error) throw error;
+      if (user) {
+        await logAttivita({ azione: "fondi_ricevuti_annullato", entita_tipo: "titolo", entita_id: id!, dettagli_json: { conferimento_gestito: true } });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      toast.success("Fondi riportati in attesa");
+    },
+    onError: () => toast.error("Errore"),
+  });
+
   const updateDateMutation = useMutation({
     mutationFn: async ({ field, value }: { field: string; value: string | null }) => {
       const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() } as any).eq("id", id!);
@@ -489,12 +504,45 @@ const TitoloDetail = () => {
                 {!t.fondi_ricevuti ? (
                   <>
                     <Badge variant="destructive">In Attesa Fondi</Badge>
-                    <Button size="sm" variant="outline" className="h-7 text-xs border-green-500 text-green-600 hover:bg-green-50" onClick={() => segnaFondiRicevutiMutation.mutate()} disabled={segnaFondiRicevutiMutation.isPending}>
-                      <CheckSquare className="w-3 h-3 mr-1" /> Segna Fondi Ricevuti
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-green-500 text-green-600 hover:bg-green-50" disabled={segnaFondiRicevutiMutation.isPending}>
+                          <CheckSquare className="w-3 h-3 mr-1" /> Segna Fondi Ricevuti
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Conferma ricezione fondi</AlertDialogTitle>
+                          <AlertDialogDescription>Confermi che i fondi per questo titolo sono stati effettivamente ricevuti?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annulla</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => segnaFondiRicevutiMutation.mutate()}>Conferma</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </>
                 ) : (
-                  <Badge className="bg-green-600 text-white hover:bg-green-700">Fondi Ricevuti</Badge>
+                  <>
+                    <Badge className="bg-green-600 text-white hover:bg-green-700">Fondi Ricevuti</Badge>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-red-400 text-red-500 hover:bg-red-50" disabled={annullaFondiMutation.isPending}>
+                          <XCircle className="w-3 h-3 mr-1" /> Annulla Fondi Ricevuti
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Annullare ricezione fondi?</AlertDialogTitle>
+                          <AlertDialogDescription>Sei sicuro di voler riportare questo titolo in stato "In Attesa Fondi"?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annulla</AlertDialogCancel>
+                          <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => annullaFondiMutation.mutate()}>Conferma annullamento</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
                 )}
               </div>
             )}
