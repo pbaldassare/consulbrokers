@@ -8,6 +8,7 @@ import ChiusuraContabile from "@/pages/contabilita/ChiusuraContabile";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
+import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
 
 import PrimanotaGeneralePage from "@/pages/contGenerale/PrimanotaGeneralePage";
 import ScadenziarioPage from "@/pages/contGenerale/ScadenziarioPage";
