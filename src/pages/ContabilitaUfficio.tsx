@@ -197,7 +197,7 @@ const ContabilitaUfficio = () => {
                       </TableRow>
                       {expanded[g.compagnia_id] && (
                         <TableRow key={`${g.compagnia_id}-detail`}>
-                          <TableCell colSpan={6} className="bg-muted/30 p-0">
+                          <TableCell colSpan={7} className="bg-muted/30 p-0">
                             <div className="p-3">
                               <Table>
                                 <TableHeader>
