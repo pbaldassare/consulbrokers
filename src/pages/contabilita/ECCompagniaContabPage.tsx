@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,8 @@ interface TitoloDetail {
   data_messa_cassa: string | null;
   premio_lordo: number;
   importo_incassato: number;
+  conferimento_gestito: boolean;
+  fondi_ricevuti: boolean;
 }
 
 interface GroupedRow {
@@ -130,7 +133,7 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -182,6 +185,8 @@ const ECCompagniaContabPage = () => {
           data_messa_cassa: t.data_messa_cassa,
           premio_lordo: Number(t.premio_lordo) || 0,
           importo_incassato: Number(t.importo_incassato) || 0,
+          conferimento_gestito: !!(t as any).conferimento_gestito,
+          fondi_ricevuti: (t as any).fondi_ricevuti !== false,
         });
         const dmc = t.data_messa_cassa;
         if (dmc) {
@@ -394,6 +399,7 @@ const ECCompagniaContabPage = () => {
                                 <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
+                                <TableHead className="h-8 text-xs">Stato Fondi</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -409,6 +415,13 @@ const ECCompagniaContabPage = () => {
                                   <TableCell className="py-1 text-sm">{t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
+                                  <TableCell className="py-1">
+                                    {t.conferimento_gestito && !t.fondi_ricevuti ? (
+                                      <Badge variant="destructive" className="text-[10px] h-5">In Attesa Fondi</Badge>
+                                    ) : t.conferimento_gestito ? (
+                                      <Badge className="bg-green-600 text-white text-[10px] h-5 hover:bg-green-700">Fondi OK</Badge>
+                                    ) : null}
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>

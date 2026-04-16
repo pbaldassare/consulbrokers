@@ -71,6 +71,11 @@ const TitoloDetail = () => {
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
 
+  // --- Conferimento Gestito dialog state ---
+  const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
+  const [conferimentoAccettato, setConferimentoAccettato] = useState(false);
+  const [conferimentoForm, setConferimentoForm] = useState({ dataMessaCassa: "", dataPagamento: "", dataDecorrenza: "", tipoPagamento: "contanti", banca: "" });
+
   const { data: titolo, isLoading } = useQuery({
     queryKey: ["titolo", id],
     queryFn: async () => {
@@ -297,6 +302,7 @@ const TitoloDetail = () => {
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
       const cassaData = typeof params === "string" ? undefined : params.cassaData;
+      const isConferimento = typeof params !== "string" && (params as any).conferimentoGestito;
       const vecchioStato = titolo?.stato;
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
       if (nuovoStato === "incassato" && cassaData) {
@@ -307,17 +313,25 @@ const TitoloDetail = () => {
         if (cassaData.tipoPagamento === "bonifico" && cassaData.banca) {
           updatePayload.banca_pagamento = cassaData.banca;
         }
+        if (isConferimento) {
+          updatePayload.conferimento_gestito = true;
+          updatePayload.fondi_ricevuti = false;
+          updatePayload.data_conferimento_gestito = new Date().toISOString().slice(0, 10);
+        }
       } else if (nuovoStato === "attivo" && vecchioStato === "incassato") {
         updatePayload.data_messa_cassa = null;
         updatePayload.data_pagamento = null;
         updatePayload.data_decorrenza_rinnovo = null;
         updatePayload.tipo_pagamento = null;
         updatePayload.banca_pagamento = null;
+        updatePayload.conferimento_gestito = false;
+        updatePayload.fondi_ricevuti = true;
+        updatePayload.data_conferimento_gestito = null;
       }
       const { error } = await supabase.from("titoli").update(updatePayload).eq("id", id!);
       if (error) throw error;
       if (user) {
-        await logAttivita({ azione: "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato } });
+        await logAttivita({ azione: isConferimento ? "conferimento_gestito" : "cambio_stato_titolo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { stato_precedente: vecchioStato, nuovo_stato: nuovoStato, conferimento_gestito: !!isConferimento } });
       }
       if (nuovoStato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
@@ -328,8 +342,24 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
       toast.success("Stato aggiornato");
       setCassaDialogOpen(false);
+      setConferimentoDialogOpen(false);
     },
     onError: (err: any) => toast.error("Errore"),
+  });
+
+  const segnaFondiRicevutiMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("titoli").update({ fondi_ricevuti: true, updated_at: new Date().toISOString() }).eq("id", id!);
+      if (error) throw error;
+      if (user) {
+        await logAttivita({ azione: "fondi_ricevuti", entita_tipo: "titolo", entita_id: id!, dettagli_json: { conferimento_gestito: true } });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      toast.success("Fondi segnati come ricevuti");
+    },
+    onError: () => toast.error("Errore"),
   });
 
   const updateDateMutation = useMutation({
@@ -452,20 +482,48 @@ const TitoloDetail = () => {
                 </>
               )}
             </div>
-            {t.stato === "attivo" && (
-              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                const today = new Date().toISOString().slice(0, 10);
-                setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
-                setCassaDialogOpen(true);
-              }} disabled={changeStatoMutation.isPending}>
-                <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
-              </Button>
+            {/* Badges conferimento gestito */}
+            {t.stato === "incassato" && t.conferimento_gestito && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-orange-500 text-white hover:bg-orange-600">Conferimento Gestito</Badge>
+                {!t.fondi_ricevuti ? (
+                  <>
+                    <Badge variant="destructive">In Attesa Fondi</Badge>
+                    <Button size="sm" variant="outline" className="h-7 text-xs border-green-500 text-green-600 hover:bg-green-50" onClick={() => segnaFondiRicevutiMutation.mutate()} disabled={segnaFondiRicevutiMutation.isPending}>
+                      <CheckSquare className="w-3 h-3 mr-1" /> Segna Fondi Ricevuti
+                    </Button>
+                  </>
+                ) : (
+                  <Badge className="bg-green-600 text-white hover:bg-green-700">Fondi Ricevuti</Badge>
+                )}
+              </div>
             )}
-            {t.stato === "incassato" && isAdmin && (
-              <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
-                <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
-              </Button>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              {t.stato === "attivo" && (
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                  setCassaDialogOpen(true);
+                }} disabled={changeStatoMutation.isPending}>
+                  <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
+                </Button>
+              )}
+              {t.stato === "attivo" && (
+                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  setConferimentoForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
+                  setConferimentoAccettato(false);
+                  setConferimentoDialogOpen(true);
+                }} disabled={changeStatoMutation.isPending}>
+                  <Shield className="w-4 h-4 mr-1" /> Conferimento Gestito
+                </Button>
+              )}
+              {t.stato === "incassato" && isAdmin && (
+                <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
+                  <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -529,7 +587,73 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Conferma Annulla Incasso (solo admin) */}
+      {/* Dialog Conferimento Gestito */}
+      <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Conferimento Gestito</DialogTitle>
+            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Incasso senza fondi in cassa</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-orange-400 bg-orange-50 p-3 text-sm text-orange-800 space-y-2">
+              <p className="font-semibold">⚠️ Dichiarazione di Responsabilità</p>
+              <p>Con la presente, ai sensi della Circolare IVASS n. 73/2020 e successive modificazioni, il sottoscritto dichiara di assumersi la piena responsabilità per l'incasso del premio assicurativo relativo alla polizza in oggetto, pur non avendo ancora ricevuto materialmente i fondi dal cliente.</p>
+              <p>L'intermediario si impegna a garantire la regolarità della copertura assicurativa e a dare tempestiva comunicazione dell'avvenuto ricevimento dei fondi.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="conferimento-accettato" checked={conferimentoAccettato} onCheckedChange={(v) => setConferimentoAccettato(!!v)} />
+              <Label htmlFor="conferimento-accettato" className="text-sm font-medium">Dichiaro di assumermi la responsabilità dell'incasso</Label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Data Messa a Cassa</Label>
+                <Input type="date" value={conferimentoForm.dataMessaCassa} onChange={(e) => setConferimentoForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Pagamento</Label>
+                <Input type="date" value={conferimentoForm.dataPagamento} onChange={(e) => setConferimentoForm(f => ({ ...f, dataPagamento: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Decorrenza Rinnovo</Label>
+                <Input type="date" value={conferimentoForm.dataDecorrenza} onChange={(e) => setConferimentoForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Tipo Pagamento</Label>
+              <Select value={conferimentoForm.tipoPagamento} onValueChange={(v) => setConferimentoForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contanti">Contanti</SelectItem>
+                  <SelectItem value="carta_credito">Carta di Credito</SelectItem>
+                  <SelectItem value="bonifico">Bonifico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {conferimentoForm.tipoPagamento === "bonifico" && (
+              <div>
+                <Label className="text-xs">Banca</Label>
+                <Select value={conferimentoForm.banca} onValueChange={(v) => setConferimentoForm(f => ({ ...f, banca: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
+                  <SelectContent>
+                    {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConferimentoDialogOpen(false)}>Annulla</Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={!conferimentoAccettato || changeStatoMutation.isPending || (conferimentoForm.tipoPagamento === "bonifico" && !conferimentoForm.banca)}
+              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: conferimentoForm, conferimentoGestito: true } as any)}
+            >
+              <Shield className="w-4 h-4 mr-1" /> Conferma Conferimento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={annullaDialogOpen} onOpenChange={setAnnullaDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
