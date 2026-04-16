@@ -3,6 +3,7 @@ import RoleGuard from "@/components/RoleGuard";
 import ImpostazioniPage from "@/pages/ImpostazioniPage";
 import CreaNuovoUtente from "@/pages/CreaNuovoUtente";
 import GestioneUtenti from "@/pages/GestioneUtenti";
+import GestioneUtentiPrivilegi from "@/pages/GestioneUtentiPrivilegi";
 import BackupExport from "@/pages/BackupExport";
 import ManutenzionePage from "@/pages/ManutenzionePage";
 import TabelleBasePage from "@/pages/TabelleBasePage";
@@ -31,6 +32,7 @@ export const sistemaRoutes = (
     <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
     <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
     <Route path="/gestione-utenti" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtenti /></RoleGuard>} />
+    <Route path="/utenti-privilegi" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtentiPrivilegi /></RoleGuard>} />
     <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
     <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
     <Route path="/tabelle-base" element={<RoleGuard allowedRoles={["admin"]}><TabelleBasePage /></RoleGuard>} />

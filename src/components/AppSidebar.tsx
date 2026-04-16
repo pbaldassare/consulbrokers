@@ -128,10 +128,11 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Briefcase,
       permissionKey: "anagrafiche",
       children: [
+        { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
         { label: "Gestione Utenti", path: "/archivi/anagrafiche", icon: Briefcase },
         { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
-        { label: "Crea Utente", path: "/crea-utente", icon: UserPlus },
-        { label: "Utenti di Rete", path: "/gestione-utenti", icon: Users },
+        { label: "Crea Utente (legacy)", path: "/crea-utente", icon: UserPlus },
+        { label: "Utenti di Rete (legacy)", path: "/gestione-utenti", icon: Users },
       ],
     },
   },
