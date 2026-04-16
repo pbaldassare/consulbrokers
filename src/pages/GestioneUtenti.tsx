@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
   backoffice: "Specialist",
   contabilita: "Contabilità",
   cfo: "CFO",
-  corrispondente: "Corrispondente",
+  corrispondente: "Produttore",
 };
 
 const DOC_CATEGORIE = [

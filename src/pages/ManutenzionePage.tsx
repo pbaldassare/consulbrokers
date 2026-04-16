@@ -163,11 +163,11 @@ const ManutenzionePage = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4" /> Provisioning Corrispondenti
+              <Users className="w-4 h-4" /> Provisioning Produttori
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground mb-3">Crea utenti auth per tutti i corrispondenti in anagrafica. Password default: Leone123!</p>
+            <p className="text-xs text-muted-foreground mb-3">Crea utenti auth per tutti i produttori in anagrafica. Password default: Leone123!</p>
             <Button size="sm" onClick={() => provisionCorrispondenti.mutate()} disabled={isAnyRunning}>
               {provisionCorrispondenti.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Users className="w-4 h-4 mr-1" />} Esegui
             </Button>

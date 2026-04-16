@@ -21,7 +21,7 @@ const TIPI = [
   { value: "perito", label: "Periti", icon: Eye },
   { value: "legale", label: "Legali", icon: Scale },
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
-  { value: "corrispondente", label: "Corrispondenti", icon: Users },
+  { value: "corrispondente", label: "Produttori", icon: Users },
   { value: "executive", label: "Executive", icon: Briefcase },
   { value: "responsabile_sede", label: "Resp. Sede", icon: Users },
   { value: "produttore_sede", label: "Prod. Sede", icon: Users },
@@ -87,7 +87,7 @@ const emptyForm = {
   // AE
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
   nome_rui: "", iscrizione_rui: "", numero_rui: "", sezione_rui: "",
-  // Corrispondenti / commerciali
+  // Produttori / commerciali
   percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "",
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
@@ -775,7 +775,7 @@ const AnagraficheProfessionaliPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche</h1>
-          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Corrispondenti, Executive, Resp. Sede, Prod. Sede</p>
+          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Produttori, Executive, Resp. Sede, Prod. Sede</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />Nuovo

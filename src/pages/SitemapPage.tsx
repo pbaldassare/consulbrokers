@@ -108,12 +108,12 @@ const ruoli = [
     ],
   },
   {
-    nome: "Corrispondente",
+    nome: "Produttore",
     livello: 3,
     icon: Briefcase,
     color: "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30",
     badgeColor: "bg-indigo-500 text-white",
-    descrizione: "Corrispondente esterno con accesso equivalente al produttore. Visibilità limitata alla propria produzione.",
+    descrizione: "Produttore esterno con accesso equivalente al produttore interno. Visibilità limitata alla propria produzione.",
     mansioni: [
       "Dashboard con KPI personali",
       "Prospect e trattative proprie",
@@ -354,7 +354,7 @@ const roleBadgeColor: Record<string, string> = {
 const roleBadgeLabel: Record<string, string> = {
   backoffice: "specialist",
   ufficio: "sede",
-  corrispondente: "corrispondente",
+  corrispondente: "produttore",
 };
 
 function RoleBadge({ role }: { role: string }) {
