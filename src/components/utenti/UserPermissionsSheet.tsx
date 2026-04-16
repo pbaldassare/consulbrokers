@@ -1,0 +1,264 @@
+import { useState, useEffect } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS } from "@/lib/userLevels";
+import PermissionsMatrix from "./PermissionsMatrix";
+import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+interface Props {
+  user: any | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSaved: () => void;
+}
+
+const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+  const [visibility, setVisibility] = useState<VisibilityScope>("self_only");
+  const [ruolo, setRuolo] = useState<string>("");
+  const [ufficioId, setUfficioId] = useState<string>("");
+  const [attivo, setAttivo] = useState(true);
+  const [riceveProvvigioni, setRiceveProvvigioni] = useState(false);
+  const [percBase, setPercBase] = useState<number | "">("");
+  const [percRa, setPercRa] = useState<number | "">("");
+  const [saving, setSaving] = useState(false);
+  const [resetPwd, setResetPwd] = useState("");
+
+  const { data: uffici } = useQuery({
+    queryKey: ["uffici-sheet"],
+    queryFn: async () => {
+      const { data } = await supabase.from("uffici").select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
+      return data || [];
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      const p = (user.permessi_json as Record<string, any>) || {};
+      setPermissions(typeof p === "object" ? Object.fromEntries(Object.entries(p).filter(([, v]) => typeof v === "boolean")) : {});
+      setVisibility((p?._visibility as VisibilityScope) || getLevelByRole(user.ruolo).defaultVisibility);
+      setRuolo(user.ruolo || "");
+      setUfficioId(user.ufficio_id || "");
+      setAttivo(user.attivo !== false);
+      setRiceveProvvigioni(!!p?.riceve_provvigioni);
+      setPercBase(user.percentuale_base ?? "");
+      setPercRa(user.percentuale_ra ?? "");
+      setResetPwd("");
+    }
+  }, [user]);
+
+  if (!user) return null;
+  const level = getLevelByRole(ruolo);
+  const Icon = level.icon;
+
+  const handleSave = async () => {
+    setSaving(true);
+    const newPermissions = {
+      ...permissions,
+      riceve_provvigioni: riceveProvvigioni,
+      _visibility: visibility,
+    };
+
+    const { error } = await supabase.from("profiles").update({
+      ruolo,
+      ufficio_id: ufficioId || null,
+      attivo,
+      permessi_json: newPermissions,
+      percentuale_base: percBase === "" ? null : Number(percBase),
+      percentuale_ra: percRa === "" ? null : Number(percRa),
+    }).eq("id", user.id);
+
+    if (error) {
+      toast.error("Errore aggiornamento", { description: error.message });
+      setSaving(false);
+      return;
+    }
+
+    if (ruolo !== user.ruolo) {
+      await supabase.from("user_roles").delete().eq("user_id", user.id);
+      await supabase.from("user_roles").insert({ user_id: user.id, role: ruolo as any });
+    }
+
+    toast.success("Utente aggiornato");
+    onSaved();
+    setSaving(false);
+  };
+
+  const handleApplyTemplate = () => {
+    const lvl = LEVELS.find((l) => l.roles.includes(ruolo)) || level;
+    setPermissions(lvl.defaultPermissions);
+    setVisibility(lvl.defaultVisibility);
+    toast.success(`Template "${lvl.label}" applicato`);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPwd || resetPwd.length < 6) {
+      toast.error("Inserisci una password (min 6 caratteri)");
+      return;
+    }
+    const { data: s } = await supabase.auth.getSession();
+    const token = s?.session?.access_token;
+    const res = await supabase.functions.invoke("provision-user", {
+      body: { user_id: user.id, password: resetPwd, only_password: true },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.error) {
+      toast.info("Per reset password contatta l'admin sistema (richiede edge function dedicata)");
+    } else {
+      toast.success("Password reimpostata");
+      setResetPwd("");
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
+        <SheetHeader>
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${level.bgClass}`}>
+              <Icon className={`w-6 h-6 ${level.color}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <SheetTitle className="truncate">{user.cognome} {user.nome}</SheetTitle>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              <div className="flex gap-1 mt-1">
+                <Badge variant="outline" className="text-[10px]">{level.id}</Badge>
+                <Badge className="text-[10px]">{level.label}</Badge>
+                {!attivo && <Badge variant="destructive" className="text-[10px]">Sospeso</Badge>}
+              </div>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <Tabs defaultValue="anagrafica" className="flex-1 flex flex-col overflow-hidden mt-4">
+          <TabsList className="grid grid-cols-5">
+            <TabsTrigger value="anagrafica" className="text-xs"><UserIcon className="w-3.5 h-3.5 mr-1" />Anagrafica</TabsTrigger>
+            <TabsTrigger value="visibility" className="text-xs"><Eye className="w-3.5 h-3.5 mr-1" />Visibilità</TabsTrigger>
+            <TabsTrigger value="permissions" className="text-xs"><Settings2 className="w-3.5 h-3.5 mr-1" />Permessi</TabsTrigger>
+            <TabsTrigger value="provvigioni" className="text-xs">Provvigioni</TabsTrigger>
+            <TabsTrigger value="security" className="text-xs"><Shield className="w-3.5 h-3.5 mr-1" />Sicurezza</TabsTrigger>
+          </TabsList>
+
+          <ScrollArea className="flex-1 mt-3 pr-3">
+            <TabsContent value="anagrafica" className="space-y-3 mt-0">
+              <div><Label className="text-xs">Email</Label><Input value={user.email || ""} disabled /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Ruolo</Label>
+                  <Select value={ruolo} onValueChange={setRuolo}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {LEVELS.flatMap((l) => l.roles).filter((r) => r !== "cliente" && r !== "prospect").map((r) => (
+                        <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Sede</Label>
+                  <Select value={ufficioId || "none"} onValueChange={(v) => setUfficioId(v === "none" ? "" : v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Nessuna —</SelectItem>
+                      {uffici?.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label className="font-medium">Account attivo</Label>
+                  <p className="text-xs text-muted-foreground">Se disattivato, l'utente non può accedere</p>
+                </div>
+                <Switch checked={attivo} onCheckedChange={setAttivo} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="visibility" className="space-y-3 mt-0">
+              <p className="text-sm text-muted-foreground">Quali dati può vedere questo utente?</p>
+              <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as VisibilityScope)} className="space-y-2">
+                {(Object.keys(VISIBILITY_LABEL) as VisibilityScope[]).map((v) => (
+                  <label key={v} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value={v} />
+                    <span className="text-sm">{VISIBILITY_LABEL[v]}</span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </TabsContent>
+
+            <TabsContent value="permissions" className="space-y-3 mt-0">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Spunta i moduli accessibili</p>
+                <Button variant="outline" size="sm" onClick={handleApplyTemplate}>
+                  Applica template {level.label}
+                </Button>
+              </div>
+              <PermissionsMatrix
+                permissions={permissions}
+                onChange={(k, v) => setPermissions((p) => ({ ...p, [k]: v }))}
+              />
+            </TabsContent>
+
+            <TabsContent value="provvigioni" className="space-y-3 mt-0">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <Label className="font-medium">Riceve provvigioni</Label>
+                <Switch checked={riceveProvvigioni} onCheckedChange={setRiceveProvvigioni} />
+              </div>
+              {riceveProvvigioni && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">% Base</Label>
+                    <Input type="number" step="0.01" value={percBase} onChange={(e) => setPercBase(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">% RA</Label>
+                    <Input type="number" step="0.01" value={percRa} onChange={(e) => setPercRa(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="security" className="space-y-3 mt-0">
+              <div className="rounded-lg border p-3 space-y-2">
+                <Label className="font-medium flex items-center gap-1.5"><KeyRound className="w-4 h-4" />Reset password</Label>
+                <div className="flex gap-2">
+                  <Input type="text" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Nuova password" />
+                  <Button onClick={handleResetPassword} variant="outline">Imposta</Button>
+                </div>
+              </div>
+              <div className="rounded-lg border p-3 bg-destructive/5">
+                <Label className="font-medium flex items-center gap-1.5 text-destructive"><Power className="w-4 h-4" />Sospensione</Label>
+                <p className="text-xs text-muted-foreground mt-1">Disattiva l'account dalla tab Anagrafica per impedire l'accesso senza eliminare i dati.</p>
+              </div>
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
+
+        <Separator className="my-2" />
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="w-4 h-4 mr-1.5" />
+            {saving ? "Salvataggio…" : "Salva modifiche"}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
+
+export default UserPermissionsSheet;
