@@ -206,8 +206,9 @@ const ContabilitaUfficio = () => {
                                     <TableHead>Cliente</TableHead>
                                     <TableHead className="text-right">Premio Lordo</TableHead>
                                     <TableHead className="text-right">Provvigioni</TableHead>
-                                    <TableHead className="text-right">Netto</TableHead>
-                                    <TableHead>Tipo Incasso</TableHead>
+                                     <TableHead className="text-right">Netto</TableHead>
+                                     <TableHead>Tipo Pagamento</TableHead>
+                                     <TableHead>Tipo Incasso</TableHead>
                                     <TableHead className="w-8"></TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -222,6 +223,14 @@ const ContabilitaUfficio = () => {
                                         <TableCell className="text-right font-mono text-sm">€ {lordo.toFixed(2)}</TableCell>
                                         <TableCell className="text-right font-mono text-sm">€ {provv.toFixed(2)}</TableCell>
                                         <TableCell className="text-right font-mono text-sm font-semibold">€ {(lordo - provv).toFixed(2)}</TableCell>
+                                        <TableCell>
+                                          {(() => {
+                                            const tp = t.tipo_pagamento;
+                                            const label = tp === "contanti" ? "Contanti" : tp === "pos" ? "POS" : tp === "bonifico" ? "Bonifico" : tp === "carta_credito" ? "POS" : "—";
+                                            const variant = tp === "contanti" ? "secondary" : tp === "pos" || tp === "carta_credito" ? "default" : tp === "bonifico" ? "outline" : "secondary";
+                                            return <Badge variant={variant as any} className="text-xs">{label}</Badge>;
+                                          })()}
+                                        </TableCell>
                                         <TableCell>
                                           {t.conferimento_gestito ? (
                                             <Badge variant={t.fondi_ricevuti ? "default" : "secondary"} className="text-xs">
