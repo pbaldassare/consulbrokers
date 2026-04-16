@@ -136,7 +136,7 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -165,6 +165,14 @@ const ECCompagniaContabPage = () => {
         const cId = (t as any).compagnia_id as string;
         if (!cId) continue;
         if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
+        // Apply tipo_pagamento filter
+        if (filters.tipo_pagamento && (t as any).tipo_pagamento !== filters.tipo_pagamento) continue;
+        // Apply modalita_incasso filter
+        const isGestito = !!(t as any).conferimento_gestito;
+        const fondiOk = (t as any).fondi_ricevuti !== false;
+        if (filters.modalita_incasso === "diretto" && isGestito) continue;
+        if (filters.modalita_incasso === "gestito" && !isGestito) continue;
+        if (filters.modalita_incasso === "attesa_fondi" && (!isGestito || fondiOk)) continue;
         const comp = (t as any).compagnie;
         if (!grouped[cId]) {
           grouped[cId] = {
@@ -190,6 +198,7 @@ const ECCompagniaContabPage = () => {
           importo_incassato: Number(t.importo_incassato) || 0,
           conferimento_gestito: !!(t as any).conferimento_gestito,
           fondi_ricevuti: (t as any).fondi_ricevuti !== false,
+          tipo_pagamento: (t as any).tipo_pagamento || null,
         });
         const dmc = t.data_messa_cassa;
         if (dmc) {
