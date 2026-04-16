@@ -1,79 +1,28 @@
-<final-text>
-Piano operativo per forzare davvero l’account `segreteria@consulbrokers.it` e farlo comparire correttamente in database, con accessi solo alle aree richieste.
-</final-text>
 
-1. Verifica e ripristino account in Supabase
-- Controllare se l’utente esiste già in `auth.users`, `profiles` e `user_roles`.
-- Se esiste già in Auth: forzare password a `Leone123!` e `email_confirm = true`.
-- Se non esiste: crearlo.
-- Poi fare upsert del profilo in `profiles` con:
-  - `nome: Segreteria`
-  - `cognome: Consulbrokers`
-  - `email: segreteria@consulbrokers.it`
-  - `ruolo: ufficio`
-  - `attivo: true`
-  - `ufficio_id`: Napoli
-- Infine fare upsert in `user_roles` con ruolo `ufficio`.
-- La logica sarà idempotente: se rilanciata, non deve creare duplicati né lasciare record spezzati.
 
-2. Sistemare il provisioning attuale
-- L’attuale `supabase/functions/provision-user/index.ts` è hardcoded e non gestisce bene i casi “utente già esistente / profilo mancante / ruolo mancante”.
-- Lo renderò un provisioning di riparazione:
-  - crea se manca
-  - aggiorna se esiste
-  - riallinea sempre `profiles` + `user_roles`
-- Così l’account lo “forziamo” davvero e poi lo troviamo in database in stato consistente.
+## Piano: Abilitare accesso completo ai titoli per Segreteria (Ufficio di Napoli)
 
-3. Correggere il modello permessi per rispettare esattamente la tua richiesta
-Dalla lettura del codice ho trovato questi problemi:
-- “Portafoglio” e “Trattative” oggi condividono lo stesso permesso (`titoli`)
-- “Anagrafiche Utenti” oggi dipende da `dashboard`
-- varie route non sono realmente protette per permesso, quindi nascondere la sidebar non basta
+### Problema
+- L'utente `segreteria@consulbrokers.it` è assegnato correttamente a **Ufficio di Napoli** (`f5163c49`)
+- I **clienti** (548) sono quasi tutti sotto Napoli — OK
+- I **titoli** hanno un problema: 1037 su 1047 hanno `ufficio_id = NULL`, quindi la RLS policy `ufficio_id = get_my_ufficio_id()` non li matcha
+- Inoltre mancano le policy **INSERT/UPDATE/DELETE** su `titoli` per il ruolo `ufficio` — l'utente può solo leggere
 
-Per questo farò:
-- separazione permesso `trattative` da `titoli`
-- spostamento di “Anagrafiche Utenti” su un permesso dedicato `anagrafiche`
-- mantenimento di:
-  - `titoli: true` solo per Portafoglio
-  - `portafoglio: true` per Archivio Documentale
-  - `contabilita: true`
-  - `anagrafiche: true`
-- senza accendere `dashboard`, `trattative`, `sinistri`, `cfo_area`, `provvigioni`, `impostazioni`
+### Soluzione
 
-4. Applicare protezioni vere alle route
-File da toccare:
-- `src/components/AppSidebar.tsx`
-- `src/routes/archivi.tsx`
-- `src/routes/portafoglio.tsx`
-- `src/routes/contabilita.tsx`
-- `src/routes/sistema.tsx`
-- eventuale supporto in `RoleGuard.tsx`
+**1. Assegnare `ufficio_id = Napoli` ai titoli con ufficio NULL**
+- UPDATE dei 1037 titoli che hanno `ufficio_id IS NULL` per impostarli a Napoli (`f5163c49-1e7e-48b5-9ac6-5494a9d4ce4a`)
+- Questo fa funzionare la RLS SELECT esistente senza modificarla
 
-Obiettivo:
-- l’utente vede solo:
-  - Portafoglio
-  - Archivio Documentale
-  - Contabilità
-  - Anagrafiche Utenti
-- se prova ad aprire URL non consentiti, viene bloccato e reindirizzato
+**2. Aggiungere policy di scrittura per ruolo `ufficio` su `titoli`**
+Migrazione SQL con 3 nuove RLS policies:
+- **INSERT**: `with_check (ufficio_id = get_my_ufficio_id())`
+- **UPDATE**: `using (ufficio_id = get_my_ufficio_id())`
+- **DELETE**: `using (ufficio_id = get_my_ufficio_id())`
 
-5. Sistemare il post-login
-- Oggi il login porta a `/`.
-- Se togliamo `dashboard`, quell’utente non deve atterrare in una home non prevista.
-- Aggiornerò il redirect post-login per mandarlo alla prima area consentita, ad esempio `/portafoglio/attive`.
+### Dettagli tecnici
+- L'update dei dati avviene tramite il tool insert (UPDATE statement)
+- Le 3 policy vengono create con una migrazione SQL
+- Nessuna modifica al codice frontend
+- L'ufficio resta Napoli come richiesto
 
-6. Validazione finale
-Farò questi controlli finali:
-- record presente in `auth.users`
-- record presente in `profiles`
-- record presente in `user_roles`
-- login funzionante con:
-  - email: `segreteria@consulbrokers.it`
-  - password: `Leone123!`
-- sidebar visibile solo con le 4 aree richieste
-- accesso diretto via URL alle aree escluse bloccato
-
-Dettagli tecnici
-- Risorse coinvolte: `auth.users`, `profiles`, `user_roles`, `uffici`
-- Nessun cambio a valori DB dei ruoli esistenti; il ruolo resta `ufficio`
-- Il punto critico non è solo creare l’utente: è allineare provisioning + permessi + route, altrimenti l’account esiste ma non rispetta davvero quello che hai chiesto
