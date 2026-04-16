@@ -449,7 +449,6 @@ const ECCompagniaContabPage = () => {
                                 );
                               })}
                             </TableBody>
-                            </TableBody>
                           </Table>
                         </div>
                       </TableCell>
