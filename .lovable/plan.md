@@ -1,23 +1,25 @@
 
 
-## Piano: Conferma popup per "Segna Fondi Ricevuti" e possibilità di annullamento
+## Piano: Completare il flusso di pagamento rimesse in EC Compagnia
 
-### Problema attuale
-1. Il pulsante "Segna Fondi Ricevuti" agisce immediatamente senza conferma
-2. Una volta segnati i fondi come ricevuti, non è possibile annullare l'operazione
+### Problema principale
+I titoli già pagati (presenti in `rimessa_dettaglio`) continuano a comparire nella lista EC Compagnia. Dopo il pagamento dovrebbero sparire da qui e restare solo nello Storico Rimesse.
 
-### Modifiche su `src/pages/TitoloDetail.tsx`
+### Modifiche
 
-**1. Aggiungere un pulsante "Annulla Fondi Ricevuti"** accanto al badge verde "Fondi Ricevuti", che appare quando `fondi_ricevuti === true`
+**1. `src/pages/contabilita/ECCompagniaContabPage.tsx`**
 
-**2. Dialog di conferma per entrambe le azioni:**
-- **Segna Fondi Ricevuti**: AlertDialog con messaggio "Confermi che i fondi per questo titolo sono stati effettivamente ricevuti?"
-- **Annulla Fondi Ricevuti**: AlertDialog con messaggio "Sei sicuro di voler riportare questo titolo in stato 'In Attesa Fondi'?"
+- **Escludere titoli già rimessi**: nella query, recuperare tutti gli ID da `rimessa_dettaglio` e filtrarli lato client (come già fa l'edge function), oppure meglio: aggiungere una subquery per escluderli. Poiché PostgREST non supporta `NOT IN` su subquery, si recuperano i `titolo_id` da `rimessa_dettaglio` in una query parallela e si filtrano lato JS prima del grouping.
+- **AlertDialog di conferma pre-dialog**: prima di aprire il dialog "Paga Rimessa", mostrare un AlertDialog che riepiloga quanti titoli e l'importo totale, con "Procedi" / "Annulla". Solo dopo il "Procedi" si apre il dialog con IBAN/importo/note.
+- **Ricalcolare "Da Rimettere"**: togliere la colonna "Già Rimesso" (non serve più se i titoli rimessi sono esclusi — il saldo sarà sempre lordo - provvigioni). Oppure mantenere "Già Rimesso" come KPI globale per riferimento.
 
-**3. Nuova mutation `annullaFondiMutation`**: aggiorna `fondi_ricevuti: false` + log attività con azione `fondi_ricevuti_annullato`
+**2. Flusso popup a 2 livelli**:
+1. Click "Paga Rimessa" → **AlertDialog**: "Stai per creare una rimessa per [Compagnia] con N titoli per un totale di €X. Vuoi procedere?"
+2. Conferma → **Dialog** con IBAN, importo (modificabile), note
+3. Click "Conferma Pagamento" → invocazione edge function → redirect a Storico Rimesse
 
-**4. Salvare in memoria** il comportamento di questa feature per riferimento futuro
+**3. Aggiornamento post-pagamento**: dopo `onSuccess`, invalidare queries per far sparire i titoli pagati dalla vista.
 
 ### File coinvolti
-- `src/pages/TitoloDetail.tsx` — 2 AlertDialog + mutation annullamento
+- `src/pages/contabilita/ECCompagniaContabPage.tsx` — filtro titoli rimessi + AlertDialog pre-conferma
 
