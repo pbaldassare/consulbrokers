@@ -168,13 +168,13 @@ export function useDashboardData(ruolo: string) {
     }
 
     setAdmin({
-      rinnoviMeseCount: rinnoviMese?.length || 0,
+      rinnoviMeseCount: rinnoviMeseCount ?? rinnoviMese?.length ?? 0,
       rinnoviMeseImporto: sumPremio(rinnoviMese),
-      rinnoviOggiCount: rinnoviOggi?.length || 0,
+      rinnoviOggiCount: rinnoviOggiCount ?? rinnoviOggi?.length ?? 0,
       rinnoviOggiImporto: sumPremio(rinnoviOggi),
-      incassiIeriCount: incassiIeri?.length || 0,
+      incassiIeriCount: incassiIeriCount ?? incassiIeri?.length ?? 0,
       incassiIeriImporto: sumPremio(incassiIeri),
-      incassiMeseCount: incassiMese?.length || 0,
+      incassiMeseCount: incassiMeseCount ?? incassiMese?.length ?? 0,
       incassiMeseImporto: sumPremio(incassiMese),
       raccoltaPremiAnno: sumPremio(raccoltaAnno),
       nuoviClientiMese: nuoviClientiMese || 0,
