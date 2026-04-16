@@ -3,7 +3,7 @@
  * Given a profile object returns the first route the user is allowed to see.
  */
 export function getDefaultRoute(
-  profile: { ruolo?: string | null; permessi_json?: Record<string, boolean> | null } | null | undefined,
+  profile: { ruolo?: string | null; permessi_json?: unknown } | null | undefined,
 ): string {
   if (!profile) return "/login";
 
@@ -13,7 +13,9 @@ export function getDefaultRoute(
   // Admin always goes to dashboard
   if (profile.ruolo === "admin") return "/";
 
-  const perms = profile.permessi_json as Record<string, boolean> | null;
+  const perms = (profile.permessi_json && typeof profile.permessi_json === "object" && !Array.isArray(profile.permessi_json))
+    ? (profile.permessi_json as Record<string, boolean>)
+    : null;
 
   // If user has dashboard permission or no permission map at all → dashboard
   if (!perms || perms.dashboard) return "/";
