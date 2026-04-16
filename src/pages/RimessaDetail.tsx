@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, Code, Clock, Send, AlertTriangle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ArrowLeft, FileText, Code, Clock, Send, AlertTriangle, Undo2 } from "lucide-react";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -19,6 +21,7 @@ const RimessaDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [showAnnulla, setShowAnnulla] = useState(false);
 
   const { data: rimessa, isLoading } = useQuery({
     queryKey: ["rimessa", id],
@@ -86,17 +89,36 @@ const RimessaDetail = () => {
     onError: (err: any) => toast.error("Errore"),
   });
 
+  const annullaMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
+        body: { action: "annulla", rimessa_id: id, created_by: user?.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Rimessa annullata. I titoli sono di nuovo disponibili.");
+      setShowAnnulla(false);
+      navigate("/contabilita/storico-rimesse");
+    },
+    onError: (err: any) => { toast.error(err.message || "Errore"); setShowAnnulla(false); },
+  });
+
   if (isLoading) return <p className="text-muted-foreground p-8">Caricamento...</p>;
   if (!rimessa) return <p className="text-destructive p-8">Rimessa non trovata</p>;
 
   const r = rimessa as any;
   const isBozza = r.stato === "bozza";
+  const isAnnullata = r.stato === "annullata";
 
   const statoBadge = (s: string) => {
     switch (s) {
       case "pronta": return "default";
       case "inviata": return "secondary";
       case "errore": return "destructive";
+      case "annullata": return "destructive";
       default: return "outline";
     }
   };
@@ -134,6 +156,11 @@ const RimessaDetail = () => {
           {r.stato === "errore" && (
             <Button variant="outline" onClick={() => changeStatoMutation.mutate("bozza")} disabled={changeStatoMutation.isPending}>
               Riporta a Bozza
+            </Button>
+          )}
+          {!isAnnullata && (
+            <Button variant="destructive" onClick={() => setShowAnnulla(true)}>
+              <Undo2 className="w-4 h-4 mr-2" />Annulla Rimessa
             </Button>
           )}
         </CardContent>
@@ -216,6 +243,27 @@ const RimessaDetail = () => {
           </CardContent>
         </Card>
       )}
+      {/* AlertDialog annullamento */}
+      <AlertDialog open={showAnnulla} onOpenChange={setShowAnnulla}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annullare questa rimessa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              I titoli inclusi torneranno disponibili per una nuova rimessa in EC Compagnia. Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => annullaMutation.mutate()}
+              disabled={annullaMutation.isPending}
+            >
+              {annullaMutation.isPending ? "Annullamento..." : "Conferma Annullamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

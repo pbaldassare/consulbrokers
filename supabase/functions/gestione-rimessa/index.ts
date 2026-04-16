@@ -175,7 +175,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    throw new Error("Azione non valida. Usa 'crea' o 'genera_xml'");
+    if (action === "annulla") {
+      if (!rimessa_id) throw new Error("rimessa_id richiesto");
+
+      // Delete all detail rows so titles become available again
+      const { error: delErr } = await supabaseAdmin
+        .from("rimessa_dettaglio")
+        .delete()
+        .eq("rimessa_id", rimessa_id);
+      if (delErr) throw delErr;
+
+      // Mark rimessa as annullata
+      const { error: updErr } = await supabaseAdmin
+        .from("rimessa_premi")
+        .update({ stato: "annullata", updated_at: new Date().toISOString() })
+        .eq("id", rimessa_id);
+      if (updErr) throw updErr;
+
+      if (created_by) {
+        await supabaseAdmin.from("log_attivita").insert({
+          user_id: created_by,
+          azione: "annullamento_rimessa",
+          entita_tipo: "rimessa_premi",
+          entita_id: rimessa_id,
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, stato: "annullata" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    throw new Error("Azione non valida. Usa 'crea', 'genera_xml' o 'annulla'");
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err.message }),

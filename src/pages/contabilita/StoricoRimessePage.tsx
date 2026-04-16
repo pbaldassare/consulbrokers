@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
-import { Send, Filter, RotateCcw, ChevronDown, ChevronRight, CreditCard, Building2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Send, Filter, RotateCcw, ChevronDown, ChevronRight, CreditCard, Building2, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Filters {
   compagnia_id: string | null;
@@ -24,8 +27,11 @@ const StoricoRimessePage = () => {
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
+  const [annullaTarget, setAnnullaTarget] = useState<any>(null);
   const pageSize = 25;
   const set = (partial: Partial<Filters>) => { setFilters((f) => ({ ...f, ...partial })); setPage(0); };
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie-storico-rimesse"],
@@ -70,6 +76,24 @@ const StoricoRimessePage = () => {
       }
       return map;
     },
+  });
+
+  const annullaMutation = useMutation({
+    mutationFn: async (rimessa_id: string) => {
+      const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
+        body: { action: "annulla", rimessa_id, created_by: user?.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["storico-rimesse"] });
+      queryClient.invalidateQueries({ queryKey: ["storico-rimesse-dettagli"] });
+      toast.success("Rimessa annullata. I titoli sono di nuovo disponibili.");
+      setAnnullaTarget(null);
+    },
+    onError: (err: any) => { toast.error(err.message || "Errore nell'annullamento"); setAnnullaTarget(null); },
   });
 
   const toggleExpand = (id: string) => {
@@ -138,19 +162,21 @@ const StoricoRimessePage = () => {
             <TableHead className="text-right">Pagato</TableHead>
             <TableHead>Stato</TableHead>
             <TableHead>Note</TableHead>
+            <TableHead className="w-[80px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rimesse.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessuna rimessa trovata</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessuna rimessa trovata</TableCell></TableRow>
             ) : rimesse.map((r: any) => {
               const isExpanded = expandedRows.has(r.id);
               const dettagli = dettagliMap?.[r.id] || [];
               const isParziale = Number(r.importo_pagato) < Number(r.totale_importi);
+              const isAnnullata = r.stato === "annullata";
               return (
                 <>
-                  <TableRow key={r.id} className="cursor-pointer" onClick={() => toggleExpand(r.id)}>
+                  <TableRow key={r.id} className={cn("cursor-pointer", isAnnullata && "opacity-60")} onClick={() => toggleExpand(r.id)}>
                     <TableCell className="px-2">
                       {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     </TableCell>
@@ -162,16 +188,33 @@ const StoricoRimessePage = () => {
                       {fmt(Number(r.importo_pagato) || 0)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={r.stato === "pagata" ? "default" : "secondary"} className={cn(isParziale && "bg-amber-500")}>
-                        {isParziale ? "Parziale" : r.stato || "bozza"}
-                      </Badge>
+                      {isAnnullata ? (
+                        <Badge variant="destructive">Annullata</Badge>
+                      ) : (
+                        <Badge variant={r.stato === "pagata" ? "default" : "secondary"} className={cn(isParziale && "bg-amber-500")}>
+                          {isParziale ? "Parziale" : r.stato || "bozza"}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{r.note || "—"}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {!isAnnullata && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setAnnullaTarget(r)}
+                          title="Annulla rimessa"
+                        >
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                   {isExpanded && (
                     <TableRow key={`${r.id}-detail`} className="bg-muted/30 hover:bg-muted/30">
                       <TableCell></TableCell>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={8}>
                         <div className="py-2">
                           <p className="text-xs font-medium text-muted-foreground mb-2">{dettagli.length} titoli inclusi</p>
                           <Table>
@@ -214,6 +257,31 @@ const StoricoRimessePage = () => {
           </div>
         </div>
       )}
+
+      {/* AlertDialog annullamento */}
+      <AlertDialog open={!!annullaTarget} onOpenChange={(open) => !open && setAnnullaTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annullare questa rimessa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per annullare la rimessa per <strong>{annullaTarget?.compagnie?.nome}</strong> di{" "}
+              <strong>{annullaTarget ? fmt(Number(annullaTarget.totale_importi) || 0) : ""}</strong>.
+              <br /><br />
+              I titoli inclusi torneranno disponibili per una nuova rimessa in EC Compagnia. Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => annullaTarget && annullaMutation.mutate(annullaTarget.id)}
+              disabled={annullaMutation.isPending}
+            >
+              {annullaMutation.isPending ? "Annullamento..." : "Conferma Annullamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
