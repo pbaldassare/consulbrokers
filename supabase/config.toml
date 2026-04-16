@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.cerca-bandi]
 verify_jwt = false
+
+[functions.provision-user]
+verify_jwt = false
