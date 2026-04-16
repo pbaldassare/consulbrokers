@@ -1,27 +1,29 @@
 
 
-## Piano: Fix polizze sparite dal Carico del Mese
+## Piano: Aggiornare testo circolare nel dialog Conferimento Gestito
 
-### Causa
-La vista `v_portafoglio_titoli` non include le 3 nuove colonne (`conferimento_gestito`, `fondi_ricevuti`, `data_conferimento_gestito`) aggiunte alla tabella `titoli`. La query PostgREST fallisce silenziosamente quando richiede colonne inesistenti dalla vista, restituendo 0 risultati.
+### Problema
+Il dialog cita erroneamente "Circolare IVASS n. 73/2020". La circolare è interna — **Circolare 02 Consulbrokers**, Procedura operativa 03, punto 3.
 
-### Soluzione
+### Modifica
 
-**1. Migrazione SQL** — Ricreare la vista aggiungendo le 3 colonne mancanti:
-```sql
-CREATE OR REPLACE VIEW v_portafoglio_titoli AS
-  SELECT ... (tutte le colonne esistenti) ...,
-    t.conferimento_gestito,
-    t.fondi_ricevuti,
-    t.data_conferimento_gestito,
-    ... (rest of joins)
-```
+**File**: `src/pages/TitoloDetail.tsx` (righe 598-602)
 
-**2. Aggiornare i tipi TypeScript** — Aggiornare il tipo della vista in `types.ts` per includere le nuove colonne.
+Sostituire il testo della dichiarazione con il contenuto reale della Circolare 02:
+
+**Titolo**: "Dichiarazione di Responsabilità — Circolare 02 Consulbrokers"
+
+**Testo**: Riferimento alla Procedura operativa 03, punto 3:
+> Le polizze, una volta inserite NON DEVONO ESSERE GARANTITE, ma dovranno essere effettivamente incassate; casi particolari devono essere concordati PER ISCRITTO con la Direzione seguendo i criteri di seguito esposti:
+>
+> a. Coperture fino ad euro 1.000,00: occorre l'autorizzazione dell'Amministratore Delegato
+> b. Coperture fino ad euro 10.000,00: occorre l'autorizzazione di due Amministratori Delegati
+> c. Coperture oltre euro 10.000,00: occorre l'autorizzazione del CDA
+>
+> Tutto quanto non regolarizzato alla data di chiusura del mese non verrà rimesso alle compagnie entro il giorno 10 del mese successivo.
+
+**Checkbox**: "Dichiaro di aver ottenuto l'autorizzazione necessaria e di assumermi la responsabilità dell'incasso"
 
 ### File coinvolti
-- Nuova migrazione SQL (1 file)
-- `src/integrations/supabase/types.ts` — aggiungere colonne alla vista
-
-Nessuna modifica al codice delle pagine: le query già richiedono queste colonne.
+- `src/pages/TitoloDetail.tsx` — solo modifica testo (righe 598-602)
 
