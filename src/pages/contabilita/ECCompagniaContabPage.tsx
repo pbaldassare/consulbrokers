@@ -282,7 +282,7 @@ const ECCompagniaContabPage = () => {
   const totRimesso = rows.reduce((s, r) => s + r.gia_rimesso, 0);
   const totDaRimettere = totLordo - totProvv - totRimesso;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al;
+  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento || filters.modalita_incasso;
 
   const formatDateRange = (min: string | null, max: string | null) => {
     if (!min) return "—";
@@ -341,6 +341,8 @@ const ECCompagniaContabPage = () => {
           <FilterSearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })} options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))} placeholder="Produttore" allLabel="Tutti i produttori" className="w-[220px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
+          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
+          <FilterSearchableSelect value={filters.modalita_incasso} onValueChange={(v) => set({ modalita_incasso: v })} options={[{ value: "diretto", label: "Incasso Diretto" }, { value: "gestito", label: "Conferimento Gestito" }, { value: "attesa_fondi", label: "In Attesa Fondi" }]} placeholder="Modalità" allLabel="Tutte le modalità" className="w-[200px]" />
         </div>
       </div>
 
