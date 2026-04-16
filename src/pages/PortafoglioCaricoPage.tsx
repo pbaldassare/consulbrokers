@@ -41,8 +41,30 @@ const PortafoglioCaricoPage = () => {
   const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
 
 
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setPage(0);
+  };
+
+  const SortableHeader = ({ field, children, className }: { field: string; children: React.ReactNode; className?: string }) => {
+    const Icon = sortField === field ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return (
+      <TableHead className={`cursor-pointer select-none ${className || ""}`} onClick={() => handleSort(field)}>
+        <div className="flex items-center gap-1">
+          {children}
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+      </TableHead>
+    );
+  };
+
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
@@ -56,7 +78,7 @@ const PortafoglioCaricoPage = () => {
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
 
       const { data, count } = await q
-        .order("data_scadenza", { ascending: true })
+        .order(sortField, { ascending: sortDirection === "asc" })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       return { data: data || [], count: count || 0 };
     },
