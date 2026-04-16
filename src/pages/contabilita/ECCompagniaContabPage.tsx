@@ -60,8 +60,8 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, prodotto_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, prodotti!titoli_prodotto_id_fkey(compagnia_id)")
-        .not("prodotto_id", "is", null)
+        .select("premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza")
+        .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
@@ -88,11 +88,11 @@ const ECCompagniaContabPage = () => {
       const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number; gia_rimesso: number }> = {};
 
       for (const t of titoli || []) {
-        const prod = t.prodotti as any;
-        if (!prod?.compagnia_id) continue;
-        if (filters.compagnia_id && prod.compagnia_id !== filters.compagnia_id) continue;
-        const comp = compagniaMap.get(prod.compagnia_id);
-        const key = prod.compagnia_id;
+        const cId = (t as any).compagnia_id as string;
+        if (!cId) continue;
+        if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
+        const comp = compagniaMap.get(cId);
+        const key = cId;
         if (!grouped[key]) {
           grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0, gia_rimesso: rimesseMap.get(key) || 0 };
         }
