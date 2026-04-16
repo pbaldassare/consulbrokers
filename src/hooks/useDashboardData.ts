@@ -104,18 +104,18 @@ export function useDashboardData(ruolo: string) {
     const { data: { user } } = await supabase.auth.getUser();
 
     const [
-      { data: rinnoviMese },
-      { data: rinnoviOggi },
-      { data: incassiIeri },
-      { data: incassiMese },
+      { data: rinnoviMese, count: rinnoviMeseCount },
+      { data: rinnoviOggi, count: rinnoviOggiCount },
+      { data: incassiIeri, count: incassiIeriCount },
+      { data: incassiMese, count: incassiMeseCount },
       { data: raccoltaAnno },
       { count: nuoviClientiMese },
     ] = await Promise.all([
-      supabase.from("titoli").select("premio_lordo").gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth),
-      supabase.from("titoli").select("premio_lordo").eq("data_scadenza", oggi),
-      supabase.from("titoli").select("premio_lordo").eq("data_messa_cassa", ieri),
-      supabase.from("titoli").select("premio_lordo").gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth),
-      supabase.from("titoli").select("premio_lordo").gte("data_messa_cassa", startOfYear),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_messa_cassa", ieri).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo").gte("data_messa_cassa", startOfYear).limit(10000),
       supabase.from("clienti").select("*", { count: "exact", head: true }).gte("created_at", startOfMonth),
     ]);
 
