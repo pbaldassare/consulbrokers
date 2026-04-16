@@ -426,7 +426,7 @@ const PortafoglioCaricoPage = () => {
                             size="sm"
                             variant="outline"
                             disabled={isProcessing}
-                            onClick={() => mettiACassa(p.id)}
+                            onClick={() => mettiACassa(p.id, p.premio_lordo)}
                             className="gap-1 h-8 text-xs"
                           >
                             <Banknote className="h-3.5 w-3.5" />
