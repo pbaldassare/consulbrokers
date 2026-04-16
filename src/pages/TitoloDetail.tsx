@@ -587,7 +587,73 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Conferma Annulla Incasso (solo admin) */}
+      {/* Dialog Conferimento Gestito */}
+      <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Conferimento Gestito</DialogTitle>
+            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Incasso senza fondi in cassa</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-orange-400 bg-orange-50 p-3 text-sm text-orange-800 space-y-2">
+              <p className="font-semibold">⚠️ Dichiarazione di Responsabilità</p>
+              <p>Con la presente, ai sensi della Circolare IVASS n. 73/2020 e successive modificazioni, il sottoscritto dichiara di assumersi la piena responsabilità per l'incasso del premio assicurativo relativo alla polizza in oggetto, pur non avendo ancora ricevuto materialmente i fondi dal cliente.</p>
+              <p>L'intermediario si impegna a garantire la regolarità della copertura assicurativa e a dare tempestiva comunicazione dell'avvenuto ricevimento dei fondi.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="conferimento-accettato" checked={conferimentoAccettato} onCheckedChange={(v) => setConferimentoAccettato(!!v)} />
+              <Label htmlFor="conferimento-accettato" className="text-sm font-medium">Dichiaro di assumermi la responsabilità dell'incasso</Label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Data Messa a Cassa</Label>
+                <Input type="date" value={conferimentoForm.dataMessaCassa} onChange={(e) => setConferimentoForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Pagamento</Label>
+                <Input type="date" value={conferimentoForm.dataPagamento} onChange={(e) => setConferimentoForm(f => ({ ...f, dataPagamento: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Decorrenza Rinnovo</Label>
+                <Input type="date" value={conferimentoForm.dataDecorrenza} onChange={(e) => setConferimentoForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Tipo Pagamento</Label>
+              <Select value={conferimentoForm.tipoPagamento} onValueChange={(v) => setConferimentoForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contanti">Contanti</SelectItem>
+                  <SelectItem value="carta_credito">Carta di Credito</SelectItem>
+                  <SelectItem value="bonifico">Bonifico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {conferimentoForm.tipoPagamento === "bonifico" && (
+              <div>
+                <Label className="text-xs">Banca</Label>
+                <Select value={conferimentoForm.banca} onValueChange={(v) => setConferimentoForm(f => ({ ...f, banca: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
+                  <SelectContent>
+                    {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConferimentoDialogOpen(false)}>Annulla</Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={!conferimentoAccettato || changeStatoMutation.isPending || (conferimentoForm.tipoPagamento === "bonifico" && !conferimentoForm.banca)}
+              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: conferimentoForm, conferimentoGestito: true } as any)}
+            >
+              <Shield className="w-4 h-4 mr-1" /> Conferma Conferimento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={annullaDialogOpen} onOpenChange={setAnnullaDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
