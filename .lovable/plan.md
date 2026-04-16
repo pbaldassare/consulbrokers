@@ -1,26 +1,27 @@
 
 
-## Piano: Collegare Messa a Cassa ai dati E/C Compagnia
-
-### Problema
-Il tab "Estratto Conto" in E/C Compagnia attualmente mostra **tutti i titoli** indipendentemente dallo stato. Quando si conferma la "Messa a Cassa" in Incassi e Coperture (stato → `incassato`), quei dati non vengono filtrati correttamente nell'E/C Compagnia.
+## Piano: Link diretto "Anteprima Portale Cliente" dall'admin
 
 ### Cosa cambia
 
-**1. Filtrare titoli per `stato = 'incassato'` nel tab Estratto Conto**
-- La query attuale (riga 72-98 di `ECCompagniaContabPage.tsx`) non filtra per stato. Aggiungere `.eq("stato", "incassato")` per mostrare solo i titoli messi a cassa.
+Aggiungere un pulsante **"Anteprima Portale"** nel dialog di gestione Area Riservata (e/o come icona accanto al badge) che apre il portale cliente (`/cliente`) in una nuova scheda del browser.
 
-**2. Aggiungere colonna "Da Rimettere" e "Già Rimesso"**
-- Calcolare `da_rimettere = lordo - provvigioni` per ogni compagnia
-- Incrociare con `rimessa_premi` per mostrare quanto è già stato rimesso e quanto resta da rimettere
-- Aggiungere le colonne nella tabella: Lordo, Provvigioni, **Già Rimesso**, **Da Rimettere**
+### Problema attuale
+Il `ClienteGuard` blocca l'accesso al portale se `profile.ruolo !== "cliente"`, quindi un admin non può vedere le pagine `/cliente/*`. Serve una modifica al guard per permettere l'accesso anche agli admin.
 
-**3. Aggiornare i KPI**
-- Aggiungere KPI "Da Rimettere" e "Già Rimesso" accanto ai KPI esistenti
+### Modifiche
 
-**4. Aggiungere filtro per `data_messa_cassa`**
-- I filtri periodo (`periodo_dal`, `periodo_al`) dovrebbero applicarsi su `data_messa_cassa` (non `data_incasso`) per coerenza col flusso di cassa
+**1. `src/components/ClienteGuard.tsx`** — Permettere accesso admin
+- Se `profile.ruolo` è `admin` o `ufficio`, bypassare il check e renderizzare i children direttamente (l'admin vede il portale come anteprima)
+
+**2. `src/pages/ClienteDetail.tsx`** — Aggiungere pulsante "Anteprima Portale"
+- Nel componente `AreaRiservataHeaderButton`, quando l'area è attiva, aggiungere un'icona/link `ExternalLink` accanto al badge che apre `/cliente` in `target="_blank"`
+- Nel dialog, aggiungere un pulsante "Anteprima Portale" nel footer (solo se area attiva)
+
+### Nota tecnica
+L'admin vedrà il portale ma i dati mostrati saranno quelli dell'admin stesso (non del cliente specifico), perché il portale usa `auth.uid()` per caricare i dati. Per una vera anteprima contestualizzata servirebbe un meccanismo di impersonation — per ora il link serve come verifica che le pagine funzionino e siano raggiungibili.
 
 ### File coinvolti
-- **`src/pages/contabilita/ECCompagniaContabPage.tsx`** — query filtrata per incassato, aggiunta calcolo rimesse, nuove colonne e KPI
+- `src/components/ClienteGuard.tsx`
+- `src/pages/ClienteDetail.tsx`
 
