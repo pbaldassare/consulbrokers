@@ -678,20 +678,22 @@ Consulbrokers S.r.l.`;
   return (
     <>
       {isActive ? (
-        <Badge
-          variant="outline"
-          className={`cursor-pointer ml-2 gap-1 ${currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"}`}
-          onClick={openDialog}
-        >
-          <Globe className="h-3 w-3" />
-          {currentTipo === "completa" ? "Area Riservata Attiva" : "Area Riservata (Sola Lettura)"}
-        </Badge>
-        <a href="/cliente" target="_blank" rel="noopener noreferrer" title="Anteprima Portale Cliente">
-          <Badge variant="outline" className="cursor-pointer ml-1 gap-1 border-blue-500 text-blue-600 hover:bg-blue-50">
-            <ExternalLink className="h-3 w-3" />
-            Anteprima Portale
+        <>
+          <Badge
+            variant="outline"
+            className={`cursor-pointer ml-2 gap-1 ${currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"}`}
+            onClick={openDialog}
+          >
+            <Globe className="h-3 w-3" />
+            {currentTipo === "completa" ? "Area Riservata Attiva" : "Area Riservata (Sola Lettura)"}
           </Badge>
-        </a>
+          <a href="/cliente" target="_blank" rel="noopener noreferrer" title="Anteprima Portale Cliente">
+            <Badge variant="outline" className="cursor-pointer ml-1 gap-1 border-blue-500 text-blue-600 hover:bg-blue-50">
+              <ExternalLink className="h-3 w-3" />
+              Anteprima Portale
+            </Badge>
+          </a>
+        </>
       ) : (
         <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8 ml-2" disabled={!cliente.email} onClick={openDialog}>
           <Globe className="h-3.5 w-3.5" />
