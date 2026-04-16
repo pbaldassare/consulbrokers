@@ -111,8 +111,8 @@ export function useDashboardData(ruolo: string) {
       { data: raccoltaAnno },
       { count: nuoviClientiMese },
     ] = await Promise.all([
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).in("stato", ["attivo", "incassato"]).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).in("stato", ["attivo", "incassato"]).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_messa_cassa", ieri).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo").gte("data_messa_cassa", startOfYear).limit(10000),

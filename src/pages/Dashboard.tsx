@@ -148,8 +148,8 @@ const AdminDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/rinnovi")} />
-        <SummaryCard label="Rinnovi di Oggi" value={String(d?.rinnoviOggiCount ?? 0)} sub={fmt(d?.rinnoviOggiImporto ?? 0)} icon={Calendar} variant="green" loading={loading} onClick={() => navigate("/portafoglio/rinnovi")} />
+        <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Rinnovi di Oggi" value={String(d?.rinnoviOggiCount ?? 0)} sub={fmt(d?.rinnoviOggiImporto ?? 0)} icon={Calendar} variant="green" loading={loading} onClick={() => navigate("/portafoglio/carico")} />	
         <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
         <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
       </div>
