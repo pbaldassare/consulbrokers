@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a } = await req.json();
+    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a, titoli_ids } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -22,26 +22,44 @@ Deno.serve(async (req) => {
     if (action === "crea") {
       if (!compagnia_id) throw new Error("compagnia_id richiesto");
 
-      // Find incassati titoli for this compagnia, filtered by data_messa_cassa range
-      let q = supabaseAdmin
-        .from("titoli")
-        .select("id, importo_incassato")
-        .eq("stato", "incassato")
-        .eq("compagnia_id", compagnia_id);
+      let available: { id: string; importo_incassato: number }[] = [];
 
-      if (data_da) q = q.gte("data_messa_cassa", data_da);
-      if (data_a) q = q.lte("data_messa_cassa", data_a);
+      if (titoli_ids && Array.isArray(titoli_ids) && titoli_ids.length > 0) {
+        // Use specific titoli provided by the user
+        const { data: titoli, error: tErr } = await supabaseAdmin
+          .from("titoli")
+          .select("id, importo_incassato")
+          .eq("stato", "incassato")
+          .eq("compagnia_id", compagnia_id)
+          .in("id", titoli_ids);
+        if (tErr) throw tErr;
 
-      const { data: titoli, error: tErr } = await q;
-      if (tErr) throw tErr;
+        // Filter out titoli already in another rimessa
+        const { data: usedTitoli } = await supabaseAdmin
+          .from("rimessa_dettaglio")
+          .select("titolo_id");
+        const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
+        available = (titoli || []).filter((t: any) => !usedIds.has(t.id));
+      } else {
+        // Original logic: find all incassati titoli for this compagnia
+        let q = supabaseAdmin
+          .from("titoli")
+          .select("id, importo_incassato")
+          .eq("stato", "incassato")
+          .eq("compagnia_id", compagnia_id);
 
-      // Filter out titoli already in another rimessa
-      const { data: usedTitoli } = await supabaseAdmin
-        .from("rimessa_dettaglio")
-        .select("titolo_id");
-      const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
+        if (data_da) q = q.gte("data_messa_cassa", data_da);
+        if (data_a) q = q.lte("data_messa_cassa", data_a);
 
-      const available = (titoli || []).filter((t: any) => !usedIds.has(t.id));
+        const { data: titoli, error: tErr } = await q;
+        if (tErr) throw tErr;
+
+        const { data: usedTitoli } = await supabaseAdmin
+          .from("rimessa_dettaglio")
+          .select("titolo_id");
+        const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
+        available = (titoli || []).filter((t: any) => !usedIds.has(t.id));
+      }
 
       if (available.length === 0) {
         return new Response(
@@ -82,7 +100,7 @@ Deno.serve(async (req) => {
           azione: "creazione_rimessa",
           entita_tipo: "rimessa_premi",
           entita_id: rimessa.id,
-          dettagli_json: { compagnia_id, titoli_count: available.length, totale, data_da, data_a },
+          dettagli_json: { compagnia_id, titoli_count: available.length, totale, data_da, data_a, titoli_ids: titoli_ids || null },
         });
       }
 
