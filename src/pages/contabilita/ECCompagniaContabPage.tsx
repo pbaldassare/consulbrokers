@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, PackagePlus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, PackagePlus, ChevronRight, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
@@ -22,6 +23,27 @@ interface Filters {
   periodo_al: Date | null;
 }
 
+interface TitoloDetail {
+  id: string;
+  numero_titolo: string | null;
+  data_messa_cassa: string | null;
+  premio_lordo: number;
+  importo_incassato: number;
+}
+
+interface GroupedRow {
+  compagnia_id: string;
+  nome: string;
+  codice: string;
+  mail: string;
+  lordo: number;
+  provvigioni: number;
+  gia_rimesso: number;
+  data_min: string | null;
+  data_max: string | null;
+  titoli: TitoloDetail[];
+}
+
 const defaultFilters: Filters = {
   compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null,
 };
@@ -31,7 +53,38 @@ const ECCompagniaContabPage = () => {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
+
+  const toggleExpand = (compagniaId: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(compagniaId)) next.delete(compagniaId);
+      else next.add(compagniaId);
+      return next;
+    });
+  };
+
+  const toggleTitolo = (compagniaId: string, titoloId: string) => {
+    setSelectedTitoli((prev) => {
+      const current = new Set(prev[compagniaId] || []);
+      if (current.has(titoloId)) current.delete(titoloId);
+      else current.add(titoloId);
+      return { ...prev, [compagniaId]: current };
+    });
+  };
+
+  const toggleAllTitoli = (compagniaId: string, titoli: TitoloDetail[]) => {
+    setSelectedTitoli((prev) => {
+      const current = prev[compagniaId] || new Set();
+      const allSelected = titoli.every((t) => current.has(t.id));
+      if (allSelected) {
+        return { ...prev, [compagniaId]: new Set() };
+      }
+      return { ...prev, [compagniaId]: new Set(titoli.map((t) => t.id)) };
+    });
+  };
 
   const { data: compagnie } = useQuery({
     queryKey: ["compagnie-ec"],
@@ -60,7 +113,7 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, compagnie(nome, codice, comune, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -72,7 +125,6 @@ const ECCompagniaContabPage = () => {
       const { data: titoli, error } = await query;
       if (error) throw error;
 
-      // Fetch rimesse totals per compagnia
       const { data: rimesseAgg } = await supabase
         .from("rimessa_premi")
         .select("compagnia_id, totale_importi")
@@ -84,26 +136,48 @@ const ECCompagniaContabPage = () => {
         }
       }
 
-      const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number; gia_rimesso: number }> = {};
+      const grouped: Record<string, GroupedRow> = {};
 
       for (const t of titoli || []) {
         const cId = (t as any).compagnia_id as string;
         if (!cId) continue;
         if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
         const comp = (t as any).compagnie;
-        const key = cId;
-        if (!grouped[key]) {
-          grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0, gia_rimesso: rimesseMap.get(key) || 0 };
+        if (!grouped[cId]) {
+          grouped[cId] = {
+            compagnia_id: cId,
+            nome: comp?.nome || "N/D",
+            codice: comp?.codice || "",
+            mail: comp?.mail || "",
+            lordo: 0,
+            provvigioni: 0,
+            gia_rimesso: rimesseMap.get(cId) || 0,
+            data_min: null,
+            data_max: null,
+            titoli: [],
+          };
         }
-        grouped[key].lordo += Number(t.premio_lordo) || 0;
-        grouped[key].provvigioni += (Number(t.provvigioni_firma) || 0) + (Number(t.provvigioni_quietanza) || 0);
+        grouped[cId].lordo += Number(t.premio_lordo) || 0;
+        grouped[cId].provvigioni += (Number(t.provvigioni_firma) || 0) + (Number(t.provvigioni_quietanza) || 0);
+        grouped[cId].titoli.push({
+          id: t.id,
+          numero_titolo: t.numero_titolo,
+          data_messa_cassa: t.data_messa_cassa,
+          premio_lordo: Number(t.premio_lordo) || 0,
+          importo_incassato: Number(t.importo_incassato) || 0,
+        });
+        const dmc = t.data_messa_cassa;
+        if (dmc) {
+          if (!grouped[cId].data_min || dmc < grouped[cId].data_min!) grouped[cId].data_min = dmc;
+          if (!grouped[cId].data_max || dmc > grouped[cId].data_max!) grouped[cId].data_max = dmc;
+        }
       }
       return Object.values(grouped).sort((a, b) => b.lordo - a.lordo);
     },
   });
 
   const creaRimessaMutation = useMutation({
-    mutationFn: async (compagniaId: string) => {
+    mutationFn: async ({ compagniaId, titoliIds }: { compagniaId: string; titoliIds?: string[] }) => {
       const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
         body: {
           action: "crea",
@@ -112,15 +186,17 @@ const ECCompagniaContabPage = () => {
           created_by: user?.id || null,
           data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
           data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
+          titoli_ids: titoliIds || undefined,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["ec-compagnia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
+      setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
       toast.success(`Rimessa creata — ${data.titoli_count} titoli inclusi`, {
         action: {
           label: "Vedi Storico",
@@ -131,6 +207,15 @@ const ECCompagniaContabPage = () => {
     onError: (e: any) => toast.error(e.message || "Errore nella creazione della rimessa"),
   });
 
+  const handleCreaRimessa = (compagniaId: string) => {
+    const selected = selectedTitoli[compagniaId];
+    const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
+    const count = titoliIds ? titoliIds.length : "tutti i";
+    if (window.confirm(`Creare rimessa con ${count} titoli?`)) {
+      creaRimessaMutation.mutate({ compagniaId, titoliIds });
+    }
+  };
+
   const rows = data || [];
   const totLordo = rows.reduce((s, r) => s + r.lordo, 0);
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
@@ -139,9 +224,16 @@ const ECCompagniaContabPage = () => {
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
   const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al;
 
+  const formatDateRange = (min: string | null, max: string | null) => {
+    if (!min) return "—";
+    const fmtD = (d: string) => format(new Date(d), "dd/MM/yyyy");
+    if (!max || min === max) return fmtD(min);
+    return `${fmtD(min)} – ${fmtD(max)}`;
+  };
+
   const exportCSV = () => {
-    const header = "Compagnia,Codice,Località,Mail,Lordo,Provvigioni,Già Rimesso,Da Rimettere\n";
-    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${r.comune}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${r.gia_rimesso.toFixed(2)},${(r.lordo - r.provvigioni - r.gia_rimesso).toFixed(2)}`).join("\n");
+    const header = "Compagnia,Codice,Data,Mail,Lordo,Provvigioni,Già Rimesso,Da Rimettere\n";
+    const csv = rows.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${r.gia_rimesso.toFixed(2)},${(r.lordo - r.provvigioni - r.gia_rimesso).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "ec_compagnia.csv"; a.click();
@@ -195,47 +287,99 @@ const ECCompagniaContabPage = () => {
       <div className="border rounded-lg">
         <Table>
           <TableHeader><TableRow>
-            <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Località</TableHead>
+            <TableHead className="w-[40px]"></TableHead>
+            <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
             <TableHead className="text-right">Già Rimesso</TableHead><TableHead className="text-right">Da Rimettere</TableHead>
             <TableHead className="w-[120px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun dato — conferma la Messa a Cassa per vedere i dati</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessun dato — conferma la Messa a Cassa per vedere i dati</TableCell></TableRow>
             ) : rows.map((r) => {
               const daRimettere = r.lordo - r.provvigioni - r.gia_rimesso;
+              const isExpanded = expandedRows.has(r.compagnia_id);
+              const selected = selectedTitoli[r.compagnia_id] || new Set();
+              const selectedCount = selected.size;
               return (
-              <TableRow key={r.compagnia_id}>
-                <TableCell className="font-medium">{r.nome}</TableCell><TableCell>{r.codice}</TableCell><TableCell>{r.comune}</TableCell>
-                <TableCell className="text-right">{fmt(r.lordo)}</TableCell><TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
-                <TableCell className="text-right text-purple-600 dark:text-purple-400">{fmt(r.gia_rimesso)}</TableCell>
-                <TableCell className="text-right font-semibold text-teal-600 dark:text-teal-400">{fmt(daRimettere)}</TableCell>
-                <TableCell>
-                  {daRimettere > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs gap-1"
-                      disabled={creaRimessaMutation.isPending}
-                      onClick={() => {
-                        if (window.confirm(`Creare rimessa per ${r.nome}?`)) {
-                          creaRimessaMutation.mutate(r.compagnia_id);
-                        }
-                      }}
-                    >
-                      <PackagePlus className="h-3 w-3" />
-                      Crea Rimessa
-                    </Button>
+                <>
+                  <TableRow key={r.compagnia_id} className="cursor-pointer" onClick={() => toggleExpand(r.compagnia_id)}>
+                    <TableCell className="px-2">
+                      {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    </TableCell>
+                    <TableCell className="font-medium">{r.nome}</TableCell>
+                    <TableCell>{r.codice}</TableCell>
+                    <TableCell className="text-sm">{formatDateRange(r.data_min, r.data_max)}</TableCell>
+                    <TableCell className="text-right">{fmt(r.lordo)}</TableCell>
+                    <TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
+                    <TableCell className="text-right text-purple-600 dark:text-purple-400">{fmt(r.gia_rimesso)}</TableCell>
+                    <TableCell className="text-right font-semibold text-teal-600 dark:text-teal-400">{fmt(daRimettere)}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {daRimettere > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          disabled={creaRimessaMutation.isPending}
+                          onClick={() => handleCreaRimessa(r.compagnia_id)}
+                        >
+                          <PackagePlus className="h-3 w-3" />
+                          {selectedCount > 0 ? `Rimessa (${selectedCount})` : "Crea Rimessa"}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow key={`${r.compagnia_id}-header`} className="bg-muted/30 hover:bg-muted/30">
+                      <TableCell></TableCell>
+                      <TableCell colSpan={8}>
+                        <div className="py-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Checkbox
+                              checked={r.titoli.length > 0 && r.titoli.every((t) => selected.has(t.id))}
+                              onCheckedChange={() => toggleAllTitoli(r.compagnia_id, r.titoli)}
+                            />
+                            <span className="text-xs font-medium text-muted-foreground">Seleziona tutti ({r.titoli.length} titoli)</span>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-[40px] h-8"></TableHead>
+                                <TableHead className="h-8 text-xs">N. Titolo</TableHead>
+                                <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>
+                                <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
+                                <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {r.titoli.map((t) => (
+                                <TableRow key={t.id} className="hover:bg-muted/50">
+                                  <TableCell className="py-1 px-2">
+                                    <Checkbox
+                                      checked={selected.has(t.id)}
+                                      onCheckedChange={() => toggleTitolo(r.compagnia_id, t.id)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="py-1 text-sm">{t.numero_titolo || "—"}</TableCell>
+                                  <TableCell className="py-1 text-sm">{t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
+                                  <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
+                                  <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </TableCell>
-              </TableRow>
+                </>
               );
             })}
           </TableBody>
           {rows.length > 0 && <TableFooter><TableRow>
+            <TableCell></TableCell>
             <TableCell colSpan={3} className="font-bold">Totale</TableCell>
             <TableCell className="text-right font-bold">{fmt(totLordo)}</TableCell><TableCell className="text-right font-bold">{fmt(totProvv)}</TableCell>
             <TableCell className="text-right font-bold text-purple-600 dark:text-purple-400">{fmt(totRimesso)}</TableCell>
