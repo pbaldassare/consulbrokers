@@ -23,12 +23,12 @@ const LoginPage = () => {
     if (error) {
       toast.error("Errore di accesso");
     } else {
-      // Check role for redirect
+      // Check role and permissions for redirect
       const { data: { user: loggedUser } } = await supabase.auth.getUser();
       if (loggedUser) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("ruolo")
+          .select("ruolo, permessi_json")
           .eq("id", loggedUser.id)
           .maybeSingle();
         if (profile?.ruolo === "cliente") {
@@ -38,6 +38,14 @@ const LoginPage = () => {
         if (profile?.ruolo === "prospect") {
           navigate("/prospect", { replace: true });
           return;
+        }
+        // If no dashboard permission, redirect to first allowed area
+        const perms = profile?.permessi_json as Record<string, boolean> | null;
+        if (profile?.ruolo !== "admin" && perms && !perms.dashboard) {
+          if (perms.titoli) { navigate("/portafoglio/attive", { replace: true }); return; }
+          if (perms.contabilita) { navigate("/contabilita", { replace: true }); return; }
+          if (perms.portafoglio) { navigate("/portafoglio/documentale", { replace: true }); return; }
+          if (perms.anagrafiche) { navigate("/archivi/anagrafiche", { replace: true }); return; }
         }
       }
       navigate("/", { replace: true });

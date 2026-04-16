@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Users, Building2, FileText, BarChart3, TrendingUp, Target, ClipboardList,
   Activity, ArrowUpRight, AlertCircle, DollarSign, FileWarning, Receipt,
@@ -293,13 +294,26 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const Dashboard = () => {
-  const { profile } = useAuth();
+  const { profile, hasPermission, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const ruolo = profile?.ruolo || "";
   const displayName = profile
     ? `${profile.nome || ""} ${profile.cognome || ""}`.trim() || profile.email || "Utente"
     : "Utente";
   const roleLabel = ROLE_LABELS[ruolo] || ruolo;
   const { loading, admin, ufficio, produttore, contabilita, cfo } = useDashboardData(ruolo);
+
+  // Redirect users without dashboard permission
+  useEffect(() => {
+    if (!profile) return;
+    if (!isAdmin && !hasPermission("dashboard")) {
+      const perms = profile.permessi_json as Record<string, boolean> | null;
+      if (perms?.titoli) { navigate("/portafoglio/attive", { replace: true }); return; }
+      if (perms?.contabilita) { navigate("/contabilita", { replace: true }); return; }
+      if (perms?.portafoglio) { navigate("/portafoglio/documentale", { replace: true }); return; }
+      if (perms?.anagrafiche) { navigate("/archivi/anagrafiche", { replace: true }); return; }
+    }
+  }, [profile, isAdmin, hasPermission, navigate]);
 
   const renderDashboard = () => {
     switch (ruolo) {

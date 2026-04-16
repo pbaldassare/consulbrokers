@@ -89,7 +89,7 @@ const sidebarEntries: SidebarEntry[] = [
     group: {
       label: "Trattative",
       icon: ArrowRightLeft,
-      permissionKey: "titoli",
+      permissionKey: "trattative",
       children: [
         { label: "Prospect", path: "/prospect", icon: Users },
         { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
@@ -98,7 +98,7 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  { type: "single", item: { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Bandi Pubblici", path: "/bandi-pubblici", icon: Landmark, permissionKey: "trattative" } },
   { type: "single", item: { label: "Chat", path: "/chat", icon: MessageSquare, permissionKey: "dashboard", hasBadge: true } },
   {
     type: "group",
@@ -126,7 +126,7 @@ const sidebarEntries: SidebarEntry[] = [
     group: {
       label: "Anagrafiche Utenti",
       icon: Briefcase,
-      permissionKey: "dashboard",
+      permissionKey: "anagrafiche",
       children: [
         { label: "Gestione Utenti", path: "/archivi/anagrafiche", icon: Briefcase },
         { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
