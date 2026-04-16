@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
+import { getDefaultRoute } from "@/lib/getDefaultRoute";
 
 interface RoleGuardProps {
   children: ReactNode;
@@ -35,7 +36,8 @@ const RoleGuard = ({ children, allowedRoles, permissionKey }: RoleGuardProps) =>
         },
         severity: "warning",
       });
-      navigate("/", { replace: true });
+      const fallback = getDefaultRoute(profile);
+      navigate(fallback, { replace: true });
     }
   }, [loading, user, isAllowed, navigate, profile]);
 
