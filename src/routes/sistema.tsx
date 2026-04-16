@@ -1,8 +1,6 @@
-import { Route } from "react-router-dom";
+import { Route, Navigate } from "react-router-dom";
 import RoleGuard from "@/components/RoleGuard";
 import ImpostazioniPage from "@/pages/ImpostazioniPage";
-import CreaNuovoUtente from "@/pages/CreaNuovoUtente";
-import GestioneUtenti from "@/pages/GestioneUtenti";
 import GestioneUtentiPrivilegi from "@/pages/GestioneUtentiPrivilegi";
 import BackupExport from "@/pages/BackupExport";
 import ManutenzionePage from "@/pages/ManutenzionePage";
@@ -30,8 +28,8 @@ export const sistemaRoutes = (
   <>
     {/* ADMIN */}
     <Route path="/impostazioni" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><ImpostazioniPage /></RoleGuard>} />
-    <Route path="/crea-utente" element={<RoleGuard allowedRoles={["admin"]}><CreaNuovoUtente /></RoleGuard>} />
-    <Route path="/gestione-utenti" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtenti /></RoleGuard>} />
+    <Route path="/crea-utente" element={<Navigate to="/utenti-privilegi?wizard=open" replace />} />
+    <Route path="/gestione-utenti" element={<Navigate to="/utenti-privilegi" replace />} />
     <Route path="/utenti-privilegi" element={<RoleGuard allowedRoles={["admin"]}><GestioneUtentiPrivilegi /></RoleGuard>} />
     <Route path="/backup-export" element={<RoleGuard allowedRoles={["admin"]}><BackupExport /></RoleGuard>} />
     <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />

@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Sparkles } from "lucide-react";
 import { LEVELS, getLevelByRole, ROLE_LABELS, UserLevel } from "@/lib/userLevels";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
 import CreateUserWizard from "@/components/utenti/CreateUserWizard";
@@ -15,11 +17,21 @@ import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
 import { toast } from "sonner";
 
 const GestioneUtentiPrivilegi = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filterLevel, setFilterLevel] = useState<UserLevel | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [sheetUser, setSheetUser] = useState<any | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("wizard") === "open") {
+      setCreateOpen(true);
+      searchParams.delete("wizard");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: users = [], refetch, isLoading } = useQuery({
     queryKey: ["users-priv"],
@@ -33,6 +45,20 @@ const GestioneUtentiPrivilegi = () => {
       if (error) throw error;
       return data || [];
     },
+  });
+
+  const { data: daProvisionare = [] } = useQuery({
+    queryKey: ["anagrafiche-no-account", users.length],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, nome, cognome, email, tipo")
+        .eq("attivo", true)
+        .not("email", "is", null);
+      const emails = new Set((users || []).map((u: any) => (u.email || "").toLowerCase()));
+      return (data || []).filter((a: any) => a.email && !emails.has(a.email.toLowerCase()));
+    },
+    enabled: users.length > 0,
   });
 
   const counts = useMemo(() => {
@@ -51,6 +77,8 @@ const GestioneUtentiPrivilegi = () => {
         const lvl = getLevelByRole(u.ruolo);
         if (lvl.id !== filterLevel) return false;
       }
+      if (statusFilter === "active" && !u.attivo) return false;
+      if (statusFilter === "suspended" && u.attivo) return false;
       if (search) {
         const s = search.toLowerCase();
         const hay = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
@@ -58,7 +86,7 @@ const GestioneUtentiPrivilegi = () => {
       }
       return true;
     });
-  }, [users, filterLevel, search]);
+  }, [users, filterLevel, statusFilter, search]);
 
   const grouped = useMemo(() => {
     const map = new Map<UserLevel, any[]>();
@@ -117,13 +145,52 @@ const GestioneUtentiPrivilegi = () => {
         ))}
       </div>
 
-      {/* Filtro */}
+      {/* Info-box gerarchia livelli */}
+      <Card className="bg-muted/30 border-dashed">
+        <CardContent className="p-3 flex gap-3 items-start">
+          <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-semibold text-foreground">Gerarchia accessi:</span> i livelli vanno da
+            <span className="font-medium text-foreground"> L1 Admin</span> (controllo totale) a
+            <span className="font-medium text-foreground"> L6 Cliente/Prospect</span> (portale read-only).
+            Ogni livello eredita una visibilità coerente: Sede vede la propria sede, Manager vede i suoi produttori,
+            Produttore vede solo il proprio portafoglio. Clicca una card sopra per filtrare.
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sezione "Da provisionare": anagrafiche professionali senza account */}
+      {daProvisionare.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-3 flex items-center gap-3 flex-wrap">
+            <Sparkles className="w-5 h-5 text-primary shrink-0" />
+            <div className="flex-1 min-w-[200px]">
+              <p className="text-sm font-semibold">{daProvisionare.length} anagrafiche professionali senza account</p>
+              <p className="text-xs text-muted-foreground">
+                Hanno email ma non possono ancora accedere alla piattaforma. Crea l'account dal wizard.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <UserPlus className="w-4 h-4 mr-1.5" /> Provisiona dal wizard
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filtri */}
       <Card>
-        <CardContent className="p-3 flex items-center gap-2 flex-wrap">
+        <CardContent className="p-3 flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input className="pl-9" placeholder="Cerca per nome, cognome o email…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <TabsList className="h-9">
+              <TabsTrigger value="all" className="text-xs">Tutti</TabsTrigger>
+              <TabsTrigger value="active" className="text-xs">Attivi</TabsTrigger>
+              <TabsTrigger value="suspended" className="text-xs">Sospesi</TabsTrigger>
+            </TabsList>
+          </Tabs>
           {filterLevel !== "all" && (
             <Button variant="ghost" size="sm" onClick={() => setFilterLevel("all")}>
               Mostra tutti i livelli
