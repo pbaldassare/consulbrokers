@@ -1,42 +1,38 @@
 
 
-## Piano: Rinominare "Corrispondente/i" → "Produttore/i" nelle label UI
+## Piano: Creare utenza per segreteria@consulbrokers.it
 
-### Principio
-Solo le **label visibili** cambiano. I valori DB (`tipo: "corrispondente"`, `ruolo: "corrispondente"`) restano invariati. Aggiornare anche la memory delle convenzioni terminologiche.
+### Dettagli account
+- **Email**: segreteria@consulbrokers.it
+- **Password**: Leone123!
+- **Nome**: Segreteria
+- **Cognome**: Consulbrokers
+- **Ruolo**: `ufficio` (Sede — Ufficio di Napoli)
+- **Ufficio**: Ufficio di Napoli
 
-### File e modifiche
+### Permessi JSON
+Solo le sezioni richieste saranno abilitate:
 
-**1. `src/pages/AnagraficheProfessionaliPage.tsx`**
-- Tab label: `"Corrispondenti"` → `"Produttori"`
-- Subtitle: sostituire "Corrispondenti" con "Produttori"
-- Commento interno: aggiornare
+```json
+{
+  "dashboard": true,
+  "titoli": true,
+  "portafoglio": true,
+  "contabilita": true
+}
+```
 
-**2. `src/pages/GestioneUtenti.tsx`**
-- `ROLE_LABELS.corrispondente`: `"Corrispondente"` → `"Produttore"`
+Mappatura permessi → sezioni sidebar:
+- `dashboard` → Home, Anagrafiche Utenti, Chat, Bandi, Notifiche
+- `titoli` → Portafoglio (Clienti, Polizze, Carico, Storico, Attive, ecc.) + Trattative
+- `portafoglio` → Archivio Documentale
+- `contabilita` → Contabilità (Cruscotto, Distinta, EC, Quadrature, ecc.)
 
-**3. `src/pages/SitemapPage.tsx`**
-- Nome ruolo: `"Corrispondente"` → `"Produttore"`
-- Descrizione ruolo: aggiornare testo
+**Non abilitati**: sinistri, cfo_area, impostazioni (Sistema), provvigioni
 
-**4. `src/pages/ManutenzionePage.tsx`**
-- Card title: `"Provisioning Corrispondenti"` → `"Provisioning Produttori"`
-- Descrizione: aggiornare testo
+### Azione
+Invocare la Edge Function `create-user` con i dati sopra per creare l'utente in auth + profilo + ruolo.
 
-**5. `src/pages/CompagnieList.tsx`**
-- `"Corrispondente LLOYD'S"` — questo è un dato reale (gruppo statistico), **non toccare**
-
-**6. `src/pages/contGenerale/DichiarativiCUPage.tsx`**
-- `"corrispondenti record"` — qui è italiano generico ("i corrispondenti record"), **non toccare**
-
-**7. `src/lib/findRelatedUsers.ts`**
-- Commenti interni: aggiornare per chiarezza
-
-**8. `mem://ui/terminology-conventions`**
-- Aggiungere: `"Corrispondente"` viene visualizzato come `"Produttore"`
-
-### Non modificati (valori DB, non label)
-- Query `.in("tipo", ["corrispondente", ...])` — restano invariate
-- `const isCorr = activeTab === "corrispondente"` — resta invariato
-- Edge function `provision-corrispondenti-users` — nome funzione resta invariato
+### File coinvolti
+Nessuna modifica al codice — operazione via Edge Function esistente.
 
