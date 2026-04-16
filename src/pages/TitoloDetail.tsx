@@ -556,7 +556,7 @@ const TitoloDetail = () => {
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="contanti">Contanti</SelectItem>
-                  <SelectItem value="carta_credito">Carta di Credito</SelectItem>
+                  <SelectItem value="pos">POS</SelectItem>
                   <SelectItem value="bonifico">Bonifico</SelectItem>
                 </SelectContent>
               </Select>
@@ -630,7 +630,7 @@ const TitoloDetail = () => {
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="contanti">Contanti</SelectItem>
-                  <SelectItem value="carta_credito">Carta di Credito</SelectItem>
+                  <SelectItem value="pos">POS</SelectItem>
                   <SelectItem value="bonifico">Bonifico</SelectItem>
                 </SelectContent>
               </Select>

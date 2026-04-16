@@ -25,6 +25,8 @@ interface Filters {
   produttore_id: string | null;
   periodo_dal: Date | null;
   periodo_al: Date | null;
+  tipo_pagamento: string | null;
+  modalita_incasso: string | null;
 }
 
 interface TitoloDetail {
@@ -35,6 +37,7 @@ interface TitoloDetail {
   importo_incassato: number;
   conferimento_gestito: boolean;
   fondi_ricevuti: boolean;
+  tipo_pagamento: string | null;
 }
 
 interface GroupedRow {
@@ -62,7 +65,7 @@ interface PagaRimessaState {
 }
 
 const defaultFilters: Filters = {
-  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null,
+  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null, modalita_incasso: null,
 };
 
 const ECCompagniaContabPage = () => {
