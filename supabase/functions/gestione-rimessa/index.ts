@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a, titoli_ids } = await req.json();
+    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a, titoli_ids, iban_utilizzato, importo_pagato, note } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
       let available: { id: string; importo_incassato: number }[] = [];
 
       if (titoli_ids && Array.isArray(titoli_ids) && titoli_ids.length > 0) {
-        // Use specific titoli provided by the user
         const { data: titoli, error: tErr } = await supabaseAdmin
           .from("titoli")
           .select("id, importo_incassato")
@@ -34,14 +33,12 @@ Deno.serve(async (req) => {
           .in("id", titoli_ids);
         if (tErr) throw tErr;
 
-        // Filter out titoli already in another rimessa
         const { data: usedTitoli } = await supabaseAdmin
           .from("rimessa_dettaglio")
           .select("titolo_id");
         const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
         available = (titoli || []).filter((t: any) => !usedIds.has(t.id));
       } else {
-        // Original logic: find all incassati titoli for this compagnia
         let q = supabaseAdmin
           .from("titoli")
           .select("id, importo_incassato")
@@ -69,8 +66,9 @@ Deno.serve(async (req) => {
       }
 
       const totale = available.reduce((sum: number, t: any) => sum + (t.importo_incassato || 0), 0);
+      const totalePagato = importo_pagato != null ? Number(importo_pagato) : totale;
+      const now = new Date().toISOString().split("T")[0];
 
-      // Create rimessa
       const { data: rimessa, error: rErr } = await supabaseAdmin
         .from("rimessa_premi")
         .insert({
@@ -78,13 +76,16 @@ Deno.serve(async (req) => {
           ufficio_id: ufficio_id || null,
           created_by: created_by || null,
           totale_importi: Math.round(totale * 100) / 100,
-          stato: "bozza",
+          importo_pagato: Math.round(totalePagato * 100) / 100,
+          stato: "pagata",
+          iban_utilizzato: iban_utilizzato || null,
+          data_pagamento_rimessa: now,
+          note: note || null,
         })
         .select()
         .single();
       if (rErr) throw rErr;
 
-      // Insert dettagli
       const dettagli = available.map((t: any) => ({
         rimessa_id: rimessa.id,
         titolo_id: t.id,
@@ -93,14 +94,13 @@ Deno.serve(async (req) => {
       const { error: dErr } = await supabaseAdmin.from("rimessa_dettaglio").insert(dettagli);
       if (dErr) throw dErr;
 
-      // Log
       if (created_by) {
         await supabaseAdmin.from("log_attivita").insert({
           user_id: created_by,
-          azione: "creazione_rimessa",
+          azione: "pagamento_rimessa",
           entita_tipo: "rimessa_premi",
           entita_id: rimessa.id,
-          dettagli_json: { compagnia_id, titoli_count: available.length, totale, data_da, data_a, titoli_ids: titoli_ids || null },
+          dettagli_json: { compagnia_id, titoli_count: available.length, totale, importo_pagato: totalePagato, iban_utilizzato, data_da, data_a, titoli_ids: titoli_ids || null },
         });
       }
 
