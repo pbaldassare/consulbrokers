@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -678,14 +678,22 @@ Consulbrokers S.r.l.`;
   return (
     <>
       {isActive ? (
-        <Badge
-          variant="outline"
-          className={`cursor-pointer ml-2 gap-1 ${currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"}`}
-          onClick={openDialog}
-        >
-          <Globe className="h-3 w-3" />
-          {currentTipo === "completa" ? "Area Riservata Attiva" : "Area Riservata (Sola Lettura)"}
-        </Badge>
+        <>
+          <Badge
+            variant="outline"
+            className={`cursor-pointer ml-2 gap-1 ${currentTipo === "completa" ? "border-green-500 text-green-600 hover:bg-green-50" : "border-orange-500 text-orange-600 hover:bg-orange-50"}`}
+            onClick={openDialog}
+          >
+            <Globe className="h-3 w-3" />
+            {currentTipo === "completa" ? "Area Riservata Attiva" : "Area Riservata (Sola Lettura)"}
+          </Badge>
+          <a href="/cliente" target="_blank" rel="noopener noreferrer" title="Anteprima Portale Cliente">
+            <Badge variant="outline" className="cursor-pointer ml-1 gap-1 border-blue-500 text-blue-600 hover:bg-blue-50">
+              <ExternalLink className="h-3 w-3" />
+              Anteprima Portale
+            </Badge>
+          </a>
+        </>
       ) : (
         <Button size="sm" variant="outline" className="gap-1.5 border-green-500 text-green-600 hover:bg-green-50 h-8 ml-2" disabled={!cliente.email} onClick={openDialog}>
           <Globe className="h-3.5 w-3.5" />
@@ -728,6 +736,14 @@ Consulbrokers S.r.l.`;
               <Button variant="destructive" size="sm" onClick={handleDeactivate} disabled={saving} className="mr-auto">
                 Disattiva
               </Button>
+            )}
+            {isActive && (
+              <a href="/cliente" target="_blank" rel="noopener noreferrer">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Anteprima Portale
+                </Button>
+              </a>
             )}
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
             <Button onClick={handleActivate} disabled={saving} className="gap-1.5">

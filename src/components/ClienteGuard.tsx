@@ -23,6 +23,8 @@ const ClienteGuard = ({ children }: { children: ReactNode }) => {
 
   if (loading || checking) return null;
   if (!user) return <Navigate to="/login" replace />;
+  // Allow admin/ufficio to preview the client portal
+  if (profile?.ruolo === "admin" || profile?.ruolo === "ufficio") return <>{children}</>;
   if (profile?.ruolo !== "cliente") return <Navigate to="/" replace />;
   if (areaType === "nessuna") return <Navigate to="/login" replace />;
 
