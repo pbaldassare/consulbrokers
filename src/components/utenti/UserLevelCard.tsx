@@ -18,7 +18,6 @@ const UserLevelCard = ({ level, count, active, onClick }: Props) => {
         level.bgClass,
         active ? level.borderClass + " shadow-lg ring-2 ring-offset-2 ring-offset-background" : "border-border/40",
       )}
-      style={active ? { ringColor: undefined } : undefined}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={cn("w-10 h-10 rounded-lg bg-background/80 flex items-center justify-center", level.color)}>
