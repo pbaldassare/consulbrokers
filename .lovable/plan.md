@@ -1,25 +1,35 @@
 
 
-## Piano: Completare il flusso di pagamento rimesse in EC Compagnia
+## Piano: Annullamento rimessa con ripristino titoli a "carico del mese"
 
-### Problema principale
-I titoli già pagati (presenti in `rimessa_dettaglio`) continuano a comparire nella lista EC Compagnia. Dopo il pagamento dovrebbero sparire da qui e restare solo nello Storico Rimesse.
+### Obiettivo
+Aggiungere la possibilità di annullare una rimessa dallo Storico Rimesse, riportando i titoli inclusi allo stato `incassato` (cioè ancora "da rimettere" — visibili di nuovo in EC Compagnia). Il titolo resta incassato, torna semplicemente disponibile per una nuova rimessa.
+
+### Logica
+1. L'annullamento **elimina i record `rimessa_dettaglio`** della rimessa → i titoli tornano visibili in EC Compagnia (che filtra per `NOT IN rimessa_dettaglio`)
+2. La rimessa viene marcata come `stato: "annullata"` (non cancellata, per storico)
+3. Serve una nuova action `annulla` nella Edge Function `gestione-rimessa`
 
 ### Modifiche
 
-**1. `src/pages/contabilita/ECCompagniaContabPage.tsx`**
+**1. Edge Function `supabase/functions/gestione-rimessa/index.ts`** — nuova action `annulla`
+- Riceve `rimessa_id` e `created_by`
+- Cancella tutti i record da `rimessa_dettaglio` dove `rimessa_id` = id
+- Aggiorna `rimessa_premi.stato` a `"annullata"`
+- Log attività con azione `annullamento_rimessa`
 
-- **Escludere titoli già rimessi**: nella query, recuperare tutti gli ID da `rimessa_dettaglio` e filtrarli lato client (come già fa l'edge function), oppure meglio: aggiungere una subquery per escluderli. Poiché PostgREST non supporta `NOT IN` su subquery, si recuperano i `titolo_id` da `rimessa_dettaglio` in una query parallela e si filtrano lato JS prima del grouping.
-- **AlertDialog di conferma pre-dialog**: prima di aprire il dialog "Paga Rimessa", mostrare un AlertDialog che riepiloga quanti titoli e l'importo totale, con "Procedi" / "Annulla". Solo dopo il "Procedi" si apre il dialog con IBAN/importo/note.
-- **Ricalcolare "Da Rimettere"**: togliere la colonna "Già Rimesso" (non serve più se i titoli rimessi sono esclusi — il saldo sarà sempre lordo - provvigioni). Oppure mantenere "Già Rimesso" come KPI globale per riferimento.
+**2. `src/pages/contabilita/StoricoRimessePage.tsx`** — pulsante annulla con AlertDialog
+- Aggiungere colonna "Azioni" con pulsante "Annulla" (icona Undo) per ogni rimessa non già annullata
+- AlertDialog di conferma: "Sei sicuro di voler annullare questa rimessa? I titoli torneranno disponibili per una nuova rimessa."
+- Mutation che invoca `gestione-rimessa` con `action: "annulla"`
+- Badge "Annullata" rosso per le rimesse annullate
 
-**2. Flusso popup a 2 livelli**:
-1. Click "Paga Rimessa" → **AlertDialog**: "Stai per creare una rimessa per [Compagnia] con N titoli per un totale di €X. Vuoi procedere?"
-2. Conferma → **Dialog** con IBAN, importo (modificabile), note
-3. Click "Conferma Pagamento" → invocazione edge function → redirect a Storico Rimesse
-
-**3. Aggiornamento post-pagamento**: dopo `onSuccess`, invalidare queries per far sparire i titoli pagati dalla vista.
+**3. `src/pages/RimessaDetail.tsx`** — stesso pulsante annulla nel dettaglio
+- Aggiungere pulsante "Annulla Rimessa" nella card Azioni (con AlertDialog)
+- Dopo annullamento, redirect a Storico Rimesse
 
 ### File coinvolti
-- `src/pages/contabilita/ECCompagniaContabPage.tsx` — filtro titoli rimessi + AlertDialog pre-conferma
+- `supabase/functions/gestione-rimessa/index.ts` — action `annulla`
+- `src/pages/contabilita/StoricoRimessePage.tsx` — pulsante + AlertDialog + mutation
+- `src/pages/RimessaDetail.tsx` — pulsante + AlertDialog + mutation
 
