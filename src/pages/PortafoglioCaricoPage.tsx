@@ -86,7 +86,7 @@ const PortafoglioCaricoPage = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
   };
 
-  const mettiACassa = useCallback(async (titoloId: string) => {
+  const mettiACassa = useCallback(async (titoloId: string, premioLordo?: number | null) => {
     const today = todayStr();
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
@@ -96,6 +96,7 @@ const PortafoglioCaricoPage = () => {
         data_messa_cassa: today,
         data_pagamento: today,
         data_decorrenza_rinnovo: today,
+        importo_incassato: premioLordo ?? null,
       }).eq("id", titoloId);
 
       if (error) throw error;
@@ -132,6 +133,7 @@ const PortafoglioCaricoPage = () => {
         data_messa_cassa: null,
         data_pagamento: null,
         data_decorrenza_rinnovo: null,
+        importo_incassato: null,
       }).eq("id", titoloId);
 
       if (error) throw error;
@@ -171,6 +173,7 @@ const PortafoglioCaricoPage = () => {
         data_messa_cassa: today,
         data_pagamento: today,
         data_decorrenza_rinnovo: today,
+        importo_incassato: p.premio_lordo ?? null,
       }).eq("id", p.id);
       if (error) ko++; else {
         ok++;
@@ -203,6 +206,7 @@ const PortafoglioCaricoPage = () => {
         data_messa_cassa: null,
         data_pagamento: null,
         data_decorrenza_rinnovo: null,
+        importo_incassato: null,
       }).eq("id", p.id);
       if (error) ko++; else ok++;
     }
@@ -422,7 +426,7 @@ const PortafoglioCaricoPage = () => {
                             size="sm"
                             variant="outline"
                             disabled={isProcessing}
-                            onClick={() => mettiACassa(p.id)}
+                            onClick={() => mettiACassa(p.id, p.premio_lordo)}
                             className="gap-1 h-8 text-xs"
                           >
                             <Banknote className="h-3.5 w-3.5" />
