@@ -6109,9 +6109,11 @@ export type Database = {
           compagnia_codice: string | null
           compagnia_id: string | null
           compagnia_nome: string | null
+          conferimento_gestito: boolean | null
           conto_incasso: string | null
           created_at: string | null
           data_competenza: string | null
+          data_conferimento_gestito: string | null
           data_decorrenza_rinnovo: string | null
           data_incasso: string | null
           data_messa_cassa: string | null
@@ -6125,6 +6127,7 @@ export type Database = {
           durata_da: string | null
           emissione_fee: boolean | null
           filiale: string | null
+          fondi_ricevuti: boolean | null
           formato_elettronico: boolean | null
           garanzia_a: string | null
           garanzia_da: string | null
