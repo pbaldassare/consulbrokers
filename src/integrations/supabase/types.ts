@@ -5257,9 +5257,11 @@ export type Database = {
           comp_assicurativa: string | null
           comp_contabile: string | null
           compagnia_id: string | null
+          conferimento_gestito: boolean | null
           conto_incasso: string | null
           created_at: string | null
           data_competenza: string | null
+          data_conferimento_gestito: string | null
           data_decorrenza_rinnovo: string | null
           data_incasso: string | null
           data_messa_cassa: string | null
@@ -5273,6 +5275,7 @@ export type Database = {
           durata_da: string | null
           emissione_fee: boolean | null
           filiale: string | null
+          fondi_ricevuti: boolean | null
           formato_elettronico: boolean | null
           garanzia_a: string | null
           garanzia_da: string | null
@@ -5349,9 +5352,11 @@ export type Database = {
           comp_assicurativa?: string | null
           comp_contabile?: string | null
           compagnia_id?: string | null
+          conferimento_gestito?: boolean | null
           conto_incasso?: string | null
           created_at?: string | null
           data_competenza?: string | null
+          data_conferimento_gestito?: string | null
           data_decorrenza_rinnovo?: string | null
           data_incasso?: string | null
           data_messa_cassa?: string | null
@@ -5365,6 +5370,7 @@ export type Database = {
           durata_da?: string | null
           emissione_fee?: boolean | null
           filiale?: string | null
+          fondi_ricevuti?: boolean | null
           formato_elettronico?: boolean | null
           garanzia_a?: string | null
           garanzia_da?: string | null
@@ -5441,9 +5447,11 @@ export type Database = {
           comp_assicurativa?: string | null
           comp_contabile?: string | null
           compagnia_id?: string | null
+          conferimento_gestito?: boolean | null
           conto_incasso?: string | null
           created_at?: string | null
           data_competenza?: string | null
+          data_conferimento_gestito?: string | null
           data_decorrenza_rinnovo?: string | null
           data_incasso?: string | null
           data_messa_cassa?: string | null
@@ -5457,6 +5465,7 @@ export type Database = {
           durata_da?: string | null
           emissione_fee?: boolean | null
           filiale?: string | null
+          fondi_ricevuti?: boolean | null
           formato_elettronico?: boolean | null
           garanzia_a?: string | null
           garanzia_da?: string | null
