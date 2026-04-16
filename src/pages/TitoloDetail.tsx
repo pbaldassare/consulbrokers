@@ -342,8 +342,24 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
       toast.success("Stato aggiornato");
       setCassaDialogOpen(false);
+      setConferimentoDialogOpen(false);
     },
     onError: (err: any) => toast.error("Errore"),
+  });
+
+  const segnaFondiRicevutiMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("titoli").update({ fondi_ricevuti: true, updated_at: new Date().toISOString() }).eq("id", id!);
+      if (error) throw error;
+      if (user) {
+        await logAttivita({ azione: "fondi_ricevuti", entita_tipo: "titolo", entita_id: id!, dettagli_json: { conferimento_gestito: true } });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      toast.success("Fondi segnati come ricevuti");
+    },
+    onError: () => toast.error("Errore"),
   });
 
   const updateDateMutation = useMutation({
