@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2 } from "lucide-react";
+import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
