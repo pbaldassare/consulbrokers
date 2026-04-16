@@ -243,6 +243,27 @@ const RimessaDetail = () => {
           </CardContent>
         </Card>
       )}
+      {/* AlertDialog annullamento */}
+      <AlertDialog open={showAnnulla} onOpenChange={setShowAnnulla}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annullare questa rimessa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              I titoli inclusi torneranno disponibili per una nuova rimessa in EC Compagnia. Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => annullaMutation.mutate()}
+              disabled={annullaMutation.isPending}
+            >
+              {annullaMutation.isPending ? "Annullamento..." : "Conferma Annullamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
