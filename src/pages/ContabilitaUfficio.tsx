@@ -20,6 +20,7 @@ type TitoloCassa = {
   compagnia_id: string | null;
   conferimento_gestito: boolean | null;
   fondi_ricevuti: boolean | null;
+  tipo_pagamento: string | null;
   compagnie: { nome: string } | null;
   clienti: { cognome: string | null; nome: string | null; ragione_sociale: string | null } | null;
 };
@@ -50,7 +51,7 @@ const ContabilitaUfficio = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, provvigioni_firma, provvigioni_quietanza, compagnia_id, conferimento_gestito, fondi_ricevuti, compagnie:compagnie!titoli_compagnia_id_fkey(nome), clienti:clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale)")
+        .select("id, numero_titolo, premio_lordo, provvigioni_firma, provvigioni_quietanza, compagnia_id, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie:compagnie!titoli_compagnia_id_fkey(nome), clienti:clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale)")
         .eq("stato", "incassato")
         .gte("data_messa_cassa", meseDa)
         .lte("data_messa_cassa", meseA);
@@ -196,7 +197,7 @@ const ContabilitaUfficio = () => {
                       </TableRow>
                       {expanded[g.compagnia_id] && (
                         <TableRow key={`${g.compagnia_id}-detail`}>
-                          <TableCell colSpan={6} className="bg-muted/30 p-0">
+                          <TableCell colSpan={7} className="bg-muted/30 p-0">
                             <div className="p-3">
                               <Table>
                                 <TableHeader>
@@ -205,8 +206,9 @@ const ContabilitaUfficio = () => {
                                     <TableHead>Cliente</TableHead>
                                     <TableHead className="text-right">Premio Lordo</TableHead>
                                     <TableHead className="text-right">Provvigioni</TableHead>
-                                    <TableHead className="text-right">Netto</TableHead>
-                                    <TableHead>Tipo Incasso</TableHead>
+                                     <TableHead className="text-right">Netto</TableHead>
+                                     <TableHead>Tipo Pagamento</TableHead>
+                                     <TableHead>Tipo Incasso</TableHead>
                                     <TableHead className="w-8"></TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -221,6 +223,14 @@ const ContabilitaUfficio = () => {
                                         <TableCell className="text-right font-mono text-sm">€ {lordo.toFixed(2)}</TableCell>
                                         <TableCell className="text-right font-mono text-sm">€ {provv.toFixed(2)}</TableCell>
                                         <TableCell className="text-right font-mono text-sm font-semibold">€ {(lordo - provv).toFixed(2)}</TableCell>
+                                        <TableCell>
+                                          {(() => {
+                                            const tp = t.tipo_pagamento;
+                                            const label = tp === "contanti" ? "Contanti" : tp === "pos" ? "POS" : tp === "bonifico" ? "Bonifico" : tp === "carta_credito" ? "POS" : "—";
+                                            const variant = tp === "contanti" ? "secondary" : tp === "pos" || tp === "carta_credito" ? "default" : tp === "bonifico" ? "outline" : "secondary";
+                                            return <Badge variant={variant as any} className="text-xs">{label}</Badge>;
+                                          })()}
+                                        </TableCell>
                                         <TableCell>
                                           {t.conferimento_gestito ? (
                                             <Badge variant={t.fondi_ricevuti ? "default" : "secondary"} className="text-xs">

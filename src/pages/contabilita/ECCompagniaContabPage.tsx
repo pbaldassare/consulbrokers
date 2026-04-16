@@ -25,6 +25,8 @@ interface Filters {
   produttore_id: string | null;
   periodo_dal: Date | null;
   periodo_al: Date | null;
+  tipo_pagamento: string | null;
+  modalita_incasso: string | null;
 }
 
 interface TitoloDetail {
@@ -35,6 +37,7 @@ interface TitoloDetail {
   importo_incassato: number;
   conferimento_gestito: boolean;
   fondi_ricevuti: boolean;
+  tipo_pagamento: string | null;
 }
 
 interface GroupedRow {
@@ -62,7 +65,7 @@ interface PagaRimessaState {
 }
 
 const defaultFilters: Filters = {
-  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null,
+  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null, modalita_incasso: null,
 };
 
 const ECCompagniaContabPage = () => {
@@ -133,7 +136,7 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, tipo_pagamento, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -162,6 +165,14 @@ const ECCompagniaContabPage = () => {
         const cId = (t as any).compagnia_id as string;
         if (!cId) continue;
         if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
+        // Apply tipo_pagamento filter
+        if (filters.tipo_pagamento && (t as any).tipo_pagamento !== filters.tipo_pagamento) continue;
+        // Apply modalita_incasso filter
+        const isGestito = !!(t as any).conferimento_gestito;
+        const fondiOk = (t as any).fondi_ricevuti !== false;
+        if (filters.modalita_incasso === "diretto" && isGestito) continue;
+        if (filters.modalita_incasso === "gestito" && !isGestito) continue;
+        if (filters.modalita_incasso === "attesa_fondi" && (!isGestito || fondiOk)) continue;
         const comp = (t as any).compagnie;
         if (!grouped[cId]) {
           grouped[cId] = {
@@ -187,6 +198,7 @@ const ECCompagniaContabPage = () => {
           importo_incassato: Number(t.importo_incassato) || 0,
           conferimento_gestito: !!(t as any).conferimento_gestito,
           fondi_ricevuti: (t as any).fondi_ricevuti !== false,
+          tipo_pagamento: (t as any).tipo_pagamento || null,
         });
         const dmc = t.data_messa_cassa;
         if (dmc) {
@@ -270,7 +282,7 @@ const ECCompagniaContabPage = () => {
   const totRimesso = rows.reduce((s, r) => s + r.gia_rimesso, 0);
   const totDaRimettere = totLordo - totProvv - totRimesso;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al;
+  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento || filters.modalita_incasso;
 
   const formatDateRange = (min: string | null, max: string | null) => {
     if (!min) return "—";
@@ -329,6 +341,8 @@ const ECCompagniaContabPage = () => {
           <FilterSearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })} options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))} placeholder="Produttore" allLabel="Tutti i produttori" className="w-[220px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
+          <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
+          <FilterSearchableSelect value={filters.modalita_incasso} onValueChange={(v) => set({ modalita_incasso: v })} options={[{ value: "diretto", label: "Incasso Diretto" }, { value: "gestito", label: "Conferimento Gestito" }, { value: "attesa_fondi", label: "In Attesa Fondi" }]} placeholder="Modalità" allLabel="Tutte le modalità" className="w-[200px]" />
         </div>
       </div>
 
@@ -399,11 +413,15 @@ const ECCompagniaContabPage = () => {
                                 <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
-                                <TableHead className="h-8 text-xs">Stato Fondi</TableHead>
+                                <TableHead className="h-8 text-xs">Tipo Pagamento</TableHead>
+                                <TableHead className="h-8 text-xs">Modalità Incasso</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {r.titoli.map((t) => (
+                              {r.titoli.map((t) => {
+                                const tipoPagLabel = t.tipo_pagamento === "contanti" ? "Contanti" : t.tipo_pagamento === "pos" ? "POS" : t.tipo_pagamento === "bonifico" ? "Bonifico" : t.tipo_pagamento === "carta_credito" ? "POS" : "—";
+                                const tipoPagColor = t.tipo_pagamento === "contanti" ? "secondary" : t.tipo_pagamento === "pos" || t.tipo_pagamento === "carta_credito" ? "default" : t.tipo_pagamento === "bonifico" ? "outline" : "secondary";
+                                return (
                                 <TableRow key={t.id} className="hover:bg-muted/50">
                                   <TableCell className="py-1 px-2">
                                     <Checkbox
@@ -416,14 +434,20 @@ const ECCompagniaContabPage = () => {
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
                                   <TableCell className="py-1">
-                                    {t.conferimento_gestito && !t.fondi_ricevuti ? (
-                                      <Badge variant="destructive" className="text-[10px] h-5">In Attesa Fondi</Badge>
-                                    ) : t.conferimento_gestito ? (
-                                      <Badge className="bg-green-600 text-white text-[10px] h-5 hover:bg-green-700">Fondi OK</Badge>
-                                    ) : null}
+                                    <Badge variant={tipoPagColor as any} className="text-[10px] h-5">{tipoPagLabel}</Badge>
+                                  </TableCell>
+                                  <TableCell className="py-1">
+                                    {t.conferimento_gestito ? (
+                                      <Badge variant={t.fondi_ricevuti ? "default" : "destructive"} className="text-[10px] h-5">
+                                        {t.fondi_ricevuti ? "Conf. Gestito ✓" : "In Attesa Fondi"}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] h-5">Incasso diretto</Badge>
+                                    )}
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>
