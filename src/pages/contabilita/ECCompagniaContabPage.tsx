@@ -60,7 +60,7 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza")
+        .select("premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, compagnie(nome, codice, comune, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -84,14 +84,13 @@ const ECCompagniaContabPage = () => {
         }
       }
 
-      const compagniaMap = new Map((compagnie || []).map(c => [c.id, c]));
       const grouped: Record<string, { compagnia_id: string; nome: string; codice: string; comune: string; mail: string; lordo: number; provvigioni: number; gia_rimesso: number }> = {};
 
       for (const t of titoli || []) {
         const cId = (t as any).compagnia_id as string;
         if (!cId) continue;
         if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
-        const comp = compagniaMap.get(cId);
+        const comp = (t as any).compagnie;
         const key = cId;
         if (!grouped[key]) {
           grouped[key] = { compagnia_id: key, nome: comp?.nome || "N/D", codice: comp?.codice || "", comune: comp?.comune || "", mail: comp?.mail || "", lordo: 0, provvigioni: 0, gia_rimesso: rimesseMap.get(key) || 0 };
