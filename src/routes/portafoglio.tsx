@@ -3,7 +3,7 @@ import PlaceholderPage from "@/components/PlaceholderPage";
 import ProvvigioniSedePage from "@/pages/ProvvigioniSedePage";
 import TitoliList from "@/pages/TitoliList";
 import TitoloDetail from "@/pages/TitoloDetail";
-import GestionePolizzePage from "@/pages/GestionePolizzePage";
+
 import ImmissionePolizzaPage from "@/pages/ImmissionePolizzaPage";
 import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
 import DuplicazionePolizzaPage from "@/pages/DuplicazionePolizzaPage";
@@ -38,7 +38,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/carico" element={<PortafoglioCaricoPage />} />
     <Route path="/portafoglio/storico" element={<PortafoglioStoricoPage />} />
     <Route path="/portafoglio/:id" element={<PortafoglioDetail />} />
-    <Route path="/portafoglio/gestione-polizze" element={<GestionePolizzePage />} />
+    
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
     <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
     <Route path="/portafoglio/duplicazione" element={<DuplicazionePolizzaPage />} />
