@@ -399,6 +399,7 @@ const ECCompagniaContabPage = () => {
                                 <TableHead className="h-8 text-xs">Data Messa a Cassa</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Premio Lordo</TableHead>
                                 <TableHead className="h-8 text-xs text-right">Importo Incassato</TableHead>
+                                <TableHead className="h-8 text-xs">Stato Fondi</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -414,6 +415,13 @@ const ECCompagniaContabPage = () => {
                                   <TableCell className="py-1 text-sm">{t.data_messa_cassa ? format(new Date(t.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.premio_lordo)}</TableCell>
                                   <TableCell className="py-1 text-sm text-right">{fmt(t.importo_incassato)}</TableCell>
+                                  <TableCell className="py-1">
+                                    {t.conferimento_gestito && !t.fondi_ricevuti ? (
+                                      <Badge variant="destructive" className="text-[10px] h-5">In Attesa Fondi</Badge>
+                                    ) : t.conferimento_gestito ? (
+                                      <Badge className="bg-green-600 text-white text-[10px] h-5 hover:bg-green-700">Fondi OK</Badge>
+                                    ) : null}
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
