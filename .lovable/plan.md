@@ -1,36 +1,39 @@
 
 
-## Piano: Rendere "Incassi e Coperture" una pagina di sola consultazione
+## Piano: Filtri e badge per tipo pagamento e conferimento gestito in EC Compagnia
 
-### Problema
-La pagina Contabilità Ufficio (`/contabilita`) contiene elementi operativi che non devono stare qui:
-- Pulsante **"Conferma"** nelle righe del riepilogo messa a cassa (e relativo dialog rimessa)
-- Tab **Movimenti**, **Estratti Conto**, **Incroci** con i rispettivi pulsanti "Nuovo Movimento" e "Nuovo Estratto"
-- KPI Entrate/Uscite/Saldo/Anomalie KO (derivati dai movimenti/estratti che vengono rimossi)
+### Contesto
+Il campo `tipo_pagamento` è già salvato nella tabella `titoli` durante la messa a cassa (valori: contanti, carta_credito, bonifico). L'utente chiede:
+1. Sostituire "Carta di Credito" con **"POS"** ovunque
+2. Mostrare badge per tipo pagamento e conferimento gestito nella tabella espansa EC Compagnia
+3. Aggiungere filtri per tipo pagamento e per distinguere messa a cassa vs conferimento gestito
 
-La pagina deve essere **solo riepilogo consultivo** delle polizze messe a cassa (sia con incasso normale che conferimento gestito), con filtri e visualizzazione.
+### Modifiche
 
-### Modifiche su `src/pages/ContabilitaUfficio.tsx`
+**1. `src/pages/TitoloDetail.tsx`** — Rinominare opzione pagamento
+- Sostituire `carta_credito` → `pos` come valore e "Carta di Credito" → "POS" come label in entrambi i dialog (Conferma Incasso e Conferimento Gestito)
+- Aggiornare anche la visualizzazione nel FieldRow "Tipo Pagamento"
 
-**Rimuovere:**
-1. Tutto il blocco Tabs (Movimenti, Estratti Conto, Incroci) — righe 552-707
-2. Il pulsante "Conferma" nella tabella riepilogo — righe 448-452
-3. La colonna vuota per il pulsante Conferma nell'header — riga 433
-4. Il dialog "Conferma Rimessa" — righe 510-550
-5. I 4 KPI cards (Entrate, Uscite, Saldo, Anomalie KO) — righe 354-401
-6. Tutte le mutation e state correlati: `confirmMutation`, `createMovMutation`, `createEstMutation`, `verificaIncrocioMutation`, `verificaManualeMutation`, stati form movimento/estratto, queries `movimenti`, `estratti`, `incroci`, `compagniaIban`
-7. Import non più necessari (Dialog, Tabs, Plus, ecc.)
+**2. `src/pages/contabilita/ECCompagniaContabPage.tsx`** — Aggiungere dati e filtri
+- Aggiungere `tipo_pagamento` alla query dei titoli
+- Aggiungere all'interfaccia `TitoloDetail` il campo `tipo_pagamento`
+- Nella tabella espansa, aggiungere colonna **Tipo Pagamento** con badge colorati:
+  - Contanti → badge grigio
+  - POS → badge blu
+  - Bonifico → badge indaco
+- Nella colonna Stato Fondi, aggiungere anche badge per distinguere **Incasso diretto** vs **Conferimento Gestito** (già parzialmente presente)
+- Aggiungere **due filtri** nel pannello filtri:
+  - **Tipo Pagamento**: Tutti / Contanti / POS / Bonifico
+  - **Modalità Incasso**: Tutti / Incasso Diretto / Conferimento Gestito / In Attesa Fondi
 
-**Aggiungere/Mantenere:**
-1. Il **Riepilogo Messa a Cassa** per mese (già presente) — solo consultazione, senza pulsante Conferma
-2. Aggiungere nella tabella espansa un **badge** per i titoli con `conferimento_gestito` e lo stato `fondi_ricevuti`
-3. Aggiungere **KPI** pertinenti: Totale titoli messi a cassa, Totale premio lordo, Totale provvigioni, Totale da rimettere (derivati dal riepilogo già calcolato in `totaliCassa`)
-4. Aggiungere un **filtro ricerca** per nome compagnia/titolo nel riepilogo
-5. Titolo e sottotitolo aggiornati: "Incassi e Coperture" / "Riepilogo consultivo delle polizze messe a cassa"
+**3. `src/pages/ContabilitaUfficio.tsx`** — Stessa logica badge tipo pagamento
+- Aggiungere `tipo_pagamento` alla query e mostrare badge nella tabella espansa (coerenza)
 
-### Risultato
-La pagina mostrerà solo il riepilogo mensile per compagnia delle polizze incassate, espandibile per vedere i singoli titoli, con badge per conferimento gestito e stato fondi. Nessuna azione operativa.
+### Nessuna migrazione DB necessaria
+Il campo `tipo_pagamento` esiste già su `titoli`. Il valore `pos` è una stringa libera, non vincolata da enum DB.
 
 ### File coinvolti
-- `src/pages/ContabilitaUfficio.tsx` — riscrittura significativa (rimozione ~60% del codice)
+- `src/pages/TitoloDetail.tsx` — rinominare carta_credito → pos
+- `src/pages/contabilita/ECCompagniaContabPage.tsx` — filtri + badge
+- `src/pages/ContabilitaUfficio.tsx` — badge tipo pagamento (coerenza)
 
