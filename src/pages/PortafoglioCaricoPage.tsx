@@ -27,7 +27,8 @@ const PortafoglioCaricoPage = () => {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
-  
+  const [sortField, setSortField] = useState("data_scadenza");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [page, setPage] = useState(0);
