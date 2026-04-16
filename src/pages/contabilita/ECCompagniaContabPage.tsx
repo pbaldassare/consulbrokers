@@ -32,6 +32,8 @@ interface TitoloDetail {
   data_messa_cassa: string | null;
   premio_lordo: number;
   importo_incassato: number;
+  conferimento_gestito: boolean;
+  fondi_ricevuti: boolean;
 }
 
 interface GroupedRow {
@@ -130,7 +132,7 @@ const ECCompagniaContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, compagnie(nome, codice, mail)")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, compagnia_id, ufficio_id, produttore_id, data_messa_cassa, provvigioni_firma, provvigioni_quietanza, conferimento_gestito, fondi_ricevuti, compagnie(nome, codice, mail)")
         .not("compagnia_id", "is", null)
         .eq("stato", "incassato");
 
@@ -182,6 +184,8 @@ const ECCompagniaContabPage = () => {
           data_messa_cassa: t.data_messa_cassa,
           premio_lordo: Number(t.premio_lordo) || 0,
           importo_incassato: Number(t.importo_incassato) || 0,
+          conferimento_gestito: !!(t as any).conferimento_gestito,
+          fondi_ricevuti: (t as any).fondi_ricevuti !== false,
         });
         const dmc = t.data_messa_cassa;
         if (dmc) {
