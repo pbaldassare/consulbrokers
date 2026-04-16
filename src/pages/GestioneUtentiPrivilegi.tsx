@@ -51,6 +51,8 @@ const GestioneUtentiPrivilegi = () => {
         const lvl = getLevelByRole(u.ruolo);
         if (lvl.id !== filterLevel) return false;
       }
+      if (statusFilter === "active" && !u.attivo) return false;
+      if (statusFilter === "suspended" && u.attivo) return false;
       if (search) {
         const s = search.toLowerCase();
         const hay = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
@@ -58,7 +60,7 @@ const GestioneUtentiPrivilegi = () => {
       }
       return true;
     });
-  }, [users, filterLevel, search]);
+  }, [users, filterLevel, statusFilter, search]);
 
   const grouped = useMemo(() => {
     const map = new Map<UserLevel, any[]>();
