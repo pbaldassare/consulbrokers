@@ -111,8 +111,8 @@ const GestioneUfficiPage = () => {
   const openEditDialog = (u: Ufficio) => {
     setEditingUfficio(u);
     setFormData({
-      codice_ufficio: u.codice_ufficio,
-      nome_ufficio: u.nome_ufficio,
+      codice_ufficio: u.codice_ufficio || "",
+      nome_ufficio: u.nome_ufficio || "",
       indirizzo: u.indirizzo || "",
       email: u.email || "",
       telefono: u.telefono || "",
