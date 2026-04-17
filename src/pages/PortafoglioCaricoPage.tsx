@@ -17,6 +17,7 @@ import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 
 const PAGE_SIZE = 25;
 
@@ -150,25 +151,14 @@ const PortafoglioCaricoPage = () => {
   const annullaIncasso = useCallback(async (titoloId: string) => {
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
-      const { error } = await (supabase.from("titoli") as any).update({
-        stato: "attivo",
-        data_incasso: null,
-        data_messa_cassa: null,
-        data_pagamento: null,
-        data_decorrenza_rinnovo: null,
-        importo_incassato: null,
-      }).eq("id", titoloId);
-
-      if (error) throw error;
-
-      await logAttivita({
-        azione: "annulla_incasso",
-        entita_tipo: "titolo",
-        entita_id: titoloId,
-        dettagli_json: {},
-      });
-
-      toast.success("Incasso annullato");
+      const res = await annullaMessaACassa(titoloId);
+      if (!res.ok) {
+        toast.error(res.error || "Operazione fallita");
+        return;
+      }
+      toast.success(
+        `Incasso annullato (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov. rimossi)`
+      );
       invalidateQueries();
     } catch (err: any) {
       toast.error("Errore: " + (err.message || "operazione fallita"));
@@ -223,15 +213,8 @@ const PortafoglioCaricoPage = () => {
     setBulkLoading(true);
     let ok = 0, ko = 0;
     for (const p of selectedIncassate) {
-      const { error } = await (supabase.from("titoli") as any).update({
-        stato: "attivo",
-        data_incasso: null,
-        data_messa_cassa: null,
-        data_pagamento: null,
-        data_decorrenza_rinnovo: null,
-        importo_incassato: null,
-      }).eq("id", p.id);
-      if (error) ko++; else ok++;
+      const res = await annullaMessaACassa(p.id);
+      if (res.ok) ok++; else ko++;
     }
     if (ok > 0) {
       await logAttivita({
