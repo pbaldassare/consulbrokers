@@ -448,6 +448,113 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // --- Periodo edit state ---
+  const [editingPeriodo, setEditingPeriodo] = useState(false);
+  const [periodoForm, setPeriodoForm] = useState({
+    durata_da: "" as string,
+    durata_a: "" as string,
+    anni_durata: "" as string,
+    rate: "" as string,
+    garanzia_da: "" as string,
+    garanzia_a: "" as string,
+    data_competenza: "" as string,
+    data_scadenza: "" as string,
+    limite_mora: "" as string,
+    mora_giorni: "" as string,
+    tipo_rinnovo: "" as string,
+    disdetta_mesi: "" as string,
+  });
+
+  const tipoRinnovoOpts = [
+    { value: "tacito_rinnovo", label: "Tacito Rinnovo" },
+    { value: "scadenza_annuale", label: "Scadenza Annuale" },
+    { value: "disdetta", label: "Disdetta" },
+    { value: "nessuno", label: "Nessuno" },
+  ];
+
+  const startEditPeriodo = () => {
+    if (titolo) {
+      const t: any = titolo;
+      setPeriodoForm({
+        durata_da: t.durata_da ?? "",
+        durata_a: t.durata_a ?? "",
+        anni_durata: t.anni_durata != null ? String(t.anni_durata) : "",
+        rate: t.rate != null ? String(t.rate) : "",
+        garanzia_da: t.garanzia_da ?? "",
+        garanzia_a: t.garanzia_a ?? "",
+        data_competenza: t.data_competenza ?? "",
+        data_scadenza: t.data_scadenza ?? "",
+        limite_mora: t.limite_mora ?? "",
+        mora_giorni: t.mora_giorni != null ? String(t.mora_giorni) : "",
+        tipo_rinnovo: t.tipo_rinnovo ?? "",
+        disdetta_mesi: t.disdetta_mesi != null ? String(t.disdetta_mesi) : "",
+      });
+    }
+    setEditingPeriodo(true);
+  };
+
+  // Auto-suggested anni_durata from durata_da/_a
+  const suggestedAnniDurata = (() => {
+    if (!periodoForm.durata_da || !periodoForm.durata_a) return null;
+    const d1 = new Date(periodoForm.durata_da);
+    const d2 = new Date(periodoForm.durata_a);
+    const months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+    return Math.round((months / 12) * 10) / 10;
+  })();
+  const isPoliennaleEdit = suggestedAnniDurata != null && suggestedAnniDurata > 1.08;
+
+  const savePeriodoMutation = useMutation({
+    mutationFn: async () => {
+      // Validations
+      const errs: string[] = [];
+      const dDa = periodoForm.durata_da ? new Date(periodoForm.durata_da) : null;
+      const dA = periodoForm.durata_a ? new Date(periodoForm.durata_a) : null;
+      const gDa = periodoForm.garanzia_da ? new Date(periodoForm.garanzia_da) : null;
+      const gA = periodoForm.garanzia_a ? new Date(periodoForm.garanzia_a) : null;
+      if (dDa && dA && dDa > dA) errs.push("Durata Da non può essere successiva a Durata A");
+      if (gDa && gA && gDa > gA) errs.push("Garanzia Da non può essere successiva a Garanzia A");
+      if (dDa && gDa && gDa < dDa) errs.push("Garanzia Da deve essere ≥ Durata Da");
+      if (dA && gA && gA > dA) errs.push("Garanzia A deve essere ≤ Durata A");
+      if (errs.length) throw new Error(errs.join(" • "));
+
+      const before: Record<string, any> = {};
+      const after: Record<string, any> = {};
+      const fields: (keyof typeof periodoForm)[] = [
+        "durata_da", "durata_a", "anni_durata", "rate", "garanzia_da", "garanzia_a",
+        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tipo_rinnovo", "disdetta_mesi",
+      ];
+      const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
+      const payload: Record<string, any> = {};
+      fields.forEach((f) => {
+        const raw = periodoForm[f];
+        const newV = raw === "" || raw == null ? null : (numericFields.has(f as string) ? Number(raw) : raw);
+        const oldV = (titolo as any)?.[f] ?? null;
+        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+        payload[f] = newV;
+      });
+
+      const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
+      if (error) throw error;
+
+      if (Object.keys(after).length > 0) {
+        await logAttivita({
+          azione: "modifica_periodo",
+          entita_tipo: "titolo",
+          entita_id: id!,
+          dettagli_json: { campi_modificati: Object.keys(after), before, after },
+          severity: "info",
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Periodo aggiornato");
+      setEditingPeriodo(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const changeStatoMutation = useMutation({
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
