@@ -393,6 +393,11 @@ const PortafoglioCaricoPage = () => {
                 {polizze.map((p: any) => {
                   const isIncassato = p.stato === "incassato";
                   const isProcessing = loadingIds.has(p.id);
+                  const rinnovoNelMese = !!p.data_decorrenza_rinnovo
+                    && p.data_decorrenza_rinnovo >= caricoStart
+                    && p.data_decorrenza_rinnovo <= caricoEnd;
+                  const isRinnovoFuturo = rinnovoNelMese && !p.data_messa_cassa;
+                  const decorrenzaDisplay = rinnovoNelMese ? p.data_decorrenza_rinnovo : p.data_scadenza;
                   return (
                     <TableRow
                       key={p.id}
