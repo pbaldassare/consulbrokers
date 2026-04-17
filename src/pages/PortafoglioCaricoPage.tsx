@@ -18,6 +18,7 @@ import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 
 const PAGE_SIZE = 25;
 
@@ -37,6 +38,8 @@ const PortafoglioCaricoPage = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null }>>([]);
+  const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
 
   const caricoStart = format(startOfMonth(caricoDate), "yyyy-MM-dd");
   const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
@@ -291,9 +294,9 @@ const PortafoglioCaricoPage = () => {
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selezionat{selectedIds.size === 1 ? "a" : "e"}</span>
           {selectedAttive.length > 0 && (
-            <Button size="sm" onClick={bulkMettiACassa} disabled={bulkLoading} className="gap-1">
+            <Button size="sm" onClick={() => { setCassaDialogTitoli(selectedAttive.map(p => ({ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo }))); setCassaDialogOpen(true); }} disabled={bulkLoading} className="gap-1">
               <Banknote className="h-3.5 w-3.5" />
-              {bulkLoading ? "In corso..." : `Metti a Cassa (${selectedAttive.length})`}
+              Incassa ({selectedAttive.length})
             </Button>
           )}
           {selectedIncassate.length > 0 && isAdmin && (
@@ -445,11 +448,11 @@ const PortafoglioCaricoPage = () => {
                             size="sm"
                             variant="outline"
                             disabled={isProcessing}
-                            onClick={() => mettiACassa(p.id, p.premio_lordo)}
+                            onClick={() => { setCassaDialogTitoli([{ id: p.id, numero_titolo: p.numero_titolo, premio_lordo: p.premio_lordo }]); setCassaDialogOpen(true); }}
                             className="gap-1 h-8 text-xs"
                           >
                             <Banknote className="h-3.5 w-3.5" />
-                            {isProcessing ? "..." : "Cassa"}
+                            Cassa
                           </Button>
                         )}
                       </TableCell>
@@ -462,6 +465,13 @@ const PortafoglioCaricoPage = () => {
           <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
+
+      <MessaCassaDialog
+        open={cassaDialogOpen}
+        onOpenChange={setCassaDialogOpen}
+        titoli={cassaDialogTitoli}
+        onSuccess={() => { setSelectedIds(new Set()); invalidateQueries(); }}
+      />
     </div>
   );
 };
