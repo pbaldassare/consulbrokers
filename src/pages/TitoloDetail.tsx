@@ -504,7 +504,7 @@ const TitoloDetail = () => {
             {/* Badges conferimento gestito */}
             {t.stato === "incassato" && t.conferimento_gestito && (
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge className="bg-orange-500 text-white hover:bg-orange-600">Copertura Garantita</Badge>
+                <Badge className="bg-orange-500 text-white hover:bg-orange-600">Garantito</Badge>
                 {!t.fondi_ricevuti ? (
                   <>
                     <Badge variant="destructive">In Attesa Fondi</Badge>
@@ -557,7 +557,7 @@ const TitoloDetail = () => {
                   setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
                   setCassaDialogOpen(true);
                 }} disabled={changeStatoMutation.isPending}>
-                  <CheckSquare className="w-4 h-4 mr-1" /> Metti a Cassa
+                  <CheckSquare className="w-4 h-4 mr-1" /> Incassa
                 </Button>
               )}
               {t.stato === "attivo" && (
@@ -567,7 +567,7 @@ const TitoloDetail = () => {
                   setConferimentoAccettato(false);
                   setConferimentoDialogOpen(true);
                 }} disabled={changeStatoMutation.isPending}>
-                  <Shield className="w-4 h-4 mr-1" /> Copertura Garantita
+                  <Shield className="w-4 h-4 mr-1" /> Garantito
                 </Button>
               )}
               {t.stato === "incassato" && isAdmin && (
@@ -639,11 +639,11 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Copertura Garantita */}
+      {/* Dialog Garantito */}
       <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Copertura Garantita</DialogTitle>
+            <DialogTitle>Garantito</DialogTitle>
             <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Incasso senza fondi in cassa</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -706,7 +706,7 @@ const TitoloDetail = () => {
               disabled={!conferimentoAccettato || changeStatoMutation.isPending || (conferimentoForm.tipoPagamento === "bonifico" && !conferimentoForm.banca)}
               onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: conferimentoForm, conferimentoGestito: true } as any)}
             >
-              <Shield className="w-4 h-4 mr-1" /> Conferma Conferimento
+              <Shield className="w-4 h-4 mr-1" /> Conferma Garantito
             </Button>
           </DialogFooter>
         </DialogContent>
