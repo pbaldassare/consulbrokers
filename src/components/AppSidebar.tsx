@@ -381,7 +381,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
               {isOpen && !collapsed && (
                 <div className="ml-3 pl-3 border-l border-white/15">
-                  {group.children.map((child) => (
+                  {visibleChildren.map((child) => (
                     <RouterNavLink
                       key={child.path}
                       to={child.path}
