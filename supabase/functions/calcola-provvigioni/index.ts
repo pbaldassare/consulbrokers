@@ -27,7 +27,17 @@ Deno.serve(async (req) => {
       .eq("id", titolo_id)
       .single();
     if (tErr || !titolo) throw new Error("Titolo non trovato");
-    if (titolo.stato !== "incassato") throw new Error("Titolo non incassato");
+    if (titolo.stato !== "incassato") {
+      return new Response(
+        JSON.stringify({
+          skipped: true,
+          reason: "titolo_non_incassato",
+          message: "Le provvigioni vengono calcolate solo dopo l'incasso del titolo.",
+          provvigioni: [],
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Delete old provvigioni for this titolo
     await supabaseAdmin.from("provvigioni_generate").delete().eq("titolo_id", titolo_id);
