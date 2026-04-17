@@ -1,88 +1,49 @@
 
 ## Richiesta
 
-Sui **rinnovi futuri** (titoli con `data_decorrenza_rinnovo` futura, non ancora messi a cassa) devono essere disponibili — **prima della messa a cassa** — le stesse operazioni di lifecycle già previste per le polizze in essere:
+I rinnovi futuri (titoli con `data_decorrenza_rinnovo` futura, non ancora messi a cassa) devono apparire anche nella vista **"Carico del Mese"** quando la loro decorrenza cade nel mese corrente (es. aprile 2026). Oggi probabilmente vengono filtrati fuori perché la query del Carico del Mese si basa su `data_effetto`/`data_scadenza` e non considera `data_decorrenza_rinnovo`.
 
-- **Sospensione**
-- **Riattivazione**
-- **Annullamento / Storno**
-- **Appendici** (variazioni)
-- **Duplicazione**
-- (eventuali altre operazioni di gestione del titolo)
+## Investigazione
 
-Oggi nella pagina del titolo (TitoloDetail) queste operazioni sono visibili/abilitate solo per polizze attive in essere; sui rinnovi futuri non lo sono. L'utente vuole che la pagina **TitoloDetail** esponga tutte queste azioni anche per i rinnovi futuri (stato `attivo`, `data_messa_cassa IS NULL`, `data_decorrenza_rinnovo > today`).
-
-## Investigazione necessaria
-
-Per produrre un piano preciso devo verificare:
-
-1. **`src/pages/TitoloDetail.tsx`** — quali pulsanti/azioni esistono oggi, con quali condizioni di visibilità (probabilmente legate a `t.stato`, `t.data_messa_cassa`, oppure a `data_effetto/data_scadenza` rispetto ad oggi).
-2. **Pagine operazione esistenti**:
-   - `SospensionePolizzaPage.tsx`
-   - `RiattivazionePolizzaPage.tsx`
-   - `StornoPolizzaPage.tsx`
-   - `AppendiciPolizzaPage.tsx`
-   - `DuplicazionePolizzaPage.tsx`
-   Per capire se accettano già un titolo "futuro" o se filtrano via `stato`/`data_decorrenza`.
-3. **Tabella `titoli`** — campi: `stato`, `data_messa_cassa`, `data_decorrenza_rinnovo`, `data_effetto`, `data_scadenza`, eventuale flag `is_rinnovo_futuro` o discriminante `tipo_movimento` (PI/PQ/AM).
-4. **Memory** `policy-lifecycle-operations` e `policy-lifecycle-movements` per non rompere la semantica esistente dei movimenti.
+Devo verificare:
+1. `src/pages/PortafoglioCaricoPage.tsx` — quale criterio usa oggi (probabilmente `data_effetto` nel mese o `data_scadenza` nel mese, su `v_portafoglio_titoli`).
+2. Come popolare la lista in modo che includa anche i rinnovi futuri con `data_decorrenza_rinnovo` nel mese corrente e `data_messa_cassa IS NULL`.
+3. Se la vista `v_portafoglio_titoli` espone già `data_decorrenza_rinnovo` (memory `portfolio-view-calculated-fields` lo conferma per il portafoglio attivo, va verificato).
 
 ## Piano
 
-### File principalmente toccati
+### File toccati
+- `src/pages/PortafoglioCaricoPage.tsx` — allargare il criterio per includere i rinnovi futuri del mese corrente.
 
-- `src/pages/TitoloDetail.tsx` — esporre azioni di lifecycle anche per rinnovi futuri non ancora messi a cassa.
-- (eventuale) `src/pages/SospensionePolizzaPage.tsx`, `RiattivazionePolizzaPage.tsx`, `StornoPolizzaPage.tsx`, `AppendiciPolizzaPage.tsx`, `DuplicazionePolizzaPage.tsx` — rimuovere eventuali filtri che escludono i rinnovi futuri dalla lista titoli selezionabili.
+### Logica
 
-### Logica nuova in TitoloDetail
+La pagina "Carico del Mese" deve mostrare TUTTI i titoli che hanno una "decorrenza nel mese corrente" e NON sono ancora stati messi a cassa, considerando come decorrenza:
 
-1. Definire un helper:
-   ```ts
-   const isRinnovoFuturo =
-     t.stato === "attivo" &&
-     !t.data_messa_cassa &&
-     t.data_decorrenza_rinnovo &&
-     new Date(t.data_decorrenza_rinnovo) > new Date();
+- `data_effetto` (immissione/nuova polizza), oppure
+- `data_decorrenza_rinnovo` (rinnovo futuro/in essere)
 
-   const isPolizzaInEssere =
-     t.stato === "attivo" &&
-     t.data_effetto && new Date(t.data_effetto) <= new Date() &&
-     t.data_scadenza && new Date(t.data_scadenza) >= new Date();
+Filtro finale (OR):
+```sql
+WHERE data_messa_cassa IS NULL
+  AND stato IN ('attivo','sospeso')
+  AND (
+    (data_effetto >= startOfMonth AND data_effetto <= endOfMonth)
+    OR
+    (data_decorrenza_rinnovo >= startOfMonth AND data_decorrenza_rinnovo <= endOfMonth)
+  )
+```
 
-   // Operazioni lifecycle ammesse PRIMA della messa a cassa
-   const canLifecycleOps = (isPolizzaInEssere || isRinnovoFuturo) && !t.data_messa_cassa;
-   ```
+In codice: poiché supabase-js non supporta direttamente OR su due range, uso `.or("and(data_effetto.gte.X,data_effetto.lte.Y),and(data_decorrenza_rinnovo.gte.X,data_decorrenza_rinnovo.lte.Y)")`.
 
-2. Sezione **"Operazioni"** sempre visibile per `canLifecycleOps` con i pulsanti:
-   - **Sospendi** → `/portafoglio/sospensione?titolo_id=...`
-   - **Riattiva** → `/portafoglio/riattivazione?titolo_id=...` (visibile solo se `stato='sospeso'`)
-   - **Storno / Annulla** → `/portafoglio/storno?titolo_id=...`
-   - **Appendice** → `/portafoglio/appendici?titolo_id=...`
-   - **Duplica** → `/portafoglio/duplicazione?titolo_id=...`
+### UI
 
-3. Mantenere il blocco **"Messa a Cassa"** già esistente (Incassa / Garantito / Annulla) con la stessa logica attuale, che convive con il blocco Operazioni.
+- Aggiungere una colonna/badge **"Tipo"** nella tabella Carico del Mese: "Nuova" (se la decorrenza è `data_effetto`) vs "Rinnovo" (se la decorrenza è `data_decorrenza_rinnovo`), per chiarezza operativa.
+- Mostrare la **data di decorrenza effettiva** (la più rilevante: `data_decorrenza_rinnovo` se presente e nel mese, altrimenti `data_effetto`).
 
-4. Aggiungere un piccolo **badge informativo** sulla card Polizza per chiarire all'utente lo stato corrente:
-   - "In essere" se `isPolizzaInEssere`
-   - "Rinnovo futuro – decorrenza GG/MM/AAAA" se `isRinnovoFuturo`
-   - "Messo a cassa" se `data_messa_cassa` valorizzato
-   - "Sospesa" / "Scaduta" / "Annullata" in base a `stato`
+### Allineamento Dashboard
 
-### Pagine operazione
-
-Verificare in default mode che `SospensionePolizzaPage`, `RiattivazionePolizzaPage`, `StornoPolizzaPage`, `AppendiciPolizzaPage`, `DuplicazionePolizzaPage`:
-- Accettino il `titolo_id` da query param e pre-popolino il form (deep-link dal TitoloDetail).
-- Non escludano i rinnovi futuri nei loro selettori interni (es. filtri `data_messa_cassa IS NOT NULL`).
-
-Se trovo filtri restrittivi, li allargo per includere `(isPolizzaInEssere OR isRinnovoFuturo)`.
+Verificare se anche la card "Fuori Copertura" / KPI ufficio in `useDashboardData.ts` deve includere i rinnovi futuri non incassati. **Default**: lascio "Fuori Copertura" come definita (scaduti non incassati) — i rinnovi futuri NON sono "fuori copertura" finché non arriva la decorrenza. Ma il conteggio "Carico del Mese" sulla pagina lista cambia.
 
 ### Cosa NON cambia
-
-- Stati DB (`attivo / sospeso / scaduto / incassato`) restano invariati.
-- Logica di "Messa a Cassa" / "Annulla Messa a Cassa" già fixata nei turni precedenti resta uguale.
-- Le altre dashboard/KPI restano invariate.
-
-### Domanda di chiarimento (procedo con le scelte di default)
-
-1. Per **Storno/Annullamento** di un rinnovo futuro non ancora incassato, vuoi che il titolo passi a stato `scaduto` (mantenendo storia) oppure venga **fisicamente eliminato** dalla lista? Default scelto: **passa a `scaduto` con `data_storno` valorizzata**, niente delete.
-2. Per **Sospensione di un rinnovo futuro**, la sospensione vale dalla `data_decorrenza_rinnovo` (futura) o da oggi? Default scelto: **dalla `data_decorrenza_rinnovo`** (coerente con polizza non ancora in copertura).
+- Stati DB e logica messa a cassa.
+- Le altre viste (Attive, Storico) e KPI.
