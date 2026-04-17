@@ -73,6 +73,14 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messaggi]);
 
+  // Mark channel as read on open and when new messages arrive
+  useEffect(() => {
+    if (!canaleId || !profile?.id) return;
+    supabase.rpc("mark_canale_as_read", { _canale_id: canaleId }).then(() => {
+      qc.invalidateQueries({ queryKey: ["chat_unread_count"] });
+    });
+  }, [canaleId, messaggi?.length, profile?.id, qc]);
+
   const sendMutation = useMutation({
     mutationFn: async () => {
       if (!msg.trim() || !canaleId || !profile?.id) return;
