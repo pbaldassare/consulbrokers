@@ -127,11 +127,18 @@ const GestioneUfficiPage = () => {
   };
 
   const handleSave = () => {
-    if (!formData.codice_ufficio.trim() || !formData.nome_ufficio.trim()) {
+    const codice = (formData.codice_ufficio || "").trim();
+    const nome = (formData.nome_ufficio || "").trim();
+    if (!codice || !nome) {
       toast.error("Compilare codice e nome sede");
       return;
     }
-    upsertMutation.mutate({ id: editingUfficio?.id, ...formData });
+    upsertMutation.mutate({
+      id: editingUfficio?.id,
+      ...formData,
+      codice_ufficio: codice,
+      nome_ufficio: nome,
+    });
   };
 
   return (
