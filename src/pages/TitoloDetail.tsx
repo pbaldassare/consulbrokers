@@ -556,6 +556,145 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // --- Importi edit state ---
+  const [editingImporti, setEditingImporti] = useState(false);
+  const [importiForm, setImportiForm] = useState({
+    premio_netto: "" as string,
+    addizionali: "" as string,
+    tasse: "" as string,
+    premio_lordo: "" as string,
+    provvigioni_firma: "" as string,
+    premio_netto_quietanza: "" as string,
+    addizionali_quietanza: "" as string,
+    tasse_quietanza: "" as string,
+    provvigioni_quietanza: "" as string,
+    valuta: "EUR" as string,
+    cambio: "" as string,
+    indicizzata: false as boolean,
+    rimborso: false as boolean,
+  });
+
+  const valutaOpts = [
+    { value: "EUR", label: "EUR €" },
+    { value: "USD", label: "USD $" },
+    { value: "GBP", label: "GBP £" },
+    { value: "CHF", label: "CHF" },
+  ];
+
+  const startEditImporti = () => {
+    if (titolo) {
+      const t: any = titolo;
+      setImportiForm({
+        premio_netto: t.premio_netto != null ? String(t.premio_netto) : "",
+        addizionali: t.addizionali != null ? String(t.addizionali) : "",
+        tasse: t.tasse != null ? String(t.tasse) : "",
+        premio_lordo: t.premio_lordo != null ? String(t.premio_lordo) : "",
+        provvigioni_firma: t.provvigioni_firma != null ? String(t.provvigioni_firma) : "",
+        premio_netto_quietanza: t.premio_netto_quietanza != null ? String(t.premio_netto_quietanza) : "",
+        addizionali_quietanza: t.addizionali_quietanza != null ? String(t.addizionali_quietanza) : "",
+        tasse_quietanza: t.tasse_quietanza != null ? String(t.tasse_quietanza) : "",
+        provvigioni_quietanza: t.provvigioni_quietanza != null ? String(t.provvigioni_quietanza) : "",
+        valuta: t.valuta ?? "EUR",
+        cambio: t.cambio != null ? String(t.cambio) : "",
+        indicizzata: !!t.indicizzata,
+        rimborso: !!t.rimborso,
+      });
+    }
+    setEditingImporti(true);
+  };
+
+  // Auto-calculated lordo (firma) suggestion
+  const suggestedLordoFirma = (() => {
+    const n = parseFloat(importiForm.premio_netto);
+    const a = parseFloat(importiForm.addizionali);
+    const ta = parseFloat(importiForm.tasse);
+    if (isNaN(n) && isNaN(a) && isNaN(ta)) return null;
+    return (isNaN(n) ? 0 : n) + (isNaN(a) ? 0 : a) + (isNaN(ta) ? 0 : ta);
+  })();
+  const suggestedLordoQuietanza = (() => {
+    const n = parseFloat(importiForm.premio_netto_quietanza);
+    const a = parseFloat(importiForm.addizionali_quietanza);
+    const ta = parseFloat(importiForm.tasse_quietanza);
+    if (isNaN(n) && isNaN(a) && isNaN(ta)) return null;
+    return (isNaN(n) ? 0 : n) + (isNaN(a) ? 0 : a) + (isNaN(ta) ? 0 : ta);
+  })();
+
+  const saveImportiMutation = useMutation({
+    mutationFn: async () => {
+      const numericFields = [
+        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma",
+        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza",
+        "cambio",
+      ] as const;
+
+      // Validations
+      const errs: string[] = [];
+      numericFields.forEach((f) => {
+        const v = (importiForm as any)[f];
+        if (v !== "" && v != null) {
+          const n = Number(v);
+          if (isNaN(n)) errs.push(`${f}: valore non numerico`);
+          else if (n < 0 && f !== "cambio") errs.push(`${f}: deve essere ≥ 0`);
+        }
+      });
+      if (importiForm.valuta && importiForm.valuta !== "EUR") {
+        const c = Number(importiForm.cambio);
+        if (!importiForm.cambio || isNaN(c) || c <= 0) errs.push("Cambio > 0 obbligatorio se valuta ≠ EUR");
+      }
+      if (errs.length) throw new Error(errs.join(" • "));
+
+      // Warnings (non-blocking)
+      const lordoTyped = parseFloat(importiForm.premio_lordo);
+      if (!isNaN(lordoTyped) && suggestedLordoFirma != null && Math.abs(lordoTyped - suggestedLordoFirma) > 0.01) {
+        toast.warning(`Premio Lordo (${lordoTyped.toFixed(2)}) ≠ Netto+Add+Tasse (${suggestedLordoFirma.toFixed(2)})`);
+      }
+      const provF = parseFloat(importiForm.provvigioni_firma);
+      const nettoF = parseFloat(importiForm.premio_netto);
+      if (!isNaN(provF) && !isNaN(nettoF) && provF > nettoF) {
+        toast.warning("Provvigioni Firma > Premio Netto Firma");
+      }
+
+      const before: Record<string, any> = {};
+      const after: Record<string, any> = {};
+      const payload: Record<string, any> = {};
+      const allFields = [
+        ...numericFields,
+        "valuta", "indicizzata", "rimborso",
+      ] as const;
+      allFields.forEach((f) => {
+        const raw = (importiForm as any)[f];
+        let newV: any;
+        if (typeof raw === "boolean") newV = raw;
+        else if (raw === "" || raw == null) newV = null;
+        else if ((numericFields as readonly string[]).includes(f)) newV = Number(raw);
+        else newV = raw;
+        const oldV = (titolo as any)?.[f] ?? (typeof raw === "boolean" ? false : null);
+        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+        payload[f] = newV;
+      });
+
+      const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
+      if (error) throw error;
+
+      if (Object.keys(after).length > 0) {
+        await logAttivita({
+          azione: "modifica_importi",
+          entita_tipo: "titolo",
+          entita_id: id!,
+          dettagli_json: { campi_modificati: Object.keys(after), before, after },
+          severity: "info",
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Importi aggiornati");
+      setEditingImporti(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const changeStatoMutation = useMutation({
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
