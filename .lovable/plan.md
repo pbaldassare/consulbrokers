@@ -1,50 +1,61 @@
 
-## Problema
+## Diagnosi
 
-L'utente `segreteria@consulbrokers.it` (ruolo `ufficio`, sede Napoli) sul dettaglio titolo `/titoli/d046ffeb-2ed1-43cc-ba03-a07cfb838804` vede **"Titolo non trovato"**. Stesso problema atteso su lista titoli e altre entità: la query torna vuota → RLS blocca.
+L'utente `ufficio` (Segreteria) vede in dashboard 4 KPI tarati sul concetto di "tuo ufficio":
+- Clienti Ufficio (551)
+- Incassi Recenti (€ 0)
+- Sinistri Aperti (3)
+- Scadenze (989)
 
-## Investigazione necessaria
+Vuole una dashboard più sensata per il ruolo Sede/Segreteria centrale:
+- ❌ rimuovere "Clienti Ufficio" (elenco/conteggio per ufficio)
+- ❌ rimuovere "Sinistri Aperti"
+- ✅ mantenere/valorizzare "Scadenze del mese"
+- ✅ mantenere/valorizzare "Incassi fatti"
 
-Devo verificare in DB:
-1. Esiste il titolo `d046ffeb...`? A quale `ufficio_id` appartiene?
-2. Quale ufficio ha la segreteria? (`f5163c49-1e7e-48b5-9ac6-5494a9d4ce4a` = Napoli)
-3. RLS su `titoli`, `clienti`, `sinistri`, `movimenti_contabili` ecc. — come sono filtrati per ruolo `ufficio`?
-4. La funzione `has_role` / il check su `ufficio_id` del profilo come funziona?
+## Da verificare prima di toccare codice
 
-Ipotesi più probabile: le policy RLS per ruolo `ufficio` filtrano per `ufficio_id = profile.ufficio_id`, e i titoli storici sono associati a un altro ufficio (es. Potenza/Milano), quindi Napoli non li vede. Oppure manca completamente una policy SELECT per ruolo `ufficio` su alcune tabelle.
+Devo leggere:
+- `src/pages/Dashboard.tsx` (struttura KPI e grafici)
+- `src/hooks/useDashboardData.ts` (query Supabase)
 
-## Piano
+Per capire se la dashboard è unica per tutti i ruoli o già differenziata, e come sono calcolati i KPI attuali (filtro `ufficio_id`? globale?). Visto che ora con RLS globale read l'utente ufficio vede tutto, "Clienti Ufficio: 551" probabilmente è il totale globale (non filtrato per sede) — quindi la label è già fuorviante.
 
-### Step 1 — Diagnosi (read-only, faccio io appena approvi)
-Eseguo query su:
-- `titoli` per il record `d046ffeb...` → `ufficio_id`, `cliente_id`
-- `profiles` per segreteria → conferma `ufficio_id`
-- `pg_policies` su `titoli`, `clienti`, `sinistri`, `movimenti_contabili`, `appendici`, `pagamenti_provvigioni`, `rimesse_compagnia` → vedo le policy SELECT per ruolo `ufficio`
-- conta righe visibili a segreteria simulando il filtro
+## Piano di modifica
 
-### Step 2 — Decidere lo scope visibilità per ruolo `ufficio`
+### Dashboard per ruolo `ufficio` (Segreteria/Sede)
 
-Mi serve chiarire **una sola cosa**: l'utente `ufficio` (segreteria) deve vedere:
-- **(A) tutti i dati di tutte le sedi** (visibilità globale, come admin ma senza permessi distruttivi), oppure
-- **(B) solo i dati della propria sede** (Napoli) — ma allora i titoli storici associati ad altri uffici restano invisibili.
+Nuova composizione KPI (4 card):
+1. **Scadenze del mese** — titoli con `data_scadenza` nel mese corrente (count + importo totale premi)
+2. **Incassi del mese** — somma `premio_lordo` dei titoli con `stato = 'incassato'` e `data_messa_cassa` nel mese corrente
+3. **Titoli in carico (mese)** — count titoli del Carico del Mese (decorrenza nel mese corrente)
+4. **Rimesse da inviare** — count titoli incassati non ancora rimessi alla compagnia
 
-Dato che è "Segreteria Consulbrokers" (centrale) e in passato il ruolo `ufficio` viene descritto come "backoffice/sede operativa principale", suppongo **(A)**, ma chiedo conferma prima di toccare RLS.
+Grafici:
+- **Mantengo**: "Incassi Mensili Ufficio" → rinomino "Incassi Mensili" (è globale ora, non per ufficio) — ultimi 6 mesi
+- **Sostituisco**: "Sinistri per Stato" → **"Scadenze prossimi 30 giorni per Compagnia"** (bar chart) o **"Scadenze settimanali"** (per pianificare il lavoro di sede)
 
-### Step 3 — Fix RLS (dopo conferma)
+### Strategia implementativa
 
-Se **(A)**: aggiungo/modifico policy SELECT su tutte le tabelle business per consentire al ruolo `ufficio` la lettura completa, allineato a quanto già fatto per `admin`. Pattern:
-```sql
-CREATE POLICY "Ufficio can view all <table>"
-ON public.<table> FOR SELECT TO authenticated
-USING (has_role(auth.uid(), 'ufficio'));
-```
-Tabelle target (da confermare in step 1): `titoli`, `clienti`, `prospect`, `sinistri`, `appendici`, `movimenti_contabili`, `pagamenti_provvigioni`, `rimesse_compagnia`, `note_restituzione`, `trattative`, `nominativi_cliente`, `contatti_cliente`, e tutte quelle dove oggi solo `admin` ha SELECT.
+Due opzioni:
 
-Se **(B)**: verifico solo che le policy `ufficio_id = profile.ufficio_id` siano presenti e funzionanti, e segnalo che i titoli di altre sedi resteranno invisibili (servirebbe assegnare il titolo a Napoli).
+**(A) Dashboard differenziata per ruolo** — in `Dashboard.tsx` rilevo `profile.ruolo === 'ufficio'` e renderizzo set KPI diverso. Più pulito, scalabile per altri ruoli.
 
-### File coinvolti
-- 🆕 Nuova migration SQL con le policy SELECT mancanti per ruolo `ufficio`.
-- Nessuna modifica codice frontend.
+**(B) Modifica unica per tutti** — cambio i KPI per chiunque non sia admin. Più semplice ma impatta anche altri ruoli (executive, produttore).
 
-### Domanda bloccante prima di procedere
-Confermi che **segreteria/ruolo ufficio = visibilità globale read** (opzione A)?
+Vado con **(A)** — meno invasiva e già allineata al pattern esistente (admin ha già una vista privilegiata).
+
+### File toccati
+- `src/pages/Dashboard.tsx` — branch condizionale per ruolo `ufficio` con nuovi KPI/grafici
+- `src/hooks/useDashboardData.ts` — aggiungo query per: scadenze mese corrente, incassi mese corrente, carico mese, rimesse pending. Espongo nuovo oggetto `ufficioStats`.
+- Header dashboard: cambio sottotitolo per ruolo ufficio (es. "Vista Sede — operatività mensile")
+
+### Domanda bloccante (1 sola)
+
+Confermi i 4 KPI proposti per la Sede?
+1. Scadenze del mese (count + €)
+2. Incassi del mese (€)
+3. Carico del mese (count + €)
+4. Rimesse da inviare alla compagnia (count + €)
+
+Oppure preferisci una combinazione diversa (es. sostituire "Rimesse" con "Provvigioni maturate mese" o "Trattative aperte")?
