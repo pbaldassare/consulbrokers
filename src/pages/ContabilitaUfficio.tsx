@@ -234,7 +234,7 @@ const ContabilitaUfficio = () => {
                                         <TableCell>
                                           {t.conferimento_gestito ? (
                                             <Badge variant={t.fondi_ricevuti ? "default" : "secondary"} className="text-xs">
-                                              {t.fondi_ricevuti ? "Conf. Gestito ✓" : "In Attesa Fondi"}
+                                              {t.fondi_ricevuti ? "Cop. Garantita ✓" : "In Attesa Fondi"}
                                             </Badge>
                                           ) : (
                                             <Badge variant="outline" className="text-xs">Incasso diretto</Badge>
