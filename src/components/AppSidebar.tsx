@@ -116,7 +116,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Carico del Mese", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         
-        { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
+        { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
       ],
     },
@@ -131,6 +131,7 @@ const sidebarEntries: SidebarEntry[] = [
       label: "Anagrafiche Utenti",
       icon: Briefcase,
       permissionKey: "anagrafiche",
+      hideForRoles: ["ufficio"],
       children: [
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
         { label: "Anagrafiche Professionali", path: "/archivi/anagrafiche", icon: Briefcase },
