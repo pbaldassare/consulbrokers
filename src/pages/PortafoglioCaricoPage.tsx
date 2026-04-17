@@ -18,6 +18,7 @@ import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 
 const PAGE_SIZE = 25;
 
