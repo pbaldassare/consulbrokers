@@ -414,7 +414,14 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
-                      <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
+                      <TableCell>
+                        {isRinnovoFuturo ? (
+                          <Badge className="bg-blue-500 text-white text-[10px] h-5 hover:bg-blue-600">Rinnovo</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-5">Nuova</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{fmtDate(decorrenzaDisplay)}</TableCell>
                       <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
