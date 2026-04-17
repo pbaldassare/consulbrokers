@@ -27,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 
 const fmt = (v: any) => v ?? "—";
@@ -551,6 +552,145 @@ const TitoloDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
       toast.success("Periodo aggiornato");
       setEditingPeriodo(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // --- Importi edit state ---
+  const [editingImporti, setEditingImporti] = useState(false);
+  const [importiForm, setImportiForm] = useState({
+    premio_netto: "" as string,
+    addizionali: "" as string,
+    tasse: "" as string,
+    premio_lordo: "" as string,
+    provvigioni_firma: "" as string,
+    premio_netto_quietanza: "" as string,
+    addizionali_quietanza: "" as string,
+    tasse_quietanza: "" as string,
+    provvigioni_quietanza: "" as string,
+    valuta: "EUR" as string,
+    cambio: "" as string,
+    indicizzata: false as boolean,
+    rimborso: false as boolean,
+  });
+
+  const valutaOpts = [
+    { value: "EUR", label: "EUR €" },
+    { value: "USD", label: "USD $" },
+    { value: "GBP", label: "GBP £" },
+    { value: "CHF", label: "CHF" },
+  ];
+
+  const startEditImporti = () => {
+    if (titolo) {
+      const t: any = titolo;
+      setImportiForm({
+        premio_netto: t.premio_netto != null ? String(t.premio_netto) : "",
+        addizionali: t.addizionali != null ? String(t.addizionali) : "",
+        tasse: t.tasse != null ? String(t.tasse) : "",
+        premio_lordo: t.premio_lordo != null ? String(t.premio_lordo) : "",
+        provvigioni_firma: t.provvigioni_firma != null ? String(t.provvigioni_firma) : "",
+        premio_netto_quietanza: t.premio_netto_quietanza != null ? String(t.premio_netto_quietanza) : "",
+        addizionali_quietanza: t.addizionali_quietanza != null ? String(t.addizionali_quietanza) : "",
+        tasse_quietanza: t.tasse_quietanza != null ? String(t.tasse_quietanza) : "",
+        provvigioni_quietanza: t.provvigioni_quietanza != null ? String(t.provvigioni_quietanza) : "",
+        valuta: t.valuta ?? "EUR",
+        cambio: t.cambio != null ? String(t.cambio) : "",
+        indicizzata: !!t.indicizzata,
+        rimborso: !!t.rimborso,
+      });
+    }
+    setEditingImporti(true);
+  };
+
+  // Auto-calculated lordo (firma) suggestion
+  const suggestedLordoFirma = (() => {
+    const n = parseFloat(importiForm.premio_netto);
+    const a = parseFloat(importiForm.addizionali);
+    const ta = parseFloat(importiForm.tasse);
+    if (isNaN(n) && isNaN(a) && isNaN(ta)) return null;
+    return (isNaN(n) ? 0 : n) + (isNaN(a) ? 0 : a) + (isNaN(ta) ? 0 : ta);
+  })();
+  const suggestedLordoQuietanza = (() => {
+    const n = parseFloat(importiForm.premio_netto_quietanza);
+    const a = parseFloat(importiForm.addizionali_quietanza);
+    const ta = parseFloat(importiForm.tasse_quietanza);
+    if (isNaN(n) && isNaN(a) && isNaN(ta)) return null;
+    return (isNaN(n) ? 0 : n) + (isNaN(a) ? 0 : a) + (isNaN(ta) ? 0 : ta);
+  })();
+
+  const saveImportiMutation = useMutation({
+    mutationFn: async () => {
+      const numericFields = [
+        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma",
+        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza",
+        "cambio",
+      ] as const;
+
+      // Validations
+      const errs: string[] = [];
+      numericFields.forEach((f) => {
+        const v = (importiForm as any)[f];
+        if (v !== "" && v != null) {
+          const n = Number(v);
+          if (isNaN(n)) errs.push(`${f}: valore non numerico`);
+          else if (n < 0 && f !== "cambio") errs.push(`${f}: deve essere ≥ 0`);
+        }
+      });
+      if (importiForm.valuta && importiForm.valuta !== "EUR") {
+        const c = Number(importiForm.cambio);
+        if (!importiForm.cambio || isNaN(c) || c <= 0) errs.push("Cambio > 0 obbligatorio se valuta ≠ EUR");
+      }
+      if (errs.length) throw new Error(errs.join(" • "));
+
+      // Warnings (non-blocking)
+      const lordoTyped = parseFloat(importiForm.premio_lordo);
+      if (!isNaN(lordoTyped) && suggestedLordoFirma != null && Math.abs(lordoTyped - suggestedLordoFirma) > 0.01) {
+        toast.warning(`Premio Lordo (${lordoTyped.toFixed(2)}) ≠ Netto+Add+Tasse (${suggestedLordoFirma.toFixed(2)})`);
+      }
+      const provF = parseFloat(importiForm.provvigioni_firma);
+      const nettoF = parseFloat(importiForm.premio_netto);
+      if (!isNaN(provF) && !isNaN(nettoF) && provF > nettoF) {
+        toast.warning("Provvigioni Firma > Premio Netto Firma");
+      }
+
+      const before: Record<string, any> = {};
+      const after: Record<string, any> = {};
+      const payload: Record<string, any> = {};
+      const allFields = [
+        ...numericFields,
+        "valuta", "indicizzata", "rimborso",
+      ] as const;
+      allFields.forEach((f) => {
+        const raw = (importiForm as any)[f];
+        let newV: any;
+        if (typeof raw === "boolean") newV = raw;
+        else if (raw === "" || raw == null) newV = null;
+        else if ((numericFields as readonly string[]).includes(f)) newV = Number(raw);
+        else newV = raw;
+        const oldV = (titolo as any)?.[f] ?? (typeof raw === "boolean" ? false : null);
+        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+        payload[f] = newV;
+      });
+
+      const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
+      if (error) throw error;
+
+      if (Object.keys(after).length > 0) {
+        await logAttivita({
+          azione: "modifica_importi",
+          entita_tipo: "titolo",
+          entita_id: id!,
+          dettagli_json: { campi_modificati: Object.keys(after), before, after },
+          severity: "info",
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Importi aggiornati");
+      setEditingImporti(false);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -1472,39 +1612,168 @@ const TitoloDetail = () => {
 
       {/* IMPORTI */}
       <SectionCollapsible title="Importi" icon={DollarSign}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
-            <div className="space-y-0">
-              <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
-              <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
-              <FieldRow label="Tasse" value={fmtEuro(t.tasse)} />
-              <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
-              <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingImporti ? (
+            <Button variant="ghost" size="sm" onClick={startEditImporti}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditingImporti(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => saveImportiMutation.mutate()} disabled={saveImportiMutation.isPending}>
+                {saveImportiMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </>
+          )}
+        </div>
+
+        {!editingImporti ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <div className="space-y-0">
+                  <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
+                  <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
+                  <FieldRow label="Tasse" value={fmtEuro(t.tasse)} />
+                  <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
+                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                </div>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
+                <div className="space-y-0">
+                  <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto_quietanza)} />
+                  <FieldRow label="Addizionali" value={fmtEuro(t.addizionali_quietanza)} />
+                  <FieldRow label="Tasse" value={fmtEuro(t.tasse_quietanza)} />
+                  <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
+                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
+              <FieldRow label="Valuta" value={fmt(t.valuta)} />
+              <FieldRow label="Cambio" value={fmt(t.cambio)} />
+              <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
+              <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
+              <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
+              <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
+              <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
+              <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* FIRMA */}
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Premio Netto (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.premio_netto}
+                      onChange={(e) => setImportiForm({ ...importiForm, premio_netto: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Addizionali (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.addizionali}
+                      onChange={(e) => setImportiForm({ ...importiForm, addizionali: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tasse (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.tasse}
+                      onChange={(e) => setImportiForm({ ...importiForm, tasse: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Premio Lordo (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.premio_lordo}
+                      onChange={(e) => setImportiForm({ ...importiForm, premio_lordo: e.target.value })} />
+                    {suggestedLordoFirma != null && (
+                      <button type="button"
+                        className="text-[11px] text-muted-foreground hover:text-primary mt-0.5"
+                        onClick={() => setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) })}>
+                        💡 Calcolato: € {suggestedLordoFirma.toFixed(2)} (clicca per applicare)
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Provvigioni (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.provvigioni_firma}
+                      onChange={(e) => setImportiForm({ ...importiForm, provvigioni_firma: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              {/* QUIETANZA */}
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Premio Netto (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.premio_netto_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, premio_netto_quietanza: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Addizionali (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.addizionali_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, addizionali_quietanza: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tasse (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.tasse_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, tasse_quietanza: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Totale (calcolato)</Label>
+                    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted text-sm font-mono">
+                      {suggestedLordoQuietanza != null ? `€ ${suggestedLordoQuietanza.toFixed(2)}` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Provvigioni (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.provvigioni_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, provvigioni_quietanza: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* VALUTA & FLAGS */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t">
+              <div>
+                <Label className="text-xs">Valuta</Label>
+                <SearchableSelect
+                  options={valutaOpts}
+                  value={importiForm.valuta}
+                  onValueChange={(v) => setImportiForm({ ...importiForm, valuta: v, cambio: v === "EUR" ? "1" : importiForm.cambio })}
+                  placeholder="Valuta"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Cambio</Label>
+                <Input type="number" step="0.0001" value={importiForm.cambio}
+                  disabled={importiForm.valuta === "EUR"}
+                  onChange={(e) => setImportiForm({ ...importiForm, cambio: e.target.value })} />
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <Switch checked={importiForm.indicizzata}
+                  onCheckedChange={(c) => setImportiForm({ ...importiForm, indicizzata: c })} />
+                <Label className="text-xs">Indicizzata</Label>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <Switch checked={importiForm.rimborso}
+                  onCheckedChange={(c) => setImportiForm({ ...importiForm, rimborso: c })} />
+                <Label className="text-xs">Rimborso</Label>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground pt-2 border-t">
+              <strong>Read-only:</strong> Pag. Diretto Compagnia, Formato Elettronico, Incassato, Data Incasso (gestiti da Messa a Cassa / configurazione prodotto)
             </div>
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
-            <div className="space-y-0">
-              <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto_quietanza)} />
-              <FieldRow label="Addizionali" value={fmtEuro(t.addizionali_quietanza)} />
-              <FieldRow label="Tasse" value={fmtEuro(t.tasse_quietanza)} />
-              <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
-              <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
-          <FieldRow label="Valuta" value={fmt(t.valuta)} />
-          <FieldRow label="Cambio" value={fmt(t.cambio)} />
-          <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
-          <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
-          <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
-          <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
-          <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
-          <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
-        </div>
+        )}
       </SectionCollapsible>
+
 
       {/* SOSTITUZIONI / STORNI */}
       {(t.sostituisce_polizza || t.storno_polizza) && (
