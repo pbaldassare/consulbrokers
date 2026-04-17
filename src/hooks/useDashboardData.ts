@@ -196,7 +196,8 @@ export function useDashboardData(ruolo: string) {
       { data: scadenzeMese },
       { data: incassiMese },
       { data: caricoMese },
-      { data: rimessePending },
+      { data: titoliIncassati },
+      { data: rimesseDettaglio },
       { data: incassiAnno },
       { data: scadenze30 },
     ] = await Promise.all([
@@ -207,12 +208,26 @@ export function useDashboardData(ruolo: string) {
       // Incassi del mese: messa cassa nel mese
       supabase.from("v_portafoglio_titoli").select("premio_lordo")
         .gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
-      // Carico del mese: decorrenza nel mese corrente
+      // Carico del mese: data_effetto nel mese corrente
       supabase.from("v_portafoglio_titoli").select("premio_lordo")
-        .gte("data_decorrenza", startOfMonth).lte("data_decorrenza", endOfMonth).limit(10000),
-      // Rimesse da inviare: titoli incassati senza rimessa
-      supabase.from("titoli").select("premio_lordo")
-        .eq("stato", "incassato").is("rimessa_id", null).limit(10000),
+        .gte("data_effetto", startOfMonth).lte("data_effetto", endOfMonth).limit(10000),
+      // Tutti i titoli incassati (id + premio)
+      supabase.from("titoli").select("id, premio_lordo").eq("stato", "incassato").limit(10000),
+      // Titoli già messi in rimessa
+      supabase.from("rimessa_dettaglio").select("titolo_id").limit(10000),
+      // Incassi ultimi 6 mesi per grafico
+      supabase.from("v_portafoglio_titoli").select("premio_lordo, data_messa_cassa")
+        .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
+        .limit(10000),
+      // Scadenze prossimi 30gg con compagnia
+      supabase.from("v_portafoglio_titoli").select("premio_lordo, compagnia_nome")
+        .gte("data_scadenza", oggi).lte("data_scadenza", in30gg)
+        .in("stato", ["attivo", "incassato"]).limit(10000),
+    ]);
+
+    // Rimesse da inviare = titoli incassati NON presenti in rimessa_dettaglio
+    const titoliInRimessa = new Set((rimesseDettaglio || []).map((r: any) => r.titolo_id));
+    const rimesseDaInviare = (titoliIncassati || []).filter((t: any) => !titoliInRimessa.has(t.id));
       // Incassi ultimi 6 mesi per grafico
       supabase.from("v_portafoglio_titoli").select("premio_lordo, data_messa_cassa")
         .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
@@ -261,8 +276,8 @@ export function useDashboardData(ruolo: string) {
       incassiMeseImporto: sumPremio(incassiMese),
       caricoMeseCount: (caricoMese || []).length,
       caricoMeseImporto: sumPremio(caricoMese),
-      rimesseDaInviareCount: (rimessePending || []).length,
-      rimesseDaInviareImporto: sumPremio(rimessePending),
+      rimesseDaInviareCount: rimesseDaInviare.length,
+      rimesseDaInviareImporto: sumPremio(rimesseDaInviare),
       incassiMensili,
       scadenzePerCompagnia,
     });
