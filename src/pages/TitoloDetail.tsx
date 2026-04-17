@@ -570,9 +570,9 @@ const TitoloDetail = () => {
                   <Shield className="w-4 h-4 mr-1" /> Garantito
                 </Button>
               )}
-              {t.stato === "incassato" && isAdmin && (
+              {(t.stato === "incassato" || t.data_messa_cassa) && isAdmin && (
                 <Button variant="outline" size="sm" className="text-orange-600 border-orange-400 hover:bg-orange-50" onClick={() => { setAnnullaPassword(""); setAnnullaDialogOpen(true); }} disabled={changeStatoMutation.isPending}>
-                  <XCircle className="w-4 h-4 mr-1" /> Annulla Incasso
+                  <XCircle className="w-4 h-4 mr-1" /> Annulla {t.stato === "incassato" ? "Incasso" : "Messa a Cassa"}
                 </Button>
               )}
             </div>
@@ -726,6 +726,10 @@ const TitoloDetail = () => {
                 );
                 queryClient.invalidateQueries({ queryKey: ["titolo", id] });
                 queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
+                queryClient.invalidateQueries({ queryKey: ["dashboard-ufficio"] });
+                queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+                queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
+                queryClient.invalidateQueries({ queryKey: ["portafoglio"] });
                 setAnnullaDialogOpen(false);
               } catch {
                 toast.error("Errore di verifica");
