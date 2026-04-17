@@ -44,6 +44,17 @@ const DistintaGiornaliera = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const dataSelezionata = format(selectedDate, "yyyy-MM-dd");
   const [note, setNote] = useState("");
+  const [contatoEffettivo, setContatoEffettivo] = useState<string>("");
+
+  // Fetch nome ufficio (per PDF)
+  const { data: ufficioInfo } = useQuery({
+    queryKey: ["ufficio_nome", uffId],
+    enabled: !!uffId,
+    queryFn: async () => {
+      const { data } = await supabase.from("uffici").select("nome_ufficio").eq("id", uffId!).maybeSingle();
+      return data;
+    },
+  });
 
   // Fetch distinta for selected date
   const { data: distinta, isLoading, refetch } = useQuery({
