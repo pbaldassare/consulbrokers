@@ -423,8 +423,8 @@ const TitoloDetail = () => {
         </Badge>
       </div>
 
-      {/* Operazioni — nascosto per polizze storico (scadute/sospese senza messa a cassa) */}
-      {!(t.stato === "scaduto" || t.stato === "sospeso" || (t.stato === "attivo" && t.garanzia_a && new Date(t.garanzia_a) < new Date() && !t.data_messa_cassa)) && (
+      {/* Operazioni — nascosto solo per polizze in stato terminale (scaduto/sospeso) */}
+      {!(t.stato === "scaduto" || t.stato === "sospeso") && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
