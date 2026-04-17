@@ -1,65 +1,64 @@
 
 ## Richiesta
 
-1. **Tutti i livelli di utenti** (admin, ufficio, executive, specialist/backoffice, produttore, corrispondente, consul, cliente, prospect) devono essere **visibili nella ricerca chat** e poter essere contattati direttamente (1-a-1 o gruppo).
-2. **Tutto viene loggato** (chi parla con chi, contenuto, timestamp) → già parzialmente fatto via `log_attivita`, da estendere.
-3. **Badge alert sul pulsante "Chat"** della sidebar con il **conteggio dei messaggi non letti** dell'utente corrente.
+1. La card **"Messe a Cassa"** (incassi del mese) sulla dashboard mostra **0**, ma l'utente ha appena fatto operazioni di "Garantito"/"Incassa" → il conteggio non si aggiorna.
+2. Quando si **annulla** un'operazione di messa a cassa/garantito su un titolo, lo stato deve **tornare indietro a "da mettere in copertura"** (cioè stato `attivo` con `data_messa_cassa = NULL`, riportandolo nel "Carico del Mese" / "Fuori Copertura").
 
-## Investigazione necessaria
+## Investigazione
 
-Prima di implementare verifico:
+Verifico:
+1. **Query "Incassi del Mese"** in `useDashboardData.ts` (`loadUfficio`) — cosa conta esattamente
+2. **DB reale** — quali titoli hanno `data_messa_cassa` impostata nel mese corrente vs stato `garantito`/`incassato`
+3. **`annullaMessaACassa.ts`** — la funzione di annullamento esistente: quali campi resetta? Riporta lo stato a `attivo`?
+4. **Pulsante "Annulla"** — dove è esposto (TitoloDetail? PortafoglioCarico?) e quali privilegi richiede
 
-1. **`src/components/chat/NuovaConversazioneDialog.tsx`** — capire come oggi vengono cercati gli utenti (probabilmente filtra solo alcuni ruoli) → estendere a TUTTI i ruoli (`admin`, `ufficio`, `executive`, `backoffice`, `produttore`, `corrispondente`, `consul`, `cliente`, `prospect`).
+## Piano
 
-2. **`src/components/chat/CanaliSidebar.tsx`** — vedere la search "scar" nello screenshot (filtra canali esistenti). Verificare che non escluda nessun ruolo.
+### 1. Card "Messe a Cassa" — riallineare conteggio
 
-3. **`src/components/AppSidebar.tsx`** — voce "Chat" della sidebar: aggiungere badge con conteggio non letti.
+In `useDashboardData.ts > loadUfficio()`:
+- La query attuale conta probabilmente solo `stato = 'incassato'` con `data_messa_cassa` nel mese.
+- Va estesa a: tutti i titoli con **`data_messa_cassa` nel mese corrente** (indipendentemente dallo stato finale `garantito` / `incassato` / `pagato`), perché un titolo "garantito" è già "messo a cassa" (= operazione fatta), solo il pagamento effettivo arriverà dopo.
+- Filtro corretto:
+  ```sql
+  WHERE data_messa_cassa >= date_trunc('month', CURRENT_DATE)
+    AND data_messa_cassa < date_trunc('month', CURRENT_DATE) + interval '1 month'
+  ```
+  (senza filtro su `stato`)
 
-4. **DB `chat_messaggi_interni` / `chat_canali_membri`** — verificare se esiste già un meccanismo di "letto/non letto" (es. campo `ultimo_letto_at` su `chat_canali_membri`). Se non esiste, va aggiunto.
+### 2. Annulla messa a cassa → torna in "da coprire"
 
-5. **Logging** — `ChatTab.tsx` già logga via `logAttivita` (azione `messaggio_chat`). Verifico che anche `ChatArea.tsx` (chat globale `/chat`) faccia lo stesso → uniformare.
+Verifico `src/lib/annullaMessaACassa.ts`. La funzione deve resettare:
+- `stato` → `'attivo'`
+- `data_messa_cassa` → `NULL`
+- `data_pagamento` → `NULL`
+- `data_incasso` → `NULL`
+- `tipo_pagamento` → `NULL`
+- `banca_pagamento` → `NULL`
+- `importo_incassato` → `NULL`
+- `data_decorrenza_rinnovo` → `NULL` (opzionale, da chiarire)
 
-## Piano di implementazione
+Dopo l'annullamento il titolo:
+- Sparisce da "Messe a Cassa" (incassi del mese)
+- Riappare in "Carico del Mese" / "Fuori Copertura" (perché `attivo` + `data_messa_cassa IS NULL`)
+- Sparisce da "Garantito" se la flag `garantito` esisteva → resettare anche quella
 
-### 1. Ricerca utenti universale (`NuovaConversazioneDialog`)
-- Rimuovere qualsiasi filtro di ruolo nella query `profiles` → mostrare TUTTI i `profiles` con `attivo=true`, raggruppati per ruolo con badge colorato (admin/ufficio/executive/backoffice/produttore/corrispondente/consul/cliente/prospect).
-- Search server-side su `nome`, `cognome`, `email`, `ruolo`.
-- Mostrare avatar/iniziali + nome completo + chip ruolo.
+### 3. Verifica pulsante "Annulla" presente nel TitoloDetail
+Confermare che esista già un pulsante "Annulla Messa a Cassa" visibile (con privilegi admin) che invoca `annullaMessaACassa`. Se non c'è, aggiungerlo nel TitoloDetail dopo il blocco "Stato cassa".
 
-### 2. Membri canali — permettere qualunque ruolo
-- Verificare RLS su `chat_canali_membri` e `chat_messaggi_interni`: tutti i ruoli (compreso cliente/prospect) devono poter leggere/scrivere nei canali di cui sono membri. Il portale cliente già usa `ChatTab` quindi RLS dovrebbe già supportarlo, ma confermo.
-
-### 3. Sistema "letto/non letto"
-- Aggiungere colonna `ultimo_letto_at TIMESTAMPTZ` su `chat_canali_membri` (se non esiste) tramite migration.
-- Quando l'utente apre un canale (`ChatArea` con `canaleId` selezionato) → update `ultimo_letto_at = now()` per quella riga.
-- Creare RPC `get_chat_unread_count(_user_id uuid)` che ritorna il totale di messaggi con `created_at > ultimo_letto_at` su tutti i canali di cui l'utente è membro (escludendo i propri messaggi).
-
-### 4. Badge sul menu "Chat" in sidebar
-- In `AppSidebar.tsx` (e analoghi: `ClienteLayout`, `ProspectLayout`) aggiungere `useQuery` che chiama l'RPC `get_chat_unread_count` ogni 15s + listener Supabase Realtime su `chat_messaggi_interni` per refresh immediato.
-- Se count > 0 → mostrare badge rosso piccolo accanto a "Chat" con numero (max "9+").
-
-### 5. Logging completo
-- In `ChatArea.tsx` (sendMessage handler) aggiungere chiamata a `logAttivita` con:
-  - `azione: "messaggio_chat"`
-  - `entita_tipo: "chat_canale"` (oppure `entita_tipo` del canale se contestuale)
-  - `entita_id: canaleId`
-  - `dettagli_json: { preview, mittente_ruolo, destinatari_count, canale_tipo, ambito }`
-- Già fatto in `ChatTab.tsx` → uniformare il payload.
+### 4. Invalidate query post-annullamento
+Dopo `annullaMessaACassa` invalidate:
+- `["dashboard-ufficio"]`
+- `["portafoglio-carico"]`
+- `["portafoglio-carico-totale"]`
+- `["titolo", id]`
 
 ### File toccati
-- **Nuova migration**: aggiungere `ultimo_letto_at` a `chat_canali_membri` + RPC `get_chat_unread_count`
-- `src/components/chat/NuovaConversazioneDialog.tsx` — ricerca su tutti i ruoli, raggruppamento per ruolo, badge colorato
-- `src/components/chat/CanaliSidebar.tsx` — eventuale rimozione filtri ruolo nella search
-- `src/components/chat/ChatArea.tsx` — update `ultimo_letto_at` all'apertura canale + log su invio
-- `src/components/AppSidebar.tsx` — badge unread su voce Chat
-- `src/components/ClienteLayout.tsx` e `src/components/ProspectLayout.tsx` — stesso badge sui rispettivi menu chat
+- `src/hooks/useDashboardData.ts` — fix conteggio "Messe a Cassa"
+- `src/lib/annullaMessaACassa.ts` — verificare/completare reset campi + log + invalidate
+- `src/pages/TitoloDetail.tsx` — verificare presenza pulsante Annulla e collegamento
 
-### Tecnico
-- Realtime: subscription su `postgres_changes` per `chat_messaggi_interni` filtrata per i canali dell'utente → invalidate badge query.
-- Performance: l'RPC fa una sola query aggregata (`SELECT SUM(...)`) → ok anche con molti canali.
-- Privacy: log_attivita salva solo preview (50 char), non l'intero messaggio → coerente con quanto già fatto in `ChatTab`.
-
-### Conferme prima di procedere
-
-1. Il **badge non letti** deve mostrare solo i messaggi nei canali dove sono **membro**, oppure anche broadcast non letti? → procedo con: tutti i canali di cui sono membro (inclusi broadcast a cui sono iscritto).
-2. La **ricerca universale** include anche utenti `cliente` e `prospect` quando l'utente che cerca è interno (admin/ufficio/ecc.), e viceversa? Confermo: SÌ, qualunque ruolo può cercare e contattare qualunque altro ruolo (era questa la richiesta "tutti i livelli"). Se preferisci limitare (es. cliente non può cercare altri clienti) fammelo sapere prima.
+### Investigazione preliminare (da fare in default mode)
+- `code--view src/lib/annullaMessaACassa.ts`
+- `code--view src/hooks/useDashboardData.ts` (sezione loadUfficio incassi)
+- Query DB: `SELECT id, numero_titolo, stato, data_messa_cassa, data_decorrenza_rinnovo FROM titoli WHERE data_messa_cassa >= '2026-04-01' OR (stato='attivo' AND data_scadenza BETWEEN '2026-04-01' AND '2026-04-30');`
