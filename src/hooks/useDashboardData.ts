@@ -28,8 +28,8 @@ export interface UfficioData {
   scadenzeMeseImporto: number;
   incassiMeseCount: number;
   incassiMeseImporto: number;
-  caricoMeseCount: number;
-  caricoMeseImporto: number;
+  fuoriCoperturaCount: number;
+  fuoriCoperturaImporto: number;
   rimesseDaInviareCount: number;
   rimesseDaInviareImporto: number;
   incassiMensili: { mese: string; importo: number }[];
