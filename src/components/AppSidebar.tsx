@@ -160,9 +160,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Cruscotto del Giorno", path: "/contabilita/cruscotto", icon: LayoutDashboard },
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
         { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare },
-        
-        { label: "Chiusura Contabile", path: "/contabilita/chiusura-contabile", icon: Lock },
-        { label: "Avvisi Incasso", path: "/contabilita/avvisi-incasso", icon: Bell },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "E/C Compagnia", path: "/contabilita/ec-compagnia", icon: Building2 },
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
