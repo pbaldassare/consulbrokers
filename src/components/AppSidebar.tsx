@@ -312,7 +312,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
             const item = entry.item;
-            if (!isVisible(item.permissionKey, item.adminOnly)) return null;
+            if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles)) return null;
             return (
               <RouterNavLink
                 key={item.path}
