@@ -398,6 +398,17 @@ const TitoloDetail = () => {
 
   const t = titolo as any;
 
+  // Polizza poliennale: durata > 13 mesi tra decorrenza e scadenza
+  const isPoliennale = (() => {
+    if (!t.data_decorrenza || !t.data_scadenza) return false;
+    const start = new Date(t.data_decorrenza);
+    const end = new Date(t.data_scadenza);
+    const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    return months > 13;
+  })();
+  // Mostra "Messa a Cassa" solo se mai incassata, oppure se poliennale attiva (rate residue)
+  const showMessaACassa = !t.data_messa_cassa || (isPoliennale && t.stato === "attivo");
+
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
