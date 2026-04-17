@@ -215,7 +215,7 @@ interface AppSidebarProps {
 }
 
 const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
-  const { hasPermission, isAdmin, user } = useAuth();
+  const { hasPermission, isAdmin, user, profile } = useAuth();
   const location = useLocation();
   const qc = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
