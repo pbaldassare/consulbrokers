@@ -433,7 +433,7 @@ const DistintaGiornaliera = () => {
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs text-muted-foreground">
-                      {raggruppamento[k.label.toLowerCase()]?.righe.length || 0} mov.
+                      {raggruppamento[normalizeTipo(k.label)]?.righe.length || 0} mov.
                     </p>
                   </CardContent>
                 </Card>
