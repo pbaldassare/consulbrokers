@@ -1,64 +1,54 @@
 
 ## Richiesta
 
-1. La card **"Messe a Cassa"** (incassi del mese) sulla dashboard mostra **0**, ma l'utente ha appena fatto operazioni di "Garantito"/"Incassa" → il conteggio non si aggiorna.
-2. Quando si **annulla** un'operazione di messa a cassa/garantito su un titolo, lo stato deve **tornare indietro a "da mettere in copertura"** (cioè stato `attivo` con `data_messa_cassa = NULL`, riportandolo nel "Carico del Mese" / "Fuori Copertura").
+Per il ruolo **Sede/Ufficio** (Responsabile Ufficio - "Segreteria Consulbrokers" nello screenshot), nascondere dalla sidebar le seguenti voci:
+
+1. **Anagrafiche Utenti** (intera sezione o solo i sottomenù?)
+2. **Cruscotto del Giorno** (Contabilità)
+3. **Distinta Giornaliera** (Contabilità)
+4. **E/C Compagnie** (Contabilità → Estratti Conto)
+5. **Estrazioni e Stampe** ("la stampi" → presumo Estrazioni e Stampe nella sidebar root)
+6. **Check Primanota** (Contabilità → Primanota)
 
 ## Investigazione
 
-Verifico:
-1. **Query "Incassi del Mese"** in `useDashboardData.ts` (`loadUfficio`) — cosa conta esattamente
-2. **DB reale** — quali titoli hanno `data_messa_cassa` impostata nel mese corrente vs stato `garantito`/`incassato`
-3. **`annullaMessaACassa.ts`** — la funzione di annullamento esistente: quali campi resetta? Riporta lo stato a `attivo`?
-4. **Pulsante "Annulla"** — dove è esposto (TitoloDetail? PortafoglioCarico?) e quali privilegi richiede
+Verifico in:
+- `src/components/AppSidebar.tsx` — struttura del menu e logica di filtro per ruolo
+- Eventuali file `src/routes/contabilita.tsx`, `src/routes/sistema.tsx` per la struttura voci
+
+Per capire:
+- Come oggi vengono filtrate le voci per ruolo (probabilmente via `permessi_json` o controllo `userLevel`)
+- Se esiste già un meccanismo `hideForRoles` o simili
 
 ## Piano
 
-### 1. Card "Messe a Cassa" — riallineare conteggio
+### File toccato
+- `src/components/AppSidebar.tsx` — aggiungere logica di hiding condizionale per ruolo `ufficio` sulle 6 voci sopra elencate.
 
-In `useDashboardData.ts > loadUfficio()`:
-- La query attuale conta probabilmente solo `stato = 'incassato'` con `data_messa_cassa` nel mese.
-- Va estesa a: tutti i titoli con **`data_messa_cassa` nel mese corrente** (indipendentemente dallo stato finale `garantito` / `incassato` / `pagato`), perché un titolo "garantito" è già "messo a cassa" (= operazione fatta), solo il pagamento effettivo arriverà dopo.
-- Filtro corretto:
-  ```sql
-  WHERE data_messa_cassa >= date_trunc('month', CURRENT_DATE)
-    AND data_messa_cassa < date_trunc('month', CURRENT_DATE) + interval '1 month'
-  ```
-  (senza filtro su `stato`)
+### Approccio
+1. Identificare il ruolo corrente (`profile.ruolo === 'ufficio'`).
+2. Per ogni voce target, aggiungere condizione che la nasconda quando il ruolo è `ufficio`:
+   - **Anagrafiche Utenti** → da chiarire: nascondere SOLO il sottomenu "Gestione Utenti / Privilegi" oppure l'intera sezione "Anagrafiche Utenti"? (Vedi domanda sotto)
+   - **Estrazioni e Stampe** (voce root sidebar)
+   - **Cruscotto Giornaliero** (Contabilità → submenu)
+   - **Distinta Giornaliera** (Contabilità → submenu)
+   - **E/C Compagnie** (Contabilità → Estratti Conto → submenu)
+   - **Check Primanota** (Contabilità → Primanota → submenu)
+3. Mantenere visibili le altre voci per il ruolo Sede.
+4. Per `admin` / `executive` tutte le voci restano visibili.
 
-### 2. Annulla messa a cassa → torna in "da coprire"
+### Note tecniche
+- Lo stesso filtro va applicato sia al menu della sidebar che alla `GlobalSearch` se include questi link, per evitare scorciatoie nascoste ma raggiungibili.
+- I `RoleGuard` su rotte sono separati: nascondere dalla sidebar NON impedisce l'accesso via URL diretto. Va eventualmente aggiunto/aggiornato il `RoleGuard` sulle relative pagine se vogliamo bloccare anche l'accesso diretto. **Procedo nascondendo solo dalla sidebar** se non specifichi diversamente (modifica meno invasiva).
 
-Verifico `src/lib/annullaMessaACassa.ts`. La funzione deve resettare:
-- `stato` → `'attivo'`
-- `data_messa_cassa` → `NULL`
-- `data_pagamento` → `NULL`
-- `data_incasso` → `NULL`
-- `tipo_pagamento` → `NULL`
-- `banca_pagamento` → `NULL`
-- `importo_incassato` → `NULL`
-- `data_decorrenza_rinnovo` → `NULL` (opzionale, da chiarire)
+### Domanda di chiarimento
 
-Dopo l'annullamento il titolo:
-- Sparisce da "Messe a Cassa" (incassi del mese)
-- Riappare in "Carico del Mese" / "Fuori Copertura" (perché `attivo` + `data_messa_cassa IS NULL`)
-- Sparisce da "Garantito" se la flag `garantito` esisteva → resettare anche quella
+1. Per **"Anagrafiche Utenti"** vuoi nascondere:
+   - **(a)** L'intera sezione (Gestione Utenti, Privilegi, Crea Nuovo Utente, Gestione Uffici) → ufficio non vede nulla
+   - **(b)** Solo le voci di gestione (Crea/Privilegi) lasciando visibile la sola lista lettura
 
-### 3. Verifica pulsante "Annulla" presente nel TitoloDetail
-Confermare che esista già un pulsante "Annulla Messa a Cassa" visibile (con privilegi admin) che invoca `annullaMessaACassa`. Se non c'è, aggiungerlo nel TitoloDetail dopo il blocco "Stato cassa".
+   *Procedo con (a) — nasconderò l'intera voce "Anagrafiche Utenti" dalla sidebar dell'ufficio — se non diversamente specificato.*
 
-### 4. Invalidate query post-annullamento
-Dopo `annullaMessaACassa` invalidate:
-- `["dashboard-ufficio"]`
-- `["portafoglio-carico"]`
-- `["portafoglio-carico-totale"]`
-- `["titolo", id]`
+2. Vuoi che le pagine restino accessibili via URL diretto (solo nascoste dal menu) oppure devo aggiungere un `RoleGuard` che blocca anche l'accesso diretto per il ruolo `ufficio`?
 
-### File toccati
-- `src/hooks/useDashboardData.ts` — fix conteggio "Messe a Cassa"
-- `src/lib/annullaMessaACassa.ts` — verificare/completare reset campi + log + invalidate
-- `src/pages/TitoloDetail.tsx` — verificare presenza pulsante Annulla e collegamento
-
-### Investigazione preliminare (da fare in default mode)
-- `code--view src/lib/annullaMessaACassa.ts`
-- `code--view src/hooks/useDashboardData.ts` (sezione loadUfficio incassi)
-- Query DB: `SELECT id, numero_titolo, stato, data_messa_cassa, data_decorrenza_rinnovo FROM titoli WHERE data_messa_cassa >= '2026-04-01' OR (stato='attivo' AND data_scadenza BETWEEN '2026-04-01' AND '2026-04-30');`
+   *Procedo con: solo nascoste dalla sidebar (accessibili via URL se digitato manualmente).*
