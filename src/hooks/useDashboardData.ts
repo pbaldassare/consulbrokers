@@ -228,15 +228,6 @@ export function useDashboardData(ruolo: string) {
     // Rimesse da inviare = titoli incassati NON presenti in rimessa_dettaglio
     const titoliInRimessa = new Set((rimesseDettaglio || []).map((r: any) => r.titolo_id));
     const rimesseDaInviare = (titoliIncassati || []).filter((t: any) => !titoliInRimessa.has(t.id));
-      // Incassi ultimi 6 mesi per grafico
-      supabase.from("v_portafoglio_titoli").select("premio_lordo, data_messa_cassa")
-        .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
-        .limit(10000),
-      // Scadenze prossimi 30gg con compagnia
-      supabase.from("v_portafoglio_titoli").select("premio_lordo, compagnia_nome")
-        .gte("data_scadenza", oggi).lte("data_scadenza", in30gg)
-        .in("stato", ["attivo", "incassato"]).limit(10000),
-    ]);
 
     const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
 
