@@ -262,6 +262,9 @@ const DistintaGiornaliera = () => {
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
+    onError: (e: any) => {
+      toast.error("Errore chiusura distinta", { description: e?.message || String(e) });
+    },
   });
 
   const riapriMut = useMutation({
@@ -277,6 +280,9 @@ const DistintaGiornaliera = () => {
       toast.success("Distinta riaperta");
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
+    },
+    onError: (e: any) => {
+      toast.error("Errore riapertura", { description: e?.message || String(e) });
     },
   });
 
