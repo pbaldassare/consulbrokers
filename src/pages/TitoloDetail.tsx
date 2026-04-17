@@ -448,6 +448,113 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // --- Periodo edit state ---
+  const [editingPeriodo, setEditingPeriodo] = useState(false);
+  const [periodoForm, setPeriodoForm] = useState({
+    durata_da: "" as string,
+    durata_a: "" as string,
+    anni_durata: "" as string,
+    rate: "" as string,
+    garanzia_da: "" as string,
+    garanzia_a: "" as string,
+    data_competenza: "" as string,
+    data_scadenza: "" as string,
+    limite_mora: "" as string,
+    mora_giorni: "" as string,
+    tipo_rinnovo: "" as string,
+    disdetta_mesi: "" as string,
+  });
+
+  const tipoRinnovoOpts = [
+    { value: "tacito_rinnovo", label: "Tacito Rinnovo" },
+    { value: "scadenza_annuale", label: "Scadenza Annuale" },
+    { value: "disdetta", label: "Disdetta" },
+    { value: "nessuno", label: "Nessuno" },
+  ];
+
+  const startEditPeriodo = () => {
+    if (titolo) {
+      const t: any = titolo;
+      setPeriodoForm({
+        durata_da: t.durata_da ?? "",
+        durata_a: t.durata_a ?? "",
+        anni_durata: t.anni_durata != null ? String(t.anni_durata) : "",
+        rate: t.rate != null ? String(t.rate) : "",
+        garanzia_da: t.garanzia_da ?? "",
+        garanzia_a: t.garanzia_a ?? "",
+        data_competenza: t.data_competenza ?? "",
+        data_scadenza: t.data_scadenza ?? "",
+        limite_mora: t.limite_mora ?? "",
+        mora_giorni: t.mora_giorni != null ? String(t.mora_giorni) : "",
+        tipo_rinnovo: t.tipo_rinnovo ?? "",
+        disdetta_mesi: t.disdetta_mesi != null ? String(t.disdetta_mesi) : "",
+      });
+    }
+    setEditingPeriodo(true);
+  };
+
+  // Auto-suggested anni_durata from durata_da/_a
+  const suggestedAnniDurata = (() => {
+    if (!periodoForm.durata_da || !periodoForm.durata_a) return null;
+    const d1 = new Date(periodoForm.durata_da);
+    const d2 = new Date(periodoForm.durata_a);
+    const months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+    return Math.round((months / 12) * 10) / 10;
+  })();
+  const isPoliennaleEdit = suggestedAnniDurata != null && suggestedAnniDurata > 1.08;
+
+  const savePeriodoMutation = useMutation({
+    mutationFn: async () => {
+      // Validations
+      const errs: string[] = [];
+      const dDa = periodoForm.durata_da ? new Date(periodoForm.durata_da) : null;
+      const dA = periodoForm.durata_a ? new Date(periodoForm.durata_a) : null;
+      const gDa = periodoForm.garanzia_da ? new Date(periodoForm.garanzia_da) : null;
+      const gA = periodoForm.garanzia_a ? new Date(periodoForm.garanzia_a) : null;
+      if (dDa && dA && dDa > dA) errs.push("Durata Da non può essere successiva a Durata A");
+      if (gDa && gA && gDa > gA) errs.push("Garanzia Da non può essere successiva a Garanzia A");
+      if (dDa && gDa && gDa < dDa) errs.push("Garanzia Da deve essere ≥ Durata Da");
+      if (dA && gA && gA > dA) errs.push("Garanzia A deve essere ≤ Durata A");
+      if (errs.length) throw new Error(errs.join(" • "));
+
+      const before: Record<string, any> = {};
+      const after: Record<string, any> = {};
+      const fields: (keyof typeof periodoForm)[] = [
+        "durata_da", "durata_a", "anni_durata", "rate", "garanzia_da", "garanzia_a",
+        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tipo_rinnovo", "disdetta_mesi",
+      ];
+      const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
+      const payload: Record<string, any> = {};
+      fields.forEach((f) => {
+        const raw = periodoForm[f];
+        const newV = raw === "" || raw == null ? null : (numericFields.has(f as string) ? Number(raw) : raw);
+        const oldV = (titolo as any)?.[f] ?? null;
+        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+        payload[f] = newV;
+      });
+
+      const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
+      if (error) throw error;
+
+      if (Object.keys(after).length > 0) {
+        await logAttivita({
+          azione: "modifica_periodo",
+          entita_tipo: "titolo",
+          entita_id: id!,
+          dettagli_json: { campi_modificati: Object.keys(after), before, after },
+          severity: "info",
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Periodo aggiornato");
+      setEditingPeriodo(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const changeStatoMutation = useMutation({
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
@@ -1081,20 +1188,129 @@ const TitoloDetail = () => {
 
       {/* PERIODO */}
       <SectionCollapsible title="Periodo" icon={Calendar}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-          <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
-          <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
-          <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
-          <FieldRow label="Rate" value={fmt(t.rate)} />
-          <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
-          <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
-          <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
-          <FieldRow label="Data Scadenza" value={fmtDate(t.data_scadenza)} />
-          <FieldRow label="Limite Mora" value={fmtDate(t.limite_mora)} />
-          <FieldRow label="GG Mora" value={fmt(t.mora_giorni)} />
-          <FieldRow label="Tipo Rinnovo" value={fmt(t.tipo_rinnovo)} />
-          <FieldRow label="Disdetta (mesi)" value={fmt(t.disdetta_mesi)} />
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingPeriodo ? (
+            <Button variant="ghost" size="sm" onClick={startEditPeriodo}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditingPeriodo(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => savePeriodoMutation.mutate()} disabled={savePeriodoMutation.isPending}>
+                {savePeriodoMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </>
+          )}
         </div>
+
+        {!editingPeriodo ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+            <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
+            <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
+            <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
+            <FieldRow label="Rate" value={fmt(t.rate)} />
+            <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
+            <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
+            <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
+            <FieldRow label="Data Scadenza" value={fmtDate(t.data_scadenza)} />
+            <FieldRow label="Limite Mora" value={fmtDate(t.limite_mora)} />
+            <FieldRow label="GG Mora" value={fmt(t.mora_giorni)} />
+            <FieldRow label="Tipo Rinnovo" value={fmt(t.tipo_rinnovo)} />
+            <FieldRow label="Disdetta (mesi)" value={fmt(t.disdetta_mesi)} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+            {([
+              ["durata_da", "Durata Da"],
+              ["durata_a", "Durata A"],
+              ["garanzia_da", "Garanzia Da"],
+              ["garanzia_a", "Garanzia A"],
+              ["data_competenza", "Data Competenza"],
+              ["data_scadenza", "Data Scadenza"],
+              ["limite_mora", "Limite Mora"],
+            ] as const).map(([field, label]) => (
+              <div key={field}>
+                <Label className="text-xs">{label}</Label>
+                <Input
+                  type="date"
+                  value={(periodoForm as any)[field]?.slice(0, 10) || ""}
+                  onChange={(e) => setPeriodoForm(p => {
+                    const next: any = { ...p, [field]: e.target.value };
+                    if (field === "garanzia_a" && e.target.value) {
+                      if (!p.data_scadenza) next.data_scadenza = e.target.value;
+                      const mora = Number(p.mora_giorni) || 0;
+                      if (mora > 0 && !p.limite_mora) {
+                        const d = new Date(e.target.value);
+                        d.setDate(d.getDate() + mora);
+                        next.limite_mora = d.toISOString().slice(0, 10);
+                      }
+                    }
+                    return next;
+                  })}
+                />
+              </div>
+            ))}
+
+            <div>
+              <Label className="text-xs">Anni Durata</Label>
+              <Input
+                type="number"
+                step="0.1"
+                value={periodoForm.anni_durata}
+                onChange={(e) => setPeriodoForm(p => ({ ...p, anni_durata: e.target.value }))}
+              />
+              {suggestedAnniDurata != null && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] text-muted-foreground">Suggerito: {suggestedAnniDurata}</span>
+                  {isPoliennaleEdit && <Badge variant="secondary" className="text-[10px]">Poliennale</Badge>}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs">Rate annuali</Label>
+              <Input
+                type="number"
+                value={periodoForm.rate}
+                onChange={(e) => setPeriodoForm(p => ({ ...p, rate: e.target.value }))}
+                placeholder="1, 2, 4, 6, 12"
+              />
+              {periodoForm.rate && ![1, 2, 4, 6, 12].includes(Number(periodoForm.rate)) && (
+                <span className="text-[10px] text-yellow-600">Valore non standard</span>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs">GG Mora</Label>
+              <Input
+                type="number"
+                value={periodoForm.mora_giorni}
+                onChange={(e) => setPeriodoForm(p => ({ ...p, mora_giorni: e.target.value }))}
+                placeholder="15"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Disdetta (mesi)</Label>
+              <Input
+                type="number"
+                value={periodoForm.disdetta_mesi}
+                onChange={(e) => setPeriodoForm(p => ({ ...p, disdetta_mesi: e.target.value }))}
+                placeholder="3"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <Label className="text-xs">Tipo Rinnovo</Label>
+              <SearchableSelect
+                options={tipoRinnovoOpts}
+                value={periodoForm.tipo_rinnovo}
+                onValueChange={(v) => setPeriodoForm(p => ({ ...p, tipo_rinnovo: v }))}
+                placeholder="Seleziona tipo rinnovo"
+              />
+            </div>
+          </div>
+        )}
       </SectionCollapsible>
 
       {/* REGOLAZIONE */}
