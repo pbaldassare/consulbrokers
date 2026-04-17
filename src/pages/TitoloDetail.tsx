@@ -2059,70 +2059,174 @@ const TitoloDetail = () => {
       </SectionCollapsible>
 
       {/* === SEZIONI RCA AUTO === */}
-      {(veicolo as any) && (
-        <SectionCollapsible title="Dati Veicolo" icon={Car}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-            <FieldRow label="Settore" value={fmt((veicolo as any).settore)} />
-            <FieldRow label="Tipo" value={fmt((veicolo as any).tipo_veicolo)} />
-            <FieldRow label="Uso" value={fmt((veicolo as any).uso)} />
-            <FieldRow label="Targa" value={fmt((veicolo as any).targa)} />
-            <FieldRow label="Marca" value={fmt((veicolo as any).marca)} />
-            <FieldRow label="Modello" value={fmt((veicolo as any).modello)} />
-            <FieldRow label="Versione" value={fmt((veicolo as any).versione)} />
-            <FieldRow label="Veicolo" value={fmt((veicolo as any).veicolo_descrizione)} />
-            <FieldRow label="Telaio" value={fmt((veicolo as any).telaio)} />
-            <FieldRow label="Immatricolazione" value={fmtDate((veicolo as any).data_immatricolazione)} />
-            <FieldRow label="Anno Acquisto" value={fmt((veicolo as any).anno_acquisto)} />
-            <FieldRow label="Prov. Circolazione" value={fmt((veicolo as any).provincia_circolazione)} />
-            <FieldRow label="Classe B/M" value={fmt((veicolo as any).classe_bm)} />
-            <FieldRow label="Massimale 1" value={fmtEuro((veicolo as any).massimale_1)} />
-            <FieldRow label="Massimale 2" value={fmtEuro((veicolo as any).massimale_2)} />
-            <FieldRow label="Massimale 3" value={fmtEuro((veicolo as any).massimale_3)} />
-            <FieldRow label="Peius" value={fmtBool((veicolo as any).peius)} />
-            <FieldRow label="Franchigia" value={fmtEuro((veicolo as any).franchigia)} />
-            <FieldRow label="Temporanea" value={fmtBool((veicolo as any).temporanea)} />
-            <FieldRow label="Carico/Scarico" value={fmtBool((veicolo as any).carico_scarico)} />
-            <FieldRow label="CV" value={fmt((veicolo as any).cv)} />
-            <FieldRow label="KW" value={fmt((veicolo as any).kw)} />
-            <FieldRow label="CC" value={fmt((veicolo as any).cc)} />
-            <FieldRow label="Posti" value={fmt((veicolo as any).posti)} />
-            <FieldRow label="Peso Mot." value={fmt((veicolo as any).peso_motrice)} />
-            <FieldRow label="Peso Rim." value={fmt((veicolo as any).peso_rimorchio)} />
-            <FieldRow label="Peso Tot." value={fmt((veicolo as any).peso_totale)} />
-            <FieldRow label="Tipologia Guida" value={fmt((veicolo as any).tipologia_guida)} />
-            <FieldRow label="Alimentazione" value={fmt((veicolo as any).tipo_alimentazione)} />
-          </div>
-        </SectionCollapsible>
-      )}
+      <SectionCollapsible title="Dati Veicolo" icon={Car}>
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingVeicolo ? (
+            <Button variant="ghost" size="sm" onClick={startEditVeicolo}>
+              <Pencil className="w-4 h-4 mr-1" /> {veicolo ? "Modifica" : "Aggiungi"}
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditingVeicolo(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => saveVeicoloMutation.mutate()} disabled={saveVeicoloMutation.isPending}>
+                {saveVeicoloMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </>
+          )}
+        </div>
 
-      {(premiGaranzia as any[]).length > 0 && (
-        <SectionCollapsible title="Premi per Garanzia" icon={ShieldCheck}>
+        {!editingVeicolo ? (
+          (veicolo as any) ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+              <FieldRow label="Settore" value={fmt((veicolo as any).settore)} />
+              <FieldRow label="Tipo" value={fmt((veicolo as any).tipo_veicolo)} />
+              <FieldRow label="Uso" value={fmt((veicolo as any).uso)} />
+              <FieldRow label="Targa" value={fmt((veicolo as any).targa)} />
+              <FieldRow label="Marca" value={fmt((veicolo as any).marca)} />
+              <FieldRow label="Modello" value={fmt((veicolo as any).modello)} />
+              <FieldRow label="Versione" value={fmt((veicolo as any).versione)} />
+              <FieldRow label="Veicolo" value={fmt((veicolo as any).veicolo_descrizione)} />
+              <FieldRow label="Telaio" value={fmt((veicolo as any).telaio)} />
+              <FieldRow label="Immatricolazione" value={fmtDate((veicolo as any).data_immatricolazione)} />
+              <FieldRow label="Anno Acquisto" value={fmt((veicolo as any).anno_acquisto)} />
+              <FieldRow label="Prov. Circolazione" value={fmt((veicolo as any).provincia_circolazione)} />
+              <FieldRow label="Classe B/M" value={fmt((veicolo as any).classe_bm)} />
+              <FieldRow label="Massimale 1" value={fmtEuro((veicolo as any).massimale_1)} />
+              <FieldRow label="Massimale 2" value={fmtEuro((veicolo as any).massimale_2)} />
+              <FieldRow label="Massimale 3" value={fmtEuro((veicolo as any).massimale_3)} />
+              <FieldRow label="Peius" value={fmtBool((veicolo as any).peius)} />
+              <FieldRow label="Franchigia" value={fmtEuro((veicolo as any).franchigia)} />
+              <FieldRow label="Temporanea" value={fmtBool((veicolo as any).temporanea)} />
+              <FieldRow label="Carico/Scarico" value={fmtBool((veicolo as any).carico_scarico)} />
+              <FieldRow label="CV" value={fmt((veicolo as any).cv)} />
+              <FieldRow label="KW" value={fmt((veicolo as any).kw)} />
+              <FieldRow label="CC" value={fmt((veicolo as any).cc)} />
+              <FieldRow label="Posti" value={fmt((veicolo as any).posti)} />
+              <FieldRow label="Peso Mot." value={fmt((veicolo as any).peso_motrice)} />
+              <FieldRow label="Peso Rim." value={fmt((veicolo as any).peso_rimorchio)} />
+              <FieldRow label="Peso Tot." value={fmt((veicolo as any).peso_totale)} />
+              <FieldRow label="Tipologia Guida" value={fmt((veicolo as any).tipologia_guida)} />
+              <FieldRow label="Alimentazione" value={fmt((veicolo as any).tipo_alimentazione)} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Nessun dato veicolo. Clicca "Aggiungi" per inserirli.</p>
+          )
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div><Label className="text-xs">Settore</Label><Input value={veicoloForm.settore} onChange={(e) => setVeicoloForm({ ...veicoloForm, settore: e.target.value })} /></div>
+            <div><Label className="text-xs">Tipo Veicolo</Label><SearchableSelect options={TIPI_VEICOLO_OPTS} value={veicoloForm.tipo_veicolo} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, tipo_veicolo: v })} placeholder="Seleziona..." /></div>
+            <div><Label className="text-xs">Uso</Label><Input value={veicoloForm.uso} onChange={(e) => setVeicoloForm({ ...veicoloForm, uso: e.target.value })} /></div>
+            <div><Label className="text-xs">Targa</Label><Input value={veicoloForm.targa} onChange={(e) => setVeicoloForm({ ...veicoloForm, targa: e.target.value.toUpperCase() })} /></div>
+            <div><Label className="text-xs">Marca</Label><Input value={veicoloForm.marca} onChange={(e) => setVeicoloForm({ ...veicoloForm, marca: e.target.value.toUpperCase() })} /></div>
+            <div><Label className="text-xs">Modello</Label><Input value={veicoloForm.modello} onChange={(e) => setVeicoloForm({ ...veicoloForm, modello: e.target.value.toUpperCase() })} /></div>
+            <div><Label className="text-xs">Versione</Label><Input value={veicoloForm.versione} onChange={(e) => setVeicoloForm({ ...veicoloForm, versione: e.target.value })} /></div>
+            <div><Label className="text-xs">Descrizione Veicolo</Label><Input value={veicoloForm.veicolo_descrizione} onChange={(e) => setVeicoloForm({ ...veicoloForm, veicolo_descrizione: e.target.value })} /></div>
+            <div><Label className="text-xs">Telaio (VIN)</Label><Input maxLength={17} value={veicoloForm.telaio} onChange={(e) => setVeicoloForm({ ...veicoloForm, telaio: e.target.value.toUpperCase() })} /></div>
+            <div><Label className="text-xs">Immatricolazione</Label><Input type="date" value={veicoloForm.data_immatricolazione || ""} onChange={(e) => setVeicoloForm({ ...veicoloForm, data_immatricolazione: e.target.value })} /></div>
+            <div><Label className="text-xs">Anno Acquisto</Label><Input type="number" value={veicoloForm.anno_acquisto} onChange={(e) => setVeicoloForm({ ...veicoloForm, anno_acquisto: e.target.value })} /></div>
+            <div><Label className="text-xs">Prov. Circolazione</Label><Input maxLength={2} value={veicoloForm.provincia_circolazione} onChange={(e) => setVeicoloForm({ ...veicoloForm, provincia_circolazione: e.target.value.toUpperCase() })} /></div>
+            <div><Label className="text-xs">Classe B/M (CU)</Label><SearchableSelect options={CLASSI_BM_OPTS} value={veicoloForm.classe_bm} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, classe_bm: v })} placeholder="Seleziona..." /></div>
+            <div><Label className="text-xs">Massimale 1 €</Label><Input type="number" step="0.01" value={veicoloForm.massimale_1} onChange={(e) => setVeicoloForm({ ...veicoloForm, massimale_1: e.target.value })} /></div>
+            <div><Label className="text-xs">Massimale 2 €</Label><Input type="number" step="0.01" value={veicoloForm.massimale_2} onChange={(e) => setVeicoloForm({ ...veicoloForm, massimale_2: e.target.value })} /></div>
+            <div><Label className="text-xs">Massimale 3 €</Label><Input type="number" step="0.01" value={veicoloForm.massimale_3} onChange={(e) => setVeicoloForm({ ...veicoloForm, massimale_3: e.target.value })} /></div>
+            <div><Label className="text-xs">Franchigia €</Label><Input type="number" step="0.01" value={veicoloForm.franchigia} onChange={(e) => setVeicoloForm({ ...veicoloForm, franchigia: e.target.value })} /></div>
+            <div className="flex items-center gap-2 pt-5"><Switch checked={veicoloForm.peius} onCheckedChange={(v) => setVeicoloForm({ ...veicoloForm, peius: v })} /><Label className="text-xs">Peius</Label></div>
+            <div className="flex items-center gap-2 pt-5"><Switch checked={veicoloForm.temporanea} onCheckedChange={(v) => setVeicoloForm({ ...veicoloForm, temporanea: v })} /><Label className="text-xs">Temporanea</Label></div>
+            <div className="flex items-center gap-2 pt-5"><Switch checked={veicoloForm.carico_scarico} onCheckedChange={(v) => setVeicoloForm({ ...veicoloForm, carico_scarico: v })} /><Label className="text-xs">Carico/Scarico</Label></div>
+            <div><Label className="text-xs">CV</Label><Input type="number" value={veicoloForm.cv} onChange={(e) => setVeicoloForm({ ...veicoloForm, cv: e.target.value })} /></div>
+            <div><Label className="text-xs">KW</Label><Input type="number" value={veicoloForm.kw} onChange={(e) => setVeicoloForm({ ...veicoloForm, kw: e.target.value })} /></div>
+            <div><Label className="text-xs">CC</Label><Input type="number" value={veicoloForm.cc} onChange={(e) => setVeicoloForm({ ...veicoloForm, cc: e.target.value })} /></div>
+            <div><Label className="text-xs">Posti</Label><Input type="number" value={veicoloForm.posti} onChange={(e) => setVeicoloForm({ ...veicoloForm, posti: e.target.value })} /></div>
+            <div><Label className="text-xs">Peso Motrice (kg)</Label><Input type="number" value={veicoloForm.peso_motrice} onChange={(e) => setVeicoloForm({ ...veicoloForm, peso_motrice: e.target.value })} /></div>
+            <div><Label className="text-xs">Peso Rimorchio (kg)</Label><Input type="number" value={veicoloForm.peso_rimorchio} onChange={(e) => setVeicoloForm({ ...veicoloForm, peso_rimorchio: e.target.value })} /></div>
+            <div><Label className="text-xs">Peso Totale (kg)</Label><Input type="number" value={veicoloForm.peso_totale} onChange={(e) => setVeicoloForm({ ...veicoloForm, peso_totale: e.target.value })} /></div>
+            <div><Label className="text-xs">Tipologia Guida</Label><SearchableSelect options={TIPOLOGIA_GUIDA_OPTS} value={veicoloForm.tipologia_guida} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, tipologia_guida: v })} placeholder="Seleziona..." /></div>
+            <div><Label className="text-xs">Alimentazione</Label><SearchableSelect options={ALIMENTAZIONE_OPTS} value={veicoloForm.tipo_alimentazione} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, tipo_alimentazione: v })} placeholder="Seleziona..." /></div>
+          </div>
+        )}
+      </SectionCollapsible>
+
+      <SectionCollapsible title="Premi per Garanzia" icon={ShieldCheck}>
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingPremi ? (
+            <Button variant="ghost" size="sm" onClick={startEditPremi}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={addPremiRow}>+ Aggiungi riga</Button>
+              <Button variant="outline" size="sm" onClick={() => setEditingPremi(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => savePremiMutation.mutate()} disabled={savePremiMutation.isPending}>
+                {savePremiMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </>
+          )}
+        </div>
+
+        {!editingPremi ? (
+          (premiGaranzia as any[]).length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Garanzia</TableHead>
+                  <TableHead className="text-right">Capitale</TableHead>
+                  <TableHead className="text-right">Tasso</TableHead>
+                  <TableHead className="text-right">Firma</TableHead>
+                  <TableHead className="text-right">Rata</TableHead>
+                  <TableHead className="text-right">Annuo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(premiGaranzia as any[]).map((pg: any) => (
+                  <TableRow key={pg.id}>
+                    <TableCell className="font-medium">{pg.garanzia}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtEuro(pg.capitale)}</TableCell>
+                    <TableCell className="text-right font-mono">{pg.tasso ?? "—"}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtEuro(pg.firma)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtEuro(pg.rata)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtEuro(pg.annuo)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Nessuna garanzia. Clicca "Modifica" per aggiungerne.</p>
+          )
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Garanzia</TableHead>
-                <TableHead className="text-right">Capitale</TableHead>
-                <TableHead className="text-right">Tasso</TableHead>
-                <TableHead className="text-right">Firma</TableHead>
-                <TableHead className="text-right">Rata</TableHead>
-                <TableHead className="text-right">Annuo</TableHead>
+                <TableHead className="w-[28%]">Garanzia *</TableHead>
+                <TableHead>Capitale €</TableHead>
+                <TableHead>Tasso ‰</TableHead>
+                <TableHead>Firma €</TableHead>
+                <TableHead>Rata €</TableHead>
+                <TableHead>Annuo €</TableHead>
+                <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(premiGaranzia as any[]).map((pg: any) => (
-                <TableRow key={pg.id}>
-                  <TableCell className="font-medium">{pg.garanzia}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtEuro(pg.capitale)}</TableCell>
-                  <TableCell className="text-right font-mono">{pg.tasso ?? "—"}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtEuro(pg.firma)}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtEuro(pg.rata)}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtEuro(pg.annuo)}</TableCell>
-                </TableRow>
-              ))}
+              {premiRows.filter((r) => !r._deleted).map((r, displayIdx) => {
+                const realIdx = premiRows.findIndex((row) => row === r);
+                return (
+                  <TableRow key={r.id ?? `new-${displayIdx}`}>
+                    <TableCell><Input value={r.garanzia} onChange={(e) => updatePremiRow(realIdx, "garanzia", e.target.value)} placeholder="Es. RCA, Furto..." /></TableCell>
+                    <TableCell><Input type="number" step="0.01" value={r.capitale} onChange={(e) => updatePremiRow(realIdx, "capitale", e.target.value)} /></TableCell>
+                    <TableCell><Input type="number" step="0.001" value={r.tasso} onChange={(e) => updatePremiRow(realIdx, "tasso", e.target.value)} /></TableCell>
+                    <TableCell><Input type="number" step="0.01" value={r.firma} onChange={(e) => updatePremiRow(realIdx, "firma", e.target.value)} /></TableCell>
+                    <TableCell><Input type="number" step="0.01" value={r.rata} onChange={(e) => updatePremiRow(realIdx, "rata", e.target.value)} /></TableCell>
+                    <TableCell><Input type="number" step="0.01" value={r.annuo} onChange={(e) => updatePremiRow(realIdx, "annuo", e.target.value)} /></TableCell>
+                    <TableCell><Button variant="ghost" size="icon" onClick={() => removePremiRow(realIdx)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
+                  </TableRow>
+                );
+              })}
+              {premiRows.filter((r) => !r._deleted).length === 0 && (
+                <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground italic">Nessuna riga. Clicca "+ Aggiungi riga".</TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
-        </SectionCollapsible>
-      )}
+        )}
+      </SectionCollapsible>
 
       {(conducente as any) && (
         <SectionCollapsible title="Dati Conducente" icon={UserCheck}>
