@@ -224,7 +224,7 @@ const GestioneUfficiPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Codice Sede *</Label>
-              <Input value={formData.codice_ufficio} onChange={(e) => setFormData({ ...formData, codice_ufficio: e.target.value })} placeholder="es. SEDE001" />
+              <Input value={formData.codice_ufficio ?? ""} onChange={(e) => setFormData({ ...formData, codice_ufficio: e.target.value })} placeholder="es. NAP, SDO" />
             </div>
             <div>
               <Label>Nome Sede *</Label>
