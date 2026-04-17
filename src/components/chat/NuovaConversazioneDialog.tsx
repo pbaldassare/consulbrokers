@@ -26,11 +26,16 @@ interface NuovaConversazioneDialogProps {
 
 const RUOLI_INTERNI = [
   { value: "admin", label: "Admin" },
-  { value: "ufficio", label: "Ufficio" },
+  { value: "ufficio", label: "Sede" },
+  { value: "executive", label: "Executive" },
   { value: "produttore", label: "Produttore" },
+  { value: "corrispondente", label: "Corrispondente" },
   { value: "backoffice", label: "Specialist" },
   { value: "contabilita", label: "Contabilità" },
   { value: "cfo", label: "CFO" },
+  { value: "consul", label: "Consul" },
+  { value: "cliente", label: "Cliente" },
+  { value: "prospect", label: "Prospect" },
 ];
 
 interface EntitaResult {
@@ -92,15 +97,14 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     enabled: open,
   });
 
-  // Load staff for internal mode
+  // Load ALL active profiles (any role) for internal mode — universal search
   const { data: utentiStaff } = useQuery({
-    queryKey: ["profiles_interni"],
+    queryKey: ["profiles_all_chat"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
         .select("id, nome, cognome, ruolo, ufficio_id, email")
         .eq("attivo", true)
-        .in("ruolo", ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"])
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },

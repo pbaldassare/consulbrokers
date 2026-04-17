@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, CreditCard, Upload, LogOut, Menu, X, AlertTriangle, User, Building,
@@ -15,7 +16,7 @@ const allNavItems = [
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
   { to: "/cliente/documenti", label: "Documenti", icon: FileText },
   { to: "/cliente/scadenze", label: "Scadenze", icon: CalendarClock },
-  { to: "/cliente/chat", label: "Chat", icon: MessageSquare },
+  { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
   { to: "/cliente/upload", label: "Carica Doc", icon: Upload, requiresCompleta: true },
@@ -40,6 +41,17 @@ const ClienteLayout = () => {
         setAreaType((data as any)?.area_riservata_tipo || "nessuna");
       });
   }, [user]);
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["chat_unread_count", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { data } = await supabase.rpc("get_chat_unread_count", { _user_id: user.id });
+      return Number(data) || 0;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 15000,
+  });
 
   const navItems = allNavItems.filter(
     (item) => !(item as any).requiresCompleta || areaType === "completa"
@@ -76,7 +88,12 @@ const ClienteLayout = () => {
             }
           >
             <item.icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {(item as any).hasBadge && unreadCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

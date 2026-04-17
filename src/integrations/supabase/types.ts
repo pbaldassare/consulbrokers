@@ -644,6 +644,7 @@ export type Database = {
           created_at: string | null
           id: string
           ruolo_canale: string
+          ultimo_letto_at: string | null
           user_id: string
         }
         Insert: {
@@ -651,6 +652,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           ruolo_canale?: string
+          ultimo_letto_at?: string | null
           user_id: string
         }
         Update: {
@@ -658,6 +660,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           ruolo_canale?: string
+          ultimo_letto_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -6343,6 +6346,7 @@ export type Database = {
           count: number
         }[]
       }
+      get_chat_unread_count: { Args: { _user_id: string }; Returns: number }
       get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
       has_role: {
@@ -6356,6 +6360,7 @@ export type Database = {
         Args: { _canale_id: string; _user_id: string }
         Returns: boolean
       }
+      mark_canale_as_read: { Args: { _canale_id: string }; Returns: undefined }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
       refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
