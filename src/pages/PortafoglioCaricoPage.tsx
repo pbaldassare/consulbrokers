@@ -378,18 +378,14 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Compagnia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
-                  <SortableHeader field="data_scadenza">Scadenza</SortableHeader>
+                  <TableHead>Tipo</TableHead>
+                  <SortableHeader field="data_scadenza">Decorrenza</SortableHeader>
                   <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">Lordo</SortableHeader>
                   <SortableHeader field="ae_nome">AE</SortableHeader>
                   <SortableHeader field="produttore_nome">Produttore</SortableHeader>
                   <SortableHeader field="stato">Stato</SortableHeader>
                   <SortableHeader field="data_messa_cassa" className="text-center">Messa a Cassa</SortableHeader>
-                  <TableHead className="text-center">Azione</TableHead>
-                  <TableHead>AE</TableHead>
-                  <TableHead>Produttore</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead className="text-center">Messa a Cassa</TableHead>
                   <TableHead className="text-center">Azione</TableHead>
                 </TableRow>
               </TableHeader>
