@@ -1,50 +1,33 @@
 
-## Richiesta
+## Diagnosi
 
-Nel dettaglio titolo, nascondere il pulsante/sezione **"Messa a Cassa"** quando la polizza è già stata messa a cassa (non si può incassare due volte la stessa polizza). Eccezione: per **polizze poliennali attive** il pulsante deve restare visibile (perché ci sono più rate annuali da incassare).
+La polizza `204366651` è nel **Carico del Mese** (attiva, scaduta il 09/04/2026, non ancora messa a cassa). 
 
-## Investigazione
+La condizione attuale in `TitoloDetail.tsx` riga 427 nasconde la sezione "Operazioni" quando:
+```ts
+stato === "attivo" && garanzia_a < oggi && !data_messa_cassa
+```
 
-Devo verificare in `src/pages/TitoloDetail.tsx`:
-1. Dove viene renderizzato il blocco "Messa a Cassa" (sezione/pulsante che apre `MessaCassaDialog`)
-2. La condizione attuale di visibilità
-3. Come identificare una polizza poliennale (memory: `policy-valuation-rules` → durata > 13 mesi tra `data_decorrenza` e `data_scadenza`)
+Questa logica è **sbagliata**: nasconde proprio le polizze fuori copertura/in carico, che sono quelle su cui l'utente deve poter agire (sospendere, stornare, rinnovare, fare appendici).
 
 ## Piano
 
 ### File toccato
-- `src/pages/TitoloDetail.tsx`
+- `src/pages/TitoloDetail.tsx` (riga 426-427)
 
-### Logica nuova di visibilità "Messa a Cassa"
+### Modifica
+Rimuovere il branch problematico. Le operazioni vanno nascoste **solo** per polizze in stato terminale `scaduto` o `sospeso` (che sono già state lavorate e archiviate). Per le polizze `attivo`, anche se `garanzia_a` è nel passato, le operazioni devono essere disponibili.
 
-Mostrare il pulsante/sezione **Messa a Cassa** solo quando:
+**Nuova condizione:**
+```tsx
+{!(t.stato === "scaduto" || t.stato === "sospeso") && (
+  <Card>...Operazioni...</Card>
+)}
 ```
-NOT data_messa_cassa  // mai messa a cassa
-OR (è poliennale AND stato === 'attivo')  // poliennale attiva con rate residue
-```
 
-In altri termini: nascondere quando `data_messa_cassa` è valorizzata, **tranne** se la polizza è poliennale e attiva.
-
-### Helper per "poliennale"
-Calcolo inline (coerente con `mem://insurance/policy-valuation-rules`):
-```ts
-const isPoliennale = (() => {
-  if (!t.data_decorrenza || !t.data_scadenza) return false;
-  const start = new Date(t.data_decorrenza);
-  const end = new Date(t.data_scadenza);
-  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-  return months > 13;
-})();
-
-const showMessaACassa = !t.data_messa_cassa || (isPoliennale && t.stato === "attivo");
-```
+### Risultato atteso sulla polizza `204366651`
+La card "Operazioni" tornerà visibile con tutti i pulsanti: Sospensione, Riattivazione, Duplicazione, **Appendici**, Storno, Regolazione, Annullamento.
 
 ### Cosa NON cambia
-- Le altre operazioni (Sospensione, Riattivazione, Storno, Duplicazione, Rinnovo, Appendici) restano regolate dalla logica già esistente.
-- Il pulsante "Annulla Messa a Cassa" (per admin) resta visibile dove già previsto.
-- `MessaCassaDialog.tsx` non viene modificato.
-
-### Note
-- Per polizze annuali già incassate → pulsante nascosto (corretto: non si rincassa).
-- Per polizza poliennale attiva già incassata una volta → pulsante visibile (rate successive).
-- Per polizza poliennale già scaduta/sospesa → pulsante nascosto.
+- La logica della card "Messa a Cassa" (gating poliennale) resta identica.
+- Per polizze `scaduto`/`sospeso` la sezione resta correttamente nascosta.
