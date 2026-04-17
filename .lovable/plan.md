@@ -1,61 +1,74 @@
 
 ## Diagnosi
 
-L'utente `ufficio` (Segreteria) vede in dashboard 4 KPI tarati sul concetto di "tuo ufficio":
-- Clienti Ufficio (551)
-- Incassi Recenti (€ 0)
-- Sinistri Aperti (3)
-- Scadenze (989)
+L'utente `ufficio` (Segreteria) sul dettaglio titolo `/titoli/d046ffeb...` apre il dialog "Conferma Messa a Cassa" e cliccando "Conferma Incasso" l'operazione fallisce. Stesso comportamento atteso per altre operazioni (Sospensione, Riattivazione, Annullamento, Regolazione, ecc.).
 
-Vuole una dashboard più sensata per il ruolo Sede/Segreteria centrale:
-- ❌ rimuovere "Clienti Ufficio" (elenco/conteggio per ufficio)
-- ❌ rimuovere "Sinistri Aperti"
-- ✅ mantenere/valorizzare "Scadenze del mese"
-- ✅ mantenere/valorizzare "Incassi fatti"
+### Causa probabile
+Abbiamo dato al ruolo `ufficio` solo i permessi **SELECT** globali con la migration precedente. Le operazioni di "messa a cassa" e affini eseguono **UPDATE/INSERT** su:
+- `titoli` (cambio stato → `incassato`, set `data_messa_cassa`)
+- `movimenti_contabili` (insert riga di cassa)
+- `appendici_polizza` (sospensione/riattivazione)
+- `pagamenti_provvigioni`, `note_restituzione`, ecc.
 
-## Da verificare prima di toccare codice
+Le policy RLS per UPDATE/INSERT su queste tabelle sono probabilmente limitate ad `admin` o filtrate per `ufficio_id = profile.ufficio_id`. Quindi il ruolo `ufficio` (Napoli) non può scrivere su titoli di altre sedi → l'operazione fallisce silenziosamente o con errore RLS.
 
-Devo leggere:
-- `src/pages/Dashboard.tsx` (struttura KPI e grafici)
-- `src/hooks/useDashboardData.ts` (query Supabase)
+## Investigazione (faccio appena approvi)
 
-Per capire se la dashboard è unica per tutti i ruoli o già differenziata, e come sono calcolati i KPI attuali (filtro `ufficio_id`? globale?). Visto che ora con RLS globale read l'utente ufficio vede tutto, "Clienti Ufficio: 551" probabilmente è il totale globale (non filtrato per sede) — quindi la label è già fuorviante.
+1. Eseguo la "Messa a Cassa" lato client e leggo:
+   - `code--read_console_logs` / `network_requests` per vedere errore esatto (RLS? edge function?)
+   - `supabase--read_query` su `pg_policies` per `titoli`, `movimenti_contabili`, `appendici_polizza`, `pagamenti_provvigioni`, `note_restituzione`, `rimessa_premi`, `sinistri`, `trattative` → vedo policy INSERT/UPDATE/DELETE per ruolo `ufficio`
+   - Verifico se la "messa a cassa" passa per una edge function (es. `gestione-rimessa`, `messa-a-cassa`) o è un update diretto dal client
 
-## Piano di modifica
+2. Identifico tutte le tabelle dove `ufficio` ha SELECT ma non ha INSERT/UPDATE/DELETE (o le ha ristrette per `ufficio_id`).
 
-### Dashboard per ruolo `ufficio` (Segreteria/Sede)
+## Fix
 
-Nuova composizione KPI (4 card):
-1. **Scadenze del mese** — titoli con `data_scadenza` nel mese corrente (count + importo totale premi)
-2. **Incassi del mese** — somma `premio_lordo` dei titoli con `stato = 'incassato'` e `data_messa_cassa` nel mese corrente
-3. **Titoli in carico (mese)** — count titoli del Carico del Mese (decorrenza nel mese corrente)
-4. **Rimesse da inviare** — count titoli incassati non ancora rimessi alla compagnia
+### Step 1 — Migration RLS write per ruolo `ufficio`
 
-Grafici:
-- **Mantengo**: "Incassi Mensili Ufficio" → rinomino "Incassi Mensili" (è globale ora, non per ufficio) — ultimi 6 mesi
-- **Sostituisco**: "Sinistri per Stato" → **"Scadenze prossimi 30 giorni per Compagnia"** (bar chart) o **"Scadenze settimanali"** (per pianificare il lavoro di sede)
+Aggiungo policy `INSERT/UPDATE/DELETE` per ruolo `ufficio` sulle tabelle operative, con scope **globale** (coerente con la SELECT globale che già ha):
 
-### Strategia implementativa
+```sql
+-- Pattern per ogni tabella interessata
+CREATE POLICY "Ufficio can insert <tab>" ON public.<tab>
+  FOR INSERT TO authenticated WITH CHECK (has_role(auth.uid(), 'ufficio'));
 
-Due opzioni:
+CREATE POLICY "Ufficio can update <tab>" ON public.<tab>
+  FOR UPDATE TO authenticated USING (has_role(auth.uid(), 'ufficio'));
 
-**(A) Dashboard differenziata per ruolo** — in `Dashboard.tsx` rilevo `profile.ruolo === 'ufficio'` e renderizzo set KPI diverso. Più pulito, scalabile per altri ruoli.
+CREATE POLICY "Ufficio can delete <tab>" ON public.<tab>
+  FOR DELETE TO authenticated USING (has_role(auth.uid(), 'ufficio'));
+```
 
-**(B) Modifica unica per tutti** — cambio i KPI per chiunque non sia admin. Più semplice ma impatta anche altri ruoli (executive, produttore).
+**Tabelle target** (lista finale dopo analisi pg_policies):
+- `titoli` (messa a cassa, sospensione, annullamento, regolazione)
+- `movimenti_contabili` (registrazione incasso)
+- `appendici_polizza` (appendici di sospensione/riattivazione)
+- `pagamenti_provvigioni`, `pagamento_dettaglio`
+- `note_restituzione`, `nota_restituzione_dettaglio`
+- `rimessa_premi`, `rimessa_dettaglio`
+- `sinistri`, `trattative` e tabelle figlie (`movimenti_sinistro`, `documenti_sinistro`, `trattativa_*`)
+- `clienti`, `prospect`, `nominativi_cliente`, `contatti_cliente`, `referenti_cliente`
+- `documenti_cliente`, `documenti_titolo`, `documenti_trattativa`, `documenti_sinistro`
+- `log_attivita`, `notifiche`, `messaggi_chat`
 
-Vado con **(A)** — meno invasiva e già allineata al pattern esistente (admin ha già una vista privilegiata).
+**Esclusioni** (riservate ad admin):
+- `profiles` (gestione utenti — solo admin)
+- `user_roles` 
+- `permessi_*`
+- `impostazioni_sistema`
+- `matrice_provvigioni` / tabelle di config
+- `gruppi_compagnia`, `compagnie`, `rami`, `prodotti`, `uffici`, `lookup_*` (anagrafiche di sistema)
 
-### File toccati
-- `src/pages/Dashboard.tsx` — branch condizionale per ruolo `ufficio` con nuovi KPI/grafici
-- `src/hooks/useDashboardData.ts` — aggiungo query per: scadenze mese corrente, incassi mese corrente, carico mese, rimesse pending. Espongo nuovo oggetto `ufficioStats`.
-- Header dashboard: cambio sottotitolo per ruolo ufficio (es. "Vista Sede — operatività mensile")
+### Step 2 — Verifica edge functions
+Se la "messa a cassa" passa per una edge function con service role, RLS non è un problema lì. Controllo il codice del bottone "Conferma Incasso" in `TitoloDetail.tsx` per capire il flow esatto.
 
-### Domanda bloccante (1 sola)
+### Step 3 — Verifica post-fix
+Logout/login segreteria, riprovo "Metti a Cassa" sul titolo `d046ffeb...` e confermo successo.
 
-Confermi i 4 KPI proposti per la Sede?
-1. Scadenze del mese (count + €)
-2. Incassi del mese (€)
-3. Carico del mese (count + €)
-4. Rimesse da inviare alla compagnia (count + €)
+### File coinvolti
+- 🆕 Nuova migration SQL con le policy write per ruolo `ufficio`
+- (Eventuale) edit edge function se manca controllo ruolo
+- Nessuna modifica frontend
 
-Oppure preferisci una combinazione diversa (es. sostituire "Rimesse" con "Provvigioni maturate mese" o "Trattative aperte")?
+### Nota write scope
+Confermo l'approccio: **ufficio = read+write globali** (come admin), tranne configurazione sistema/utenti/anagrafiche di base. Coerente con la SELECT globale già concessa e con il ruolo "Segreteria centrale".
