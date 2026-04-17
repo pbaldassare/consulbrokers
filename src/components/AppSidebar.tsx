@@ -60,6 +60,7 @@ interface SidebarItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  hideForRoles?: string[];
 }
 
 interface SidebarGroupDef {
@@ -67,6 +68,7 @@ interface SidebarGroupDef {
   icon: LucideIcon;
   permissionKey: string;
   adminOnly?: boolean;
+  hideForRoles?: string[];
   children: SidebarItem[];
 }
 
@@ -77,6 +79,7 @@ interface SidebarSingleItem {
   permissionKey: string;
   adminOnly?: boolean;
   hasBadge?: boolean;
+  hideForRoles?: string[];
 }
 
 type SidebarEntry =
