@@ -26,6 +26,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 
 const fmt = (v: any) => v ?? "—";
@@ -903,40 +904,179 @@ const TitoloDetail = () => {
       </Dialog>
 
       <SectionCollapsible title="Contratto" icon={FileText}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-          <FieldRow label="Compagnia" value={
-            <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
-          } />
-          <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
-          <FieldRow label="Prodotto" value={fmt(t.prodotti?.nome_prodotto)} />
-          <FieldRow label="Specialist" value={fmt(t.specialist)} />
-          <FieldRow label="Tipo Portafoglio" value={fmt(t.tipo_portafoglio)} />
-          <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
-          <FieldRow label="Riga" value={fmt(t.riga)} />
-          <FieldRow label="Appendice" value={fmt(t.appendice)} />
-          {t.cliente_anagrafica && (
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingContratto ? (
+            <Button variant="ghost" size="sm" onClick={startEditContratto}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
+          ) : (
             <>
-              <div className="col-span-2 flex justify-between py-1">
-                <span className="text-xs text-muted-foreground">Cliente</span>
-                <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
-                  {(t.cliente_anagrafica as any).tipo_cliente === "privato"
-                    ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
-                    : (t.cliente_anagrafica as any).ragione_sociale || "—"}
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </Button>
-              </div>
-              <FieldRow label="Attività" value={fmt((t.cliente_anagrafica as any).attivita)} />
-              <FieldRow label="Gr. Finanziario" value={fmt((t.cliente_anagrafica as any).gruppi_finanziari?.nome)} />
-              <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
+              <Button variant="outline" size="sm" onClick={() => setEditingContratto(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => saveContrattoMutation.mutate()} disabled={saveContrattoMutation.isPending}>
+                {saveContrattoMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
             </>
           )}
-          <FieldRow label="Produttore" value={t.produttore ? `${(t.produttore as any).nome} ${(t.produttore as any).cognome}` : "—"} />
-          <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
-          <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
-          <FieldRow label="Vincolo" value={fmt(t.vincolo)} />
-          <FieldRow label="Targa/Telaio" value={fmt(t.targa_telaio)} />
-          {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
         </div>
+
+        {!editingContratto ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+            <FieldRow label="Compagnia" value={
+              <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
+            } />
+            <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
+            <FieldRow label="Prodotto" value={fmt(t.prodotti?.nome_prodotto)} />
+            <FieldRow label="Specialist" value={fmt(t.specialist)} />
+            <FieldRow label="Tipo Portafoglio" value={fmt(t.tipo_portafoglio)} />
+            <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
+            <FieldRow label="Riga" value={fmt(t.riga)} />
+            <FieldRow label="Appendice" value={fmt(t.appendice)} />
+            {t.cliente_anagrafica && (
+              <>
+                <div className="col-span-2 flex justify-between py-1">
+                  <span className="text-xs text-muted-foreground">Cliente</span>
+                  <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
+                    {(t.cliente_anagrafica as any).tipo_cliente === "privato"
+                      ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
+                      : (t.cliente_anagrafica as any).ragione_sociale || "—"}
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </Button>
+                </div>
+                <FieldRow label="Attività" value={fmt((t.cliente_anagrafica as any).attivita)} />
+                <FieldRow label="Gr. Finanziario" value={fmt((t.cliente_anagrafica as any).gruppi_finanziari?.nome)} />
+                <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
+              </>
+            )}
+            <FieldRow label="Produttore" value={t.produttore ? `${(t.produttore as any).nome} ${(t.produttore as any).cognome}` : "—"} />
+            <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
+            <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
+            <FieldRow label="Vincolo" value={fmt(t.vincolo)} />
+            <FieldRow label="Targa/Telaio" value={fmt(t.targa_telaio)} />
+            {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {/* Read-only fields */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Compagnia</Label>
+              <div className="text-sm font-mono py-2">{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || "—"}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Ramo</Label>
+              <div className="text-sm font-mono py-2">{(t.ramo as any)?.codice || ""} {(t.ramo as any)?.descrizione || "—"}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
+              <div className="text-sm font-mono py-2">{fmt(t.numero_titolo)}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Riga</Label>
+              <div className="text-sm font-mono py-2">{fmt(t.riga)}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Appendice</Label>
+              <div className="text-sm font-mono py-2">{fmt(t.appendice)}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
+              <div className="text-sm font-mono py-2">
+                {t.cliente_anagrafica
+                  ? ((t.cliente_anagrafica as any).tipo_cliente === "privato"
+                    ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
+                    : (t.cliente_anagrafica as any).ragione_sociale || "—")
+                  : "—"}
+              </div>
+            </div>
+
+            {/* Editable fields */}
+            <div className="space-y-1">
+              <Label className="text-xs">Tipo Portafoglio</Label>
+              <SearchableSelect
+                options={tipoPortafoglioOpts}
+                value={contrattoForm.tipo_portafoglio}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, tipo_portafoglio: v }))}
+                placeholder="Seleziona tipo portafoglio"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Prodotto</Label>
+              <SearchableSelect
+                options={prodottiOpts}
+                value={contrattoForm.prodotto_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, prodotto_id: v || null }))}
+                placeholder="Seleziona prodotto"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Specialist</Label>
+              <SearchableSelect
+                options={specialistOpts}
+                value={contrattoForm.specialist}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, specialist: v }))}
+                placeholder="Seleziona specialist"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Produttore</Label>
+              <SearchableSelect
+                options={produttoriOpts}
+                value={contrattoForm.produttore_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_id: v || null }))}
+                placeholder="Seleziona produttore"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Sede</Label>
+              <SearchableSelect
+                options={ufficiOpts}
+                value={contrattoForm.ufficio_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, ufficio_id: v || null }))}
+                placeholder="Seleziona sede"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">CIG/Rif.</Label>
+              <Input
+                value={contrattoForm.cig_rif}
+                onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value }))}
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Vincolo</Label>
+              <Input
+                value={contrattoForm.vincolo}
+                onChange={(e) => setContrattoForm(p => ({ ...p, vincolo: e.target.value }))}
+                maxLength={200}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Targa/Telaio</Label>
+              <Input
+                value={contrattoForm.targa_telaio}
+                onChange={(e) => setContrattoForm(p => ({ ...p, targa_telaio: e.target.value.toUpperCase() }))}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="col-span-full space-y-1">
+              <Label className="text-xs">Descrizione</Label>
+              <Textarea
+                value={contrattoForm.descrizione_polizza}
+                onChange={(e) => setContrattoForm(p => ({ ...p, descrizione_polizza: e.target.value }))}
+                rows={3}
+                maxLength={1000}
+              />
+            </div>
+          </div>
+        )}
       </SectionCollapsible>
 
       {/* PERIODO */}
