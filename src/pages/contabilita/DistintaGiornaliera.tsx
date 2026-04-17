@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,18 +15,24 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
-  Banknote, CalendarIcon, CreditCard, Download, FileDown, FileText,
+  AlertCircle, Banknote, CalendarIcon, CreditCard, Download, FileDown, FileText,
   HandCoins, Landmark, Lock, Plus, RefreshCw, Unlock
 } from "lucide-react";
 import { toast } from "sonner";
 
 const fmt = (n: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 
+// Normalizza i tipi di pagamento (singolare/plurale → forma canonica plurale)
+const normalizeTipo = (t: string | null | undefined): string => {
+  const s = (t || "altro").toLowerCase().trim();
+  if (s === "assegno") return "assegni";
+  if (s === "bonifico") return "bonifici";
+  return s;
+};
+
 const TIPO_ICONS: Record<string, any> = {
   contanti: Banknote,
   assegni: HandCoins,
-  assegno: HandCoins,
-  bonifico: Landmark,
   bonifici: Landmark,
   pos: CreditCard,
 };
