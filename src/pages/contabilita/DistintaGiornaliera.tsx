@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,18 +15,24 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
-  Banknote, CalendarIcon, CreditCard, Download, FileDown, FileText,
+  AlertCircle, Banknote, CalendarIcon, CreditCard, Download, FileDown, FileText,
   HandCoins, Landmark, Lock, Plus, RefreshCw, Unlock
 } from "lucide-react";
 import { toast } from "sonner";
 
 const fmt = (n: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 
+// Normalizza i tipi di pagamento (singolare/plurale → forma canonica plurale)
+const normalizeTipo = (t: string | null | undefined): string => {
+  const s = (t || "altro").toLowerCase().trim();
+  if (s === "assegno") return "assegni";
+  if (s === "bonifico") return "bonifici";
+  return s;
+};
+
 const TIPO_ICONS: Record<string, any> = {
   contanti: Banknote,
   assegni: HandCoins,
-  assegno: HandCoins,
-  bonifico: Landmark,
   bonifici: Landmark,
   pos: CreditCard,
 };
@@ -37,6 +44,17 @@ const DistintaGiornaliera = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const dataSelezionata = format(selectedDate, "yyyy-MM-dd");
   const [note, setNote] = useState("");
+  const [contatoEffettivo, setContatoEffettivo] = useState<string>("");
+
+  // Fetch nome ufficio (per PDF)
+  const { data: ufficioInfo } = useQuery({
+    queryKey: ["ufficio_nome", uffId],
+    enabled: !!uffId,
+    queryFn: async () => {
+      const { data } = await supabase.from("uffici").select("nome_ufficio").eq("id", uffId!).maybeSingle();
+      return data;
+    },
+  });
 
   // Fetch distinta for selected date
   const { data: distinta, isLoading, refetch } = useQuery({
@@ -81,12 +99,12 @@ const DistintaGiornaliera = () => {
     },
   });
 
-  // Grouped view
+  // Grouped view (con normalizzazione tipi)
   const righe: any[] = (distinta as any)?.distinte_giornaliere_righe || [];
   const raggruppamento = useMemo(() => {
     const groups: Record<string, { righe: any[]; totale: number }> = {};
     righe.forEach((r: any) => {
-      const tipo = (r.tipo_pagamento || "altro").toLowerCase();
+      const tipo = normalizeTipo(r.tipo_pagamento);
       if (!groups[tipo]) groups[tipo] = { righe: [], totale: 0 };
       groups[tipo].righe.push(r);
       groups[tipo].totale += r.importo || 0;
@@ -94,18 +112,25 @@ const DistintaGiornaliera = () => {
     return groups;
   }, [righe]);
 
+  // Movimenti del giorno NON ancora nella distinta (per banner aggiorna)
+  const movimentiNuovi = useMemo(() => {
+    if (!distinta) return [];
+    const idsInDistinta = new Set(righe.map((r) => r.movimento_id).filter(Boolean));
+    return movGiorno.filter((m) => !idsInDistinta.has(m.id));
+  }, [movGiorno, righe, distinta]);
+
   // Generate distinta
   const generaMut = useMutation({
     mutationFn: async () => {
       const righeByTipo: Record<string, number> = {};
       movGiorno.forEach((m) => {
-        const tipo = m.categoria || (m.tipo === "entrata" ? "bonifico" : "altro");
+        const tipo = normalizeTipo(m.categoria || (m.tipo === "entrata" ? "bonifico" : "altro"));
         righeByTipo[tipo] = (righeByTipo[tipo] || 0) + m.importo;
       });
 
       const totContanti = righeByTipo["contanti"] || 0;
-      const totAssegni = righeByTipo["assegni"] || righeByTipo["assegno"] || 0;
-      const totBonifici = righeByTipo["bonifico"] || righeByTipo["bonifici"] || 0;
+      const totAssegni = righeByTipo["assegni"] || 0;
+      const totBonifici = righeByTipo["bonifici"] || 0;
       const totPos = righeByTipo["pos"] || 0;
       const totGenerale = movGiorno.reduce((s, m) => s + m.importo, 0);
 
@@ -120,6 +145,8 @@ const DistintaGiornaliera = () => {
           totale_bonifici: totBonifici,
           totale_pos: totPos,
           totale_generale: totGenerale,
+          saldo_cassa_atteso: totContanti,
+          differenza_cassa: 0,
           note: note || null,
         })
         .select()
@@ -129,7 +156,7 @@ const DistintaGiornaliera = () => {
       const righeInsert = movGiorno.map((m) => ({
         distinta_id: dist.id,
         movimento_id: m.id,
-        tipo_pagamento: m.categoria || m.tipo,
+        tipo_pagamento: normalizeTipo(m.categoria || m.tipo),
         importo: m.importo,
         descrizione: m.descrizione,
         riferimento: m.riferimento_id,
@@ -146,7 +173,77 @@ const DistintaGiornaliera = () => {
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
     onError: (e: any) => {
-      toast.error("Errore");
+      toast.error("Errore generazione distinta", { description: e?.message || String(e) });
+    },
+  });
+
+  // Aggiungi movimenti nuovi a distinta esistente
+  const aggiornaRigheMut = useMutation({
+    mutationFn: async () => {
+      if (!distinta || movimentiNuovi.length === 0) return;
+      const righeInsert = movimentiNuovi.map((m) => ({
+        distinta_id: distinta.id,
+        movimento_id: m.id,
+        tipo_pagamento: normalizeTipo(m.categoria || m.tipo),
+        importo: m.importo,
+        descrizione: m.descrizione,
+        riferimento: m.riferimento_id,
+      }));
+      const { error: errR } = await supabase.from("distinte_giornaliere_righe").insert(righeInsert);
+      if (errR) throw errR;
+
+      const tutteRighe = [...righe, ...righeInsert];
+      const totByTipo: Record<string, number> = {};
+      tutteRighe.forEach((r: any) => {
+        const t = normalizeTipo(r.tipo_pagamento);
+        totByTipo[t] = (totByTipo[t] || 0) + (r.importo || 0);
+      });
+      const totGenerale = tutteRighe.reduce((s: number, r: any) => s + (r.importo || 0), 0);
+
+      const { error } = await supabase
+        .from("distinte_giornaliere")
+        .update({
+          totale_contanti: totByTipo["contanti"] || 0,
+          totale_assegni: totByTipo["assegni"] || 0,
+          totale_bonifici: totByTipo["bonifici"] || 0,
+          totale_pos: totByTipo["pos"] || 0,
+          totale_generale: totGenerale,
+          saldo_cassa_atteso: totByTipo["contanti"] || 0,
+        })
+        .eq("id", distinta.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Distinta aggiornata con i nuovi movimenti");
+      qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
+      qc.invalidateQueries({ queryKey: ["distinte_storico"] });
+    },
+    onError: (e: any) => {
+      toast.error("Errore aggiornamento", { description: e?.message || String(e) });
+    },
+  });
+
+  // Salva contato effettivo cassa (quadratura)
+  const salvaContatoMut = useMutation({
+    mutationFn: async () => {
+      if (!distinta) return;
+      const contato = parseFloat(contatoEffettivo.replace(",", "."));
+      if (isNaN(contato)) throw new Error("Importo non valido");
+      const atteso = distinta.saldo_cassa_atteso || distinta.totale_contanti || 0;
+      const differenza = contato - atteso;
+      const { error } = await supabase
+        .from("distinte_giornaliere")
+        .update({ saldo_cassa_atteso: atteso, differenza_cassa: differenza })
+        .eq("id", distinta.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Quadratura cassa salvata");
+      setContatoEffettivo("");
+      qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
+    },
+    onError: (e: any) => {
+      toast.error("Errore", { description: e?.message || String(e) });
     },
   });
 
@@ -165,6 +262,9 @@ const DistintaGiornaliera = () => {
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
+    onError: (e: any) => {
+      toast.error("Errore chiusura distinta", { description: e?.message || String(e) });
+    },
   });
 
   const riapriMut = useMutation({
@@ -180,6 +280,9 @@ const DistintaGiornaliera = () => {
       toast.success("Distinta riaperta");
       qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
+    },
+    onError: (e: any) => {
+      toast.error("Errore riapertura", { description: e?.message || String(e) });
     },
   });
 
@@ -211,14 +314,14 @@ const DistintaGiornaliera = () => {
       const { data, error } = await supabase.functions.invoke("genera-distinta-pdf", {
         body: {
           data_distinta: format(selectedDate, "d MMMM yyyy", { locale: it }),
-          ufficio_nome: profile?.ufficio_id ? "Ufficio" : "—",
+          ufficio_nome: ufficioInfo?.nome_ufficio || "Sede",
           totale_contanti: distinta.totale_contanti,
           totale_assegni: distinta.totale_assegni,
           totale_bonifici: distinta.totale_bonifici,
           totale_pos: distinta.totale_pos,
           totale_generale: distinta.totale_generale,
-          saldo_cassa_atteso: distinta.saldo_cassa_atteso || distinta.totale_generale,
-          differenza_cassa: distinta.differenza_cassa || 0,
+          saldo_cassa_atteso: distinta.saldo_cassa_atteso ?? distinta.totale_contanti ?? 0,
+          differenza_cassa: distinta.differenza_cassa ?? 0,
           righe: righe.map((r: any) => ({
             tipo_pagamento: r.tipo_pagamento,
             descrizione: r.descrizione,
@@ -230,7 +333,6 @@ const DistintaGiornaliera = () => {
 
       if (error) throw error;
 
-      // data is the HTML string - open in new window for printing
       const html = typeof data === "string" ? data : await (data as any)?.text?.() || JSON.stringify(data);
       const win = window.open("", "_blank");
       if (win) {
@@ -239,7 +341,7 @@ const DistintaGiornaliera = () => {
         setTimeout(() => win.print(), 500);
       }
     } catch (e: any) {
-      toast.error("Errore generazione PDF");
+      toast.error("Errore generazione PDF", { description: e?.message || String(e) });
     }
   };
 
@@ -331,13 +433,78 @@ const DistintaGiornaliera = () => {
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs text-muted-foreground">
-                      {raggruppamento[k.label.toLowerCase()]?.righe.length || 0} mov.
+                      {raggruppamento[normalizeTipo(k.label)]?.righe.length || 0} mov.
                     </p>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
+
+          {/* Banner nuovi movimenti non inclusi */}
+          {movimentiNuovi.length > 0 && distinta.stato !== "chiusa" && (
+            <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
+              <CardContent className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  <span>
+                    Ci sono <strong>{movimentiNuovi.length}</strong> nuovi movimenti contabili in questa data non ancora inclusi nella distinta.
+                  </span>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => aggiornaRigheMut.mutate()} disabled={aggiornaRigheMut.isPending}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1" /> Aggiorna distinta
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quadratura Cassa */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Banknote className="w-4 h-4" /> Quadratura Cassa Contanti
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Confronta la cassa fisica contata con il totale contanti della distinta.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                <div>
+                  <p className="text-xs text-muted-foreground">Atteso (contanti)</p>
+                  <p className="font-mono font-semibold">{fmt(distinta.saldo_cassa_atteso ?? distinta.totale_contanti ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Contato effettivo</p>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={contatoEffettivo}
+                    onChange={(e) => setContatoEffettivo(e.target.value)}
+                    disabled={distinta.stato === "chiusa"}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Differenza salvata</p>
+                  <p className={cn(
+                    "font-mono font-semibold",
+                    (distinta.differenza_cassa ?? 0) === 0 ? "text-foreground" :
+                    (distinta.differenza_cassa ?? 0) > 0 ? "text-green-600" : "text-destructive"
+                  )}>
+                    {fmt(distinta.differenza_cassa ?? 0)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => salvaContatoMut.mutate()}
+                  disabled={!contatoEffettivo || salvaContatoMut.isPending || distinta.stato === "chiusa"}
+                >
+                  Salva quadratura
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Stato e azioni */}
           <div className="flex items-center gap-3 flex-wrap">
