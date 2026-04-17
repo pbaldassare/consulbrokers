@@ -51,7 +51,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "scadenze": "Scadenze",
   "report-sir": "Report SIR",
   "contabilita": "Contabilità",
-  "avvisi-incasso": "Avvisi Incasso",
+  
   "chiusura-giornaliera": "Chiusura Giornaliera",
   "ec-compagnia": "E/C Compagnia",
   "ec-produttori": "E/C Produttori",

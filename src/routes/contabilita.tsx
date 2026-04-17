@@ -4,7 +4,7 @@ import ContabilitaUfficio from "@/pages/ContabilitaUfficio";
 import CruscottoGiornaliero from "@/pages/contabilita/CruscottoGiornaliero";
 import DistintaGiornaliera from "@/pages/contabilita/DistintaGiornaliera";
 import QuadraturePremi from "@/pages/contabilita/QuadraturePremi";
-import ChiusuraContabile from "@/pages/contabilita/ChiusuraContabile";
+
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
@@ -28,11 +28,9 @@ export const contabilitaRoutes = (
   <>
     {/* CONTABILITÀ UFFICIO */}
     <Route path="/contabilita" element={<ContabilitaUfficio />} />
-    <Route path="/contabilita/avvisi-incasso" element={<PlaceholderPage title="Avvisi Incasso" description="Gestione avvisi di incasso" icon={Bell} />} />
     <Route path="/contabilita/cruscotto" element={<CruscottoGiornaliero />} />
     <Route path="/contabilita/distinta-giornaliera" element={<DistintaGiornaliera />} />
     {/* <Route path="/contabilita/quadratura-premi" element={<QuadraturePremi />} /> */}
-    <Route path="/contabilita/chiusura-contabile" element={<ChiusuraContabile />} />
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
     <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
