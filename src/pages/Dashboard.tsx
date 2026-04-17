@@ -200,17 +200,18 @@ const AdminDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<
 
 const UfficioDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<typeof useDashboardData>["ufficio"] }) => {
   const d = data;
+  const navigate = useNavigate();
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard label="Clienti Ufficio" value={String(d?.clientiUfficio ?? 0)} sub="Nel tuo ufficio" icon={Users} variant="blue" loading={loading} />
-        <SummaryCard label="Incassi Recenti" value={fmt(d?.incassiRecenti ?? 0)} sub="Ultimo mese" icon={DollarSign} variant="green" loading={loading} />
-        <SummaryCard label="Sinistri Aperti" value={String(d?.sinistriAperti ?? 0)} sub="Del tuo ufficio" icon={ClipboardList} variant="orange" loading={loading} />
-        <SummaryCard label="Scadenze" value={String(d?.scadenze30gg ?? 0)} sub="Prossimi 30gg" icon={Calendar} variant="yellow" loading={loading} />
+        <SummaryCard label="Scadenze del Mese" value={String(d?.scadenzeMeseCount ?? 0)} sub={fmt(d?.scadenzeMeseImporto ?? 0)} icon={Calendar} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="green" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Carico del Mese" value={String(d?.caricoMeseCount ?? 0)} sub={fmt(d?.caricoMeseImporto ?? 0)} icon={FileText} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Rimesse da Inviare" value={String(d?.rimesseDaInviareCount ?? 0)} sub={fmt(d?.rimesseDaInviareImporto ?? 0)} icon={Receipt} variant="orange" loading={loading} onClick={() => navigate("/rimesse")} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BarChartCard title="Incassi Mensili Ufficio" data={d?.incassiMensili ?? []} loading={loading} />
-        <PieChartCard title="Sinistri per Stato" data={d?.sinistriPerStato ?? []} loading={loading} />
+        <BarChartCard title="Incassi Mensili (ultimi 6 mesi)" data={d?.incassiMensili ?? []} loading={loading} />
+        <BarChartCard title="Scadenze prossimi 30gg per Compagnia" data={d?.scadenzePerCompagnia ?? []} loading={loading} />
       </div>
     </>
   );

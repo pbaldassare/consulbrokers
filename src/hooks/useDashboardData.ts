@@ -24,12 +24,16 @@ export interface AdminData {
 }
 
 export interface UfficioData {
-  clientiUfficio: number;
-  incassiRecenti: number;
-  sinistriAperti: number;
-  scadenze30gg: number;
+  scadenzeMeseCount: number;
+  scadenzeMeseImporto: number;
+  incassiMeseCount: number;
+  incassiMeseImporto: number;
+  caricoMeseCount: number;
+  caricoMeseImporto: number;
+  rimesseDaInviareCount: number;
+  rimesseDaInviareImporto: number;
   incassiMensili: { mese: string; importo: number }[];
-  sinistriPerStato: { name: string; value: number }[];
+  scadenzePerCompagnia: { mese: string; importo: number }[];
 }
 
 export interface ProduttoreData {
@@ -183,49 +187,84 @@ export function useDashboardData(ruolo: string) {
   };
 
   const loadUfficio = async () => {
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
+    const in30gg = new Date(Date.now() + 30 * 86400000).toISOString().substring(0, 10);
+    const oggi = now.toISOString().substring(0, 10);
+
     const [
-      { count: clientiUfficio },
-      { count: sinistriAperti },
-      { data: movimenti },
-      { data: titoli },
-      { data: sinistriAll },
+      { data: scadenzeMese },
+      { data: incassiMese },
+      { data: caricoMese },
+      { data: rimessePending },
+      { data: incassiAnno },
+      { data: scadenze30 },
     ] = await Promise.all([
-      supabase.from("clienti").select("*", { count: "exact", head: true }),
-      supabase.from("sinistri").select("*", { count: "exact", head: true }).in("stato", ["aperto", "in_gestione"]),
-      supabase.from("movimenti_contabili").select("importo, data_movimento").eq("tipo", "entrata").gte("data_movimento", startOfMonth),
-      supabase.from("titoli").select("stato, created_at"),
-      supabase.from("sinistri").select("stato"),
+      // Scadenze del mese: titoli con data_scadenza nel mese corrente
+      supabase.from("v_portafoglio_titoli").select("premio_lordo")
+        .gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth)
+        .in("stato", ["attivo", "incassato"]).limit(10000),
+      // Incassi del mese: messa cassa nel mese
+      supabase.from("v_portafoglio_titoli").select("premio_lordo")
+        .gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
+      // Carico del mese: decorrenza nel mese corrente
+      supabase.from("v_portafoglio_titoli").select("premio_lordo")
+        .gte("data_decorrenza", startOfMonth).lte("data_decorrenza", endOfMonth).limit(10000),
+      // Rimesse da inviare: titoli incassati senza rimessa
+      supabase.from("titoli").select("premio_lordo")
+        .eq("stato", "incassato").is("rimessa_id", null).limit(10000),
+      // Incassi ultimi 6 mesi per grafico
+      supabase.from("v_portafoglio_titoli").select("premio_lordo, data_messa_cassa")
+        .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
+        .limit(10000),
+      // Scadenze prossimi 30gg con compagnia
+      supabase.from("v_portafoglio_titoli").select("premio_lordo, compagnia_nome")
+        .gte("data_scadenza", oggi).lte("data_scadenza", in30gg)
+        .in("stato", ["attivo", "incassato"]).limit(10000),
     ]);
 
-    const incassiRecenti = (movimenti || []).reduce((s: number, m: any) => s + (m.importo || 0), 0);
-    const scadenze30gg = (titoli || []).filter((t: any) => t.stato === "attivo").length;
+    const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
 
-    const mesiMap: Record<string, number> = {};
+    // Incassi mensili (ultimi 6 mesi)
     const monthNames = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+    const mesiMap: Record<string, number> = {};
     for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       mesiMap[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`] = 0;
     }
-
-    const statoMap: Record<string, number> = {};
-    (sinistriAll || []).forEach((s: any) => {
-      statoMap[s.stato] = (statoMap[s.stato] || 0) + 1;
+    (incassiAnno || []).forEach((t: any) => {
+      if (t.data_messa_cassa) {
+        const key = t.data_messa_cassa.substring(0, 7);
+        if (key in mesiMap) mesiMap[key] += t.premio_lordo || 0;
+      }
     });
-    const sinistriPerStato = Object.entries(statoMap).map(([name, value]) => ({ name, value }));
-
-    const incassiMensili = Object.entries(mesiMap).map(([k]) => {
+    const incassiMensili = Object.entries(mesiMap).map(([k, v]) => {
       const [, m] = k.split("-");
-      return { mese: monthNames[parseInt(m) - 1], importo: 0 };
+      return { mese: monthNames[parseInt(m) - 1], importo: v };
     });
+
+    // Scadenze prossimi 30gg per compagnia (top 8)
+    const compMap: Record<string, number> = {};
+    (scadenze30 || []).forEach((t: any) => {
+      const c = t.compagnia_nome || "N/D";
+      compMap[c] = (compMap[c] || 0) + (t.premio_lordo || 0);
+    });
+    const scadenzePerCompagnia = Object.entries(compMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, importo]) => ({ mese: name, importo }));
 
     setUfficio({
-      clientiUfficio: clientiUfficio || 0,
-      incassiRecenti,
-      sinistriAperti: sinistriAperti || 0,
-      scadenze30gg,
+      scadenzeMeseCount: (scadenzeMese || []).length,
+      scadenzeMeseImporto: sumPremio(scadenzeMese),
+      incassiMeseCount: (incassiMese || []).length,
+      incassiMeseImporto: sumPremio(incassiMese),
+      caricoMeseCount: (caricoMese || []).length,
+      caricoMeseImporto: sumPremio(caricoMese),
+      rimesseDaInviareCount: (rimessePending || []).length,
+      rimesseDaInviareImporto: sumPremio(rimessePending),
       incassiMensili,
-      sinistriPerStato,
+      scadenzePerCompagnia,
     });
   };
 
