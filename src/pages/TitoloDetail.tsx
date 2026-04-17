@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
+import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -735,7 +736,16 @@ const TitoloDetail = () => {
                   toast.error("Password non corretta");
                   return;
                 }
-                changeStatoMutation.mutate("attivo");
+                const res = await annullaMessaACassa(id!);
+                if (!res.ok) {
+                  toast.error(res.error || "Operazione fallita");
+                  return;
+                }
+                toast.success(
+                  `Incasso annullato (${res.provvigioniEliminate ?? 0} provv., ${res.movimentiEliminati ?? 0} mov. rimossi)`
+                );
+                queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+                queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
                 setAnnullaDialogOpen(false);
               } catch {
                 toast.error("Errore di verifica");
