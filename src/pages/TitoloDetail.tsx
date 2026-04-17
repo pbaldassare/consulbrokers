@@ -662,49 +662,26 @@ const TitoloDetail = () => {
               <Checkbox id="conferimento-accettato" checked={conferimentoAccettato} onCheckedChange={(v) => setConferimentoAccettato(!!v)} />
               <Label htmlFor="conferimento-accettato" className="text-sm font-medium">Dichiaro di aver ottenuto l'autorizzazione necessaria e di assumermi la responsabilità dell'incasso</Label>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Data Messa a Cassa</Label>
                 <Input type="date" value={conferimentoForm.dataMessaCassa} onChange={(e) => setConferimentoForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Data Pagamento</Label>
-                <Input type="date" value={conferimentoForm.dataPagamento} onChange={(e) => setConferimentoForm(f => ({ ...f, dataPagamento: e.target.value }))} className="mt-1" />
               </div>
               <div>
                 <Label className="text-xs">Data Decorrenza Rinnovo</Label>
                 <Input type="date" value={conferimentoForm.dataDecorrenza} onChange={(e) => setConferimentoForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Tipo Pagamento</Label>
-              <Select value={conferimentoForm.tipoPagamento} onValueChange={(v) => setConferimentoForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="contanti">Contanti</SelectItem>
-                  <SelectItem value="pos">POS</SelectItem>
-                  <SelectItem value="bonifico">Bonifico</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {conferimentoForm.tipoPagamento === "bonifico" && (
-              <div>
-                <Label className="text-xs">Banca</Label>
-                <Select value={conferimentoForm.banca} onValueChange={(v) => setConferimentoForm(f => ({ ...f, banca: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
-                  <SelectContent>
-                    {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground">
+              Tipo pagamento e data pagamento verranno compilati successivamente, al momento dell'incasso effettivo.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConferimentoDialogOpen(false)}>Annulla</Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!conferimentoAccettato || changeStatoMutation.isPending || (conferimentoForm.tipoPagamento === "bonifico" && !conferimentoForm.banca)}
-              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: conferimentoForm, conferimentoGestito: true } as any)}
+              disabled={!conferimentoAccettato || changeStatoMutation.isPending}
+              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: { ...conferimentoForm, dataPagamento: "", tipoPagamento: "", banca: "" }, conferimentoGestito: true } as any)}
             >
               <Shield className="w-4 h-4 mr-1" /> Conferma Garantito
             </Button>
