@@ -99,12 +99,12 @@ const DistintaGiornaliera = () => {
     },
   });
 
-  // Grouped view
+  // Grouped view (con normalizzazione tipi)
   const righe: any[] = (distinta as any)?.distinte_giornaliere_righe || [];
   const raggruppamento = useMemo(() => {
     const groups: Record<string, { righe: any[]; totale: number }> = {};
     righe.forEach((r: any) => {
-      const tipo = (r.tipo_pagamento || "altro").toLowerCase();
+      const tipo = normalizeTipo(r.tipo_pagamento);
       if (!groups[tipo]) groups[tipo] = { righe: [], totale: 0 };
       groups[tipo].righe.push(r);
       groups[tipo].totale += r.importo || 0;
@@ -112,18 +112,25 @@ const DistintaGiornaliera = () => {
     return groups;
   }, [righe]);
 
+  // Movimenti del giorno NON ancora nella distinta (per banner aggiorna)
+  const movimentiNuovi = useMemo(() => {
+    if (!distinta) return [];
+    const idsInDistinta = new Set(righe.map((r) => r.movimento_id).filter(Boolean));
+    return movGiorno.filter((m) => !idsInDistinta.has(m.id));
+  }, [movGiorno, righe, distinta]);
+
   // Generate distinta
   const generaMut = useMutation({
     mutationFn: async () => {
       const righeByTipo: Record<string, number> = {};
       movGiorno.forEach((m) => {
-        const tipo = m.categoria || (m.tipo === "entrata" ? "bonifico" : "altro");
+        const tipo = normalizeTipo(m.categoria || (m.tipo === "entrata" ? "bonifico" : "altro"));
         righeByTipo[tipo] = (righeByTipo[tipo] || 0) + m.importo;
       });
 
       const totContanti = righeByTipo["contanti"] || 0;
-      const totAssegni = righeByTipo["assegni"] || righeByTipo["assegno"] || 0;
-      const totBonifici = righeByTipo["bonifico"] || righeByTipo["bonifici"] || 0;
+      const totAssegni = righeByTipo["assegni"] || 0;
+      const totBonifici = righeByTipo["bonifici"] || 0;
       const totPos = righeByTipo["pos"] || 0;
       const totGenerale = movGiorno.reduce((s, m) => s + m.importo, 0);
 
@@ -138,6 +145,8 @@ const DistintaGiornaliera = () => {
           totale_bonifici: totBonifici,
           totale_pos: totPos,
           totale_generale: totGenerale,
+          saldo_cassa_atteso: totContanti,
+          differenza_cassa: 0,
           note: note || null,
         })
         .select()
@@ -147,7 +156,7 @@ const DistintaGiornaliera = () => {
       const righeInsert = movGiorno.map((m) => ({
         distinta_id: dist.id,
         movimento_id: m.id,
-        tipo_pagamento: m.categoria || m.tipo,
+        tipo_pagamento: normalizeTipo(m.categoria || m.tipo),
         importo: m.importo,
         descrizione: m.descrizione,
         riferimento: m.riferimento_id,
@@ -164,7 +173,77 @@ const DistintaGiornaliera = () => {
       qc.invalidateQueries({ queryKey: ["distinte_storico"] });
     },
     onError: (e: any) => {
-      toast.error("Errore");
+      toast.error("Errore generazione distinta", { description: e?.message || String(e) });
+    },
+  });
+
+  // Aggiungi movimenti nuovi a distinta esistente
+  const aggiornaRigheMut = useMutation({
+    mutationFn: async () => {
+      if (!distinta || movimentiNuovi.length === 0) return;
+      const righeInsert = movimentiNuovi.map((m) => ({
+        distinta_id: distinta.id,
+        movimento_id: m.id,
+        tipo_pagamento: normalizeTipo(m.categoria || m.tipo),
+        importo: m.importo,
+        descrizione: m.descrizione,
+        riferimento: m.riferimento_id,
+      }));
+      const { error: errR } = await supabase.from("distinte_giornaliere_righe").insert(righeInsert);
+      if (errR) throw errR;
+
+      const tutteRighe = [...righe, ...righeInsert];
+      const totByTipo: Record<string, number> = {};
+      tutteRighe.forEach((r: any) => {
+        const t = normalizeTipo(r.tipo_pagamento);
+        totByTipo[t] = (totByTipo[t] || 0) + (r.importo || 0);
+      });
+      const totGenerale = tutteRighe.reduce((s: number, r: any) => s + (r.importo || 0), 0);
+
+      const { error } = await supabase
+        .from("distinte_giornaliere")
+        .update({
+          totale_contanti: totByTipo["contanti"] || 0,
+          totale_assegni: totByTipo["assegni"] || 0,
+          totale_bonifici: totByTipo["bonifici"] || 0,
+          totale_pos: totByTipo["pos"] || 0,
+          totale_generale: totGenerale,
+          saldo_cassa_atteso: totByTipo["contanti"] || 0,
+        })
+        .eq("id", distinta.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Distinta aggiornata con i nuovi movimenti");
+      qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
+      qc.invalidateQueries({ queryKey: ["distinte_storico"] });
+    },
+    onError: (e: any) => {
+      toast.error("Errore aggiornamento", { description: e?.message || String(e) });
+    },
+  });
+
+  // Salva contato effettivo cassa (quadratura)
+  const salvaContatoMut = useMutation({
+    mutationFn: async () => {
+      if (!distinta) return;
+      const contato = parseFloat(contatoEffettivo.replace(",", "."));
+      if (isNaN(contato)) throw new Error("Importo non valido");
+      const atteso = distinta.saldo_cassa_atteso || distinta.totale_contanti || 0;
+      const differenza = contato - atteso;
+      const { error } = await supabase
+        .from("distinte_giornaliere")
+        .update({ saldo_cassa_atteso: atteso, differenza_cassa: differenza })
+        .eq("id", distinta.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Quadratura cassa salvata");
+      setContatoEffettivo("");
+      qc.invalidateQueries({ queryKey: ["distinta_giornaliera"] });
+    },
+    onError: (e: any) => {
+      toast.error("Errore", { description: e?.message || String(e) });
     },
   });
 
