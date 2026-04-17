@@ -441,6 +441,71 @@ const DistintaGiornaliera = () => {
             })}
           </div>
 
+          {/* Banner nuovi movimenti non inclusi */}
+          {movimentiNuovi.length > 0 && distinta.stato !== "chiusa" && (
+            <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
+              <CardContent className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  <span>
+                    Ci sono <strong>{movimentiNuovi.length}</strong> nuovi movimenti contabili in questa data non ancora inclusi nella distinta.
+                  </span>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => aggiornaRigheMut.mutate()} disabled={aggiornaRigheMut.isPending}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1" /> Aggiorna distinta
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quadratura Cassa */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Banknote className="w-4 h-4" /> Quadratura Cassa Contanti
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Confronta la cassa fisica contata con il totale contanti della distinta.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                <div>
+                  <p className="text-xs text-muted-foreground">Atteso (contanti)</p>
+                  <p className="font-mono font-semibold">{fmt(distinta.saldo_cassa_atteso ?? distinta.totale_contanti ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Contato effettivo</p>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={contatoEffettivo}
+                    onChange={(e) => setContatoEffettivo(e.target.value)}
+                    disabled={distinta.stato === "chiusa"}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Differenza salvata</p>
+                  <p className={cn(
+                    "font-mono font-semibold",
+                    (distinta.differenza_cassa ?? 0) === 0 ? "text-foreground" :
+                    (distinta.differenza_cassa ?? 0) > 0 ? "text-green-600" : "text-destructive"
+                  )}>
+                    {fmt(distinta.differenza_cassa ?? 0)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => salvaContatoMut.mutate()}
+                  disabled={!contatoEffettivo || salvaContatoMut.isPending || distinta.stato === "chiusa"}
+                >
+                  Salva quadratura
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Stato e azioni */}
           <div className="flex items-center gap-3 flex-wrap">
             <Badge variant={distinta.stato === "chiusa" ? "default" : "secondary"} className="text-xs">
