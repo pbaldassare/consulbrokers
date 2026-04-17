@@ -1,28 +1,25 @@
 
 
-## Sedi presenti nel database
+## Problema
 
-In totale ci sono **7 sedi** (tutte attive), ma solo **2 sono "reali"** con dati operativi. Le altre **5 sono di demo** (codice prefisso `DEMO-*`, 0 clienti, 0 utenti).
+L'utente apre "Modifica Sede" sull'**Ufficio di Napoli** e i dati non si salvano. Causa root:
 
-### Sedi reali (con dati)
-| Codice | Nome | Clienti | Utenti |
-|---|---|---|---|
-| — | Ufficio di Napoli | 548 | 1 |
-| SDO | SEDE SAN DONA' DI PIAVE | 3 | 1 |
+1. **`codice_ufficio` è NULL in DB** per Napoli (storico — vedi memoria `napoli-branch-setup`).
+2. In `openEditDialog` (riga 113-120) `formData.codice_ufficio` viene impostato a `u.codice_ufficio` che è `null` → l'`Input` riceve `value={null}` (warning React) e soprattutto `handleSave` fa `formData.codice_ufficio.trim()` → **TypeError: Cannot read properties of null (reading 'trim')** (errore runtime confermato).
+3. Anche se fixiamo il trim, il form richiede comunque codice: l'utente vede campo vuoto ma poi salva senza accorgersi.
 
-### Sedi demo (vuote, da pulire eventualmente)
-- DEMO-NAP — Agenzia Napoli
-- DEMO-ROMA — Sede Centrale Roma
-- DEMO-BOL — Punto Vendita Bologna
-- DEMO-FIR — Filiale Firenze
-- DEMO-MIL — Filiale Milano
+## Fix
 
-### Note
-- **Ufficio di Napoli** non ha `codice_ufficio` impostato (NULL) — coerente con la regola di setup Napoli (`profilo_id` null per Prod1/2/3).
-- Le sedi demo sembrano dati di test/seed, probabilmente da rimuovere o nascondere se non servono per la demo del portale.
+**File: `src/pages/GestioneUfficiPage.tsx`**
 
-Vuoi che proceda a:
-1. **Eliminare le 5 sedi demo** dal DB
-2. **Filtrare le sedi demo** dalla UI di Gestione Sedi (mostrando solo quelle con `codice_ufficio NOT LIKE 'DEMO-%'`)
-3. **Lasciare tutto invariato** (era solo una domanda informativa)
+1. **Coerce a stringa in `openEditDialog`**: `codice_ufficio: u.codice_ufficio || ""` (analogo a quanto già fatto per indirizzo/email/telefono).
+2. **Guard difensivo in `handleSave`**: usare `(formData.codice_ufficio || "").trim()` e idem per `nome_ufficio`, così non esplode mai.
+3. **Pre-popolare codice di default per Napoli**: se vuoto, suggerisco "NAP" come placeholder visivo (l'utente decide se accettarlo). Niente UPDATE silenzioso al DB.
+
+**Bonus**: in `Input` value forzo sempre stringa (`value={formData.codice_ufficio ?? ""}`) per evitare il warning React.
+
+Nessuna modifica DB necessaria — l'utente potrà ora aprire la modale, vedere il codice vuoto, inserirlo e salvare correttamente.
+
+### File coinvolti
+- ✏️ `src/pages/GestioneUfficiPage.tsx` — fix null handling in `openEditDialog`, `handleSave` e `Input value`
 
