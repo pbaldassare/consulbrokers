@@ -277,8 +277,11 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
     });
   };
 
-  const isVisible = (permissionKey: string, adminOnly?: boolean) => {
+  const currentRole = profile?.ruolo ?? "";
+
+  const isVisible = (permissionKey: string, adminOnly?: boolean, hideForRoles?: string[]) => {
     if (adminOnly && !isAdmin) return false;
+    if (hideForRoles && currentRole && hideForRoles.includes(currentRole)) return false;
     return hasPermission(permissionKey);
   };
 
