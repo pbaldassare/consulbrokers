@@ -67,13 +67,16 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
+  // Filtro: scadenza nel mese OPPURE rinnovo futuro con decorrenza nel mese (non ancora messo a cassa)
+  const orFilterRange = `and(data_scadenza.gte.${caricoStart},data_scadenza.lte.${caricoEnd}),and(data_decorrenza_rinnovo.gte.${caricoStart},data_decorrenza_rinnovo.lte.${caricoEnd})`;
+
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_effetto, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
         { count: "exact" }
-      ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
+      ).in("stato", ["attivo", "incassato"]).or(orFilterRange);
 
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
