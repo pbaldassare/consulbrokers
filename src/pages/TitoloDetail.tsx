@@ -319,10 +319,13 @@ const TitoloDetail = () => {
           updatePayload.fondi_ricevuti = false;
           updatePayload.data_conferimento_gestito = new Date().toISOString().slice(0, 10);
         }
-      } else if (nuovoStato === "attivo" && vecchioStato === "incassato") {
+      } else if ((nuovoStato === "attivo" || nuovoStato === "annullato") && vecchioStato === "incassato") {
+        // Reset dei campi messa a cassa quando si esce dallo stato 'incassato'
         updatePayload.data_messa_cassa = null;
         updatePayload.data_pagamento = null;
         updatePayload.data_decorrenza_rinnovo = null;
+        updatePayload.data_incasso = null;
+        updatePayload.importo_incassato = null;
         updatePayload.tipo_pagamento = null;
         updatePayload.banca_pagamento = null;
         updatePayload.conferimento_gestito = false;
