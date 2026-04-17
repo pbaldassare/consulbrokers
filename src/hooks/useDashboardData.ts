@@ -64,36 +64,42 @@ export function useDashboardData(ruolo: string) {
   const [contabilita, setContabilita] = useState<ContabilitaData | null>(null);
   const [cfo, setCfo] = useState<CfoData | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        switch (ruolo) {
-          case "admin":
-            await loadAdmin();
-            break;
-          case "ufficio":
-            await loadUfficio();
-            break;
-          case "produttore":
-            await loadProduttore();
-            break;
-          case "contabilita":
-            await loadContabilita();
-            break;
-          case "cfo":
-            await loadCfo();
-            break;
-          default:
-            await loadAdmin();
-        }
-      } catch (e) {
-        console.error("Dashboard data error:", e);
-      } finally {
-        setLoading(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      switch (ruolo) {
+        case "admin":
+          await loadAdmin();
+          break;
+        case "ufficio":
+          await loadUfficio();
+          break;
+        case "produttore":
+          await loadProduttore();
+          break;
+        case "contabilita":
+          await loadContabilita();
+          break;
+        case "cfo":
+          await loadCfo();
+          break;
+        default:
+          await loadAdmin();
       }
-    };
-    if (ruolo) load();
+    } catch (e) {
+      console.error("Dashboard data error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!ruolo) return;
+    load();
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruolo]);
 
   const currentYear = new Date().getFullYear();
