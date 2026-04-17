@@ -314,14 +314,14 @@ const DistintaGiornaliera = () => {
       const { data, error } = await supabase.functions.invoke("genera-distinta-pdf", {
         body: {
           data_distinta: format(selectedDate, "d MMMM yyyy", { locale: it }),
-          ufficio_nome: profile?.ufficio_id ? "Ufficio" : "—",
+          ufficio_nome: ufficioInfo?.nome_ufficio || "Sede",
           totale_contanti: distinta.totale_contanti,
           totale_assegni: distinta.totale_assegni,
           totale_bonifici: distinta.totale_bonifici,
           totale_pos: distinta.totale_pos,
           totale_generale: distinta.totale_generale,
-          saldo_cassa_atteso: distinta.saldo_cassa_atteso || distinta.totale_generale,
-          differenza_cassa: distinta.differenza_cassa || 0,
+          saldo_cassa_atteso: distinta.saldo_cassa_atteso ?? distinta.totale_contanti ?? 0,
+          differenza_cassa: distinta.differenza_cassa ?? 0,
           righe: righe.map((r: any) => ({
             tipo_pagamento: r.tipo_pagamento,
             descrizione: r.descrizione,
@@ -333,7 +333,6 @@ const DistintaGiornaliera = () => {
 
       if (error) throw error;
 
-      // data is the HTML string - open in new window for printing
       const html = typeof data === "string" ? data : await (data as any)?.text?.() || JSON.stringify(data);
       const win = window.open("", "_blank");
       if (win) {
@@ -342,7 +341,7 @@ const DistintaGiornaliera = () => {
         setTimeout(() => win.print(), 500);
       }
     } catch (e: any) {
-      toast.error("Errore generazione PDF");
+      toast.error("Errore generazione PDF", { description: e?.message || String(e) });
     }
   };
 
