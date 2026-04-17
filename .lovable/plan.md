@@ -1,25 +1,17 @@
 
 
-## Problema
+## Piano: rimozione "Chiusura Contabile" e "Avvisi Incasso"
 
-L'utente apre "Modifica Sede" sull'**Ufficio di Napoli** e i dati non si salvano. Causa root:
+Rimuovo entrambe le voci dal modulo Contabilità (sidebar, route, breadcrumb, file pagina).
 
-1. **`codice_ufficio` è NULL in DB** per Napoli (storico — vedi memoria `napoli-branch-setup`).
-2. In `openEditDialog` (riga 113-120) `formData.codice_ufficio` viene impostato a `u.codice_ufficio` che è `null` → l'`Input` riceve `value={null}` (warning React) e soprattutto `handleSave` fa `formData.codice_ufficio.trim()` → **TypeError: Cannot read properties of null (reading 'trim')** (errore runtime confermato).
-3. Anche se fixiamo il trim, il form richiede comunque codice: l'utente vede campo vuoto ma poi salva senza accorgersi.
+### Modifiche
 
-## Fix
+1. **`src/components/AppSidebar.tsx`** — rimuovo le righe 164 e 165 (voci sidebar).
+2. **`src/routes/contabilita.tsx`** — rimuovo le route `/contabilita/avvisi-incasso` (riga 31) e `/contabilita/chiusura-contabile` (riga 35), più l'import di `ChiusuraContabile` e `Bell`/`Lock` se non più usati.
+3. **`src/components/PageBreadcrumb.tsx`** — rimuovo l'entry `"avvisi-incasso"` (riga 54). Lascio il resto.
+4. **`src/pages/contabilita/ChiusuraContabile.tsx`** — elimino il file (non più referenziato).
 
-**File: `src/pages/GestioneUfficiPage.tsx`**
-
-1. **Coerce a stringa in `openEditDialog`**: `codice_ufficio: u.codice_ufficio || ""` (analogo a quanto già fatto per indirizzo/email/telefono).
-2. **Guard difensivo in `handleSave`**: usare `(formData.codice_ufficio || "").trim()` e idem per `nome_ufficio`, così non esplode mai.
-3. **Pre-popolare codice di default per Napoli**: se vuoto, suggerisco "NAP" come placeholder visivo (l'utente decide se accettarlo). Niente UPDATE silenzioso al DB.
-
-**Bonus**: in `Input` value forzo sempre stringa (`value={formData.codice_ufficio ?? ""}`) per evitare il warning React.
-
-Nessuna modifica DB necessaria — l'utente potrà ora aprire la modale, vedere il codice vuoto, inserirlo e salvare correttamente.
-
-### File coinvolti
-- ✏️ `src/pages/GestioneUfficiPage.tsx` — fix null handling in `openEditDialog`, `handleSave` e `Input value`
+### Note
+- La tabella DB `chiusure_contabili` resta intatta (nessuna migration). Se in futuro vorrai eliminarla, basta chiedere.
+- Nessun'altra pagina referenzia i percorsi rimossi (verificato con search).
 
