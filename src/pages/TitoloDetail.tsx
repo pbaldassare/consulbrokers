@@ -695,6 +695,191 @@ const TitoloDetail = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // --- Veicolo edit state ---
+  const [editingVeicolo, setEditingVeicolo] = useState(false);
+  const [veicoloForm, setVeicoloForm] = useState<any>({});
+
+  const TIPI_VEICOLO_OPTS = [
+    "AUTOVETTURA","AUTOTASSAMETRO","AUTOBUS","AUTOCARRO","CICLOMOTORE","MOTOCICLO",
+    "MACCHINA OPERATRICE","MACCHINA AGRICOLA","NATANTE","RIMORCHIO","CARRELLO",
+    "AUTOARTICOLATO","CAMPER","QUADRICICLO",
+  ].map((v) => ({ value: v, label: v }));
+  const CLASSI_BM_OPTS = Array.from({ length: 18 }, (_, i) => ({ value: String(i + 1), label: `Classe ${i + 1}` }));
+  const ALIMENTAZIONE_OPTS = ["BENZINA","DIESEL","GPL","METANO","ELETTRICA","IBRIDA","IBRIDA PLUG-IN","BIFUEL","ALTRO"].map((v) => ({ value: v, label: v }));
+  const TIPOLOGIA_GUIDA_OPTS = ["LIBERA","ESCLUSIVA","ESPERTA"].map((v) => ({ value: v, label: v }));
+
+  const startEditVeicolo = () => {
+    const v: any = veicolo || { titolo_id: id };
+    setVeicoloForm({
+      settore: v.settore ?? "",
+      tipo_veicolo: v.tipo_veicolo ?? "",
+      uso: v.uso ?? "",
+      targa: v.targa ?? "",
+      marca: v.marca ?? "",
+      modello: v.modello ?? "",
+      versione: v.versione ?? "",
+      veicolo_descrizione: v.veicolo_descrizione ?? "",
+      telaio: v.telaio ?? "",
+      data_immatricolazione: v.data_immatricolazione ?? "",
+      anno_acquisto: v.anno_acquisto != null ? String(v.anno_acquisto) : "",
+      provincia_circolazione: v.provincia_circolazione ?? "",
+      classe_bm: v.classe_bm ?? "",
+      massimale_1: v.massimale_1 != null ? String(v.massimale_1) : "",
+      massimale_2: v.massimale_2 != null ? String(v.massimale_2) : "",
+      massimale_3: v.massimale_3 != null ? String(v.massimale_3) : "",
+      peius: !!v.peius,
+      franchigia: v.franchigia != null ? String(v.franchigia) : "",
+      temporanea: !!v.temporanea,
+      carico_scarico: !!v.carico_scarico,
+      cv: v.cv != null ? String(v.cv) : "",
+      kw: v.kw != null ? String(v.kw) : "",
+      cc: v.cc != null ? String(v.cc) : "",
+      posti: v.posti != null ? String(v.posti) : "",
+      peso_motrice: v.peso_motrice != null ? String(v.peso_motrice) : "",
+      peso_rimorchio: v.peso_rimorchio != null ? String(v.peso_rimorchio) : "",
+      peso_totale: v.peso_totale != null ? String(v.peso_totale) : "",
+      tipologia_guida: v.tipologia_guida ?? "",
+      tipo_alimentazione: v.tipo_alimentazione ?? "",
+    });
+    setEditingVeicolo(true);
+  };
+
+  const saveVeicoloMutation = useMutation({
+    mutationFn: async () => {
+      const intFields = ["anno_acquisto","cv","kw","cc","posti","peso_motrice","peso_rimorchio","peso_totale"];
+      const numFields = ["massimale_1","massimale_2","massimale_3","franchigia"];
+      const boolFields = ["peius","temporanea","carico_scarico"];
+      const payload: any = { titolo_id: id };
+      Object.keys(veicoloForm).forEach((k) => {
+        const raw = veicoloForm[k];
+        if (boolFields.includes(k)) payload[k] = !!raw;
+        else if (intFields.includes(k)) payload[k] = raw === "" || raw == null ? null : parseInt(raw, 10);
+        else if (numFields.includes(k)) payload[k] = raw === "" || raw == null ? null : Number(raw);
+        else payload[k] = raw === "" ? null : raw;
+      });
+      // Validations
+      const errs: string[] = [];
+      [...intFields, ...numFields].forEach((f) => {
+        if (payload[f] != null && (isNaN(payload[f]) || payload[f] < 0)) errs.push(`${f}: deve essere ≥ 0`);
+      });
+      if (payload.targa) payload.targa = String(payload.targa).toUpperCase().trim();
+      if (payload.telaio) payload.telaio = String(payload.telaio).toUpperCase().trim();
+      if (payload.telaio && payload.telaio.length !== 17) errs.push("Telaio (VIN) deve avere 17 caratteri");
+      if (errs.length) throw new Error(errs.join(" • "));
+
+      const { error } = await supabase.from("veicoli_polizza").upsert(payload, { onConflict: "titolo_id" });
+      if (error) throw error;
+
+      await logAttivita({
+        azione: veicolo ? "modifica_veicolo" : "crea_veicolo",
+        entita_tipo: "titolo",
+        entita_id: id!,
+        dettagli_json: { campi: Object.keys(veicoloForm) },
+        severity: "info",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["veicolo-polizza", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Dati veicolo salvati");
+      setEditingVeicolo(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // --- Premi Garanzia edit state ---
+  const [editingPremi, setEditingPremi] = useState(false);
+  const [premiRows, setPremiRows] = useState<any[]>([]);
+
+  const startEditPremi = () => {
+    const rows = (premiGaranzia as any[]).map((p) => ({
+      id: p.id,
+      garanzia: p.garanzia ?? "",
+      capitale: p.capitale != null ? String(p.capitale) : "",
+      tasso: p.tasso != null ? String(p.tasso) : "",
+      firma: p.firma != null ? String(p.firma) : "",
+      rata: p.rata != null ? String(p.rata) : "",
+      annuo: p.annuo != null ? String(p.annuo) : "",
+      ordine: p.ordine ?? 0,
+      _existing: true,
+    }));
+    setPremiRows(rows);
+    setEditingPremi(true);
+  };
+
+  const addPremiRow = () => {
+    setPremiRows((prev) => [
+      ...prev,
+      { garanzia: "", capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: prev.length, _existing: false, _new: true },
+    ]);
+  };
+
+  const removePremiRow = (idx: number) => {
+    setPremiRows((prev) => prev.map((r, i) => (i === idx ? { ...r, _deleted: true } : r)));
+  };
+
+  const updatePremiRow = (idx: number, field: string, value: any) => {
+    setPremiRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  };
+
+  const savePremiMutation = useMutation({
+    mutationFn: async () => {
+      const errs: string[] = [];
+      const numFields = ["capitale","tasso","firma","rata","annuo"];
+      premiRows.forEach((r, i) => {
+        if (r._deleted) return;
+        if (!r.garanzia || !String(r.garanzia).trim()) errs.push(`Riga ${i + 1}: garanzia obbligatoria`);
+        numFields.forEach((f) => {
+          if (r[f] !== "" && r[f] != null) {
+            const n = Number(r[f]);
+            if (isNaN(n) || n < 0) errs.push(`Riga ${i + 1}: ${f} non valido`);
+          }
+        });
+      });
+      if (errs.length) throw new Error(errs.join(" • "));
+
+      // Delete removed existing rows
+      const toDelete = premiRows.filter((r) => r._deleted && r._existing).map((r) => r.id);
+      if (toDelete.length) {
+        const { error } = await supabase.from("premi_garanzia_polizza").delete().in("id", toDelete);
+        if (error) throw error;
+      }
+      // Upsert remaining
+      const toUpsert = premiRows
+        .filter((r) => !r._deleted)
+        .map((r, i) => ({
+          ...(r._existing ? { id: r.id } : {}),
+          titolo_id: id,
+          garanzia: String(r.garanzia).trim(),
+          capitale: r.capitale === "" ? null : Number(r.capitale),
+          tasso: r.tasso === "" ? null : Number(r.tasso),
+          firma: r.firma === "" ? null : Number(r.firma),
+          rata: r.rata === "" ? null : Number(r.rata),
+          annuo: r.annuo === "" ? null : Number(r.annuo),
+          ordine: i,
+        }));
+      if (toUpsert.length) {
+        const { error } = await supabase.from("premi_garanzia_polizza").upsert(toUpsert as any);
+        if (error) throw error;
+      }
+
+      await logAttivita({
+        azione: "modifica_premi_garanzia",
+        entita_tipo: "titolo",
+        entita_id: id!,
+        dettagli_json: { righe_totali: toUpsert.length, righe_eliminate: toDelete.length },
+        severity: "info",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["premi-garanzia", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Premi per garanzia salvati");
+      setEditingPremi(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const changeStatoMutation = useMutation({
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
