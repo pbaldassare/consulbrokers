@@ -726,6 +726,10 @@ const TitoloDetail = () => {
                 );
                 queryClient.invalidateQueries({ queryKey: ["titolo", id] });
                 queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
+                queryClient.invalidateQueries({ queryKey: ["dashboard-ufficio"] });
+                queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+                queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
+                queryClient.invalidateQueries({ queryKey: ["portafoglio"] });
                 setAnnullaDialogOpen(false);
               } catch {
                 toast.error("Errore di verifica");
