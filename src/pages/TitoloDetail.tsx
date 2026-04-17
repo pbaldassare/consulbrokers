@@ -299,6 +299,154 @@ const TitoloDetail = () => {
     { value: "nessuna", label: "Nessuna" },
   ];
 
+  // --- Contratto edit state ---
+  const [editingContratto, setEditingContratto] = useState(false);
+  const [contrattoForm, setContrattoForm] = useState({
+    tipo_portafoglio: "",
+    cig_rif: "",
+    vincolo: "",
+    targa_telaio: "",
+    descrizione_polizza: "",
+    prodotto_id: "" as string | null,
+    specialist: "",
+    produttore_id: "" as string | null,
+    ufficio_id: "" as string | null,
+  });
+
+  const tipoPortafoglioOpts = [
+    { value: "NUOVA EMISSIONE", label: "NUOVA EMISSIONE" },
+    { value: "PORTAFOGLIO PREESISTENTE", label: "PORTAFOGLIO PREESISTENTE" },
+    { value: "POLIZZE FAMIGLIA FIORE", label: "POLIZZE FAMIGLIA FIORE" },
+    { value: "gestione", label: "Gestione" },
+  ];
+
+  const { data: prodottiOpts = [] } = useQuery({
+    queryKey: ["prodotti-by-compagnia", titolo?.compagnia_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("prodotti")
+        .select("id, nome_prodotto")
+        .eq("compagnia_id", titolo!.compagnia_id!)
+        .order("nome_prodotto");
+      return (data || []).map((p: any) => ({ value: p.id, label: p.nome_prodotto }));
+    },
+    enabled: editingContratto && !!titolo?.compagnia_id,
+  });
+
+  const { data: produttoriOpts = [] } = useQuery({
+    queryKey: ["produttori-profiles"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome")
+        .eq("attivo", true)
+        .eq("ruolo", "produttore")
+        .order("cognome");
+      return (data || []).map((p: any) => ({
+        value: p.id,
+        label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
+      }));
+    },
+    enabled: editingContratto,
+  });
+
+  const { data: specialistOpts = [] } = useQuery({
+    queryKey: ["specialist-profiles"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome")
+        .eq("attivo", true)
+        .eq("ruolo", "backoffice")
+        .order("cognome");
+      return (data || []).map((p: any) => ({
+        value: `${p.cognome || ""} ${p.nome || ""}`.trim(),
+        label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
+      }));
+    },
+    enabled: editingContratto,
+  });
+
+  const { data: ufficiOpts = [] } = useQuery({
+    queryKey: ["uffici-attivi"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      return (data || []).map((u: any) => ({ value: u.id, label: u.nome_ufficio }));
+    },
+    enabled: editingContratto,
+  });
+
+  const startEditContratto = () => {
+    if (titolo) {
+      setContrattoForm({
+        tipo_portafoglio: (titolo as any).tipo_portafoglio ?? "",
+        cig_rif: (titolo as any).cig_rif ?? "",
+        vincolo: (titolo as any).vincolo ?? "",
+        targa_telaio: (titolo as any).targa_telaio ?? "",
+        descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
+        prodotto_id: (titolo as any).prodotto_id ?? null,
+        specialist: (titolo as any).specialist ?? "",
+        produttore_id: (titolo as any).produttore_id ?? null,
+        ufficio_id: (titolo as any).ufficio_id ?? null,
+      });
+    }
+    setEditingContratto(true);
+  };
+
+  const saveContrattoMutation = useMutation({
+    mutationFn: async () => {
+      // Compute diff vs current titolo for activity log
+      const before: Record<string, any> = {};
+      const after: Record<string, any> = {};
+      const fields: (keyof typeof contrattoForm)[] = [
+        "tipo_portafoglio", "cig_rif", "vincolo", "targa_telaio",
+        "descrizione_polizza", "prodotto_id", "specialist", "produttore_id", "ufficio_id",
+      ];
+      fields.forEach((f) => {
+        const oldV = (titolo as any)?.[f] ?? null;
+        const newV = (contrattoForm[f] as any) || null;
+        if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
+      });
+
+      const { error } = await supabase
+        .from("titoli")
+        .update({
+          tipo_portafoglio: contrattoForm.tipo_portafoglio || null,
+          cig_rif: contrattoForm.cig_rif || null,
+          vincolo: contrattoForm.vincolo || null,
+          targa_telaio: contrattoForm.targa_telaio || null,
+          descrizione_polizza: contrattoForm.descrizione_polizza || null,
+          prodotto_id: contrattoForm.prodotto_id || null,
+          specialist: contrattoForm.specialist || null,
+          produttore_id: contrattoForm.produttore_id || null,
+          ufficio_id: contrattoForm.ufficio_id || null,
+        } as any)
+        .eq("id", id!);
+      if (error) throw error;
+
+      if (Object.keys(after).length > 0) {
+        await logAttivita({
+          azione: "modifica_contratto",
+          entita_tipo: "titolo",
+          entita_id: id!,
+          dettagli_json: { campi_modificati: Object.keys(after), before, after },
+          severity: "info",
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
+      toast.success("Contratto aggiornato");
+      setEditingContratto(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const changeStatoMutation = useMutation({
     mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
