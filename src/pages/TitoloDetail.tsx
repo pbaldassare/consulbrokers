@@ -500,7 +500,7 @@ const TitoloDetail = () => {
             {/* Badges conferimento gestito */}
             {t.stato === "incassato" && t.conferimento_gestito && (
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge className="bg-orange-500 text-white hover:bg-orange-600">Conferimento Gestito</Badge>
+                <Badge className="bg-orange-500 text-white hover:bg-orange-600">Copertura Garantita</Badge>
                 {!t.fondi_ricevuti ? (
                   <>
                     <Badge variant="destructive">In Attesa Fondi</Badge>
@@ -563,7 +563,7 @@ const TitoloDetail = () => {
                   setConferimentoAccettato(false);
                   setConferimentoDialogOpen(true);
                 }} disabled={changeStatoMutation.isPending}>
-                  <Shield className="w-4 h-4 mr-1" /> Conferimento Gestito
+                  <Shield className="w-4 h-4 mr-1" /> Copertura Garantita
                 </Button>
               )}
               {t.stato === "incassato" && isAdmin && (
@@ -635,11 +635,11 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Conferimento Gestito */}
+      {/* Dialog Copertura Garantita */}
       <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Conferimento Gestito</DialogTitle>
+            <DialogTitle>Copertura Garantita</DialogTitle>
             <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)} — Incasso senza fondi in cassa</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
