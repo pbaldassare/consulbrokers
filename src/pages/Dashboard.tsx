@@ -206,7 +206,7 @@ const UfficioDashboard = ({ loading, data }: { loading: boolean; data: ReturnTyp
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard label="Scadenze del Mese" value={String(d?.scadenzeMeseCount ?? 0)} sub={fmt(d?.scadenzeMeseImporto ?? 0)} icon={Calendar} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
         <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="green" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-        <SummaryCard label="Carico del Mese" value={String(d?.caricoMeseCount ?? 0)} sub={fmt(d?.caricoMeseImporto ?? 0)} icon={FileText} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
+        <SummaryCard label="Fuori Copertura" value={String(d?.fuoriCoperturaCount ?? 0)} sub={fmt(d?.fuoriCoperturaImporto ?? 0)} icon={AlertCircle} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
         <SummaryCard label="Rimesse da Inviare" value={String(d?.rimesseDaInviareCount ?? 0)} sub={fmt(d?.rimesseDaInviareImporto ?? 0)} icon={Receipt} variant="orange" loading={loading} onClick={() => navigate("/rimesse")} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
