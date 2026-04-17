@@ -1,55 +1,65 @@
 
 ## Richiesta
 
-Nel popup "Garantito" (sul TitoloDetail, route `/titoli/...`):
+1. **Tutti i livelli di utenti** (admin, ufficio, executive, specialist/backoffice, produttore, corrispondente, consul, cliente, prospect) devono essere **visibili nella ricerca chat** e poter essere contattati direttamente (1-a-1 o gruppo).
+2. **Tutto viene loggato** (chi parla con chi, contenuto, timestamp) → già parzialmente fatto via `log_attivita`, da estendere.
+3. **Badge alert sul pulsante "Chat"** della sidebar con il **conteggio dei messaggi non letti** dell'utente corrente.
 
-1. **Tipo Pagamento NON va richiesto** in fase di garantito → si imposterà in un secondo momento (quando la polizza sarà effettivamente incassata)
-2. **Data Pagamento NON va mostrata/richiesta** → verrà compilata successivamente al momento dell'incasso reale
+## Investigazione necessaria
 
-Quindi nel dialog "Garantito" devono restare solo i campi pertinenti alla fase di garanzia, NON quelli del pagamento.
+Prima di implementare verifico:
 
-## Investigazione
+1. **`src/components/chat/NuovaConversazioneDialog.tsx`** — capire come oggi vengono cercati gli utenti (probabilmente filtra solo alcuni ruoli) → estendere a TUTTI i ruoli (`admin`, `ufficio`, `executive`, `backoffice`, `produttore`, `corrispondente`, `consul`, `cliente`, `prospect`).
 
-Devo verificare in `src/pages/TitoloDetail.tsx`:
-- Quale dialog gestisce il flusso "Garantito" (Conferma Garantito)
-- Quali campi mostra attualmente
-- Quale logica/payload viene inviato al DB
+2. **`src/components/chat/CanaliSidebar.tsx`** — vedere la search "scar" nello screenshot (filtra canali esistenti). Verificare che non escluda nessun ruolo.
 
-Dallo screenshot vedo che il popup "Garantito" mostra:
-- Data Messa a Cassa ✅ (resta)
-- Data Pagamento ❌ (rimuovere)
-- Data Decorrenza Rinnovo ✅ (resta)
-- Tipo Pagamento ❌ (rimuovere)
-- (eventuale Banca legata al tipo pagamento) ❌ (rimuovere)
+3. **`src/components/AppSidebar.tsx`** — voce "Chat" della sidebar: aggiungere badge con conteggio non letti.
 
-## Piano
+4. **DB `chat_messaggi_interni` / `chat_canali_membri`** — verificare se esiste già un meccanismo di "letto/non letto" (es. campo `ultimo_letto_at` su `chat_canali_membri`). Se non esiste, va aggiunto.
 
-### File toccato
-- `src/pages/TitoloDetail.tsx` — modificare il dialog "Garantito" rimuovendo:
-  - Campo "Data Pagamento"
-  - Campo "Tipo Pagamento" 
-  - Campo "Banca" (condizionale al bonifico)
-  - Riferimenti a queste variabili nello stato del form e nel payload di update
+5. **Logging** — `ChatTab.tsx` già logga via `logAttivita` (azione `messaggio_chat`). Verifico che anche `ChatArea.tsx` (chat globale `/chat`) faccia lo stesso → uniformare.
 
-### Comportamento atteso dopo il fix
+## Piano di implementazione
 
-**Dialog Garantito** (azione di garanzia, NON incasso effettivo):
-- Data Messa a Cassa
-- Data Decorrenza Rinnovo
-- Checkbox dichiarazione responsabilità
-- Stato → `garantito` (non `incassato`)
-- Nessun dato di pagamento (saranno compilati dopo, in fase di incasso reale)
+### 1. Ricerca utenti universale (`NuovaConversazioneDialog`)
+- Rimuovere qualsiasi filtro di ruolo nella query `profiles` → mostrare TUTTI i `profiles` con `attivo=true`, raggruppati per ruolo con badge colorato (admin/ufficio/executive/backoffice/produttore/corrispondente/consul/cliente/prospect).
+- Search server-side su `nome`, `cognome`, `email`, `ruolo`.
+- Mostrare avatar/iniziali + nome completo + chip ruolo.
 
-**Dialog Incassa** (resta com'è — incasso effettivo):
-- Tutti i campi pagamento (data pagamento, tipo, banca)
-- Stato → `incassato`
+### 2. Membri canali — permettere qualunque ruolo
+- Verificare RLS su `chat_canali_membri` e `chat_messaggi_interni`: tutti i ruoli (compreso cliente/prospect) devono poter leggere/scrivere nei canali di cui sono membri. Il portale cliente già usa `ChatTab` quindi RLS dovrebbe già supportarlo, ma confermo.
 
-### Nota importante da chiarire
+### 3. Sistema "letto/non letto"
+- Aggiungere colonna `ultimo_letto_at TIMESTAMPTZ` su `chat_canali_membri` (se non esiste) tramite migration.
+- Quando l'utente apre un canale (`ChatArea` con `canaleId` selezionato) → update `ultimo_letto_at = now()` per quella riga.
+- Creare RPC `get_chat_unread_count(_user_id uuid)` che ritorna il totale di messaggi con `created_at > ultimo_letto_at` su tutti i canali di cui l'utente è membro (escludendo i propri messaggi).
 
-Devo verificare nel codice attuale se il dialog "Garantito" attualmente:
-- (a) imposta `stato = 'garantito'` e lascia in sospeso il pagamento, oppure
-- (b) imposta `stato = 'incassato'` (uguale a Incassa) — in tal caso va corretto anche questo
+### 4. Badge sul menu "Chat" in sidebar
+- In `AppSidebar.tsx` (e analoghi: `ClienteLayout`, `ProspectLayout`) aggiungere `useQuery` che chiama l'RPC `get_chat_unread_count` ogni 15s + listener Supabase Realtime su `chat_messaggi_interni` per refresh immediato.
+- Se count > 0 → mostrare badge rosso piccolo accanto a "Chat" con numero (max "9+").
 
-E se lo stato `'garantito'` è ammesso dal vincolo DB su `titoli.stato` (che attualmente accetta: `attivo, sospeso, scaduto, incassato` — vedi memory `policy-states`). Se NON è ammesso, serve una migration per aggiungerlo, oppure si usa un campo separato (es. `garantito: bool` + `data_garanzia`) senza cambiare `stato`.
+### 5. Logging completo
+- In `ChatArea.tsx` (sendMessage handler) aggiungere chiamata a `logAttivita` con:
+  - `azione: "messaggio_chat"`
+  - `entita_tipo: "chat_canale"` (oppure `entita_tipo` del canale se contestuale)
+  - `entita_id: canaleId`
+  - `dettagli_json: { preview, mittente_ruolo, destinatari_count, canale_tipo, ambito }`
+- Già fatto in `ChatTab.tsx` → uniformare il payload.
 
-Procedo con la rimozione dei 2 campi (Data Pagamento + Tipo Pagamento + Banca) nel dialog Garantito. Per la gestione dello stato `garantito` nel DB verifico in fase di esecuzione e adatto la soluzione (aggiunta colonna booleana `garantito` + `data_garanzia` se lo stato non è ammesso, evitando di toccare `stato` finché non avviene l'incasso reale).
+### File toccati
+- **Nuova migration**: aggiungere `ultimo_letto_at` a `chat_canali_membri` + RPC `get_chat_unread_count`
+- `src/components/chat/NuovaConversazioneDialog.tsx` — ricerca su tutti i ruoli, raggruppamento per ruolo, badge colorato
+- `src/components/chat/CanaliSidebar.tsx` — eventuale rimozione filtri ruolo nella search
+- `src/components/chat/ChatArea.tsx` — update `ultimo_letto_at` all'apertura canale + log su invio
+- `src/components/AppSidebar.tsx` — badge unread su voce Chat
+- `src/components/ClienteLayout.tsx` e `src/components/ProspectLayout.tsx` — stesso badge sui rispettivi menu chat
+
+### Tecnico
+- Realtime: subscription su `postgres_changes` per `chat_messaggi_interni` filtrata per i canali dell'utente → invalidate badge query.
+- Performance: l'RPC fa una sola query aggregata (`SELECT SUM(...)`) → ok anche con molti canali.
+- Privacy: log_attivita salva solo preview (50 char), non l'intero messaggio → coerente con quanto già fatto in `ChatTab`.
+
+### Conferme prima di procedere
+
+1. Il **badge non letti** deve mostrare solo i messaggi nei canali dove sono **membro**, oppure anche broadcast non letti? → procedo con: tutti i canali di cui sono membro (inclusi broadcast a cui sono iscritto).
+2. La **ricerca universale** include anche utenti `cliente` e `prospect` quando l'utente che cerca è interno (admin/ufficio/ecc.), e viceversa? Confermo: SÌ, qualunque ruolo può cercare e contattare qualunque altro ruolo (era questa la richiesta "tutti i livelli"). Se preferisci limitare (es. cliente non può cercare altri clienti) fammelo sapere prima.
