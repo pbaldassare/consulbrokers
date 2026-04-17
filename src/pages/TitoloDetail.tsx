@@ -398,6 +398,44 @@ const TitoloDetail = () => {
 
   const t = titolo as any;
 
+  // --- Lifecycle helpers ---
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dataEffetto = t.data_effetto ? new Date(t.data_effetto) : null;
+  const dataScadenza = t.data_scadenza ? new Date(t.data_scadenza) : null;
+  const dataDecorrenzaRinnovo = t.data_decorrenza_rinnovo ? new Date(t.data_decorrenza_rinnovo) : null;
+
+  const isPolizzaInEssere =
+    t.stato === "attivo" &&
+    !t.data_messa_cassa &&
+    dataEffetto && dataEffetto <= today &&
+    (!dataScadenza || dataScadenza >= today);
+
+  const isRinnovoFuturo =
+    t.stato === "attivo" &&
+    !t.data_messa_cassa &&
+    !!dataDecorrenzaRinnovo && dataDecorrenzaRinnovo > today;
+
+  // Operazioni di lifecycle ammesse PRIMA della messa a cassa (sia su polizze in essere sia su rinnovi futuri)
+  const canLifecycleOps =
+    !t.data_messa_cassa &&
+    (t.stato === "attivo" || t.stato === "sospeso") &&
+    (isPolizzaInEssere || isRinnovoFuturo || t.stato === "sospeso");
+
+  const lifecycleLabel = t.data_messa_cassa
+    ? "Messo a cassa"
+    : t.stato === "sospeso"
+    ? "Sospesa"
+    : t.stato === "annullato" || t.stato === "stornato"
+    ? "Annullata"
+    : t.stato === "scaduto"
+    ? "Scaduta"
+    : isRinnovoFuturo
+    ? `Rinnovo futuro – decorrenza ${fmtDate(t.data_decorrenza_rinnovo)}`
+    : isPolizzaInEssere
+    ? "In essere"
+    : t.stato;
+
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
@@ -407,13 +445,18 @@ const TitoloDetail = () => {
           <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
           <p className="text-muted-foreground text-sm">{t.prodotti?.nome_prodotto} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
         </div>
-        <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="ml-auto text-sm">
-          {t.stato}
-        </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          <Badge variant="outline" className={isRinnovoFuturo ? "border-blue-500 text-blue-600 bg-blue-50" : isPolizzaInEssere ? "border-green-500 text-green-600 bg-green-50" : ""}>
+            {lifecycleLabel}
+          </Badge>
+          <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="text-sm">
+            {t.stato}
+          </Badge>
+        </div>
       </div>
 
-      {/* Operazioni — nascosto per polizze storico */}
-      {!(t.stato === "scaduto" || t.stato === "sospeso" || (t.stato === "attivo" && t.garanzia_a && new Date(t.garanzia_a) < new Date())) && (
+      {/* Operazioni — disponibili per polizze in essere E rinnovi futuri non ancora messi a cassa */}
+      {canLifecycleOps && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
