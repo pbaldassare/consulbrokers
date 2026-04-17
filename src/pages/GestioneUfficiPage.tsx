@@ -111,8 +111,8 @@ const GestioneUfficiPage = () => {
   const openEditDialog = (u: Ufficio) => {
     setEditingUfficio(u);
     setFormData({
-      codice_ufficio: u.codice_ufficio,
-      nome_ufficio: u.nome_ufficio,
+      codice_ufficio: u.codice_ufficio || "",
+      nome_ufficio: u.nome_ufficio || "",
       indirizzo: u.indirizzo || "",
       email: u.email || "",
       telefono: u.telefono || "",
@@ -127,11 +127,18 @@ const GestioneUfficiPage = () => {
   };
 
   const handleSave = () => {
-    if (!formData.codice_ufficio.trim() || !formData.nome_ufficio.trim()) {
+    const codice = (formData.codice_ufficio || "").trim();
+    const nome = (formData.nome_ufficio || "").trim();
+    if (!codice || !nome) {
       toast.error("Compilare codice e nome sede");
       return;
     }
-    upsertMutation.mutate({ id: editingUfficio?.id, ...formData });
+    upsertMutation.mutate({
+      id: editingUfficio?.id,
+      ...formData,
+      codice_ufficio: codice,
+      nome_ufficio: nome,
+    });
   };
 
   return (
@@ -217,7 +224,7 @@ const GestioneUfficiPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Codice Sede *</Label>
-              <Input value={formData.codice_ufficio} onChange={(e) => setFormData({ ...formData, codice_ufficio: e.target.value })} placeholder="es. SEDE001" />
+              <Input value={formData.codice_ufficio ?? ""} onChange={(e) => setFormData({ ...formData, codice_ufficio: e.target.value })} placeholder="es. NAP, SDO" />
             </div>
             <div>
               <Label>Nome Sede *</Label>
