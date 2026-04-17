@@ -98,7 +98,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
+        .in("stato", ["attivo", "incassato"]).or(orFilterRange);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
