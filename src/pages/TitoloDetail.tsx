@@ -680,8 +680,8 @@ const TitoloDetail = () => {
             <Button variant="outline" onClick={() => setConferimentoDialogOpen(false)}>Annulla</Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!conferimentoAccettato || changeStatoMutation.isPending || (conferimentoForm.tipoPagamento === "bonifico" && !conferimentoForm.banca)}
-              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: conferimentoForm, conferimentoGestito: true } as any)}
+              disabled={!conferimentoAccettato || changeStatoMutation.isPending}
+              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: { ...conferimentoForm, dataPagamento: "", tipoPagamento: "", banca: "" }, conferimentoGestito: true } as any)}
             >
               <Shield className="w-4 h-4 mr-1" /> Conferma Garantito
             </Button>
