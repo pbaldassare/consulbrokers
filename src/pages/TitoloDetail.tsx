@@ -1612,39 +1612,168 @@ const TitoloDetail = () => {
 
       {/* IMPORTI */}
       <SectionCollapsible title="Importi" icon={DollarSign}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
-            <div className="space-y-0">
-              <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
-              <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
-              <FieldRow label="Tasse" value={fmtEuro(t.tasse)} />
-              <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
-              <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+        <div className="flex justify-end mb-2 gap-2">
+          {!editingImporti ? (
+            <Button variant="ghost" size="sm" onClick={startEditImporti}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditingImporti(false)}>Annulla</Button>
+              <Button size="sm" onClick={() => saveImportiMutation.mutate()} disabled={saveImportiMutation.isPending}>
+                {saveImportiMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </>
+          )}
+        </div>
+
+        {!editingImporti ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <div className="space-y-0">
+                  <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
+                  <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
+                  <FieldRow label="Tasse" value={fmtEuro(t.tasse)} />
+                  <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
+                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                </div>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
+                <div className="space-y-0">
+                  <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto_quietanza)} />
+                  <FieldRow label="Addizionali" value={fmtEuro(t.addizionali_quietanza)} />
+                  <FieldRow label="Tasse" value={fmtEuro(t.tasse_quietanza)} />
+                  <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
+                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
+              <FieldRow label="Valuta" value={fmt(t.valuta)} />
+              <FieldRow label="Cambio" value={fmt(t.cambio)} />
+              <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
+              <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
+              <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
+              <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
+              <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
+              <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* FIRMA */}
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Premio Netto (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.premio_netto}
+                      onChange={(e) => setImportiForm({ ...importiForm, premio_netto: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Addizionali (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.addizionali}
+                      onChange={(e) => setImportiForm({ ...importiForm, addizionali: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tasse (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.tasse}
+                      onChange={(e) => setImportiForm({ ...importiForm, tasse: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Premio Lordo (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.premio_lordo}
+                      onChange={(e) => setImportiForm({ ...importiForm, premio_lordo: e.target.value })} />
+                    {suggestedLordoFirma != null && (
+                      <button type="button"
+                        className="text-[11px] text-muted-foreground hover:text-primary mt-0.5"
+                        onClick={() => setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) })}>
+                        💡 Calcolato: € {suggestedLordoFirma.toFixed(2)} (clicca per applicare)
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Provvigioni (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.provvigioni_firma}
+                      onChange={(e) => setImportiForm({ ...importiForm, provvigioni_firma: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              {/* QUIETANZA */}
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Premio Netto (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.premio_netto_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, premio_netto_quietanza: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Addizionali (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.addizionali_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, addizionali_quietanza: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tasse (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.tasse_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, tasse_quietanza: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Totale (calcolato)</Label>
+                    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted text-sm font-mono">
+                      {suggestedLordoQuietanza != null ? `€ ${suggestedLordoQuietanza.toFixed(2)}` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Provvigioni (€)</Label>
+                    <Input type="number" step="0.01" value={importiForm.provvigioni_quietanza}
+                      onChange={(e) => setImportiForm({ ...importiForm, provvigioni_quietanza: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* VALUTA & FLAGS */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t">
+              <div>
+                <Label className="text-xs">Valuta</Label>
+                <SearchableSelect
+                  options={valutaOpts}
+                  value={importiForm.valuta}
+                  onValueChange={(v) => setImportiForm({ ...importiForm, valuta: v, cambio: v === "EUR" ? "1" : importiForm.cambio })}
+                  placeholder="Valuta"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Cambio</Label>
+                <Input type="number" step="0.0001" value={importiForm.cambio}
+                  disabled={importiForm.valuta === "EUR"}
+                  onChange={(e) => setImportiForm({ ...importiForm, cambio: e.target.value })} />
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <Switch checked={importiForm.indicizzata}
+                  onCheckedChange={(c) => setImportiForm({ ...importiForm, indicizzata: c })} />
+                <Label className="text-xs">Indicizzata</Label>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <Switch checked={importiForm.rimborso}
+                  onCheckedChange={(c) => setImportiForm({ ...importiForm, rimborso: c })} />
+                <Label className="text-xs">Rimborso</Label>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground pt-2 border-t">
+              <strong>Read-only:</strong> Pag. Diretto Compagnia, Formato Elettronico, Incassato, Data Incasso (gestiti da Messa a Cassa / configurazione prodotto)
             </div>
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
-            <div className="space-y-0">
-              <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto_quietanza)} />
-              <FieldRow label="Addizionali" value={fmtEuro(t.addizionali_quietanza)} />
-              <FieldRow label="Tasse" value={fmtEuro(t.tasse_quietanza)} />
-              <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
-              <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
-          <FieldRow label="Valuta" value={fmt(t.valuta)} />
-          <FieldRow label="Cambio" value={fmt(t.cambio)} />
-          <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
-          <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
-          <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
-          <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
-          <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
-          <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
-        </div>
+        )}
       </SectionCollapsible>
+
 
       {/* SOSTITUZIONI / STORNI */}
       {(t.sostituisce_polizza || t.storno_polizza) && (
