@@ -1,6 +1,6 @@
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
@@ -213,6 +213,7 @@ interface AppSidebarProps {
 const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const { hasPermission, isAdmin, user } = useAuth();
   const location = useLocation();
+  const qc = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const { data: unreadCount = 0 } = useQuery({
@@ -235,14 +236,14 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chat_messaggi_interni" },
         () => {
-          // refetch via invalidation done by react-query subscription
+          qc.invalidateQueries({ queryKey: ["chat_unread_count", user.id] });
         }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, qc]);
 
   useEffect(() => {
     for (const entry of sidebarEntries) {
