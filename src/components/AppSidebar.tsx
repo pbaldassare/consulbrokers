@@ -60,6 +60,7 @@ interface SidebarItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  hideForRoles?: string[];
 }
 
 interface SidebarGroupDef {
@@ -67,6 +68,7 @@ interface SidebarGroupDef {
   icon: LucideIcon;
   permissionKey: string;
   adminOnly?: boolean;
+  hideForRoles?: string[];
   children: SidebarItem[];
 }
 
@@ -77,6 +79,7 @@ interface SidebarSingleItem {
   permissionKey: string;
   adminOnly?: boolean;
   hasBadge?: boolean;
+  hideForRoles?: string[];
 }
 
 type SidebarEntry =
@@ -113,7 +116,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Carico del Mese", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         
-        { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer },
+        { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
         { label: "Collettive / Libri Matricola", path: "/portafoglio/collettive", icon: BookOpen },
       ],
     },
@@ -128,6 +131,7 @@ const sidebarEntries: SidebarEntry[] = [
       label: "Anagrafiche Utenti",
       icon: Briefcase,
       permissionKey: "anagrafiche",
+      hideForRoles: ["ufficio"],
       children: [
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
         { label: "Anagrafiche Professionali", path: "/archivi/anagrafiche", icon: Briefcase },
@@ -157,15 +161,15 @@ const sidebarEntries: SidebarEntry[] = [
       icon: Calculator,
       permissionKey: "contabilita",
       children: [
-        { label: "Cruscotto del Giorno", path: "/contabilita/cruscotto", icon: LayoutDashboard },
+        { label: "Cruscotto del Giorno", path: "/contabilita/cruscotto", icon: LayoutDashboard, hideForRoles: ["ufficio"] },
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
-        { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare },
+        { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare, hideForRoles: ["ufficio"] },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
-        { label: "E/C Compagnia", path: "/contabilita/ec-compagnia", icon: Building2 },
+        { label: "E/C Compagnia", path: "/contabilita/ec-compagnia", icon: Building2, hideForRoles: ["ufficio"] },
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Stampa Primanota", path: "/contabilita/stampa-primanota", icon: Printer },
-        { label: "Check Primanota", path: "/contabilita/check-primanota", icon: ListChecks },
+        { label: "Check Primanota", path: "/contabilita/check-primanota", icon: ListChecks, hideForRoles: ["ufficio"] },
         { label: "Stampa Sospesi", path: "/contabilita/stampa-sospesi", icon: FileOutput },
       ],
     },
@@ -211,7 +215,7 @@ interface AppSidebarProps {
 }
 
 const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
-  const { hasPermission, isAdmin, user } = useAuth();
+  const { hasPermission, isAdmin, user, profile } = useAuth();
   const location = useLocation();
   const qc = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
@@ -273,8 +277,11 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
     });
   };
 
-  const isVisible = (permissionKey: string, adminOnly?: boolean) => {
+  const currentRole = profile?.ruolo ?? "";
+
+  const isVisible = (permissionKey: string, adminOnly?: boolean, hideForRoles?: string[]) => {
     if (adminOnly && !isAdmin) return false;
+    if (hideForRoles && currentRole && hideForRoles.includes(currentRole)) return false;
     return hasPermission(permissionKey);
   };
 
@@ -305,7 +312,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
             const item = entry.item;
-            if (!isVisible(item.permissionKey, item.adminOnly)) return null;
+            if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles)) return null;
             return (
               <RouterNavLink
                 key={item.path}
@@ -335,9 +342,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           }
 
           const group = entry.group;
-          if (!isVisible(group.permissionKey, group.adminOnly)) return null;
+          if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles)) return null;
+          const visibleChildren = group.children.filter(
+            (child) => !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
+          );
+          if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);
-          const hasActiveChild = group.children.some(
+          const hasActiveChild = visibleChildren.some(
             (child) =>
               location.pathname === child.path ||
               location.pathname.startsWith(child.path + "/")
@@ -370,7 +381,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
               {isOpen && !collapsed && (
                 <div className="ml-3 pl-3 border-l border-white/15">
-                  {group.children.map((child) => (
+                  {visibleChildren.map((child) => (
                     <RouterNavLink
                       key={child.path}
                       to={child.path}
