@@ -342,9 +342,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           }
 
           const group = entry.group;
-          if (!isVisible(group.permissionKey, group.adminOnly)) return null;
+          if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles)) return null;
+          const visibleChildren = group.children.filter(
+            (child) => !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
+          );
+          if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);
-          const hasActiveChild = group.children.some(
+          const hasActiveChild = visibleChildren.some(
             (child) =>
               location.pathname === child.path ||
               location.pathname.startsWith(child.path + "/")
