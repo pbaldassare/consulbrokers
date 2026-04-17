@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ClipboardList,
   FileText,
   Upload,
+  MessageSquare,
   LogOut,
   Menu,
   X,
@@ -18,6 +21,7 @@ const navItems = [
   { to: "/prospect/trattative", label: "Trattative", icon: ClipboardList },
   { to: "/prospect/documenti", label: "Documenti", icon: FileText },
   { to: "/prospect/upload", label: "Carica Doc", icon: Upload },
+  { to: "/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
 ];
 
 const ProspectLayout = () => {

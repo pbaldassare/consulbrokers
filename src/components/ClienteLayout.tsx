@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, CreditCard, Upload, LogOut, Menu, X, AlertTriangle, User, Building,
@@ -15,7 +16,7 @@ const allNavItems = [
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
   { to: "/cliente/documenti", label: "Documenti", icon: FileText },
   { to: "/cliente/scadenze", label: "Scadenze", icon: CalendarClock },
-  { to: "/cliente/chat", label: "Chat", icon: MessageSquare },
+  { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
   { to: "/cliente/upload", label: "Carica Doc", icon: Upload, requiresCompleta: true },
