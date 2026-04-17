@@ -67,16 +67,13 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  // Filtro: scadenza nel mese OPPURE rinnovo futuro con decorrenza nel mese (non ancora messo a cassa)
-  const orFilterRange = `and(data_scadenza.gte.${caricoStart},data_scadenza.lte.${caricoEnd}),and(data_decorrenza_rinnovo.gte.${caricoStart},data_decorrenza_rinnovo.lte.${caricoEnd})`;
-
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
         { count: "exact" }
-      ).in("stato", ["attivo", "incassato"]).or(orFilterRange);
+      ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
@@ -98,7 +95,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .in("stato", ["attivo", "incassato"]).or(orFilterRange);
+        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
@@ -378,8 +375,7 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Compagnia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
-                  <TableHead>Tipo</TableHead>
-                  <SortableHeader field="data_scadenza">Decorrenza</SortableHeader>
+                  <SortableHeader field="data_scadenza">Scadenza</SortableHeader>
                   <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">Lordo</SortableHeader>
                   <SortableHeader field="ae_nome">AE</SortableHeader>
@@ -387,17 +383,17 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="stato">Stato</SortableHeader>
                   <SortableHeader field="data_messa_cassa" className="text-center">Messa a Cassa</SortableHeader>
                   <TableHead className="text-center">Azione</TableHead>
+                  <TableHead>AE</TableHead>
+                  <TableHead>Produttore</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead className="text-center">Messa a Cassa</TableHead>
+                  <TableHead className="text-center">Azione</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {polizze.map((p: any) => {
                   const isIncassato = p.stato === "incassato";
                   const isProcessing = loadingIds.has(p.id);
-                  const rinnovoNelMese = !!p.data_decorrenza_rinnovo
-                    && p.data_decorrenza_rinnovo >= caricoStart
-                    && p.data_decorrenza_rinnovo <= caricoEnd;
-                  const isRinnovoFuturo = rinnovoNelMese && !p.data_messa_cassa;
-                  const decorrenzaDisplay = rinnovoNelMese ? p.data_decorrenza_rinnovo : p.data_scadenza;
                   return (
                     <TableRow
                       key={p.id}
@@ -414,14 +410,7 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
-                      <TableCell>
-                        {isRinnovoFuturo ? (
-                          <Badge className="bg-blue-500 text-white text-[10px] h-5 hover:bg-blue-600">Rinnovo</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] h-5">Nuova</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{fmtDate(decorrenzaDisplay)}</TableCell>
+                      <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
                       <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
