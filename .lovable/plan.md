@@ -1,51 +1,55 @@
 
 ## Richiesta
 
-Nella pagina **Carico del Mese** (`/portafoglio/carico`), il pulsante "Cassa" (icona/azione di riga) deve:
+Nel popup "Garantito" (sul TitoloDetail, route `/titoli/...`):
 
-1. **Aprire lo stesso popup di "Messa a Cassa"** già presente nel `TitoloDetail.tsx` (con i campi: data messa cassa, data incasso, importo incassato, tipo pagamento, ecc.)
-2. **Supportare la selezione multipla**: quando l'utente seleziona più polizze (checkbox in tabella) e clicca "Cassa", il popup deve applicare gli stessi valori (data, tipo pagamento, opzionalmente importi) **a tutte le polizze selezionate in contemporanea**, in un'unica operazione.
+1. **Tipo Pagamento NON va richiesto** in fase di garantito → si imposterà in un secondo momento (quando la polizza sarà effettivamente incassata)
+2. **Data Pagamento NON va mostrata/richiesta** → verrà compilata successivamente al momento dell'incasso reale
 
-## Investigazione necessaria
+Quindi nel dialog "Garantito" devono restare solo i campi pertinenti alla fase di garanzia, NON quelli del pagamento.
 
-Prima di implementare devo verificare:
+## Investigazione
 
-1. **`src/pages/PortafoglioCaricoPage.tsx`** — capire:
-   - Come è implementato oggi il pulsante "Cassa" di riga (cosa fa attualmente — apre un dialog semplice? va a `TitoloDetail`? esegue un update inline?)
-   - Se esiste già la selezione multipla con checkbox e una toolbar di azioni bulk
-   - Quali colonne/azioni bulk esistono già
+Devo verificare in `src/pages/TitoloDetail.tsx`:
+- Quale dialog gestisce il flusso "Garantito" (Conferma Garantito)
+- Quali campi mostra attualmente
+- Quale logica/payload viene inviato al DB
 
-2. **`src/pages/TitoloDetail.tsx`** — estrarre il dialog di "Messa a Cassa" come componente riutilizzabile (oggi è inline nel detail) per poterlo richiamare anche dalla pagina Carico
+Dallo screenshot vedo che il popup "Garantito" mostra:
+- Data Messa a Cassa ✅ (resta)
+- Data Pagamento ❌ (rimuovere)
+- Data Decorrenza Rinnovo ✅ (resta)
+- Tipo Pagamento ❌ (rimuovere)
+- (eventuale Banca legata al tipo pagamento) ❌ (rimuovere)
 
-3. **Logica di update** — il dialog oggi aggiorna 1 titolo: va esteso a N titoli (loop oppure update batch con `IN (...)`)
+## Piano
 
-## Piano di implementazione
+### File toccato
+- `src/pages/TitoloDetail.tsx` — modificare il dialog "Garantito" rimuovendo:
+  - Campo "Data Pagamento"
+  - Campo "Tipo Pagamento" 
+  - Campo "Banca" (condizionale al bonifico)
+  - Riferimenti a queste variabili nello stato del form e nel payload di update
 
-### 1. Estrarre il dialog Messa a Cassa
-Creare nuovo componente `src/components/portafoglio/MessaCassaDialog.tsx` con:
-- Props: `titoliIds: string[]` (1 o N), `open`, `onOpenChange`, `onSuccess`
-- Form: data messa cassa, data incasso, importo incassato (disabilitato se selezione multipla — usa premio_lordo di ciascun titolo), tipo pagamento, note
-- Submit: aggiorna **tutti** i titoli in un'unica chiamata Supabase + log attività per ciascuno + invalidate queries
+### Comportamento atteso dopo il fix
 
-### 2. Refactor TitoloDetail
-Sostituire il dialog inline con il nuovo `MessaCassaDialog` passando `titoliIds={[id]}` (singolo). Comportamento invariato.
+**Dialog Garantito** (azione di garanzia, NON incasso effettivo):
+- Data Messa a Cassa
+- Data Decorrenza Rinnovo
+- Checkbox dichiarazione responsabilità
+- Stato → `garantito` (non `incassato`)
+- Nessun dato di pagamento (saranno compilati dopo, in fase di incasso reale)
 
-### 3. PortafoglioCaricoPage
-- Verificare/aggiungere selezione multipla via checkbox (sembra già presente dallo screenshot — colonna checkbox in tabella)
-- Aggiungere toolbar bulk azioni che appare quando N≥1 selezionate, con pulsante "Incassa selezionate (N)"
-- Il pulsante "Cassa" di riga apre il dialog con un solo ID
-- Il pulsante bulk apre lo stesso dialog con la lista di ID selezionati
+**Dialog Incassa** (resta com'è — incasso effettivo):
+- Tutti i campi pagamento (data pagamento, tipo, banca)
+- Stato → `incassato`
 
-### 4. Comportamento selezione multipla nel dialog
-- Header: "Incasso multiplo: N polizze (totale lordo €X.XXX)"
-- Importo incassato: nascosto/auto (somma o per-riga = premio_lordo di ciascuna)
-- Data messa cassa, data incasso, tipo pagamento: applicati a tutte
-- Submit: update batch con `.in('id', titoliIds)` per i campi comuni, poi cambio stato per ciascuna a `incassato`
+### Nota importante da chiarire
 
-### File toccati
-- `src/components/portafoglio/MessaCassaDialog.tsx` (nuovo)
-- `src/pages/TitoloDetail.tsx` (refactor: usa nuovo dialog)
-- `src/pages/PortafoglioCaricoPage.tsx` (toolbar bulk + collega pulsante riga al nuovo dialog)
+Devo verificare nel codice attuale se il dialog "Garantito" attualmente:
+- (a) imposta `stato = 'garantito'` e lascia in sospeso il pagamento, oppure
+- (b) imposta `stato = 'incassato'` (uguale a Incassa) — in tal caso va corretto anche questo
 
-### Conferma prima di procedere
-Per la selezione multipla, l'**importo incassato** di ciascuna polizza deve essere preso automaticamente dal `premio_lordo` di ognuna (default), oppure preferisci consentire l'editing per ciascuna nella griglia del dialog? Il default consigliato (auto = premio_lordo di ciascuna) è quello standard per gli incassi di rinnovo — procedo con questo se non specifichi diversamente.
+E se lo stato `'garantito'` è ammesso dal vincolo DB su `titoli.stato` (che attualmente accetta: `attivo, sospeso, scaduto, incassato` — vedi memory `policy-states`). Se NON è ammesso, serve una migration per aggiungerlo, oppure si usa un campo separato (es. `garantito: bool` + `data_garanzia`) senza cambiare `stato`.
+
+Procedo con la rimozione dei 2 campi (Data Pagamento + Tipo Pagamento + Banca) nel dialog Garantito. Per la gestione dello stato `garantito` nel DB verifico in fase di esecuzione e adatto la soluzione (aggiunta colonna booleana `garantito` + `data_garanzia` se lo stato non è ammesso, evitando di toccare `stato` finché non avviene l'incasso reale).
