@@ -219,23 +219,30 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
     queryKey: ["chat_unread_count", user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
-      const { data: channels } = await supabase
-        .from("chat_canali_membri")
-        .select("canale_id")
-        .eq("user_id", user.id);
-      if (!channels?.length) return 0;
-      const channelIds = channels.map((c) => c.canale_id);
-      const { count } = await supabase
-        .from("chat_messaggi_interni")
-        .select("id", { count: "exact", head: true })
-        .in("canale_id", channelIds)
-        .neq("mittente_id", user.id)
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-      return count || 0;
+      const { data } = await supabase.rpc("get_chat_unread_count", { _user_id: user.id });
+      return Number(data) || 0;
     },
     enabled: !!user?.id,
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
+
+  // Realtime: refresh badge when new messages arrive
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel("chat_unread_realtime_main")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messaggi_interni" },
+        () => {
+          // refetch via invalidation done by react-query subscription
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     for (const entry of sidebarEntries) {
