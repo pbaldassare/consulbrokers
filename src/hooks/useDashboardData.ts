@@ -201,22 +201,23 @@ export function useDashboardData(ruolo: string) {
     const [
       { data: scadenzeMese },
       { data: incassiMese },
-      { data: caricoMese },
+      { data: fuoriCopertura },
       { data: titoliIncassati },
       { data: rimesseDettaglio },
       { data: incassiAnno },
       { data: scadenze30 },
     ] = await Promise.all([
-      // Scadenze del mese: titoli con data_scadenza nel mese corrente
-      supabase.from("v_portafoglio_titoli").select("premio_lordo")
+      // Scadenze del mese: titoli con data_scadenza nel mese corrente (tabella diretta)
+      supabase.from("titoli").select("premio_lordo")
         .gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth)
         .in("stato", ["attivo", "incassato"]).limit(10000),
-      // Incassi del mese: messa cassa nel mese
-      supabase.from("v_portafoglio_titoli").select("premio_lordo")
+      // Incassi del mese: messa cassa nel mese (tabella diretta)
+      supabase.from("titoli").select("premio_lordo")
         .gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
-      // Carico del mese: data_effetto nel mese corrente
-      supabase.from("v_portafoglio_titoli").select("premio_lordo")
-        .gte("data_effetto", startOfMonth).lte("data_effetto", endOfMonth).limit(10000),
+      // Fuori copertura: scadute nel mese, ancora attive, non ancora messe a cassa
+      supabase.from("titoli").select("premio_lordo")
+        .gte("data_scadenza", startOfMonth).lt("data_scadenza", oggi)
+        .eq("stato", "attivo").is("data_messa_cassa", null).limit(10000),
       // Tutti i titoli incassati (id + premio)
       supabase.from("titoli").select("id, premio_lordo").eq("stato", "incassato").limit(10000),
       // Titoli già messi in rimessa
@@ -271,8 +272,8 @@ export function useDashboardData(ruolo: string) {
       scadenzeMeseImporto: sumPremio(scadenzeMese),
       incassiMeseCount: (incassiMese || []).length,
       incassiMeseImporto: sumPremio(incassiMese),
-      caricoMeseCount: (caricoMese || []).length,
-      caricoMeseImporto: sumPremio(caricoMese),
+      fuoriCoperturaCount: (fuoriCopertura || []).length,
+      fuoriCoperturaImporto: sumPremio(fuoriCopertura),
       rimesseDaInviareCount: rimesseDaInviare.length,
       rimesseDaInviareImporto: sumPremio(rimesseDaInviare),
       incassiMensili,
