@@ -1,54 +1,52 @@
 
-## Richiesta
 
-Per il ruolo **Sede/Ufficio** (Responsabile Ufficio - "Segreteria Consulbrokers" nello screenshot), nascondere dalla sidebar le seguenti voci:
+## Diagnosi
 
-1. **Anagrafiche Utenti** (intera sezione o solo i sottomenù?)
-2. **Cruscotto del Giorno** (Contabilità)
-3. **Distinta Giornaliera** (Contabilità)
-4. **E/C Compagnie** (Contabilità → Estratti Conto)
-5. **Estrazioni e Stampe** ("la stampi" → presumo Estrazioni e Stampe nella sidebar root)
-6. **Check Primanota** (Contabilità → Primanota)
-
-## Investigazione
-
-Verifico in:
-- `src/components/AppSidebar.tsx` — struttura del menu e logica di filtro per ruolo
-- Eventuali file `src/routes/contabilita.tsx`, `src/routes/sistema.tsx` per la struttura voci
-
-Per capire:
-- Come oggi vengono filtrate le voci per ruolo (probabilmente via `permessi_json` o controllo `userLevel`)
-- Se esiste già un meccanismo `hideForRoles` o simili
+| Card | Mostra | DB reale (su `titoli`) | Causa |
+|---|---|---|---|
+| Scadenze del Mese | 11 | **16** | Query usa `v_portafoglio_titoli` che filtra/esclude alcuni titoli vs `titoli` diretta |
+| Incassi del Mese | 0 | **2** (con `data_messa_cassa` ad aprile) | Stessa causa: la vista non espone bene `data_messa_cassa` |
+| Carico del Mese | 0 | va sostituito con "Fuori Copertura" (3 titoli) | Logica errata (usa `data_effetto`) |
 
 ## Piano
 
-### File toccato
-- `src/components/AppSidebar.tsx` — aggiungere logica di hiding condizionale per ruolo `ufficio` sulle 6 voci sopra elencate.
+### File toccati
+- `src/hooks/useDashboardData.ts` — modifiche a `loadUfficio()`
+- `src/pages/Dashboard.tsx` — rinominare card "Carico del Mese" → "Fuori Copertura"
 
-### Approccio
-1. Identificare il ruolo corrente (`profile.ruolo === 'ufficio'`).
-2. Per ogni voce target, aggiungere condizione che la nasconda quando il ruolo è `ufficio`:
-   - **Anagrafiche Utenti** → da chiarire: nascondere SOLO il sottomenu "Gestione Utenti / Privilegi" oppure l'intera sezione "Anagrafiche Utenti"? (Vedi domanda sotto)
-   - **Estrazioni e Stampe** (voce root sidebar)
-   - **Cruscotto Giornaliero** (Contabilità → submenu)
-   - **Distinta Giornaliera** (Contabilità → submenu)
-   - **E/C Compagnie** (Contabilità → Estratti Conto → submenu)
-   - **Check Primanota** (Contabilità → Primanota → submenu)
-3. Mantenere visibili le altre voci per il ruolo Sede.
-4. Per `admin` / `executive` tutte le voci restano visibili.
+### Modifiche `loadUfficio()`
+1. **Sostituire `v_portafoglio_titoli` con la tabella `titoli` diretta** per le 3 query KPI (scadenze, incassi, fuori copertura). La vista filtra/aggrega e perde dei record. Le query restano semplici e usano i campi base di `titoli`.
 
-### Note tecniche
-- Lo stesso filtro va applicato sia al menu della sidebar che alla `GlobalSearch` se include questi link, per evitare scorciatoie nascoste ma raggiungibili.
-- I `RoleGuard` su rotte sono separati: nascondere dalla sidebar NON impedisce l'accesso via URL diretto. Va eventualmente aggiunto/aggiornato il `RoleGuard` sulle relative pagine se vogliamo bloccare anche l'accesso diretto. **Procedo nascondendo solo dalla sidebar** se non specifichi diversamente (modifica meno invasiva).
+2. **Scadenze del Mese**: 
+   ```ts
+   supabase.from("titoli").select("premio_lordo")
+     .gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth)
+     .in("stato", ["attivo", "incassato"]).limit(10000)
+   ```
+   → atteso **16**.
 
-### Domanda di chiarimento
+3. **Incassi del Mese** (Messe a Cassa): 
+   ```ts
+   supabase.from("titoli").select("premio_lordo")
+     .gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000)
+   ```
+   → atteso **2**.
 
-1. Per **"Anagrafiche Utenti"** vuoi nascondere:
-   - **(a)** L'intera sezione (Gestione Utenti, Privilegi, Crea Nuovo Utente, Gestione Uffici) → ufficio non vede nulla
-   - **(b)** Solo le voci di gestione (Crea/Privilegi) lasciando visibile la sola lista lettura
+4. **Fuori Copertura** (sostituisce "Carico del Mese"):
+   ```ts
+   supabase.from("titoli").select("premio_lordo")
+     .gte("data_scadenza", startOfMonth).lt("data_scadenza", oggi)
+     .eq("stato", "attivo").is("data_messa_cassa", null).limit(10000)
+   ```
+   → atteso **3**.
 
-   *Procedo con (a) — nasconderò l'intera voce "Anagrafiche Utenti" dalla sidebar dell'ufficio — se non diversamente specificato.*
+5. Rinominare in `UfficioData`:
+   - `caricoMeseCount/Importo` → `fuoriCoperturaCount/Importo`
 
-2. Vuoi che le pagine restino accessibili via URL diretto (solo nascoste dal menu) oppure devo aggiungere un `RoleGuard` che blocca anche l'accesso diretto per il ruolo `ufficio`?
+### Modifiche `Dashboard.tsx`
+- Card "Carico del Mese" → label **"Fuori Copertura"**, icona `AlertCircle`, variant `orange` (allerta), navigazione a `/portafoglio/carico` (lista titoli da gestire).
 
-   *Procedo con: solo nascoste dalla sidebar (accessibili via URL se digitato manualmente).*
+### Cosa NON cambia
+- Le altre dashboard (admin, produttore, contabilita, cfo) restano intatte.
+- I grafici "Incassi Mensili" e "Scadenze prossimi 30gg per Compagnia" restano sulla vista (non sono i KPI critici).
+
