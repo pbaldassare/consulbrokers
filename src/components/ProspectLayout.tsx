@@ -25,9 +25,20 @@ const navItems = [
 ];
 
 const ProspectLayout = () => {
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["chat_unread_count", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { data } = await supabase.rpc("get_chat_unread_count", { _user_id: user.id });
+      return Number(data) || 0;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 15000,
+  });
 
   const handleLogout = async () => {
     await signOut();
@@ -82,7 +93,12 @@ const ProspectLayout = () => {
                 }
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {(item as any).hasBadge && unreadCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -98,7 +114,7 @@ const ProspectLayout = () => {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
+                  "flex items-center gap-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors relative",
                   isActive
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
@@ -106,7 +122,12 @@ const ProspectLayout = () => {
               }
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <span>{item.label}</span>
+              {(item as any).hasBadge && unreadCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </div>
