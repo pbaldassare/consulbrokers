@@ -471,8 +471,8 @@ const TitoloDetail = () => {
         </Card>
       )}
 
-      {/* MESSA A CASSA */}
-      {(t.stato === "attivo" || t.stato === "incassato") && (
+      {/* MESSA A CASSA — nascosta se già incassata, salvo polizze poliennali attive (rate residue) */}
+      {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
         <Card className={t.stato === "incassato" ? "border-yellow-400 bg-yellow-50" : ""}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
