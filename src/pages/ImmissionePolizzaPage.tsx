@@ -241,6 +241,14 @@ const ImmissionePolizzaPage = () => {
     if (clienteData?.id) setSelectedClienteId(clienteData.id);
   }, [clienteData?.id]);
 
+  // Pre-selezione cliente da query string (es. da scheda cliente)
+  useEffect(() => {
+    if (preselectedClienteId && !selectedClienteId) {
+      setSelectedClienteId(preselectedClienteId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedClienteId]);
+
   // Eredita ufficio dal cliente
   useEffect(() => {
     if (clienteDettaglio?.ufficio_id) {
