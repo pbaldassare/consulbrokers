@@ -535,6 +535,7 @@ const ImmissionePolizzaPage = () => {
         incassato: false,
         stato: "attivo",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
+      } as any);
 
       // Save RCA data if applicable
       if (isRCA) {
