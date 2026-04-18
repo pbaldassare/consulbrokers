@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,8 @@ import { QuickClienteDialog } from "@/components/polizze/QuickClienteDialog";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedClienteId = searchParams.get("clienteId");
   const { user, profile } = useAuth();
   const [saving, setSaving] = useState(false);
 
