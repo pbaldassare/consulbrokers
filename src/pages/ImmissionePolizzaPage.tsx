@@ -506,7 +506,9 @@ const ImmissionePolizzaPage = () => {
         copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
         data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
         stato: "creato",
-        ufficio_id: profile?.ufficio_id || null,
+        ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
+        produttore_id: selectedAE || null,
+        backoffice_id: selectedBackofficeId || null,
       };
 
       const { data: newTitolo, error } = await supabase
