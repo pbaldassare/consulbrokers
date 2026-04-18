@@ -6381,6 +6381,7 @@ export type Database = {
       }
     }
     Functions: {
+      ai_exec_select: { Args: { query_text: string }; Returns: Json }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_entrate_uscite_mensili: {
         Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
