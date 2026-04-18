@@ -34,7 +34,6 @@ const RUOLI_INTERNI = [
   { value: "contabilita", label: "Contabilità" },
   { value: "cfo", label: "CFO" },
   { value: "consul", label: "Consul" },
-  { value: "cliente", label: "Cliente" },
   { value: "prospect", label: "Prospect" },
 ];
 
@@ -83,28 +82,30 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
   const [addPartecipanteRicerca, setAddPartecipanteRicerca] = useState("");
   const [showAddPartecipante, setShowAddPartecipante] = useState(false);
 
-  // Load all profiles for manual add
+  // Load all profiles for manual add (excludes 'cliente')
   const { data: allProfiles } = useQuery({
     queryKey: ["all_profiles_chat"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, nome, cognome, ruolo, ufficio_id, email")
+        .select("id, nome, cognome, ruolo, ufficio_id, email, telefono, note, avatar_url")
         .eq("attivo", true)
+        .neq("ruolo", "cliente")
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },
     enabled: open,
   });
 
-  // Load ALL active profiles (any role) for internal mode — universal search
+  // Load ALL active profiles (excludes 'cliente') for internal mode — universal search
   const { data: utentiStaff } = useQuery({
-    queryKey: ["profiles_all_chat"],
+    queryKey: ["profiles_all_chat_internal"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, nome, cognome, ruolo, ufficio_id, email")
+        .select("id, nome, cognome, ruolo, ufficio_id, email, telefono, note, avatar_url")
         .eq("attivo", true)
+        .neq("ruolo", "cliente")
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },
@@ -276,25 +277,27 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     setVisibileCliente(false);
   };
 
-  // Manual add participant search
+  // Manual add participant search (nome, cognome, email, telefono, note)
   const filteredAddProfiles = (allProfiles || []).filter((u: any) => {
     if (selectedUsers.includes(u.id)) return false;
     if (!addPartecipanteRicerca || addPartecipanteRicerca.length < 2) return false;
-    const full = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
-    return full.includes(addPartecipanteRicerca.toLowerCase());
+    const q = addPartecipanteRicerca.toLowerCase();
+    const haystack = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""} ${u.telefono || ""} ${u.note || ""}`.toLowerCase();
+    return haystack.includes(q);
   }).slice(0, 8);
 
   const removeUser = (id: string) => {
     setSelectedUsers(prev => prev.filter(x => x !== id));
   };
 
-  // For internal mode
+  // For internal mode (search across nome, cognome, email, telefono, note)
   const utentiFiltrati = (utentiStaff || []).filter((u: any) => {
     if (filtroRuolo !== "tutti" && u.ruolo !== filtroRuolo) return false;
     if (filtroUfficio !== "tutti" && u.ufficio_id !== filtroUfficio) return false;
     if (ricerca) {
-      const full = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
-      if (!full.includes(ricerca.toLowerCase())) return false;
+      const q = ricerca.toLowerCase();
+      const haystack = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""} ${u.telefono || ""} ${u.note || ""}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
     }
     return true;
   });
