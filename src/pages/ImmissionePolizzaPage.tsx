@@ -294,7 +294,7 @@ const ImmissionePolizzaPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
-        .select("id, nome_ufficio, codice")
+        .select("id, nome_ufficio, codice_ufficio")
         .eq("attivo", true)
         .order("nome_ufficio");
       return data || [];
