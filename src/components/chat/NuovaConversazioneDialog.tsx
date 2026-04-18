@@ -83,28 +83,30 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
   const [addPartecipanteRicerca, setAddPartecipanteRicerca] = useState("");
   const [showAddPartecipante, setShowAddPartecipante] = useState(false);
 
-  // Load all profiles for manual add
+  // Load all profiles for manual add (excludes 'cliente')
   const { data: allProfiles } = useQuery({
     queryKey: ["all_profiles_chat"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, nome, cognome, ruolo, ufficio_id, email")
+        .select("id, nome, cognome, ruolo, ufficio_id, email, telefono, note, avatar_url")
         .eq("attivo", true)
+        .neq("ruolo", "cliente")
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },
     enabled: open,
   });
 
-  // Load ALL active profiles (any role) for internal mode — universal search
+  // Load ALL active profiles (excludes 'cliente') for internal mode — universal search
   const { data: utentiStaff } = useQuery({
-    queryKey: ["profiles_all_chat"],
+    queryKey: ["profiles_all_chat_internal"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, nome, cognome, ruolo, ufficio_id, email")
+        .select("id, nome, cognome, ruolo, ufficio_id, email, telefono, note, avatar_url")
         .eq("attivo", true)
+        .neq("ruolo", "cliente")
         .order("cognome");
       return (data || []).filter((u: any) => u.id !== profile?.id);
     },
