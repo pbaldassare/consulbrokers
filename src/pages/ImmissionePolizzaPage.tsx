@@ -184,18 +184,53 @@ const ImmissionePolizzaPage = () => {
     enabled: codiceCliente.length >= 2,
   });
 
-  const { data: clienteAE } = useQuery({
-    queryKey: ["cliente-ae", selectedClienteId],
+  // Ricerca server-side per il SearchableSelect cliente
+  const { data: clientiSearchResults } = useQuery({
+    queryKey: ["clienti-search-immissione", clienteSearch],
+    queryFn: async () => {
+      let q = supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
+        .eq("attivo", true)
+        .order("ragione_sociale", { nullsFirst: false })
+        .limit(50);
+      if (clienteSearch && clienteSearch.length >= 2) {
+        const term = `%${clienteSearch}%`;
+        q = q.or(
+          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term}`
+        );
+      }
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 1000 * 30,
+  });
+
+  // Dettaglio cliente selezionato (per eredità ufficio)
+  const { data: clienteDettaglio } = useQuery({
+    queryKey: ["cliente-dettaglio-immissione", selectedClienteId],
     queryFn: async () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
-        .from("codici_commerciali_cliente")
-        .select("profilo_id, anagrafiche_professionali:profilo_id(id, codice, cognome, nome, sigla)")
-        .eq("cliente_id", selectedClienteId)
-        .eq("ruolo", "account_executive")
-        .limit(1)
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, ufficio_id, gruppo_finanziario_id")
+        .eq("id", selectedClienteId)
         .maybeSingle();
       return data;
+    },
+    enabled: !!selectedClienteId,
+  });
+
+  const { data: clienteAE } = useQuery({
+    queryKey: ["cliente-ae-bo", selectedClienteId],
+    queryFn: async () => {
+      if (!selectedClienteId) return [];
+      const { data } = await supabase
+        .from("codici_commerciali_cliente")
+        .select("profilo_id, ruolo")
+        .eq("cliente_id", selectedClienteId)
+        .in("ruolo", ["account_executive", "AE", "Backoffice"]);
+      return data || [];
     },
     enabled: !!selectedClienteId,
   });
@@ -204,9 +239,29 @@ const ImmissionePolizzaPage = () => {
     if (clienteData?.id) setSelectedClienteId(clienteData.id);
   }, [clienteData?.id]);
 
+  // Eredita ufficio dal cliente
   useEffect(() => {
-    if (clienteAE?.profilo_id) setSelectedAE(clienteAE.profilo_id as string);
-  }, [clienteAE?.profilo_id]);
+    if (clienteDettaglio?.ufficio_id) {
+      setSelectedUfficioId(clienteDettaglio.ufficio_id);
+    }
+  }, [clienteDettaglio?.ufficio_id]);
+
+  // Eredita AE e Backoffice dal cliente
+  useEffect(() => {
+    if (Array.isArray(clienteAE) && clienteAE.length > 0) {
+      const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
+      const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
+      if (ae?.profilo_id) setSelectedAE(ae.profilo_id as string);
+      if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+    }
+  }, [clienteAE]);
+
+  // Default ufficio = ufficio dell'utente loggato
+  useEffect(() => {
+    if (profile?.ufficio_id && !selectedUfficioId) {
+      setSelectedUfficioId(profile.ufficio_id);
+    }
+  }, [profile?.ufficio_id]);
 
   const { data: aeList } = useQuery({
     queryKey: ["ae-list-immissione"],
@@ -217,6 +272,31 @@ const ImmissionePolizzaPage = () => {
         .eq("tipo", "account_executive")
         .eq("attivo", true)
         .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: backofficeList } = useQuery({
+    queryKey: ["backoffice-list-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, ruolo")
+        .eq("ruolo", "backoffice")
+        .eq("attivo", true)
+        .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: ufficiList } = useQuery({
+    queryKey: ["uffici-list-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, codice")
+        .eq("attivo", true)
+        .order("nome_ufficio");
       return data || [];
     },
   });
