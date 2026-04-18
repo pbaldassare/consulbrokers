@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Archive, Search, RotateCcw } from "lucide-react";
+import { Archive, Search, RotateCcw, Plus } from "lucide-react";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 
@@ -99,9 +99,15 @@ const PortafoglioStoricoPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
-        <p className="text-sm text-muted-foreground">Polizze scadute, sospese o con copertura terminata</p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
+          <p className="text-sm text-muted-foreground">Polizze scadute, sospese o con copertura terminata</p>
+        </div>
+        <Button onClick={() => navigate("/portafoglio/immissione")} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Nuova Polizza
+        </Button>
       </div>
 
       <Card>
