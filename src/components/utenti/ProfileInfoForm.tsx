@@ -49,9 +49,22 @@ const ProfileInfoForm = ({ userId, initial, mode, onSaved, hideSubmit }: Props) 
       telefono: form.telefono.trim() || null,
       note: form.note.trim() || null,
     };
-    const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userId)
+      .select("id, nome, cognome, telefono, note");
     if (error) {
+      console.error("[ProfileInfoForm] update error", error);
       toast.error("Errore salvataggio", { description: error.message });
+      setSaving(false);
+      return;
+    }
+    if (!data || data.length === 0) {
+      console.warn("[ProfileInfoForm] update returned 0 rows (RLS block?)", { userId, payload });
+      toast.error("Salvataggio non riuscito", {
+        description: "Permessi insufficienti o utente non trovato. Contatta l'amministratore.",
+      });
       setSaving(false);
       return;
     }
