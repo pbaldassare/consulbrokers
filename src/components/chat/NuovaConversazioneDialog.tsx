@@ -338,7 +338,7 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
       if (ambito === "contestuale") {
         const nome = generateAutoName();
         const finalEntitaTipo = entityTab === "libero" ? "argomento" : entitaTipo;
-        const { data: canale } = await supabase
+        const { data: canale, error: canaleErr } = await supabase
           .from("chat_canali")
           .insert({
             nome,
@@ -352,38 +352,54 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
           .select()
           .single();
 
+        if (canaleErr) {
+          console.error("Errore creazione canale contestuale:", canaleErr);
+          throw new Error(canaleErr.message || "Errore creazione canale");
+        }
         if (!canale) throw new Error("Errore creazione canale");
 
         const allMembers = Array.from(new Set([profile.id, ...selectedUsers]));
-        await supabase.from("chat_canali_membri").insert(
+        const { error: membriErr } = await supabase.from("chat_canali_membri").insert(
           allMembers.map((uid) => ({
             canale_id: canale.id,
             user_id: uid,
             ruolo_canale: uid === profile.id ? "admin" : "membro",
           }))
         );
+        if (membriErr) {
+          console.error("Errore inserimento membri:", membriErr);
+          throw new Error(membriErr.message || "Errore aggiunta partecipanti");
+        }
         return canale.id;
       }
 
       const effectiveTipo = selectedUsers.length === 1 && tipo === "diretto" ? "diretto" : tipo === "diretto" ? "gruppo" : tipo;
       const nome = effectiveTipo === "diretto" ? null : nomeGruppo || null;
 
-      const { data: canale } = await supabase
+      const { data: canale, error: canaleErr } = await supabase
         .from("chat_canali")
         .insert({ nome, tipo: effectiveTipo, creato_da: profile.id, ambito: "interno" })
         .select()
         .single();
 
+      if (canaleErr) {
+        console.error("Errore creazione canale interno:", canaleErr);
+        throw new Error(canaleErr.message || "Errore creazione canale");
+      }
       if (!canale) throw new Error("Errore creazione canale");
 
       const allMembers = Array.from(new Set([profile.id, ...selectedUsers]));
-      await supabase.from("chat_canali_membri").insert(
+      const { error: membriErr } = await supabase.from("chat_canali_membri").insert(
         allMembers.map((uid) => ({
           canale_id: canale.id,
           user_id: uid,
           ruolo_canale: uid === profile.id ? "admin" : "membro",
         }))
       );
+      if (membriErr) {
+        console.error("Errore inserimento membri:", membriErr);
+        throw new Error(membriErr.message || "Errore aggiunta partecipanti");
+      }
       return canale.id;
     },
     onSuccess: (canaleId) => {
