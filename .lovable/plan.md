@@ -1,47 +1,96 @@
 
-## Diagnosi
+## Obiettivo
 
-L'utente è sulla scheda cliente (GASTALDELLO SAMANTHA, `/archivi/clienti/:id`) nel tab **Polizze (0)** che mostra "Nessuna polizza collegata a questo cliente". Vuole poter:
-1. **Creare/inserire una polizza direttamente dalla scheda cliente** (senza passare da `/portafoglio/immissione` e ri-selezionare il cliente)
-2. **Visualizzare** le polizze collegate nel tab
+Chat IA interrogabile da tutti gli utenti che risponde su qualsiasi dato (polizze, clienti, sinistri, scadenze, provvigioni, contabilità...) **rispettando RLS** — quindi un utente di Napoli vede solo dati Napoli, un cliente solo i suoi, l'admin tutto.
 
-## Esplorazione necessaria
+## Strategia: RLS-First (sicurezza nativa)
 
-Verifico in `ClienteDetail.tsx`:
-- Come è strutturato il tab "Polizze" attuale
-- Se esiste già una query per recuperare i titoli del cliente (probabilmente solo placeholder visto "Polizze (0)" e il messaggio)
-- Se c'è un contatore reale o sempre 0
+Invece di costruire filtri custom per ruolo (fragile, duplicato), sfrutto le **policy RLS già esistenti** sul database. L'IA esegue query SQL **per conto dell'utente loggato** usando la sua sessione Supabase (anon key + JWT) → il DB applica automaticamente le restrizioni di visibilità che già governano tutta l'app.
 
-## Soluzione
+L'IA NON ha mai accesso al `service_role_key`. Non può bypassare RLS. È sicura by design.
 
-### 1. Tab Polizze — visualizzazione
-- Query a `v_portafoglio_titoli` (vista già esistente per portafoglio, vedi memoria `portfolio-management-views`) filtrata per `cliente_id = cliente.id`
-- Tabella compatta: Numero polizza, Compagnia, Ramo, Decorrenza, Scadenza, Premio, Stato (badge)
-- Riga cliccabile → naviga a `/portafoglio/titoli/:id` (dettaglio titolo)
-- Aggiornare contatore `Polizze (N)` con il count reale
+## Architettura
 
-### 2. Pulsante "+ Nuova Polizza" nel tab
-- In alto a destra del tab Polizze: `<Button>+ Nuova Polizza</Button>`
-- Click → `navigate("/portafoglio/immissione?clienteId=" + cliente.id)`
-- In `ImmissionePolizzaPage.tsx`: leggere il query param `clienteId`, se presente pre-selezionare il cliente all'avvio (riusando la logica già esistente di selezione cliente, che eredita Sede/AE/Specialist)
+```text
+Utente (chat sidebar/page)
+   │  domanda in NL + JWT
+   ▼
+Edge Function "ai-assistant"
+   │  1. Gemini 2.5 Flash con tool-calling
+   │  2. Tool "query_database" → SQL whitelistato (SELECT only)
+   │  3. Esegue SQL via supabase client con JWT utente (RLS attivo)
+   │  4. Re-prompt Gemini con risultati → risposta NL
+   ▼
+Risposta in chat (markdown + dati citati)
+```
 
-### 3. Stato vuoto migliorato
-- Se 0 polizze: messaggio + CTA centrale "Crea la prima polizza per questo cliente"
+### Componenti
+
+**1. Edge Function `ai-assistant`** (nuova)
+- Riceve: `{ messages: [...], conversation_id }` + Authorization header utente
+- Crea client Supabase con il JWT dell'utente → tutte le query rispettano RLS
+- Usa Lovable AI Gateway (Gemini 2.5 Flash, gratis fino a ott 2025) con system prompt che:
+  - Descrive lo schema sintetico (tabelle/viste utili: `clienti`, `titoli`/`v_portafoglio_titoli`, `sinistri`, `compagnie`, `rami`, `uffici`, `trattative`, `provvigioni_generate`, `movimenti_contabili`)
+  - Spiega le convenzioni (Sede=ufficio, stati polizza, ecc.)
+  - Dichiara il tool `query_database(sql, description)`
+- Esegue il tool: valida SQL (solo `SELECT`, no DDL/DML, limite righe 100), esegue, restituisce JSON al modello
+- Loop max 5 tool calls per evitare runaway
+- Salva la conversazione in nuova tabella `ai_chat_messaggi`
+
+**2. Tabelle DB (nuova migration)**
+- `ai_chat_conversazioni` — id, user_id, titolo, created_at
+- `ai_chat_messaggi` — id, conversazione_id, role (user/assistant), content, tool_calls jsonb, created_at
+- RLS: ogni utente vede solo le sue conversazioni
+
+**3. UI Chat IA**
+- Nuova pagina `/ai-assistant` (o sidebar drawer globale)
+- Layout: lista conversazioni a sinistra + area chat a destra
+- Render markdown per le risposte (`react-markdown` già pattern noto)
+- Input con suggerimenti rapidi: "Quando scade la polizza di X?", "Sinistri aperti", "Provvigioni di aprile"
+- Streaming opzionale (v2); v1 blocking
+- Accessibile da topbar con icona ✨ (visibile a tutti i ruoli interni; per ruolo `cliente` mostra versione filtrata o nasconde — decido in implementazione)
+
+**4. Sicurezza/Limiti**
+- Whitelist SQL: solo `SELECT`, regex blocca `INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|GRANT|TRUNCATE`
+- `LIMIT 100` forzato se assente
+- Timeout query 10s
+- Rate limit 30 msg/ora per utente (controllo lato function)
+- Log attività (`logAttivita`) per ogni domanda critica
+
+## Esempio flusso
+
+> Utente Napoli: *"Quando scade la polizza del Comune di Santa Marina?"*
+
+1. Gemini → tool `query_database`:  
+   `SELECT numero_titolo, data_scadenza, c.ragione_sociale FROM titoli t JOIN clienti c ON c.id=t.cliente_anagrafica_id WHERE c.ragione_sociale ILIKE '%santa marina%' LIMIT 10`
+2. RLS filtra: utente Napoli vede solo titoli del suo ufficio → 1 riga (332437571, 04/04/2026)
+3. Gemini risponde: *"La polizza 332437571 del Comune di Santa Marina Salina scade il 04/04/2026 (ramo Infortuni Cumulativa, compagnia Assisud)."*
+
+Stesso utente di Catania → RLS filtra → 0 righe → Gemini: *"Non risulta alcuna polizza visibile per questo cliente."*
 
 ## File toccati
 
-- `src/pages/ClienteDetail.tsx` — query polizze del cliente, tabella, contatore reale, pulsante "+ Nuova Polizza"
-- `src/pages/ImmissionePolizzaPage.tsx` — lettura `?clienteId=` da URL e pre-selezione cliente
+**Nuovi:**
+- `supabase/functions/ai-assistant/index.ts` — edge function principale
+- `supabase/functions/ai-assistant/schema-context.ts` — descrizione schema per il prompt
+- `supabase/migrations/<timestamp>_ai_chat.sql` — tabelle conversazioni/messaggi + RLS
+- `src/pages/AiAssistantPage.tsx` — UI chat
+- `src/components/ai/AiChatMessage.tsx` — bubble messaggio con markdown
+- `src/components/ai/AiChatInput.tsx` — input + suggerimenti
+
+**Modificati:**
+- `src/App.tsx` — route `/ai-assistant`
+- `src/components/AppSidebar.tsx` — voce "Assistente IA" con icona Sparkles
+- `src/components/Topbar.tsx` (opzionale) — pulsante quick access
 
 ## Cosa NON cambia
 
-- Schema DB, vista `v_portafoglio_titoli`
-- Pagina `/portafoglio/immissione` (logica form, ereditarietà dati)
-- Route esistenti
+- Schema dati esistente (lettura sola)
+- Policy RLS esistenti (le sfruttiamo, non le modifichiamo)
+- Edge function/AI già presenti
 
 ## Note implementazione
 
-In fase di sviluppo verifico:
-- Nome esatto della rotta dettaglio titolo (`/portafoglio/titoli/:id` o `/titoli/:id`)
-- Colonne disponibili in `v_portafoglio_titoli` (già documentate in memoria `portfolio-view-calculated-fields`: `cliente_nome_display`, ecc.)
-- Pattern di routing già usato altrove per "torna al cliente" dopo creazione polizza (eventuale redirect post-save)
+- Uso `LOVABLE_API_KEY` (già configurato) → endpoint `https://ai.gateway.lovable.dev/v1/chat/completions` con `google/gemini-2.5-flash`
+- Schema context: lo costruisco a mano (~2KB) elencando solo tabelle/colonne realmente utili — non passo lo schema completo (troppi token)
+- In v1 niente streaming: risposta blocking; aggiungo loader animato
