@@ -534,8 +534,7 @@ const ImmissionePolizzaPage = () => {
         tipo: "Polizza Base",
         incassato: false,
         stato: "attivo",
-        ufficio_id: profile?.ufficio_id || null,
-      } as any);
+        ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
 
       // Save RCA data if applicable
       if (isRCA) {
