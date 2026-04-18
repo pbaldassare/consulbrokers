@@ -64,21 +64,21 @@ const AiAssistantPage = () => {
         .eq("conversazione_id", activeId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as DbMessage[];
+      return (data ?? []) as unknown as DbMessage[];
     },
   });
 
-  const messages: AiMessage[] = activeId
+  const persistedMessages: AiMessage[] = activeId
     ? dbMessages
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({
           id: m.id,
           role: m.role as "user" | "assistant",
           content: m.content,
-          tool_calls: m.tool_calls ?? undefined,
+          tool_calls: (m.tool_calls as AiToolCall[] | null) ?? undefined,
         }))
-        .concat(pendingMessages)
-    : pendingMessages;
+    : [];
+  const messages: AiMessage[] = [...persistedMessages, ...pendingMessages];
 
   // Auto-scroll
   useEffect(() => {
@@ -150,12 +150,14 @@ const AiAssistantPage = () => {
     setPendingMessages((prev) => [...prev, userMsg]);
 
     // Persist user message
-    await supabase.from("ai_chat_messaggi").insert({
-      conversazione_id: convId,
-      user_id: user.id,
-      role: "user",
-      content: text,
-    });
+    await supabase.from("ai_chat_messaggi").insert([
+      {
+        conversazione_id: convId,
+        user_id: user.id,
+        role: "user",
+        content: text,
+      },
+    ]);
 
     // Build full history (DB + pending)
     const history = messages
@@ -177,13 +179,15 @@ const AiAssistantPage = () => {
       const toolCalls: AiToolCall[] = data?.tool_calls ?? [];
 
       // Persist assistant message
-      await supabase.from("ai_chat_messaggi").insert({
-        conversazione_id: convId,
-        user_id: user.id,
-        role: "assistant",
-        content: assistantContent,
-        tool_calls: toolCalls.length > 0 ? toolCalls : null,
-      });
+      await supabase.from("ai_chat_messaggi").insert([
+        {
+          conversazione_id: convId,
+          user_id: user.id,
+          role: "assistant",
+          content: assistantContent,
+          tool_calls: (toolCalls.length > 0 ? toolCalls : null) as any,
+        },
+      ]);
 
       // Touch conversation timestamp + update title if needed
       const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
