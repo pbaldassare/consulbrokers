@@ -16,6 +16,9 @@ import { getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS 
 import PermissionsMatrix from "./PermissionsMatrix";
 import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import ProfileAvatarUpload from "./ProfileAvatarUpload";
+import ProfileInfoForm from "./ProfileInfoForm";
+import { Separator as Sep2 } from "@/components/ui/separator";
 
 interface Props {
   user: any | null;
@@ -152,7 +155,36 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
           </TabsList>
 
           <ScrollArea className="flex-1 mt-3 pr-3">
-            <TabsContent value="anagrafica" className="space-y-3 mt-0">
+            <TabsContent value="anagrafica" className="space-y-4 mt-0">
+              <div className="rounded-lg border p-3">
+                <ProfileAvatarUpload
+                  userId={user.id}
+                  avatarUrl={user.avatar_url || null}
+                  fallback={`${(user.nome || "")[0] || ""}${(user.cognome || "")[0] || ""}`.toUpperCase() || "U"}
+                  onChange={(url) => { user.avatar_url = url; }}
+                />
+              </div>
+
+              <ProfileInfoForm
+                userId={user.id}
+                mode="admin"
+                initial={{
+                  nome: user.nome || "",
+                  cognome: user.cognome || "",
+                  telefono: user.telefono || "",
+                  note: user.note || "",
+                }}
+                onSaved={(info) => {
+                  user.nome = info.nome;
+                  user.cognome = info.cognome;
+                  user.telefono = info.telefono;
+                  user.note = info.note;
+                  onSaved();
+                }}
+              />
+
+              <Sep2 />
+
               <div><Label className="text-xs">Email</Label><Input value={user.email || ""} disabled /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -186,6 +218,9 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                 </div>
                 <Switch checked={attivo} onCheckedChange={setAttivo} />
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                Ruolo, sede e stato account si salvano con il pulsante "Salva modifiche" in fondo. I dati anagrafici si salvano con il pulsante dedicato qui sopra.
+              </p>
             </TabsContent>
 
             <TabsContent value="visibility" className="space-y-3 mt-0">
