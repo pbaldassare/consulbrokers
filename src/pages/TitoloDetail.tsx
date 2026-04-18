@@ -1004,8 +1004,24 @@ const TitoloDetail = () => {
         </Badge>
       </div>
 
-      {/* Operazioni — nascosto solo per polizze in stato terminale (scaduto/sospeso) */}
-      {!(t.stato === "scaduto" || t.stato === "sospeso") && (
+      {/* Operazioni — per polizze sospese mostra solo Riattivazione; nascosto per scaduto */}
+      {t.stato === "sospeso" ? (
+        <Card className="border-yellow-400 bg-yellow-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-yellow-700" /> Polizza Sospesa
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Questa polizza è attualmente sospesa. Puoi riattivarla per ripristinare la copertura.
+            </p>
+            <Button size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+              <CheckSquare className="w-4 h-4 mr-1" /> Riattiva Polizza
+            </Button>
+          </CardContent>
+        </Card>
+      ) : t.stato !== "scaduto" && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
