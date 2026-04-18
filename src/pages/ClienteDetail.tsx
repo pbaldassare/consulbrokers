@@ -1054,8 +1054,7 @@ export default function ClienteDetail() {
                 await logAttivita({
                   entita_tipo: "cliente",
                   entita_id: cliente.id,
-                  tipo: "modifica",
-                  descrizione: v ? "Cliente attivato" : "Cliente disattivato",
+                  azione: v ? "cliente_attivato" : "cliente_disattivato",
                 });
               } catch {}
               queryClient.invalidateQueries({ queryKey: ["cliente", id] });
