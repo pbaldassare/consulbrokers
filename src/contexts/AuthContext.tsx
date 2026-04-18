@@ -11,6 +11,9 @@ export interface UserProfile {
   ufficio_id: string | null;
   permessi_json: Record<string, boolean> | null;
   attivo: boolean | null;
+  telefono: string | null;
+  avatar_url: string | null;
+  note: string | null;
 }
 
 interface AuthContextType {
@@ -41,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, nome, cognome, email, ruolo, ufficio_id, permessi_json, attivo")
+      .select("id, nome, cognome, email, ruolo, ufficio_id, permessi_json, attivo, telefono, avatar_url, note")
       .eq("id", userId)
       .maybeSingle();
 

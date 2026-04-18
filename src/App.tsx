@@ -8,6 +8,7 @@ import MainLayout from "./components/MainLayout";
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
+import MioProfilo from "./pages/MioProfilo";
 import NotFound from "./pages/NotFound";
 
 import { archiviRoutes } from "./routes/archivi";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/mio-profilo" element={<MioProfilo />} />
               {archiviRoutes}
               {portafoglioRoutes}
               {sinistriRoutes}
