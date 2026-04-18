@@ -1,42 +1,47 @@
 
 ## Diagnosi
 
-L'utente conferma: **se manca l'email, non si può creare l'area riservata cliente**. Questa è la regola da implementare. Niente email obbligatoria a livello di scheda cliente — il cliente può esistere senza email — ma il **provisioning del portale** deve essere bloccato finché l'email non c'è.
+L'utente è sulla scheda cliente (GASTALDELLO SAMANTHA, `/archivi/clienti/:id`) nel tab **Polizze (0)** che mostra "Nessuna polizza collegata a questo cliente". Vuole poter:
+1. **Creare/inserire una polizza direttamente dalla scheda cliente** (senza passare da `/portafoglio/immissione` e ri-selezionare il cliente)
+2. **Visualizzare** le polizze collegate nel tab
 
-In più, dal messaggio precedente:
-1. Spostare il toggle **Attivo/Disattivo** dalla tabella `ClientiList` alla card di dettaglio cliente
-2. Bloccare creazione utente portale se email mancante
+## Esplorazione necessaria
+
+Verifico in `ClienteDetail.tsx`:
+- Come è strutturato il tab "Polizze" attuale
+- Se esiste già una query per recuperare i titoli del cliente (probabilmente solo placeholder visto "Polizze (0)" e il messaggio)
+- Se c'è un contatore reale o sempre 0
 
 ## Soluzione
 
-### 1. `ClientiList.tsx` — pulizia tabella
-- Rimuovere lo **switch Attivo** inline dalla riga
-- Lasciare eventualmente solo un badge stato (read-only) o rimuovere del tutto la colonna
+### 1. Tab Polizze — visualizzazione
+- Query a `v_portafoglio_titoli` (vista già esistente per portafoglio, vedi memoria `portfolio-management-views`) filtrata per `cliente_id = cliente.id`
+- Tabella compatta: Numero polizza, Compagnia, Ramo, Decorrenza, Scadenza, Premio, Stato (badge)
+- Riga cliccabile → naviga a `/portafoglio/titoli/:id` (dettaglio titolo)
+- Aggiornare contatore `Polizze (N)` con il count reale
 
-### 2. `ClienteDetail.tsx` — toggle Attivo nella card
-- Aggiungere `<Switch>` "Cliente attivo" nell'header della card cliente, a destra del nome
-- Aggiorna `clienti.attivo` su toggle + toast + log attività
-- Solo utenti autorizzati (admin/responsabile) possono modificarlo
+### 2. Pulsante "+ Nuova Polizza" nel tab
+- In alto a destra del tab Polizze: `<Button>+ Nuova Polizza</Button>`
+- Click → `navigate("/portafoglio/immissione?clienteId=" + cliente.id)`
+- In `ImmissionePolizzaPage.tsx`: leggere il query param `clienteId`, se presente pre-selezionare il cliente all'avvio (riusando la logica già esistente di selezione cliente, che eredita Sede/AE/Specialist)
 
-### 3. Provisioning portale cliente — blocco se email mancante
-Nella sezione "Area Riservata" del dettaglio cliente:
-- Se `cliente.email` è null/vuota → **pulsante "Crea accesso portale" disabilitato** + alert giallo: *"Inserisci un'email valida per il cliente prima di abilitare l'area riservata"*
-- Se email presente → pulsante attivo, chiama `provision-clienti-users` / `create-cliente-user`
-- Validazione formato email lato client (regex base) prima della chiamata
+### 3. Stato vuoto migliorato
+- Se 0 polizze: messaggio + CTA centrale "Crea la prima polizza per questo cliente"
 
 ## File toccati
 
-- `src/pages/ClientiList.tsx` — rimozione switch dalla tabella
-- `src/pages/ClienteDetail.tsx` — switch Attivo nell'header + blocco provisioning portale se email mancante
+- `src/pages/ClienteDetail.tsx` — query polizze del cliente, tabella, contatore reale, pulsante "+ Nuova Polizza"
+- `src/pages/ImmissionePolizzaPage.tsx` — lettura `?clienteId=` da URL e pre-selezione cliente
 
 ## Cosa NON cambia
 
-- Schema DB
-- Edge function di provisioning (la validazione è lato client; l'edge function già skippa clienti senza email)
-- Email NON diventa obbligatoria nel form anagrafica cliente — resta opzionale
+- Schema DB, vista `v_portafoglio_titoli`
+- Pagina `/portafoglio/immissione` (logica form, ereditarietà dati)
+- Route esistenti
 
-## Note
+## Note implementazione
 
-In implementazione verifico la struttura attuale di `ClienteDetail.tsx` per individuare:
-- L'header card dove inserire il toggle
-- La sezione/pulsante esistente per provisioning portale (se non c'è, lo creo)
+In fase di sviluppo verifico:
+- Nome esatto della rotta dettaglio titolo (`/portafoglio/titoli/:id` o `/titoli/:id`)
+- Colonne disponibili in `v_portafoglio_titoli` (già documentate in memoria `portfolio-view-calculated-fields`: `cliente_nome_display`, ecc.)
+- Pattern di routing già usato altrove per "torna al cliente" dopo creazione polizza (eventuale redirect post-save)
