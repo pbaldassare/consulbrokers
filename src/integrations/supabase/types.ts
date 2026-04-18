@@ -5948,6 +5948,65 @@ export type Database = {
         }
         Relationships: []
       }
+      veicoli_marche: {
+        Row: {
+          attivo: boolean
+          created_at: string
+          id: string
+          nome: string
+          popolare: boolean
+        }
+        Insert: {
+          attivo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          popolare?: boolean
+        }
+        Update: {
+          attivo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          popolare?: boolean
+        }
+        Relationships: []
+      }
+      veicoli_modelli: {
+        Row: {
+          attivo: boolean
+          created_at: string
+          id: string
+          marca_id: string
+          nome: string
+          popolare: boolean
+        }
+        Insert: {
+          attivo?: boolean
+          created_at?: string
+          id?: string
+          marca_id: string
+          nome: string
+          popolare?: boolean
+        }
+        Update: {
+          attivo?: boolean
+          created_at?: string
+          id?: string
+          marca_id?: string
+          nome?: string
+          popolare?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veicoli_modelli_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "veicoli_marche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       veicoli_polizza: {
         Row: {
           anno_acquisto: number | null
