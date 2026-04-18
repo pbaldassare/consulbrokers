@@ -53,6 +53,7 @@ import {
   Archive,
   TrendingUp,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -88,6 +89,7 @@ type SidebarEntry =
 
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Assistente IA", path: "/ai-assistant", icon: Sparkles, permissionKey: "dashboard" } },
   {
     type: "group",
     group: {

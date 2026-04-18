@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import MioProfilo from "./pages/MioProfilo";
+import AiAssistantPage from "./pages/AiAssistantPage";
 import NotFound from "./pages/NotFound";
 
 import { archiviRoutes } from "./routes/archivi";
@@ -33,6 +34,7 @@ const App = () => (
             <Route element={<AuthGuard><MainLayout /></AuthGuard>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/mio-profilo" element={<MioProfilo />} />
+              <Route path="/ai-assistant" element={<AiAssistantPage />} />
               {archiviRoutes}
               {portafoglioRoutes}
               {sinistriRoutes}
