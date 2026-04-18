@@ -3942,6 +3942,7 @@ export type Database = {
       profiles: {
         Row: {
           attivo: boolean | null
+          avatar_url: string | null
           cap: string | null
           citta: string | null
           codice_contabile: string | null
@@ -3958,6 +3959,7 @@ export type Database = {
           intestatario_cc: string | null
           nome: string | null
           nome_rui: string | null
+          note: string | null
           numero_rui: string | null
           percentuale_base: number | null
           percentuale_consulenza: number | null
@@ -3973,6 +3975,7 @@ export type Database = {
         }
         Insert: {
           attivo?: boolean | null
+          avatar_url?: string | null
           cap?: string | null
           citta?: string | null
           codice_contabile?: string | null
@@ -3989,6 +3992,7 @@ export type Database = {
           intestatario_cc?: string | null
           nome?: string | null
           nome_rui?: string | null
+          note?: string | null
           numero_rui?: string | null
           percentuale_base?: number | null
           percentuale_consulenza?: number | null
@@ -4004,6 +4008,7 @@ export type Database = {
         }
         Update: {
           attivo?: boolean | null
+          avatar_url?: string | null
           cap?: string | null
           citta?: string | null
           codice_contabile?: string | null
@@ -4020,6 +4025,7 @@ export type Database = {
           intestatario_cc?: string | null
           nome?: string | null
           nome_rui?: string | null
+          note?: string | null
           numero_rui?: string | null
           percentuale_base?: number | null
           percentuale_consulenza?: number | null
