@@ -508,7 +508,9 @@ const ImmissionePolizzaPage = () => {
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
         produttore_id: selectedAE || null,
-        backoffice_id: selectedBackofficeId || null,
+        // Backoffice (Specialist) salvato come id profilo nel campo specialist
+        // (sovrascrive eventuale categoria 'danni/vita/auto/re')
+        ...(selectedBackofficeId ? { specialist: selectedBackofficeId } : {}),
       };
 
       const { data: newTitolo, error } = await supabase
