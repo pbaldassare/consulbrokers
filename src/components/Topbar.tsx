@@ -1,8 +1,18 @@
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, User as UserIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import GlobalSearch from "./GlobalSearch";
 import NotificheDropdown from "./NotificheDropdown";
 import { Badge } from "./ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -19,6 +29,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const Topbar = ({ onToggleSidebar }: TopbarProps) => {
   const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const appEnv = import.meta.env.VITE_APP_ENV || "DEV";
   const isDev = appEnv !== "PROD";
 
@@ -49,22 +60,38 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       <div className="flex items-center gap-4">
         <NotificheDropdown />
 
-        <div className="flex items-center gap-3 pl-3 border-l border-border">
-          <div className="text-right">
-            <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
-            <p className="text-xs text-muted-foreground">{roleLabel}</p>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center ring-2 ring-primary/20 ring-offset-1 ring-offset-card">
-            <span className="text-xs font-semibold text-primary-foreground">{initials}</span>
-          </div>
-        </div>
-
-        <button
-          onClick={signOut}
-          className="p-2 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 pl-3 border-l border-border hover:opacity-80 transition-opacity">
+              <div className="text-right">
+                <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{roleLabel}</p>
+              </div>
+              <Avatar className="w-8 h-8 ring-2 ring-primary/20 ring-offset-1 ring-offset-card">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={displayName} />}
+                <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <p className="text-sm font-medium">{displayName}</p>
+              <p className="text-xs text-muted-foreground font-normal">{profile?.email}</p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/mio-profilo")}>
+              <UserIcon className="w-4 h-4 mr-2" />
+              Il mio profilo
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+              <LogOut className="w-4 h-4 mr-2" />
+              Esci
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
