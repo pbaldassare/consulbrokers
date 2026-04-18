@@ -1,56 +1,46 @@
 
-## Analisi richiesta
+## Diagnosi
 
-L'utente vuole che nella chat **Interna** la ricerca utenti funzioni su:
-- email
-- nome / cognome
-- telefono
-- note
+Dalla screenshot: utente ha cercato "se", trovato "Consulbrokers Giuliano", selezionato (1 partecipante), cliccato "Crea conversazione" → errore.
 
-Escludendo i clienti (ruolo `cliente`) e probabilmente anche `prospect`/`corrispondente` se vogliamo solo "utenti del sistema". Da confermare con domanda? No: dice esplicitamente "tutti TRANNE i clienti".
+Devo verificare:
+1. Codice `handleCrea` in `NuovaConversazioneDialog.tsx`
+2. Schema tabelle `chat_canali` e `chat_canali_membri`
+3. RLS policies su `chat_canali` (INSERT)
+4. Console/network logs per errore reale
 
-Esploro la chat per capire dove avviene la ricerca utenti.
+## Esplorazione
 
-## File da ispezionare
-- `src/components/chat/NuovaConversazioneDialog.tsx` — dove si cercano utenti per nuova conversazione
-- `src/components/chat/CanaliSidebar.tsx` — barra ricerca canali esistenti
-- `src/components/ChatTab.tsx` — eventuale ricerca contestuale
+Leggerò:
+- `src/components/chat/NuovaConversazioneDialog.tsx` (funzione di creazione)
+- Schema `chat_canali` + RLS
+- Console logs preview
 
-## Piano
+## Ipotesi probabile
 
-### 1. `NuovaConversazioneDialog.tsx` (Interna)
-Estendere la query Supabase su `profiles`:
-- Filtro `ruolo != 'cliente'` (mantenere prospect/corrispondente solo se già inclusi oggi — verifico)
-- Ricerca `.or()` su: `email`, `nome`, `cognome`, `telefono`, `note`
-- Debounce 350ms (già standard progetto)
-- Mostrare nei risultati: nome+cognome, email piccola, e badge ruolo
-- Avatar con `avatar_url` se presente
+Dopo la modifica precedente in cui ho escluso `cliente` con `.neq("ruolo", "cliente")`, è possibile che:
+- L'INSERT su `chat_canali` fallisca per una RLS che richiede campi specifici (es. `entita_tipo` non null per ambito interno)
+- Manca il record creator nei `chat_canali_membri`
+- Nuovo campo richiesto non passato
 
-### 2. `CanaliSidebar.tsx` — ricerca tra conversazioni esistenti
-Quando l'utente scrive nel campo "Cerca...", filtrare i canali anche per:
-- nome partecipante
-- email partecipante
-- telefono / note partecipante
+## Piano di intervento
 
-Se la lista canali è già lato client, fare match su tutti i campi dei partecipanti già caricati. Se serve query, aggiungere RPC o estendere fetch.
+1. Leggere il codice attuale di `handleCrea` per capire il payload INSERT
+2. Verificare RLS e constraint su `chat_canali` / `chat_canali_membri`
+3. Controllare i log Postgres recenti per l'errore esatto
+4. Fix mirato:
+   - Se RLS: aggiornare policy INSERT
+   - Se constraint NOT NULL: passare il valore corretto (es. `entita_tipo='argomento'` per chat interna diretta)
+   - Aggiungere `toast.error` con messaggio dell'errore Supabase per dare visibilità
+5. Aggiungere logging difensivo (`console.error`) nel catch
 
-### 3. Indici DB (opzionale ma consigliato)
-Aggiungere indici trigram per ricerca veloce:
-```sql
-CREATE INDEX IF NOT EXISTS idx_profiles_search_trgm 
-  ON profiles USING gin ((coalesce(nome,'') || ' ' || coalesce(cognome,'') || ' ' || coalesce(email,'') || ' ' || coalesce(telefono,'') || ' ' || coalesce(note,'')) gin_trgm_ops);
-```
-(richiede `pg_trgm`)
+## File toccati (atteso)
 
-### 4. Esclusione clienti
-Filtro hard: `ruolo NOT IN ('cliente')`. Verifico se l'utente vuole escludere anche `prospect` — dal testo dice "tutti TRANNE i clienti" → escludo solo `cliente`.
-
-## File toccati
-- `src/components/chat/NuovaConversazioneDialog.tsx` — query estesa
-- `src/components/chat/CanaliSidebar.tsx` — filtro client-side esteso
-- Nuova migration per indice trigram (opzionale)
+- `src/components/chat/NuovaConversazioneDialog.tsx` — fix payload + error handling
+- Eventuale migration RLS su `chat_canali` / `chat_canali_membri` se policy bloccante
 
 ## Cosa NON cambia
-- Chat Contestuale resta legata a entità (cliente/polizza/sinistro) come oggi
-- Ruoli e permessi invariati
-- Avatar già integrati nel componente Avatar esistente
+
+- Logica chat contestuale
+- Filtro esclusione clienti
+- Schema dati chat
