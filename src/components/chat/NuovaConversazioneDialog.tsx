@@ -278,25 +278,27 @@ export default function NuovaConversazioneDialog({ open, onClose, onCreated, amb
     setVisibileCliente(false);
   };
 
-  // Manual add participant search
+  // Manual add participant search (nome, cognome, email, telefono, note)
   const filteredAddProfiles = (allProfiles || []).filter((u: any) => {
     if (selectedUsers.includes(u.id)) return false;
     if (!addPartecipanteRicerca || addPartecipanteRicerca.length < 2) return false;
-    const full = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
-    return full.includes(addPartecipanteRicerca.toLowerCase());
+    const q = addPartecipanteRicerca.toLowerCase();
+    const haystack = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""} ${u.telefono || ""} ${u.note || ""}`.toLowerCase();
+    return haystack.includes(q);
   }).slice(0, 8);
 
   const removeUser = (id: string) => {
     setSelectedUsers(prev => prev.filter(x => x !== id));
   };
 
-  // For internal mode
+  // For internal mode (search across nome, cognome, email, telefono, note)
   const utentiFiltrati = (utentiStaff || []).filter((u: any) => {
     if (filtroRuolo !== "tutti" && u.ruolo !== filtroRuolo) return false;
     if (filtroUfficio !== "tutti" && u.ufficio_id !== filtroUfficio) return false;
     if (ricerca) {
-      const full = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""}`.toLowerCase();
-      if (!full.includes(ricerca.toLowerCase())) return false;
+      const q = ricerca.toLowerCase();
+      const haystack = `${u.nome || ""} ${u.cognome || ""} ${u.email || ""} ${u.telefono || ""} ${u.note || ""}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
     }
     return true;
   });
