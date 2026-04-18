@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaSettori, useRcaUsi } from "@/hooks/useRcaLookups";
+import { QuickClienteDialog } from "@/components/polizze/QuickClienteDialog";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -29,8 +30,11 @@ const ImmissionePolizzaPage = () => {
 
   // Form state — Cliente
   const [codiceCliente, setCodiceCliente] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
+  const [selectedUfficioId, setSelectedUfficioId] = useState("");
+  const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
 
   // Form state — Polizza
   const [numeroPolizza, setNumeroPolizza] = useState("");
