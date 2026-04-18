@@ -602,33 +602,91 @@ const ImmissionePolizzaPage = () => {
 
       {/* CLIENTE */}
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente</legend>
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente & Sede</legend>
+
+        {/* Selezione cliente esistente */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Cliente esistente</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedClienteId}
+              onValueChange={(v) => setSelectedClienteId(v)}
+              placeholder="— Cerca cliente per nome, CF o P.IVA —"
+              emptyText={clienteSearch.length < 2 ? "Digita almeno 2 caratteri" : "Nessun cliente trovato"}
+              options={(clientiSearchResults || []).map((c: any) => ({
+                value: c.id,
+                label: c.ragione_sociale
+                  ? `${c.ragione_sociale}${c.partita_iva ? ` — P.IVA ${c.partita_iva}` : ""}`
+                  : `${c.cognome || ""} ${c.nome || ""}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}`.trim(),
+              }))}
+            />
+          </div>
+          <QuickClienteDialog
+            onCreated={(id, label) => {
+              setSelectedClienteId(id);
+              setClienteSearch(label);
+            }}
+          />
+        </div>
+
+        {/* Lookup veloce per codice/CF (legacy) */}
         <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[200px]">
-            <Label htmlFor="codice-cliente" className="text-xs">Codice / CF / P.IVA</Label>
+          <div className="space-y-1.5 flex-1 max-w-[260px]">
+            <Label htmlFor="codice-cliente" className="text-xs">Lookup rapido (Codice / CF / P.IVA)</Label>
             <div className="relative">
-              <Input id="codice-cliente" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Cerca cliente" className="h-8 text-xs" />
+              <Input id="codice-cliente" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="es. RSSMRA80A01..." className="h-8 text-xs" />
               <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
             </div>
           </div>
-          {clienteData && (
+          {clienteDettaglio && (
             <p className="text-sm text-foreground pb-1 font-medium">
-              {clienteData.ragione_sociale || `${clienteData.cognome} ${clienteData.nome}`}
+              ✓ {clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim()}
             </p>
           )}
         </div>
-        <div className="space-y-1.5 max-w-[300px]">
-          <Label className="text-xs">A/E (ereditato dal cliente)</Label>
-          <SearchableSelect
-            className="h-8 text-xs"
-            value={selectedAE}
-            onValueChange={setSelectedAE}
-            placeholder="— Seleziona A/E —"
-            options={(aeList || []).map((ae) => ({
-              value: ae.id,
-              label: `${ae.sigla || ae.codice} - ${ae.cognome} ${ae.nome}`,
-            }))}
-          />
+
+        {/* Ufficio (Sede) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Sede (Ufficio) *</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedUfficioId}
+              onValueChange={setSelectedUfficioId}
+              placeholder="— Seleziona sede —"
+              options={(ufficiList || []).map((u: any) => ({
+                value: u.id,
+                label: `${u.codice ? u.codice + " - " : ""}${u.nome_ufficio}`,
+              }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Produttore / A.E.</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedAE}
+              onValueChange={setSelectedAE}
+              placeholder="— Seleziona A/E —"
+              options={(aeList || []).map((ae) => ({
+                value: ae.id,
+                label: `${ae.sigla || ae.codice} - ${ae.cognome} ${ae.nome}`,
+              }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Specialist (Backoffice)</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedBackofficeId}
+              onValueChange={setSelectedBackofficeId}
+              placeholder="— Seleziona Backoffice —"
+              options={(backofficeList || []).map((b: any) => ({
+                value: b.id,
+                label: `${b.cognome || ""} ${b.nome || ""}`.trim(),
+              }))}
+            />
+          </div>
         </div>
       </fieldset>
 
