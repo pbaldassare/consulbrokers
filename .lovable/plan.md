@@ -1,38 +1,42 @@
 
 ## Diagnosi
 
-L'utente seleziona un cliente (AMICI DI CAPODIMONTE ASS.NE ONLUS) ma il campo **Sede (Ufficio)** resta vuoto. Lo stesso vale probabilmente per Produttore/Specialist. Secondo la memoria `policy-data-inheritance`, la selezione del cliente DEVE auto-popolare Sede, Produttore (AE) e Specialist (Backoffice) dai dati anagrafici del cliente.
+L'utente conferma: **se manca l'email, non si può creare l'area riservata cliente**. Questa è la regola da implementare. Niente email obbligatoria a livello di scheda cliente — il cliente può esistere senza email — ma il **provisioning del portale** deve essere bloccato finché l'email non c'è.
 
-## Esplorazione necessaria
-
-Devo verificare in `ImmissionePolizzaPage.tsx`:
-1. Cosa fa l'handler `onChange` del SearchableSelect cliente
-2. Se legge i campi `ufficio_id`, `ae_id`/`produttore_id`, `backoffice_id` dal record cliente
-3. Se chiama `form.setValue()` su sede/produttore/specialist
-4. Se la query del cliente seleziona effettivamente quei campi
-
-Probabili cause:
-- L'handler non legge/setta i campi derivati
-- La query cliente non include `ufficio_id`/`ae_id`/`backoffice_id`
-- I nomi colonna in DB sono diversi (`sede_id`? `profilo_id`?)
+In più, dal messaggio precedente:
+1. Spostare il toggle **Attivo/Disattivo** dalla tabella `ClientiList` alla card di dettaglio cliente
+2. Bloccare creazione utente portale se email mancante
 
 ## Soluzione
 
-In `ImmissionePolizzaPage.tsx`:
-1. Estendere la query cliente per includere `ufficio_id`, `ae_id` (o `produttore_id`), `backoffice_id`
-2. Nell'handler di selezione cliente, fare `form.setValue("ufficio_id", cliente.ufficio_id)` e analoghi per AE/Backoffice
-3. Stesso comportamento dopo creazione cliente via "Nuovo Cliente"
-4. Se i valori sono già impostati manualmente, **non sovrascrivere** (opzionale: chiedere conferma)
+### 1. `ClientiList.tsx` — pulizia tabella
+- Rimuovere lo **switch Attivo** inline dalla riga
+- Lasciare eventualmente solo un badge stato (read-only) o rimuovere del tutto la colonna
+
+### 2. `ClienteDetail.tsx` — toggle Attivo nella card
+- Aggiungere `<Switch>` "Cliente attivo" nell'header della card cliente, a destra del nome
+- Aggiorna `clienti.attivo` su toggle + toast + log attività
+- Solo utenti autorizzati (admin/responsabile) possono modificarlo
+
+### 3. Provisioning portale cliente — blocco se email mancante
+Nella sezione "Area Riservata" del dettaglio cliente:
+- Se `cliente.email` è null/vuota → **pulsante "Crea accesso portale" disabilitato** + alert giallo: *"Inserisci un'email valida per il cliente prima di abilitare l'area riservata"*
+- Se email presente → pulsante attivo, chiama `provision-clienti-users` / `create-cliente-user`
+- Validazione formato email lato client (regex base) prima della chiamata
 
 ## File toccati
 
-- `src/pages/ImmissionePolizzaPage.tsx` — fix handler selezione cliente + query
+- `src/pages/ClientiList.tsx` — rimozione switch dalla tabella
+- `src/pages/ClienteDetail.tsx` — switch Attivo nell'header + blocco provisioning portale se email mancante
 
 ## Cosa NON cambia
 
-- Schema DB, struttura form, lookup tables
-- Layout UI
+- Schema DB
+- Edge function di provisioning (la validazione è lato client; l'edge function già skippa clienti senza email)
+- Email NON diventa obbligatoria nel form anagrafica cliente — resta opzionale
 
-## Nota
+## Note
 
-Verifico in fase di implementazione i nomi colonna esatti in `clienti` (potrebbe essere `ufficio_id` + `ae_id` o naming diverso) prima di scrivere il setValue.
+In implementazione verifico la struttura attuale di `ClienteDetail.tsx` per individuare:
+- L'header card dove inserire il toggle
+- La sezione/pulsante esistente per provisioning portale (se non c'è, lo creo)
