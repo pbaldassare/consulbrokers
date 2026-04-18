@@ -1,32 +1,38 @@
 
 ## Diagnosi
 
-L'utente è su `/portafoglio/attive` e non vede un pulsante per creare una nuova polizza. Dallo screenshot, la pagina "Polizze Attive" mostra solo: card con conteggio (227), barra ricerca, filtro rami, toggle "Escludi scadenze del mese", e tabella. **Manca un CTA "+ Nuova Polizza"** che porti a `/portafoglio/immissione`.
+L'utente seleziona un cliente (AMICI DI CAPODIMONTE ASS.NE ONLUS) ma il campo **Sede (Ufficio)** resta vuoto. Lo stesso vale probabilmente per Produttore/Specialist. Secondo la memoria `policy-data-inheritance`, la selezione del cliente DEVE auto-popolare Sede, Produttore (AE) e Specialist (Backoffice) dai dati anagrafici del cliente.
+
+## Esplorazione necessaria
+
+Devo verificare in `ImmissionePolizzaPage.tsx`:
+1. Cosa fa l'handler `onChange` del SearchableSelect cliente
+2. Se legge i campi `ufficio_id`, `ae_id`/`produttore_id`, `backoffice_id` dal record cliente
+3. Se chiama `form.setValue()` su sede/produttore/specialist
+4. Se la query del cliente seleziona effettivamente quei campi
+
+Probabili cause:
+- L'handler non legge/setta i campi derivati
+- La query cliente non include `ufficio_id`/`ae_id`/`backoffice_id`
+- I nomi colonna in DB sono diversi (`sede_id`? `profilo_id`?)
 
 ## Soluzione
 
-Aggiungere un pulsante **"+ Nuova Polizza"** in alto a destra nella pagina `PortafoglioAttivePage.tsx` (e idealmente anche in `PortafoglioCaricoPage` e `PortafoglioStoricoPage` per coerenza), allineato all'header, che fa `navigate("/portafoglio/immissione")`.
+In `ImmissionePolizzaPage.tsx`:
+1. Estendere la query cliente per includere `ufficio_id`, `ae_id` (o `produttore_id`), `backoffice_id`
+2. Nell'handler di selezione cliente, fare `form.setValue("ufficio_id", cliente.ufficio_id)` e analoghi per AE/Backoffice
+3. Stesso comportamento dopo creazione cliente via "Nuovo Cliente"
+4. Se i valori sono già impostati manualmente, **non sovrascrivere** (opzionale: chiedere conferma)
 
 ## File toccati
 
-- `src/pages/PortafoglioAttivePage.tsx` — aggiunta pulsante CTA nell'header
-- (opzionale) `src/pages/PortafoglioCaricoPage.tsx` e `PortafoglioStoricoPage.tsx` — stesso pulsante per coerenza UX
-
-## Dettaglio implementativo
-
-Nell'header della pagina (dove ora c'è solo "Polizze Attive / Polizze in corso di validità") aggiungere a destra:
-
-```tsx
-<Button onClick={() => navigate("/portafoglio/immissione")}>
-  <Plus className="w-4 h-4 mr-2" />
-  Nuova Polizza
-</Button>
-```
-
-Layout: `flex items-center justify-between` sull'header per allineare titolo a sinistra e pulsante a destra.
+- `src/pages/ImmissionePolizzaPage.tsx` — fix handler selezione cliente + query
 
 ## Cosa NON cambia
 
-- Logica della pagina, query, filtri, tabella
-- Route `/portafoglio/immissione` (già esistente e funzionante)
-- Sidebar (la voce nel menu rimane com'è)
+- Schema DB, struttura form, lookup tables
+- Layout UI
+
+## Nota
+
+Verifico in fase di implementazione i nomi colonna esatti in `clienti` (potrebbe essere `ufficio_id` + `ae_id` o naming diverso) prima di scrivere il setValue.
