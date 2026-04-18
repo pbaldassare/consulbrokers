@@ -661,7 +661,7 @@ const ImmissionePolizzaPage = () => {
               placeholder="— Seleziona sede —"
               options={(ufficiList || []).map((u: any) => ({
                 value: u.id,
-                label: `${u.codice ? u.codice + " - " : ""}${u.nome_ufficio}`,
+                label: `${u.codice_ufficio ? u.codice_ufficio + " - " : ""}${u.nome_ufficio}`,
               }))}
             />
           </div>
