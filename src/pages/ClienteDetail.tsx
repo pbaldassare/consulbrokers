@@ -1043,9 +1043,29 @@ export default function ClienteDetail() {
             {isPrivato ? "Cliente Privato" : "Azienda"}
           </p>
         </div>
-        <Badge variant={cliente.attivo ? "default" : "secondary"}>
-          {cliente.attivo ? "Attivo" : "Disattivo"}
-        </Badge>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card">
+          <Switch
+            checked={cliente.attivo ?? true}
+            onCheckedChange={async (v) => {
+              const { error } = await supabase.from("clienti").update({ attivo: v }).eq("id", cliente.id);
+              if (error) { toast.error("Errore: " + error.message); return; }
+              toast.success(v ? "Cliente attivato" : "Cliente disattivato");
+              try {
+                await logAttivita({
+                  entita_tipo: "cliente",
+                  entita_id: cliente.id,
+                  tipo: "modifica",
+                  descrizione: v ? "Cliente attivato" : "Cliente disattivato",
+                });
+              } catch {}
+              queryClient.invalidateQueries({ queryKey: ["cliente", id] });
+              queryClient.invalidateQueries({ queryKey: ["clienti"] });
+            }}
+          />
+          <Label className="text-xs cursor-pointer select-none">
+            {cliente.attivo ? "Attivo" : "Disattivo"}
+          </Label>
+        </div>
         {editMode ? (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>

@@ -1096,7 +1096,6 @@ const ClientiList = () => {
                    <TableHead className="text-center">Polizze</TableHead>
                    <TableHead>Portale</TableHead>
                    <TableHead>Stato</TableHead>
-                  <TableHead>Attivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1133,19 +1132,12 @@ const ClientiList = () => {
                           {c.attivo ? "Attivo" : "Disattivo"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={c.attivo ?? true}
-                          onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attivo: v })}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {clienti.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                       Nessun cliente trovato
                     </TableCell>
                   </TableRow>
