@@ -1,26 +1,32 @@
 
-## Domanda dell'utente
+## Diagnosi
 
-"Come creo una nuova polizza?" — domanda di **navigazione/uso**, non di implementazione. L'utente sta cercando il punto di accesso al form di creazione polizza che abbiamo appena rifatto.
+L'utente è su `/portafoglio/attive` e non vede un pulsante per creare una nuova polizza. Dallo screenshot, la pagina "Polizze Attive" mostra solo: card con conteggio (227), barra ricerca, filtro rami, toggle "Escludi scadenze del mese", e tabella. **Manca un CTA "+ Nuova Polizza"** che porti a `/portafoglio/immissione`.
 
-## Risposta diretta
+## Soluzione
 
-L'utente è su `/portafoglio/attive`. Il form di immissione polizza è disponibile a `/portafoglio/immissione` (route confermata in `src/routes/portafoglio.tsx`).
+Aggiungere un pulsante **"+ Nuova Polizza"** in alto a destra nella pagina `PortafoglioAttivePage.tsx` (e idealmente anche in `PortafoglioCaricoPage` e `PortafoglioStoricoPage` per coerenza), allineato all'header, che fa `navigate("/portafoglio/immissione")`.
 
-Spiego:
-1. **Dove cliccare**: dal menu laterale → Portafoglio → Immissione Polizza, oppure URL diretto
-2. **Cosa serve compilare** (sezioni del form appena rifatto):
-   - Cliente (esistente o nuovo via "+ Nuovo Cliente")
-   - Sede / Produttore / Specialist (auto-popolati dal cliente)
-   - Compagnia, Ramo, Prodotto
-   - Numero polizza, periodo, importi
-   - Sezione RCA Auto se il ramo è RCA (marca/modello/targa/CU)
-3. **Dopo il salvataggio**: redirect a `/titoli/:id` con primo movimento PI creato
+## File toccati
 
-## Verifica veloce
+- `src/pages/PortafoglioAttivePage.tsx` — aggiunta pulsante CTA nell'header
+- (opzionale) `src/pages/PortafoglioCaricoPage.tsx` e `PortafoglioStoricoPage.tsx` — stesso pulsante per coerenza UX
 
-Confermo che la route esiste già e che il form è quello aggiornato. Nessuna modifica al codice necessaria — è solo guida.
+## Dettaglio implementativo
 
-Se l'utente non vede la voce di menu, verifichiamo `AppSidebar.tsx`. Ma la risposta primaria è solo istruzioni di navigazione, quindi NESSUN piano di build necessario.
+Nell'header della pagina (dove ora c'è solo "Polizze Attive / Polizze in corso di validità") aggiungere a destra:
 
-→ Rispondo direttamente in chat senza piano (è una Q&A pura).
+```tsx
+<Button onClick={() => navigate("/portafoglio/immissione")}>
+  <Plus className="w-4 h-4 mr-2" />
+  Nuova Polizza
+</Button>
+```
+
+Layout: `flex items-center justify-between` sull'header per allineare titolo a sinistra e pulsante a destra.
+
+## Cosa NON cambia
+
+- Logica della pagina, query, filtri, tabella
+- Route `/portafoglio/immissione` (già esistente e funzionante)
+- Sidebar (la voce nel menu rimane com'è)
