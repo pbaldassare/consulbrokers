@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_chat_conversazioni: {
+        Row: {
+          created_at: string
+          id: string
+          titolo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          titolo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          titolo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_chat_messaggi: {
+        Row: {
+          content: string
+          conversazione_id: string
+          created_at: string
+          id: string
+          role: string
+          tool_calls: Json | null
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          conversazione_id: string
+          created_at?: string
+          id?: string
+          role: string
+          tool_calls?: Json | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversazione_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          tool_calls?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_chat_messaggi_conversazione_id_fkey"
+            columns: ["conversazione_id"]
+            isOneToOne: false
+            referencedRelation: "ai_chat_conversazioni"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       anagrafiche_professionali: {
         Row: {
           abi: string | null
