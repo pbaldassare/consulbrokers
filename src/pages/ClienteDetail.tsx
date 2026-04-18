@@ -1093,9 +1093,20 @@ export default function ClienteDetail() {
 
         <TabsContent value="polizze">
           <Card>
-            <CardContent className="pt-6">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">Polizze del cliente</CardTitle>
+              <Button size="sm" onClick={() => navigate(`/portafoglio/immissione?clienteId=${id}`)}>
+                + Nuova Polizza
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-2">
               {polizze.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nessuna polizza collegata a questo cliente</p>
+                <div className="flex flex-col items-center gap-3 py-10">
+                  <p className="text-muted-foreground">Nessuna polizza collegata a questo cliente</p>
+                  <Button variant="outline" onClick={() => navigate(`/portafoglio/immissione?clienteId=${id}`)}>
+                    + Crea la prima polizza
+                  </Button>
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
