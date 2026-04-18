@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
-import { useVehicleMakes, useVehicleModels } from "@/hooks/useNHTSAVehicles";
+import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaSettori, useRcaUsi } from "@/hooks/useRcaLookups";
 
 const ImmissionePolizzaPage = () => {
@@ -124,8 +124,6 @@ const ImmissionePolizzaPage = () => {
   // RCA lookup hooks
   const { data: rcaSettori } = useRcaSettori();
   const { data: rcaUsi } = useRcaUsi(vSettoreId);
-  const { data: vehicleMakes } = useVehicleMakes();
-  const { data: vehicleModels } = useVehicleModels(vMarca);
   const [vMass1, setVMass1] = useState("0");
   const [vMass2, setVMass2] = useState("0");
   const [vMass3, setVMass3] = useState("0");
@@ -1027,13 +1025,11 @@ const ImmissionePolizzaPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Marca</Label>
-                <SearchableSelect className="h-8 text-xs" value={vMarca} onValueChange={(v) => { setVMarca(v); setVModello(""); }} placeholder="Cerca marca..."
-                  options={vehicleMakes || []} />
+                <MarcaCombobox className="h-8 text-xs" value={vMarca} onValueChange={(v) => { setVMarca(v); setVModello(""); }} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Modello</Label>
-                <SearchableSelect className="h-8 text-xs" value={vModello} onValueChange={setVModello} placeholder="Cerca modello..."
-                  options={vehicleModels || []} disabled={!vMarca} />
+                <ModelloCombobox className="h-8 text-xs" marca={vMarca} value={vModello} onValueChange={setVModello} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Versione</Label>
