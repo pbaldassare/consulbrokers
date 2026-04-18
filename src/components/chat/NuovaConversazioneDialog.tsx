@@ -34,7 +34,6 @@ const RUOLI_INTERNI = [
   { value: "contabilita", label: "Contabilità" },
   { value: "cfo", label: "CFO" },
   { value: "consul", label: "Consul" },
-  { value: "cliente", label: "Cliente" },
   { value: "prospect", label: "Prospect" },
 ];
 
