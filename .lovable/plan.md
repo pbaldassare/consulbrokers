@@ -1,46 +1,68 @@
 
-## Diagnosi
+## Richiesta utente
 
-Dalla screenshot: utente ha cercato "se", trovato "Consulbrokers Giuliano", selezionato (1 partecipante), cliccato "Crea conversazione" → errore.
+L'utente vuole che marca/modello auto comuni siano in database (non più solo da NHTSA API), ma mantenendo la possibilità di inserimento manuale (free text).
 
-Devo verificare:
-1. Codice `handleCrea` in `NuovaConversazioneDialog.tsx`
-2. Schema tabelle `chat_canali` e `chat_canali_membri`
-3. RLS policies su `chat_canali` (INSERT)
-4. Console/network logs per errore reale
+## Esplorazione necessaria
 
-## Esplorazione
+1. `src/hooks/useNHTSAVehicles.ts` — hook attuale che usa NHTSA
+2. Dove viene usato (form RCA) — cercare consumatori
+3. Schema attuale: c'è già una tabella per veicoli? Verifico
 
-Leggerò:
-- `src/components/chat/NuovaConversazioneDialog.tsx` (funzione di creazione)
-- Schema `chat_canali` + RLS
-- Console logs preview
+## Piano
 
-## Ipotesi probabile
+### Step 1 — Database
+Creare due tabelle nuove:
 
-Dopo la modifica precedente in cui ho escluso `cliente` con `.neq("ruolo", "cliente")`, è possibile che:
-- L'INSERT su `chat_canali` fallisca per una RLS che richiede campi specifici (es. `entita_tipo` non null per ambito interno)
-- Manca il record creator nei `chat_canali_membri`
-- Nuovo campo richiesto non passato
+**`veicoli_marche`**
+- `id uuid PK`
+- `nome text UNIQUE NOT NULL` (uppercase)
+- `popolare boolean default false`
+- `attivo boolean default true`
+- `created_at timestamptz default now()`
 
-## Piano di intervento
+**`veicoli_modelli`**
+- `id uuid PK`
+- `marca_id uuid FK → veicoli_marche(id) ON DELETE CASCADE`
+- `nome text NOT NULL` (uppercase)
+- `popolare boolean default false`
+- `attivo boolean default true`
+- UNIQUE (marca_id, nome)
 
-1. Leggere il codice attuale di `handleCrea` per capire il payload INSERT
-2. Verificare RLS e constraint su `chat_canali` / `chat_canali_membri`
-3. Controllare i log Postgres recenti per l'errore esatto
-4. Fix mirato:
-   - Se RLS: aggiornare policy INSERT
-   - Se constraint NOT NULL: passare il valore corretto (es. `entita_tipo='argomento'` per chat interna diretta)
-   - Aggiungere `toast.error` con messaggio dell'errore Supabase per dare visibilità
-5. Aggiungere logging difensivo (`console.error`) nel catch
+**RLS**: lettura per tutti gli authenticated; INSERT/UPDATE per ruoli staff (non cliente/prospect).
 
-## File toccati (atteso)
+**Seed**: popolare con marche/modelli più comuni in Italia:
+- Marche: FIAT, VOLKSWAGEN, FORD, OPEL, RENAULT, PEUGEOT, CITROEN, TOYOTA, NISSAN, HYUNDAI, KIA, BMW, MERCEDES-BENZ, AUDI, ALFA ROMEO, LANCIA, JEEP, DACIA, SKODA, SEAT, MINI, SMART, VOLVO, MAZDA, HONDA, SUZUKI, MITSUBISHI, LAND ROVER, JAGUAR, PORSCHE, TESLA, DR, MG.
+- Modelli: per ogni marca, 8-15 modelli più diffusi (es. FIAT: PANDA, 500, PUNTO, TIPO, 500X, 500L, BRAVO, DOBLO, DUCATO, QUBO; VW: GOLF, POLO, PASSAT, T-ROC, TIGUAN, UP!, ID.3, ID.4, TOUAREG, TOURAN; etc.)
 
-- `src/components/chat/NuovaConversazioneDialog.tsx` — fix payload + error handling
-- Eventuale migration RLS su `chat_canali` / `chat_canali_membri` se policy bloccante
+### Step 2 — Hook nuovo
+Sostituire/affiancare `useNHTSAVehicles.ts` con `useVehicleLookup.ts` che legge da DB:
+- `useVehicleMakes()` → query `veicoli_marche` ordinata per `popolare DESC, nome ASC`
+- `useVehicleModels(marcaNome)` → join su `veicoli_marche.nome` → modelli ordinati per popolare/nome
+- Mutation `addMarca(nome)` e `addModello(marcaId, nome)` per inserimento manuale on-the-fly
+
+### Step 3 — UI nel form RCA
+Sostituire i due `SearchableSelect` esistenti:
+- Componente custom `MarcaCombobox` / `ModelloCombobox` basato su `Command` di shadcn:
+  - Mostra opzioni da DB
+  - In fondo alla lista, se la query di ricerca non matcha esattamente, mostra: **"+ Aggiungi: «{testo}»"** che chiama la mutation di insert e seleziona il valore.
+  - Auto-uppercase del valore inserito.
+- Il valore selezionato resta una stringa (compatibile con form RCA esistente).
+
+### Step 4 — Cleanup
+- Rimuovere o lasciare deprecato `useNHTSAVehicles.ts` (non più chiamato)
+- Aggiornare memoria `mem://insurance/rca-auto-specific-data` rimuovendo riferimento NHTSA → DB locale.
+
+## File toccati
+
+- Nuova migration: tabelle + RLS + seed dati
+- `src/hooks/useVehicleLookup.ts` (nuovo)
+- `src/components/rca/MarcaModelloCombobox.tsx` (nuovo) 
+- Form RCA che usa marca/modello (da identificare in esplorazione: probabilmente `ImmissionePolizzaPage.tsx` o un sub-componente RCA)
+- Aggiornamento memoria
 
 ## Cosa NON cambia
 
-- Logica chat contestuale
-- Filtro esclusione clienti
-- Schema dati chat
+- Schema `titoli` (marca/modello restano stringhe)
+- Validazioni RCA esistenti
+- Form layout
