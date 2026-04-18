@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaSettori, useRcaUsi } from "@/hooks/useRcaLookups";
+import { QuickClienteDialog } from "@/components/polizze/QuickClienteDialog";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -29,8 +30,11 @@ const ImmissionePolizzaPage = () => {
 
   // Form state — Cliente
   const [codiceCliente, setCodiceCliente] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
+  const [selectedUfficioId, setSelectedUfficioId] = useState("");
+  const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
 
   // Form state — Polizza
   const [numeroPolizza, setNumeroPolizza] = useState("");
@@ -180,18 +184,53 @@ const ImmissionePolizzaPage = () => {
     enabled: codiceCliente.length >= 2,
   });
 
-  const { data: clienteAE } = useQuery({
-    queryKey: ["cliente-ae", selectedClienteId],
+  // Ricerca server-side per il SearchableSelect cliente
+  const { data: clientiSearchResults } = useQuery({
+    queryKey: ["clienti-search-immissione", clienteSearch],
+    queryFn: async () => {
+      let q = supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
+        .eq("attivo", true)
+        .order("ragione_sociale", { nullsFirst: false })
+        .limit(50);
+      if (clienteSearch && clienteSearch.length >= 2) {
+        const term = `%${clienteSearch}%`;
+        q = q.or(
+          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term}`
+        );
+      }
+      const { data } = await q;
+      return data || [];
+    },
+    staleTime: 1000 * 30,
+  });
+
+  // Dettaglio cliente selezionato (per eredità ufficio)
+  const { data: clienteDettaglio } = useQuery({
+    queryKey: ["cliente-dettaglio-immissione", selectedClienteId],
     queryFn: async () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
-        .from("codici_commerciali_cliente")
-        .select("profilo_id, anagrafiche_professionali:profilo_id(id, codice, cognome, nome, sigla)")
-        .eq("cliente_id", selectedClienteId)
-        .eq("ruolo", "account_executive")
-        .limit(1)
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, ufficio_id, gruppo_finanziario_id")
+        .eq("id", selectedClienteId)
         .maybeSingle();
       return data;
+    },
+    enabled: !!selectedClienteId,
+  });
+
+  const { data: clienteAE } = useQuery({
+    queryKey: ["cliente-ae-bo", selectedClienteId],
+    queryFn: async () => {
+      if (!selectedClienteId) return [];
+      const { data } = await supabase
+        .from("codici_commerciali_cliente")
+        .select("profilo_id, ruolo")
+        .eq("cliente_id", selectedClienteId)
+        .in("ruolo", ["account_executive", "AE", "Backoffice"]);
+      return data || [];
     },
     enabled: !!selectedClienteId,
   });
@@ -200,9 +239,29 @@ const ImmissionePolizzaPage = () => {
     if (clienteData?.id) setSelectedClienteId(clienteData.id);
   }, [clienteData?.id]);
 
+  // Eredita ufficio dal cliente
   useEffect(() => {
-    if (clienteAE?.profilo_id) setSelectedAE(clienteAE.profilo_id as string);
-  }, [clienteAE?.profilo_id]);
+    if (clienteDettaglio?.ufficio_id) {
+      setSelectedUfficioId(clienteDettaglio.ufficio_id);
+    }
+  }, [clienteDettaglio?.ufficio_id]);
+
+  // Eredita AE e Backoffice dal cliente
+  useEffect(() => {
+    if (Array.isArray(clienteAE) && clienteAE.length > 0) {
+      const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
+      const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
+      if (ae?.profilo_id) setSelectedAE(ae.profilo_id as string);
+      if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+    }
+  }, [clienteAE]);
+
+  // Default ufficio = ufficio dell'utente loggato
+  useEffect(() => {
+    if (profile?.ufficio_id && !selectedUfficioId) {
+      setSelectedUfficioId(profile.ufficio_id);
+    }
+  }, [profile?.ufficio_id]);
 
   const { data: aeList } = useQuery({
     queryKey: ["ae-list-immissione"],
@@ -213,6 +272,31 @@ const ImmissionePolizzaPage = () => {
         .eq("tipo", "account_executive")
         .eq("attivo", true)
         .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: backofficeList } = useQuery({
+    queryKey: ["backoffice-list-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, ruolo")
+        .eq("ruolo", "backoffice")
+        .eq("attivo", true)
+        .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: ufficiList } = useQuery({
+    queryKey: ["uffici-list-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, codice")
+        .eq("attivo", true)
+        .order("nome_ufficio");
       return data || [];
     },
   });
@@ -422,7 +506,11 @@ const ImmissionePolizzaPage = () => {
         copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
         data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
         stato: "creato",
-        ufficio_id: profile?.ufficio_id || null,
+        ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
+        produttore_id: selectedAE || null,
+        // Backoffice (Specialist) salvato come id profilo nel campo specialist
+        // (sovrascrive eventuale categoria 'danni/vita/auto/re')
+        ...(selectedBackofficeId ? { specialist: selectedBackofficeId } : {}),
       };
 
       const { data: newTitolo, error } = await supabase
@@ -448,7 +536,7 @@ const ImmissionePolizzaPage = () => {
         tipo: "Polizza Base",
         incassato: false,
         stato: "attivo",
-        ufficio_id: profile?.ufficio_id || null,
+        ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
       } as any);
 
       // Save RCA data if applicable
@@ -518,33 +606,91 @@ const ImmissionePolizzaPage = () => {
 
       {/* CLIENTE */}
       <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente</legend>
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente & Sede</legend>
+
+        {/* Selezione cliente esistente */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Cliente esistente</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedClienteId}
+              onValueChange={(v) => setSelectedClienteId(v)}
+              placeholder="— Cerca cliente per nome, CF o P.IVA —"
+              emptyText={clienteSearch.length < 2 ? "Digita almeno 2 caratteri" : "Nessun cliente trovato"}
+              options={(clientiSearchResults || []).map((c: any) => ({
+                value: c.id,
+                label: c.ragione_sociale
+                  ? `${c.ragione_sociale}${c.partita_iva ? ` — P.IVA ${c.partita_iva}` : ""}`
+                  : `${c.cognome || ""} ${c.nome || ""}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}`.trim(),
+              }))}
+            />
+          </div>
+          <QuickClienteDialog
+            onCreated={(id, label) => {
+              setSelectedClienteId(id);
+              setClienteSearch(label);
+            }}
+          />
+        </div>
+
+        {/* Lookup veloce per codice/CF (legacy) */}
         <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[200px]">
-            <Label htmlFor="codice-cliente" className="text-xs">Codice / CF / P.IVA</Label>
+          <div className="space-y-1.5 flex-1 max-w-[260px]">
+            <Label htmlFor="codice-cliente" className="text-xs">Lookup rapido (Codice / CF / P.IVA)</Label>
             <div className="relative">
-              <Input id="codice-cliente" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Cerca cliente" className="h-8 text-xs" />
+              <Input id="codice-cliente" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="es. RSSMRA80A01..." className="h-8 text-xs" />
               <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
             </div>
           </div>
-          {clienteData && (
+          {clienteDettaglio && (
             <p className="text-sm text-foreground pb-1 font-medium">
-              {clienteData.ragione_sociale || `${clienteData.cognome} ${clienteData.nome}`}
+              ✓ {clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim()}
             </p>
           )}
         </div>
-        <div className="space-y-1.5 max-w-[300px]">
-          <Label className="text-xs">A/E (ereditato dal cliente)</Label>
-          <SearchableSelect
-            className="h-8 text-xs"
-            value={selectedAE}
-            onValueChange={setSelectedAE}
-            placeholder="— Seleziona A/E —"
-            options={(aeList || []).map((ae) => ({
-              value: ae.id,
-              label: `${ae.sigla || ae.codice} - ${ae.cognome} ${ae.nome}`,
-            }))}
-          />
+
+        {/* Ufficio (Sede) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Sede (Ufficio) *</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedUfficioId}
+              onValueChange={setSelectedUfficioId}
+              placeholder="— Seleziona sede —"
+              options={(ufficiList || []).map((u: any) => ({
+                value: u.id,
+                label: `${u.codice ? u.codice + " - " : ""}${u.nome_ufficio}`,
+              }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Produttore / A.E.</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedAE}
+              onValueChange={setSelectedAE}
+              placeholder="— Seleziona A/E —"
+              options={(aeList || []).map((ae) => ({
+                value: ae.id,
+                label: `${ae.sigla || ae.codice} - ${ae.cognome} ${ae.nome}`,
+              }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Specialist (Backoffice)</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedBackofficeId}
+              onValueChange={setSelectedBackofficeId}
+              placeholder="— Seleziona Backoffice —"
+              options={(backofficeList || []).map((b: any) => ({
+                value: b.id,
+                label: `${b.cognome || ""} ${b.nome || ""}`.trim(),
+              }))}
+            />
+          </div>
         </div>
       </fieldset>
 
