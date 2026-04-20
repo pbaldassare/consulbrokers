@@ -226,8 +226,20 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           titoloOrigineId: t.id,
           titoloOrigineUfficioId: t.ufficio_id,
           nuovoTitoloId: nuovo.id,
+          sostituisceMovId,
         });
         throw movErr;
+      }
+
+      // Legame bidirezionale: aggiorna il movimento origine con sostituito_da_id (best-effort)
+      if (sostituisceMovId && nuovoMov?.id) {
+        const { error: updOrigErr } = await supabase
+          .from("movimenti_polizza")
+          .update({ sostituito_da_id: nuovoMov.id })
+          .eq("id", sostituisceMovId);
+        if (updOrigErr) {
+          console.warn("Impossibile aggiornare sostituito_da_id sul movimento origine", updOrigErr);
+        }
       }
 
       try {
