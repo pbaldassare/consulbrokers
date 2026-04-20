@@ -90,13 +90,13 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         garA = calcolaNuovaScadenza(garDa, tt.periodicita, tt.anni_durata);
       }
 
-      // Usa i valori QUIETANZA (correnti, eventualmente modificati) come base del rinnovo,
-      // con fallback ai valori firma originali se la quietanza non è stata compilata.
-      const premioNettoBase = tt.premio_netto_quietanza ?? tt.premio_netto ?? 0;
-      const tasseBase = tt.tasse_quietanza ?? tt.tasse ?? 0;
-      const addizBase = tt.addizionali_quietanza ?? tt.addizionali ?? 0;
-      const provvBase = tt.provvigioni_quietanza ?? tt.provvigioni_firma ?? 0;
-      // Premio lordo: se presente sul titolo (è già il valore corrente "lordo quietanza"), altrimenti ricalcola
+      // Usa i valori CORRENTI della polizza (quelli mostrati/modificati nella UI principale)
+      // come fonte di verità. Fallback ai _quietanza solo se il campo principale è null.
+      const premioNettoBase = tt.premio_netto ?? tt.premio_netto_quietanza ?? 0;
+      const tasseBase = tt.tasse ?? tt.tasse_quietanza ?? 0;
+      const addizBase = tt.addizionali ?? tt.addizionali_quietanza ?? 0;
+      const provvBase = tt.provvigioni_firma ?? tt.provvigioni_quietanza ?? 0;
+      // Premio lordo: usa il valore aggiornato sul titolo, altrimenti ricalcola
       const lordoBase = tt.premio_lordo ?? (Number(premioNettoBase) + Number(tasseBase) + Number(addizBase));
 
       setForm({
