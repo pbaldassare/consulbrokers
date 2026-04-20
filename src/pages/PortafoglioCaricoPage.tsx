@@ -41,6 +41,7 @@ const PortafoglioCaricoPage = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [cassaDialogTitoli, setCassaDialogTitoli] = useState<Array<{ id: string; numero_titolo?: string | null; premio_lordo?: number | null }>>([]);
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
+  const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
   const caricoStart = format(startOfMonth(caricoDate), "yyyy-MM-dd");
   const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
