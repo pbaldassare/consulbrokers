@@ -1,69 +1,38 @@
 
 
-## Diagnosi (CONFERMATA dai log della edge function)
+## Stato
 
-L'email NON arriva a Paolo perché la edge function `send-email` la sta dirottando in modalità sandbox a `info@iaconnect.it`. Log Resend confermano:
+Il fix è già applicato nel codice (linee 155-200 di `send-email/index.ts`):
+1. STEP 1 — branding caricato prima → `finalFrom = "ConsulNet <noreply@iaconnect.it>"`
+2. STEP 2 — fallback solo se ancora vuoto
+3. STEP 3 — sandbox check sul `finalFrom` definitivo → `isSandbox = false`
 
-```
-to: "info@iaconnect.it"
-subject: "[TEST → paolo.baldassare@gmail.com] …"
-sandbox_redirect: true
-delivered ✓
-```
+## Cosa serve fare adesso
 
-Quindi Resend la consegna correttamente… ma all'indirizzo sbagliato.
+Solo **1 azione**: deployare la edge function aggiornata e fare un test live.
 
-## Causa esatta del bug
+### Step 1 — Deploy
+Deploy di `send-email` (la modifica è in repo ma va pushata su Supabase).
 
-In `supabase/functions/send-email/index.ts`:
+### Step 2 — Test reale
+Invio una mail di test direttamente alla edge function con:
+- `to: paolo.baldassare@gmail.com`
+- `apply_branding: true`
+- `subject: Test post-fix`
 
-```ts
-let finalFrom = from || "ConsulNet <onboarding@resend.dev>";   // riga 149 — DEFAULT sandbox
-...
-const isSandbox = /onboarding@resend\.dev/i.test(finalFrom);   // riga 155 — calcolato PRIMA del branding
-if (isSandbox) { /* dirotta a SANDBOX_OWNER (=info@iaconnect.it) */ }
-...
-if (apply_branding) {                                          // riga 168
-  ...
-  if (!from && branding?.mittente_default) {
-    finalFrom = branding.mittente_default;                     // sovrascrive con noreply@iaconnect.it (TROPPO TARDI)
-  }
-}
-```
+### Step 3 — Verifica log
+Leggo i log della edge function subito dopo il test per confermare:
+- `from: ConsulNet <noreply@iaconnect.it>` ✓
+- `to: paolo.baldassare@gmail.com` (NON `info@iaconnect.it`) ✓
+- `sandbox_redirect: false` ✓
+- `delivery_status: delivered` (dal polling Resend a 3.5s)
 
-Il dialog di test invoca `sendEmail({ apply_branding: true, ... })` SENZA passare `from`. Quindi:
-1. `finalFrom` parte come `onboarding@resend.dev` (default sandbox)
-2. `isSandbox` viene calcolato → `true` → tutti i destinatari dirottati a `info@iaconnect.it`
-3. Solo DOPO il branding sovrascrive `finalFrom` con `noreply@iaconnect.it`
-4. Risultato: la mail parte da `noreply@iaconnect.it` (verificato) ma è indirizzata a `info@iaconnect.it`, non a Paolo
-
-## Fix
-
-**File: `supabase/functions/send-email/index.ts`**
-
-Spostare il caricamento del branding (e quindi la risoluzione di `finalFrom`) **prima** del calcolo `isSandbox` e della logica di redirect sandbox. In pratica:
-
-1. Risolvere `finalFrom` definitivo (con eventuale `mittente_default` dal DB) per primo
-2. Calcolare `isSandbox` sul `finalFrom` definitivo
-3. Solo se davvero il from finale è `onboarding@resend.dev` → dirotta a sandbox
-
-Risultato atteso: con `mittente_default = "ConsulNet <noreply@iaconnect.it>"` salvato in DB, `isSandbox = false` → la mail va davvero a `paolo.baldassare@gmail.com`.
-
-Aggiungo anche un log finale chiaro:
-```
-[send-email] Final from=…, to=…, sandbox_redirect=false
-```
+### Step 4 — Risposta all'utente
+- Se `delivered` con destinatario corretto: ✅ "Mail inviata, chiedi a Paolo di controllare anche Spam la prima volta (dominio nuovo)"
+- Se ancora `info@iaconnect.it`: indagine ulteriore (cache deploy, branding DB sbagliato)
+- Se `bounced`: mostro motivo esatto da Resend
 
 ## File toccati
 
-**Modificato (solo uno):**
-- `supabase/functions/send-email/index.ts` — riordino logico: branding/from PRIMA, sandbox check DOPO
-
-**Nessuna modifica a:** UI, DB, altre edge function.
-
-## Verifica post-deploy
-
-1. L'utente clicca "Invia test" → log mostreranno `to: "paolo.baldassare@gmail.com"` e `sandbox_redirect: false`
-2. Paolo riceve l'email su Gmail (controllare anche Spam la prima volta — dominio nuovo, reputazione iniziale)
-3. Risposta API includerà `delivery_status: "delivered"` con il vero destinatario
+**Nessuna modifica al codice** — il fix è già presente. Solo deploy + test + verifica log.
 
