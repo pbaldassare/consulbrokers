@@ -614,6 +614,7 @@ const TitoloDetail = () => {
         rimborso: !!t.rimborso,
       });
     }
+    setLordoFirmaTouched(false);
     setEditingImporti(true);
   };
 
