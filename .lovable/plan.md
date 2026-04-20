@@ -1,53 +1,105 @@
 
 
-## Causa reale (verificata)
+## Obiettivo
 
-Il fix client del giro precedente è corretto MA non funziona per via delle RLS della tabella `profiles`:
+Aggiungere un pulsante **Rinnovo** nelle Operazioni del dettaglio polizza che apre un dialog per:
+1. Mostrare i dati del nuovo periodo precompilati (in base a durata + frazionamento)
+2. Permettere di modificarli
+3. Creare una **nuova riga in `titoli`** (stesso `numero_titolo`, `riga` incrementata) con tutti i dati copiati e le nuove date
+4. Registrare il movimento di tipo `Rinnovo` / `PQ` in `movimenti_polizza`
+5. Loggare in timeline
+6. Il nuovo titolo sarà `stato='attivo'`, `data_messa_cassa=null` → comparirà automaticamente in **Carico del Mese** pronto per essere messo a cassa
 
-- Giuliano è ruolo `ufficio` (Responsabile Ufficio), NON admin/cfo.
-- Le policy SELECT su `profiles` permettono di leggere solo: il proprio profilo, o profili **nello stesso ufficio**.
-- Paola Scarpelli e Admin Consul hanno `ufficio_id = NULL` → ufficio diverso da Giuliano → la `select id, nome, cognome from profiles where id in (...)` ritorna vuoto.
-- Risultato: `membriNomi` è vuoto, `getDisplayName` cade nel fallback "Conversazione".
+Esempio richiesto (verificato sul DB):
+- Polizza 332437571 attuale: `durata_da=2025-04-04`, `durata_a=2026-04-04`, `anni_durata=1`, `periodicita=annuale`, `riga=0`
+- Nuovo titolo proposto: `durata_da=2026-04-04`, `durata_a=2027-04-04`, `riga=1`
 
-Lo stesso problema esisterebbe con qualunque collega di un altro ufficio.
+## Logica di calcolo nuove date
 
-## Fix
+In base a `periodicita` + `anni_durata`:
+- `annuale` → +1 anno (o +`anni_durata` se poliennale)
+- `semestrale` → +6 mesi
+- `quadrimestrale` → +4 mesi
+- `trimestrale` → +3 mesi
+- `mensile` → +1 mese
 
-Aggiungo una policy SELECT mirata su `profiles` che permette di leggere **solo i campi necessari per la chat** (di fatto: id, nome, cognome) di chi condivide almeno un canale chat con l'utente corrente. Riuso la function già esistente `is_channel_member` insieme a un EXISTS sui canali condivisi.
+Nuove date proposte (modificabili):
+- `durata_da` = vecchia `durata_a`
+- `durata_a` = `durata_da + delta`
+- `data_scadenza` = nuova `durata_a`
+- `data_competenza` = nuova `durata_da`
+- `garanzia_da` / `garanzia_a` = stessa logica
 
-### Migrazione SQL
+## Cosa creo
 
-```sql
--- Permetti a un utente di vedere il profilo di chiunque condivida un canale chat con lui
-CREATE POLICY "Chat participants visible to each other"
-ON public.profiles
-FOR SELECT
-TO authenticated
-USING (
-  EXISTS (
-    SELECT 1
-    FROM public.chat_canali_membri m1
-    JOIN public.chat_canali_membri m2 ON m2.canale_id = m1.canale_id
-    WHERE m1.user_id = auth.uid()
-      AND m2.user_id = profiles.id
-  )
-);
+### 1. Componente `RinnovoTitoloDialog.tsx`
+Nuovo file `src/components/polizze/RinnovoTitoloDialog.tsx`:
+- Dialog con form precompilato: `durata_da`, `durata_a`, `data_scadenza`, `data_competenza`, `garanzia_da`, `garanzia_a`, `premio_lordo` (modificabile, default = stesso del precedente)
+- Riepilogo info polizza (numero, cliente, ramo, compagnia)
+- Bottone "Conferma Rinnovo" → INSERT nuovo titolo + INSERT movimento + log + redirect al nuovo titolo
+
+### 2. Integrazione in `TitoloDetail.tsx`
+- Aggiungere bottone **Rinnovo** (icona `RefreshCw`, verde) nella card "Operazioni" (riga ~1024-1043), accanto a Sospensione/Riattivazione/Duplicazione
+- Visibile solo se: `stato='attivo'` e (siamo entro 60 giorni dalla scadenza OPPURE polizza già scaduta non ancora rinnovata)
+- Click → apre `RinnovoTitoloDialog`
+
+### 3. Logica di insert (in `RinnovoTitoloDialog`)
 ```
+INSERT INTO titoli (
+  numero_titolo: stesso,
+  riga: max(riga)+1 per quel numero_titolo,
+  cliente_anagrafica_id, cliente_id, prodotto_id, ufficio_id, produttore_id,
+  compagnia_id, ramo_id, gruppo_ramo, specialist, commerciale_id,
+  percentuale_commerciale, percentuale_riparto, tipo_mandatario,
+  durata_da: NUOVA,
+  durata_a: NUOVA,
+  data_scadenza: NUOVA,
+  data_competenza: NUOVA,
+  garanzia_da/a: NUOVE,
+  anni_durata, rate, periodicita, tipo_rinnovo, disdetta_mesi: stessi,
+  premio_lordo, premio_netto, tasse, addizionali: dal form (default = stessi),
+  stato: 'attivo',
+  data_messa_cassa: NULL,
+  data_incasso: NULL,
+  importo_incassato: NULL,
+  tipo_portafoglio: 'rinnovo',
+  sostituisce_polizza: numero precedente, sostituisce_riga: riga precedente
+)
+```
+Più:
+```
+INSERT INTO movimenti_polizza (
+  titolo_id: nuovo,
+  tipo: 'Rinnovo',
+  tipo_documento: 'PQ',
+  data_movimento: oggi,
+  data_effetto: nuova durata_da,
+  data_scadenza: nuova durata_a,
+  data_rinnovo: nuova durata_da,
+  premio: nuovo premio_lordo,
+  stato: 'aperto',
+  sostituisce_id: id titolo precedente
+)
+```
+Più `logAttivita({ azione: "rinnovo_polizza", ... })`.
 
-Sicurezza:
-- Espone solo profili di utenti con cui hai già una chat (relazione esplicita stabilita dal creatore del canale).
-- Non espande accesso a profili arbitrari.
-- Le altre policy admin/cfo/ufficio/owner restano invariate.
+### 4. Verifica post-creazione
+Il nuovo titolo:
+- Ha `stato='attivo'` e `data_messa_cassa=null`
+- Compare automaticamente in **Portafoglio → Carico del Mese** filtrato per `data_scadenza` del mese di decorrenza
+- Cliente e tutti i collegamenti sono mantenuti
+- Si può aprire e fare "Messa a Cassa" come una polizza normale
 
 ## File toccati
 
-- 1 nuova migrazione SQL (nessuna modifica a `CanaliSidebar.tsx`: il client è già pronto).
+- **Nuovo**: `src/components/polizze/RinnovoTitoloDialog.tsx`
+- **Modificato**: `src/pages/TitoloDetail.tsx` (aggiunta bottone Rinnovo + state per aprire il dialog)
 
-## Verifica post-fix
+Nessuna migrazione DB necessaria — schema già pronto (`riga` come progressivo, `sostituisce_polizza/riga` per il legame).
 
-Su `/comunicazioni` → Interna → Diretti vedrai:
-- Paola Scarpelli (×2)
-- Admin Consul (×1)
+## Cosa NON faccio
 
-E la ricerca per nome nella sidebar funzionerà davvero.
+- Non tocco la `RinnoviPolizzaPage` (è la lista batch dei rinnovi, separata)
+- Non duplico provvigioni o movimenti contabili (verranno generati al momento della Messa a Cassa del nuovo titolo, come per qualsiasi altra polizza)
+- Non cambio lo stato del titolo originale (resta `attivo` finché non lo metti a cassa o scade)
 
