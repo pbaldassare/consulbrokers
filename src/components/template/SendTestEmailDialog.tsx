@@ -7,11 +7,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Loader2, Paperclip, FileText } from "lucide-react";
+import { Send, Loader2, Paperclip, FileText, Search, AlertTriangle, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { sendEmail } from "@/lib/sendEmail";
 import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
+
+interface DiagResult {
+  synthetic_status: "delivered" | "bounced" | "complained" | "pending" | "no_history";
+  total_found: number;
+  messages: Array<{
+    id: string;
+    to: string | string[];
+    subject: string;
+    created_at: string;
+    last_event: string | null;
+    bounce: any;
+  }>;
+}
 
 interface SendTestEmailDialogProps {
   open: boolean;
@@ -44,13 +57,39 @@ export function SendTestEmailDialog({
   const [tipoPdf, setTipoPdf] = useState<string>("riepilogo_polizza");
   const [sending, setSending] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diag, setDiag] = useState<DiagResult | null>(null);
 
   useEffect(() => {
     if (open) {
       setDestinatario(cliente?.email || "");
       setAllegaPdf(false);
+      setDiag(null);
     }
   }, [open, cliente?.email]);
+
+  async function handleDiagnose() {
+    if (!destinatario || !destinatario.includes("@")) {
+      toast.error("Inserisci un indirizzo email valido");
+      return;
+    }
+    setDiagLoading(true);
+    setDiag(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-resend-domain", {
+        body: { mode: "lookup_email", email: destinatario },
+      });
+      if (error || data?.error) {
+        toast.error("Diagnostica fallita: " + (error?.message || data?.error));
+        return;
+      }
+      setDiag(data as DiagResult);
+    } catch (e: any) {
+      toast.error(e?.message || "Errore diagnostica");
+    } finally {
+      setDiagLoading(false);
+    }
+  }
 
   const previewHtml = useMemo(() => {
     // Mini wrapper preview for the dialog (the real one is built server-side)
@@ -168,13 +207,79 @@ export function SendTestEmailDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="destinatario">Destinatario</Label>
-            <Input
-              id="destinatario"
-              type="email"
-              placeholder="es. tu@esempio.it"
-              value={destinatario}
-              onChange={(e) => setDestinatario(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="destinatario"
+                type="email"
+                placeholder="es. tu@esempio.it"
+                value={destinatario}
+                onChange={(e) => { setDestinatario(e.target.value); setDiag(null); }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleDiagnose}
+                disabled={diagLoading || !destinatario.includes("@")}
+                title="Diagnostica indirizzo su Resend"
+              >
+                {diagLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            {diag && (
+              <div className={`mt-2 rounded-md border p-3 text-xs space-y-2 ${
+                diag.synthetic_status === "delivered"
+                  ? "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800"
+                  : diag.synthetic_status === "bounced" || diag.synthetic_status === "complained"
+                  ? "bg-destructive/10 border-destructive/40"
+                  : "bg-muted border-border"
+              }`}>
+                <div className="flex items-center gap-2 font-semibold">
+                  {diag.synthetic_status === "delivered" && <><CheckCircle2 className="h-4 w-4 text-green-700" /> Tutti gli ultimi invii a questo indirizzo sono stati consegnati ({diag.total_found} totali)</>}
+                  {diag.synthetic_status === "bounced" && <><XCircle className="h-4 w-4 text-destructive" /> Hard bounce rilevato — Resend/SES rifiuta nuovi invii</>}
+                  {diag.synthetic_status === "complained" && <><AlertTriangle className="h-4 w-4 text-destructive" /> L'utente ha segnalato come spam — invii bloccati</>}
+                  {diag.synthetic_status === "pending" && <><Loader2 className="h-4 w-4" /> Stato in elaborazione — Resend ha accettato ma non confermato consegna</>}
+                  {diag.synthetic_status === "no_history" && <><AlertTriangle className="h-4 w-4 text-amber-600" /> Nessun invio precedente trovato per questo indirizzo</>}
+                </div>
+
+                {diag.messages.length > 0 && (
+                  <div className="space-y-1 border-t border-border/60 pt-2">
+                    {diag.messages.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                        <span className="truncate">{new Date(m.created_at).toLocaleString("it-IT")} — {m.subject}</span>
+                        <Badge variant={m.last_event === "delivered" ? "secondary" : "destructive"} className="text-[10px]">
+                          {m.last_event || "—"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(diag.synthetic_status === "bounced" || diag.synthetic_status === "complained") && (
+                  <div className="border-t border-border/60 pt-2 space-y-1">
+                    <p className="text-foreground">
+                      <strong>Soluzione:</strong> apri la pagina Suppressions di Resend, cerca l'indirizzo e rimuovilo manualmente. Poi ritenta l'invio.
+                    </p>
+                    <a
+                      href="https://resend.com/suppressions"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      Apri Resend Suppressions <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+
+                {diag.synthetic_status === "no_history" && (
+                  <p className="text-muted-foreground">
+                    Significa che Resend non ha tracciato invii recenti a questo indirizzo. Controlla che sia scritto correttamente
+                    e che il destinatario abbia controllato anche <strong>Spam</strong> e <strong>Promozioni</strong>.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
