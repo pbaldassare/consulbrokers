@@ -93,6 +93,20 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
 
   const rinnovaMutation = useMutation({
     mutationFn: async () => {
+      // Recupera l'utente corrente e il suo ufficio per rispettare le RLS
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) throw new Error("Utente non autenticato");
+
+      const { data: profile, error: profErr } = await supabase
+        .from("profiles")
+        .select("ufficio_id")
+        .eq("id", userId)
+        .single();
+      if (profErr) throw profErr;
+      const myUfficioId = (profile as any)?.ufficio_id || t.ufficio_id;
+      if (!myUfficioId) throw new Error("Sede dell'utente non configurata: contatta l'amministratore");
+
       // Trova la riga massima per quel numero_titolo
       const { data: maxRow, error: maxErr } = await supabase
         .from("titoli")
