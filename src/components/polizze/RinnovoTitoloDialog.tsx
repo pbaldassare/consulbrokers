@@ -182,23 +182,42 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         throw insErr;
       }
 
+      // Trova il movimento origine (ultimo movimento del titolo precedente) per sostituisce_id
+      // sostituisce_id è una FK verso movimenti_polizza.id, NON verso titoli.id
+      const { data: movOrigine, error: movOrigErr } = await supabase
+        .from("movimenti_polizza")
+        .select("id")
+        .eq("titolo_id", t.id)
+        .order("data_movimento", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (movOrigErr) {
+        console.warn("Nessun movimento origine trovato per il titolo, sostituisce_id sarà null", movOrigErr);
+      }
+      const sostituisceMovId = (movOrigine as any)?.id ?? null;
+
       // Movimento di rinnovo
-      const { error: movErr } = await supabase.from("movimenti_polizza").insert({
-        titolo_id: nuovo.id,
-        riga: nuovaRiga,
-        tipo: "Rinnovo",
-        tipo_documento: "PQ",
-        data_movimento: new Date().toISOString().slice(0, 10),
-        data_effetto: form.durata_da,
-        data_scadenza: form.durata_a,
-        data_rinnovo: form.durata_da,
-        premio: form.premio_lordo,
-        premio_netto: form.premio_netto,
-        tasse: form.tasse,
-        stato: "aperto",
-        sostituisce_id: t.id,
-        ufficio_id: myUfficioId,
-      });
+      const { data: nuovoMov, error: movErr } = await supabase
+        .from("movimenti_polizza")
+        .insert({
+          titolo_id: nuovo.id,
+          riga: nuovaRiga,
+          tipo: "Rinnovo",
+          tipo_documento: "PQ",
+          data_movimento: new Date().toISOString().slice(0, 10),
+          data_effetto: form.durata_da,
+          data_scadenza: form.durata_a,
+          data_rinnovo: form.durata_da,
+          premio: form.premio_lordo,
+          premio_netto: form.premio_netto,
+          tasse: form.tasse,
+          stato: "aperto",
+          sostituisce_id: sostituisceMovId,
+          ufficio_id: myUfficioId,
+        })
+        .select("id")
+        .single();
       if (movErr) {
         console.error("Errore insert movimenti_polizza in rinnovo", {
           error: movErr,
@@ -207,8 +226,20 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           titoloOrigineId: t.id,
           titoloOrigineUfficioId: t.ufficio_id,
           nuovoTitoloId: nuovo.id,
+          sostituisceMovId,
         });
         throw movErr;
+      }
+
+      // Legame bidirezionale: aggiorna il movimento origine con sostituito_da_id (best-effort)
+      if (sostituisceMovId && nuovoMov?.id) {
+        const { error: updOrigErr } = await supabase
+          .from("movimenti_polizza")
+          .update({ sostituito_da_id: nuovoMov.id })
+          .eq("id", sostituisceMovId);
+        if (updOrigErr) {
+          console.warn("Impossibile aggiornare sostituito_da_id sul movimento origine", updOrigErr);
+        }
       }
 
       try {
