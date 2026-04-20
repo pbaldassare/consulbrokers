@@ -356,6 +356,73 @@ const PortafoglioCaricoPage = () => {
         </Card>
       </div>
 
+      {/* Banner: rinnovi in attesa di messa a cassa della polizza precedente */}
+      {pendingCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setPendingDialogOpen(true)}
+          className="w-full text-left rounded-lg border border-orange-300 bg-orange-50 hover:bg-orange-100 transition-colors p-3 flex items-center gap-3"
+        >
+          <Hourglass className="h-5 w-5 text-orange-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-orange-900">
+              {pendingCount} {pendingCount === 1 ? "rinnovo in attesa" : "rinnovi in attesa"} di messa a cassa della polizza precedente
+            </p>
+            <p className="text-xs text-orange-700">
+              Compariranno nel carico solo dopo che la polizza precedente sarà messa a cassa. Click per dettagli.
+            </p>
+          </div>
+        </button>
+      )}
+
+      <Dialog open={pendingDialogOpen} onOpenChange={setPendingDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa — {format(caricoDate, "MMMM yyyy", { locale: it })}
+            </DialogTitle>
+            <DialogDescription>
+              Questi rinnovi diventeranno attivi automaticamente quando la polizza precedente verrà messa a cassa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Polizza nuova</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Scadenza</TableHead>
+                  <TableHead className="text-right">Premio</TableHead>
+                  <TableHead>Origina da</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(pendingRinnovi || []).map((p: any) => (
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => { setPendingDialogOpen(false); navigate(`/titoli/${p.id}`); }}
+                  >
+                    <TableCell className="font-mono text-sm">{p.numero_titolo}</TableCell>
+                    <TableCell>{p.cliente_nome_display || "—"}</TableCell>
+                    <TableCell>{p.compagnia_nome || "—"}</TableCell>
+                    <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
+                    <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {p.sostituisce_polizza}{p.sostituisce_riga != null ? ` / ${p.sostituisce_riga}` : ""}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {pendingCount === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nessun rinnovo in attesa</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
