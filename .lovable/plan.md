@@ -2,62 +2,48 @@
 
 ## Analisi
 
-Vedo nello screenshot 4 righe identiche del titolo `332437574` con scadenza 04/04/2027 (Comune di Santa Marina Salina - ASSISUD), tutti creati per errore dal rinnovo. L'utente chiede due cose:
+L'utente ha modificato il premio sulla polizza originale (ora vediamo Premio Lordo €1907.72, Quietanza €1695.75) ma quando lancia il rinnovo dal dialog, il nuovo titolo viene creato con i **valori originali** della polizza, non con quelli **attuali** modificati.
 
-1. **Bloccare la duplicazione**: impedire che lo stesso titolo possa essere rinnovato più volte (creando duplicati)
-2. **Cleanup**: eliminare le 4 righe duplicate `332437574` con scadenza 04/04/2027
+## Causa probabile
 
-## Verifiche da fare
+In `RinnovoTitoloDialog.tsx` i campi premio (premio_netto, premio_lordo, tasse, addizionali, provvigioni, ecc.) sono probabilmente:
+- letti una sola volta all'apertura del dialog (stato iniziale stale), oppure
+- copiati da un oggetto `t` (titolo) che viene passato come prop ma non rifetchato dopo le modifiche, oppure
+- presi dal "premio firma" originale invece che dal "premio quietanza" attuale
 
-1. Query DB per contare esattamente quanti `titoli` esistono con `numero_polizza = '332437574'` e `data_scadenza = '2027-04-04'`, con i relativi `id`, `created_at`, `movimenti_polizza` collegati e `messa_a_cassa`/incassi.
-2. Capire se uno di questi è "originale" (il primo) o sono tutti duplicati di un rinnovo.
-3. Verificare in `RinnovoTitoloDialog.tsx` perché non c'è un check di esistenza prima dell'insert.
+Devo controllare il file per capire esattamente da dove vengono pescati i valori al momento del submit.
 
-## Piano implementazione
+## Cosa verificherò
 
-### 1. Prevenzione duplicati nel rinnovo (`RinnovoTitoloDialog.tsx`)
+1. `src/components/polizze/RinnovoTitoloDialog.tsx` → vedere quali campi premio vengono passati nell'insert del nuovo titolo e da dove arrivano (props `t` o form state)
+2. Capire se il dialog riceve `t` come snapshot o se rifetcha dal DB all'apertura
+3. Verificare quali sono i campi "firma" vs "quietanza" e quale logica di rinnovo è corretta
 
-Prima di creare il nuovo titolo, controllare se esiste già un titolo con:
-- stesso `numero_polizza`
-- stesso `compagnia_id`
-- stessa `data_decorrenza` calcolata (la nuova decorrenza del rinnovo)
+## Fix previsto
 
-Se esiste → mostrare toast "Rinnovo già esistente" + bottone "Vai al titolo esistente" e **NON** creare nulla. Bloccare anche la mutation con `disabled` se il check pre-conferma rileva il duplicato.
+Due possibili approcci, sceglierò il giusto in base al codice:
 
-### 2. Vincolo a livello DB (consigliato)
+**A) Rifetch all'apertura del dialog**: quando il dialog si apre, fare una `select` fresca del titolo dal DB così i valori sono sempre aggiornati.
 
-Aggiungere un **unique index parziale** su `titoli`:
-```sql
-CREATE UNIQUE INDEX titoli_numero_decorrenza_unique 
-ON titoli (numero_polizza, compagnia_id, data_decorrenza)
-WHERE numero_polizza IS NOT NULL;
-```
-Così anche un doppio click o due tab aperte non possono mai creare duplicati: il secondo insert fallirà a livello DB.
+**B) Usare i valori "quietanza" attuali**: nel rinnovo bisogna copiare i valori correnti (quelli modificati: premio netto quietanza, tasse quietanza, premio lordo, provvigioni) e non i valori firma originali.
 
-### 3. Cleanup dati esistenti
+Quasi certamente serve un **mix**: rifetch + uso dei campi quietanza correnti come base del nuovo titolo.
 
-Migrazione SQL one-shot che:
-- Identifica tutti i titoli con `numero_polizza = '332437574'` e `data_scadenza = '2027-04-04'`
-- **Mantiene il più vecchio** (primo `created_at`) come "originale"
-- Per gli altri:
-  - elimina i `movimenti_polizza` collegati (e relativi `log_attivita` se presenti)
-  - elimina le righe `titoli` duplicate
-- Se il "primo" è anch'esso un rinnovo errato (cioè non esisteva una polizza precedente con quella scadenza), va valutato se eliminare TUTTE le 4 righe come chiede l'utente ("annulla tutte le 332437574 con scadenza 4-4-2027")
+Inoltre i campi del form di rinnovo (input modificabili dall'utente prima di confermare) devono essere **pre-popolati con i valori attuali** così l'utente vede il premio corretto e può confermare/correggere.
 
-**Lettura della richiesta**: l'utente dice "annulla tutte" → eliminare **tutte e 4** le righe `332437574` con `data_scadenza = 2027-04-04`. Confermo questa interpretazione prima di procedere.
+## File toccato
 
-## Domanda di conferma
-
-Devo chiedere se eliminare TUTTE e 4 le occorrenze, o tenerne 1 (il rinnovo "vero") e cancellare le altre 3 duplicate.
-
-## File toccati
-
-- 1 nuova migrazione SQL (unique index + cleanup duplicati)
-- `src/components/polizze/RinnovoTitoloDialog.tsx` (check pre-insert + gestione errore unique)
+- `src/components/polizze/RinnovoTitoloDialog.tsx` (1 file, ~10-20 righe)
 
 ## Cosa NON faccio
 
-- Non tocco le RLS
-- Non modifico la logica di `messa_a_cassa` o lo storico movimenti dei titoli **non** duplicati
-- Non tocco altre polizze diverse da `332437574 / 2027-04-04`
+- Nessuna modifica DB / RLS / policy
+- Nessuna modifica allo schema
+- Nessun impatto su altri flussi (immissione, appendici, storno)
+
+## Verifica post-fix
+
+1. Modifico il premio di una polizza
+2. Apro il dialog di rinnovo → vedo il premio aggiornato pre-compilato
+3. Confermo → il nuovo titolo creato ha i valori aggiornati, non quelli originali
 
