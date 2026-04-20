@@ -192,11 +192,17 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         data_competenza: form.data_competenza,
         garanzia_da: form.garanzia_da || null,
         garanzia_a: form.garanzia_a || null,
-        // Premi
+        // Premi - sia firma che quietanza vengono inizializzati con i valori confermati nel form,
+        // così il nuovo titolo nasce già "allineato" (la quietanza riflette il premio corrente).
         premio_lordo: form.premio_lordo,
         premio_netto: form.premio_netto,
         tasse: form.tasse,
         addizionali: form.addizionali,
+        provvigioni_firma: form.provvigioni,
+        premio_netto_quietanza: form.premio_netto,
+        tasse_quietanza: form.tasse,
+        addizionali_quietanza: form.addizionali,
+        provvigioni_quietanza: form.provvigioni,
         // Stato nuovo
         stato: "attivo",
         data_incasso: null,
