@@ -738,11 +738,16 @@ const TitoloDetail = () => {
           severity: "info",
         });
       }
+
+      return { autoFixes };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", id] });
       toast.success("Importi aggiornati");
+      if (res?.autoFixes?.length) {
+        toast.info(res.autoFixes.join(" • "));
+      }
       setEditingImporti(false);
     },
     onError: (e: any) => toast.error(e.message),
