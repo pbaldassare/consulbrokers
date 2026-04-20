@@ -174,6 +174,7 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
   const [selectedPolizza, setSelectedPolizza] = useState<PolizzaResult | null>(null);
   const [showClienteResults, setShowClienteResults] = useState(false);
   const [showPolizzaResults, setShowPolizzaResults] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
 
   const { data: clientiResults = [] } = useClienteSearch(clienteSearch);
   const { data: polizzeResults = [] } = usePolizzaSearch(polizzaSearch, selectedCliente?.id);
@@ -188,6 +189,9 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
     setShowClienteResults(false);
     setShowPolizzaResults(false);
   }, []);
+
+  const renderedSubject = template ? replaceVarsWithData(template.oggetto, dataMap) : "";
+  const renderedBody = template ? replaceVarsWithData(template.corpo, dataMap) : "";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetSearch(); }}>
@@ -288,12 +292,12 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
             {/* Anteprima */}
             <div>
               <Label className="text-xs text-muted-foreground">Oggetto</Label>
-              <p className="font-medium mt-1">{replaceVarsWithData(template.oggetto, dataMap)}</p>
+              <p className="font-medium mt-1">{renderedSubject}</p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Corpo</Label>
               <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm border mt-1">
-                {replaceVarsWithData(template.corpo, dataMap)}
+                {renderedBody}
               </div>
             </div>
             <p className="text-xs text-muted-foreground italic">
@@ -303,6 +307,28 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
             </p>
           </div>
         )}
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
+          <Button onClick={() => setSendDialogOpen(true)} disabled={!template}>
+            <Send className="h-4 w-4 mr-2" /> Invia test
+          </Button>
+        </DialogFooter>
+
+        <SendTestEmailDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          template={template}
+          cliente={selectedCliente ? {
+            id: selectedCliente.id,
+            email: selectedCliente.email,
+            nome: selectedCliente.nome,
+            cognome: selectedCliente.cognome,
+            ragione_sociale: selectedCliente.ragione_sociale,
+          } : null}
+          titolo={selectedPolizza ? { id: selectedPolizza.id, numero_titolo: selectedPolizza.numero_titolo } : null}
+          renderedSubject={renderedSubject}
+          renderedBody={renderedBody}
+        />
       </DialogContent>
     </Dialog>
   );
