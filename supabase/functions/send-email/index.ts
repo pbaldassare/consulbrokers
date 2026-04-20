@@ -203,7 +203,14 @@ serve(async (req) => {
     if (bcc && !sandboxRedirect) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
     if (attachments && attachments.length > 0) payload.attachments = attachments;
 
-    const res = await fetch("https://api.resend.com/emails", {
+    console.log("[send-email] Sending via Resend:", {
+      from: finalFrom,
+      to: finalTo,
+      subject: finalSubject,
+      sandbox_redirect: sandboxRedirect,
+    });
+
+    let res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -212,20 +219,97 @@ serve(async (req) => {
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
+    let data = await res.json();
+    let domainNotVerified = false;
+    let autoFallbackUsed = false;
+
+    // Auto-fallback if from-domain isn't verified on Resend
+    if (!res.ok && (res.status === 403 || res.status === 422)) {
+      const errMsg = JSON.stringify(data || {}).toLowerCase();
+      const looksLikeDomainError =
+        errMsg.includes("domain") &&
+        (errMsg.includes("not verified") || errMsg.includes("not found") || errMsg.includes("validation"));
+
+      if (looksLikeDomainError && !isSandbox) {
+        domainNotVerified = true;
+        autoFallbackUsed = true;
+        console.warn("[send-email] Domain not verified on Resend, falling back to sandbox sender. Original error:", data);
+
+        const originalRecipients = Array.isArray(to) ? to.join(", ") : to;
+        const fallbackPayload = {
+          ...payload,
+          from: "ConsulNet <onboarding@resend.dev>",
+          to: [SANDBOX_OWNER],
+          subject: `[FALLBACK → ${originalRecipients}] ${finalSubject}`,
+          reply_to: finalReplyTo || (Array.isArray(to) ? to[0] : to),
+        };
+        delete (fallbackPayload as any).cc;
+        delete (fallbackPayload as any).bcc;
+
+        res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+          },
+          body: JSON.stringify(fallbackPayload),
+        });
+        data = await res.json();
+      }
+    }
 
     if (!res.ok) {
-      console.error("Resend error:", res.status, data);
+      console.error("[send-email] Resend error:", res.status, data);
       return new Response(
-        JSON.stringify({ error: "Invio email fallito", details: data, sandbox_redirect: sandboxRedirect }),
+        JSON.stringify({
+          error: "Invio email fallito",
+          details: data,
+          sandbox_redirect: sandboxRedirect,
+          domain_not_verified: domainNotVerified,
+        }),
         { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    return new Response(JSON.stringify({ success: true, id: data.id, sandbox_redirect: sandboxRedirect, redirected_to: sandboxRedirect ? SANDBOX_OWNER : null, data }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log("[send-email] Resend accepted message id:", data.id);
+
+    // Poll real delivery status (Resend records the bounce/delivered state shortly after)
+    let deliveryStatus: string | null = null;
+    let deliveryDetails: any = null;
+    if (data?.id) {
+      // Wait ~3s for status to settle, then GET
+      await new Promise((r) => setTimeout(r, 3500));
+      try {
+        const statusRes = await fetch(`https://api.resend.com/emails/${data.id}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+        });
+        if (statusRes.ok) {
+          deliveryDetails = await statusRes.json();
+          deliveryStatus = deliveryDetails?.last_event || deliveryDetails?.status || null;
+          console.log("[send-email] Delivery status for", data.id, "→", deliveryStatus, deliveryDetails);
+        } else {
+          console.warn("[send-email] Could not fetch delivery status:", statusRes.status);
+        }
+      } catch (e) {
+        console.warn("[send-email] Status polling failed:", e);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        id: data.id,
+        sandbox_redirect: sandboxRedirect,
+        auto_fallback_used: autoFallbackUsed,
+        domain_not_verified: domainNotVerified,
+        redirected_to: sandboxRedirect || autoFallbackUsed ? SANDBOX_OWNER : null,
+        delivery_status: deliveryStatus,
+        delivery_details: deliveryDetails,
+        data,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err: any) {
     console.error("send-email error:", err);
     return new Response(JSON.stringify({ error: err?.message || "Errore interno" }), {

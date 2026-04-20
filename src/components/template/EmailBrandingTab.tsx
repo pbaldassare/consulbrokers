@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Upload, Save, Image as ImageIcon, Palette, Loader2 } from "lucide-react";
+import { ResendDomainStatus } from "./ResendDomainStatus";
 
 interface Branding {
   id: string;
@@ -92,7 +93,9 @@ export function EmailBrandingTab() {
   const previewColor = form.colore_primario || "#0e7490";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      <ResendDomainStatus />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base"><Palette className="h-4 w-4" /> Configurazione Branding</CardTitle>
@@ -208,6 +211,7 @@ export function EmailBrandingTab() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
