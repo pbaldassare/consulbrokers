@@ -11,17 +11,30 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+const MAX_ITERATIONS = 6;
+const MAX_ROWS = 100;
+
 const SYSTEM_PROMPT = `Sei un assistente IA per un broker assicurativo italiano (CBnet/ConsulNet).
 Rispondi in italiano, in modo conciso e professionale.
 
-Hai accesso al database via il tool "query_database". USALO ogni volta che la domanda
-riguarda dati concreti (clienti, polizze, sinistri, scadenze, provvigioni, contabilità).
-Le query rispettano automaticamente i permessi dell'utente: se non vede nulla, dillo
-("Non risulta alcun dato visibile per questa ricerca.").
+Hai due tool a disposizione:
+1) "query_database" — esegue SELECT in sola lettura (max ${MAX_ROWS} righe). Le RLS sono attive.
+2) "describe_table" — restituisce le colonne reali di una tabella. USALO se hai dubbi sui nomi
+   delle colonne PRIMA di generare SQL: eviti errori "column does not exist".
 
-Quando ricevi i risultati, formula una risposta naturale citando i dati rilevanti
-(numero polizza, date in formato gg/mm/aaaa, importi in EUR). Usa elenchi puntati o
-tabelle markdown solo se ci sono più di 3 risultati. Massimo 3 chiamate al tool per domanda.
+LINEE GUIDA:
+- Per domande aggregate (totali, conteggi, medie) usa SUM/COUNT/AVG/GROUP BY, NON righe grezze.
+- Per le polizze usa SEMPRE la vista v_portafoglio_titoli (più ricca e leggibile di "titoli").
+- Per "le mie cose" filtra con auth.uid() (es. trattative.assegnato_a = auth.uid()).
+- Se la prima query non torna risultati, prima di rispondere "nessun dato" prova varianti:
+  ILIKE più larghi, range date estesi, rimuovere filtri opzionali.
+- Se ricevi un errore SQL "column ... does not exist", chiama describe_table per la tabella.
+- Massimo ${MAX_ITERATIONS} iterazioni di tool calls per domanda.
+
+QUANDO RISPONDI:
+- Cita i dati rilevanti (numero polizza, date gg/mm/aaaa, importi in EUR con migliaia separate).
+- Usa elenchi puntati o tabelle markdown solo se ci sono più di 3 risultati.
+- Se non vedi nulla, dillo onestamente ("Non risulta alcun dato visibile per questa ricerca.").
 
 ${SCHEMA_CONTEXT}`;
 
@@ -31,7 +44,9 @@ const tools = [
     function: {
       name: "query_database",
       description:
-        "Esegue una query SELECT in sola lettura sul database. Restituisce JSON. Massimo 50 righe.",
+        "Esegue una query SELECT in sola lettura sul database. Restituisce JSON. Massimo " +
+        MAX_ROWS +
+        " righe. Usa nomi di colonna esatti — in caso di dubbio invoca prima describe_table.",
       parameters: {
         type: "object",
         properties: {
@@ -46,6 +61,27 @@ const tools = [
           },
         },
         required: ["sql"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "describe_table",
+      description:
+        "Restituisce le colonne reali (nome, tipo, nullable) di una tabella o vista pubblica. " +
+        "Usalo PRIMA di generare SQL se non sei sicuro dei nomi delle colonne.",
+      parameters: {
+        type: "object",
+        properties: {
+          table_name: {
+            type: "string",
+            description:
+              "Nome esatto della tabella o vista (schema public). Es: 'trattative', 'v_portafoglio_titoli'.",
+          },
+        },
+        required: ["table_name"],
         additionalProperties: false,
       },
     },
@@ -122,10 +158,17 @@ Deno.serve(async (req) => {
       ...userMessages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
-    const toolCallsLog: Array<{ sql: string; purpose?: string; rows?: number; error?: string }> = [];
+    const toolCallsLog: Array<{
+      tool: string;
+      sql?: string;
+      table?: string;
+      purpose?: string;
+      rows?: number;
+      ms?: number;
+      error?: string;
+    }> = [];
 
-    // Tool-call loop, max 3 round trips
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
       let aiResp;
       try {
         aiResp = await callGemini(messages);
@@ -151,7 +194,6 @@ Deno.serve(async (req) => {
 
       const toolCalls = msg.tool_calls;
       if (!toolCalls || toolCalls.length === 0) {
-        // Final answer
         return new Response(
           JSON.stringify({
             content: msg.content ?? "",
@@ -161,7 +203,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Execute tool calls
       messages.push({
         role: "assistant",
         content: msg.content ?? "",
@@ -176,6 +217,52 @@ Deno.serve(async (req) => {
           args = typeof argsRaw === "string" ? JSON.parse(argsRaw) : argsRaw;
         } catch {
           args = {};
+        }
+
+        const t0 = performance.now();
+
+        if (fnName === "describe_table") {
+          const tableName: string = (args.table_name ?? "").trim();
+          let payload: any;
+          let err: string | null = null;
+
+          if (!tableName) {
+            err = "table_name mancante";
+            payload = { error: err };
+          } else {
+            try {
+              const { data, error: rpcError } = await supabase.rpc("ai_describe_table", {
+                table_name: tableName,
+              });
+              if (rpcError) {
+                err = rpcError.message;
+                payload = { error: err };
+              } else if (!data || (Array.isArray(data) && data.length === 0)) {
+                err = `Tabella '${tableName}' non trovata o senza colonne visibili.`;
+                payload = { error: err };
+              } else {
+                payload = { table: tableName, columns: data };
+              }
+            } catch (e) {
+              err = e instanceof Error ? e.message : String(e);
+              payload = { error: err };
+            }
+          }
+
+          const ms = Math.round(performance.now() - t0);
+          toolCallsLog.push({
+            tool: "describe_table",
+            table: tableName,
+            rows: Array.isArray(payload?.columns) ? payload.columns.length : 0,
+            ms,
+            error: err ?? undefined,
+          });
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify(payload),
+          });
+          continue;
         }
 
         if (fnName !== "query_database") {
@@ -206,16 +293,35 @@ Deno.serve(async (req) => {
         }
 
         const rowCount = Array.isArray(rows) ? rows.length : 0;
-        toolCallsLog.push({ sql, purpose, rows: rowCount, error: error ?? undefined });
+        const ms = Math.round(performance.now() - t0);
+        toolCallsLog.push({
+          tool: "query_database",
+          sql,
+          purpose,
+          rows: rowCount,
+          ms,
+          error: error ?? undefined,
+        });
+
+        // Se errore di colonna inesistente, suggerisci describe_table
+        let toolContent: any;
+        if (error) {
+          const hint =
+            /column .* does not exist/i.test(error) || /relation .* does not exist/i.test(error)
+              ? " (suggerimento: usa describe_table per verificare i nomi reali delle colonne)"
+              : "";
+          toolContent = { error: error + hint };
+        } else {
+          toolContent = {
+            rows: Array.isArray(rows) ? rows.slice(0, MAX_ROWS) : rows,
+            count: rowCount,
+          };
+        }
 
         messages.push({
           role: "tool",
           tool_call_id: tc.id,
-          content: JSON.stringify(
-            error
-              ? { error }
-              : { rows: Array.isArray(rows) ? rows.slice(0, 50) : rows, count: rowCount },
-          ),
+          content: JSON.stringify(toolContent),
         });
       }
     }
