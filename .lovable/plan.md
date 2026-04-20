@@ -1,125 +1,51 @@
 
 
-## Obiettivo
+L'utente ha inviato un test a `paolo.baldassare@gmail.com` ma non è arrivata. Il sistema in modalità sandbox Resend (`onboarding@resend.dev`) **non può consegnare a destinatari esterni** — solo a `info@iaconnect.it` (proprietario account Resend). Il fix precedente reindirizza già automaticamente a `info@iaconnect.it`, quindi la mail dovrebbe essere arrivata lì, non a Paolo.
 
-Trasformare la pagina **Template Email** da semplice anteprima a **centro operativo di test invio**, dove l'admin può:
-1. **Inviare realmente** un'email di test usando il template scelto (via Resend già configurato)
-2. **Personalizzare** logo intestazione, firma, colori del wrapper HTML
-3. **Allegare PDF autocompilanti** generati dal sistema (es. preventivo, polizza, quietanza) a partire dai dati del cliente/polizza selezionati
+Verifico nei log edge function per confermare cosa è successo realmente.
 
-Tutto in modalità test (mittente `onboarding@resend.dev`, destinatari = email account Resend o email custom inserita), pronto a passare a produzione cambiando solo il dominio mittente.
+## Diagnosi
 
-## Stato attuale (verificato)
+**Causa**: Limite invalicabile della modalità sandbox Resend. Anche col redirect attivo, la mail arriva a `info@iaconnect.it` (con oggetto `[TEST → paolo.baldassare@gmail.com] ...`), **mai a Paolo direttamente**.
 
-- `TemplatePage.tsx` mostra template + anteprima con dati reali (cliente + polizza già selezionabili nel modal "Anteprima")
-- `template_email` ha solo `oggetto` + `corpo` (testo con placeholder)
-- `sendEmail()` helper già pronto → invoca edge function `send-email` (Resend)
-- Nessun branding (logo/firma/header HTML) attualmente applicato
-- Nessuna generazione PDF allegata
+L'unica soluzione per consegnare davvero a Paolo (o a qualsiasi cliente reale) è **verificare un dominio su Resend**.
 
-## Architettura proposta
+## Opzioni proposte
 
-```text
-┌─ Template Email page ────────────────────────────────────┐
-│  [Lista template] → [Anteprima esistente] → INVIA TEST  │
-│                              │                           │
-│                              ▼                           │
-│                      [Dialog INVIO TEST]                 │
-│                      • Destinatario (email)              │
-│                      • Cliente + Polizza (già scelti)    │
-│                      • ☑ Allega PDF (quale doc)          │
-│                      • Anteprima HTML rendered           │
-│                      • [Invia]                           │
-└──────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-              edge function "send-email"  (estesa)
-              • applica wrapper HTML (logo + firma)
-              • genera PDF on-demand (se richiesto)
-              • allega via Resend `attachments`
-              • invia
-```
+### Opzione A — Verifica `iaconnect.it` su Resend (consigliata)
+Tu possiedi già il dominio (custom domain progetto = `consulnet.iaconnect.it`).
+1. Tu vai su [resend.com/domains](https://resend.com/domains) → Add Domain → `iaconnect.it`
+2. Resend ti dà 3-4 record DNS (SPF, DKIM, DMARC) da aggiungere sul tuo provider DNS
+3. Quando Resend mostra "Verified" (5min-24h), io aggiorno il default mittente a `noreply@iaconnect.it` (o `consulnet@iaconnect.it`)
+4. Da quel momento le mail partono verso QUALSIASI destinatario reale
 
-## Modifiche tecniche
+**Cosa faccio io dopo la verifica:**
+- Aggiorno `email_branding.mittente_default` → `ConsulNet <noreply@iaconnect.it>`
+- Rimuovo la logica sandbox-redirect dalla edge function (o la lascio come fallback se mittente è ancora `onboarding@resend.dev`)
+- Test invio reale a Paolo per confermare
 
-### 1. Tabella `email_branding` (1 riga, singleton)
-Nuova tabella per personalizzazione globale:
-- `logo_url` (text) — URL logo intestazione (caricato in storage `branding`)
-- `colore_primario` (text, default `#0e7490` teal)
-- `firma_html` (text) — firma in fondo (es. "Cordiali saluti, Sede di...")
-- `intestazione_html` (text, opzionale) — intestazione legale
-- `mittente_default` (text, default `ConsulNet <onboarding@resend.dev>`)
-- RLS: solo admin scrive, tutti gli autenticati leggono
+### Opzione B — Test continuati su `info@iaconnect.it`
+Resta in sandbox. Ogni test arriva a `info@iaconnect.it` con prefisso oggetto `[TEST → ...]`. Non puoi mandare a Paolo né a clienti reali finché non passi all'opzione A.
 
-### 2. Nuova pagina/sezione "Branding email"
-Tab aggiuntivo nella `TemplatePage.tsx` (o sotto `Impostazioni`):
-- Upload logo (storage bucket `branding/`)
-- Color picker per colore primario
-- Editor testuale per firma e intestazione
-- Anteprima live di come appare l'email wrapped
+### Opzione C — Avviso UI più esplicito
+Aggiungo un banner giallo nel dialog "Invia test" che dice chiaramente: "⚠️ In modalità test, l'email arriverà a `info@iaconnect.it` indipendentemente dal destinatario inserito. Per inviare a destinatari reali, verifica il dominio su Resend."
 
-### 3. Wrapper HTML lato edge function
-La function `send-email` viene **estesa** (non ricreata): se riceve `template_id` o flag `apply_branding: true`, prima dell'invio:
-- Carica `email_branding`
-- Wrappa il `html` in un layout responsive: header con logo + colore primario, body, footer con firma
-- Sostituisce eventuali placeholder rimasti
+## Cosa propongo di fare ora
 
-Mantiene backward-compat: se ricevi solo `html` puro (come oggi), non wrappa.
+**Step 1** (subito, opzione C): aggiungo il banner di avviso nel `SendTestEmailDialog.tsx` per evitare confusione.
 
-### 4. Generazione PDF allegati
-Nuova edge function `genera-pdf-template` (o estensione di `genera-distinta-pdf` già esistente):
-- Input: `tipo` (`preventivo` | `polizza` | `quietanza` | `certificato`), `cliente_id`, `titolo_id`
-- Usa libreria PDF (es. `pdf-lib` via Deno) per generare PDF formattato con:
-  - Logo da `email_branding`
-  - Dati reali da DB (clienti, titoli, compagnie, sede)
-  - Layout standard assicurativo
-- Restituisce base64 (per allegare) o URL temporaneo
-
-In v1 implemento **3 tipi**: `preventivo`, `quietanza`, `riepilogo_polizza`. Gli altri seguono lo stesso pattern.
-
-### 5. Dialog "Invia test" in `TemplatePage.tsx`
-Nuovo componente `SendTestEmailDialog`:
-- Pre-popola destinatario con email del cliente (modificabile)
-- Mostra anteprima HTML **wrapped** (chiama una RPC o edge function di "preview render")
-- Checkbox: "Allega PDF" → dropdown tipo PDF
-- Bottone "Invia" → chiama `sendEmail({ to, subject, html, attachments, apply_branding: true })`
-- Toast esito + log su `log_attivita`
-
-### 6. Helper `sendEmail` esteso
-`src/lib/sendEmail.ts` aggiunge campi opzionali:
-- `attachments?: { filename: string; content: string /* base64 */ }[]`
-- `apply_branding?: boolean`
-- `template_id?: string`
-
-### 7. Edge function `send-email` aggiornata
-- Accetta nuovi campi
-- Se `apply_branding`: carica branding e wrappa HTML
-- Inoltra `attachments` a Resend (Resend supporta nativamente: `[{ filename, content }]`)
+**Step 2** (quando confermi): aggiungo nella tab **Branding email** una guida step-by-step "Verifica dominio Resend" con i campi DNS da copiare e un check-status. Quando il dominio è verificato, basta cambiare il mittente nel form Branding e il sistema esce automaticamente da sandbox.
 
 ## File toccati
 
-**Nuovi:**
-- `supabase/migrations/<ts>_email_branding.sql` — tabella + bucket `branding`
-- `supabase/functions/genera-pdf-template/index.ts` — generatore PDF
-- `src/components/template/SendTestEmailDialog.tsx` — dialog invio test
-- `src/components/template/EmailBrandingTab.tsx` — config branding
-
 **Modificati:**
-- `src/pages/TemplatePage.tsx` — bottone "Invia test" + tab Branding
-- `src/lib/sendEmail.ts` — campi attachments/apply_branding
-- `supabase/functions/send-email/index.ts` — wrapper HTML + attachments
+- `src/components/template/SendTestEmailDialog.tsx` — banner giallo "modalità sandbox attiva, destinatario forzato a info@iaconnect.it"
 
-## Cosa NON cambia
-
-- Schema esistente `template_email` / `template_categorie`
-- Helper `sendEmail` (resta backward-compatible)
-- I 16 template già seedati (continuano a funzionare)
-- Mittente Resend resta `onboarding@resend.dev` finché non si verifica un dominio reale
+**Nessuna modifica a:**
+- Edge function (la logica redirect funziona già correttamente)
+- Database / migrations
 
 ## Note
-
-- **Test reali**: con `onboarding@resend.dev`, Resend permette invio **solo verso l'email del proprietario dell'account Resend**. Quindi i test funzionano verso quell'indirizzo; per inviare a clienti reali serve verificare un dominio (futura iterazione).
-- **PDF in v1**: layout base professionale (logo + intestazione cliente + tabella dati + firma). Versioni più ricche (CGA allegate, multi-pagina) in iterazione successiva.
-- **Sicurezza**: la dialog "Invia test" è accessibile solo da admin (controllo via `RoleGuard` o `permessi_json`).
-- Il setup del **dominio mittente personalizzato** (es. `noreply@consulnet.iaconnect.it`) lo affrontiamo separatamente quando l'utente sarà pronto a verificare DNS su Resend.
+- Per confermare che il sistema funziona: controlla la casella `info@iaconnect.it` — la mail di test inviata a Paolo dovrebbe esserci con oggetto prefissato `[TEST → paolo.baldassare@gmail.com]`. Se non c'è nemmeno lì, c'è un altro problema e indagherò sui log edge.
+- L'unica via per inviare davvero a Paolo è verificare un dominio. Suggerisco `iaconnect.it` perché è già il tuo.
 
