@@ -1258,6 +1258,9 @@ const TitoloDetail = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog Rinnovo Polizza */}
+      <RinnovoTitoloDialog open={rinnovoDialogOpen} onOpenChange={setRinnovoDialogOpen} titolo={t} />
+
       {/* Dialog Garantito */}
       <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
         <DialogContent className="sm:max-w-lg">
