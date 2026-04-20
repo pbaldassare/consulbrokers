@@ -141,8 +141,29 @@ serve(async (req) => {
 
     const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding } = parsed.data;
 
+    // Sandbox mode: con onboarding@resend.dev Resend permette invii SOLO al proprietario account.
+    // Se il from è il sender di sandbox, dirottiamo TUTTI i destinatari verso SANDBOX_TO
+    // e mettiamo gli originali come reply_to per riferimento.
+    const SANDBOX_OWNER = Deno.env.get("RESEND_SANDBOX_TO") || "info@iaconnect.it";
     let finalHtml = html;
     let finalFrom = from || "ConsulNet <onboarding@resend.dev>";
+    let finalTo: string | string[] = to;
+    let finalReplyTo = reply_to;
+    let finalSubject = subject;
+    let sandboxRedirect = false;
+
+    const isSandbox = /onboarding@resend\.dev/i.test(finalFrom);
+    if (isSandbox) {
+      const originalRecipients = Array.isArray(to) ? to.join(", ") : to;
+      const ownerLower = SANDBOX_OWNER.toLowerCase();
+      const allOwner = (Array.isArray(to) ? to : [to]).every((r) => r.toLowerCase() === ownerLower);
+      if (!allOwner) {
+        sandboxRedirect = true;
+        finalTo = SANDBOX_OWNER;
+        finalReplyTo = reply_to || (Array.isArray(to) ? to[0] : to);
+        finalSubject = `[TEST → ${originalRecipients}] ${subject}`;
+      }
+    }
 
     if (apply_branding) {
       try {
@@ -173,13 +194,13 @@ serve(async (req) => {
 
     const payload: Record<string, unknown> = {
       from: finalFrom,
-      to: Array.isArray(to) ? to : [to],
-      subject,
+      to: Array.isArray(finalTo) ? finalTo : [finalTo],
+      subject: finalSubject,
       html: finalHtml,
     };
-    if (reply_to) payload.reply_to = reply_to;
-    if (cc) payload.cc = Array.isArray(cc) ? cc : [cc];
-    if (bcc) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
+    if (finalReplyTo) payload.reply_to = finalReplyTo;
+    if (cc && !sandboxRedirect) payload.cc = Array.isArray(cc) ? cc : [cc];
+    if (bcc && !sandboxRedirect) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
     if (attachments && attachments.length > 0) payload.attachments = attachments;
 
     const res = await fetch("https://api.resend.com/emails", {
@@ -196,12 +217,12 @@ serve(async (req) => {
     if (!res.ok) {
       console.error("Resend error:", res.status, data);
       return new Response(
-        JSON.stringify({ error: "Invio email fallito", details: data }),
+        JSON.stringify({ error: "Invio email fallito", details: data, sandbox_redirect: sandboxRedirect }),
         { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    return new Response(JSON.stringify({ success: true, id: data.id, data }), {
+    return new Response(JSON.stringify({ success: true, id: data.id, sandbox_redirect: sandboxRedirect, redirected_to: sandboxRedirect ? SANDBOX_OWNER : null, data }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
