@@ -110,9 +110,26 @@ const PortafoglioCaricoPage = () => {
   });
   const totalePremio = totaleData ?? 0;
 
+  // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
+  const { data: pendingRinnovi } = useQuery({
+    queryKey: ["portafoglio-carico-pending", caricoStart, caricoEnd],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("v_portafoglio_titoli" as any)
+        .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza, sostituisce_riga")
+        .gte("data_scadenza", caricoStart)
+        .lte("data_scadenza", caricoEnd)
+        .eq("stato", "in_attesa_rinnovo")
+        .order("data_scadenza", { ascending: true });
+      return (data || []) as any[];
+    },
+  });
+  const pendingCount = pendingRinnovi?.length || 0;
+
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
     queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-totale"] });
+    queryClient.invalidateQueries({ queryKey: ["portafoglio-carico-pending"] });
   };
 
   const mettiACassa = useCallback(async (titoloId: string, premioLordo?: number | null) => {
