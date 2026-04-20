@@ -1,95 +1,125 @@
 
+
 ## Obiettivo
 
-Arricchire la libreria template email con un set completo di modelli professionali pronti all'uso, in italiano formale assicurativo, suddivisi per categorie operative tipiche di un'agenzia. Tutti già collegati al sistema esistente (placeholder `{{...}}`, tabella `template_email`, anteprima con dati reali, invio via Resend).
+Trasformare la pagina **Template Email** da semplice anteprima a **centro operativo di test invio**, dove l'admin può:
+1. **Inviare realmente** un'email di test usando il template scelto (via Resend già configurato)
+2. **Personalizzare** logo intestazione, firma, colori del wrapper HTML
+3. **Allegare PDF autocompilanti** generati dal sistema (es. preventivo, polizza, quietanza) a partire dai dati del cliente/polizza selezionati
 
-## Categorie da aggiungere (oltre a Sollecito e Rinnovo già presenti)
+Tutto in modalità test (mittente `onboarding@resend.dev`, destinatari = email account Resend o email custom inserita), pronto a passare a produzione cambiando solo il dominio mittente.
 
-1. **Benvenuto** — onboarding cliente, attivazione area riservata
-2. **Sinistro** — apertura, aggiornamento, liquidazione, chiusura
-3. **Quietanza & Incasso** — conferma pagamento, ricevuta, riepilogo
-4. **Documentazione** — invio polizza, appendice, certificato, CGA
-5. **Scadenze & Avvisi** — preavviso scadenza (60/30/15 gg), tacito rinnovo
-6. **Trattativa & Preventivo** — invio preventivo, sollecito decisione
-7. **Comunicazioni Istituzionali** — variazioni anagrafiche, privacy, IVASS
-8. **Cortesia** — auguri, ringraziamenti post-incasso, follow-up
+## Stato attuale (verificato)
 
-## Template proposti (16 nuovi modelli)
+- `TemplatePage.tsx` mostra template + anteprima con dati reali (cliente + polizza già selezionabili nel modal "Anteprima")
+- `template_email` ha solo `oggetto` + `corpo` (testo con placeholder)
+- `sendEmail()` helper già pronto → invoca edge function `send-email` (Resend)
+- Nessun branding (logo/firma/header HTML) attualmente applicato
+- Nessuna generazione PDF allegata
 
-### Benvenuto
-- **Benvenuto nuovo cliente** — saluto + riepilogo referenti sede
-- **Attivazione area riservata** — credenziali + link portale
+## Architettura proposta
 
-### Sinistro
-- **Apertura sinistro — presa in carico** — n. pratica, perito, prossimi passi
-- **Richiesta documentazione integrativa** — elenco documenti mancanti
-- **Liquidazione sinistro** — comunicazione importo liquidato
-- **Chiusura sinistro** — esito definitivo
-
-### Quietanza & Incasso
-- **Conferma incasso premio** — ricevuta polizza incassata
-- **Quietanza di pagamento** — documento formale a fronte pagamento
-
-### Documentazione
-- **Invio polizza emessa** — allegato contratto + CGA
-- **Invio appendice** — variazione contrattuale
-- **Invio certificato assicurativo** — RCA/fideiussione
-
-### Scadenze
-- **Preavviso scadenza 60 giorni** — warning anticipato non vincolante
-- **Preavviso disdetta tacito rinnovo** — termini ex art. legge
-
-### Trattativa
-- **Invio preventivo** — preventivo in allegato + validità
-- **Sollecito decisione preventivo** — follow-up post-invio
-
-### Cortesia
-- **Ringraziamento rinnovo** — post-rinnovo confermato
+```text
+┌─ Template Email page ────────────────────────────────────┐
+│  [Lista template] → [Anteprima esistente] → INVIA TEST  │
+│                              │                           │
+│                              ▼                           │
+│                      [Dialog INVIO TEST]                 │
+│                      • Destinatario (email)              │
+│                      • Cliente + Polizza (già scelti)    │
+│                      • ☑ Allega PDF (quale doc)          │
+│                      • Anteprima HTML rendered           │
+│                      • [Invia]                           │
+└──────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+              edge function "send-email"  (estesa)
+              • applica wrapper HTML (logo + firma)
+              • genera PDF on-demand (se richiesto)
+              • allega via Resend `attachments`
+              • invia
+```
 
 ## Modifiche tecniche
 
-**Migration SQL unica** (`supabase/migrations/<ts>_seed_template_email_extended.sql`):
-- `INSERT` di 6 nuove categorie in `template_categorie`
-- `INSERT` di 16 template in `template_email` (oggetto + corpo formali, già con placeholder corretti)
-- Tutti i corpi usano i placeholder già supportati: `{{cliente_nome}}`, `{{cliente_cognome}}`, `{{azienda_ragione_sociale}}`, `{{polizza_numero}}`, `{{polizza_scadenza}}`, `{{polizza_premio}}`, `{{compagnia_nome}}`, `{{sede_nome}}`, `{{sede_indirizzo}}`, `{{sede_email}}`, `{{sede_telefono}}`, `{{data_oggi}}`
-- Idempotenza: `WHERE NOT EXISTS` su `(categoria_id, nome)` per evitare duplicati al rerun
+### 1. Tabella `email_branding` (1 riga, singleton)
+Nuova tabella per personalizzazione globale:
+- `logo_url` (text) — URL logo intestazione (caricato in storage `branding`)
+- `colore_primario` (text, default `#0e7490` teal)
+- `firma_html` (text) — firma in fondo (es. "Cordiali saluti, Sede di...")
+- `intestazione_html` (text, opzionale) — intestazione legale
+- `mittente_default` (text, default `ConsulNet <onboarding@resend.dev>`)
+- RLS: solo admin scrive, tutti gli autenticati leggono
 
-**Nessuna modifica al codice frontend**: la `TemplatePage.tsx` li mostra automaticamente nelle categorie nuove.
+### 2. Nuova pagina/sezione "Branding email"
+Tab aggiuntivo nella `TemplatePage.tsx` (o sotto `Impostazioni`):
+- Upload logo (storage bucket `branding/`)
+- Color picker per colore primario
+- Editor testuale per firma e intestazione
+- Anteprima live di come appare l'email wrapped
 
-## Stile dei testi (esempio)
+### 3. Wrapper HTML lato edge function
+La function `send-email` viene **estesa** (non ricreata): se riceve `template_id` o flag `apply_branding: true`, prima dell'invio:
+- Carica `email_branding`
+- Wrappa il `html` in un layout responsive: header con logo + colore primario, body, footer con firma
+- Sostituisce eventuali placeholder rimasti
 
-> **Oggetto:** Comunicazione di apertura sinistro – pratica polizza n. {{polizza_numero}}
->
-> Gentile {{cliente_nome}} {{cliente_cognome}},
->
-> con la presente Le confermiamo l'avvenuta apertura della pratica relativa al sinistro denunciato in data {{data_oggi}}, riferito alla polizza n. {{polizza_numero}} presso la Compagnia {{compagnia_nome}}.
->
-> La pratica è stata regolarmente trasmessa agli uffici competenti e Le verrà comunicato a breve il nominativo del perito incaricato.
->
-> Restiamo a Sua disposizione per ogni chiarimento.
->
-> Cordiali saluti,
-> {{sede_nome}}
-> {{sede_indirizzo}} – Tel. {{sede_telefono}}
+Mantiene backward-compat: se ricevi solo `html` puro (come oggi), non wrappa.
 
-Tutti i 16 template seguono lo stesso registro: formale, assicurativo, conciso, con saluti istituzionali e firma sede.
+### 4. Generazione PDF allegati
+Nuova edge function `genera-pdf-template` (o estensione di `genera-distinta-pdf` già esistente):
+- Input: `tipo` (`preventivo` | `polizza` | `quietanza` | `certificato`), `cliente_id`, `titolo_id`
+- Usa libreria PDF (es. `pdf-lib` via Deno) per generare PDF formattato con:
+  - Logo da `email_branding`
+  - Dati reali da DB (clienti, titoli, compagnie, sede)
+  - Layout standard assicurativo
+- Restituisce base64 (per allegare) o URL temporaneo
+
+In v1 implemento **3 tipi**: `preventivo`, `quietanza`, `riepilogo_polizza`. Gli altri seguono lo stesso pattern.
+
+### 5. Dialog "Invia test" in `TemplatePage.tsx`
+Nuovo componente `SendTestEmailDialog`:
+- Pre-popola destinatario con email del cliente (modificabile)
+- Mostra anteprima HTML **wrapped** (chiama una RPC o edge function di "preview render")
+- Checkbox: "Allega PDF" → dropdown tipo PDF
+- Bottone "Invia" → chiama `sendEmail({ to, subject, html, attachments, apply_branding: true })`
+- Toast esito + log su `log_attivita`
+
+### 6. Helper `sendEmail` esteso
+`src/lib/sendEmail.ts` aggiunge campi opzionali:
+- `attachments?: { filename: string; content: string /* base64 */ }[]`
+- `apply_branding?: boolean`
+- `template_id?: string`
+
+### 7. Edge function `send-email` aggiornata
+- Accetta nuovi campi
+- Se `apply_branding`: carica branding e wrappa HTML
+- Inoltra `attachments` a Resend (Resend supporta nativamente: `[{ filename, content }]`)
 
 ## File toccati
 
-**Nuovo:**
-- `supabase/migrations/<timestamp>_seed_template_email_extended.sql` — categorie + 16 template
+**Nuovi:**
+- `supabase/migrations/<ts>_email_branding.sql` — tabella + bucket `branding`
+- `supabase/functions/genera-pdf-template/index.ts` — generatore PDF
+- `src/components/template/SendTestEmailDialog.tsx` — dialog invio test
+- `src/components/template/EmailBrandingTab.tsx` — config branding
 
-**Non toccati:**
-- `src/pages/TemplatePage.tsx` (già supporta tutto)
-- `supabase/functions/send-email/index.ts` (già pronto per invii reali)
+**Modificati:**
+- `src/pages/TemplatePage.tsx` — bottone "Invia test" + tab Branding
+- `src/lib/sendEmail.ts` — campi attachments/apply_branding
+- `supabase/functions/send-email/index.ts` — wrapper HTML + attachments
 
 ## Cosa NON cambia
 
-- Schema tabelle `template_categorie` / `template_email`
-- Logica placeholder e anteprima
-- Permessi RLS
-- Helper `sendEmail`
+- Schema esistente `template_email` / `template_categorie`
+- Helper `sendEmail` (resta backward-compatible)
+- I 16 template già seedati (continuano a funzionare)
+- Mittente Resend resta `onboarding@resend.dev` finché non si verifica un dominio reale
 
 ## Note
 
-I template sono **modelli base modificabili** dall'admin in UI. Servono come libreria iniziale e come banco di test per il sistema di invio Resend. Nessun trigger automatico viene collegato in questa iterazione: l'invio resta manuale (utente apre template → preview → invia). I trigger automatici (es. preavviso scadenza 60gg) saranno una iterazione successiva, su richiesta esplicita.
+- **Test reali**: con `onboarding@resend.dev`, Resend permette invio **solo verso l'email del proprietario dell'account Resend**. Quindi i test funzionano verso quell'indirizzo; per inviare a clienti reali serve verificare un dominio (futura iterazione).
+- **PDF in v1**: layout base professionale (logo + intestazione cliente + tabella dati + firma). Versioni più ricche (CGA allegate, multi-pagina) in iterazione successiva.
+- **Sicurezza**: la dialog "Invia test" è accessibile solo da admin (controllo via `RoleGuard` o `permessi_json`).
+- Il setup del **dominio mittente personalizzato** (es. `noreply@consulnet.iaconnect.it`) lo affrontiamo separatamente quando l'utente sarà pronto a verificare DNS su Resend.
+
