@@ -1,66 +1,47 @@
 
 
-## Diagnosi
+## Analisi
 
-Stato DB del titolo `450315855`:
-| Campo | Valore | Atteso |
-|---|---|---|
-| premio_netto (Firma) | 3695.75 ✅ | 3695.75 |
-| premio_netto_quietanza | 1695.75 ❌ | 3695.75 |
-| tasse | 211.97 | 211.97 |
-| premio_lordo | 1907.72 ❌ | 3907.72 |
+Nello screenshot, su `/archivi/clienti/746aed8c-67fc-435e-9e88-70991ea03097` (cliente "Lo Giudice Emilia Concetta" - Privato) il tab **Polizze** mostra `(0)` e "Nessuna polizza collegata", anche se il cliente ha sicuramente polizze.
 
-Il form "Modifica Importi" in `TitoloDetail.tsx` salva ogni campo separatamente senza:
-1. **Ricalcolare `premio_lordo`** quando cambiano netto/tasse/addizionali
-2. **Sincronizzare Quietanza ← Firma** quando l'utente modifica solo la colonna Firma (il caso normale: la quietanza di rinnovo eredita dalla firma se non è stata toccata manualmente)
+## Cosa verifico prima del fix
 
-Il rinnovo poi legge `premio_lordo` (1907.72 stale) → bug a cascata.
+1. **Schema collegamento polizza→cliente**: in `titoli` la chiave è `cliente_id` o `cliente_anagrafica_id`? (su `SinistriClienteTab.tsx` vedo `cliente_anagrafica_id` per i sinistri — sospetto che le polizze invece usino `cliente_id` ma il tab Polizze stia filtrando con la chiave sbagliata).
+2. **Codice del tab Polizze del Cliente** dentro `src/pages/ClienteDetail.tsx`: con quale colonna fa la query, e su quale ID del cliente.
+3. **Query DB diretta** (read-only) per il cliente `746aed8c-67fc-435e-9e88-70991ea03097`:
+   - Conta polizze in `titoli` per ogni possibile FK (`cliente_id`, `cliente_anagrafica_id`, `contraente_id`, ecc.)
+   - Verifica se le polizze sono legate via `numero_polizza` ad una polizza che a sua volta ha l'ID corretto
 
-## Fix
+## Cause più probabili
 
-Modifica solo `src/pages/TitoloDetail.tsx` nella `saveImportiMutation` (dopo la validazione, prima dell'`update`):
+- **A) Mismatch nome colonna FK** (più probabile): il tab filtra su `cliente_id` ma le polizze sono state salvate con `cliente_anagrafica_id`, o viceversa.
+- **B) ID sbagliato passato**: il tab usa `id` della pagina ma le polizze sono linkate ad un altro id (es. `anagrafica_id` separato dalla riga `clienti`).
+- **C) Filtro per stato troppo stretto** (es. solo `attivo`) che esclude tutto.
+- **D) RLS**: l'utente loggato non vede le polizze di quel cliente per policy. Improbabile dato che è "Responsabile Ufficio" (admin), ma da escludere.
 
-### 1. Auto-ricalcolo `premio_lordo` se incoerente
-Se l'utente non ha toccato manualmente `premio_lordo` (oppure il valore è incoerente di > 0.01€ rispetto a netto+tasse+addiz), forzare:
-```ts
-payload.premio_lordo = suggestedLordoFirma;
-```
-Stessa logica per il lordo quietanza (se esiste un campo dedicato), altrimenti coerenza solo su firma.
+## Fix previsto
 
-### 2. Sincronizzazione Firma → Quietanza
-Quando l'utente modifica i campi Firma e i corrispondenti Quietanza non sono stati toccati nel form (cioè uguali al valore precedente in DB), propagare automaticamente:
-- `premio_netto_quietanza = premio_netto`
-- `tasse_quietanza = tasse`
-- `addizionali_quietanza = addizionali`
-- `provvigioni_quietanza = provvigioni_firma`
+Una volta identificata la causa, modifica mirata in **`src/pages/ClienteDetail.tsx`** (tab Polizze):
+- Correggere il nome della colonna FK nella query, oppure
+- Allargare il filtro (rimuovere stato hardcoded), oppure
+- In caso di ambiguità schema, usare un OR su entrambe le possibili FK: `.or('cliente_id.eq.X,cliente_anagrafica_id.eq.X')`.
 
-Logica: per ogni coppia firma/quietanza, se `quietanza_form == quietanza_db_originale` AND `firma_form != firma_db_originale` → aggiorna anche la quietanza con il nuovo valore firma.
-
-### 3. UX: avvisi nel dialog
-Mantenere i `toast.warning` esistenti ma renderli più visibili e aggiungere conferma "Vuoi sincronizzare anche la Quietanza?" se rileva divergenza intenzionale (opzionale, valutiamo se lo aggiungiamo o se la sync è automatica e silenziosa con un toast informativo).
-
-**Decisione**: sync automatica + `toast.info("Quietanza e Premio Lordo aggiornati per coerenza")`. Più semplice e meno frizione.
-
-### 4. Cleanup dati esistenti per il titolo corrente
-Una `UPDATE` sul titolo `9cf0ec5e-...` per allineare:
-- `premio_netto_quietanza = 3695.75`
-- `premio_lordo = 3907.72`
+In parallelo, **stesso fix sul contatore badge** del tab `Polizze (0)` per evitare che la pagina mostri 0 mentre la tabella mostra righe.
 
 ## File toccati
 
-- `src/pages/TitoloDetail.tsx` (~25 righe nella mutation)
-- 1 UPDATE dati per il titolo `450315855` (via insert tool)
+- `src/pages/ClienteDetail.tsx` (~5-15 righe nella query del tab Polizze e nel relativo conteggio)
 
 ## Cosa NON faccio
 
-- Niente RLS / schema / trigger DB (la sincronizzazione è applicativa, più trasparente per l'utente)
-- Niente modifiche a Immissione / Rinnovo / Appendici
-- Niente modifica ad altri titoli con dati incoerenti già salvati (se ce ne sono altri, lo facciamo dopo su richiesta)
+- Niente modifiche RLS / schema / migrazioni (a meno che la diagnosi DB non riveli che le polizze sono effettivamente orfane — in quel caso ti chiedo conferma prima)
+- Niente modifiche ad altri tab (Sinistri, Documenti, Trattative)
+- Niente modifiche al portale cliente (`/cliente/polizze`) che è separato
 
-## Verifica
+## Verifica post-fix
 
-1. Apro la polizza `9cf0ec5e-...` → vedo subito Premio Lordo 3907.72 e Quietanza 3695.75 (post cleanup)
-2. Modifico Premio Netto Firma a 4000 → salvo
-3. Verifico in DB: `premio_netto = 4000`, `premio_netto_quietanza = 4000`, `premio_lordo = 4211.97`
-4. Apro il dialog di rinnovo → vedo 4000 / 4211.97 pre-compilati
+1. Apro `/archivi/clienti/746aed8c-…` → il badge mostra il numero reale di polizze
+2. Le polizze appaiono in tabella con numero, compagnia, premio, stato
+3. Click su una polizza → naviga al dettaglio titolo
+4. Provo su un altro cliente (Privato e Azienda) per essere sicuro che funzioni in entrambi i casi
 
