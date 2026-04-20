@@ -146,25 +146,13 @@ serve(async (req) => {
     // e mettiamo gli originali come reply_to per riferimento.
     const SANDBOX_OWNER = Deno.env.get("RESEND_SANDBOX_TO") || "info@iaconnect.it";
     let finalHtml = html;
-    let finalFrom = from || "ConsulNet <onboarding@resend.dev>";
+    let finalFrom = from || "";
     let finalTo: string | string[] = to;
     let finalReplyTo = reply_to;
     let finalSubject = subject;
     let sandboxRedirect = false;
 
-    const isSandbox = /onboarding@resend\.dev/i.test(finalFrom);
-    if (isSandbox) {
-      const originalRecipients = Array.isArray(to) ? to.join(", ") : to;
-      const ownerLower = SANDBOX_OWNER.toLowerCase();
-      const allOwner = (Array.isArray(to) ? to : [to]).every((r) => r.toLowerCase() === ownerLower);
-      if (!allOwner) {
-        sandboxRedirect = true;
-        finalTo = SANDBOX_OWNER;
-        finalReplyTo = reply_to || (Array.isArray(to) ? to[0] : to);
-        finalSubject = `[TEST → ${originalRecipients}] ${subject}`;
-      }
-    }
-
+    // STEP 1: Risolvi PRIMA il branding (incluso mittente_default) così finalFrom è quello reale
     if (apply_branding) {
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -184,13 +172,39 @@ serve(async (req) => {
           intestazione: branding?.intestazione_html || "",
           firma: branding?.firma_html || "<p>Cordiali saluti,<br/><strong>ConsulNet</strong></p>",
         });
-        if (!from && branding?.mittente_default) {
+        if (!finalFrom && branding?.mittente_default) {
           finalFrom = branding.mittente_default;
         }
       } catch (e) {
         console.warn("Branding load failed, sending raw html:", e);
       }
     }
+
+    // STEP 2: Fallback al sender sandbox se ancora niente from
+    if (!finalFrom) {
+      finalFrom = "ConsulNet <onboarding@resend.dev>";
+    }
+
+    // STEP 3: Sandbox check sul finalFrom DEFINITIVO (dopo branding)
+    const isSandbox = /onboarding@resend\.dev/i.test(finalFrom);
+    if (isSandbox) {
+      const originalRecipients = Array.isArray(to) ? to.join(", ") : to;
+      const ownerLower = SANDBOX_OWNER.toLowerCase();
+      const allOwner = (Array.isArray(to) ? to : [to]).every((r) => r.toLowerCase() === ownerLower);
+      if (!allOwner) {
+        sandboxRedirect = true;
+        finalTo = SANDBOX_OWNER;
+        finalReplyTo = reply_to || (Array.isArray(to) ? to[0] : to);
+        finalSubject = `[TEST → ${originalRecipients}] ${subject}`;
+      }
+    }
+
+    console.log("[send-email] Final resolved:", {
+      from: finalFrom,
+      to: finalTo,
+      isSandbox,
+      sandbox_redirect: sandboxRedirect,
+    });
 
     const payload: Record<string, unknown> = {
       from: finalFrom,
