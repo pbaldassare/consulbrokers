@@ -104,7 +104,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         .eq("id", userId)
         .single();
       if (profErr) throw profErr;
-      const myUfficioId = (profile as any)?.ufficio_id || t.ufficio_id;
+      const myUfficioId = (profile as any)?.ufficio_id;
       if (!myUfficioId) throw new Error("Sede dell'utente non configurata: contatta l'amministratore");
 
       // Trova la riga massima per quel numero_titolo
@@ -170,7 +170,17 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         .insert(insertPayload)
         .select("id")
         .single();
-      if (insErr) throw insErr;
+      if (insErr) {
+        console.error("Errore insert titoli in rinnovo", {
+          error: insErr,
+          userId,
+          myUfficioId,
+          titoloOrigineId: t.id,
+          titoloOrigineUfficioId: t.ufficio_id,
+          insertPayload,
+        });
+        throw insErr;
+      }
 
       // Movimento di rinnovo
       const { error: movErr } = await supabase.from("movimenti_polizza").insert({
@@ -189,9 +199,20 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         sostituisce_id: t.id,
         ufficio_id: myUfficioId,
       });
-      if (movErr) throw movErr;
+      if (movErr) {
+        console.error("Errore insert movimenti_polizza in rinnovo", {
+          error: movErr,
+          userId,
+          myUfficioId,
+          titoloOrigineId: t.id,
+          titoloOrigineUfficioId: t.ufficio_id,
+          nuovoTitoloId: nuovo.id,
+        });
+        throw movErr;
+      }
 
-      await logAttivita({
+      try {
+        await logAttivita({
         azione: "rinnovo_polizza",
         entita_tipo: "titolo",
         entita_id: nuovo.id,
@@ -203,7 +224,16 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           durata_a: form.durata_a,
           premio_lordo: form.premio_lordo,
         },
-      });
+        });
+      } catch (logError) {
+        console.error("Errore log_attivita in rinnovo", {
+          error: logError,
+          userId,
+          myUfficioId,
+          nuovoTitoloId: nuovo.id,
+        });
+        throw logError;
+      }
 
       return nuovo.id as string;
     },
