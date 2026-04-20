@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+interface Attachment {
+  filename: string;
+  content: string; // base64
+}
 
 interface EmailPayload {
   to: string | string[];
@@ -14,15 +20,21 @@ interface EmailPayload {
   reply_to?: string;
   cc?: string | string[];
   bcc?: string | string[];
+  attachments?: Attachment[];
+  apply_branding?: boolean;
+  template_id?: string;
+}
+
+function isStr(v: unknown) {
+  return typeof v === "string" && v.length > 0;
+}
+function isStrOrArr(v: unknown) {
+  return isStr(v) || (Array.isArray(v) && v.every((x) => typeof x === "string" && x.length > 0));
 }
 
 function validate(payload: any): { ok: true; data: EmailPayload } | { ok: false; error: string } {
   if (!payload || typeof payload !== "object") return { ok: false, error: "Invalid body" };
-  const { to, subject, html, from, reply_to, cc, bcc } = payload;
-
-  const isStr = (v: unknown) => typeof v === "string" && v.length > 0;
-  const isStrOrArr = (v: unknown) =>
-    isStr(v) || (Array.isArray(v) && v.every((x) => typeof x === "string" && x.length > 0));
+  const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding, template_id } = payload;
 
   if (!isStrOrArr(to)) return { ok: false, error: "`to` must be string or string[]" };
   if (!isStr(subject)) return { ok: false, error: "`subject` is required" };
@@ -31,8 +43,77 @@ function validate(payload: any): { ok: true; data: EmailPayload } | { ok: false;
   if (reply_to !== undefined && !isStr(reply_to)) return { ok: false, error: "`reply_to` must be string" };
   if (cc !== undefined && !isStrOrArr(cc)) return { ok: false, error: "`cc` must be string or string[]" };
   if (bcc !== undefined && !isStrOrArr(bcc)) return { ok: false, error: "`bcc` must be string or string[]" };
+  if (attachments !== undefined) {
+    if (!Array.isArray(attachments)) return { ok: false, error: "`attachments` must be an array" };
+    for (const a of attachments) {
+      if (!a || typeof a !== "object" || !isStr(a.filename) || !isStr(a.content)) {
+        return { ok: false, error: "each attachment needs { filename, content }" };
+      }
+    }
+  }
 
-  return { ok: true, data: { to, subject, html, from, reply_to, cc, bcc } };
+  return {
+    ok: true,
+    data: { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding: !!apply_branding, template_id },
+  };
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function wrapHtml(opts: {
+  bodyHtml: string;
+  subject: string;
+  logoUrl?: string | null;
+  colorePrimario: string;
+  intestazione: string;
+  firma: string;
+}): string {
+  const { bodyHtml, subject, logoUrl, colorePrimario, intestazione, firma } = opts;
+  // Convert plain-text bodies (no HTML tags) to <p>-paragraphs
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(bodyHtml);
+  const renderedBody = looksLikeHtml
+    ? bodyHtml
+    : bodyHtml.split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px 0;">${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`).join("");
+
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6f8;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);max-width:600px;width:100%;">
+        <tr>
+          <td style="background:${colorePrimario};padding:20px 24px;text-align:left;">
+            ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-height:48px;display:block;" />` : `<div style="color:#fff;font-size:18px;font-weight:600;">ConsulNet</div>`}
+          </td>
+        </tr>
+        ${intestazione ? `<tr><td style="padding:16px 24px 0 24px;font-size:13px;color:#6b7280;">${intestazione}</td></tr>` : ""}
+        <tr>
+          <td style="padding:24px;font-size:15px;line-height:1.6;">
+            ${renderedBody}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 24px 24px 24px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
+            ${firma}
+          </td>
+        </tr>
+      </table>
+      <p style="font-size:11px;color:#9ca3af;margin:12px 0 0 0;">Questa email è stata generata automaticamente. Non rispondere a questo indirizzo.</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 serve(async (req) => {
@@ -58,17 +139,48 @@ serve(async (req) => {
       });
     }
 
-    const { to, subject, html, from, reply_to, cc, bcc } = parsed.data;
+    const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding } = parsed.data;
+
+    let finalHtml = html;
+    let finalFrom = from || "ConsulNet <onboarding@resend.dev>";
+
+    if (apply_branding) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const admin = createClient(supabaseUrl, serviceKey);
+        const { data: branding } = await admin
+          .from("email_branding")
+          .select("logo_url, colore_primario, firma_html, intestazione_html, mittente_default")
+          .limit(1)
+          .maybeSingle();
+
+        finalHtml = wrapHtml({
+          bodyHtml: html,
+          subject,
+          logoUrl: branding?.logo_url || null,
+          colorePrimario: branding?.colore_primario || "#0e7490",
+          intestazione: branding?.intestazione_html || "",
+          firma: branding?.firma_html || "<p>Cordiali saluti,<br/><strong>ConsulNet</strong></p>",
+        });
+        if (!from && branding?.mittente_default) {
+          finalFrom = branding.mittente_default;
+        }
+      } catch (e) {
+        console.warn("Branding load failed, sending raw html:", e);
+      }
+    }
 
     const payload: Record<string, unknown> = {
-      from: from || "ConsulNet <onboarding@resend.dev>",
+      from: finalFrom,
       to: Array.isArray(to) ? to : [to],
       subject,
-      html,
+      html: finalHtml,
     };
     if (reply_to) payload.reply_to = reply_to;
     if (cc) payload.cc = Array.isArray(cc) ? cc : [cc];
     if (bcc) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
+    if (attachments && attachments.length > 0) payload.attachments = attachments;
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
