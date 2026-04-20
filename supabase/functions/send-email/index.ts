@@ -141,8 +141,29 @@ serve(async (req) => {
 
     const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding } = parsed.data;
 
+    // Sandbox mode: con onboarding@resend.dev Resend permette invii SOLO al proprietario account.
+    // Se il from è il sender di sandbox, dirottiamo TUTTI i destinatari verso SANDBOX_TO
+    // e mettiamo gli originali come reply_to per riferimento.
+    const SANDBOX_OWNER = Deno.env.get("RESEND_SANDBOX_TO") || "info@iaconnect.it";
     let finalHtml = html;
     let finalFrom = from || "ConsulNet <onboarding@resend.dev>";
+    let finalTo: string | string[] = to;
+    let finalReplyTo = reply_to;
+    let finalSubject = subject;
+    let sandboxRedirect = false;
+
+    const isSandbox = /onboarding@resend\.dev/i.test(finalFrom);
+    if (isSandbox) {
+      const originalRecipients = Array.isArray(to) ? to.join(", ") : to;
+      const ownerLower = SANDBOX_OWNER.toLowerCase();
+      const allOwner = (Array.isArray(to) ? to : [to]).every((r) => r.toLowerCase() === ownerLower);
+      if (!allOwner) {
+        sandboxRedirect = true;
+        finalTo = SANDBOX_OWNER;
+        finalReplyTo = reply_to || (Array.isArray(to) ? to[0] : to);
+        finalSubject = `[TEST → ${originalRecipients}] ${subject}`;
+      }
+    }
 
     if (apply_branding) {
       try {
