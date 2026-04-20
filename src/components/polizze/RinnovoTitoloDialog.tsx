@@ -319,7 +319,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       return nuovo.id as string;
     },
     onSuccess: (nuovoId) => {
-      toast.success("Polizza rinnovata con successo");
+      toast.success("Rinnovo creato — diventerà attivo alla messa a cassa della polizza precedente");
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       onOpenChange(false);
