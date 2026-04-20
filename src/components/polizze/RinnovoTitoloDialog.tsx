@@ -294,6 +294,27 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
     },
     onError: (e: any) => {
       console.error(e);
+      // Caso 1: duplicato rilevato applicativamente (con titoloEsistenteId)
+      if (e?.titoloEsistenteId) {
+        toast.error(e.message, {
+          action: {
+            label: "Vai al titolo esistente",
+            onClick: () => {
+              onOpenChange(false);
+              navigate(`/titoli/${e.titoloEsistenteId}`);
+            },
+          },
+          duration: 8000,
+        });
+        return;
+      }
+      // Caso 2: vincolo unique a livello DB (race condition / doppio click)
+      if (e?.code === "23505" || /duplicat/i.test(e?.message || "")) {
+        toast.error(
+          `Rinnovo già esistente per la polizza ${t.numero_titolo} con scadenza ${form.data_scadenza}.`
+        );
+        return;
+      }
       toast.error("Errore nel rinnovo: " + (e?.message || "sconosciuto"));
     },
   });
