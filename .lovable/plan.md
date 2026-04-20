@@ -1,49 +1,49 @@
 
 
-## Analisi
+## Problema
 
-L'utente ha modificato il premio sulla polizza originale (ora vediamo Premio Lordo €1907.72, Quietanza €1695.75) ma quando lancia il rinnovo dal dialog, il nuovo titolo viene creato con i **valori originali** della polizza, non con quelli **attuali** modificati.
+L'utente ha modificato il premio lordo della polizza a **3907,72**, ma il dialog di rinnovo mostra ancora **1907,72** (vecchio valore). Quindi il refetch all'apertura del dialog non sta funzionando, o sta leggendo da una vista/cache stale.
 
-## Causa probabile
+## Verifiche da fare
 
-In `RinnovoTitoloDialog.tsx` i campi premio (premio_netto, premio_lordo, tasse, addizionali, provvigioni, ecc.) sono probabilmente:
-- letti una sola volta all'apertura del dialog (stato iniziale stale), oppure
-- copiati da un oggetto `t` (titolo) che viene passato come prop ma non rifetchato dopo le modifiche, oppure
-- presi dal "premio firma" originale invece che dal "premio quietanza" attuale
+1. **Leggere `RinnovoTitoloDialog.tsx`** per controllare:
+   - Come è scritto il `useEffect` di refetch
+   - Da quale tabella/vista legge (`titoli` diretto o vista `v_portafoglio_titoli`?)
+   - Se i campi `premio_lordo`, `premio_lordo_quietanza`, `premio_netto_quietanza`, `tasse_quietanza` esistono e da quali parte
+   - L'ordine: stato del form vs dipendenze dell'effect (potrebbe avere `[titolo.id]` invece di `[open, titolo.id]`)
 
-Devo controllare il file per capire esattamente da dove vengono pescati i valori al momento del submit.
+2. **Query DB diretta** sul titolo `9cf0ec5e-3fa4-414f-b01e-18cfb032f7d5` per verificare i valori reali in DB (premio_lordo, premio_netto, tasse, e relativi campi `_quietanza`).
 
-## Cosa verificherò
+## Cause possibili
 
-1. `src/components/polizze/RinnovoTitoloDialog.tsx` → vedere quali campi premio vengono passati nell'insert del nuovo titolo e da dove arrivano (props `t` o form state)
-2. Capire se il dialog riceve `t` come snapshot o se rifetcha dal DB all'apertura
-3. Verificare quali sono i campi "firma" vs "quietanza" e quale logica di rinnovo è corretta
+- **A) Dialog legge da una vista** (`v_portafoglio_titoli`) che non si aggiorna in real-time → fix: leggere direttamente da `titoli`.
+- **B) `useEffect` ha dipendenze sbagliate** (es. solo `[titolo.id]`) → quando l'utente riapre il dialog senza ricaricare la pagina, l'effect non si ritriggera → fix: aggiungere `open` nelle deps + reset form quando `open=false`.
+- **C) I campi `_quietanza` in DB non sono stati aggiornati** quando l'utente ha modificato il premio dal form di edit della polizza → quindi il refetch funziona, ma legge i valori firma vecchi mentre la UI mostra il nuovo `premio_lordo`. Fix: usare il `premio_lordo` aggiornato come fonte di verità (non solo i campi `_quietanza`).
+- **D) Stato iniziale del `useState`** calcolato dalle props al mount e mai resettato → fix: resettare lo state quando arrivano dati freschi.
+
+Probabilmente è un mix di **B + C**: l'edit della polizza aggiorna `premio_lordo` ma non i campi `_quietanza`, e il dialog usa `_quietanza ?? premio_*` quindi prende il vecchio quietanza.
 
 ## Fix previsto
 
-Due possibili approcci, sceglierò il giusto in base al codice:
+In `src/components/polizze/RinnovoTitoloDialog.tsx`:
 
-**A) Rifetch all'apertura del dialog**: quando il dialog si apre, fare una `select` fresca del titolo dal DB così i valori sono sempre aggiornati.
-
-**B) Usare i valori "quietanza" attuali**: nel rinnovo bisogna copiare i valori correnti (quelli modificati: premio netto quietanza, tasse quietanza, premio lordo, provvigioni) e non i valori firma originali.
-
-Quasi certamente serve un **mix**: rifetch + uso dei campi quietanza correnti come base del nuovo titolo.
-
-Inoltre i campi del form di rinnovo (input modificabili dall'utente prima di confermare) devono essere **pre-popolati con i valori attuali** così l'utente vede il premio corretto e può confermare/correggere.
+1. **Refetch sempre da `titoli`** (non da viste) all'apertura, con `select("*")`.
+2. **Dipendenze effect**: `[open, titolo.id]` + reset `loading` state.
+3. **Logica premium base invertita**: usare `premio_lordo ?? premio_lordo_quietanza` (cioè il valore corrente come prima fonte) — perché `premio_lordo` è quello che l'utente vede e modifica nella UI principale. Stessa cosa per `premio_netto`, `tasse`, `provvigioni`.
+4. **Forzare reset del form** quando arrivano dati freschi: invece di `useState(initial)` usare `useEffect` che fa `setForm(...)` ogni volta che `fresh` cambia.
 
 ## File toccato
 
-- `src/components/polizze/RinnovoTitoloDialog.tsx` (1 file, ~10-20 righe)
+- `src/components/polizze/RinnovoTitoloDialog.tsx` (~15 righe)
 
 ## Cosa NON faccio
 
-- Nessuna modifica DB / RLS / policy
-- Nessuna modifica allo schema
-- Nessun impatto su altri flussi (immissione, appendici, storno)
+- Niente DB / RLS / migrazioni
+- Nessun cambio ad altri flussi (immissione, appendici, storno)
 
 ## Verifica post-fix
 
-1. Modifico il premio di una polizza
-2. Apro il dialog di rinnovo → vedo il premio aggiornato pre-compilato
-3. Confermo → il nuovo titolo creato ha i valori aggiornati, non quelli originali
+1. Modifico premio lordo della polizza a un nuovo valore (es. 3907,72)
+2. Apro il dialog di rinnovo → vedo **3907,72** pre-compilato (non più 1907,72)
+3. Confermo → il nuovo titolo ha 3907,72
 
