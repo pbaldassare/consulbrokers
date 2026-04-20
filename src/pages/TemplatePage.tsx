@@ -2,7 +2,9 @@ import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy, Search, User, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Tag, Mail, Copy, Search, User, FileText, Send, Palette } from "lucide-react";
+import { SendTestEmailDialog } from "@/components/template/SendTestEmailDialog";
+import { EmailBrandingTab } from "@/components/template/EmailBrandingTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -172,6 +174,7 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
   const [selectedPolizza, setSelectedPolizza] = useState<PolizzaResult | null>(null);
   const [showClienteResults, setShowClienteResults] = useState(false);
   const [showPolizzaResults, setShowPolizzaResults] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
 
   const { data: clientiResults = [] } = useClienteSearch(clienteSearch);
   const { data: polizzeResults = [] } = usePolizzaSearch(polizzaSearch, selectedCliente?.id);
@@ -186,6 +189,9 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
     setShowClienteResults(false);
     setShowPolizzaResults(false);
   }, []);
+
+  const renderedSubject = template ? replaceVarsWithData(template.oggetto, dataMap) : "";
+  const renderedBody = template ? replaceVarsWithData(template.corpo, dataMap) : "";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetSearch(); }}>
@@ -286,12 +292,12 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
             {/* Anteprima */}
             <div>
               <Label className="text-xs text-muted-foreground">Oggetto</Label>
-              <p className="font-medium mt-1">{replaceVarsWithData(template.oggetto, dataMap)}</p>
+              <p className="font-medium mt-1">{renderedSubject}</p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Corpo</Label>
               <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm border mt-1">
-                {replaceVarsWithData(template.corpo, dataMap)}
+                {renderedBody}
               </div>
             </div>
             <p className="text-xs text-muted-foreground italic">
@@ -301,6 +307,28 @@ function PreviewDialog({ open, onOpenChange, template }: { open: boolean; onOpen
             </p>
           </div>
         )}
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
+          <Button onClick={() => setSendDialogOpen(true)} disabled={!template}>
+            <Send className="h-4 w-4 mr-2" /> Invia test
+          </Button>
+        </DialogFooter>
+
+        <SendTestEmailDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          template={template}
+          cliente={selectedCliente ? {
+            id: selectedCliente.id,
+            email: selectedCliente.email,
+            nome: selectedCliente.nome,
+            cognome: selectedCliente.cognome,
+            ragione_sociale: selectedCliente.ragione_sociale,
+          } : null}
+          titolo={selectedPolizza ? { id: selectedPolizza.id, numero_titolo: selectedPolizza.numero_titolo } : null}
+          renderedSubject={renderedSubject}
+          renderedBody={renderedBody}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -408,64 +436,81 @@ export default function TemplatePage() {
     }
   }
 
+  const [mainTab, setMainTab] = useState<"templates" | "branding">("templates");
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"><Mail className="h-6 w-6" /> Template Email</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gestisci modelli di email con variabili automatiche per clienti e polizze</p>
+          <p className="text-muted-foreground text-sm mt-1">Gestisci modelli, branding e invio test delle comunicazioni</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setCatDialogOpen(true)}><Tag className="h-4 w-4 mr-1" /> Nuova Categoria</Button>
-          <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nuovo Template</Button>
-        </div>
+        {mainTab === "templates" && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCatDialogOpen(true)}><Tag className="h-4 w-4 mr-1" /> Nuova Categoria</Button>
+            <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nuovo Template</Button>
+          </div>
+        )}
       </div>
 
-      <Tabs value={selectedCat} onValueChange={setSelectedCat}>
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "templates" | "branding")}>
         <TabsList>
-          <TabsTrigger value="all">Tutti</TabsTrigger>
-          {categorie.map(c => <TabsTrigger key={c.id} value={c.id}>{c.nome}</TabsTrigger>)}
+          <TabsTrigger value="templates"><Mail className="h-4 w-4 mr-1.5" /> Templates</TabsTrigger>
+          <TabsTrigger value="branding"><Palette className="h-4 w-4 mr-1.5" /> Branding email</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={selectedCat} className="mt-4">
-          {filtered.length === 0 ? (
-            <Card><CardContent className="py-12 text-center text-muted-foreground">Nessun template in questa categoria</CardContent></Card>
-          ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Oggetto</TableHead>
-                    <TableHead className="text-center">Attivo</TableHead>
-                    <TableHead className="text-right">Azioni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(t => (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.nome}</TableCell>
-                      <TableCell><Badge variant="secondary">{catMap[t.categoria_id] || "—"}</Badge></TableCell>
-                      <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate">{t.oggetto}</TableCell>
-                      <TableCell className="text-center">
-                        <Switch checked={t.attivo} onCheckedChange={v => toggleMut.mutate({ id: t.id, attivo: v })} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
-                          <TooltipProvider><Tooltip><TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => { setPreviewTemplate(t); setPreviewOpen(true); }}><Eye className="h-4 w-4" /></Button>
-                          </TooltipTrigger><TooltipContent>Anteprima</TooltipContent></Tooltip></TooltipProvider>
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Eliminare questo template?")) deleteMut.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          )}
+        <TabsContent value="branding" className="mt-4">
+          <EmailBrandingTab />
+        </TabsContent>
+
+        <TabsContent value="templates" className="mt-4">
+          <Tabs value={selectedCat} onValueChange={setSelectedCat}>
+            <TabsList className="flex-wrap h-auto">
+              <TabsTrigger value="all">Tutti</TabsTrigger>
+              {categorie.map(c => <TabsTrigger key={c.id} value={c.id}>{c.nome}</TabsTrigger>)}
+            </TabsList>
+
+            <TabsContent value={selectedCat} className="mt-4">
+              {filtered.length === 0 ? (
+                <Card><CardContent className="py-12 text-center text-muted-foreground">Nessun template in questa categoria</CardContent></Card>
+              ) : (
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Oggetto</TableHead>
+                        <TableHead className="text-center">Attivo</TableHead>
+                        <TableHead className="text-right">Azioni</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell className="font-medium">{t.nome}</TableCell>
+                          <TableCell><Badge variant="secondary">{catMap[t.categoria_id] || "—"}</Badge></TableCell>
+                          <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate">{t.oggetto}</TableCell>
+                          <TableCell className="text-center">
+                            <Switch checked={t.attivo} onCheckedChange={v => toggleMut.mutate({ id: t.id, attivo: v })} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              <TooltipProvider><Tooltip><TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => { setPreviewTemplate(t); setPreviewOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                              </TooltipTrigger><TooltipContent>Anteprima & invia test</TooltipContent></Tooltip></TooltipProvider>
+                              <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Eliminare questo template?")) deleteMut.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 

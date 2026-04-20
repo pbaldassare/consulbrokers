@@ -2048,6 +2048,42 @@ export type Database = {
           },
         ]
       }
+      email_branding: {
+        Row: {
+          colore_primario: string
+          created_at: string
+          firma_html: string | null
+          id: string
+          intestazione_html: string | null
+          logo_url: string | null
+          mittente_default: string
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          colore_primario?: string
+          created_at?: string
+          firma_html?: string | null
+          id?: string
+          intestazione_html?: string | null
+          logo_url?: string | null
+          mittente_default?: string
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          colore_primario?: string
+          created_at?: string
+          firma_html?: string | null
+          id?: string
+          intestazione_html?: string | null
+          logo_url?: string | null
+          mittente_default?: string
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       estratti_conto: {
         Row: {
           created_at: string | null
