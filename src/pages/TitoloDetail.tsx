@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
 
 
 const fmt = (v: any) => v ?? "—";
@@ -73,6 +74,9 @@ const TitoloDetail = () => {
   const [annullaDialogOpen, setAnnullaDialogOpen] = useState(false);
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
+
+  // --- Rinnovo dialog state ---
+  const [rinnovoDialogOpen, setRinnovoDialogOpen] = useState(false);
 
   // --- Conferimento Gestito dialog state ---
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
@@ -1033,6 +1037,13 @@ const TitoloDetail = () => {
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <Copy className="w-4 h-4 mr-1" /> Duplicazione
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setRinnovoDialogOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <RefreshCw className="w-4 h-4 mr-1" /> Rinnovo
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
