@@ -577,6 +577,16 @@ const TitoloDetail = () => {
     indicizzata: false as boolean,
     rimborso: false as boolean,
   });
+  const [lordoFirmaTouched, setLordoFirmaTouched] = useState(false);
+
+  // Helper: ricalcola lordo firma da netto+add+tasse
+  const recalcLordoFirma = (netto: string, addiz: string, tasse: string) => {
+    const n = parseFloat(netto);
+    const a = parseFloat(addiz);
+    const t = parseFloat(tasse);
+    if (isNaN(n) && isNaN(a) && isNaN(t)) return "";
+    return ((isNaN(n) ? 0 : n) + (isNaN(a) ? 0 : a) + (isNaN(t) ? 0 : t)).toFixed(2);
+  };
 
   const valutaOpts = [
     { value: "EUR", label: "EUR €" },
