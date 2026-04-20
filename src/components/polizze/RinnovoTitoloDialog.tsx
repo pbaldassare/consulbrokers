@@ -456,7 +456,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           <div className="flex items-center gap-2 text-sm font-semibold text-primary pt-2">
             Premio (modificabile)
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-5 gap-3">
             <div>
               <Label className="text-xs">Premio Lordo (€)</Label>
               <Input
@@ -491,6 +491,15 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
                 step="0.01"
                 value={form.addizionali}
                 onChange={(e) => setForm((f) => ({ ...f, addizionali: parseFloat(e.target.value) || 0 }))}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Provvigioni (€)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.provvigioni}
+                onChange={(e) => setForm((f) => ({ ...f, provvigioni: parseFloat(e.target.value) || 0 }))}
               />
             </div>
           </div>
