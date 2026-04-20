@@ -273,7 +273,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       onOpenChange(false);
-      navigate(`/portafoglio/titolo/${nuovoId}`);
+      navigate(`/titoli/${nuovoId}`);
     },
     onError: (e: any) => {
       console.error(e);
