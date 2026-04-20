@@ -1,57 +1,44 @@
 
 
-## Quadro reale di aprile 2026 (verificato sul DB)
+## Problema
 
-Solo **2 titoli** sono stati messi a cassa in aprile 2026:
+Nella sidebar Comunicazioni → Interna → Diretti vedi 3 voci tutte etichettate "Conversazione" invece del nome del collega (Paola Scarpelli, Admin Consul).
 
-| # | Numero titolo | Premio | Stato | Data MaC | Provvigione generata | Movimenti contabili |
-|---|---|---|---|---|---|---|
-| 1 | 332434490 | €784 | attivo | 16/04/2026 | €23,78 (non pagata) | 0 |
-| 2 | 332437574 | €300 | sospeso | 15/04/2026 | €35,33 (non pagata) | 0 |
+## Causa (verificata sul DB)
 
-Totale premio: **€1.084** (= esattamente il valore "Incassi del Mese" che vedi sulla dashboard).
+I dati esistono — i 3 canali diretti sono con Paola Scarpelli (2 chat) e Admin Consul (1 chat). La logica `getDisplayName` in `CanaliSidebar.tsx` (riga 122-125) è già corretta: legge `chat_canali_membri` e mostra `nome cognome` del membro che NON sei tu.
 
-✅ Nessuna provvigione è già pagata → l'annullamento è sicuro
-✅ Nessun movimento contabile collegato → niente da pulire lì
-✅ Le 3 polizze legacy intoccabili (204366651 / 6131402092 / RCM00010074404) NON sono in questa lista
+Il join però non funziona: la query (riga 61) usa
+```
+chat_canali_membri(user_id, profiles:user_id(nome, cognome))
+```
+La FK di `chat_canali_membri.user_id` punta ad `auth.users.id`, non a `profiles.id` direttamente, quindi Supabase non riesce a risolvere automaticamente la relazione embedded `profiles:user_id(...)` e ritorna `null`. Risultato: il fallback "Conversazione" scatta sempre.
 
-## Cosa farò
+## Fix
 
-Esiste già la funzione `src/lib/annullaMessaACassa.ts` (usata in produzione dal pulsante "Annulla Messa a Cassa" nel dettaglio titolo), che per ogni titolo:
+Stessa strategia già usata per le entità contestuali (clienti/titoli/trattative): faccio una **seconda query separata** su `profiles` con gli `user_id` dei membri delle chat dirette, poi mappo in client.
 
-1. Verifica che non ci siano provvigioni pagate (qui OK, nessuna lo è)
-2. Elimina le provvigioni `pagata=false` collegate
-3. Elimina movimenti contabili collegati (qui nessuno)
-4. Resetta sul titolo: `stato='attivo'`, `data_messa_cassa=null`, `data_incasso=null`, `importo_incassato=null`, `data_pagamento=null`, `tipo_pagamento=null`, `banca_pagamento=null`, `conferimento_gestito=false`, `fondi_ricevuti=true`
-5. Logga l'attività in timeline (`azione='annulla_messa_a_cassa'`, severity warning)
+Modifico solo `src/components/chat/CanaliSidebar.tsx`:
 
-Per il reset di aprile 2026 eseguirò la **stessa identica logica via SQL diretto** (1 sola operazione idempotente, no edge function necessaria) sui 2 titoli identificati.
+1. Rimuovere il join non funzionante: `chat_canali_membri(user_id)` (senza embed profiles)
+2. Aggiungere una `useQuery` "membri_nomi" che:
+   - Raccoglie tutti gli `user_id` dei membri delle chat di tipo `diretto` (escludendo l'utente corrente)
+   - Fa una `select id, nome, cognome from profiles where id in (...)`
+   - Restituisce una mappa `{ userId: "Nome Cognome" }`
+3. Aggiornare `getDisplayName`: per chat dirette, prendere il primo membro `!== userId`, cercare nella mappa e tornare il nome; fallback "Conversazione".
 
-⚠️ Nota sul titolo #2 (332437574): era `sospeso` prima della messa a cassa? Lo riporterò comunque a `attivo` per allinearmi alla logica della funzione esistente. Se volevi ripristinarlo a `sospeso`, dimmelo.
+Stesso fix applicato a `ClienteComunicazioni.tsx` solo se serve (lì le chat sono contestuali, l'etichetta usa già `nome` del canale o entità — non c'è il problema).
 
-## Cosa NON tocco
+## File toccati
 
-- Le 3 polizze legacy (204366651 / 6131402092 / RCM00010074404)
-- Qualunque polizza con `data_messa_cassa < 2026-04-01` o `> 2026-04-30`
-- Provvigioni già pagate (non ce ne sono comunque)
-- Comunicazioni/email/notifiche/sinistri/trattative/documenti
+- `src/components/chat/CanaliSidebar.tsx` (unico file)
 
-## Verifica post-reset
+## Verifica
 
-Lancio una query di controllo che deve restituire:
-- Titoli messi a cassa in aprile 2026: **0**
-- Provvigioni generate per quei 2 titoli: **0**
-- Stato dei 2 titoli: `attivo` con `data_messa_cassa=null`
+Dopo il fix, sulla pagina `/comunicazioni` tab "Interna" → filtro "Diretti", al posto di "Conversazione" vedrai:
+- Paola Scarpelli
+- Paola Scarpelli  
+- Admin Consul
 
-Sulla dashboard vedrai:
-- Card "Incassi del Mese" → **0** (€0)
-- Card "Incassi Ieri" → **0**
-- Raccolta Premi Anno → **€0**
-- I 2 titoli torneranno visibili nel "Carico del Mese" pronti per essere ri-messi a cassa nei test
-
-## File / azioni
-
-- **Nessuna modifica al codice**
-- **1 sola operazione DB** (DELETE provvigioni + UPDATE titoli, in transazione) sui 2 ID identificati sopra
-- **1 inserimento** in `log_attivita` per ognuno dei 2 titoli (audit trail)
+Inoltre la ricerca per nome nella sidebar funzionerà davvero (oggi cerca su "Conversazione").
 
