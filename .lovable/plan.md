@@ -1,44 +1,53 @@
 
 
-## Problema
+## Causa reale (verificata)
 
-Nella sidebar Comunicazioni → Interna → Diretti vedi 3 voci tutte etichettate "Conversazione" invece del nome del collega (Paola Scarpelli, Admin Consul).
+Il fix client del giro precedente è corretto MA non funziona per via delle RLS della tabella `profiles`:
 
-## Causa (verificata sul DB)
+- Giuliano è ruolo `ufficio` (Responsabile Ufficio), NON admin/cfo.
+- Le policy SELECT su `profiles` permettono di leggere solo: il proprio profilo, o profili **nello stesso ufficio**.
+- Paola Scarpelli e Admin Consul hanno `ufficio_id = NULL` → ufficio diverso da Giuliano → la `select id, nome, cognome from profiles where id in (...)` ritorna vuoto.
+- Risultato: `membriNomi` è vuoto, `getDisplayName` cade nel fallback "Conversazione".
 
-I dati esistono — i 3 canali diretti sono con Paola Scarpelli (2 chat) e Admin Consul (1 chat). La logica `getDisplayName` in `CanaliSidebar.tsx` (riga 122-125) è già corretta: legge `chat_canali_membri` e mostra `nome cognome` del membro che NON sei tu.
-
-Il join però non funziona: la query (riga 61) usa
-```
-chat_canali_membri(user_id, profiles:user_id(nome, cognome))
-```
-La FK di `chat_canali_membri.user_id` punta ad `auth.users.id`, non a `profiles.id` direttamente, quindi Supabase non riesce a risolvere automaticamente la relazione embedded `profiles:user_id(...)` e ritorna `null`. Risultato: il fallback "Conversazione" scatta sempre.
+Lo stesso problema esisterebbe con qualunque collega di un altro ufficio.
 
 ## Fix
 
-Stessa strategia già usata per le entità contestuali (clienti/titoli/trattative): faccio una **seconda query separata** su `profiles` con gli `user_id` dei membri delle chat dirette, poi mappo in client.
+Aggiungo una policy SELECT mirata su `profiles` che permette di leggere **solo i campi necessari per la chat** (di fatto: id, nome, cognome) di chi condivide almeno un canale chat con l'utente corrente. Riuso la function già esistente `is_channel_member` insieme a un EXISTS sui canali condivisi.
 
-Modifico solo `src/components/chat/CanaliSidebar.tsx`:
+### Migrazione SQL
 
-1. Rimuovere il join non funzionante: `chat_canali_membri(user_id)` (senza embed profiles)
-2. Aggiungere una `useQuery` "membri_nomi" che:
-   - Raccoglie tutti gli `user_id` dei membri delle chat di tipo `diretto` (escludendo l'utente corrente)
-   - Fa una `select id, nome, cognome from profiles where id in (...)`
-   - Restituisce una mappa `{ userId: "Nome Cognome" }`
-3. Aggiornare `getDisplayName`: per chat dirette, prendere il primo membro `!== userId`, cercare nella mappa e tornare il nome; fallback "Conversazione".
+```sql
+-- Permetti a un utente di vedere il profilo di chiunque condivida un canale chat con lui
+CREATE POLICY "Chat participants visible to each other"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.chat_canali_membri m1
+    JOIN public.chat_canali_membri m2 ON m2.canale_id = m1.canale_id
+    WHERE m1.user_id = auth.uid()
+      AND m2.user_id = profiles.id
+  )
+);
+```
 
-Stesso fix applicato a `ClienteComunicazioni.tsx` solo se serve (lì le chat sono contestuali, l'etichetta usa già `nome` del canale o entità — non c'è il problema).
+Sicurezza:
+- Espone solo profili di utenti con cui hai già una chat (relazione esplicita stabilita dal creatore del canale).
+- Non espande accesso a profili arbitrari.
+- Le altre policy admin/cfo/ufficio/owner restano invariate.
 
 ## File toccati
 
-- `src/components/chat/CanaliSidebar.tsx` (unico file)
+- 1 nuova migrazione SQL (nessuna modifica a `CanaliSidebar.tsx`: il client è già pronto).
 
-## Verifica
+## Verifica post-fix
 
-Dopo il fix, sulla pagina `/comunicazioni` tab "Interna" → filtro "Diretti", al posto di "Conversazione" vedrai:
-- Paola Scarpelli
-- Paola Scarpelli  
-- Admin Consul
+Su `/comunicazioni` → Interna → Diretti vedrai:
+- Paola Scarpelli (×2)
+- Admin Consul (×1)
 
-Inoltre la ricerca per nome nella sidebar funzionerà davvero (oggi cerca su "Conversazione").
+E la ricerca per nome nella sidebar funzionerà davvero.
 
