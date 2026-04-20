@@ -144,28 +144,13 @@ export function SendTestEmailDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-800 rounded-md p-3 text-xs space-y-1.5">
-            <p className="font-semibold text-yellow-900 dark:text-yellow-200 flex items-center gap-1.5">
-              ⚠️ Modalità sandbox Resend attiva
+          <div className="bg-green-50 dark:bg-green-950/30 border border-green-300 dark:border-green-800 rounded-md p-3 text-xs space-y-1.5">
+            <p className="font-semibold text-green-900 dark:text-green-200 flex items-center gap-1.5">
+              ✅ Modalità produzione attiva
             </p>
-            <p className="text-yellow-800 dark:text-yellow-300">
-              Mittente: <code className="bg-background px-1 rounded">onboarding@resend.dev</code>.
-              Indipendentemente dal destinatario inserito qui sotto, l'email verrà <strong>recapitata solo a{" "}
-              <code className="bg-background px-1 rounded">info@iaconnect.it</code></strong> (proprietario account Resend),
-              con oggetto prefissato <code className="bg-background px-1 rounded">[TEST → destinatario]</code> e{" "}
-              <code className="bg-background px-1 rounded">reply-to</code> impostato sul destinatario originale.
-            </p>
-            <p className="text-yellow-800 dark:text-yellow-300">
-              Per inviare email a destinatari reali (es. clienti), verifica un dominio su{" "}
-              <a
-                href="https://resend.com/domains"
-                target="_blank"
-                rel="noreferrer"
-                className="underline font-medium"
-              >
-                resend.com/domains
-              </a>{" "}
-              e aggiorna il mittente nella tab <strong>Branding email</strong>.
+            <p className="text-green-800 dark:text-green-300">
+              Dominio <code className="bg-background px-1 rounded">iaconnect.it</code> verificato su Resend.
+              L'email verrà recapitata <strong>direttamente al destinatario indicato</strong> dal mittente configurato in <strong>Branding email</strong> (default: <code className="bg-background px-1 rounded">noreply@iaconnect.it</code>).
             </p>
           </div>
 
