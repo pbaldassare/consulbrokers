@@ -280,7 +280,8 @@ const ClientiList = () => {
     queryFn: async () => {
       let query = supabase
         .from("clienti")
-        .select("*", { count: "exact" });
+        .select("*", { count: "exact" })
+        .is("merged_into", null);
 
       // Server-side search across all fields
       if (debouncedSearch) {
