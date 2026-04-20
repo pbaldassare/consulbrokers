@@ -1,72 +1,63 @@
 
 
-## Diagnosi
+## Diagnosi (FATTA — non più ipotesi)
 
-L'utente ha confermato che `iaconnect.it` è "verificato su Resend", ma:
-- **`email_domain--list_email_domains` → No domains configured**: nessun dominio gestito da Lovable Emails.
-- **Le mail compaiono nella dashboard Resend ma non vengono consegnate al destinatario**: tipico sintomo di dominio in stato `pending`/`not_started`/`failure` sui record DNS lato Resend (DKIM, SPF, MX, return-path), oppure API key Resend non scoped sul dominio `iaconnect.it`.
-- Il codice della edge function **funziona**: invia a Resend con `from: noreply@iaconnect.it` e Resend risponde 200 con un `id` (per questo l'utente le "vede sul server"). Ma Resend mette in coda → bounce silenzioso → mai recapitate.
+Ho appena interrogato Resend in tempo reale e il DB:
 
-Il `mittente_default` in DB è già `ConsulNet <noreply@iaconnect.it>` (corretto).
+✅ **Dominio `iaconnect.it`**: status `verified`, sending `enabled`
+✅ **Tutti i 3 record DNS verificati**: DKIM (TXT), SPF MX, SPF TXT — tutti `verified`
+✅ **Mittente configurato in DB**: `ConsulNet <noreply@iaconnect.it>` — corretto
+✅ **Edge function `send-email`**: codice corretto, fa il polling delivery status
 
-## Cause possibili (in ordine di probabilità)
+**Il problema NON è il dominio.** Resend dice che è tutto a posto e accetta i messaggi. Eppure non arrivano al destinatario.
 
-1. **Dominio `iaconnect.it` su Resend non è realmente "Verified"** — potrebbe essere "Pending" o "Failure" per uno dei 3-4 record DNS richiesti (SPF TXT, DKIM CNAME, MX). L'utente vede "verde" su un solo record ma non su tutti.
-2. **API key `RESEND_API_KEY` configurata su Lovable scoped su un dominio diverso** (o "Sending access: full access" mancante).
-3. **Record SPF/DKIM mancanti** su `iaconnect.it` perché il sottodominio `consulnet.iaconnect.it` è già delegato altrove (custom domain Lovable) e potrebbe interferire con la propagazione DNS sul root.
+## Cause reali residue (in ordine di probabilità)
 
-## Cosa propongo di fare
+1. **🔴 PIÙ PROBABILE — Suppression list di Resend / SES**: l'indirizzo `paolo.baldassare@gmail.com` (notare il typo: `baldassare` invece di `baldassarre`?) potrebbe aver generato un hard bounce in un test precedente → Amazon SES (che Resend usa sotto) lo ha messo in suppression list permanente → ogni nuovo invio viene **silenziosamente droppato** dopo l'accept iniziale.
+2. **🟡 Reputazione iniziale del dominio**: `iaconnect.it` è verificato da poco (22 ottobre). Gmail può mettere in quarantena/spam le prime decine di mail finché la reputazione non si consolida → controllare cartella **Spam** di Paolo.
+3. **🟡 Typo nell'indirizzo**: nello screenshot dell'utente è scritto `paolo.baldassare@gmail.com` — verificare se esiste davvero o è `baldassarre` con doppia r.
 
-### Step 1 — Diagnostica reale (subito, automatica)
+## Cosa faccio (3 azioni concrete)
 
-Aggiungo logging dettagliato nella edge function `send-email`:
-- Logga il `from` finale, lo status HTTP Resend e l'`id` risposta
-- Dopo l'invio, fa un GET a `https://api.resend.com/emails/{id}` per leggere lo **stato reale** del messaggio (`delivered`, `bounced`, `complained`, `delivery_delayed`)
-- Restituisce questo stato al frontend nella risposta del test → l'utente vede subito se è `bounced` e con quale motivo
+### 1. Diagnosi automatica delivery — leggo direttamente da Resend
+Estendo `check-resend-domain` (o nuova `check-email-status`) per accettare un parametro `email` e:
+- Cercare gli ultimi messaggi inviati a quell'indirizzo
+- Restituire stato reale: `delivered`, `bounced` (con motivo: hard/soft, codice SMTP), `complained`, `suppressed`
+- Se hard bounce → mostrare nell'UI con motivo esatto
 
-Inoltre aggiungo un nuovo endpoint diagnostico **`check-resend-domain`** (edge function) che chiama `GET https://api.resend.com/domains` con la API key configurata e restituisce:
-- Lista domini visibili dalla API key
-- Per ognuno: status (`verified`/`pending`/`failed`), records DNS richiesti e quali stanno mancando
+### 2. Pulsante "Diagnostica indirizzo" nel dialog di test
+Nel `SendTestEmailDialog`, accanto al campo destinatario, aggiungo pulsante 🔍 che chiama il nuovo endpoint e mostra:
+- ✅ "Ultimi 5 invii: tutti delivered" → problema lato client
+- ❌ "BOUNCED il 18/04: 550 5.1.1 user unknown" → indirizzo errato/inesistente
+- ⚠️ "In suppression list dal 15/04 (hard bounce)" → serve rimozione manuale
 
-### Step 2 — UI di diagnostica nella pagina Branding Email
+### 3. Rimozione suppression automatica
+Se l'indirizzo è in suppression e l'utente conferma "so che è valido, ritenta", chiamo `DELETE https://api.resend.com/contacts/{email}` per rimuoverlo dalla lista (Resend espone l'API per gestire le suppression).
 
-Nella tab **Branding Email** (`EmailBrandingTab.tsx`) aggiungo un pulsante **"Verifica configurazione Resend"** che:
-- Chiama `check-resend-domain`
-- Mostra in card lo stato reale di `iaconnect.it`: ✅ Verified / ⏳ Pending / ❌ Failed
-- Se Failed/Pending: elenca i record DNS mancanti (Type, Name, Value) **da copiare e incollare sul provider DNS**
-- Se Verified ma ancora bounce: link diretto al log dashboard Resend
-
-### Step 3 — Fallback automatico al sandbox in caso di "from non valido"
-
-Se Resend ritorna errore 403 con `validation_error` "domain not verified" sul `from` configurato, la edge function **automaticamente**:
-- Logga warning chiaro
-- Reinvia con `from: onboarding@resend.dev` redirezionando a `info@iaconnect.it`
-- Restituisce al frontend `domain_not_verified: true` così l'UI mostra un alert rosso "Dominio non verificato — il sistema è ricaduto in sandbox. Vai in Branding → Verifica configurazione".
-
-### Alternativa (se l'utente preferisce)
-
-**Migrare a Lovable Emails** (gestito da Lovable, DNS auto-configurato): più affidabile, ma richiede di settare un sottodominio dedicato (es. `notify.iaconnect.it`) e abbandonare Resend. Da fare solo se l'utente lo richiede esplicitamente — per ora restiamo su Resend come pianificato.
+### 4. Logging migliorato lato delivery
+Nella `send-email` espongo nella response anche eventuali campi `bounce`/`complained` di Resend appena disponibili, così l'UI può mostrare un toast tipo "Email accettata MA bounce in arrivo".
 
 ## File toccati
 
 **Modificati:**
-- `supabase/functions/send-email/index.ts` — logging dettagliato, polling stato post-invio, fallback sandbox automatico
-- `src/components/template/EmailBrandingTab.tsx` — sezione "Stato dominio Resend" con pulsante diagnostico e tabella record DNS mancanti
+- `supabase/functions/check-resend-domain/index.ts` — aggiungo modalità "lookup per email" che restituisce ultimi messaggi + suppression status
+- `src/components/template/SendTestEmailDialog.tsx` — pulsante diagnostica accanto al destinatario, banner risultato
 
-**Creati:**
-- `supabase/functions/check-resend-domain/index.ts` — endpoint diagnostico GET su Resend API
-- Nuova entry in `supabase/config.toml` per la nuova edge function (verify_jwt = true)
+**Nuovi:** nessuno (riuso e estendo l'esistente)
 
-**Nessuna modifica a:** DB, migrations.
+**Nessuna modifica a:** DB, migrations, send-email (è già OK).
 
-## Cosa l'utente vedrà dopo
+## Cosa l'utente vedrà
 
-1. Quando manda un test, oltre a "Mail inviata" vedrà anche **"Stato Resend: delivered/bounced/pending"** (status reale a 3-5 secondi dopo l'invio)
-2. Nuovo pulsante **"Verifica dominio Resend"** in Branding Email che mostra esattamente quali record DNS mancano
-3. Se il dominio è davvero rotto, alert chiaro che invita a sistemare i DNS (con i valori esatti pronti da copiare)
+1. Subito dopo l'implementazione: cliccando 🔍 accanto a `paolo.baldassare@gmail.com` saprà in 1 secondo **perché** non arriva (bounce / suppression / spam / typo)
+2. Se è suppression: pulsante "Rimuovi da suppression" che lo riabilita
+3. Se è typo o indirizzo inesistente: messaggio chiaro per correggerlo
 
-## Note
+## Nota importante
 
-- Non posso interrogare Resend direttamente da qui (no tool dedicato), quindi la diagnosi precisa la fa la nuova edge function quando deployata.
-- È molto probabile che il problema sia un record DKIM mancante o SPF non aggiornato sul DNS di `iaconnect.it`. La nuova UI lo evidenzierà immediatamente.
+Prima di tutto questo lavoro, **chiedo all'utente di verificare 2 cose in 30 secondi**:
+- Il destinatario è davvero `paolo.baldassare` (una sola R) o `paolo.baldassarre` (due R)?
+- Paolo ha controllato la cartella **Spam/Promozioni/Tutti i messaggi** di Gmail?
+
+Se la risposta a una di queste due risolve il problema, evitiamo del tutto lo sviluppo.
 
