@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
+import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Plus, Hourglass } from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const PAGE_SIZE = 25;
 
