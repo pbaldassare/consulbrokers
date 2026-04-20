@@ -42,7 +42,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const t = titolo || {};
+  const [t, setT] = useState<any>(titolo || {});
   const oldDurataA = t.durata_a || t.data_scadenza || "";
 
   const [form, setForm] = useState({
@@ -56,40 +56,65 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
     premio_netto: 0,
     tasse: 0,
     addizionali: 0,
+    provvigioni: 0,
   });
 
-  // Pre-compilazione quando si apre o cambia il titolo
+  // All'apertura: rifetch fresco del titolo dal DB per essere sicuri di usare i valori
+  // più aggiornati (es. premio modificato dopo aver aperto la pagina).
   useEffect(() => {
-    if (!open || !titolo) return;
-    const nuovaDa = oldDurataA;
-    if (!nuovaDa) return;
-    const nuovaA = calcolaNuovaScadenza(nuovaDa, t.periodicita, t.anni_durata);
+    if (!open || !titolo?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: fresh } = await supabase
+        .from("titoli")
+        .select("*, cliente_anagrafica:clienti!cliente_anagrafica_id(ragione_sociale,cognome,nome), compagnia_diretta:compagnie!compagnia_id(nome), prodotti(compagnie(nome))")
+        .eq("id", titolo.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const tt = fresh || titolo;
+      setT(tt);
 
-    // Garanzia: stesso delta tra garanzia_da -> garanzia_a applicato a partire dalla nuova durata
-    let garDa = nuovaDa;
-    let garA = nuovaA;
-    if (t.garanzia_da && t.garanzia_a) {
-      const oldGarDa = new Date(t.garanzia_da);
-      const oldDurDa = new Date(t.durata_da);
-      const offset = oldGarDa.getTime() - oldDurDa.getTime();
-      const newGarDa = new Date(new Date(nuovaDa).getTime() + offset);
-      garDa = newGarDa.toISOString().slice(0, 10);
-      garA = calcolaNuovaScadenza(garDa, t.periodicita, t.anni_durata);
-    }
+      const nuovaDa = tt.durata_a || tt.data_scadenza || "";
+      if (!nuovaDa) return;
+      const nuovaA = calcolaNuovaScadenza(nuovaDa, tt.periodicita, tt.anni_durata);
 
-    setForm({
-      durata_da: nuovaDa,
-      durata_a: nuovaA,
-      data_scadenza: nuovaA,
-      data_competenza: nuovaDa,
-      garanzia_da: garDa,
-      garanzia_a: garA,
-      premio_lordo: Number(t.premio_lordo) || 0,
-      premio_netto: Number(t.premio_netto) || 0,
-      tasse: Number(t.tasse) || 0,
-      addizionali: Number(t.addizionali) || 0,
-    });
-  }, [open, titolo]);
+      // Garanzia: stesso delta tra garanzia_da -> garanzia_a applicato a partire dalla nuova durata
+      let garDa = nuovaDa;
+      let garA = nuovaA;
+      if (tt.garanzia_da && tt.garanzia_a) {
+        const oldGarDa = new Date(tt.garanzia_da);
+        const oldDurDa = new Date(tt.durata_da);
+        const offset = oldGarDa.getTime() - oldDurDa.getTime();
+        const newGarDa = new Date(new Date(nuovaDa).getTime() + offset);
+        garDa = newGarDa.toISOString().slice(0, 10);
+        garA = calcolaNuovaScadenza(garDa, tt.periodicita, tt.anni_durata);
+      }
+
+      // Usa i valori QUIETANZA (correnti, eventualmente modificati) come base del rinnovo,
+      // con fallback ai valori firma originali se la quietanza non è stata compilata.
+      const premioNettoBase = tt.premio_netto_quietanza ?? tt.premio_netto ?? 0;
+      const tasseBase = tt.tasse_quietanza ?? tt.tasse ?? 0;
+      const addizBase = tt.addizionali_quietanza ?? tt.addizionali ?? 0;
+      const provvBase = tt.provvigioni_quietanza ?? tt.provvigioni_firma ?? 0;
+      // Premio lordo: se presente sul titolo (è già il valore corrente "lordo quietanza"), altrimenti ricalcola
+      const lordoBase = tt.premio_lordo ?? (Number(premioNettoBase) + Number(tasseBase) + Number(addizBase));
+
+      setForm({
+        durata_da: nuovaDa,
+        durata_a: nuovaA,
+        data_scadenza: nuovaA,
+        data_competenza: nuovaDa,
+        garanzia_da: garDa,
+        garanzia_a: garA,
+        premio_lordo: Number(lordoBase) || 0,
+        premio_netto: Number(premioNettoBase) || 0,
+        tasse: Number(tasseBase) || 0,
+        addizionali: Number(addizBase) || 0,
+        provvigioni: Number(provvBase) || 0,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [open, titolo?.id]);
 
   const rinnovaMutation = useMutation({
     mutationFn: async () => {
@@ -167,11 +192,17 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         data_competenza: form.data_competenza,
         garanzia_da: form.garanzia_da || null,
         garanzia_a: form.garanzia_a || null,
-        // Premi
+        // Premi - sia firma che quietanza vengono inizializzati con i valori confermati nel form,
+        // così il nuovo titolo nasce già "allineato" (la quietanza riflette il premio corrente).
         premio_lordo: form.premio_lordo,
         premio_netto: form.premio_netto,
         tasse: form.tasse,
         addizionali: form.addizionali,
+        provvigioni_firma: form.provvigioni,
+        premio_netto_quietanza: form.premio_netto,
+        tasse_quietanza: form.tasse,
+        addizionali_quietanza: form.addizionali,
+        provvigioni_quietanza: form.provvigioni,
         // Stato nuovo
         stato: "attivo",
         data_incasso: null,
@@ -425,7 +456,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           <div className="flex items-center gap-2 text-sm font-semibold text-primary pt-2">
             Premio (modificabile)
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-5 gap-3">
             <div>
               <Label className="text-xs">Premio Lordo (€)</Label>
               <Input
@@ -460,6 +491,15 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
                 step="0.01"
                 value={form.addizionali}
                 onChange={(e) => setForm((f) => ({ ...f, addizionali: parseFloat(e.target.value) || 0 }))}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Provvigioni (€)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.provvigioni}
+                onChange={(e) => setForm((f) => ({ ...f, provvigioni: parseFloat(e.target.value) || 0 }))}
               />
             </div>
           </div>
