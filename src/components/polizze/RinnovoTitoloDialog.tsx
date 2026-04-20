@@ -203,12 +203,14 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         tasse_quietanza: form.tasse,
         addizionali_quietanza: form.addizionali,
         provvigioni_quietanza: form.provvigioni,
-        // Stato nuovo
-        stato: "attivo",
+        // Stato nuovo: il rinnovo nasce IN ATTESA. Verrà attivato automaticamente
+        // dal trigger DB `trg_attiva_rinnovo_su_messa_cassa` quando la polizza
+        // origine viene messa a cassa (stato = 'incassato').
+        stato: "in_attesa_rinnovo",
         data_incasso: null,
         importo_incassato: null,
         tipo_portafoglio: "rinnovo",
-        // Riferimento al precedente
+        // Riferimento al precedente (usato dal trigger di attivazione automatica)
         sostituisce_polizza: t.numero_titolo,
         sostituisce_riga: t.riga,
       };
@@ -317,7 +319,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       return nuovo.id as string;
     },
     onSuccess: (nuovoId) => {
-      toast.success("Polizza rinnovata con successo");
+      toast.success("Rinnovo creato — diventerà attivo alla messa a cassa della polizza precedente");
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       onOpenChange(false);

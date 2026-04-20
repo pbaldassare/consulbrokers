@@ -1057,10 +1057,54 @@ const TitoloDetail = () => {
           <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
           <p className="text-muted-foreground text-sm">{t.prodotti?.nome_prodotto} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
         </div>
-        <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="ml-auto text-sm">
-          {t.stato}
-        </Badge>
+        {t.stato === "in_attesa_rinnovo" ? (
+          <Badge className="ml-auto text-sm bg-orange-500 hover:bg-orange-600 text-white" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
+            In attesa rinnovo
+          </Badge>
+        ) : (
+          <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="ml-auto text-sm">
+            {t.stato}
+          </Badge>
+        )}
       </div>
+
+      {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
+      {t.stato === "in_attesa_rinnovo" && (
+        <Card className="border-orange-400 bg-orange-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-orange-600" /> Rinnovo in attesa
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Questo titolo è un rinnovo della polizza{" "}
+              <span className="font-mono font-semibold">{t.sostituisce_polizza}</span>
+              {t.sostituisce_riga != null ? <> / riga {t.sostituisce_riga}</> : null}.
+              Diventerà <strong>attivo automaticamente</strong> quando la polizza precedente verrà messa a cassa,
+              e solo allora apparirà nel <em>Carico del Mese</em> di scadenza.
+            </p>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-orange-700 border-orange-400 hover:bg-orange-100"
+                onClick={async () => {
+                  if (!confirm("Forzare l'attivazione di questo rinnovo senza attendere la messa a cassa della polizza precedente?")) return;
+                  const { error } = await (supabase.from("titoli") as any).update({ stato: "attivo", updated_at: new Date().toISOString() }).eq("id", id);
+                  if (error) { toast.error("Errore: " + error.message); return; }
+                  await logAttivita({ azione: "forza_attivazione_rinnovo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { polizza_precedente: t.sostituisce_polizza } });
+                  toast.success("Rinnovo attivato");
+                  queryClient.invalidateQueries({ queryKey: ["titolo"] });
+                  queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+                }}
+              >
+                Forza attivazione
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Operazioni — per polizze sospese mostra solo Riattivazione; nascosto per scaduto */}
       {t.stato === "sospeso" ? (
