@@ -58,13 +58,38 @@ export default function CanaliSidebar({
     queryFn: async () => {
       const query = supabase
         .from("chat_canali")
-        .select("*, chat_canali_membri(user_id, profiles:user_id(nome, cognome))")
+        .select("*, chat_canali_membri(user_id)")
         .eq("ambito", ambito)
         .order("created_at", { ascending: false });
       const { data } = await query;
       return data || [];
     },
     refetchInterval: 10000,
+  });
+
+  // Resolve member names for direct chats (FK on auth.users prevents embedded join with profiles)
+  const membriUserIds = Array.from(new Set(
+    (canali || [])
+      .filter((c: any) => c.tipo === "diretto")
+      .flatMap((c: any) => (c.chat_canali_membri || []).map((m: any) => m.user_id))
+      .filter((id: string) => id && id !== userId)
+  ));
+
+  const { data: membriNomi } = useQuery({
+    queryKey: ["chat_membri_nomi", membriUserIds.sort().join(",")],
+    queryFn: async () => {
+      const result: Record<string, string> = {};
+      if (!membriUserIds.length) return result;
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome")
+        .in("id", membriUserIds);
+      (data || []).forEach((p: any) => {
+        result[p.id] = `${p.nome || ""} ${p.cognome || ""}`.trim() || "Utente";
+      });
+      return result;
+    },
+    enabled: membriUserIds.length > 0,
   });
 
   // Resolve entity names for contextual channels
