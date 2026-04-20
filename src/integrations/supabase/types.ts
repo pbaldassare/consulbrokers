@@ -995,6 +995,9 @@ export type Database = {
           internazionale: boolean | null
           luogo_nascita: string | null
           matricola: string | null
+          merged_at: string | null
+          merged_by: string | null
+          merged_into: string | null
           nazione: string | null
           nome: string | null
           note: string | null
@@ -1077,6 +1080,9 @@ export type Database = {
           internazionale?: boolean | null
           luogo_nascita?: string | null
           matricola?: string | null
+          merged_at?: string | null
+          merged_by?: string | null
+          merged_into?: string | null
           nazione?: string | null
           nome?: string | null
           note?: string | null
@@ -1159,6 +1165,9 @@ export type Database = {
           internazionale?: boolean | null
           luogo_nascita?: string | null
           matricola?: string | null
+          merged_at?: string | null
+          merged_by?: string | null
+          merged_into?: string | null
           nazione?: string | null
           nome?: string | null
           note?: string | null
@@ -1202,10 +1211,58 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clienti_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clienti_ufficio_id_fkey"
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clienti_merge_log: {
+        Row: {
+          cliente_legacy_id: string
+          cliente_master_id: string
+          entita_spostate: Json
+          eseguito_at: string
+          eseguito_da: string | null
+          id: string
+          note: string | null
+          snapshot_legacy: Json
+        }
+        Insert: {
+          cliente_legacy_id: string
+          cliente_master_id: string
+          entita_spostate?: Json
+          eseguito_at?: string
+          eseguito_da?: string | null
+          id?: string
+          note?: string | null
+          snapshot_legacy: Json
+        }
+        Update: {
+          cliente_legacy_id?: string
+          cliente_master_id?: string
+          entita_spostate?: Json
+          eseguito_at?: string
+          eseguito_da?: string | null
+          id?: string
+          note?: string | null
+          snapshot_legacy?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clienti_merge_log_cliente_master_id_fkey"
+            columns: ["cliente_master_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
             referencedColumns: ["id"]
           },
         ]
@@ -6518,6 +6575,25 @@ export type Database = {
           count: number
         }[]
       }
+      find_clienti_duplicati: {
+        Args: never
+        Returns: {
+          attivo: boolean
+          cliente_id: string
+          cluster_key: string
+          codice_fiscale: string
+          confidenza: string
+          created_at: string
+          match_type: string
+          merged_into: string
+          nome_completo: string
+          num_documenti: number
+          num_polizze: number
+          num_sinistri: number
+          partita_iva: string
+          tipo_cliente: string
+        }[]
+      }
       get_chat_unread_count: { Args: { _user_id: string }; Returns: number }
       get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
@@ -6533,6 +6609,10 @@ export type Database = {
         Returns: boolean
       }
       mark_canale_as_read: { Args: { _canale_id: string }; Returns: undefined }
+      merge_cliente_atomico: {
+        Args: { _legacy_id: string; _master_id: string }
+        Returns: Json
+      }
       refresh_cfo_kpi: { Args: never; Returns: undefined }
       refresh_cfo_kpi_mensili: { Args: never; Returns: undefined }
       report_banca_ko: { Args: { _ufficio_id?: string }; Returns: Json }
