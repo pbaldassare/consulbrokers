@@ -1996,29 +1996,60 @@ const TitoloDetail = () => {
                   <div>
                     <Label className="text-xs">Premio Netto (€)</Label>
                     <Input type="number" step="0.01" value={importiForm.premio_netto}
-                      onChange={(e) => setImportiForm({ ...importiForm, premio_netto: e.target.value })} />
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setImportiForm((prev) => ({
+                          ...prev,
+                          premio_netto: v,
+                          ...(lordoFirmaTouched ? {} : { premio_lordo: recalcLordoFirma(v, prev.addizionali, prev.tasse) }),
+                        }));
+                      }} />
                   </div>
                   <div>
                     <Label className="text-xs">Addizionali (€)</Label>
                     <Input type="number" step="0.01" value={importiForm.addizionali}
-                      onChange={(e) => setImportiForm({ ...importiForm, addizionali: e.target.value })} />
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setImportiForm((prev) => ({
+                          ...prev,
+                          addizionali: v,
+                          ...(lordoFirmaTouched ? {} : { premio_lordo: recalcLordoFirma(prev.premio_netto, v, prev.tasse) }),
+                        }));
+                      }} />
                   </div>
                   <div>
                     <Label className="text-xs">Tasse (€)</Label>
                     <Input type="number" step="0.01" value={importiForm.tasse}
-                      onChange={(e) => setImportiForm({ ...importiForm, tasse: e.target.value })} />
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setImportiForm((prev) => ({
+                          ...prev,
+                          tasse: v,
+                          ...(lordoFirmaTouched ? {} : { premio_lordo: recalcLordoFirma(prev.premio_netto, prev.addizionali, v) }),
+                        }));
+                      }} />
                   </div>
                   <div>
                     <Label className="text-xs">Premio Lordo (€)</Label>
                     <Input type="number" step="0.01" value={importiForm.premio_lordo}
-                      onChange={(e) => setImportiForm({ ...importiForm, premio_lordo: e.target.value })} />
-                    {suggestedLordoFirma != null && (
+                      onChange={(e) => {
+                        setLordoFirmaTouched(true);
+                        setImportiForm({ ...importiForm, premio_lordo: e.target.value });
+                      }} />
+                    {!lordoFirmaTouched ? (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Aggiornato automaticamente da Netto + Addizionali + Tasse
+                      </p>
+                    ) : suggestedLordoFirma != null && Math.abs((parseFloat(importiForm.premio_lordo) || 0) - suggestedLordoFirma) > 0.01 ? (
                       <button type="button"
-                        className="text-[11px] text-muted-foreground hover:text-primary mt-0.5"
-                        onClick={() => setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) })}>
-                        💡 Calcolato: € {suggestedLordoFirma.toFixed(2)} (clicca per applicare)
+                        className="text-[11px] text-amber-600 hover:text-amber-700 mt-0.5 text-left"
+                        onClick={() => {
+                          setLordoFirmaTouched(false);
+                          setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) });
+                        }}>
+                        ⚠ Valore manuale ≠ calcolato (€ {suggestedLordoFirma.toFixed(2)}) — clicca per riallineare
                       </button>
-                    )}
+                    ) : null}
                   </div>
                   <div>
                     <Label className="text-xs">Provvigioni (€)</Label>
