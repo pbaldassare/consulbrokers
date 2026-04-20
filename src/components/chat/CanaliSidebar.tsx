@@ -146,7 +146,7 @@ export default function CanaliSidebar({
     }
     if (canale.tipo === "diretto" && canale.chat_canali_membri) {
       const other = canale.chat_canali_membri.find((m: any) => m.user_id !== userId);
-      if (other?.profiles) return `${other.profiles.nome || ""} ${other.profiles.cognome || ""}`.trim();
+      if (other?.user_id && membriNomi?.[other.user_id]) return membriNomi[other.user_id];
     }
     return "Conversazione";
   };
