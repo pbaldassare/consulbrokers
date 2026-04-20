@@ -144,11 +144,28 @@ export function SendTestEmailDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="bg-muted/40 border rounded-md p-3 text-xs space-y-1">
-            <p className="font-medium text-foreground">Modalità test attiva</p>
-            <p className="text-muted-foreground">
-              Mittente: <code className="bg-background px-1 rounded">onboarding@resend.dev</code>. In test, Resend
-              consente l'invio solo verso l'email del proprietario dell'account Resend.
+          <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-800 rounded-md p-3 text-xs space-y-1.5">
+            <p className="font-semibold text-yellow-900 dark:text-yellow-200 flex items-center gap-1.5">
+              ⚠️ Modalità sandbox Resend attiva
+            </p>
+            <p className="text-yellow-800 dark:text-yellow-300">
+              Mittente: <code className="bg-background px-1 rounded">onboarding@resend.dev</code>.
+              Indipendentemente dal destinatario inserito qui sotto, l'email verrà <strong>recapitata solo a{" "}
+              <code className="bg-background px-1 rounded">info@iaconnect.it</code></strong> (proprietario account Resend),
+              con oggetto prefissato <code className="bg-background px-1 rounded">[TEST → destinatario]</code> e{" "}
+              <code className="bg-background px-1 rounded">reply-to</code> impostato sul destinatario originale.
+            </p>
+            <p className="text-yellow-800 dark:text-yellow-300">
+              Per inviare email a destinatari reali (es. clienti), verifica un dominio su{" "}
+              <a
+                href="https://resend.com/domains"
+                target="_blank"
+                rel="noreferrer"
+                className="underline font-medium"
+              >
+                resend.com/domains
+              </a>{" "}
+              e aggiorna il mittente nella tab <strong>Branding email</strong>.
             </p>
           </div>
 
