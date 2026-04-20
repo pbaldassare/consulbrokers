@@ -1,47 +1,118 @@
 
 
-## Analisi
+## Decisione utente
 
-Nello screenshot, su `/archivi/clienti/746aed8c-67fc-435e-9e88-70991ea03097` (cliente "Lo Giudice Emilia Concetta" - Privato) il tab **Polizze** mostra `(0)` e "Nessuna polizza collegata", anche se il cliente ha sicuramente polizze.
+L'utente sceglie:
 
-## Cosa verifico prima del fix
+1. **Opzione 2** (deduplica generale): tool guidato per trovare e gestire i duplicati anagrafica → polizze orfane
+2. **Opzione 3** (fix immediato): pulizia ora del cliente "Lo Giudice Emilia Concetta" — spostare le 3 polizze dal record legacy `6e60fe40` al record pulito `746aed8c` e disattivare il duplicato
 
-1. **Schema collegamento polizza→cliente**: in `titoli` la chiave è `cliente_id` o `cliente_anagrafica_id`? (su `SinistriClienteTab.tsx` vedo `cliente_anagrafica_id` per i sinistri — sospetto che le polizze invece usino `cliente_id` ma il tab Polizze stia filtrando con la chiave sbagliata).
-2. **Codice del tab Polizze del Cliente** dentro `src/pages/ClienteDetail.tsx`: con quale colonna fa la query, e su quale ID del cliente.
-3. **Query DB diretta** (read-only) per il cliente `746aed8c-67fc-435e-9e88-70991ea03097`:
-   - Conta polizze in `titoli` per ogni possibile FK (`cliente_id`, `cliente_anagrafica_id`, `contraente_id`, ecc.)
-   - Verifica se le polizze sono legate via `numero_polizza` ad una polizza che a sua volta ha l'ID corretto
+## Parte A — Fix immediato "Lo Giudice"
 
-## Cause più probabili
+Esecuzione SQL una tantum (via insert tool):
 
-- **A) Mismatch nome colonna FK** (più probabile): il tab filtra su `cliente_id` ma le polizze sono state salvate con `cliente_anagrafica_id`, o viceversa.
-- **B) ID sbagliato passato**: il tab usa `id` della pagina ma le polizze sono linkate ad un altro id (es. `anagrafica_id` separato dalla riga `clienti`).
-- **C) Filtro per stato troppo stretto** (es. solo `attivo`) che esclude tutto.
-- **D) RLS**: l'utente loggato non vede le polizze di quel cliente per policy. Improbabile dato che è "Responsabile Ufficio" (admin), ma da escludere.
+1. Verifica conteggio polizze legacy → 3 attese
+2. `UPDATE titoli SET cliente_anagrafica_id = '746aed8c-67fc-435e-9e88-70991ea03097' WHERE cliente_anagrafica_id = '6e60fe40-...'`
+3. Spostamento di eventuali entità correlate al cliente legacy (per non perdere storico):
+   - `sinistri.cliente_anagrafica_id`
+   - `nominativi_cliente.cliente_id`
+   - `privacy_consensi.cliente_id`
+   - `documenti` con `entita_tipo='cliente'` e `entita_id` legacy
+   - `trattative.cliente_id`
+   - `chat_canali` contestuali con `entita_id` legacy
+   - `portafoglio_incassi.cliente_id`
+   - `notifiche` collegate
+4. Disattivazione (non eliminazione) del record legacy: `UPDATE clienti SET attivo = false, note = COALESCE(note,'') || ' [MERGED in 746aed8c il 2026-04-20]' WHERE id = '6e60fe40-...'`
+5. Verifica finale: il cliente `746aed8c` ora vede 3 polizze e il legacy non appare più nella lista clienti attivi
 
-## Fix previsto
+Niente DELETE per sicurezza (mantiene audit trail). Se in futuro l'utente vuole hard-delete dei record disattivati, lo facciamo separatamente.
 
-Una volta identificata la causa, modifica mirata in **`src/pages/ClienteDetail.tsx`** (tab Polizze):
-- Correggere il nome della colonna FK nella query, oppure
-- Allargare il filtro (rimuovere stato hardcoded), oppure
-- In caso di ambiguità schema, usare un OR su entrambe le possibili FK: `.or('cliente_id.eq.X,cliente_anagrafica_id.eq.X')`.
+## Parte B — Tool deduplica anagrafica clienti
 
-In parallelo, **stesso fix sul contatore badge** del tab `Polizze (0)` per evitare che la pagina mostri 0 mentre la tabella mostra righe.
+Nuova pagina: `/archivi/clienti/deduplica` (route protetta da `RoleGuard` admin/responsabile).
+
+### Funzionalità
+
+**Sezione 1 — Detection automatica**
+RPC `find_clienti_duplicati()` che ritorna gruppi di potenziali duplicati basati su:
+- Stesso CF (Codice Fiscale) — match esatto, alta affidabilità
+- Stesso (nome + cognome normalizzati) senza CF — media affidabilità
+- Stessa P.IVA — alta affidabilità
+- Match fuzzy ragione_sociale (Levenshtein/similarity > 0.85) — bassa affidabilità
+
+Output per ogni gruppo:
+- Lista record candidati con: id, nome completo, CF/PIVA, # polizze, # sinistri, # documenti, attivo, created_at, ultima_attività
+- Suggerimento "master" (= record con più dati / più recente / attivo)
+- Punteggio confidenza
+
+**Sezione 2 — UI di merge guidato**
+
+Tabella raggruppata per cluster. Per ogni cluster:
+- Radio button "Master" (preselezionato sul suggerito)
+- Checkbox "Da unire" sugli altri
+- Tasto "Anteprima merge" → dialog che mostra cosa verrà spostato (counts per tipo di entità)
+- Tasto "Conferma merge" → esegue la migrazione
+
+**Sezione 3 — Edge function `merge-clienti`**
+
+Service-role function che:
+1. Verifica permessi utente (admin/responsabile)
+2. Per ogni record da unire → master:
+   - UPDATE cascade su tutte le tabelle figlie (10+ FK note)
+   - Backup JSON del record disattivato in `clienti_merge_log` (nuova tabella)
+   - SET `attivo = false`, `merged_into = <master_id>`, `merged_at = now()`, `merged_by = auth.uid()`
+3. Logga su `log_attivita` con severity='warning'
+4. Ritorna riepilogo: # polizze spostate, # sinistri, ecc.
+
+### DB changes (Parte B)
+
+- 2 colonne su `clienti`: `merged_into uuid`, `merged_at timestamptz` (nullable)
+- 1 nuova tabella `clienti_merge_log` (id, cliente_master_id, cliente_legacy_id, snapshot_legacy jsonb, entita_spostate jsonb, eseguito_da, eseguito_at)
+- 1 RPC `find_clienti_duplicati()` SECURITY DEFINER
+- RLS su `clienti_merge_log`: SELECT solo admin/responsabile
+- Filtro `WHERE attivo = true` o `merged_into IS NULL` su tutte le query lista clienti esistenti (verifica `ClientiList.tsx` e `useClienti` hook)
+
+### Edge function
+
+`supabase/functions/merge-clienti/index.ts`:
+- Input: `{ master_id: uuid, legacy_ids: uuid[] }`
+- Service role per bypassare RLS durante merge
+- Transazionale (RPC interna `merge_cliente_atomico` per atomicità)
+
+### Voce menu
+
+In `src/components/AppSidebar.tsx` sotto "Archivi → Clienti", aggiungo voce "Deduplica" visibile solo per admin/responsabile.
 
 ## File toccati
 
-- `src/pages/ClienteDetail.tsx` (~5-15 righe nella query del tab Polizze e nel relativo conteggio)
+**Parte A** (immediata):
+- 1 INSERT/UPDATE SQL via insert tool (no migrazione, solo dati)
+
+**Parte B** (deduplica generale):
+- `supabase/migrations/...` — colonne `merged_into`/`merged_at`, tabella `clienti_merge_log`, RPC `find_clienti_duplicati`, RLS, RPC `merge_cliente_atomico`
+- `supabase/functions/merge-clienti/index.ts` (nuova)
+- `src/pages/DeduplicaClientiPage.tsx` (nuova, ~250 righe)
+- `src/routes/archivi.tsx` — registrazione route
+- `src/components/AppSidebar.tsx` — voce menu (~5 righe)
+- `src/pages/ClientiList.tsx` — filtro per nascondere `merged_into IS NOT NULL` (~3 righe)
 
 ## Cosa NON faccio
 
-- Niente modifiche RLS / schema / migrazioni (a meno che la diagnosi DB non riveli che le polizze sono effettivamente orfane — in quel caso ti chiedo conferma prima)
-- Niente modifiche ad altri tab (Sinistri, Documenti, Trattative)
-- Niente modifiche al portale cliente (`/cliente/polizze`) che è separato
+- Niente hard-delete dei record (sempre soft-delete con audit)
+- Niente merge automatico senza conferma utente
+- Non tocco lo schema delle FK (nessuna ON DELETE CASCADE che potrebbe danneggiare)
+- Non importo nuovi clienti, niente edit del flusso `import-clienti`
 
 ## Verifica post-fix
 
-1. Apro `/archivi/clienti/746aed8c-…` → il badge mostra il numero reale di polizze
-2. Le polizze appaiono in tabella con numero, compagnia, premio, stato
-3. Click su una polizza → naviga al dettaglio titolo
-4. Provo su un altro cliente (Privato e Azienda) per essere sicuro che funzioni in entrambi i casi
+**Parte A**:
+1. Apro `/archivi/clienti/746aed8c-…` → vedo 3 polizze
+2. Cerco "Lo Giudice" nella lista clienti → vedo solo il record pulito (nome corretto)
+
+**Parte B**:
+1. Vado su `/archivi/clienti/deduplica` (come admin)
+2. Vedo cluster di duplicati con conteggi polizze/sinistri
+3. Seleziono master, conferma → polizze spostate, record legacy disattivato
+4. Verifico che il record legacy non appaia più nella lista clienti
+5. Verifico riga in `clienti_merge_log` con snapshot
 
