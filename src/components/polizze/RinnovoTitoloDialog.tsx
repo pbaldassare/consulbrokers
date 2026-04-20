@@ -107,6 +107,23 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       const myUfficioId = (profile as any)?.ufficio_id;
       if (!myUfficioId) throw new Error("Sede dell'utente non configurata: contatta l'amministratore");
 
+      // Anti-duplicato: verifica che non esista già un rinnovo per stesso numero+compagnia+scadenza
+      const { data: esistente, error: dupErr } = await supabase
+        .from("titoli")
+        .select("id")
+        .eq("numero_titolo", t.numero_titolo)
+        .eq("compagnia_id", t.compagnia_id)
+        .eq("data_scadenza", form.data_scadenza)
+        .maybeSingle();
+      if (dupErr) throw dupErr;
+      if (esistente?.id) {
+        const err: any = new Error(
+          `Esiste già un rinnovo della polizza ${t.numero_titolo} con scadenza ${form.data_scadenza}. Apri il titolo esistente invece di crearne uno nuovo.`
+        );
+        err.titoloEsistenteId = esistente.id;
+        throw err;
+      }
+
       // Trova la riga massima per quel numero_titolo
       const { data: maxRow, error: maxErr } = await supabase
         .from("titoli")
