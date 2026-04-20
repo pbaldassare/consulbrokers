@@ -6417,6 +6417,14 @@ export type Database = {
       }
     }
     Functions: {
+      ai_describe_table: {
+        Args: { table_name: string }
+        Returns: {
+          column_name: string
+          data_type: string
+          is_nullable: string
+        }[]
+      }
       ai_exec_select: { Args: { query_text: string }; Returns: Json }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_entrate_uscite_mensili: {
