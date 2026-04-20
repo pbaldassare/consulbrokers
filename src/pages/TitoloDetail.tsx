@@ -677,6 +677,55 @@ const TitoloDetail = () => {
         payload[f] = newV;
       });
 
+      // === Auto-coherence: ricalcolo premio_lordo se incoerente ===
+      const autoFixes: string[] = [];
+      const nettoFirmaNew = payload.premio_netto;
+      const tasseFirmaNew = payload.tasse;
+      const addizFirmaNew = payload.addizionali;
+      if (nettoFirmaNew != null || tasseFirmaNew != null || addizFirmaNew != null) {
+        const computedLordo =
+          (Number(nettoFirmaNew) || 0) + (Number(tasseFirmaNew) || 0) + (Number(addizFirmaNew) || 0);
+        const currentLordo = payload.premio_lordo;
+        if (currentLordo == null || Math.abs(Number(currentLordo) - computedLordo) > 0.01) {
+          const oldLordo = (titolo as any)?.premio_lordo ?? null;
+          if (oldLordo !== computedLordo) {
+            before.premio_lordo = oldLordo;
+            after.premio_lordo = computedLordo;
+          }
+          payload.premio_lordo = computedLordo;
+          autoFixes.push("Premio Lordo ricalcolato");
+        }
+      }
+
+      // === Sincronizzazione Firma → Quietanza ===
+      // Se l'utente ha modificato un campo Firma e il corrispondente Quietanza non è stato toccato
+      // (cioè è rimasto uguale al valore in DB), propaghiamo il nuovo valore Firma anche alla Quietanza.
+      const syncPairs: Array<[string, string]> = [
+        ["premio_netto", "premio_netto_quietanza"],
+        ["tasse", "tasse_quietanza"],
+        ["addizionali", "addizionali_quietanza"],
+        ["provvigioni_firma", "provvigioni_quietanza"],
+      ];
+      let syncedQuietanza = false;
+      syncPairs.forEach(([firmaKey, quietKey]) => {
+        const firmaOld = (titolo as any)?.[firmaKey] ?? null;
+        const firmaNew = payload[firmaKey];
+        const quietOld = (titolo as any)?.[quietKey] ?? null;
+        const quietNew = payload[quietKey];
+        const firmaChanged = firmaOld !== firmaNew;
+        const quietUntouched = quietOld === quietNew;
+        if (firmaChanged && quietUntouched && firmaNew !== quietNew) {
+          payload[quietKey] = firmaNew;
+          before[quietKey] = quietOld;
+          after[quietKey] = firmaNew;
+          syncedQuietanza = true;
+        }
+      });
+
+      // Se ho sincronizzato netto/tasse/addiz quietanza, ricalcolo anche eventuale lordo quietanza coerente
+      // (qui non c'è premio_lordo_quietanza nello schema, ma teniamo il flag per il toast)
+      if (syncedQuietanza) autoFixes.push("Quietanza allineata alla Firma");
+
       const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
       if (error) throw error;
 
