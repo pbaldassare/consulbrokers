@@ -631,6 +631,62 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* AlertDialog admin: conflitto rinnovo esistente */}
+      <AlertDialog open={!!conflittoRinnovo} onOpenChange={(o) => !o && setConflittoRinnovo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Esiste già un rinnovo
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Per la polizza <span className="font-mono font-semibold">{conflittoRinnovo?.numero_titolo}</span>{" "}
+                  con scadenza <span className="font-semibold">{conflittoRinnovo?.data_scadenza}</span> esiste già
+                  un rinnovo (riga {conflittoRinnovo?.riga ?? "—"}, stato{" "}
+                  <span className="font-semibold">{conflittoRinnovo?.stato}</span>).
+                </p>
+                <p className="text-destructive font-medium">
+                  Confermando, il rinnovo esistente verrà <strong>eliminato</strong> insieme ai suoi movimenti, e
+                  ne verrà creato uno nuovo con i dati attualmente compilati. Operazione irreversibile.
+                </p>
+                <p>
+                  Vuoi procedere oppure aprire il rinnovo esistente?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={eliminaERifaiMutation.isPending}>Annulla</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={eliminaERifaiMutation.isPending}
+              onClick={() => {
+                const id = conflittoRinnovo?.id;
+                setConflittoRinnovo(null);
+                if (id) {
+                  onOpenChange(false);
+                  navigate(`/titoli/${id}`);
+                }
+              }}
+            >
+              Vai al titolo esistente
+            </Button>
+            <AlertDialogAction
+              disabled={eliminaERifaiMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                eliminaERifaiMutation.mutate();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {eliminaERifaiMutation.isPending ? "Eliminazione..." : "Elimina e rifai (admin)"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
