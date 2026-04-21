@@ -511,7 +511,12 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
                       <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
-                      <TableCell>{frazLabel(p.rate)}</TableCell>
+                      <TableCell className="text-xs">{descrizioneFrequenza(p.rate)}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {p.prossima_garanzia_da && p.prossima_garanzia_a
+                          ? `${fmtDateIt(p.prossima_garanzia_da)} → ${fmtDateIt(p.prossima_garanzia_a)}`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
                       <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>
