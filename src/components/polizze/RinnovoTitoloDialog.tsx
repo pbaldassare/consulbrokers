@@ -351,6 +351,11 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       console.error(e);
       // Caso 1: duplicato rilevato applicativamente (con titoloEsistenteId)
       if (e?.titoloEsistenteId) {
+        // Admin: offri override "Elimina e rifai"
+        if (isAdmin && e?.titoloEsistente) {
+          setConflittoRinnovo(e.titoloEsistente);
+          return;
+        }
         toast.error(e.message, {
           action: {
             label: "Vai al titolo esistente",
@@ -371,6 +376,89 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         return;
       }
       toast.error("Errore nel rinnovo: " + (e?.message || "sconosciuto"));
+    },
+  });
+
+  // Mutation admin: elimina rinnovo esistente e ne crea uno nuovo
+  const eliminaERifaiMutation = useMutation({
+    mutationFn: async () => {
+      if (!conflittoRinnovo) throw new Error("Nessun conflitto da risolvere");
+      if (!isAdmin) throw new Error("Solo gli amministratori possono eseguire questa operazione");
+
+      // Safety: rifetch stato/data_messa_cassa fresh
+      const { data: fresh, error: freshErr } = await supabase
+        .from("titoli")
+        .select("id, stato, data_messa_cassa, numero_titolo, data_scadenza")
+        .eq("id", conflittoRinnovo.id)
+        .single();
+      if (freshErr) throw freshErr;
+      if ((fresh as any).data_messa_cassa) {
+        throw new Error("Il rinnovo esistente è già stato incassato (messo a cassa). Non è eliminabile: usa Storno.");
+      }
+      if (!["in_attesa_rinnovo", "attivo"].includes((fresh as any).stato || "")) {
+        throw new Error(`Il rinnovo esistente ha stato '${(fresh as any).stato}' e non può essere eliminato automaticamente.`);
+      }
+
+      // Trova movimenti del titolo esistente per resettare i back-link sostituito_da_id
+      const { data: movs, error: movsErr } = await supabase
+        .from("movimenti_polizza")
+        .select("id, sostituisce_id")
+        .eq("titolo_id", (fresh as any).id);
+      if (movsErr) throw movsErr;
+
+      // Reset sostituito_da_id sui movimenti origine referenziati
+      const sostituisceIds = (movs || [])
+        .map((m: any) => m.sostituisce_id)
+        .filter((x: any): x is string => !!x);
+      if (sostituisceIds.length > 0) {
+        const { error: resetErr } = await supabase
+          .from("movimenti_polizza")
+          .update({ sostituito_da_id: null })
+          .in("id", sostituisceIds);
+        if (resetErr) console.warn("Impossibile resettare sostituito_da_id origine", resetErr);
+      }
+
+      // Elimina movimenti del titolo (preventivo, anche se ON DELETE CASCADE)
+      const { error: delMovErr } = await supabase
+        .from("movimenti_polizza")
+        .delete()
+        .eq("titolo_id", (fresh as any).id);
+      if (delMovErr) throw delMovErr;
+
+      // Elimina il titolo esistente
+      const { error: delTitErr } = await supabase
+        .from("titoli")
+        .delete()
+        .eq("id", (fresh as any).id);
+      if (delTitErr) throw delTitErr;
+
+      // Log eliminazione
+      try {
+        await logAttivita({
+          azione: "rinnovo_eliminato",
+          entita_tipo: "titolo",
+          entita_id: (fresh as any).id,
+          dettagli_json: {
+            polizza: (fresh as any).numero_titolo,
+            data_scadenza: (fresh as any).data_scadenza,
+            motivo: "admin_override_rifai_rinnovo",
+            titolo_origine_id: t.id,
+          },
+          severity: "warning",
+        });
+      } catch (logErr) {
+        console.error("Errore log eliminazione rinnovo", logErr);
+      }
+    },
+    onSuccess: async () => {
+      setConflittoRinnovo(null);
+      toast.success("Rinnovo precedente eliminato. Creazione del nuovo in corso...");
+      // Rilancia la creazione del rinnovo
+      rinnovaMutation.mutate();
+    },
+    onError: (e: any) => {
+      console.error(e);
+      toast.error(e?.message || "Impossibile eliminare il rinnovo esistente");
     },
   });
 
