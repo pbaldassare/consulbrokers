@@ -46,6 +46,7 @@ const PortafoglioCaricoPage = () => {
 
   const caricoStart = format(startOfMonth(caricoDate), "yyyy-MM-dd");
   const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
+  const caricoMese = format(caricoDate, "yyyy-MM");
 
 
   const handleSort = (field: string) => {
@@ -76,7 +77,7 @@ const PortafoglioCaricoPage = () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, prossima_garanzia_da, prossima_garanzia_a, mese_carico, premi_modificabili",
         { count: "exact" }
-      ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
+      ).eq("mese_carico", caricoMese).in("stato", ["attivo", "incassato"]);
 
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
@@ -95,10 +96,10 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoMese],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
+        .eq("mese_carico", caricoMese).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
@@ -113,13 +114,12 @@ const PortafoglioCaricoPage = () => {
 
   // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
   const { data: pendingRinnovi } = useQuery({
-    queryKey: ["portafoglio-carico-pending", caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-pending", caricoMese],
     queryFn: async () => {
       const { data } = await supabase
         .from("v_portafoglio_titoli" as any)
         .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza, sostituisce_riga")
-        .gte("data_scadenza", caricoStart)
-        .lte("data_scadenza", caricoEnd)
+        .eq("mese_carico", caricoMese)
         .eq("stato", "in_attesa_rinnovo")
         .order("data_scadenza", { ascending: true });
       return (data || []) as any[];
