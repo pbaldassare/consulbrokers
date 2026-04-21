@@ -74,7 +74,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, prossima_garanzia_da, prossima_garanzia_a, mese_carico, premi_modificabili",
         { count: "exact" }
       ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
