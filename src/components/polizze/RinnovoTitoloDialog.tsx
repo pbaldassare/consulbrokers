@@ -199,7 +199,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         cliente_id: t.cliente_id,
         prodotto_id: t.prodotto_id,
         prodotto_nome: t.prodotto_nome,
-        ufficio_id: myUfficioId,
+        ufficio_id: ufficioPerRinnovo,
         produttore_id: t.produttore_id,
         compagnia_id: t.compagnia_id,
         ramo_id: t.ramo_id,
@@ -297,7 +297,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           tasse: form.tasse,
           stato: "aperto",
           sostituisce_id: sostituisceMovId,
-          ufficio_id: myUfficioId,
+          ufficio_id: ufficioPerRinnovo,
         })
         .select("id")
         .single();
