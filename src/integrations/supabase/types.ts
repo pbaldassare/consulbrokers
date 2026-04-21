@@ -6353,10 +6353,14 @@ export type Database = {
           cambio: number | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
+          cliente_codice: string | null
           cliente_codice_fiscale: string | null
+          cliente_cognome: string | null
           cliente_id: string | null
+          cliente_nome: string | null
           cliente_nome_display: string | null
           cliente_partita_iva: string | null
+          cliente_ragione_sociale: string | null
           cliente_tipo: string | null
           commerciale_id: string | null
           comp_assicurativa: string | null
@@ -6400,6 +6404,7 @@ export type Database = {
           mora_giorni: number | null
           motivo_sospensione: string | null
           no_calcolo_tasse: boolean | null
+          nome_ufficio: string | null
           note: string | null
           numero_titolo: string | null
           pag_diretto_compagnia: boolean | null
@@ -6421,6 +6426,7 @@ export type Database = {
           ramo_codice: string | null
           ramo_descrizione: string | null
           ramo_id: string | null
+          ramo_nome: string | null
           rate: number | null
           regolazione: boolean | null
           riga: number | null
