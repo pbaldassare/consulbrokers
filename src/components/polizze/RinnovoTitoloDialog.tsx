@@ -151,7 +151,18 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         .single();
       if (profErr) throw profErr;
       const myUfficioId = (profile as any)?.ufficio_id;
-      if (!myUfficioId) throw new Error("Sede dell'utente non configurata: contatta l'amministratore");
+      let ufficioPerRinnovo: string | null = myUfficioId ?? null;
+      if (!ufficioPerRinnovo) {
+        if (isAdmin) {
+          // Admin senza Sede sul profilo: eredita la Sede dalla polizza origine
+          ufficioPerRinnovo = (t as any).ufficio_id ?? null;
+          if (!ufficioPerRinnovo) {
+            throw new Error("Né l'utente né il titolo origine hanno una Sede: impossibile creare il rinnovo.");
+          }
+        } else {
+          throw new Error("Sede dell'utente non configurata: contatta l'amministratore");
+        }
+      }
 
       // Anti-duplicato: verifica che non esista già un rinnovo per stesso numero+compagnia+scadenza
       const { data: esistente, error: dupErr } = await supabase
@@ -188,7 +199,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         cliente_id: t.cliente_id,
         prodotto_id: t.prodotto_id,
         prodotto_nome: t.prodotto_nome,
-        ufficio_id: myUfficioId,
+        ufficio_id: ufficioPerRinnovo,
         produttore_id: t.produttore_id,
         compagnia_id: t.compagnia_id,
         ramo_id: t.ramo_id,
@@ -286,7 +297,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           tasse: form.tasse,
           stato: "aperto",
           sostituisce_id: sostituisceMovId,
-          ufficio_id: myUfficioId,
+          ufficio_id: ufficioPerRinnovo,
         })
         .select("id")
         .single();
