@@ -52,6 +52,16 @@ function calcolaNuovaScadenza(durataDa: string, periodicita: string | null, anni
 export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitoloDialogProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
+
+  const [conflittoRinnovo, setConflittoRinnovo] = useState<{
+    id: string;
+    numero_titolo: string;
+    riga: number | null;
+    data_scadenza: string | null;
+    stato: string | null;
+    data_messa_cassa: string | null;
+  } | null>(null);
 
   const [t, setT] = useState<any>(titolo || {});
   const oldDurataA = t.durata_a || t.data_scadenza || "";
