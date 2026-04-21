@@ -1,50 +1,62 @@
 
 
-## Riprova rinnovo come admin
+## Causa reale del problema
 
-Oggi quando provi a rifare il rinnovo della stessa polizza ricevi l'errore "Esiste già un rinnovo della polizza X con scadenza Y". Il blocco è doppio:
+L'errore che vedi non è "rinnovo già esistente" — è **"Sede dell'utente non configurata"**. La mutation di rinnovo blocca tutto se `profiles.ufficio_id` è null, e il tuo profilo admin (`admin@consul.it`) **non ha alcuna Sede assegnata**:
 
-1. **Guardia applicativa** in `RinnovoTitoloDialog.tsx` (verifica esistenza prima di insert).
-2. **Indice UNIQUE in DB** `titoli_no_duplicati_rinnovo` su `(numero_titolo, compagnia_id, data_scadenza)`.
+```
+admin@consul.it → ruolo: admin → ufficio_id: NULL
+```
 
-Vuoi poter, da admin, **rifare il rinnovo** anche se ne esiste già uno (per esempio perché il primo è sbagliato e va sostituito).
+Quindi il flusso si interrompe alla riga 154 di `RinnovoTitoloDialog.tsx` molto prima del check anti-duplicato. Per questo l'AlertDialog "Elimina e rifai (admin)" non compare mai: il codice non ci arriva.
 
-## Soluzione
+Il titolo origine (332437574) appartiene invece a `SEDE SAN DONA' DI PIAVE`.
 
-Aggiungo nel dialog Rinnovo un percorso **"Sostituisci rinnovo esistente"** visibile **solo agli admin**, che permette di:
+## Correzione
 
-1. Quando il check anti-duplicato trova un rinnovo già esistente, invece di mostrare solo il toast "Vai al titolo esistente", mostro un secondo bottone **"Elimina e rifai (admin)"** dentro il toast/dialog.
-2. Cliccando, apro un piccolo confirm dialog con riepilogo:
-   - Polizza che verrà eliminata: numero / riga / scadenza / stato
-   - Avviso: "L'operazione cancellerà il rinnovo esistente (e i suoi movimenti) e ne creerà uno nuovo con i dati mostrati. Irreversibile."
-3. Su conferma:
-   - Elimino il titolo rinnovo esistente **solo se** `stato IN ('in_attesa_rinnovo', 'attivo')` e **non** ha `data_messa_cassa` valorizzata (non è ancora stato incassato). Se è già stato messo a cassa, blocco con messaggio chiaro: "Il rinnovo esistente è già stato incassato, non è eliminabile. Usa Storno."
-   - I `movimenti_polizza` collegati cadono per `ON DELETE CASCADE` (se presente) — verifico la FK; in alternativa li elimino esplicitamente prima.
-   - Ripristino `sostituito_da_id = NULL` sul movimento origine (per non lasciare riferimenti dangling).
-   - Eseguo l'insert del nuovo rinnovo esattamente come oggi (riusa la stessa `rinnovaMutation`).
-   - Loggo in `log_attivita` due eventi: `rinnovo_eliminato` (sul vecchio) + `rinnovo_polizza` (sul nuovo, già esistente oggi).
+### 1. `src/components/polizze/RinnovoTitoloDialog.tsx` — fallback Sede per admin
 
-### Visibilità del pulsante
+Cambio la regola di scelta dell'`ufficio_id` da usare nel nuovo titolo e nel movimento:
 
-- Solo se `isAdmin === true` (da `useAuth`).
-- Per utenti non admin il comportamento resta invariato (toast con "Vai al titolo esistente").
+```ts
+const myUfficioId = (profile as any)?.ufficio_id;
+let ufficioPerRinnovo = myUfficioId;
 
-### File modificati
+if (!ufficioPerRinnovo) {
+  if (isAdmin) {
+    // Admin senza Sede: eredita dalla polizza origine (comportamento naturale)
+    ufficioPerRinnovo = t.ufficio_id;
+    if (!ufficioPerRinnovo) {
+      throw new Error("Né l'utente né il titolo origine hanno una Sede: impossibile creare il rinnovo.");
+    }
+  } else {
+    throw new Error("Sede dell'utente non configurata: contatta l'amministratore");
+  }
+}
+```
 
-- `src/components/polizze/RinnovoTitoloDialog.tsx`:
-  - Importo `useAuth` per leggere `isAdmin`.
-  - Estendo `onError` per esporre, se admin + `titoloEsistenteId`, una seconda action "Elimina e rifai" oppure (meglio) apro un AlertDialog dedicato dentro il componente con riepilogo.
-  - Aggiungo mutation `eliminaRinnovoEsistenteMutation` che fa: select stato/data_messa_cassa → delete movimenti → delete titolo → reset `sostituito_da_id` → poi richiama `rinnovaMutation.mutate()`.
-  - Loggo le attività.
+Poi uso `ufficioPerRinnovo` (al posto di `myUfficioId`) sia in `insertPayload.ufficio_id` sia nel nuovo `movimenti_polizza`.
 
-Nessuna modifica DB richiesta: l'indice UNIQUE resta (è una rete di sicurezza), ma viene rispettato perché il vecchio rinnovo è già stato eliminato prima dell'insert.
+Questo:
+- Non cambia nulla per gli utenti normali (che hanno una Sede sul profilo).
+- Per gli admin senza Sede, fa ereditare la Sede dalla **polizza origine**, che è semanticamente corretto: il rinnovo deve restare nella stessa Sede del titolo che sostituisce.
+- Sblocca il percorso "Elimina e rifai (admin)" che già esiste, perché ora la mutation arriva al check duplicati.
+
+### 2. Memory
+
+Aggiungo memory `mem://insurance/admin-renewal-office-fallback` con la regola: "Quando un admin esegue un Rinnovo senza avere `ufficio_id` sul profilo, la nuova polizza eredita l'`ufficio_id` dal titolo origine."
+
+## Cosa NON tocco
+
+- Nessuna modifica DB.
+- Nessuna modifica all'AlertDialog "Elimina e rifai" (è già corretto, è solo irraggiungibile oggi).
+- Nessuna modifica al profilo admin (non assegno arbitrariamente una Sede al tuo utente — se vuoi sceglierne una in modo permanente, lo facciamo da `Gestione Utenti`).
 
 ## Verifica
 
-1. Da admin, su un titolo che ha già un rinnovo `in_attesa_rinnovo`, premo "Rinnovo".
-2. Dialog si apre normalmente, premo "Conferma Rinnovo".
-3. Compare AlertDialog "Esiste già un rinnovo — Elimina e rifai?".
-4. Confermo → vecchio rinnovo cancellato, nuovo creato, atterro sulla pagina del nuovo titolo.
-5. Da utente non admin lo stesso scenario mostra solo "Vai al titolo esistente" (comportamento attuale).
-6. Se il rinnovo esistente è già `incassato` → messaggio chiaro che non si può eliminare.
+1. Da admin (senza Sede sul profilo), apro la polizza `332437574 / riga 0`, premo Rinnovo, **Conferma Rinnovo**.
+2. Se non esiste già un rinnovo: viene creato nella Sede `SAN DONA' DI PIAVE` (ereditata dal titolo).
+3. Se esiste già: compare l'AlertDialog "Esiste già un rinnovo" con i bottoni Annulla / Vai al titolo esistente / **Elimina e rifai (admin)**.
+4. Cliccando "Elimina e rifai (admin)": vecchio rinnovo cancellato + nuovo creato + redirect al nuovo titolo.
+5. Per un utente non admin senza Sede: il messaggio "Sede dell'utente non configurata" resta (corretto).
 
