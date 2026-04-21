@@ -408,6 +408,20 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           <div className="flex items-center gap-2 text-sm font-semibold text-primary">
             <Calendar className="w-4 h-4" /> Nuovo Periodo
           </div>
+
+          {/* Banner: periodo coperto dal rinnovo (calcolato da `rate`) */}
+          {form.garanzia_da && form.garanzia_a && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+              <div className="font-medium text-primary">
+                Periodo coperto dal rinnovo: {fmtDateIt(form.garanzia_da)} → {fmtDateIt(form.garanzia_a)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Frazionamento {descrizioneFrequenza(t.rate).toLowerCase()} — la prossima rata cadrà nel mese di{" "}
+                {form.garanzia_a ? new Date(new Date(form.garanzia_a).getTime() + 86400000).toLocaleString("it-IT", { month: "long", year: "numeric" }) : "—"}.
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Durata Da</Label>
