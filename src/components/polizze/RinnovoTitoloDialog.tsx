@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCw, Calendar } from "lucide-react";
+import { calcolaProssimoPeriodo, descrizioneFrequenza, fmtDateIt } from "@/lib/policyPeriod";
 
 interface RinnovoTitoloDialogProps {
   open: boolean;
