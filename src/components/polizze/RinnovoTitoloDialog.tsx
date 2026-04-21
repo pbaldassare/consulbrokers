@@ -5,10 +5,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCw, Calendar } from "lucide-react";
+import { RefreshCw, Calendar, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RinnovoTitoloDialogProps {
   open: boolean;
@@ -41,6 +52,16 @@ function calcolaNuovaScadenza(durataDa: string, periodicita: string | null, anni
 export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitoloDialogProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
+
+  const [conflittoRinnovo, setConflittoRinnovo] = useState<{
+    id: string;
+    numero_titolo: string;
+    riga: number | null;
+    data_scadenza: string | null;
+    stato: string | null;
+    data_messa_cassa: string | null;
+  } | null>(null);
 
   const [t, setT] = useState<any>(titolo || {});
   const oldDurataA = t.durata_a || t.data_scadenza || "";
@@ -135,7 +156,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       // Anti-duplicato: verifica che non esista già un rinnovo per stesso numero+compagnia+scadenza
       const { data: esistente, error: dupErr } = await supabase
         .from("titoli")
-        .select("id")
+        .select("id, numero_titolo, riga, data_scadenza, stato, data_messa_cassa")
         .eq("numero_titolo", t.numero_titolo)
         .eq("compagnia_id", t.compagnia_id)
         .eq("data_scadenza", form.data_scadenza)
@@ -146,6 +167,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           `Esiste già un rinnovo della polizza ${t.numero_titolo} con scadenza ${form.data_scadenza}. Apri il titolo esistente invece di crearne uno nuovo.`
         );
         err.titoloEsistenteId = esistente.id;
+        err.titoloEsistente = esistente;
         throw err;
       }
 
@@ -329,6 +351,11 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       console.error(e);
       // Caso 1: duplicato rilevato applicativamente (con titoloEsistenteId)
       if (e?.titoloEsistenteId) {
+        // Admin: offri override "Elimina e rifai"
+        if (isAdmin && e?.titoloEsistente) {
+          setConflittoRinnovo(e.titoloEsistente);
+          return;
+        }
         toast.error(e.message, {
           action: {
             label: "Vai al titolo esistente",
@@ -349,6 +376,89 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         return;
       }
       toast.error("Errore nel rinnovo: " + (e?.message || "sconosciuto"));
+    },
+  });
+
+  // Mutation admin: elimina rinnovo esistente e ne crea uno nuovo
+  const eliminaERifaiMutation = useMutation({
+    mutationFn: async () => {
+      if (!conflittoRinnovo) throw new Error("Nessun conflitto da risolvere");
+      if (!isAdmin) throw new Error("Solo gli amministratori possono eseguire questa operazione");
+
+      // Safety: rifetch stato/data_messa_cassa fresh
+      const { data: fresh, error: freshErr } = await supabase
+        .from("titoli")
+        .select("id, stato, data_messa_cassa, numero_titolo, data_scadenza")
+        .eq("id", conflittoRinnovo.id)
+        .single();
+      if (freshErr) throw freshErr;
+      if ((fresh as any).data_messa_cassa) {
+        throw new Error("Il rinnovo esistente è già stato incassato (messo a cassa). Non è eliminabile: usa Storno.");
+      }
+      if (!["in_attesa_rinnovo", "attivo"].includes((fresh as any).stato || "")) {
+        throw new Error(`Il rinnovo esistente ha stato '${(fresh as any).stato}' e non può essere eliminato automaticamente.`);
+      }
+
+      // Trova movimenti del titolo esistente per resettare i back-link sostituito_da_id
+      const { data: movs, error: movsErr } = await supabase
+        .from("movimenti_polizza")
+        .select("id, sostituisce_id")
+        .eq("titolo_id", (fresh as any).id);
+      if (movsErr) throw movsErr;
+
+      // Reset sostituito_da_id sui movimenti origine referenziati
+      const sostituisceIds = (movs || [])
+        .map((m: any) => m.sostituisce_id)
+        .filter((x: any): x is string => !!x);
+      if (sostituisceIds.length > 0) {
+        const { error: resetErr } = await supabase
+          .from("movimenti_polizza")
+          .update({ sostituito_da_id: null })
+          .in("id", sostituisceIds);
+        if (resetErr) console.warn("Impossibile resettare sostituito_da_id origine", resetErr);
+      }
+
+      // Elimina movimenti del titolo (preventivo, anche se ON DELETE CASCADE)
+      const { error: delMovErr } = await supabase
+        .from("movimenti_polizza")
+        .delete()
+        .eq("titolo_id", (fresh as any).id);
+      if (delMovErr) throw delMovErr;
+
+      // Elimina il titolo esistente
+      const { error: delTitErr } = await supabase
+        .from("titoli")
+        .delete()
+        .eq("id", (fresh as any).id);
+      if (delTitErr) throw delTitErr;
+
+      // Log eliminazione
+      try {
+        await logAttivita({
+          azione: "rinnovo_eliminato",
+          entita_tipo: "titolo",
+          entita_id: (fresh as any).id,
+          dettagli_json: {
+            polizza: (fresh as any).numero_titolo,
+            data_scadenza: (fresh as any).data_scadenza,
+            motivo: "admin_override_rifai_rinnovo",
+            titolo_origine_id: t.id,
+          },
+          severity: "warning",
+        });
+      } catch (logErr) {
+        console.error("Errore log eliminazione rinnovo", logErr);
+      }
+    },
+    onSuccess: async () => {
+      setConflittoRinnovo(null);
+      toast.success("Rinnovo precedente eliminato. Creazione del nuovo in corso...");
+      // Rilancia la creazione del rinnovo
+      rinnovaMutation.mutate();
+    },
+    onError: (e: any) => {
+      console.error(e);
+      toast.error(e?.message || "Impossibile eliminare il rinnovo esistente");
     },
   });
 
@@ -521,6 +631,62 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* AlertDialog admin: conflitto rinnovo esistente */}
+      <AlertDialog open={!!conflittoRinnovo} onOpenChange={(o) => !o && setConflittoRinnovo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Esiste già un rinnovo
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Per la polizza <span className="font-mono font-semibold">{conflittoRinnovo?.numero_titolo}</span>{" "}
+                  con scadenza <span className="font-semibold">{conflittoRinnovo?.data_scadenza}</span> esiste già
+                  un rinnovo (riga {conflittoRinnovo?.riga ?? "—"}, stato{" "}
+                  <span className="font-semibold">{conflittoRinnovo?.stato}</span>).
+                </p>
+                <p className="text-destructive font-medium">
+                  Confermando, il rinnovo esistente verrà <strong>eliminato</strong> insieme ai suoi movimenti, e
+                  ne verrà creato uno nuovo con i dati attualmente compilati. Operazione irreversibile.
+                </p>
+                <p>
+                  Vuoi procedere oppure aprire il rinnovo esistente?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={eliminaERifaiMutation.isPending}>Annulla</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={eliminaERifaiMutation.isPending}
+              onClick={() => {
+                const id = conflittoRinnovo?.id;
+                setConflittoRinnovo(null);
+                if (id) {
+                  onOpenChange(false);
+                  navigate(`/titoli/${id}`);
+                }
+              }}
+            >
+              Vai al titolo esistente
+            </Button>
+            <AlertDialogAction
+              disabled={eliminaERifaiMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                eliminaERifaiMutation.mutate();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {eliminaERifaiMutation.isPending ? "Eliminazione..." : "Elimina e rifai (admin)"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
