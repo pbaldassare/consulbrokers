@@ -67,17 +67,34 @@ costo_preventivato, costo_effettivo, importo_liquidato, importo_riserva, franchi
 targa_veicolo, controparte, luogo_sinistro, citta_sinistro, provincia_sinistro.
 
 ### trattative
-Pipeline commerciale.
-Campi: id, prospect_id, cliente_id, compagnia_id, ramo_id, ufficio_id,
-prodotto, sottoprodotto, fonte, premio_previsto, premio_effettivo,
+Pipeline commerciale (CRM). Una trattativa è collegata a un prospect OPPURE a un cliente esistente.
+Campi reali: id, prospect_id (FK prospect), cliente_id (FK clienti), compagnia_id (FK compagnie),
+ramo_id (FK rami), ufficio_id (FK uffici),
+prodotto (text libero, es. 'RCA Auto','Vita'), sottoprodotto (text), compagnia (text LEGACY: preferire compagnia_id→compagnie.nome),
+fonte (text: 'sito','telefono','referral',...),
+premio_previsto (numeric), premio_effettivo (numeric, valorizzato a chiusura vinta),
 stato ('aperta'|'contatto'|'preventivo'|'in_negoziazione'|'chiuso_vinto'|'chiuso_perso'),
-priorita, data_apertura, data_scadenza, data_chiusura, motivo_chiusura,
-assegnato_a (FK profiles, NON "responsabile_id"!), archiviata, note.
+priorita ('bassa'|'media'|'alta'),
+data_apertura (date), data_scadenza (date, prossima azione), data_chiusura (date), motivo_chiusura (text),
+assegnato_a (FK profiles — NON usare "responsabile_id"!), created_by (FK profiles),
+archiviata (boolean, default false), note (text), created_at, updated_at.
+Per il nome del contatto usa JOIN: COALESCE(c.ragione_sociale, c.cognome||' '||c.nome,
+                                            p.ragione_sociale, p.cognome||' '||p.nome)
+con LEFT JOIN clienti c ON c.id=t.cliente_id e LEFT JOIN prospect p ON p.id=t.prospect_id.
 
 ### prospect
-Contatti pre-cliente. Campi: id, nome, cognome, ragione_sociale, email, telefono, cellulare,
-fonte, stato, assegnato_a, ufficio_id, convertito_cliente_id, tipo_cliente,
-codice_fiscale, partita_iva, data_nascita, ecc. (struttura simile a clienti).
+Contatti commerciali pre-cliente (privati e aziende). Quando convertiti popolano convertito_cliente_id.
+Campi reali: id, tipo_cliente ('privato'|'azienda'|'ente'),
+nome, cognome, ragione_sociale, codice_fiscale, partita_iva,
+email, pec, telefono, cellulare,
+indirizzo_residenza, citta_residenza, provincia_residenza, cap_residenza,
+indirizzo_sede, citta_sede, provincia_sede, cap_sede,
+fonte (text), stato (text libero, filtra con ILIKE),
+assegnato_a (FK profiles), ufficio_id (FK uffici),
+convertito_cliente_id (FK clienti — IS NOT NULL ⇒ prospect convertito in cliente),
+settore, attivita, codice_ateco, fascia_fatturato, fascia_dipendenti,
+created_at, updated_at.
+Nome visibile: COALESCE(ragione_sociale, NULLIF(TRIM(cognome||' '||nome),''), email).
 
 ### compagnie
 Compagnie assicurative. Campi: id, nome, nome_segue, codice, partita_iva, codice_fiscale,
@@ -220,4 +237,85 @@ SELECT ufficio_id, SUM(importo) AS entrate
 FROM movimenti_contabili
 WHERE tipo = 'entrata' AND data_movimento >= date_trunc('month', CURRENT_DATE)
 GROUP BY ufficio_id;
+
+-- ============== TRATTATIVE & PROSPECT ==============
+
+-- Pipeline trattative per stato (totali e premio):
+SELECT stato, COUNT(*) AS num,
+       SUM(premio_previsto) AS premio_previsto,
+       SUM(premio_effettivo) AS premio_effettivo
+FROM trattative
+WHERE COALESCE(archiviata,false) = false
+GROUP BY stato ORDER BY num DESC;
+
+-- Le mie trattative aperte ordinate per scadenza (con nome contatto):
+SELECT t.id,
+       COALESCE(c.ragione_sociale, c.cognome||' '||c.nome,
+                p.ragione_sociale, p.cognome||' '||p.nome) AS contatto,
+       t.prodotto, t.stato, t.priorita, t.data_scadenza, t.premio_previsto
+FROM trattative t
+LEFT JOIN clienti c ON c.id = t.cliente_id
+LEFT JOIN prospect p ON p.id = t.prospect_id
+WHERE t.assegnato_a = auth.uid()
+  AND t.stato NOT IN ('chiuso_vinto','chiuso_perso')
+  AND COALESCE(t.archiviata,false) = false
+ORDER BY t.data_scadenza ASC NULLS LAST LIMIT 50;
+
+-- Trattative chiuse vinte ultimo trimestre con premio mensile:
+SELECT date_trunc('month', data_chiusura) AS mese,
+       COUNT(*) AS vinte,
+       SUM(premio_effettivo) AS premio
+FROM trattative
+WHERE stato = 'chiuso_vinto'
+  AND data_chiusura >= CURRENT_DATE - INTERVAL '3 months'
+GROUP BY 1 ORDER BY 1;
+
+-- Conversion rate (win rate) trattative per ufficio (ultimo anno):
+SELECT u.nome_ufficio,
+       COUNT(*) FILTER (WHERE t.stato='chiuso_vinto') AS vinte,
+       COUNT(*) FILTER (WHERE t.stato='chiuso_perso') AS perse,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE t.stato='chiuso_vinto')
+            / NULLIF(COUNT(*) FILTER (WHERE t.stato IN ('chiuso_vinto','chiuso_perso')),0), 1) AS win_rate_pct
+FROM trattative t
+LEFT JOIN uffici u ON u.id = t.ufficio_id
+WHERE t.data_chiusura >= CURRENT_DATE - INTERVAL '12 months'
+GROUP BY u.nome_ufficio
+ORDER BY win_rate_pct DESC NULLS LAST;
+
+-- Prospect aperti per fonte:
+SELECT fonte, COUNT(*) AS num
+FROM prospect
+WHERE convertito_cliente_id IS NULL
+GROUP BY fonte ORDER BY num DESC;
+
+-- Miei prospect non convertiti più vecchi di 30 giorni (da risollecitare):
+SELECT id,
+       COALESCE(ragione_sociale, NULLIF(TRIM(cognome||' '||nome),''), email) AS nominativo,
+       fonte, stato, created_at
+FROM prospect
+WHERE assegnato_a = auth.uid()
+  AND convertito_cliente_id IS NULL
+  AND created_at < NOW() - INTERVAL '30 days'
+ORDER BY created_at ASC LIMIT 50;
+
+-- Prospect convertiti in cliente quest'anno con prima polizza:
+SELECT p.id AS prospect_id,
+       COALESCE(p.ragione_sociale, p.cognome||' '||p.nome) AS contatto,
+       p.convertito_cliente_id,
+       MIN(v.data_decorrenza) AS prima_polizza,
+       COUNT(v.id) AS num_polizze
+FROM prospect p
+LEFT JOIN v_portafoglio_titoli v ON v.cliente_anagrafica_id = p.convertito_cliente_id
+WHERE p.convertito_cliente_id IS NOT NULL
+  AND EXTRACT(YEAR FROM p.updated_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+GROUP BY p.id, p.ragione_sociale, p.cognome, p.nome, p.convertito_cliente_id
+ORDER BY prima_polizza DESC NULLS LAST LIMIT 30;
+
+-- Prospect non convertiti per ufficio (es. "sede di Milano"):
+SELECT u.nome_ufficio, COUNT(*) AS prospect_aperti
+FROM prospect p
+LEFT JOIN uffici u ON u.id = p.ufficio_id
+WHERE p.convertito_cliente_id IS NULL
+  AND u.nome_ufficio ILIKE '%milano%'
+GROUP BY u.nome_ufficio;
 `;
