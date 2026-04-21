@@ -25,9 +25,11 @@ interface DbMessage {
 }
 
 const SUGGESTIONS = [
-  "Quali polizze scadono nei prossimi 30 giorni?",
-  "Quanti sinistri aperti ho?",
-  "Mostrami le polizze del Comune di Santa Marina",
+  "Quante trattative aperte ho?",
+  "Pipeline trattative per stato",
+  "Polizze in scadenza nei prossimi 30 giorni",
+  "Prospect non convertiti più vecchi di 30 giorni",
+  "Conversion rate trattative ultimo anno",
   "Provvigioni totali di questo mese",
 ];
 
@@ -282,7 +284,7 @@ const AiAssistantPage = () => {
               <div>
                 <p className="text-base font-medium text-foreground">Come posso aiutarti?</p>
                 <p className="mt-1 text-sm">
-                  Polizze, scadenze, sinistri, provvigioni, contabilità…
+                  Polizze, scadenze, sinistri, trattative, prospect, provvigioni, contabilità…
                 </p>
               </div>
             </div>
