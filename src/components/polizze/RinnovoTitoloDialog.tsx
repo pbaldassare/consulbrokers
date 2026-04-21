@@ -79,10 +79,17 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       if (!nuovaDa) return;
       const nuovaA = calcolaNuovaScadenza(nuovaDa, tt.periodicita, tt.anni_durata);
 
-      // Garanzia: stesso delta tra garanzia_da -> garanzia_a applicato a partire dalla nuova durata
+      // Garanzia: usa il helper canonico basato su `rate` (allineato alla vista DB)
+      // Cade sul vecchio comportamento (offset durata→garanzia) solo se `rate` è mancante.
       let garDa = nuovaDa;
       let garA = nuovaA;
-      if (tt.garanzia_da && tt.garanzia_a) {
+      if (tt.garanzia_a) {
+        const periodo = calcolaProssimoPeriodo(tt.garanzia_a, tt.rate);
+        if (periodo) {
+          garDa = periodo.da;
+          garA = periodo.a;
+        }
+      } else if (tt.garanzia_da && tt.durata_da) {
         const oldGarDa = new Date(tt.garanzia_da);
         const oldDurDa = new Date(tt.durata_da);
         const offset = oldGarDa.getTime() - oldDurDa.getTime();
