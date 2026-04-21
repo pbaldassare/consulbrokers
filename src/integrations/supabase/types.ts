@@ -5756,6 +5756,39 @@ export type Database = {
           },
         ]
       }
+      titoli_garanzia_legacy_backup: {
+        Row: {
+          data_scadenza: string | null
+          eseguito_at: string
+          eseguito_da: string | null
+          garanzia_a_new: string | null
+          garanzia_a_old: string | null
+          id: string
+          motivo: string
+          titolo_id: string
+        }
+        Insert: {
+          data_scadenza?: string | null
+          eseguito_at?: string
+          eseguito_da?: string | null
+          garanzia_a_new?: string | null
+          garanzia_a_old?: string | null
+          id?: string
+          motivo: string
+          titolo_id: string
+        }
+        Update: {
+          data_scadenza?: string | null
+          eseguito_at?: string
+          eseguito_da?: string | null
+          garanzia_a_new?: string | null
+          garanzia_a_old?: string | null
+          id?: string
+          motivo?: string
+          titolo_id?: string
+        }
+        Relationships: []
+      }
       trattativa_documenti: {
         Row: {
           created_at: string | null
@@ -6313,8 +6346,10 @@ export type Database = {
           addizionali: number | null
           addizionali_quietanza: number | null
           ae_nome: string | null
+          anagrafica_commerciale_id: string | null
           anni_durata: number | null
           appendice: string | null
+          banca_pagamento: string | null
           cambio: number | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
@@ -6324,6 +6359,7 @@ export type Database = {
           cliente_id: string | null
           cliente_nome: string | null
           cliente_nome_display: string | null
+          cliente_partita_iva: string | null
           cliente_ragione_sociale: string | null
           cliente_tipo: string | null
           commerciale_id: string | null
@@ -6350,6 +6386,7 @@ export type Database = {
           durata_da: string | null
           emissione_fee: boolean | null
           filiale: string | null
+          fine_periodo_effettivo: string | null
           fondi_ricevuti: boolean | null
           formato_elettronico: boolean | null
           garanzia_a: string | null
@@ -6363,6 +6400,7 @@ export type Database = {
           libro_matricola: string | null
           limite_mora: string | null
           limite_riattivazione: string | null
+          mese_carico: string | null
           mora_giorni: number | null
           motivo_sospensione: string | null
           no_calcolo_tasse: boolean | null
@@ -6373,6 +6411,7 @@ export type Database = {
           percentuale_commerciale: number | null
           percentuale_riparto: number | null
           periodicita: string | null
+          premi_modificabili: boolean | null
           premio_lordo: number | null
           premio_netto: number | null
           premio_netto_quietanza: number | null
@@ -6380,9 +6419,12 @@ export type Database = {
           prodotto_nome: string | null
           produttore_id: string | null
           produttore_nome: string | null
+          prossima_garanzia_a: string | null
+          prossima_garanzia_da: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           ramo_codice: string | null
+          ramo_descrizione: string | null
           ramo_id: string | null
           ramo_nome: string | null
           rate: number | null
@@ -6405,15 +6447,24 @@ export type Database = {
           tipo_incasso: string | null
           tipo_lettera_regolazione: string | null
           tipo_mandatario: string | null
+          tipo_pagamento: string | null
           tipo_portafoglio: string | null
           tipo_rinnovo: string | null
           tipo_scadenza: string | null
           ufficio_id: string | null
+          ufficio_nome: string | null
           updated_at: string | null
           valuta: string | null
           vincolo: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_cliente_anagrafica_id_fkey"
             columns: ["cliente_anagrafica_id"]

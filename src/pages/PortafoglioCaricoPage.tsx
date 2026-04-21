@@ -43,8 +43,10 @@ const PortafoglioCaricoPage = () => {
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
-  const caricoStart = format(startOfMonth(caricoDate), "yyyy-MM-dd");
-  const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
+  // Carico del mese X = polizze in scadenza nel mese X+12 (lavorazione preventiva del rinnovo)
+  const scadenzaDate = addMonths(caricoDate, 12);
+  const caricoStart = format(startOfMonth(scadenzaDate), "yyyy-MM-dd");
+  const caricoEnd = format(endOfMonth(scadenzaDate), "yyyy-MM-dd");
 
 
   const handleSort = (field: string) => {
@@ -293,7 +295,9 @@ const PortafoglioCaricoPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Carico del Mese</h1>
-          <p className="text-sm text-muted-foreground">Polizze in scadenza da confermare o rinnovare</p>
+          <p className="text-sm text-muted-foreground">
+            Mostra polizze in scadenza a <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span> (12 mesi dopo il mese di lavorazione)
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
@@ -338,7 +342,7 @@ const PortafoglioCaricoPage = () => {
               <Clock className="h-6 w-6 text-accent-foreground" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Polizze in scadenza</p>
+              <p className="text-sm text-muted-foreground">Polizze da rinnovare</p>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
             </div>
           </CardContent>
@@ -379,7 +383,7 @@ const PortafoglioCaricoPage = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa — {format(caricoDate, "MMMM yyyy", { locale: it })}
+              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa — scadenze {format(scadenzaDate, "MMMM yyyy", { locale: it })}
             </DialogTitle>
             <DialogDescription>
               Questi rinnovi diventeranno attivi automaticamente quando la polizza precedente verrà messa a cassa.
