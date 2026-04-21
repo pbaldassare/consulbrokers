@@ -342,7 +342,7 @@ const PortafoglioCaricoPage = () => {
               <Clock className="h-6 w-6 text-accent-foreground" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Polizze in scadenza</p>
+              <p className="text-sm text-muted-foreground">Polizze da rinnovare</p>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
             </div>
           </CardContent>
