@@ -5,10 +5,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { logAttivita } from "@/lib/logAttivita";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCw, Calendar } from "lucide-react";
+import { RefreshCw, Calendar, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RinnovoTitoloDialogProps {
   open: boolean;
