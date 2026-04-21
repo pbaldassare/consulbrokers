@@ -295,7 +295,9 @@ const PortafoglioCaricoPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Carico del Mese</h1>
-          <p className="text-sm text-muted-foreground">Polizze in scadenza da confermare o rinnovare</p>
+          <p className="text-sm text-muted-foreground">
+            Mostra polizze in scadenza a <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span> (12 mesi dopo il mese di lavorazione)
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
