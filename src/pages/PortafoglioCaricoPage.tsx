@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Plus, Hourglass, Info } from "lucide-react";
+import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Plus, Hourglass } from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
@@ -20,7 +20,6 @@ import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { descrizioneFrequenza, fmtDateIt } from "@/lib/policyPeriod";
 
 const PAGE_SIZE = 25;
 
@@ -46,7 +45,6 @@ const PortafoglioCaricoPage = () => {
 
   const caricoStart = format(startOfMonth(caricoDate), "yyyy-MM-dd");
   const caricoEnd = format(endOfMonth(caricoDate), "yyyy-MM-dd");
-  const caricoMese = format(caricoDate, "yyyy-MM");
 
 
   const handleSort = (field: string) => {
@@ -75,9 +73,9 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, prossima_garanzia_da, prossima_garanzia_a, mese_carico, premi_modificabili",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
         { count: "exact" }
-      ).eq("mese_carico", caricoMese).in("stato", ["attivo", "incassato"]);
+      ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
@@ -96,10 +94,10 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoMese],
+    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .eq("mese_carico", caricoMese).in("stato", ["attivo", "incassato"]);
+        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
       }
@@ -114,12 +112,13 @@ const PortafoglioCaricoPage = () => {
 
   // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
   const { data: pendingRinnovi } = useQuery({
-    queryKey: ["portafoglio-carico-pending", caricoMese],
+    queryKey: ["portafoglio-carico-pending", caricoStart, caricoEnd],
     queryFn: async () => {
       const { data } = await supabase
         .from("v_portafoglio_titoli" as any)
         .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza, sostituisce_riga")
-        .eq("mese_carico", caricoMese)
+        .gte("data_scadenza", caricoStart)
+        .lte("data_scadenza", caricoEnd)
         .eq("stato", "in_attesa_rinnovo")
         .order("data_scadenza", { ascending: true });
       return (data || []) as any[];
@@ -332,20 +331,6 @@ const PortafoglioCaricoPage = () => {
         </div>
       )}
 
-      {/* Banner esplicativo del concetto di "Carico del Mese" */}
-      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-3">
-        <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-        <div className="text-sm">
-          <p className="font-semibold text-primary capitalize">
-            Carico {format(caricoDate, "MMMM yyyy", { locale: it })}
-          </p>
-          <p className="text-muted-foreground">
-            Polizze la cui prossima rata deve essere quietanzata in questo mese. Il rinnovo coprirà il
-            periodo successivo in base al frazionamento (annuale → +12 mesi, semestrale → +6, trimestrale → +3, mensile → +1).
-          </p>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
@@ -481,8 +466,7 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="compagnia_nome">Compagnia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
                   <SortableHeader field="data_scadenza">Scadenza</SortableHeader>
-                  <SortableHeader field="rate">Frequenza</SortableHeader>
-                  <TableHead>Prossimo periodo</TableHead>
+                  <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">Lordo</SortableHeader>
                   <SortableHeader field="ae_nome">AE</SortableHeader>
                   <SortableHeader field="produttore_nome">Produttore</SortableHeader>
@@ -511,12 +495,7 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
                       <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
-                      <TableCell className="text-xs">{descrizioneFrequenza(p.rate)}</TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {p.prossima_garanzia_da && p.prossima_garanzia_a
-                          ? `${fmtDateIt(p.prossima_garanzia_da)} → ${fmtDateIt(p.prossima_garanzia_a)}`
-                          : "—"}
-                      </TableCell>
+                      <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                       <TableCell className="text-sm">{p.ae_nome || "—"}</TableCell>
                       <TableCell className="text-sm">{p.produttore_nome || "—"}</TableCell>

@@ -1,52 +1,60 @@
 
 
-## Bug: pagine portafoglio vuote (Carico, Storico, Attive)
+## Richiesta
 
-### Causa
-La migration `20260421165120` ha ricreato `v_portafoglio_titoli` aggiungendo `fine_periodo_effettivo / prossima_garanzia_da/a / mese_carico / premi_modificabili`, ma ha **rimosso** colonne usate dal frontend:
-- `ramo_nome` (ora c'è solo `ramo_descrizione`)
-- `cliente_codice`
-- `cliente_cognome`, `cliente_nome`, `cliente_ragione_sociale`
-- `nome_ufficio`
+Nel form **Modifica Importi** (`TitoloDetail.tsx`), nel blocco **Firma**: quando cambio il **Premio Netto** (o Tasse / Addizionali), il **Premio Lordo** deve aggiornarsi automaticamente, non solo essere "suggerito" da cliccare manualmente.
 
-Le pagine `PortafoglioCaricoPage`, `PortafoglioStoricoPage`, `PortafoglioAttivePage` chiedono `ramo_nome, cliente_codice` → PostgREST risponde errore → tabelle vuote ("0 polizze in scadenza").
+## Stato attuale
 
-### Conferma dal DB
-- 13 titoli con `mese_carico='2026-04'` esistono e sono corretti (es. `d046ffeb…`, allineamento `garanzia_a=2026-04-04` riuscito ✅)
-- 15 titoli con `data_scadenza` ad aprile 2026
-- La pagina ne mostra 0 → errore di selezione PostgREST, non di filtro
+Riga 2001-2010: il campo Premio Lordo Firma è editabile a mano e mostra una scritta "💡 Calcolato: € X (clicca per applicare)" che richiede un click per essere applicato.
 
-### Fix
+## Soluzione
 
-**1. Migration di ripristino vista**
-Ricreo `v_portafoglio_titoli` mantenendo TUTTE le colonne nuove (rinnovo + lock premi + alias `fine_periodo_effettivo`) E aggiungendo le colonne mancanti:
-- `r.descrizione AS ramo_nome` (oltre a `ramo_descrizione` per compatibilità)
-- `cl.codice_ricerca AS cliente_codice`
-- `cl.cognome AS cliente_cognome`, `cl.nome AS cliente_nome`, `cl.ragione_sociale AS cliente_ragione_sociale`
-- `u.nome_ufficio`
+### Auto-aggiornamento Premio Lordo Firma
 
-**2. Cambio concettuale del filtro Carico (allineato al piano "Renewal Concept")**
-In `PortafoglioCaricoPage.tsx`:
-- **Vecchio filtro**: `data_scadenza ∈ [start, end]`
-- **Nuovo filtro**: `mese_carico = 'YYYY-MM'` (= il mese in cui parte il nuovo periodo di copertura)
+Modifica negli `onChange` dei tre campi che concorrono al lordo (Netto, Addizionali, Tasse) nel blocco Firma:
+- Quando uno dei tre cambia → ricalcolo automaticamente `premio_lordo = netto + addizionali + tasse` e aggiorno il form
+- Il campo `premio_lordo` resta comunque editabile manualmente (override consapevole), ma se l'utente tocca uno dei 3 input "sorgente" dopo, viene riallineato
 
-Applicato sia alla query principale che alla query del totale premio. Coerente con il banner esplicativo già presente in pagina.
+### "Sticky override" (per non perdere modifiche manuali)
 
-**3. Nessun cambio frontend per Storico/Attive**
-Una volta ripristinate le colonne mancanti nella vista, queste due pagine torneranno a funzionare senza modifiche.
+Tengo un flag locale `lordoFirmaTouched` (boolean):
+- Se l'utente edita direttamente il campo Premio Lordo → flag = true
+- Se l'utente edita Netto/Addizionali/Tasse → ricalcolo e resetto flag = false
+- All'apertura del form (load da DB) → flag = false
 
-### Verifica attesa
-1. `/portafoglio/carico` ad Aprile 2026 → mostra 13 titoli (tutti con `mese_carico=2026-04`)
-2. Polizza `RCM00010074404` (trimestrale, `data_scadenza=2027-01-19` ma `garanzia_a=2026-04-19`) appare in **Aprile 2026** (non più in Gennaio 2027) — questo è il vero comportamento corretto del nuovo concetto di rinnovo
-3. `/portafoglio/storico` e `/portafoglio/attive` tornano a funzionare
-4. Tutte le colonne UI (Ramo, Codice cliente) restano popolate
+Così il comportamento è: di default il lordo segue netto+add+tasse; se l'utente lo forza manualmente, resta forzato finché non tocca di nuovo gli input sorgente.
 
-### File toccati
-- `supabase/migrations/<new>.sql` — ricreazione vista con colonne legacy + nuove
-- `src/pages/PortafoglioCaricoPage.tsx` — filtro `mese_carico` invece di `data_scadenza`
+### UI
 
-### Cosa NON faccio
-- Non tocco `PortafoglioStoricoPage.tsx` né `PortafoglioAttivePage.tsx` (basta il fix vista)
-- Non tocco trigger `align_garanzia_a` né `lock_premi_storici` (funzionano)
-- Non tocco la regola legacy aprile 2026 né `in_attesa_rinnovo`
+- Rimuovo la scritta "💡 Calcolato: € X (clicca per applicare)" sotto il lordo (non serve più, è automatico)
+- Aggiungo una piccola scritta `Aggiornato automaticamente da Netto + Addizionali + Tasse` (testo helper grigio piccolo) sotto il campo, visibile solo quando NON è stato forzato manualmente
+- Se forzato manualmente e diverso dal calcolato, mostro un piccolo warning ambra "⚠ valore manuale ≠ calcolato (€ X)"
+
+### Stesso comportamento opzionale per Quietanza?
+
+Lato Quietanza non c'è un campo `premio_lordo_quietanza` separato (è solo "Totale calcolato" in sola lettura), quindi nessuna modifica lì — già funziona auto.
+
+## File toccati
+
+- `src/pages/TitoloDetail.tsx`:
+  - Aggiungo state `lordoFirmaTouched` (~3 righe)
+  - Modifico onChange di `premio_netto`, `addizionali`, `tasse` (Firma) per ricalcolare il lordo (~10 righe)
+  - Modifico onChange di `premio_lordo` per settare il flag touched (~3 righe)
+  - Sostituisco la scritta "Calcolato (clicca per applicare)" con helper text condizionale (~5 righe)
+  - Reset di `lordoFirmaTouched = false` quando si apre il form da `titolo` caricato
+
+## Cosa NON faccio
+
+- Non tocco la logica di auto-coerenza già presente nel `mutationFn` (resta come safety net al salvataggio)
+- Non tocco il blocco Quietanza (totale già auto-calcolato in UI)
+- Non modifico i flussi Immissione / Rinnovo / Appendici
+
+## Verifica
+
+1. Apro polizza → click "Modifica" su Importi
+2. Cambio Premio Netto Firma da 11635,99 → 12000 → vedo Premio Lordo aggiornarsi a 12000+364,01+addizionali in tempo reale
+3. Cambio manualmente Premio Lordo a 13000 → resta 13000, helper sparisce, compare warning
+4. Cambio di nuovo Premio Netto → il lordo torna a essere ricalcolato e il warning sparisce
+5. Salvo → DB coerente
 

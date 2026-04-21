@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCw, Calendar } from "lucide-react";
-import { calcolaProssimoPeriodo, descrizioneFrequenza, fmtDateIt } from "@/lib/policyPeriod";
 
 interface RinnovoTitoloDialogProps {
   open: boolean;
@@ -79,17 +78,10 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
       if (!nuovaDa) return;
       const nuovaA = calcolaNuovaScadenza(nuovaDa, tt.periodicita, tt.anni_durata);
 
-      // Garanzia: usa il helper canonico basato su `rate` (allineato alla vista DB)
-      // Cade sul vecchio comportamento (offset durata→garanzia) solo se `rate` è mancante.
+      // Garanzia: stesso delta tra garanzia_da -> garanzia_a applicato a partire dalla nuova durata
       let garDa = nuovaDa;
       let garA = nuovaA;
-      if (tt.garanzia_a) {
-        const periodo = calcolaProssimoPeriodo(tt.garanzia_a, tt.rate);
-        if (periodo) {
-          garDa = periodo.da;
-          garA = periodo.a;
-        }
-      } else if (tt.garanzia_da && tt.durata_da) {
+      if (tt.garanzia_da && tt.garanzia_a) {
         const oldGarDa = new Date(tt.garanzia_da);
         const oldDurDa = new Date(tt.durata_da);
         const offset = oldGarDa.getTime() - oldDurDa.getTime();
@@ -408,20 +400,6 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           <div className="flex items-center gap-2 text-sm font-semibold text-primary">
             <Calendar className="w-4 h-4" /> Nuovo Periodo
           </div>
-
-          {/* Banner: periodo coperto dal rinnovo (calcolato da `rate`) */}
-          {form.garanzia_da && form.garanzia_a && (
-            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
-              <div className="font-medium text-primary">
-                Periodo coperto dal rinnovo: {fmtDateIt(form.garanzia_da)} → {fmtDateIt(form.garanzia_a)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Frazionamento {descrizioneFrequenza(t.rate).toLowerCase()} — la prossima rata cadrà nel mese di{" "}
-                {form.garanzia_a ? new Date(new Date(form.garanzia_a).getTime() + 86400000).toLocaleString("it-IT", { month: "long", year: "numeric" }) : "—"}.
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Durata Da</Label>

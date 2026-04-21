@@ -1936,49 +1936,11 @@ const TitoloDetail = () => {
 
       {/* IMPORTI */}
       <SectionCollapsible title="Importi" icon={DollarSign}>
-        {(() => {
-          // Lock dei premi su titoli storici (periodo chiuso da >7gg + incassato)
-          const garA = t.garanzia_a ? new Date(t.garanzia_a) : null;
-          const limit = new Date();
-          limit.setDate(limit.getDate() - 7);
-          limit.setHours(0, 0, 0, 0);
-          const periodoChiuso = !!(garA && !isNaN(garA.getTime()) && garA < limit);
-          const isLocked = periodoChiuso && t.stato === "incassato" && !isAdmin;
-          return isLocked ? (
-            <div className="mb-3 rounded-md border border-muted-foreground/30 bg-muted/40 p-3 text-sm flex items-start gap-2">
-              <span className="text-base leading-none">🔒</span>
-              <div className="flex-1">
-                <div className="font-medium text-foreground">Premi consolidati</div>
-                <div className="text-xs text-muted-foreground">
-                  Periodo dal {t.garanzia_da ? new Date(t.garanzia_da).toLocaleDateString("it-IT") : "—"} al{" "}
-                  {t.garanzia_a ? new Date(t.garanzia_a).toLocaleDateString("it-IT") : "—"} — chiuso e incassato.
-                  Per modificarli crea un'appendice o richiedi sblocco a un amministratore.
-                </div>
-              </div>
-            </div>
-          ) : null;
-        })()}
         <div className="flex justify-end mb-2 gap-2">
           {!editingImporti ? (
-            (() => {
-              const garA = t.garanzia_a ? new Date(t.garanzia_a) : null;
-              const limit = new Date();
-              limit.setDate(limit.getDate() - 7);
-              limit.setHours(0, 0, 0, 0);
-              const periodoChiuso = !!(garA && !isNaN(garA.getTime()) && garA < limit);
-              const isLocked = periodoChiuso && t.stato === "incassato" && !isAdmin;
-              return (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={startEditImporti}
-                  disabled={isLocked}
-                  title={isLocked ? "Premi non modificabili: periodo chiuso e polizza incassata" : undefined}
-                >
-                  <Pencil className="w-4 h-4 mr-1" /> Modifica
-                </Button>
-              );
-            })()
+            <Button variant="ghost" size="sm" onClick={startEditImporti}>
+              <Pencil className="w-4 h-4 mr-1" /> Modifica
+            </Button>
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditingImporti(false)}>Annulla</Button>
