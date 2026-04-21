@@ -6363,6 +6363,7 @@ export type Database = {
           libro_matricola: string | null
           limite_mora: string | null
           limite_riattivazione: string | null
+          mese_carico: string | null
           mora_giorni: number | null
           motivo_sospensione: string | null
           no_calcolo_tasse: boolean | null
@@ -6373,6 +6374,7 @@ export type Database = {
           percentuale_commerciale: number | null
           percentuale_riparto: number | null
           periodicita: string | null
+          premi_modificabili: boolean | null
           premio_lordo: number | null
           premio_netto: number | null
           premio_netto_quietanza: number | null
@@ -6380,6 +6382,8 @@ export type Database = {
           prodotto_nome: string | null
           produttore_id: string | null
           produttore_nome: string | null
+          prossima_garanzia_a: string | null
+          prossima_garanzia_da: string | null
           provvigioni_firma: number | null
           provvigioni_quietanza: number | null
           ramo_codice: string | null
