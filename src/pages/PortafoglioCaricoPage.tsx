@@ -332,6 +332,20 @@ const PortafoglioCaricoPage = () => {
         </div>
       )}
 
+      {/* Banner esplicativo del concetto di "Carico del Mese" */}
+      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-3">
+        <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-semibold text-primary capitalize">
+            Carico {format(caricoDate, "MMMM yyyy", { locale: it })}
+          </p>
+          <p className="text-muted-foreground">
+            Polizze la cui prossima rata deve essere quietanzata in questo mese. Il rinnovo coprirà il
+            periodo successivo in base al frazionamento (annuale → +12 mesi, semestrale → +6, trimestrale → +3, mensile → +1).
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
