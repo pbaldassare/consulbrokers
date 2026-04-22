@@ -698,20 +698,6 @@ function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: 
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
       <LookupField label="Zona" field="zona" options={zoneOpts} />
       <LookupField label="Indotto" field="indotto" options={indottiOpts} />
-      <div>
-        <Label className="text-xs">Gruppo Finanziario</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}</p>
-        ) : (
-          <SearchableSelect
-            className="h-8 text-xs"
-            value={ef.gruppo_finanziario_id || ""}
-            onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-            placeholder="— Seleziona gruppo —"
-            options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-          />
-        )}
-      </div>
       <LookupField label="Gruppo Statistico" field="gruppo_statistico" options={gruppiStatOpts} />
       <LookupField label="Attività" field="attivita" options={attivitaOpts} />
       <LookupField label="Settore" field="settore" options={settoriOpts} />
@@ -1104,6 +1090,17 @@ export default function ClienteDetail() {
     },
   });
 
+  const { data: ufficiList = [] } = useQuery({
+    queryKey: ["uffici_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome, codice")
+        .order("nome");
+      return (data || []) as any[];
+    },
+  });
+
   const [editFields, setEditFields] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -1122,7 +1119,7 @@ export default function ClienteDetail() {
         throw new Error("Campi obbligatori mancanti: " + missing.map((m) => m.label).join(", "));
       }
       const {
-        id: _id, created_at, updated_at, user_id, ufficio_id, ...rest
+        id: _id, created_at, updated_at, user_id, ...rest
       } = editFields;
       const { error } = await supabase.from("clienti").update(rest as any).eq("id", id!);
       if (error) throw error;
@@ -1314,12 +1311,16 @@ export default function ClienteDetail() {
 
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
+        { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
+        { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         { field: "codice_fiscale", label: "Codice Fiscale", ok: isCFValid(ef.codice_fiscale || "") },
         { field: "data_nascita", label: "Data di Nascita", ok: !!ef.data_nascita },
         { field: "luogo_nascita", label: "Luogo di Nascita", ok: !!(ef.luogo_nascita || "").trim() },
         { field: "indirizzo_residenza", label: "Indirizzo Residenza", ok: !!(ef.indirizzo_residenza || "").trim() },
       ]
     : [
+        { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
+        { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         {
           field: "partita_iva",
           label: "Partita IVA o Codice Fiscale",
@@ -1535,6 +1536,79 @@ export default function ClienteDetail() {
 
         <TabsContent value="anagrafica" className="space-y-6">
           <AnagraficaFormCtx.Provider value={anagraficaCtxValue}>
+          {/* Assegnazioni Gestionali */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings className="h-4 w-4 text-primary" />
+                Assegnazioni Gestionali
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Sede */}
+                <div>
+                  <Label className="text-xs">
+                    Sede{!readOnly && <RequiredMark />}
+                  </Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {ufficiList.find((u: any) => u.id === ef.ufficio_id)?.nome || "—"}
+                    </p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        className={`h-8 text-xs ${isFieldMissing("ufficio_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        value={ef.ufficio_id || ""}
+                        onValueChange={(v) => updateField("ufficio_id", v || null)}
+                        placeholder="— Seleziona sede —"
+                        options={ufficiList.map((u: any) => ({ value: u.id, label: u.nome }))}
+                      />
+                      {isFieldMissing("ufficio_id") && (
+                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Gruppo Finanziario */}
+                <div>
+                  <Label className="text-xs">
+                    Gruppo Finanziario{!readOnly && <RequiredMark />}
+                  </Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}
+                    </p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        className={`h-8 text-xs ${isFieldMissing("gruppo_finanziario_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        value={ef.gruppo_finanziario_id || ""}
+                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+                        placeholder="— Seleziona gruppo —"
+                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                      />
+                      {isFieldMissing("gruppo_finanziario_id") && (
+                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Specialist (gestito in Codici Commerciali) */}
+                <div>
+                  <Label className="text-xs">Specialist</Label>
+                  <p className="text-xs text-muted-foreground mt-1 leading-tight">
+                    Assegnato nella sezione{" "}
+                    <span className="font-medium text-foreground">Codici Commerciali (Rete)</span>{" "}
+                    qui sotto.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Dati Anagrafici */}
           <Card>
             <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
