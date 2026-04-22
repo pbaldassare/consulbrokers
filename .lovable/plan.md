@@ -1,43 +1,42 @@
 
 
-## Storico Gare — refinements UI
+## Istruisci l'IA per lo Storico Gare
 
-### Cambiamenti richiesti
+### Contesto
+Il file `supabase/functions/ai-assistant/schema-context.ts` cita già `v_storico_gare` in coda (righe 328-351) ma in modo minimale: 1 esempio e nessuna guida su come distinguere il dataset di intelligence dalla pipeline `trattative`. Risultato: l'IA tende a confondere "gare" con `trattative` o a non sfruttare i campi categorizzati (broker_incumbent, categoria_ente, stato_mandato, flag_*).
 
-1. **Toggle "Solo nostri clienti" → "Solo Intermedia"**
-   - In `StoricoGarePage.tsx` rinomino il filtro toggle.
-   - Il filtro applica `WHERE broker_incumbent = 'INTERMEDIA'` (al posto del filtro su `cliente_id IS NOT NULL`).
-   - Etichetta UI: "Solo Intermedia" (mostra solo le gare dove eravamo noi il broker incumbent).
+### Cosa modifico
 
-2. **Rimozione KPI "Gare vinte"**
-   - Tolgo la card centrale "2 — Gare vinte" (poco significativa: l'esito reale richiede arricchimento manuale dei dati).
-   - Ridistribuisco le altre 2 card (Gare totali, Mandati in scadenza 12m) su layout `grid-cols-2`.
+**1. `supabase/functions/ai-assistant/schema-context.ts` — sezione `v_storico_gare` espansa**
+- **Spiegazione del dominio** all'inizio della sezione: chiarisce che `v_storico_gare` è *market intelligence storica PA* (chi era il broker incumbent, quando scade il mandato, condizioni di gara) e che NON va mescolata con `trattative` (pipeline commerciale attiva). Regola netta: per KPI vinte/perse correnti → `trattative`; per "chi gestiva quel comune", "broker dominanti", "mandati in scadenza" → `v_storico_gare`.
+- **Glossario completo dei valori enum** già presente, lo lascio + aggiungo nota su `flag_cauzione`, `flag_referenze_bancarie`, `flag_accesso_atti`, `flag_offerta_tecnica` (booleani sui requisiti di gara) e `opzione_rinnovo_anni` (int).
+- **Aggiunta delle terminologie naturali**: "comuni del Veneto", "ASL del Sud", "università", "mandati in scadenza" → `categoria_ente` + `provincia` + `stato_mandato`.
+- **6-7 esempi di query nuovi**, copre i pattern più probabili:
+  1. Top 10 broker incumbent per numero di mandati attivi.
+  2. Mandati in scadenza nei prossimi 12 mesi gestiti da competitor (non Intermedia), con provincia/categoria.
+  3. Win rate Intermedia per anno e categoria_ente.
+  4. Comuni di una provincia con mandato scaduto e nessun broker incumbent dichiarato (potenziali target).
+  5. Gare con tutti i flag di complessità attivi (cauzione+referenze+offerta tecnica).
+  6. Distribuzione gare per `categoria_ente` ultimi 5 anni.
+  7. Enti con `cliente_id IS NOT NULL` (auto-linkati al CRM) raggruppati per esito.
+- **Avviso esplicito** in cima: "se l'utente dice 'gare', 'manifestazioni', 'mandati', 'broker incumbent', 'enti pubblici storici' → usa `v_storico_gare`. Se dice 'trattativa', 'pipeline', 'preventivo', 'opportunity' → usa `trattative`."
 
-3. **Aggiunta grafici in alto** (sopra la barra filtri, sotto le KPI)
-   - **Grafico A — Trend per anno** (barre verticali): conteggio gare per `anno_riferimento` (ultimi 13 anni). Mostra il volume di mercato annuo.
-   - **Grafico B — Top 8 broker incumbent** (barre orizzontali): conteggio gare per `broker_incumbent`, ordinato desc. Evidenzia i competitor dominanti.
-   - **Grafico C — Distribuzione per categoria ente** (donut/pie): % di gare per `categoria_ente` (comune, asl, regione, provincia, università, consorzio, società partecipata, altro).
-   - I grafici **rispettano i filtri applicati** (anno, provincia, esito, broker, categoria, stato mandato, flag): se filtri "provincia=TV", anche i grafici si aggiornano a soli dati TV.
-   - Layout: `grid-cols-1 lg:grid-cols-3` per affiancarli su desktop, stack su mobile.
-   - Libreria: `recharts` (già nel progetto, usata in altre dashboard come ClienteDashboard).
-
-### File da modificare
-
-- `src/pages/StoricoGarePage.tsx`:
-  - Rinomino state `soloNostriClienti` → `soloIntermedia` e cambio query da `.not('cliente_id', 'is', null)` a `.eq('broker_incumbent', 'INTERMEDIA')`.
-  - Rimuovo il blocco JSX della card "Gare vinte" e la relativa query/conteggio.
-  - Aggiungo 3 nuove query aggregate (con gli stessi filtri della tabella) per popolare i 3 grafici, gestite via `useEffect` parallelo a quello principale.
-  - Aggiungo blocco `<Card>` con tre `<ResponsiveContainer>` recharts (`BarChart` verticale, `BarChart` orizzontale, `PieChart`).
+**2. `src/pages/AiAssistantPage.tsx` — suggerimenti starter**
+Aggiungo 3-4 nuove voci all'array `SUGGESTIONS` (mostrate come chip nella schermata vuota), così l'utente scopre subito le capacità sullo storico gare:
+- "Mandati gare in scadenza nei prossimi 12 mesi"
+- "Top 10 broker incumbent nello storico gare"
+- "Comuni del Veneto gestiti da competitor"
+- "Win rate Intermedia per categoria ente"
 
 ### Cosa NON tocco
-
-- Schema DB, vista `v_storico_gare`, trigger, edge function — già a posto.
-- Filtri esistenti (anno, provincia, tipologia, esito, broker, categoria, stato), pagination, ricerca testuale.
+- Schema DB, vista `v_storico_gare`, trigger, RLS — già a posto e funzionanti.
+- Logica edge function `ai-assistant/index.ts`, tool `query_database` / `describe_table`, sistema di iterazioni.
+- UI della pagina `/trattative/storico-gare`.
 
 ### Verifica
 
-1. La card "Gare vinte" sparisce; restano 2 KPI in alto (1693 totali + 138 in scadenza).
-2. Il toggle in basso si chiama ora "Solo Intermedia"; attivandolo la lista scende a ~N record (quelli con `broker_incumbent='INTERMEDIA'`).
-3. Sopra i filtri appaiono 3 grafici affiancati: barre per anno, top broker, donut per categoria ente.
-4. Filtrando per "anno=2024" o "provincia=MI" i grafici si aggiornano coerentemente.
+1. Apri `/ai-assistant`, vedi i nuovi chip suggeriti tra cui "Top 10 broker incumbent…".
+2. Chiedi: *"quanti mandati di comuni del Veneto sono in scadenza nei prossimi 12 mesi"* → l'IA esegue una query su `v_storico_gare` con `categoria_ente='comune' AND provincia IN (…) AND stato_mandato='in_scadenza_12m'` e risponde con il numero.
+3. Chiedi: *"chi sono i broker più presenti nello storico"* → ritorna top per `broker_incumbent` con conteggi.
+4. Chiedi: *"quante trattative aperte ho"* → continua a usare `trattative` (non `v_storico_gare`), niente regressioni.
 
