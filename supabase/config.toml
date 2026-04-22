@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.check-resend-domain]
 verify_jwt = true
+
+[functions.import-storico-gare-oneshot]
+verify_jwt = false
