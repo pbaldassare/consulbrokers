@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -27,8 +27,313 @@ import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
-import { lookupComune } from "@/lib/comuniItaliani";
+import { lookupComune, COMUNI_OPTIONS } from "@/lib/comuniItaliani";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+
+/* ===========================================================
+ * Anagrafica form context + module-level field components
+ * (extracted out of the page body to prevent input remounts
+ * which caused focus loss on every keystroke)
+ * =========================================================== */
+
+interface AnagraficaFormCtxType {
+  ef: any;
+  readOnly: boolean;
+  updateField: (field: string, value: any) => void;
+  isFieldRequired: (field: string) => boolean;
+  isFieldMissing: (field: string) => boolean;
+  isAziendaIdMissing: boolean;
+  handleCFAutoFill: (cf: string) => void;
+}
+
+const AnagraficaFormCtx = createContext<AnagraficaFormCtxType | null>(null);
+
+function useAnagraficaForm() {
+  const ctx = useContext(AnagraficaFormCtx);
+  if (!ctx) throw new Error("AnagraficaFormCtx not provided");
+  return ctx;
+}
+
+const RequiredMark = () => <span className="text-destructive ml-0.5">*</span>;
+
+function FieldDisplay({ label, value }: { label: string; value: any }) {
+  return (
+    <div>
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <p className="text-sm">{value || "—"}</p>
+    </div>
+  );
+}
+
+function FieldInput({
+  label,
+  field,
+  type = "text",
+  required,
+  warning,
+}: {
+  label: string;
+  field: string;
+  type?: string;
+  required?: boolean;
+  warning?: string | null;
+}) {
+  const { ef, readOnly, updateField, isFieldMissing, handleCFAutoFill } = useAnagraficaForm();
+  const showError = !readOnly && required && isFieldMissing(field);
+  return (
+    <div>
+      <Label className="text-xs">
+        {label}
+        {required && <RequiredMark />}
+      </Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{ef[field] || "—"}</p>
+      ) : (
+        <Input
+          className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+          type={type}
+          value={ef[field] || ""}
+          onChange={(e) => {
+            const val =
+              field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva"
+                ? e.target.value.toUpperCase()
+                : e.target.value;
+            updateField(field, val);
+            if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
+              handleCFAutoFill(val);
+            }
+            if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
+              updateField("partita_iva", val);
+              toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
+            }
+          }}
+        />
+      )}
+      {!readOnly && (
+        <>
+          {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+          {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FieldSelect({
+  label,
+  field,
+  options,
+  required,
+}: {
+  label: string;
+  field: string;
+  options: { value: string; label: string }[];
+  required?: boolean;
+}) {
+  const { ef, readOnly, updateField, isFieldMissing } = useAnagraficaForm();
+  const showError = !readOnly && required && isFieldMissing(field);
+  return (
+    <div>
+      <Label className="text-xs">
+        {label}
+        {required && <RequiredMark />}
+      </Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{options.find((o) => o.value === ef[field])?.label || ef[field] || "—"}</p>
+      ) : (
+        <SearchableSelect
+          className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
+          value={ef[field] || ""}
+          onValueChange={(v) => updateField(field, v)}
+          placeholder="—"
+          options={options}
+        />
+      )}
+      {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+    </div>
+  );
+}
+
+function FieldSwitch({ label, field }: { label: string; field: string }) {
+  const { ef, readOnly, updateField } = useAnagraficaForm();
+  return (
+    <div className="flex items-center gap-2">
+      <Switch checked={!!ef[field]} onCheckedChange={(v) => updateField(field, v)} disabled={readOnly} />
+      <Label className="text-xs">{label}</Label>
+    </div>
+  );
+}
+
+function FieldAddress({
+  label,
+  field,
+  capField,
+  cittaField,
+  provinciaField,
+  required,
+}: {
+  label: string;
+  field: string;
+  capField: string;
+  cittaField: string;
+  provinciaField: string;
+  required?: boolean;
+}) {
+  const { ef, readOnly, updateField, isFieldMissing } = useAnagraficaForm();
+  const showError = !readOnly && required && isFieldMissing(field);
+  return (
+    <div>
+      <Label className="text-xs">
+        {label}
+        {required && <RequiredMark />}
+      </Label>
+      {readOnly ? (
+        <p className="text-sm mt-1">{ef[field] || "—"}</p>
+      ) : (
+        <AddressAutocomplete
+          value={ef[field] || ""}
+          onChange={(v) => updateField(field, v)}
+          onSelect={(components: AddressComponents) => {
+            updateField(field, components.indirizzo);
+            updateField(capField, components.cap);
+            updateField(cittaField, components.citta);
+            updateField(provinciaField, components.provincia);
+          }}
+          placeholder="Cerca indirizzo..."
+          className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
+        />
+      )}
+      {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+    </div>
+  );
+}
+
+/**
+ * Combobox cercabile sui comuni italiani con possibilità di inserire testo libero
+ * (per comuni esteri o non presenti nel dataset).
+ */
+function FieldComuneItaliano({
+  label,
+  field,
+  required,
+  warning,
+}: {
+  label: string;
+  field: string;
+  required?: boolean;
+  warning?: string | null;
+}) {
+  const { ef, readOnly, updateField, isFieldMissing } = useAnagraficaForm();
+  const showError = !readOnly && required && isFieldMissing(field);
+  const value = (ef[field] || "") as string;
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return COMUNI_OPTIONS.slice(0, 80);
+    return COMUNI_OPTIONS.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 80);
+  }, [search]);
+
+  const exactMatch = COMUNI_OPTIONS.some((o) => o.label.toLowerCase() === search.trim().toLowerCase());
+
+  if (readOnly) {
+    return (
+      <div>
+        <Label className="text-xs">
+          {label}
+          {required && <RequiredMark />}
+        </Label>
+        <p className="text-sm mt-1">{value || "—"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Label className="text-xs">
+        {label}
+        {required && <RequiredMark />}
+      </Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "h-8 w-full justify-between font-normal text-xs",
+              !value && "text-muted-foreground",
+              showError && "border-destructive",
+            )}
+          >
+            <span className="truncate">{value || "—"}</span>
+            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput placeholder="Cerca comune o digita libero..." value={search} onValueChange={setSearch} />
+            <CommandList>
+              <CommandEmpty>
+                <button
+                  type="button"
+                  className="w-full text-left text-xs px-2 py-1.5 hover:bg-accent rounded"
+                  onClick={() => {
+                    if (search.trim()) {
+                      updateField(field, search.trim());
+                      setOpen(false);
+                      setSearch("");
+                    }
+                  }}
+                >
+                  Usa "{search}" come testo libero
+                </button>
+              </CommandEmpty>
+              {search.trim() && !exactMatch && (
+                <CommandGroup heading="Testo libero">
+                  <CommandItem
+                    value={`__free_${search}`}
+                    onSelect={() => {
+                      updateField(field, search.trim());
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <Plus className="mr-2 h-3 w-3" /> Usa "{search}"
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              <CommandGroup>
+                {filtered.map((o) => (
+                  <CommandItem
+                    key={o.value}
+                    value={o.label}
+                    onSelect={() => {
+                      updateField(field, o.value);
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-3 w-3", value === o.value ? "opacity-100" : "opacity-0")} />
+                    {o.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+      {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
+    </div>
+  );
+}
+
 
 const tipiRelazione = [
   { value: "dipendente", label: "Dipendente" },
@@ -946,23 +1251,44 @@ export default function ClienteDetail() {
   const ef = editFields;
   const readOnly = !editMode;
 
-  const FieldDisplay = ({ label, value }: { label: string; value: any }) => (
-    <div><span className="text-muted-foreground text-xs">{label}</span><p className="text-sm">{value || "—"}</p></div>
-  );
+  // Tracks the last CF that auto-filled fields, so we can overwrite previously
+  // auto-filled values when the user types a new (different) CF.
+  const lastAutoFilledCFRef = useRef<{ cf: string; sesso: string; dataNascita: string; comune: string; provincia: string; luogo: string } | null>(null);
 
   const handleCFAutoFill = (cf: string) => {
-    if (cf.length === 16) {
-      const parsed = parseCF(cf);
-      if (parsed) {
-        if (!ef.sesso) updateField("sesso", parsed.sesso);
-        if (!ef.data_nascita) updateField("data_nascita", parsed.dataNascita);
-        const info = lookupComune(parsed.codiceCatastale);
-        if (info) {
-          if (!ef.comune_nascita) updateField("comune_nascita", info.comune);
-          if (!ef.provincia_nascita) updateField("provincia_nascita", info.provincia);
-        }
-        toast.info("Dati estratti automaticamente dal Codice Fiscale");
-      }
+    if (cf.length !== 16) return;
+    const parsed = parseCF(cf);
+    if (!parsed) return;
+    const info = lookupComune(parsed.codiceCatastale);
+    const expectedLuogo = info ? `${info.comune} (${info.provincia})` : "";
+
+    const prev = lastAutoFilledCFRef.current;
+    // helper: a field is "free to overwrite" if empty OR equal to value previously auto-filled
+    const canOverwrite = (current: any, prevAutoVal: string | undefined) => {
+      const c = (current || "").toString();
+      if (!c.trim()) return true;
+      return !!prevAutoVal && c === prevAutoVal;
+    };
+
+    if (canOverwrite(ef.sesso, prev?.sesso)) updateField("sesso", parsed.sesso);
+    if (canOverwrite(ef.data_nascita, prev?.dataNascita)) updateField("data_nascita", parsed.dataNascita);
+    if (info) {
+      if (canOverwrite(ef.comune_nascita, prev?.comune)) updateField("comune_nascita", info.comune);
+      if (canOverwrite(ef.provincia_nascita, prev?.provincia)) updateField("provincia_nascita", info.provincia);
+      if (canOverwrite(ef.luogo_nascita, prev?.luogo)) updateField("luogo_nascita", expectedLuogo);
+    }
+
+    lastAutoFilledCFRef.current = {
+      cf,
+      sesso: parsed.sesso,
+      dataNascita: parsed.dataNascita,
+      comune: info?.comune || "",
+      provincia: info?.provincia || "",
+      luogo: expectedLuogo,
+    };
+
+    if (!prev || prev.cf !== cf) {
+      toast.info("Dati estratti automaticamente dal Codice Fiscale");
     }
   };
 
@@ -1021,105 +1347,14 @@ export default function ClienteDetail() {
   // Per il campo P.IVA/CF azienda, se manca uno mancano entrambi visivamente
   const isAziendaIdMissing = !isPrivato && missingFieldNames.has("partita_iva");
 
-  const RequiredMark = () => <span className="text-destructive ml-0.5">*</span>;
-
-  const FieldHint = ({ field, customWarning }: { field: string; customWarning?: string | null }) => {
-    if (!readOnly && isFieldRequired(field) && (isFieldMissing(field) || (field === "codice_fiscale_azienda" && isAziendaIdMissing))) {
-      return <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>;
-    }
-    if (customWarning) {
-      return <p className="text-xs text-amber-600 mt-0.5">{customWarning}</p>;
-    }
-    return null;
-  };
-
-  const FieldInput = ({ label, field, type = "text", required, warning }: { label: string; field: string; type?: string; required?: boolean; warning?: string | null }) => {
-    const showError = !readOnly && required && isFieldMissing(field);
-    return (
-      <div>
-        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{ef[field] || "—"}</p>
-        ) : (
-          <Input
-            className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-            type={type}
-            value={ef[field] || ""}
-            onChange={(e) => {
-              const val = field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva" ? e.target.value.toUpperCase() : e.target.value;
-              updateField(field, val);
-              if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
-                handleCFAutoFill(val);
-              }
-              if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
-                updateField("partita_iva", val);
-                toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
-              }
-            }}
-          />
-        )}
-        {!readOnly && (
-          <>
-            {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
-            {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
-          </>
-        )}
-      </div>
-    );
-  };
-
-  const FieldSelect = ({ label, field, options, required }: { label: string; field: string; options: { value: string; label: string }[]; required?: boolean }) => {
-    const showError = !readOnly && required && isFieldMissing(field);
-    return (
-      <div>
-        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{options.find(o => o.value === ef[field])?.label || ef[field] || "—"}</p>
-        ) : (
-          <SearchableSelect
-            className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
-            value={ef[field] || ""}
-            onValueChange={(v) => updateField(field, v)}
-            placeholder="—"
-            options={options}
-          />
-        )}
-        {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
-      </div>
-    );
-  };
-
-  const FieldSwitch = ({ label, field }: { label: string; field: string }) => (
-    <div className="flex items-center gap-2">
-      <Switch checked={!!ef[field]} onCheckedChange={(v) => updateField(field, v)} disabled={readOnly} />
-      <Label className="text-xs">{label}</Label>
-    </div>
-  );
-
-  const FieldAddress = ({ label, field, capField, cittaField, provinciaField, required }: { label: string; field: string; capField: string; cittaField: string; provinciaField: string; required?: boolean }) => {
-    const showError = !readOnly && required && isFieldMissing(field);
-    return (
-      <div>
-        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{ef[field] || "—"}</p>
-        ) : (
-          <AddressAutocomplete
-            value={ef[field] || ""}
-            onChange={(v) => updateField(field, v)}
-            onSelect={(components: AddressComponents) => {
-              updateField(field, components.indirizzo);
-              updateField(capField, components.cap);
-              updateField(cittaField, components.citta);
-              updateField(provinciaField, components.provincia);
-            }}
-            placeholder="Cerca indirizzo..."
-            className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
-          />
-        )}
-        {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
-      </div>
-    );
+  const anagraficaCtxValue: AnagraficaFormCtxType = {
+    ef,
+    readOnly,
+    updateField,
+    isFieldRequired,
+    isFieldMissing,
+    isAziendaIdMissing,
+    handleCFAutoFill,
   };
 
   return (
@@ -1308,6 +1543,7 @@ export default function ClienteDetail() {
         </TabsContent>
 
         <TabsContent value="anagrafica" className="space-y-6">
+          <AnagraficaFormCtx.Provider value={anagraficaCtxValue}>
           {/* Dati Anagrafici */}
           <Card>
             <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
@@ -1329,7 +1565,7 @@ export default function ClienteDetail() {
                   <>
                     <FieldInput label="Codice Fiscale" field="codice_fiscale" required />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" required warning={dataNascitaWarning} />
-                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
+                    <FieldComuneItaliano label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
                     <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" required />
                     <FieldInput label="Città" field="citta_residenza" />
                     <FieldInput label="Provincia" field="provincia_residenza" />
@@ -1415,7 +1651,7 @@ export default function ClienteDetail() {
                   <FieldSelect label="Sesso" field="sesso" options={[
                     { value: "M", label: "M" }, { value: "F", label: "F" }, { value: "na", label: "N/A" },
                   ]} />
-                  <FieldInput label="Comune Nascita" field="comune_nascita" />
+                  <FieldComuneItaliano label="Comune Nascita" field="comune_nascita" />
                   <FieldInput label="Provincia Nascita" field="provincia_nascita" />
                   <FieldSelect label="Tipo Sommario" field="tipo_sommario" options={[
                     { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "D", label: "D" }, { value: "E", label: "E" },
@@ -1459,6 +1695,7 @@ export default function ClienteDetail() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+          </AnagraficaFormCtx.Provider>
         </TabsContent>
       </Tabs>
 
