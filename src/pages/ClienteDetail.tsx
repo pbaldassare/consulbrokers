@@ -1325,12 +1325,16 @@ export default function ClienteDetail() {
 
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
+        { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
+        { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         { field: "codice_fiscale", label: "Codice Fiscale", ok: isCFValid(ef.codice_fiscale || "") },
         { field: "data_nascita", label: "Data di Nascita", ok: !!ef.data_nascita },
         { field: "luogo_nascita", label: "Luogo di Nascita", ok: !!(ef.luogo_nascita || "").trim() },
         { field: "indirizzo_residenza", label: "Indirizzo Residenza", ok: !!(ef.indirizzo_residenza || "").trim() },
       ]
     : [
+        { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
+        { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         {
           field: "partita_iva",
           label: "Partita IVA o Codice Fiscale",
