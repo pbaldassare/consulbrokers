@@ -1595,38 +1595,6 @@ export default function ClienteDetail() {
                 </div>
               </div>
             </CardContent>
-                  {readOnly ? (
-                    <p className="text-sm mt-1">
-                      {(() => {
-                        const p = backofficeProfili.find((bp: any) => bp.id === specialistRow?.profilo_id);
-                        return p ? `${p.cognome || ""} ${p.nome || ""}`.trim() : "—";
-                      })()}
-                    </p>
-                  ) : (
-                    <>
-                      <SearchableSelect
-                        className={`h-8 text-xs ${isFieldMissing("specialist_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                        value={specialistRow?.profilo_id || ""}
-                        onValueChange={(v) => {
-                          if (v) upsertSpecialistMutation.mutate(v);
-                        }}
-                        placeholder="— Seleziona specialist —"
-                        options={backofficeProfili.map((p: any) => ({
-                          value: p.id,
-                          label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
-                        }))}
-                      />
-                      {isFieldMissing("specialist_id") && (
-                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Sincronizzato con Codici Commerciali (Rete)
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardContent>
           </Card>
 
           {/* Dati Anagrafici */}
