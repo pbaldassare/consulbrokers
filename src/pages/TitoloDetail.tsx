@@ -417,8 +417,10 @@ const TitoloDetail = () => {
         descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
         prodotto_nome: (titolo as any).prodotto_nome ?? "",
         specialist: (titolo as any).specialist ?? "",
-        produttore_id: (titolo as any).produttore_id ?? null,
+        produttore_nome: (titolo as any).produttore_nome ?? "",
         ufficio_id: (titolo as any).ufficio_id ?? null,
+        compagnia_id: (titolo as any).compagnia_id ?? null,
+        ramo_id: (titolo as any).ramo_id ?? null,
       });
     }
     setEditingContratto(true);
@@ -431,7 +433,8 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof contrattoForm)[] = [
         "tipo_portafoglio", "cig_rif", "vincolo", "targa_telaio",
-        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_id", "ufficio_id",
+        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
+        "ufficio_id", "compagnia_id", "ramo_id",
       ];
       fields.forEach((f) => {
         const oldV = (titolo as any)?.[f] ?? null;
@@ -449,8 +452,10 @@ const TitoloDetail = () => {
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
           specialist: contrattoForm.specialist || null,
-          produttore_id: contrattoForm.produttore_id || null,
+          produttore_nome: contrattoForm.produttore_nome || null,
           ufficio_id: contrattoForm.ufficio_id || null,
+          compagnia_id: contrattoForm.compagnia_id || null,
+          ramo_id: contrattoForm.ramo_id || null,
         } as any)
         .eq("id", id!);
       if (error) throw error;
