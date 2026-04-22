@@ -1766,7 +1766,7 @@ export default function ClienteDetail() {
                 <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
               </AccordionTrigger>
               <AccordionContent>
-                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} />
+                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} isFieldMissing={isFieldMissing} />
               </AccordionContent>
             </AccordionItem>
 
