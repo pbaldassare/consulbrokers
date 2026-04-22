@@ -67,7 +67,7 @@ export default function StoricoGarePage() {
   const [filtroBroker, setFiltroBroker] = useState("tutti");
   const [filtroCategoria, setFiltroCategoria] = useState("tutti");
   const [filtroStatoMandato, setFiltroStatoMandato] = useState("tutti");
-  const [filtroSoloClienti, setFiltroSoloClienti] = useState(false);
+  const [filtroSoloIntermedia, setFiltroSoloIntermedia] = useState(false);
   const [flagCauzione, setFlagCauzione] = useState(false);
   const [flagReferenze, setFlagReferenze] = useState(false);
   const [flagAccesso, setFlagAccesso] = useState(false);
@@ -98,35 +98,89 @@ export default function StoricoGarePage() {
     queryKey: ["storico_gare_kpi"],
     queryFn: async () => {
       const { count: totale } = await supabase.from("storico_gare").select("id", { count: "exact", head: true });
-      const { count: vinte } = await supabase.from("storico_gare").select("id", { count: "exact", head: true }).eq("esito", "vinta");
       const { count: scadenza } = await supabase.from("v_storico_gare" as any).select("id", { count: "exact", head: true }).eq("stato_mandato", "in_scadenza_12m");
-      return { totale: totale ?? 0, vinte: vinte ?? 0, scadenza: scadenza ?? 0 };
+      return { totale: totale ?? 0, scadenza: scadenza ?? 0 };
     },
   });
 
   // Lista paginata
+  const filtersKey = [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta] as const;
+
+  const applyFilters = (q: any) => {
+    if (search.trim()) q = q.ilike("ente_nome", `%${search.trim().toUpperCase()}%`);
+    if (filtroAnno !== "tutti") q = q.eq("anno_riferimento", parseInt(filtroAnno));
+    if (filtroProvincia !== "tutti") q = q.eq("provincia", filtroProvincia);
+    if (filtroTipologia !== "tutti") q = q.eq("tipologia", filtroTipologia);
+    if (filtroEsito !== "tutti") q = q.eq("esito", filtroEsito);
+    if (filtroBroker !== "tutti") q = q.eq("broker_incumbent", filtroBroker);
+    if (filtroCategoria !== "tutti") q = q.eq("categoria_ente", filtroCategoria);
+    if (filtroStatoMandato !== "tutti") q = q.eq("stato_mandato", filtroStatoMandato);
+    if (filtroSoloIntermedia) q = q.eq("broker_incumbent", "INTERMEDIA");
+    if (flagCauzione) q = q.eq("flag_cauzione", true);
+    if (flagReferenze) q = q.eq("flag_referenze_bancarie", true);
+    if (flagAccesso) q = q.eq("flag_accesso_atti", true);
+    if (flagOfferta) q = q.eq("flag_offerta_tecnica", true);
+    return q;
+  };
+
   const { data, isLoading } = useQuery({
-    queryKey: ["storico_gare", page, search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloClienti, flagCauzione, flagReferenze, flagAccesso, flagOfferta],
+    queryKey: ["storico_gare", page, ...filtersKey],
     queryFn: async () => {
       let q = supabase.from("v_storico_gare" as any).select("*", { count: "exact" });
-      if (search.trim()) q = q.ilike("ente_nome", `%${search.trim().toUpperCase()}%`);
-      if (filtroAnno !== "tutti") q = q.eq("anno_riferimento", parseInt(filtroAnno));
-      if (filtroProvincia !== "tutti") q = q.eq("provincia", filtroProvincia);
-      if (filtroTipologia !== "tutti") q = q.eq("tipologia", filtroTipologia);
-      if (filtroEsito !== "tutti") q = q.eq("esito", filtroEsito);
-      if (filtroBroker !== "tutti") q = q.eq("broker_incumbent", filtroBroker);
-      if (filtroCategoria !== "tutti") q = q.eq("categoria_ente", filtroCategoria);
-      if (filtroStatoMandato !== "tutti") q = q.eq("stato_mandato", filtroStatoMandato);
-      if (filtroSoloClienti) q = q.not("cliente_id", "is", null);
-      if (flagCauzione) q = q.eq("flag_cauzione", true);
-      if (flagReferenze) q = q.eq("flag_referenze_bancarie", true);
-      if (flagAccesso) q = q.eq("flag_accesso_atti", true);
-      if (flagOfferta) q = q.eq("flag_offerta_tecnica", true);
+      q = applyFilters(q);
       q = q.order("anno_riferimento", { ascending: false }).order("data_consegna", { ascending: false, nullsFirst: false });
       q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, error, count } = await q;
       if (error) throw error;
       return { rows: (data as any[]) ?? [], total: count ?? 0 };
+    },
+  });
+
+  // Aggregati per i grafici (rispettano i filtri tranne la paginazione)
+  const { data: chartData } = useQuery({
+    queryKey: ["storico_gare_charts", ...filtersKey],
+    queryFn: async () => {
+      let q = supabase.from("v_storico_gare" as any).select("anno_riferimento, broker_incumbent, categoria_ente").limit(10000);
+      q = applyFilters(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = (data as any[]) ?? [];
+
+      // Trend per anno (ultimi 13 anni)
+      const annoMap = new Map<number, number>();
+      rows.forEach(r => {
+        if (r.anno_riferimento) annoMap.set(r.anno_riferimento, (annoMap.get(r.anno_riferimento) ?? 0) + 1);
+      });
+      const trendAnno = Array.from(annoMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .slice(-13)
+        .map(([anno, count]) => ({ anno: String(anno), count }));
+
+      // Top 8 broker
+      const brokerMap = new Map<string, number>();
+      rows.forEach(r => {
+        const b = r.broker_incumbent || "Sconosciuto";
+        brokerMap.set(b, (brokerMap.get(b) ?? 0) + 1);
+      });
+      const topBroker = Array.from(brokerMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([broker, count]) => ({ broker: broker.length > 18 ? broker.slice(0, 18) + "…" : broker, count }));
+
+      // Distribuzione categoria
+      const catMap = new Map<string, number>();
+      rows.forEach(r => {
+        const c = r.categoria_ente || "altro_ente";
+        catMap.set(c, (catMap.get(c) ?? 0) + 1);
+      });
+      const catDist = Array.from(catMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([cat, count]) => {
+          const lbl = CATEGORIE_ENTE.find(x => x.value === cat)?.label ?? cat;
+          return { name: lbl, value: count };
+        });
+
+      return { trendAnno, topBroker, catDist };
     },
   });
 
