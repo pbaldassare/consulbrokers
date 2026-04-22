@@ -1256,9 +1256,10 @@ export default function ClienteDetail() {
   const ef = editFields;
   const readOnly = !editMode;
 
-  // Tracks the last CF that auto-filled fields, so we can overwrite previously
-  // auto-filled values when the user types a new (different) CF.
-  const lastAutoFilledCFRef = useRef<{ cf: string; sesso: string; dataNascita: string; comune: string; provincia: string; luogo: string } | null>(null);
+  // Tracks the last CF auto-filled, used only to avoid spamming the toast
+  // when the same CF is re-applied. Field overwrite is now always forced:
+  // the CF is the authoritative source for sesso/data/luogo/comune/provincia.
+  const lastAutoFilledCFRef = useRef<string | null>(null);
 
   const handleCFAutoFill = (cf: string) => {
     if (cf.length !== 16) return;
@@ -1267,34 +1268,19 @@ export default function ClienteDetail() {
     const info = lookupComune(parsed.codiceCatastale);
     const expectedLuogo = info ? `${info.comune} (${info.provincia})` : "";
 
-    const prev = lastAutoFilledCFRef.current;
-    // helper: a field is "free to overwrite" if empty OR equal to value previously auto-filled
-    const canOverwrite = (current: any, prevAutoVal: string | undefined) => {
-      const c = (current || "").toString();
-      if (!c.trim()) return true;
-      return !!prevAutoVal && c === prevAutoVal;
-    };
-
-    if (canOverwrite(ef.sesso, prev?.sesso)) updateField("sesso", parsed.sesso);
-    if (canOverwrite(ef.data_nascita, prev?.dataNascita)) updateField("data_nascita", parsed.dataNascita);
+    // Force overwrite — CF is authoritative
+    updateField("sesso", parsed.sesso);
+    updateField("data_nascita", parsed.dataNascita);
     if (info) {
-      if (canOverwrite(ef.comune_nascita, prev?.comune)) updateField("comune_nascita", info.comune);
-      if (canOverwrite(ef.provincia_nascita, prev?.provincia)) updateField("provincia_nascita", info.provincia);
-      if (canOverwrite(ef.luogo_nascita, prev?.luogo)) updateField("luogo_nascita", expectedLuogo);
+      updateField("comune_nascita", info.comune);
+      updateField("provincia_nascita", info.provincia);
+      updateField("luogo_nascita", expectedLuogo);
     }
 
-    lastAutoFilledCFRef.current = {
-      cf,
-      sesso: parsed.sesso,
-      dataNascita: parsed.dataNascita,
-      comune: info?.comune || "",
-      provincia: info?.provincia || "",
-      luogo: expectedLuogo,
-    };
-
-    if (!prev || prev.cf !== cf) {
-      toast.info("Dati estratti automaticamente dal Codice Fiscale");
+    if (lastAutoFilledCFRef.current !== cf) {
+      toast.info("Dati allineati al Codice Fiscale");
     }
+    lastAutoFilledCFRef.current = cf;
   };
 
   // Coerenza CF (solo privati)
