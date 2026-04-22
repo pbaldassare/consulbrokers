@@ -230,22 +230,13 @@ export default function StoricoGarePage() {
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-primary" />
             <div>
               <div className="text-2xl font-bold">{kpi?.totale ?? "—"}</div>
               <div className="text-xs text-muted-foreground">Gare totali archiviate</div>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-green-600" />
-            <div>
-              <div className="text-2xl font-bold">{kpi?.vinte ?? "—"}</div>
-              <div className="text-xs text-muted-foreground">Gare vinte</div>
             </div>
           </div>
         </Card>
@@ -259,6 +250,58 @@ export default function StoricoGarePage() {
           </div>
         </Card>
       </div>
+
+      {/* Grafici */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="text-sm font-semibold mb-2">Trend gare per anno</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData?.trendAnno ?? []}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="anno" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm font-semibold mb-2">Top broker incumbent</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData?.topBroker ?? []} layout="vertical" margin={{ left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis type="category" dataKey="broker" tick={{ fontSize: 10 }} width={110} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+              <Bar dataKey="count" fill="hsl(var(--accent-foreground))" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm font-semibold mb-2">Categoria ente</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={chartData?.catDist ?? []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={35} label={(e: any) => `${e.value}`} labelLine={false}>
+                {(chartData?.catDist ?? []).map((_, i) => (
+                  <Cell key={i} fill={[
+                    "hsl(var(--primary))",
+                    "hsl(var(--chart-2, 173 58% 39%))",
+                    "hsl(var(--chart-3, 43 74% 49%))",
+                    "hsl(var(--chart-4, 12 76% 61%))",
+                    "hsl(var(--chart-5, 280 65% 60%))",
+                    "hsl(var(--muted-foreground))",
+                    "hsl(var(--accent-foreground))",
+                    "hsl(var(--secondary-foreground))",
+                  ][i % 8]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
 
       {/* Filtri */}
       <Card className="p-4 space-y-3">
@@ -326,8 +369,8 @@ export default function StoricoGarePage() {
         </div>
         <div className="flex flex-wrap gap-4 pt-2 border-t">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Checkbox checked={filtroSoloClienti} onCheckedChange={(v) => { setFiltroSoloClienti(!!v); setPage(1); }} />
-            Solo nostri clienti
+            <Checkbox checked={filtroSoloIntermedia} onCheckedChange={(v) => { setFiltroSoloIntermedia(!!v); setPage(1); }} />
+            Solo Intermedia
           </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox checked={flagCauzione} onCheckedChange={(v) => { setFlagCauzione(!!v); setPage(1); }} />
