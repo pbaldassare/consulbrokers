@@ -157,3 +157,21 @@ const COMUNI: Record<string, ComuneInfo> = {
 export function lookupComune(codiceCatastale: string): ComuneInfo | null {
   return COMUNI[codiceCatastale.toUpperCase()] || null;
 }
+
+/**
+ * Lista comuni in formato "Comune (PROV)" pronta per i combobox/SearchableSelect.
+ * Ordinata alfabeticamente per nome comune. Deduplicata sul label.
+ */
+export const COMUNI_OPTIONS: { value: string; label: string }[] = (() => {
+  const seen = new Set<string>();
+  const arr: { value: string; label: string }[] = [];
+  Object.values(COMUNI).forEach((c) => {
+    const label = `${c.comune} (${c.provincia})`;
+    if (!seen.has(label)) {
+      seen.add(label);
+      arr.push({ value: label, label });
+    }
+  });
+  arr.sort((a, b) => a.label.localeCompare(b.label, "it"));
+  return arr;
+})();
