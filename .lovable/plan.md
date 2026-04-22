@@ -1,56 +1,52 @@
 
 
-## Flag booleano "Tacito Rinnovo" sulle polizze
+## Campo "Prodotto" come testo libero salvato in DB
 
-### Cosa cambia
+### Situazione attuale
 
-Aggiungo una colonna `tacito_rinnovo BOOLEAN NOT NULL DEFAULT true` su `titoli`. La popolo una volta dai dati esistenti (`T` e `tacito_rinnovo` → true, tutti gli altri valori → false). Da qui in avanti la UI mostra/edita uno **switch Sì/No** invece di un campo testo libero. Il vecchio campo `tipo_rinnovo` resta a DB **intoccato** (come richiesto: "il resto lascialo ignorato").
+- Il campo "Prodotto" in UI è un `SearchableSelect` legato alla tabella lookup `prodotti` (filtrata per compagnia), che salva su `titoli.prodotto_id` (uuid).
+- Verifica DB: **0 polizze su 1047 hanno `prodotto_id` valorizzato** → la lookup non viene mai usata in pratica.
+- A DB esiste già una colonna `titoli.prodotto_nome (text)` con 7 valori reali (es. "Cyber Risk", "Tutela Legale", "Kasko Veicoli") + è già copiata da `RinnovoTitoloDialog.tsx` durante i rinnovi.
+- Conclusione: la verità per "Prodotto" diventa `prodotto_nome` (text). `prodotto_id` resta a DB come legacy ma non viene più scritto/letto da UI.
 
-### Migrazione DB
+### Modifiche
 
-1. `ALTER TABLE titoli ADD COLUMN tacito_rinnovo boolean NOT NULL DEFAULT true;`
-2. UPDATE iniziale (via insert tool):
-   - `tacito_rinnovo = true` se `tipo_rinnovo IN ('T','tacito_rinnovo')` → 250 polizze
-   - `tacito_rinnovo = false` per tutti gli altri valori non nulli (`A,R,S,J,D,X,V`) → 797 polizze
-   - polizze con `tipo_rinnovo NULL` restano `true` (default)
-3. Stessa colonna `tacito_rinnovo boolean` su `movimenti_polizza` con stesso UPDATE iniziale (per coerenza storica), default true.
+**1. `src/pages/TitoloDetail.tsx`**
+- Sezione Contratto, blocco edit: sostituisco lo `SearchableSelect` "Prodotto" con un `<Input type="text" placeholder="Es. Tutela Legale, Cyber Risk…" />` bound su `contrattoForm.prodotto_nome`.
+- Stato del form: rimuovo `prodotto_id` (resta inalterato a DB), aggiungo `prodotto_nome: string` (default `""`).
+- Salvataggio (UPDATE su `titoli`): invio `prodotto_nome: contrattoForm.prodotto_nome || null`. Non tocco più `prodotto_id`.
+- Vista read-only: `<FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />` (fallback alla lookup solo per i pochi storici che fossero collegati per id).
+- Header titolo (riga 1068): aggiorno il sottotitolo a `t.prodotto_nome ?? t.prodotti?.nome_prodotto ?? ""` per mostrare il nuovo campo.
+- Rimuovo la query `prodottiOpts` (non più necessaria) e relativo useEffect dipendente da `compagnia_id`.
 
-Nessun trigger, nessun constraint: è un semplice booleano.
+**2. `src/pages/ImmissionePolizzaPage.tsx`**
+- Sostituisco lo state `selectedProdotto` (uuid) con `prodottoNome: string` (default `""`).
+- Form: sostituisco il `SearchableSelect` Prodotto con un `<Input type="text" placeholder="Nome prodotto (testo libero)" />`.
+- INSERT su `titoli`: rimuovo `prodotto_id: selectedProdotto`, aggiungo `prodotto_nome: prodottoNome || null`.
+- **Provvigione automatica**: oggi la lookup provvigione usa `selectedProdottoCategoriaId` derivato dal prodotto scelto. Senza più la lookup `prodotti`, la categoria non è più derivabile → l'utente dovrà selezionare manualmente la categoria/ramo come oggi avviene già tramite `selectedRamo`. Modifico `provvigioneDb` per usare `categoria_id` ricavata dal **ramo selezionato** (`rami.categoria_id` se esiste, altrimenti rimuovo la chiamata silente). Mantengo le card di conferma/aggiornamento provvigione ma legate al ramo.
 
-### Frontend
+**3. `src/components/polizze/RinnovoTitoloDialog.tsx`**
+- Già copia `prodotto_nome` (riga 201). Nessuna modifica strutturale; rimuovo la riga 200 che copia `prodotto_id` per allinearci al fatto che il campo non viene più usato.
 
-- **`src/pages/TitoloDetail.tsx`**
-  - Nel form Periodo, sostituisco il campo "Tipo Rinnovo" (oggi `SearchableSelect` con `[tacito_rinnovo, scadenza_annuale, disdetta]`) con un componente `Switch` (shadcn) etichettato "Tacito Rinnovo" (Sì/No), bound a `tacito_rinnovo: boolean`.
-  - Nella vista read-only, sostituisco `<FieldRow label="Tipo Rinnovo" value={fmt(t.tipo_rinnovo)} />` con `<FieldRow label="Tacito Rinnovo" value={t.tacito_rinnovo ? 'Sì' : 'No'} />`.
-  - Salvataggio: invio `tacito_rinnovo` (boolean) nell'UPDATE; non tocco più `tipo_rinnovo`.
+**4. `supabase/functions/ai-assistant/schema-context.ts`**
+- Aggiungo nota su `titoli.prodotto_nome (text)`: "nome prodotto in testo libero (verità UI). `prodotto_id` è legacy, non usato".
 
-- **`src/pages/ImmissionePolizzaPage.tsx`**
-  - Sostituisco lo state `tipoRinnovo` (string) con `tacitoRinnovo: boolean` (default `true`).
-  - Sostituisco il `SearchableSelect` con uno `Switch` "Tacito Rinnovo" (Sì/No, default Sì).
-  - Nell'INSERT del titolo invio `tacito_rinnovo: tacitoRinnovo`. Rimuovo la riga 541 con la conversione manuale `tipo_rinnovo === "tacito_rinnovo" ? "Tacito rinnovo" : ...`.
-
-- **`src/components/polizze/RinnovoTitoloDialog.tsx`**
-  - Quando duplico il titolo padre nel rinnovo, copio anche `tacito_rinnovo: t.tacito_rinnovo` (il default `true` copre i casi in cui il padre fosse null).
-
-- **`supabase/functions/ai-assistant/schema-context.ts`**
-  - Aggiungo `tacito_rinnovo (boolean, default true)` nell'elenco campi `titoli` con nota: "true = polizza a tacito rinnovo, false = scadenza naturale/disdetta".
+**5. Memory**
+- Salvo `mem://insurance/prodotto-nome-libero`: il prodotto polizza è un campo testo libero su `titoli.prodotto_nome`. La FK `prodotto_id` → `prodotti` è legacy: non leggere/scrivere da UI. La provvigione automatica per ramo passa solo per `rami.categoria_id`.
 
 ### Cosa NON tocco
 
-- Non rinomino, non normalizzo e non leggo più `tipo_rinnovo` da UI: resta a DB con i suoi valori legacy (`A, T, R, S, J, D, X, V, tacito_rinnovo`) per audit/storico.
-- Nessuna lookup `tipi_rinnovo`, nessun trigger di validazione, nessuna modifica a Edge Function di import.
-- Nessun cambio a logica scadenze/disdetta/rinnovo: è solo un'etichetta booleana esposta in UI e salvata.
-
-### Memory
-
-Salvo `mem://insurance/tacito-rinnovo-flag`: la verità per "tacito rinnovo sì/no" è `titoli.tacito_rinnovo` (boolean, default true). `tipo_rinnovo` è legacy, da ignorare lato UI.
+- Non droppo `titoli.prodotto_id` né la tabella `prodotti` (resta per audit/storico ed eventuale futura riattivazione).
+- Nessun cambio a `prodotti` o alla pagina che gestisce la lookup, se esiste.
+- `ClientePolizze.tsx` e `TemplatePage.tsx` già leggono `prodotto_nome`: nessuna modifica necessaria.
+- Nessun trigger, nessun constraint sul nuovo campo testo.
 
 ### Verifica
 
-1. Apro il titolo `RCM20080078032` (`/titoli/ee7fcdcf-...`): nel pannello Periodo vedo lo Switch "Tacito Rinnovo" su **Sì** (perché legacy era `T`).
-2. Apro un titolo con `tipo_rinnovo='A'`: lo Switch è su **No**.
-3. Cambio lo Switch e salvo: `titoli.tacito_rinnovo` aggiornato, `tipo_rinnovo` invariato.
-4. Creo una nuova polizza da `ImmissionePolizzaPage`: lo Switch è su **Sì** di default; salvando, `tacito_rinnovo=true` a DB.
-5. Faccio un Rinnovo: il nuovo titolo eredita il `tacito_rinnovo` del padre.
-6. AI Assistant: `SELECT COUNT(*) FROM titoli WHERE tacito_rinnovo = true` restituisce 250 + le NULL legacy promosse a true (≈ totale tacito rinnovo).
+1. Apro `/titoli/ab2c7fd2-…`, premo "Modifica" sezione Contratto: vedo un campo testo "Prodotto" vuoto (perché il record non ha `prodotto_nome`). Scrivo "Tutela Legale", salvo → DB `titoli.prodotto_nome = 'Tutela Legale'`.
+2. Riapro il titolo: il campo mostra "Tutela Legale" sia in read-only che in edit.
+3. Vado in `/immissione-polizza`: nel form vedo `Input` testo invece del select; salvando, la nuova polizza ha `prodotto_nome` valorizzato e `prodotto_id` NULL.
+4. Faccio Rinnovo da un titolo con `prodotto_nome = 'Cyber Risk'`: il nuovo titolo eredita il testo.
+5. Portale cliente `/cliente/polizze`: continua a mostrare `prodotto_nome` come oggi (codice già pronto).
+6. AI Assistant: la query `SELECT prodotto_nome, COUNT(*) FROM titoli GROUP BY prodotto_nome` restituisce risultati significativi (non più tutti NULL).
 
