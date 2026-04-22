@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -74,12 +74,14 @@ function FieldInput({
   type = "text",
   required,
   warning,
+  action,
 }: {
   label: string;
   field: string;
   type?: string;
   required?: boolean;
   warning?: string | null;
+  action?: React.ReactNode;
 }) {
   const { ef, readOnly, updateField, isFieldMissing, handleCFAutoFill } = useAnagraficaForm();
   const showError = !readOnly && required && isFieldMissing(field);
@@ -92,25 +94,28 @@ function FieldInput({
       {readOnly ? (
         <p className="text-sm mt-1">{ef[field] || "—"}</p>
       ) : (
-        <Input
-          className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-          type={type}
-          value={ef[field] || ""}
-          onChange={(e) => {
-            const val =
-              field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva"
-                ? e.target.value.toUpperCase()
-                : e.target.value;
-            updateField(field, val);
-            if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
-              handleCFAutoFill(val);
-            }
-            if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
-              updateField("partita_iva", val);
-              toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
-            }
-          }}
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            type={type}
+            value={ef[field] || ""}
+            onChange={(e) => {
+              const val =
+                field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva"
+                  ? e.target.value.toUpperCase()
+                  : e.target.value;
+              updateField(field, val);
+              if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
+                handleCFAutoFill(val);
+              }
+              if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
+                updateField("partita_iva", val);
+                toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
+              }
+            }}
+          />
+          {action}
+        </div>
       )}
       {!readOnly && (
         <>
@@ -1251,9 +1256,10 @@ export default function ClienteDetail() {
   const ef = editFields;
   const readOnly = !editMode;
 
-  // Tracks the last CF that auto-filled fields, so we can overwrite previously
-  // auto-filled values when the user types a new (different) CF.
-  const lastAutoFilledCFRef = useRef<{ cf: string; sesso: string; dataNascita: string; comune: string; provincia: string; luogo: string } | null>(null);
+  // Tracks the last CF auto-filled, used only to avoid spamming the toast
+  // when the same CF is re-applied. Field overwrite is now always forced:
+  // the CF is the authoritative source for sesso/data/luogo/comune/provincia.
+  const lastAutoFilledCFRef = useRef<string | null>(null);
 
   const handleCFAutoFill = (cf: string) => {
     if (cf.length !== 16) return;
@@ -1262,34 +1268,19 @@ export default function ClienteDetail() {
     const info = lookupComune(parsed.codiceCatastale);
     const expectedLuogo = info ? `${info.comune} (${info.provincia})` : "";
 
-    const prev = lastAutoFilledCFRef.current;
-    // helper: a field is "free to overwrite" if empty OR equal to value previously auto-filled
-    const canOverwrite = (current: any, prevAutoVal: string | undefined) => {
-      const c = (current || "").toString();
-      if (!c.trim()) return true;
-      return !!prevAutoVal && c === prevAutoVal;
-    };
-
-    if (canOverwrite(ef.sesso, prev?.sesso)) updateField("sesso", parsed.sesso);
-    if (canOverwrite(ef.data_nascita, prev?.dataNascita)) updateField("data_nascita", parsed.dataNascita);
+    // Force overwrite — CF is authoritative
+    updateField("sesso", parsed.sesso);
+    updateField("data_nascita", parsed.dataNascita);
     if (info) {
-      if (canOverwrite(ef.comune_nascita, prev?.comune)) updateField("comune_nascita", info.comune);
-      if (canOverwrite(ef.provincia_nascita, prev?.provincia)) updateField("provincia_nascita", info.provincia);
-      if (canOverwrite(ef.luogo_nascita, prev?.luogo)) updateField("luogo_nascita", expectedLuogo);
+      updateField("comune_nascita", info.comune);
+      updateField("provincia_nascita", info.provincia);
+      updateField("luogo_nascita", expectedLuogo);
     }
 
-    lastAutoFilledCFRef.current = {
-      cf,
-      sesso: parsed.sesso,
-      dataNascita: parsed.dataNascita,
-      comune: info?.comune || "",
-      provincia: info?.provincia || "",
-      luogo: expectedLuogo,
-    };
-
-    if (!prev || prev.cf !== cf) {
-      toast.info("Dati estratti automaticamente dal Codice Fiscale");
+    if (lastAutoFilledCFRef.current !== cf) {
+      toast.info("Dati allineati al Codice Fiscale");
     }
+    lastAutoFilledCFRef.current = cf;
   };
 
   // Coerenza CF (solo privati)
@@ -1563,7 +1554,26 @@ export default function ClienteDetail() {
                 ]} />
                 {isPrivato ? (
                   <>
-                    <FieldInput label="Codice Fiscale" field="codice_fiscale" required />
+                    <FieldInput
+                      label="Codice Fiscale"
+                      field="codice_fiscale"
+                      required
+                      action={
+                        ef.codice_fiscale && ef.codice_fiscale.length === 16 && parseCF(ef.codice_fiscale) ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 shrink-0"
+                            title="Compila automaticamente dati anagrafici dal CF"
+                            onClick={() => handleCFAutoFill(ef.codice_fiscale)}
+                          >
+                            <Sparkles className="h-3.5 w-3.5 mr-1" />
+                            Compila da CF
+                          </Button>
+                        ) : null
+                      }
+                    />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" required warning={dataNascitaWarning} />
                     <FieldComuneItaliano label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
                     <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" required />
