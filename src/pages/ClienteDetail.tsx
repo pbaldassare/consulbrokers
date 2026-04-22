@@ -1151,6 +1151,9 @@ export default function ClienteDetail() {
   });
 
   const [editFields, setEditFields] = useState<Record<string, any>>({});
+  // Tracks the last CF auto-filled, used only to avoid spamming the toast.
+  // Must be declared before any early return to keep hook order stable.
+  const lastAutoFilledCFRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (cliente) {
@@ -1302,10 +1305,8 @@ export default function ClienteDetail() {
   const ef = editFields;
   const readOnly = !editMode;
 
-  // Tracks the last CF auto-filled, used only to avoid spamming the toast
-  // when the same CF is re-applied. Field overwrite is now always forced:
-  // the CF is the authoritative source for sesso/data/luogo/comune/provincia.
-  const lastAutoFilledCFRef = useRef<string | null>(null);
+  // Tracks the last CF auto-filled (declared above before early return)
+
 
   const handleCFAutoFill = (cf: string) => {
     if (cf.length !== 16) return;
