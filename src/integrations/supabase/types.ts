@@ -3141,6 +3141,7 @@ export type Database = {
           sostituito_da_id: string | null
           stato: string | null
           stato_incasso: string | null
+          tacito_rinnovo: boolean
           tasse: number | null
           tipo: string | null
           tipo_documento: string | null
@@ -3172,6 +3173,7 @@ export type Database = {
           sostituito_da_id?: string | null
           stato?: string | null
           stato_incasso?: string | null
+          tacito_rinnovo?: boolean
           tasse?: number | null
           tipo?: string | null
           tipo_documento?: string | null
@@ -3203,6 +3205,7 @@ export type Database = {
           sostituito_da_id?: string | null
           stato?: string | null
           stato_incasso?: string | null
+          tacito_rinnovo?: boolean
           tasse?: number | null
           tipo?: string | null
           tipo_documento?: string | null
@@ -5485,6 +5488,7 @@ export type Database = {
           storno_appendice: string | null
           storno_polizza: string | null
           storno_riga: number | null
+          tacito_rinnovo: boolean
           targa_telaio: string | null
           tasse: number | null
           tasse_quietanza: number | null
@@ -5580,6 +5584,7 @@ export type Database = {
           storno_appendice?: string | null
           storno_polizza?: string | null
           storno_riga?: number | null
+          tacito_rinnovo?: boolean
           targa_telaio?: string | null
           tasse?: number | null
           tasse_quietanza?: number | null
@@ -5675,6 +5680,7 @@ export type Database = {
           storno_appendice?: string | null
           storno_polizza?: string | null
           storno_riga?: number | null
+          tacito_rinnovo?: boolean
           targa_telaio?: string | null
           tasse?: number | null
           tasse_quietanza?: number | null

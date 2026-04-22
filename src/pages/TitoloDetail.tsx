@@ -466,16 +466,9 @@ const TitoloDetail = () => {
     data_scadenza: "" as string,
     limite_mora: "" as string,
     mora_giorni: "" as string,
-    tipo_rinnovo: "" as string,
+    tacito_rinnovo: true as boolean,
     disdetta_mesi: "" as string,
   });
-
-  const tipoRinnovoOpts = [
-    { value: "tacito_rinnovo", label: "Tacito Rinnovo" },
-    { value: "scadenza_annuale", label: "Scadenza Annuale" },
-    { value: "disdetta", label: "Disdetta" },
-    { value: "nessuno", label: "Nessuno" },
-  ];
 
   const startEditPeriodo = () => {
     if (titolo) {
@@ -491,7 +484,7 @@ const TitoloDetail = () => {
         data_scadenza: t.data_scadenza ?? "",
         limite_mora: t.limite_mora ?? "",
         mora_giorni: t.mora_giorni != null ? String(t.mora_giorni) : "",
-        tipo_rinnovo: t.tipo_rinnovo ?? "",
+        tacito_rinnovo: t.tacito_rinnovo ?? true,
         disdetta_mesi: t.disdetta_mesi != null ? String(t.disdetta_mesi) : "",
       });
     }
@@ -526,13 +519,19 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof periodoForm)[] = [
         "durata_da", "durata_a", "anni_durata", "rate", "garanzia_da", "garanzia_a",
-        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tipo_rinnovo", "disdetta_mesi",
+        "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "disdetta_mesi",
       ];
       const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
+      const booleanFields = new Set(["tacito_rinnovo"]);
       const payload: Record<string, any> = {};
       fields.forEach((f) => {
         const raw = periodoForm[f];
-        const newV = raw === "" || raw == null ? null : (numericFields.has(f as string) ? Number(raw) : raw);
+        let newV: any;
+        if (booleanFields.has(f as string)) {
+          newV = Boolean(raw);
+        } else {
+          newV = raw === "" || raw == null ? null : (numericFields.has(f as string) ? Number(raw) : raw);
+        }
         const oldV = (titolo as any)?.[f] ?? null;
         if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
         payload[f] = newV;
@@ -1679,7 +1678,7 @@ const TitoloDetail = () => {
             <FieldRow label="Data Scadenza" value={fmtDate(t.data_scadenza)} />
             <FieldRow label="Limite Mora" value={fmtDate(t.limite_mora)} />
             <FieldRow label="GG Mora" value={fmt(t.mora_giorni)} />
-            <FieldRow label="Tipo Rinnovo" value={fmt(t.tipo_rinnovo)} />
+            <FieldRow label="Tacito Rinnovo" value={t.tacito_rinnovo ? "Sì" : "No"} />
             <FieldRow label="Disdetta (mesi)" value={fmt(t.disdetta_mesi)} />
           </div>
         ) : (
@@ -1765,13 +1764,16 @@ const TitoloDetail = () => {
             </div>
 
             <div className="col-span-2">
-              <Label className="text-xs">Tipo Rinnovo</Label>
-              <SearchableSelect
-                options={tipoRinnovoOpts}
-                value={periodoForm.tipo_rinnovo}
-                onValueChange={(v) => setPeriodoForm(p => ({ ...p, tipo_rinnovo: v }))}
-                placeholder="Seleziona tipo rinnovo"
-              />
+              <Label className="text-xs">Tacito Rinnovo</Label>
+              <div className="flex items-center gap-2 h-9">
+                <Switch
+                  checked={periodoForm.tacito_rinnovo}
+                  onCheckedChange={(v) => setPeriodoForm(p => ({ ...p, tacito_rinnovo: v }))}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {periodoForm.tacito_rinnovo ? "Sì" : "No"}
+                </span>
+              </div>
             </div>
           </div>
         )}
