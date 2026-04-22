@@ -11,10 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Landmark, Upload, Search, FileText, ExternalLink, TrendingUp, AlertCircle } from "lucide-react";
+import { Landmark, Upload, Search, FileText, ExternalLink, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { useAuth } from "@/contexts/AuthContext";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 
 const PAGE_SIZE = 25;
 
