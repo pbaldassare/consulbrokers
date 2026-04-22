@@ -1340,14 +1340,14 @@ export default function ClienteDetail() {
                     <FieldInput label="Partita IVA" field="partita_iva" required />
                     <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" required />
                     <FieldInput label="Codice SDI" field="codice_sdi" />
-                    <FieldSelect label="Forma Giuridica" field="forma_giuridica" options={[
+                    <FieldSelect label="Forma Giuridica" field="forma_giuridica" required options={[
                       { value: "srl", label: "S.R.L." }, { value: "spa", label: "S.P.A." }, { value: "sas", label: "S.A.S." },
                       { value: "snc", label: "S.N.C." }, { value: "ditta_individuale", label: "Ditta Individuale" },
                       { value: "cooperativa", label: "Cooperativa" }, { value: "associazione", label: "Associazione" },
                       { value: "ente_pubblico", label: "Ente Pubblico" }, { value: "fondazione", label: "Fondazione" },
                       { value: "consorzio", label: "Consorzio" }, { value: "altro", label: "Altro" },
                     ]} />
-                    <FieldAddress label="Sede" field="indirizzo_sede" capField="cap_sede" cittaField="citta_sede" provinciaField="provincia_sede" />
+                    <FieldAddress label="Sede" field="indirizzo_sede" capField="cap_sede" cittaField="citta_sede" provinciaField="provincia_sede" required />
                     <FieldInput label="Città Sede" field="citta_sede" />
                     <FieldInput label="Provincia Sede" field="provincia_sede" />
                     <FieldInput label="CAP Sede" field="cap_sede" />
