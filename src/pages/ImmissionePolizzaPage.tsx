@@ -105,6 +105,11 @@ const ImmissionePolizzaPage = () => {
 
   // Provvigioni (lookup automatica rimossa: prodotto è ora testo libero, l'utente inserisce % manuale)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
+  const [showProvvigioneDialog, setShowProvvigioneDialog] = useState(false);
+  const [provvigioneDialogType] = useState<"new" | "update">("new");
+  const provvigioneFromDb = false;
+  const provvigioneOriginalValue = "";
+  const isProvvigioneModified = false;
 
   // === RCA AUTO State ===
   // Veicolo
