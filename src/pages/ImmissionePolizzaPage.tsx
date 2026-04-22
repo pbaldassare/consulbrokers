@@ -103,13 +103,8 @@ const ImmissionePolizzaPage = () => {
   const [dataIncasso, setDataIncasso] = useState("");
   const [numeroIncasso, setNumeroIncasso] = useState("");
 
-  // Provvigioni
+  // Provvigioni (lookup automatica rimossa: prodotto è ora testo libero, l'utente inserisce % manuale)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
-  const [provvigioneFromDb, setProvvigioneFromDb] = useState(false);
-  const [provvigioneOriginalValue, setProvvigioneOriginalValue] = useState("");
-  const [provvigioneDbRecordId, setProvvigioneDbRecordId] = useState<string | null>(null);
-  const [showProvvigioneDialog, setShowProvvigioneDialog] = useState(false);
-  const [provvigioneDialogType, setProvvigioneDialogType] = useState<"new" | "update">("new");
 
   // === RCA AUTO State ===
   // Veicolo
