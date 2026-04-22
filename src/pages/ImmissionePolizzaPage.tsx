@@ -380,7 +380,6 @@ const ImmissionePolizzaPage = () => {
         ramo_id: selectedRamo || null,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
-        specialist: specialist || null,
         tipo_portafoglio: tipoPortafoglio,
         cig_rif: cigRif || null,
         vincolo: vincolo || null,
@@ -594,25 +593,25 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Produttore / A.E.</Label>
+            <Label className="text-xs">Produttore</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedAE}
               onValueChange={setSelectedAE}
-              placeholder="— Seleziona A/E —"
-              options={(aeList || []).map((ae) => ({
+              placeholder="— Seleziona produttore —"
+              options={(aeList || []).map((ae: any) => ({
                 value: ae.id,
-                label: `${ae.sigla || ae.codice} - ${ae.cognome} ${ae.nome}`,
+                label: ae.ragione_sociale || `${ae.sigla || ae.codice || ""} - ${ae.cognome || ""} ${ae.nome || ""}`.trim(),
               }))}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Specialist (Backoffice)</Label>
+            <Label className="text-xs">Specialist</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedBackofficeId}
               onValueChange={setSelectedBackofficeId}
-              placeholder="— Seleziona Backoffice —"
+              placeholder="— Seleziona Specialist —"
               options={(backofficeList || []).map((b: any) => ({
                 value: b.id,
                 label: `${b.cognome || ""} ${b.nome || ""}`.trim(),
