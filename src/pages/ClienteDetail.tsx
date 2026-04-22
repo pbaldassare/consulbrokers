@@ -1135,7 +1135,7 @@ export default function ClienteDetail() {
       const { data } = await (supabase.from("codici_commerciali_cliente" as any) as any)
         .select("profilo_id")
         .eq("cliente_id", id)
-        .eq("ruolo", "backoffice")
+        .eq("ruolo", "Backoffice")
         .maybeSingle();
       return data;
     },
@@ -1165,13 +1165,13 @@ export default function ClienteDetail() {
         const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
           .delete()
           .eq("cliente_id", id)
-          .eq("ruolo", "backoffice");
+          .eq("ruolo", "Backoffice");
         if (error) throw error;
         return;
       }
       const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
         .upsert(
-          { cliente_id: id, ruolo: "backoffice", profilo_id },
+          { cliente_id: id, ruolo: "Backoffice", profilo_id },
           { onConflict: "cliente_id,ruolo" }
         );
       if (error) throw error;
