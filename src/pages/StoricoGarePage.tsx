@@ -122,7 +122,7 @@ export default function StoricoGarePage() {
       if (flagAccesso) q = q.eq("flag_accesso_atti", true);
       if (flagOfferta) q = q.eq("flag_offerta_tecnica", true);
       q = q.order("anno_riferimento", { ascending: false }).order("data_consegna", { ascending: false, nullsFirst: false });
-      q = q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, error, count } = await q;
       if (error) throw error;
       return { rows: (data as any[]) ?? [], total: count ?? 0 };
@@ -152,7 +152,7 @@ export default function StoricoGarePage() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
+  const total = data?.total ?? 0;
 
   return (
     <div className="space-y-4 p-4 md:p-6">
