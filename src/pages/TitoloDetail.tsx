@@ -315,8 +315,10 @@ const TitoloDetail = () => {
     descrizione_polizza: "",
     prodotto_nome: "",
     specialist: "",
-    produttore_id: "" as string | null,
+    produttore_nome: "",
     ufficio_id: "" as string | null,
+    compagnia_id: "" as string | null,
+    ramo_id: "" as string | null,
   });
 
   const tipoPortafoglioOpts = [
@@ -327,17 +329,49 @@ const TitoloDetail = () => {
   ];
 
   const { data: produttoriOpts = [] } = useQuery({
-    queryKey: ["produttori-profiles"],
+    queryKey: ["produttori-anagrafiche"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome")
+        .from("anagrafiche_professionali")
+        .select("id, nome, cognome, ragione_sociale, tipo")
+        .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
-        .eq("ruolo", "produttore")
         .order("cognome");
-      return (data || []).map((p: any) => ({
-        value: p.id,
-        label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
+      return (data || []).map((p: any) => {
+        const label = p.ragione_sociale || `${p.cognome || ""} ${p.nome || ""}`.trim();
+        return { value: label, label };
+      });
+    },
+    enabled: editingContratto,
+  });
+
+  const { data: compagnieOpts = [] } = useQuery({
+    queryKey: ["compagnie-attive-titolo"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnie")
+        .select("id, nome, codice")
+        .eq("attiva", true)
+        .order("nome");
+      return (data || []).map((c: any) => ({
+        value: c.id,
+        label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
+      }));
+    },
+    enabled: editingContratto,
+  });
+
+  const { data: ramiOpts = [] } = useQuery({
+    queryKey: ["rami-attivi-titolo"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rami")
+        .select("id, codice, descrizione")
+        .eq("attivo", true)
+        .order("codice");
+      return (data || []).map((r: any) => ({
+        value: r.id,
+        label: `${r.codice} - ${r.descrizione}`,
       }));
     },
     enabled: editingContratto,
