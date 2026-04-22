@@ -1158,9 +1158,18 @@ export default function ClienteDetail() {
           </Label>
         </div>
         {editMode ? (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {missingRequired.length > 0 && (
+              <span className="text-xs text-destructive">Compila i campi obbligatori ({missingRequired.length})</span>
+            )}
             <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
-            <Button size="sm" onClick={() => saveDetailsMutation.mutate()} disabled={saveDetailsMutation.isPending}>Salva</Button>
+            <Button
+              size="sm"
+              onClick={() => saveDetailsMutation.mutate(missingRequired)}
+              disabled={saveDetailsMutation.isPending || missingRequired.length > 0}
+            >
+              Salva
+            </Button>
           </div>
         ) : (
           <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
