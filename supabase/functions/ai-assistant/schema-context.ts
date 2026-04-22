@@ -50,6 +50,9 @@ sostituisce_polizza, storno_polizza, targa_telaio, vincolo, descrizione_polizza.
 Tabella sorgente delle polizze (più colonne tecniche di v_portafoglio_titoli).
 Usala SOLO per JOIN avanzati (es. con anagrafica_commerciale_id, percentuale_commerciale,
 percentuale_riparto, provvigioni_firma, provvigioni_quietanza).
+Campo chiave: tacito_rinnovo (boolean, default true) → true = polizza a tacito rinnovo,
+false = scadenza naturale/disdetta. Usa SEMPRE questo campo per filtrare/contare il
+tacito rinnovo. Il vecchio campo testuale `tipo_rinnovo` è legacy e NON va usato.
 
 ### titoli_movimenti
 Storico movimenti polizza (rinnovi, sospensioni, ecc.). Collega titoli nel tempo.
