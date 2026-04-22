@@ -1353,11 +1353,15 @@ export default function ClienteDetail() {
   const isCFValid = (cf: string) => /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test((cf || "").toUpperCase());
   const isPIVAValid = (p: string) => /^\d{11}$/.test(p || "");
 
+  const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
+  const emailOk = isEmailValid(ef.email || "");
+
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
         { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         { field: "specialist_id", label: "Specialist", ok: specialistAssigned },
+        { field: "email", label: "Email", ok: emailOk },
         { field: "codice_fiscale", label: "Codice Fiscale", ok: isCFValid(ef.codice_fiscale || "") },
         { field: "data_nascita", label: "Data di Nascita", ok: !!ef.data_nascita },
         { field: "luogo_nascita", label: "Luogo di Nascita", ok: !!(ef.luogo_nascita || "").trim() },
@@ -1367,6 +1371,7 @@ export default function ClienteDetail() {
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
         { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         { field: "specialist_id", label: "Specialist", ok: specialistAssigned },
+        { field: "email", label: "Email", ok: emailOk },
         {
           field: "partita_iva",
           label: "Partita IVA o Codice Fiscale",
@@ -1591,7 +1596,7 @@ export default function ClienteDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Sede */}
                 <div>
                   <Label className="text-xs">
@@ -1613,13 +1618,40 @@ export default function ClienteDetail() {
                       {isFieldMissing("ufficio_id") && (
                         <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
                       )}
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Gruppo Finanziario e Specialist sono obbligatori e si gestiscono in "Dati Statistici" e "Codici Commerciali (Rete)".
-                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Gruppo Finanziario */}
+                <div>
+                  <Label className="text-xs">
+                    Gruppo Finanziario{!readOnly && <RequiredMark />}
+                  </Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}
+                    </p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        className={`h-8 text-xs ${isFieldMissing("gruppo_finanziario_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        value={ef.gruppo_finanziario_id || ""}
+                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+                        placeholder="— Seleziona gruppo —"
+                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                      />
+                      {isFieldMissing("gruppo_finanziario_id") && (
+                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+                      )}
                     </>
                   )}
                 </div>
               </div>
+              {!readOnly && (
+                <p className="text-[10px] text-muted-foreground mt-3">
+                  Specialist obbligatorio, si gestisce in "Codici Commerciali (Rete)".
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -1687,7 +1719,13 @@ export default function ClienteDetail() {
                     <FieldInput label="CAP Sede" field="cap_sede" />
                   </>
                 )}
-                <FieldInput label="Email" field="email" />
+                <FieldInput
+                  label="Email"
+                  field="email"
+                  required
+                  errorMessage={!ef.email ? "Campo obbligatorio" : "Email non valida"}
+                />
+
                 <FieldInput label="Telefono" field="telefono" />
                 <FieldInput label="Cellulare" field="cellulare" />
                 <FieldInput label="Fax" field="fax" />
