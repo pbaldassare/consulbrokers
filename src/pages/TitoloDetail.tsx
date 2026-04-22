@@ -315,8 +315,10 @@ const TitoloDetail = () => {
     descrizione_polizza: "",
     prodotto_nome: "",
     specialist: "",
-    produttore_id: "" as string | null,
+    produttore_nome: "",
     ufficio_id: "" as string | null,
+    compagnia_id: "" as string | null,
+    ramo_id: "" as string | null,
   });
 
   const tipoPortafoglioOpts = [
@@ -327,17 +329,49 @@ const TitoloDetail = () => {
   ];
 
   const { data: produttoriOpts = [] } = useQuery({
-    queryKey: ["produttori-profiles"],
+    queryKey: ["produttori-anagrafiche"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome")
+        .from("anagrafiche_professionali")
+        .select("id, nome, cognome, ragione_sociale, tipo")
+        .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
-        .eq("ruolo", "produttore")
         .order("cognome");
-      return (data || []).map((p: any) => ({
-        value: p.id,
-        label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
+      return (data || []).map((p: any) => {
+        const label = p.ragione_sociale || `${p.cognome || ""} ${p.nome || ""}`.trim();
+        return { value: label, label };
+      });
+    },
+    enabled: editingContratto,
+  });
+
+  const { data: compagnieOpts = [] } = useQuery({
+    queryKey: ["compagnie-attive-titolo"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnie")
+        .select("id, nome, codice")
+        .eq("attiva", true)
+        .order("nome");
+      return (data || []).map((c: any) => ({
+        value: c.id,
+        label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
+      }));
+    },
+    enabled: editingContratto,
+  });
+
+  const { data: ramiOpts = [] } = useQuery({
+    queryKey: ["rami-attivi-titolo"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rami")
+        .select("id, codice, descrizione")
+        .eq("attivo", true)
+        .order("codice");
+      return (data || []).map((r: any) => ({
+        value: r.id,
+        label: `${r.codice} - ${r.descrizione}`,
       }));
     },
     enabled: editingContratto,
@@ -383,8 +417,10 @@ const TitoloDetail = () => {
         descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
         prodotto_nome: (titolo as any).prodotto_nome ?? "",
         specialist: (titolo as any).specialist ?? "",
-        produttore_id: (titolo as any).produttore_id ?? null,
+        produttore_nome: (titolo as any).produttore_nome ?? "",
         ufficio_id: (titolo as any).ufficio_id ?? null,
+        compagnia_id: (titolo as any).compagnia_id ?? null,
+        ramo_id: (titolo as any).ramo_id ?? null,
       });
     }
     setEditingContratto(true);
@@ -397,7 +433,8 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof contrattoForm)[] = [
         "tipo_portafoglio", "cig_rif", "vincolo", "targa_telaio",
-        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_id", "ufficio_id",
+        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
+        "ufficio_id", "compagnia_id", "ramo_id",
       ];
       fields.forEach((f) => {
         const oldV = (titolo as any)?.[f] ?? null;
@@ -415,8 +452,10 @@ const TitoloDetail = () => {
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
           specialist: contrattoForm.specialist || null,
-          produttore_id: contrattoForm.produttore_id || null,
+          produttore_nome: contrattoForm.produttore_nome || null,
           ufficio_id: contrattoForm.ufficio_id || null,
+          compagnia_id: contrattoForm.compagnia_id || null,
+          ramo_id: contrattoForm.ramo_id || null,
         } as any)
         .eq("id", id!);
       if (error) throw error;
@@ -1504,7 +1543,7 @@ const TitoloDetail = () => {
                 <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
               </>
             )}
-            <FieldRow label="Produttore" value={t.produttore ? `${(t.produttore as any).nome} ${(t.produttore as any).cognome}` : "—"} />
+            <FieldRow label="Produttore" value={fmt((t as any).produttore_nome || (t.produttore ? `${(t.produttore as any).nome || ""} ${(t.produttore as any).cognome || ""}`.trim() : ""))} />
             <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
             <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
             <FieldRow label="Vincolo" value={fmt(t.vincolo)} />
@@ -1515,12 +1554,22 @@ const TitoloDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {/* Read-only fields */}
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Compagnia</Label>
-              <div className="text-sm font-mono py-2">{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || "—"}</div>
+              <Label className="text-xs">Compagnia</Label>
+              <SearchableSelect
+                options={compagnieOpts}
+                value={contrattoForm.compagnia_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
+                placeholder="Seleziona compagnia"
+              />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Ramo</Label>
-              <div className="text-sm font-mono py-2">{(t.ramo as any)?.codice || ""} {(t.ramo as any)?.descrizione || "—"}</div>
+              <Label className="text-xs">Ramo</Label>
+              <SearchableSelect
+                options={ramiOpts}
+                value={contrattoForm.ramo_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, ramo_id: v || null }))}
+                placeholder="Seleziona ramo"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
@@ -1580,8 +1629,8 @@ const TitoloDetail = () => {
               <Label className="text-xs">Produttore</Label>
               <SearchableSelect
                 options={produttoriOpts}
-                value={contrattoForm.produttore_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_id: v || null }))}
+                value={contrattoForm.produttore_nome}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_nome: v }))}
                 placeholder="Seleziona produttore"
               />
             </div>

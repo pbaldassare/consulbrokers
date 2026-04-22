@@ -51,7 +51,7 @@ const ImmissionePolizzaPage = () => {
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedRamo, setSelectedRamo] = useState("");
   const [prodottoNome, setProdottoNome] = useState("");
-  const [specialist, setSpecialist] = useState("");
+  // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
   const [tipoPortafoglio, setTipoPortafoglio] = useState("diretto");
   const [cigRif, setCigRif] = useState("");
   const [vincolo, setVincolo] = useState("");
@@ -270,12 +270,12 @@ const ImmissionePolizzaPage = () => {
   }, [profile?.ufficio_id]);
 
   const { data: aeList } = useQuery({
-    queryKey: ["ae-list-immissione"],
+    queryKey: ["produttori-list-immissione"],
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla")
-        .eq("tipo", "account_executive")
+        .select("id, codice, cognome, nome, sigla, ragione_sociale, tipo")
+        .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
@@ -380,7 +380,6 @@ const ImmissionePolizzaPage = () => {
         ramo_id: selectedRamo || null,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
-        specialist: specialist || null,
         tipo_portafoglio: tipoPortafoglio,
         cig_rif: cigRif || null,
         vincolo: vincolo || null,
@@ -424,10 +423,21 @@ const ImmissionePolizzaPage = () => {
         data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
-        produttore_id: selectedAE || null,
-        // Backoffice (Specialist) salvato come id profilo nel campo specialist
-        // (sovrascrive eventuale categoria 'danni/vita/auto/re')
-        ...(selectedBackofficeId ? { specialist: selectedBackofficeId } : {}),
+        // Produttore: salviamo il nome leggibile in produttore_nome (text).
+        // produttore_id resta NULL/legacy.
+        produttore_nome: (() => {
+          if (!selectedAE) return null;
+          const ae = (aeList || []).find((a: any) => a.id === selectedAE);
+          if (!ae) return null;
+          return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
+        })(),
+        // Backoffice (Specialist) salvato come "COGNOME NOME" leggibile in titoli.specialist
+        ...(selectedBackofficeId ? {
+          specialist: (() => {
+            const b = (backofficeList || []).find((x: any) => x.id === selectedBackofficeId);
+            return b ? `${(b as any).cognome || ""} ${(b as any).nome || ""}`.trim() : null;
+          })(),
+        } : {}),
       };
 
       const { data: newTitolo, error } = await supabase
@@ -583,25 +593,25 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Produttore / A.E.</Label>
+            <Label className="text-xs">Produttore</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedAE}
               onValueChange={setSelectedAE}
-              placeholder="— Seleziona A/E —"
-              options={(aeList || []).map((ae) => ({
+              placeholder="— Seleziona produttore —"
+              options={(aeList || []).map((ae: any) => ({
                 value: ae.id,
-                label: `${ae.sigla || ae.codice} - ${ae.cognome} ${ae.nome}`,
+                label: ae.ragione_sociale || `${ae.sigla || ae.codice || ""} - ${ae.cognome || ""} ${ae.nome || ""}`.trim(),
               }))}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Specialist (Backoffice)</Label>
+            <Label className="text-xs">Specialist</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedBackofficeId}
               onValueChange={setSelectedBackofficeId}
-              placeholder="— Seleziona Backoffice —"
+              placeholder="— Seleziona Specialist —"
               options={(backofficeList || []).map((b: any) => ({
                 value: b.id,
                 label: `${b.cognome || ""} ${b.nome || ""}`.trim(),
@@ -663,12 +673,7 @@ const ImmissionePolizzaPage = () => {
               onChange={(e) => setProdottoNome(e.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Specialist</Label>
-            <SearchableSelect className="h-8 text-xs" value={specialist} onValueChange={setSpecialist} placeholder="—"
-              options={[{ value: "danni", label: "Danni" }, { value: "vita", label: "Vita" }, { value: "auto", label: "Auto" }, { value: "re", label: "RE" }]}
-            />
-          </div>
+          {/* Campo Specialist hardcoded rimosso: lo Specialist è ora unico (sezione Sede), salvato come nome leggibile in titoli.specialist */}
           <div className="space-y-1.5">
             <Label className="text-xs">Tipo Portafoglio</Label>
             <SearchableSelect className="h-8 text-xs" value={tipoPortafoglio} onValueChange={setTipoPortafoglio} placeholder="—"
