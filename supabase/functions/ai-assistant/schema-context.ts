@@ -324,4 +324,30 @@ LEFT JOIN uffici u ON u.id = p.ufficio_id
 WHERE p.convertito_cliente_id IS NULL
   AND u.nome_ufficio ILIKE '%milano%'
 GROUP BY u.nome_ufficio;
+
+### v_storico_gare (Storico Gare Pubbliche - Market Intelligence)
+NON è la pipeline trattative attive: è il dataset storico di gare/manifestazioni d'interesse PA.
+Campi: id, anno_riferimento (int), ente_nome, provincia (2 lettere), tipologia, esito,
+broker_incumbent, categoria_ente, data_consegna, data_inizio_mandato, data_fine_mandato,
+opzione_rinnovo_anni, flag_cauzione, flag_referenze_bancarie, flag_accesso_atti,
+flag_offerta_tecnica, note, cliente_id, stato_mandato (calcolato).
+Valori enum:
+- tipologia: 'manifestazione' | 'gara' | 'affidamento_diretto' | 'altro'
+- esito: 'vinta' | 'persa' | 'non_partecipato' | 'annullata' | 'in_corso' | 'non_classificato'
+- categoria_ente: 'comune' | 'provincia' | 'regione' | 'azienda_sanitaria' | 'universita' | 'consorzio' | 'societa_partecipata' | 'altro_ente'
+- stato_mandato: 'attivo' | 'in_scadenza_12m' | 'scaduto' | 'sconosciuto'
+- broker_incumbent normalizzato: 'INTERMEDIA', 'B&S ITALIA', 'AON', 'MARSH', 'WILLIS', 'MAG JLT', 'ASSITECA', ...
+
+Esempi:
+-- Win rate per anno e tipologia:
+SELECT anno_riferimento, tipologia,
+  COUNT(*) FILTER (WHERE esito='vinta')::float / NULLIF(COUNT(*),0) AS win_rate
+FROM v_storico_gare GROUP BY 1,2 ORDER BY 1 DESC;
+
+-- Mandati in scadenza 12m gestiti da competitor:
+SELECT ente_nome, provincia, broker_incumbent, data_fine_mandato
+FROM v_storico_gare
+WHERE stato_mandato='in_scadenza_12m' AND broker_incumbent <> 'INTERMEDIA'
+ORDER BY data_fine_mandato LIMIT 50;
 `;
+
