@@ -649,7 +649,7 @@ function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnl
 }
 
 /* ── Dati Statistici Sub-component ── */
-function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[] }) {
+function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari, isFieldMissing }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[]; isFieldMissing: (f: string) => boolean }) {
   const { data: zoneOpts = [] } = useLookupZone();
   const { data: indottiOpts = [] } = useLookupIndotti();
   const { data: attivitaOpts = [] } = useLookupAttivita();
@@ -694,8 +694,32 @@ function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: 
     </div>
   );
 
+  const gfMissing = isFieldMissing("gruppo_finanziario_id");
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+      {/* Gruppo Finanziario (obbligatorio) */}
+      <div>
+        <Label className="text-xs">
+          Gruppo Finanziario{!readOnly && <span className="text-destructive ml-0.5">*</span>}
+        </Label>
+        {readOnly ? (
+          <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}</p>
+        ) : (
+          <>
+            <SearchableSelect
+              className={`h-8 text-xs ${gfMissing ? "border-destructive ring-1 ring-destructive" : ""}`}
+              value={ef.gruppo_finanziario_id || ""}
+              onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+              placeholder="— Seleziona gruppo —"
+              options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+            />
+            {gfMissing && (
+              <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+            )}
+          </>
+        )}
+      </div>
       <LookupField label="Zona" field="zona" options={zoneOpts} />
       <LookupField label="Indotto" field="indotto" options={indottiOpts} />
       <LookupField label="Gruppo Statistico" field="gruppo_statistico" options={gruppiStatOpts} />
@@ -1095,13 +1119,13 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
-        .select("id, nome, codice")
-        .order("nome");
+        .select("id, nome_ufficio, codice_ufficio, attivo")
+        .order("nome_ufficio");
       return (data || []) as any[];
     },
   });
 
-  // Specialist (backoffice) corrente per il cliente
+  // Specialist (backoffice) corrente per il cliente — usato solo per validazione
   const { data: specialistRow } = useQuery({
     queryKey: ["specialist_cliente", id],
     queryFn: async () => {
@@ -1116,39 +1140,7 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
-  // Lista profili Specialist (backoffice)
-  const { data: backofficeProfili = [] } = useQuery({
-    queryKey: ["profili_backoffice"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome")
-        .eq("ruolo", "backoffice")
-        .eq("attivo", true)
-        .order("cognome");
-      return (data || []) as any[];
-    },
-  });
-
   const specialistAssigned = !!specialistRow?.profilo_id;
-
-  const upsertSpecialistMutation = useMutation({
-    mutationFn: async (profilo_id: string) => {
-      if (!id) throw new Error("ID cliente mancante");
-      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
-        .upsert(
-          { cliente_id: id, ruolo: "backoffice", profilo_id, percentuale: 0 },
-          { onConflict: "cliente_id,ruolo" }
-        );
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["specialist_cliente", id] });
-      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
-      toast.success("Specialist aggiornato");
-    },
-    onError: (err: any) => toast.error(err.message),
-  });
 
   const [editFields, setEditFields] = useState<Record<string, any>>({});
   // Tracks the last CF auto-filled, used only to avoid spamming the toast.
@@ -1597,7 +1589,7 @@ export default function ClienteDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {/* Sede */}
                 <div>
                   <Label className="text-xs">
@@ -1605,80 +1597,22 @@ export default function ClienteDetail() {
                   </Label>
                   {readOnly ? (
                     <p className="text-sm mt-1">
-                      {ufficiList.find((u: any) => u.id === ef.ufficio_id)?.nome || "—"}
+                      {ufficiList.find((u: any) => u.id === ef.ufficio_id)?.nome_ufficio || "—"}
                     </p>
                   ) : (
                     <>
                       <SearchableSelect
                         className={`h-8 text-xs ${isFieldMissing("ufficio_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                        value={ef.ufficio_id || ""}
+                        value={String(ef.ufficio_id ?? "")}
                         onValueChange={(v) => updateField("ufficio_id", v || null)}
                         placeholder="— Seleziona sede —"
-                        options={ufficiList.map((u: any) => ({ value: u.id, label: u.nome }))}
+                        options={ufficiList.map((u: any) => ({ value: u.id, label: u.nome_ufficio }))}
                       />
                       {isFieldMissing("ufficio_id") && (
                         <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
                       )}
-                    </>
-                  )}
-                </div>
-
-                {/* Gruppo Finanziario */}
-                <div>
-                  <Label className="text-xs">
-                    Gruppo Finanziario{!readOnly && <RequiredMark />}
-                  </Label>
-                  {readOnly ? (
-                    <p className="text-sm mt-1">
-                      {gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}
-                    </p>
-                  ) : (
-                    <>
-                      <SearchableSelect
-                        className={`h-8 text-xs ${isFieldMissing("gruppo_finanziario_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                        value={ef.gruppo_finanziario_id || ""}
-                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-                        placeholder="— Seleziona gruppo —"
-                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                      />
-                      {isFieldMissing("gruppo_finanziario_id") && (
-                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Specialist (sincronizzato con Codici Commerciali) */}
-                <div>
-                  <Label className="text-xs">
-                    Specialist <span className="text-destructive">*</span>
-                  </Label>
-                  {readOnly ? (
-                    <p className="text-sm mt-1">
-                      {(() => {
-                        const p = backofficeProfili.find((bp: any) => bp.id === specialistRow?.profilo_id);
-                        return p ? `${p.cognome || ""} ${p.nome || ""}`.trim() : "—";
-                      })()}
-                    </p>
-                  ) : (
-                    <>
-                      <SearchableSelect
-                        className={`h-8 text-xs ${isFieldMissing("specialist_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                        value={specialistRow?.profilo_id || ""}
-                        onValueChange={(v) => {
-                          if (v) upsertSpecialistMutation.mutate(v);
-                        }}
-                        placeholder="— Seleziona specialist —"
-                        options={backofficeProfili.map((p: any) => ({
-                          value: p.id,
-                          label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
-                        }))}
-                      />
-                      {isFieldMissing("specialist_id") && (
-                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
-                      )}
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        Sincronizzato con Codici Commerciali (Rete)
+                        Gruppo Finanziario e Specialist sono obbligatori e si gestiscono in "Dati Statistici" e "Codici Commerciali (Rete)".
                       </p>
                     </>
                   )}
@@ -1832,7 +1766,7 @@ export default function ClienteDetail() {
                 <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span className="font-semibold">Dati Statistici</span></div>
               </AccordionTrigger>
               <AccordionContent>
-                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} />
+                <DatiStatisticiSection ef={ef} readOnly={readOnly} updateField={updateField} gruppiFinanziari={gruppiFinanziari} isFieldMissing={isFieldMissing} />
               </AccordionContent>
             </AccordionItem>
 
