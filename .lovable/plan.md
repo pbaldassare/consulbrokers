@@ -1,52 +1,53 @@
 
 
-## Campo "Prodotto" come testo libero salvato in DB
+## Tendine globali per Specialist, Compagnia, Ramo e Produttore su tutte le polizze
 
 ### Situazione attuale
 
-- Il campo "Prodotto" in UI è un `SearchableSelect` legato alla tabella lookup `prodotti` (filtrata per compagnia), che salva su `titoli.prodotto_id` (uuid).
-- Verifica DB: **0 polizze su 1047 hanno `prodotto_id` valorizzato** → la lookup non viene mai usata in pratica.
-- A DB esiste già una colonna `titoli.prodotto_nome (text)` con 7 valori reali (es. "Cyber Risk", "Tutela Legale", "Kasko Veicoli") + è già copiata da `RinnovoTitoloDialog.tsx` durante i rinnovi.
-- Conclusione: la verità per "Prodotto" diventa `prodotto_nome` (text). `prodotto_id` resta a DB come legacy ma non viene più scritto/letto da UI.
+| Campo | DB | Immissione Polizza | Dettaglio Polizza (edit) |
+|---|---|---|---|
+| **Compagnia** | `compagnia_id` (uuid) | ✅ `SearchableSelect` da `compagnie` | ❌ Read-only 🔒 |
+| **Ramo** | `ramo_id` (uuid) | ✅ `SearchableSelect` da `rami` | ❌ Read-only 🔒 |
+| **Produttore** | `produttore_nome` (text, libero) + `produttore_id` (uuid, 0/1047 usato → legacy) | ⚠️ Tendina su `anagrafiche_professionali` ma salva in `produttore_id` **mai usato** | ⚠️ Tendina su `profiles.ruolo='produttore'` (vuoto), salva in `produttore_id` legacy |
+| **Specialist** | `specialist` (text libero) | ❌ **Doppio campo confuso**: uno con `[danni/vita/auto/re]` hardcoded + uno "Specialist (Backoffice)" da `profiles.ruolo='backoffice'` | ✅ Tendina da `profiles.ruolo='backoffice'` |
 
-### Modifiche
+Risultato: 426/1047 polizze senza produttore, lo Specialist in immissione genera valori incoerenti, in dettaglio Compagnia e Ramo non si possono modificare.
 
-**1. `src/pages/TitoloDetail.tsx`**
-- Sezione Contratto, blocco edit: sostituisco lo `SearchableSelect` "Prodotto" con un `<Input type="text" placeholder="Es. Tutela Legale, Cyber Risk…" />` bound su `contrattoForm.prodotto_nome`.
-- Stato del form: rimuovo `prodotto_id` (resta inalterato a DB), aggiungo `prodotto_nome: string` (default `""`).
-- Salvataggio (UPDATE su `titoli`): invio `prodotto_nome: contrattoForm.prodotto_nome || null`. Non tocco più `prodotto_id`.
-- Vista read-only: `<FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />` (fallback alla lookup solo per i pochi storici che fossero collegati per id).
-- Header titolo (riga 1068): aggiorno il sottotitolo a `t.prodotto_nome ?? t.prodotti?.nome_prodotto ?? ""` per mostrare il nuovo campo.
-- Rimuovo la query `prodottiOpts` (non più necessaria) e relativo useEffect dipendente da `compagnia_id`.
+### Cosa faccio
 
-**2. `src/pages/ImmissionePolizzaPage.tsx`**
-- Sostituisco lo state `selectedProdotto` (uuid) con `prodottoNome: string` (default `""`).
-- Form: sostituisco il `SearchableSelect` Prodotto con un `<Input type="text" placeholder="Nome prodotto (testo libero)" />`.
-- INSERT su `titoli`: rimuovo `prodotto_id: selectedProdotto`, aggiungo `prodotto_nome: prodottoNome || null`.
-- **Provvigione automatica**: oggi la lookup provvigione usa `selectedProdottoCategoriaId` derivato dal prodotto scelto. Senza più la lookup `prodotti`, la categoria non è più derivabile → l'utente dovrà selezionare manualmente la categoria/ramo come oggi avviene già tramite `selectedRamo`. Modifico `provvigioneDb` per usare `categoria_id` ricavata dal **ramo selezionato** (`rami.categoria_id` se esiste, altrimenti rimuovo la chiamata silente). Mantengo le card di conferma/aggiornamento provvigione ma legate al ramo.
+**1. Tendina unificata "Specialist"** (sorgente unica = `profiles WHERE ruolo='backoffice' AND attivo=true`)
+- `ImmissionePolizzaPage.tsx`: rimuovo il campo "Specialist" hardcoded `[danni/vita/auto/re]` (riga 666-671). Resta solo "Specialist (Backoffice)" che già esiste e salva in `titoli.specialist` come `"COGNOME NOME"` (text). Cambio il salvataggio per memorizzare il **nome leggibile** invece dell'uuid (così è coerente con i 3 valori storici già a DB: "GUARRACINO GAETANO", "SCARPELLI PAOLA", "Gestione Milano").
+- `TitoloDetail.tsx`: già è `SearchableSelect` corretto, nessuna modifica.
 
-**3. `src/components/polizze/RinnovoTitoloDialog.tsx`**
-- Già copia `prodotto_nome` (riga 201). Nessuna modifica strutturale; rimuovo la riga 200 che copia `prodotto_id` per allinearci al fatto che il campo non viene più usato.
+**2. Tendina "Produttore" su tutte le polizze** (sorgente = `anagrafiche_professionali WHERE tipo IN ('account_executive','corrispondente','responsabile_sede') AND attivo=true` → ~560 voci)
+- Salvo il **nome leggibile** in `titoli.produttore_nome` (text), non più in `produttore_id` (lo lascio NULL/legacy, come fatto per `prodotto_id`).
+- `ImmissionePolizzaPage.tsx`: il campo "Produttore / A.E." (riga 585-597) viene rinominato "Produttore" e popolato dalle 3 categorie sopra; al submit salva `produttore_nome = "COGNOME NOME"` o `ragione_sociale` per le società.
+- `TitoloDetail.tsx`: nel form Contratto sostituisco la query `produttoriOpts` (oggi punta a `profiles.ruolo='produttore'`, vuota) con la stessa fonte `anagrafiche_professionali`. Sostituisco il campo "Produttore" che bind su `produttore_id` con un bind su **`produttore_nome`** (text). Aggiorno anche il display read-only (riga 1507) per leggere `produttore_nome` con fallback a `produttore.nome cognome`.
 
-**4. `supabase/functions/ai-assistant/schema-context.ts`**
-- Aggiungo nota su `titoli.prodotto_nome (text)`: "nome prodotto in testo libero (verità UI). `prodotto_id` è legacy, non usato".
+**3. Compagnia e Ramo modificabili anche dal Dettaglio Polizza**
+- `TitoloDetail.tsx`: nel pannello Contratto in modalità edit, sostituisco i due box read-only 🔒 "Compagnia" (riga 1517-1520) e "Ramo" (riga 1521-1524) con due `SearchableSelect` popolati da `compagnie` (attiva=true) e `rami` (attivo=true), bound su `contrattoForm.compagnia_id` e `contrattoForm.ramo_id`. Aggiungo i due campi allo state `contrattoForm`, alla funzione `startEditContratto`, alla mutation `saveContrattoMutation` (UPDATE su `titoli.compagnia_id` e `titoli.ramo_id`) e al log attività.
+- Aggiungo le query `compagnieOpts` e `ramiOpts` con lo stesso pattern già usato per `produttoriOpts`/`specialistOpts`.
+
+**4. Pulizia dati specialist (1 record sporco)**
+- Migrazione SQL: l'unico record con valore uuid (`cf2372e6-…`, 7 polizze) viene risolto in `"COGNOME NOME"` leggendo dal profilo corrispondente, con UPDATE mirato. Se il profilo non esiste più, lo lascio invariato.
 
 **5. Memory**
-- Salvo `mem://insurance/prodotto-nome-libero`: il prodotto polizza è un campo testo libero su `titoli.prodotto_nome`. La FK `prodotto_id` → `prodotti` è legacy: non leggere/scrivere da UI. La provvigione automatica per ramo passa solo per `rami.categoria_id`.
+- Aggiorno `mem://insurance/policy-data-inheritance` con: Specialist e Produttore vivono come **testo leggibile** in `titoli.specialist` e `titoli.produttore_nome` (con tendina sorgente `profiles`/`anagrafiche_professionali`); `produttore_id` è legacy.
 
 ### Cosa NON tocco
 
-- Non droppo `titoli.prodotto_id` né la tabella `prodotti` (resta per audit/storico ed eventuale futura riattivazione).
-- Nessun cambio a `prodotti` o alla pagina che gestisce la lookup, se esiste.
-- `ClientePolizze.tsx` e `TemplatePage.tsx` già leggono `prodotto_nome`: nessuna modifica necessaria.
-- Nessun trigger, nessun constraint sul nuovo campo testo.
+- Il campo `produttore_id` resta a DB (legacy, mai più scritto/letto da UI — stesso pattern già applicato a `prodotto_id`).
+- Nessun cambio a `compagnie`, `rami`, `profiles`, `anagrafiche_professionali`.
+- Nessun trigger, nessun constraint nuovo.
+- Nessun cambio a `RinnovoTitoloDialog.tsx`: già copia `compagnia_id`, `ramo_id`, `produttore_nome`, `specialist` dal padre.
+- Nessun cambio alle Edge Function di import.
 
 ### Verifica
 
-1. Apro `/titoli/ab2c7fd2-…`, premo "Modifica" sezione Contratto: vedo un campo testo "Prodotto" vuoto (perché il record non ha `prodotto_nome`). Scrivo "Tutela Legale", salvo → DB `titoli.prodotto_nome = 'Tutela Legale'`.
-2. Riapro il titolo: il campo mostra "Tutela Legale" sia in read-only che in edit.
-3. Vado in `/immissione-polizza`: nel form vedo `Input` testo invece del select; salvando, la nuova polizza ha `prodotto_nome` valorizzato e `prodotto_id` NULL.
-4. Faccio Rinnovo da un titolo con `prodotto_nome = 'Cyber Risk'`: il nuovo titolo eredita il testo.
-5. Portale cliente `/cliente/polizze`: continua a mostrare `prodotto_nome` come oggi (codice già pronto).
-6. AI Assistant: la query `SELECT prodotto_nome, COUNT(*) FROM titoli GROUP BY prodotto_nome` restituisce risultati significativi (non più tutti NULL).
+1. `/immissione-polizza`: vedo **un solo** campo "Specialist" (tendina backoffice) e **un solo** campo "Produttore" (tendina anagrafiche professionali). Salvando, in DB `titoli.specialist = "GUARRACINO GAETANO"` e `titoli.produttore_nome = "AMATO MARCELLINO"` (text leggibile).
+2. `/titoli/{id}` → "Modifica Contratto": Compagnia e Ramo sono ora **tendine** modificabili (non più con 🔒). Cambio compagnia, salvo, riapro: il valore è cambiato.
+3. Stesso form: tendina Produttore mostra le ~560 anagrafiche professionali; tendina Specialist mostra i backoffice da `profiles`.
+4. Vista read-only Contratto: "Produttore" mostra il nome (es. "AMATO MARCELLINO") leggendo `produttore_nome` con fallback al join legacy.
+5. AI Assistant: `SELECT specialist, COUNT(*) FROM titoli GROUP BY specialist` non contiene più valori uuid sporchi; `SELECT produttore_nome, COUNT(*) FROM titoli WHERE produttore_nome IS NOT NULL` cresce nel tempo man mano che le polizze vengono editate/create.
+6. Rinnovo polizza: il nuovo titolo eredita correttamente compagnia, ramo, produttore_nome e specialist dal padre.
 
