@@ -1636,7 +1636,7 @@ export default function ClienteDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Sede */}
                 <div>
                   <Label className="text-xs">
@@ -1686,10 +1686,43 @@ export default function ClienteDetail() {
                     </>
                   )}
                 </div>
+
+                {/* Specialist (Backoffice) */}
+                <div>
+                  <Label className="text-xs">
+                    Specialist{!readOnly && <RequiredMark />}
+                  </Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {(() => {
+                        const p = profiliBackoffice.find((x: any) => x.id === specialistRow?.profilo_id);
+                        return p ? `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—" : "—";
+                      })()}
+                    </p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        className={`h-8 text-xs ${!specialistAssigned ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        value={specialistRow?.profilo_id || ""}
+                        onValueChange={(v) => upsertSpecialistMutation.mutate(v || null)}
+                        placeholder="— Seleziona specialist —"
+                        options={profiliBackoffice
+                          .filter((p: any) => p.ruolo === "backoffice" || p.ruolo === "admin")
+                          .map((p: any) => ({
+                            value: p.id,
+                            label: `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—",
+                          }))}
+                      />
+                      {!specialistAssigned && (
+                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
               {!readOnly && (
                 <p className="text-[10px] text-muted-foreground mt-3">
-                  Specialist obbligatorio, si gestisce in "Codici Commerciali (Rete)".
+                  I dettagli del codice commerciale (mandato, % provvigione, brand, date) si gestiscono in "Codici Commerciali (Rete)".
                 </p>
               )}
             </CardContent>
