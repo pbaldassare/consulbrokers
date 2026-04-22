@@ -365,47 +365,6 @@ const ImmissionePolizzaPage = () => {
   // --- Handlers ---
 
   const handleConferma = () => {
-    const hasProvvigione = percentualeProvvigione !== "";
-    if (hasProvvigione && !provvigioneFromDb) {
-      setProvvigioneDialogType("new");
-      setShowProvvigioneDialog(true);
-      return;
-    }
-    if (hasProvvigione && isProvvigioneModified) {
-      setProvvigioneDialogType("update");
-      setShowProvvigioneDialog(true);
-      return;
-    }
-    finalizzaPolizza();
-  };
-
-  const handleProvvigioneSave = async () => {
-    try {
-      if (provvigioneDialogType === "new" && selectedCompagnia && selectedProdottoCategoriaId) {
-        await supabase.from("provvigioni_compagnia_ramo").insert({
-          compagnia_id: selectedCompagnia,
-          categoria_id: selectedProdottoCategoriaId,
-          percentuale_provvigione: parseFloat(percentualeProvvigione),
-          attiva: true,
-        } as any);
-        toast.success("Provvigione salvata per questa combinazione Compagnia+Ramo");
-      } else {
-        if (provvigioneDbRecordId) {
-          await supabase.from("provvigioni_compagnia_ramo")
-            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) } as any)
-            .eq("id", provvigioneDbRecordId);
-          toast.success("Provvigione default aggiornata");
-        }
-      }
-    } catch {
-      toast.error("Errore nel salvataggio della provvigione");
-    }
-    setShowProvvigioneDialog(false);
-    finalizzaPolizza();
-  };
-
-  const handleProvvigioneSkip = () => {
-    setShowProvvigioneDialog(false);
     finalizzaPolizza();
   };
 
@@ -419,7 +378,7 @@ const ImmissionePolizzaPage = () => {
         appendice: appendice || "000",
         compagnia_id: selectedCompagnia || null,
         ramo_id: selectedRamo || null,
-        prodotto_id: selectedProdotto || null,
+        prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         specialist: specialist || null,
         tipo_portafoglio: tipoPortafoglio,
@@ -696,12 +655,12 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
-            <SearchableSelect
+            <Input
+              type="text"
               className="h-8 text-xs"
-              value={selectedProdotto}
-              onValueChange={setSelectedProdotto}
-              placeholder="— Prodotto —"
-              options={(prodottiList || []).map((p) => ({ value: p.id, label: `${p.codice_prodotto || ""} - ${p.nome_prodotto}` }))}
+              placeholder="Nome prodotto (testo libero)"
+              value={prodottoNome}
+              onChange={(e) => setProdottoNome(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -994,23 +953,14 @@ const ImmissionePolizzaPage = () => {
               type="number" step="0.01" min="0" max="100"
               value={percentualeProvvigione}
               onChange={(e) => setPercentualeProvvigione(e.target.value)}
-              placeholder={selectedCompagnia && selectedProdottoCategoriaId ? "Inserisci %" : "Seleziona compagnia e prodotto"}
-              disabled={!selectedCompagnia || !selectedProdottoCategoriaId}
+              placeholder={selectedCompagnia ? "Inserisci %" : "Seleziona compagnia"}
+              disabled={!selectedCompagnia}
               className="h-8 text-xs font-mono"
             />
           </div>
           <div className="flex items-center gap-2 pb-1">
-            {selectedProdottoCategoriaId && provvigioneFromDb && !isProvvigioneModified && (
-              <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Da database (Compagnia+Ramo)</Badge>
-            )}
-            {selectedProdottoCategoriaId && provvigioneFromDb && isProvvigioneModified && (
-              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">Modificato (era {provvigioneOriginalValue}%)</Badge>
-            )}
-            {selectedProdottoCategoriaId && !provvigioneFromDb && percentualeProvvigione && (
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">Nuovo valore</Badge>
-            )}
-            {selectedCompagnia && selectedProdottoCategoriaId && !provvigioneFromDb && !percentualeProvvigione && (
-              <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione</span>
+            {!selectedCompagnia && (
+              <span className="text-[10px] text-muted-foreground">Seleziona una compagnia</span>
             )}
           </div>
           {premioNetto && percentualeProvvigione && (
