@@ -1,32 +1,35 @@
 
 
-## Sede + Gruppo Finanziario affiancati e Email obbligatoria
+## Specialist nella card "Assegnazioni Gestionali"
 
 ### Cosa cambia in `src/pages/ClienteDetail.tsx`
 
-1. **Card "Assegnazioni Gestionali"** (in alto): da 1 colonna a **2 colonne affiancate**:
-   - Colonna sinistra: **Sede *** (come ora, `ufficio_id`).
-   - Colonna destra: **Gruppo Finanziario *** (`gruppo_finanziario_id`), `SearchableSelect` identico a quello in fondo, con stesso bordo rosso `isFieldMissing` quando vuoto.
-   - Aggiorno il testo informativo sotto: "Specialist obbligatorio, si gestisce in 'Codici Commerciali (Rete)'".
-   - Il `SearchableSelect` Gruppo Finanziario resta **anche** nella sezione "Dati Statistici" (sincronizzato sullo stesso campo `editFields.gruppo_finanziario_id`), così modificarlo da una parte aggiorna l'altra automaticamente.
+Porto anche **Specialist** nella card in alto, accanto a Sede e Gruppo Finanziario.
 
-2. **Email obbligatoria**:
-   - Aggiungo `email` (campo `cliente.email`) a `requiredFieldsList` per **tutti i tipi cliente** (privato/azienda/ente).
-   - Validazione: non vuota + formato email valido (regex semplice già usata altrove o `z.string().email()`).
-   - Etichetta "Email" → "Email *", bordo rosso quando vuota o non valida, hint "Campo obbligatorio" / "Email non valida".
-   - Counter "Compila i campi obbligatori (N)" e blocco Salva includono Email.
+1. **Card "Assegnazioni Gestionali"** → grid a **3 colonne affiancate** (su desktop; 1 colonna su mobile):
+   - Sinistra: **Sede *** (`ufficio_id`)
+   - Centro: **Gruppo Finanziario *** (`gruppo_finanziario_id`)
+   - Destra: **Specialist *** (`backoffice_user_id`), `SearchableSelect` con elenco utenti che hanno ruolo `backoffice` (stessa fonte già usata in "Codici Commerciali (Rete)").
+   - Bordo rosso `isFieldMissing` quando vuoto, asterisco rosso nell'etichetta, hint "Campo obbligatorio".
+
+2. **Sincronizzazione bidirezionale** con la sezione "Codici Commerciali (Rete)": il `SearchableSelect` Specialist resta visibile **anche** lì, agganciato allo stesso campo `editFields.backoffice_user_id`. Modifica in un punto → aggiorna l'altro.
+
+3. **Testo informativo** sotto la card: rimuovo la riga "Specialist obbligatorio, si gestisce in 'Codici Commerciali (Rete)'" (ora non serve più, è lì sopra).
+
+4. **Validazione**: `backoffice_user_id` resta in `requiredFieldsList`, counter "Compila i campi obbligatori (N)" e blocco Salva invariati.
 
 ### Cosa NON tocco
 
 - DB, RLS, Edge Functions.
-- Logica sync Specialist, auto-fill CF, indirizzi, altre sezioni.
-- Layout altre card.
+- Logica sync Specialist (regole legate a `backoffice_assignment-logic`: assegnazione globale per cliente).
+- Email obbligatoria, Sede e Gruppo Finanziario (già fatti).
+- Altre card e sezioni.
 
 ### Verifica
 
-1. Apro ADINOLFI → card in alto mostra Sede ("Ufficio di Napoli") **a sinistra** e Gruppo Finanziario ("EP_STRUM - Enti Pubblici") **a destra**, entrambi con asterisco.
-2. Svuoto Gruppo Finanziario nella card in alto → bordo rosso, counter sale, anche il select in "Dati Statistici" risulta vuoto.
-3. Lascio Email vuota → campo Email diventa rosso con hint "Campo obbligatorio", counter include Email, Salva bloccato.
-4. Inserisco email malformata ("foo@") → bordo rosso, hint "Email non valida", Salva bloccato.
-5. Compilo email valida + Sede + Gruppo + Specialist → counter sparisce, Salva abilitato.
+1. Apro ADINOLFI → card in alto mostra **3 colonne**: Sede ("Ufficio di Napoli") | Gruppo Finanziario ("EP_STRUM") | Specialist (es. "Mario Rossi"), tutti con asterisco.
+2. Svuoto Specialist nella card in alto → bordo rosso, counter sale, anche il select in "Codici Commerciali (Rete)" risulta vuoto.
+3. Cambio Specialist da "Codici Commerciali (Rete)" → si aggiorna anche nella card in alto.
+4. Su mobile (< 768px) le 3 colonne si impilano verticalmente.
+5. Compilo Sede + Gruppo + Specialist + Email valida → counter sparisce, Salva abilitato.
 
