@@ -1224,25 +1224,6 @@ const ImmissionePolizzaPage = () => {
         <Button onClick={handleConferma} disabled={saving}>{saving ? "Salvataggio..." : "Conferma"}</Button>
       </div>
 
-      {/* DIALOG PROVVIGIONI */}
-      <AlertDialog open={showProvvigioneDialog} onOpenChange={setShowProvvigioneDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {provvigioneDialogType === "new" ? "Salvare provvigione come default?" : "Aggiornare provvigione default?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {provvigioneDialogType === "new"
-                ? `Non esiste una provvigione per questa combinazione Compagnia+Ramo. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
-                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleProvvigioneSkip}>No, solo per questa polizza</AlertDialogCancel>
-            <AlertDialogAction onClick={handleProvvigioneSave}>Sì, salva come default</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
