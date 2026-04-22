@@ -1,53 +1,65 @@
 
 
-## Tendine globali per Specialist, Compagnia, Ramo e Produttore su tutte le polizze
+## Campi categorizzabili dello storico gare → filtri & AI
 
-### Situazione attuale
+Dei ~20 campi grezzi del file, 9 sono **categorizzabili** (valori finiti, normalizzabili, utili come filtro/aggregazione). Gli altri restano come testo libero o dati numerici/data.
 
-| Campo | DB | Immissione Polizza | Dettaglio Polizza (edit) |
-|---|---|---|---|
-| **Compagnia** | `compagnia_id` (uuid) | ✅ `SearchableSelect` da `compagnie` | ❌ Read-only 🔒 |
-| **Ramo** | `ramo_id` (uuid) | ✅ `SearchableSelect` da `rami` | ❌ Read-only 🔒 |
-| **Produttore** | `produttore_nome` (text, libero) + `produttore_id` (uuid, 0/1047 usato → legacy) | ⚠️ Tendina su `anagrafiche_professionali` ma salva in `produttore_id` **mai usato** | ⚠️ Tendina su `profiles.ruolo='produttore'` (vuoto), salva in `produttore_id` legacy |
-| **Specialist** | `specialist` (text libero) | ❌ **Doppio campo confuso**: uno con `[danni/vita/auto/re]` hardcoded + uno "Specialist (Backoffice)" da `profiles.ruolo='backoffice'` | ✅ Tendina da `profiles.ruolo='backoffice'` |
+### A. Categorici puri → filtri a tendina + raggruppamenti AI
 
-Risultato: 426/1047 polizze senza produttore, lo Specialist in immissione genera valori incoerenti, in dettaglio Compagnia e Ramo non si possono modificare.
+| Campo nuova tabella | Tipo | Valori canonici | Cardinalità attesa | Uso |
+|---|---|---|---|---|
+| **anno_riferimento** | int | 2013 → 2025 | ~13 | Filtro principale, trend annuale |
+| **provincia** | text(2) | TV, VE, PD, MI, RM, NA… | ~30-50 | Filtro geografico, mappa |
+| **tipologia** | enum | `manifestazione`, `gara`, `affidamento_diretto`, `altro` | 4 | Filtro funnel, KPI tasso vinte per tipo |
+| **esito** | enum | `vinta`, `persa`, `non_partecipato`, `annullata`, `in_corso`, `non_classificato` | 6 | KPI win-rate, dashboard |
+| **broker_incumbent** | text normalizzato | `INTERMEDIA`, `B&S ITALIA`, `AON`, `MARSH`, `WILLIS`, `MAG JLT`, `ALTRO` | ~15-20 | Analisi competitor, "chi gestisce X" |
+| **categoria_ente** | enum derivato dal nome | `comune`, `provincia`, `regione`, `azienda_sanitaria`, `universita`, `consorzio`, `societa_partecipata`, `altro_ente` | 8 | Segmentazione PA |
+| **stato_mandato** | enum derivato da date | `attivo`, `in_scadenza_12m`, `scaduto`, `sconosciuto` | 4 | **Trigger commerciale**: chi rifare offerta |
+| **flag_cauzione / referenze / accesso_atti / offerta_tecnica** | bool×4 | true/false/null | 2+null | Filtri requisiti, "gare con cauzione" |
+| **opzione_rinnovo_anni** | int derivato | 0,1,2,3,4,5 | 6 | "Mandati con opzione +3" |
 
-### Cosa faccio
+### B. Testuali liberi → ricerca FTS + indicizzazione AI (NON categorici)
 
-**1. Tendina unificata "Specialist"** (sorgente unica = `profiles WHERE ruolo='backoffice' AND attivo=true`)
-- `ImmissionePolizzaPage.tsx`: rimuovo il campo "Specialist" hardcoded `[danni/vita/auto/re]` (riga 666-671). Resta solo "Specialist (Backoffice)" che già esiste e salva in `titoli.specialist` come `"COGNOME NOME"` (text). Cambio il salvataggio per memorizzare il **nome leggibile** invece dell'uuid (così è coerente con i 3 valori storici già a DB: "GUARRACINO GAETANO", "SCARPELLI PAOLA", "Gestione Milano").
-- `TitoloDetail.tsx`: già è `SearchableSelect` corretto, nessuna modifica.
+| Campo | Perché non categorizzato | Come lo uso |
+|---|---|---|
+| `ente_nome` | Migliaia di valori unici | FTS + auto-link a `clienti` |
+| `note` | Testo libero, ogni riga diversa | FTS, parsing AI per estrarre esito |
+| `contatto_riferimento` / `telefono` | PII, libero | Solo display |
 
-**2. Tendina "Produttore" su tutte le polizze** (sorgente = `anagrafiche_professionali WHERE tipo IN ('account_executive','corrispondente','responsabile_sede') AND attivo=true` → ~560 voci)
-- Salvo il **nome leggibile** in `titoli.produttore_nome` (text), non più in `produttore_id` (lo lascio NULL/legacy, come fatto per `prodotto_id`).
-- `ImmissionePolizzaPage.tsx`: il campo "Produttore / A.E." (riga 585-597) viene rinominato "Produttore" e popolato dalle 3 categorie sopra; al submit salva `produttore_nome = "COGNOME NOME"` o `ragione_sociale` per le società.
-- `TitoloDetail.tsx`: nel form Contratto sostituisco la query `produttoriOpts` (oggi punta a `profiles.ruolo='produttore'`, vuota) con la stessa fonte `anagrafiche_professionali`. Sostituisco il campo "Produttore" che bind su `produttore_id` con un bind su **`produttore_nome`** (text). Aggiorno anche il display read-only (riga 1507) per leggere `produttore_nome` con fallback a `produttore.nome cognome`.
+### C. Numerici/Data → range & aggregati (non tendine)
 
-**3. Compagnia e Ramo modificabili anche dal Dettaglio Polizza**
-- `TitoloDetail.tsx`: nel pannello Contratto in modalità edit, sostituisco i due box read-only 🔒 "Compagnia" (riga 1517-1520) e "Ramo" (riga 1521-1524) con due `SearchableSelect` popolati da `compagnie` (attiva=true) e `rami` (attivo=true), bound su `contrattoForm.compagnia_id` e `contrattoForm.ramo_id`. Aggiungo i due campi allo state `contrattoForm`, alla funzione `startEditContratto`, alla mutation `saveContrattoMutation` (UPDATE su `titoli.compagnia_id` e `titoli.ramo_id`) e al log attività.
-- Aggiungo le query `compagnieOpts` e `ramiOpts` con lo stesso pattern già usato per `produttoriOpts`/`specialistOpts`.
+`data_consegna`, `data_inizio_mandato`, `data_fine_mandato`, `pagine_offerta_tecnica` → filtri "da/a" e bucket dinamici.
 
-**4. Pulizia dati specialist (1 record sporco)**
-- Migrazione SQL: l'unico record con valore uuid (`cf2372e6-…`, 7 polizze) viene risolto in `"COGNOME NOME"` leggendo dal profilo corrispondente, con UPDATE mirato. Se il profilo non esiste più, lo lascio invariato.
+### Normalizzazioni necessarie all'import (per rendere categorizzabili)
 
-**5. Memory**
-- Aggiorno `mem://insurance/policy-data-inheritance` con: Specialist e Produttore vivono come **testo leggibile** in `titoli.specialist` e `titoli.produttore_nome` (con tendina sorgente `profiles`/`anagrafiche_professionali`); `produttore_id` è legacy.
+1. **broker_incumbent**: dictionary mapping (es. `B&S` / `B&S ITALIA` / `B & S` → `B&S ITALIA`; `WILLIS` / `WILLS` / `WTW` → `WILLIS`).
+2. **categoria_ente**: regex sul nome (`^COMUNE` → `comune`, `^A.S.L.|AZIENDA SANITARIA` → `azienda_sanitaria`, `UNIVERSIT` → `universita`, ecc.).
+3. **esito**: parsing case-insensitive delle NOTE (`AGGIUDICATA|VINTA` → vinta, `ANNULLATA|REVOCATA` → annullata, `NON ESTRATT|NON SORTEGG` → non_partecipato).
+4. **stato_mandato**: calcolato lato vista SQL (`v_storico_gare`) confrontando `data_fine_mandato` con `now()`.
+5. **opzione_rinnovo_anni**: regex `[+]?\s*(\d+)\s*ANN` su `opzione_rinnovo`.
 
-### Cosa NON tocco
+### Cosa cambia nel piano già approvato
 
-- Il campo `produttore_id` resta a DB (legacy, mai più scritto/letto da UI — stesso pattern già applicato a `prodotto_id`).
-- Nessun cambio a `compagnie`, `rami`, `profiles`, `anagrafiche_professionali`.
-- Nessun trigger, nessun constraint nuovo.
-- Nessun cambio a `RinnovoTitoloDialog.tsx`: già copia `compagnia_id`, `ramo_id`, `produttore_nome`, `specialist` dal padre.
-- Nessun cambio alle Edge Function di import.
+Aggiungo alla tabella `storico_gare` 2 colonne derivate:
+- `categoria_ente text` (popolata in import + trigger su INSERT/UPDATE).
+- `stato_mandato` come **vista calcolata** (non colonna), per restare sempre fresca.
+
+E aggiungo alla pagina `/trattative/storico-gare` 7 filtri (anno, provincia, tipologia, esito, broker, categoria_ente, stato_mandato) + 4 toggle booleani per i flag requisiti.
+
+### Cosa ottiene l'Assistente IA con questa categorizzazione
+
+Esempi di query naturali ora risolvibili senza FTS pesante:
+- "Quanti comuni del Veneto ha gestito Intermedia negli ultimi 5 anni?" → `WHERE categoria_ente='comune' AND provincia IN (...) AND broker_incumbent='INTERMEDIA' AND anno_riferimento >= 2020`
+- "Quali mandati scadono entro 12 mesi e abbiamo perso in passato?" → `stato_mandato='in_scadenza_12m' AND esito='persa'`
+- "Win rate per anno sulle manifestazioni vs gare" → `GROUP BY anno_riferimento, tipologia`
+- "Aziende sanitarie che richiedono cauzione e referenze bancarie" → `categoria_ente='azienda_sanitaria' AND flag_cauzione AND flag_referenze_bancarie`
+
+Per abilitare questi pattern aggiungo a `schema-context.ts` la tabella `storico_gare` con la lista esatta dei valori enum di ogni campo (così l'AI sa cosa filtrare senza tirare a indovinare).
 
 ### Verifica
 
-1. `/immissione-polizza`: vedo **un solo** campo "Specialist" (tendina backoffice) e **un solo** campo "Produttore" (tendina anagrafiche professionali). Salvando, in DB `titoli.specialist = "GUARRACINO GAETANO"` e `titoli.produttore_nome = "AMATO MARCELLINO"` (text leggibile).
-2. `/titoli/{id}` → "Modifica Contratto": Compagnia e Ramo sono ora **tendine** modificabili (non più con 🔒). Cambio compagnia, salvo, riapro: il valore è cambiato.
-3. Stesso form: tendina Produttore mostra le ~560 anagrafiche professionali; tendina Specialist mostra i backoffice da `profiles`.
-4. Vista read-only Contratto: "Produttore" mostra il nome (es. "AMATO MARCELLINO") leggendo `produttore_nome` con fallback al join legacy.
-5. AI Assistant: `SELECT specialist, COUNT(*) FROM titoli GROUP BY specialist` non contiene più valori uuid sporchi; `SELECT produttore_nome, COUNT(*) FROM titoli WHERE produttore_nome IS NOT NULL` cresce nel tempo man mano che le polizze vengono editate/create.
-6. Rinnovo polizza: il nuovo titolo eredita correttamente compagnia, ramo, produttore_nome e specialist dal padre.
+1. Apro `/trattative/storico-gare`: vedo 7 dropdown popolati con i valori canonici sopra.
+2. Filtro `categoria_ente=comune, provincia=TV, esito=vinta` → conteggio coerente.
+3. Chiedo all'AI "broker dominante nei comuni del Veneto" → risponde con aggregato su `broker_incumbent` filtrato.
+4. Chiedo "mandati in scadenza nei prossimi 12 mesi gestiti da Intermedia" → restituisce lista corretta basata su `stato_mandato`.
 
