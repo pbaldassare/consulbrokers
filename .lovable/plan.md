@@ -1,37 +1,34 @@
 
 
-## Specialist nella card "Assegnazioni Gestionali" — 3 colonne
+## Fix Specialist — usare `"Backoffice"` (B maiuscola)
+
+### Causa
+
+Il trigger DB `validate_codici_commerciali_ruolo` accetta `'Backoffice'` (B maiuscola). Tutti i 544 record esistenti — inclusi quelli importati dall'Excel di Napoli con GUARRACINO/SCARPELLI — sono salvati come `'Backoffice'`. Il codice nuovo invece usa `'backoffice'` minuscolo, quindi:
+- la SELECT su `ruolo='backoffice'` ritorna sempre `[]` → il select Specialist sembra vuoto anche quando il dato c'è;
+- l'UPSERT con `ruolo='backoffice'` viene respinta dal trigger con errore 400 `"Invalid ruolo: backoffice"` → impossibile selezionare/cambiare lo Specialist.
 
 ### Cosa cambia in `src/pages/ClienteDetail.tsx`
 
-1. **Card "Assegnazioni Gestionali"** → grid da 2 a **3 colonne** (`md:grid-cols-3`, 1 su mobile):
-   - **Sede *** (`ufficio_id`) — invariato
-   - **Gruppo Finanziario *** (`gruppo_finanziario_id`) — invariato
-   - **Specialist *** — nuovo `SearchableSelect` accanto agli altri due, **stessa identica fonte dati** già usata da `CodiciCommercialiSection`:
-     - Carico la lista profili dentro `ClienteDetail` con la stessa query `["profili_commerciali"]` (filtrata su `ruolo backoffice` per lo Specialist, `attivo=true`, ordinata per cognome).
-     - Valore corrente letto da `specialistRow.profilo_id` (query `["specialist_cliente", id]` già esistente).
-     - Bordo rosso `border-destructive` + hint "Campo obbligatorio" quando `!specialistAssigned` (logica `isFieldMissing("specialist_id")` già presente in `requiredFieldsList`).
+Sostituire le 3 occorrenze di `"backoffice"` riferite alla colonna `codici_commerciali_cliente.ruolo` con `"Backoffice"`:
 
-2. **Mutation `upsertSpecialistMutation`** dedicata:
-   - `supabase.from("codici_commerciali_cliente").upsert({ cliente_id: id, ruolo: "backoffice", profilo_id }, { onConflict: "cliente_id,ruolo" })`.
-   - `onSuccess`: invalida `["specialist_cliente", id]` **e** `["codici_commerciali", id]` → la riga "Specialist" nel pannello "Codici Commerciali (Rete)" si aggiorna istantaneamente, e viceversa quando l'utente la modifica da lì.
-   - Toast "Specialist aggiornato".
+1. Query `["specialist_cliente", id]` (riga ~1138): `.eq("ruolo", "Backoffice")`.
+2. Mutation `upsertSpecialistMutation` — branch DELETE (riga ~1168): `.eq("ruolo", "Backoffice")`.
+3. Mutation `upsertSpecialistMutation` — branch UPSERT (riga ~1174): payload `{ cliente_id: id, ruolo: "Backoffice", profilo_id }`.
 
-3. **Testo informativo** sotto la card: rimuovo "Specialist obbligatorio, si gestisce in 'Codici Commerciali (Rete)'" e lo sostituisco con: "I dettagli del codice commerciale (mandato, % provvigione, brand, date) si gestiscono in 'Codici Commerciali (Rete)'."
-
-4. **Nessuna modifica** all'edge function `import-clienti`: la colonna `specialist` dell'Excel viene già mappata correttamente su `codici_commerciali_cliente` con `ruolo='backoffice'` (quindi GUARRACINO GAETANO, SCARPELLI PAOLA ecc. vengono già caricati). La nuova UI legge da quella stessa tabella, quindi tutto lo storico esistente compare subito senza re-import.
+Le query React Query restano con la chiave `["specialist_cliente", id]` (key invariata).
 
 ### Cosa NON tocco
 
-- DB / RLS / edge functions.
-- Pannello "Codici Commerciali (Rete)" (resta integro per editing avanzato di % provvigione, mandato, brand, ecc.).
-- `requiredFieldsList`, `specialistAssigned`, validazione email/Sede/Gruppo Finanziario (già pronti).
+- Trigger DB e dati esistenti (sono già corretti — il bug è solo nel codice nuovo).
+- Componente `CodiciCommercialiSection` / `CodiceCommercialeRow` (già usa la mappatura corretta `backoffice → Specialist` con i valori giusti).
+- Etichetta UI mostrata (`"Specialist"`) e label dropdown (`"Backoffice" → "Specialist"`) — invariate.
+- `requiredFieldsList`, validazione, sync con pannello "Codici Commerciali (Rete)".
 
 ### Verifica
 
-1. Apro un cliente con Specialist già assegnato (es. quello che ha GUARRACINO o SCARPELLI in colonna `specialist`) → la card in alto mostra **3 colonne** Sede | Gruppo Finanziario | Specialist e Specialist è **pre-popolato** con il profilo importato dall'Excel.
-2. Apro un cliente senza Specialist → bordo rosso sul select Specialist + hint "Campo obbligatorio" + counter "Compila i campi obbligatori (N)" lo include + Salva bloccato.
-3. Seleziono uno Specialist dalla card in alto → toast "Specialist aggiornato", scendo nel pannello "Codici Commerciali (Rete)" → la riga Specialist mostra lo stesso profilo.
-4. Cambio Specialist dal pannello "Codici Commerciali (Rete)" → la card in alto si aggiorna live (stessa query invalidata).
-5. Su mobile (< 768px) le 3 colonne si impilano verticalmente.
+1. Apro ABBATE ANDREA → il select "Specialist" nella card in alto si pre-popola con il profilo importato dall'Excel (riga `Backoffice` esistente).
+2. Cambio Specialist dal select in alto → toast "Specialist aggiornato", nessun errore 400, la riga "Specialist" nel pannello "Codici Commerciali (Rete)" mostra subito lo stesso profilo.
+3. Apro un cliente senza riga Backoffice → bordo rosso + counter obbligatori + Salva bloccato. Selezionando uno Specialist la riga viene creata correttamente.
+4. Cambio lo Specialist dal pannello "Codici Commerciali (Rete)" → la card in alto si aggiorna live.
 
