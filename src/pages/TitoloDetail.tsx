@@ -1543,7 +1543,7 @@ const TitoloDetail = () => {
                 <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
               </>
             )}
-            <FieldRow label="Produttore" value={t.produttore ? `${(t.produttore as any).nome} ${(t.produttore as any).cognome}` : "—"} />
+            <FieldRow label="Produttore" value={fmt((t as any).produttore_nome || (t.produttore ? `${(t.produttore as any).nome || ""} ${(t.produttore as any).cognome || ""}`.trim() : ""))} />
             <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
             <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
             <FieldRow label="Vincolo" value={fmt(t.vincolo)} />
@@ -1554,12 +1554,22 @@ const TitoloDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {/* Read-only fields */}
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Compagnia</Label>
-              <div className="text-sm font-mono py-2">{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || "—"}</div>
+              <Label className="text-xs">Compagnia</Label>
+              <SearchableSelect
+                options={compagnieOpts}
+                value={contrattoForm.compagnia_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
+                placeholder="Seleziona compagnia"
+              />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Ramo</Label>
-              <div className="text-sm font-mono py-2">{(t.ramo as any)?.codice || ""} {(t.ramo as any)?.descrizione || "—"}</div>
+              <Label className="text-xs">Ramo</Label>
+              <SearchableSelect
+                options={ramiOpts}
+                value={contrattoForm.ramo_id || ""}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, ramo_id: v || null }))}
+                placeholder="Seleziona ramo"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
@@ -1619,8 +1629,8 @@ const TitoloDetail = () => {
               <Label className="text-xs">Produttore</Label>
               <SearchableSelect
                 options={produttoriOpts}
-                value={contrattoForm.produttore_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_id: v || null }))}
+                value={contrattoForm.produttore_nome}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, produttore_nome: v }))}
                 placeholder="Seleziona produttore"
               />
             </div>
