@@ -352,11 +352,9 @@ export default function StoricoGarePage() {
             )}
           </TableBody>
         </Table>
-        {(data?.total ?? 0) > PAGE_SIZE && (
-          <div className="p-3 border-t">
-            <ServerPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
-          </div>
-        )}
+        <div className="p-3 border-t">
+          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+        </div>
       </Card>
 
       {/* Import Dialog */}

@@ -101,6 +101,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
         { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
         { label: "Storico", path: "/trattative/storico", icon: Archive },
+        { label: "Storico Gare", path: "/trattative/storico-gare", icon: Landmark },
       ],
     },
   },
