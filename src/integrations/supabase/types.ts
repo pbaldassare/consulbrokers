@@ -5297,6 +5297,124 @@ export type Database = {
           },
         ]
       }
+      storico_gare: {
+        Row: {
+          anno_riferimento: number
+          broker_incumbent: string | null
+          categoria_ente: string | null
+          cliente_id: string | null
+          contatto_riferimento: string | null
+          contatto_telefono: string | null
+          created_at: string
+          created_by: string | null
+          data_consegna: string | null
+          data_fine_mandato: string | null
+          data_inizio_mandato: string | null
+          ente_nome: string
+          esito: string | null
+          flag_accesso_atti: boolean | null
+          flag_cauzione: boolean | null
+          flag_offerta_tecnica: boolean | null
+          flag_referenze_bancarie: boolean | null
+          id: string
+          note: string | null
+          opzione_rinnovo: string | null
+          opzione_rinnovo_anni: number | null
+          pagine_offerta_tecnica: string | null
+          provincia: string | null
+          source_file: string | null
+          source_row: number | null
+          source_sheet: string | null
+          tipologia: string | null
+          trattativa_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          anno_riferimento: number
+          broker_incumbent?: string | null
+          categoria_ente?: string | null
+          cliente_id?: string | null
+          contatto_riferimento?: string | null
+          contatto_telefono?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_consegna?: string | null
+          data_fine_mandato?: string | null
+          data_inizio_mandato?: string | null
+          ente_nome: string
+          esito?: string | null
+          flag_accesso_atti?: boolean | null
+          flag_cauzione?: boolean | null
+          flag_offerta_tecnica?: boolean | null
+          flag_referenze_bancarie?: boolean | null
+          id?: string
+          note?: string | null
+          opzione_rinnovo?: string | null
+          opzione_rinnovo_anni?: number | null
+          pagine_offerta_tecnica?: string | null
+          provincia?: string | null
+          source_file?: string | null
+          source_row?: number | null
+          source_sheet?: string | null
+          tipologia?: string | null
+          trattativa_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          anno_riferimento?: number
+          broker_incumbent?: string | null
+          categoria_ente?: string | null
+          cliente_id?: string | null
+          contatto_riferimento?: string | null
+          contatto_telefono?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_consegna?: string | null
+          data_fine_mandato?: string | null
+          data_inizio_mandato?: string | null
+          ente_nome?: string
+          esito?: string | null
+          flag_accesso_atti?: boolean | null
+          flag_cauzione?: boolean | null
+          flag_offerta_tecnica?: boolean | null
+          flag_referenze_bancarie?: boolean | null
+          id?: string
+          note?: string | null
+          opzione_rinnovo?: string | null
+          opzione_rinnovo_anni?: number | null
+          pagine_offerta_tecnica?: string | null
+          provincia?: string | null
+          source_file?: string | null
+          source_row?: number | null
+          source_sheet?: string | null
+          tipologia?: string | null
+          trattativa_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storico_gare_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storico_gare_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storico_gare_trattativa_id_fkey"
+            columns: ["trattativa_id"]
+            isOneToOne: false
+            referencedRelation: "trattative"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       template_categorie: {
         Row: {
           created_at: string | null
@@ -6525,6 +6643,65 @@ export type Database = {
             columns: ["ufficio_id"]
             isOneToOne: false
             referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_storico_gare: {
+        Row: {
+          anno_riferimento: number | null
+          broker_incumbent: string | null
+          categoria_ente: string | null
+          cliente_display: string | null
+          cliente_id: string | null
+          cliente_ragione_sociale: string | null
+          contatto_riferimento: string | null
+          contatto_telefono: string | null
+          created_at: string | null
+          created_by: string | null
+          data_consegna: string | null
+          data_fine_mandato: string | null
+          data_inizio_mandato: string | null
+          ente_nome: string | null
+          esito: string | null
+          flag_accesso_atti: boolean | null
+          flag_cauzione: boolean | null
+          flag_offerta_tecnica: boolean | null
+          flag_referenze_bancarie: boolean | null
+          id: string | null
+          note: string | null
+          opzione_rinnovo: string | null
+          opzione_rinnovo_anni: number | null
+          pagine_offerta_tecnica: string | null
+          provincia: string | null
+          source_file: string | null
+          source_row: number | null
+          source_sheet: string | null
+          stato_mandato: string | null
+          tipologia: string | null
+          trattativa_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storico_gare_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storico_gare_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storico_gare_trattativa_id_fkey"
+            columns: ["trattativa_id"]
+            isOneToOne: false
+            referencedRelation: "trattative"
             referencedColumns: ["id"]
           },
         ]
