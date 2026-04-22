@@ -31,6 +31,10 @@ const SUGGESTIONS = [
   "Prospect non convertiti più vecchi di 30 giorni",
   "Conversion rate trattative ultimo anno",
   "Provvigioni totali di questo mese",
+  "Mandati gare in scadenza nei prossimi 12 mesi",
+  "Top 10 broker incumbent nello storico gare",
+  "Comuni del Veneto gestiti da competitor",
+  "Win rate Intermedia per categoria ente",
 ];
 
 const AiAssistantPage = () => {
