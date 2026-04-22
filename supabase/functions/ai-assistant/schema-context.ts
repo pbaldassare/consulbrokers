@@ -52,9 +52,9 @@ Usala SOLO per JOIN avanzati (es. con anagrafica_commerciale_id, percentuale_com
 percentuale_riparto, provvigioni_firma, provvigioni_quietanza).
 Campo chiave: tacito_rinnovo (boolean, default true) → true = polizza a tacito rinnovo,
 false = scadenza naturale/disdetta. Usa SEMPRE questo campo per filtrare/contare il
-tacito rinnovo. Il vecchio campo testuale `tipo_rinnovo` è legacy e NON va usato.
-Campo prodotto: usa SEMPRE `prodotto_nome` (text, testo libero) come verità per il
-nome prodotto della polizza. La FK `prodotto_id` → tabella `prodotti` è legacy:
+tacito rinnovo. Il vecchio campo testuale 'tipo_rinnovo' è legacy e NON va usato.
+Campo prodotto: usa SEMPRE 'prodotto_nome' (text, testo libero) come verità per il
+nome prodotto della polizza. La FK 'prodotto_id' → tabella 'prodotti' è legacy:
 NON va letta né scritta (0 polizze su 1047 la usano).
 
 ### titoli_movimenti
@@ -329,10 +329,10 @@ GROUP BY u.nome_ufficio;
 
 ⚠️ REGOLA DI INSTRADAMENTO CRITICA:
 - Se l'utente parla di "gare", "manifestazioni d'interesse", "mandati PA", "broker incumbent",
-  "enti pubblici storici", "comuni/ASL/regioni gestite", "scadenze mandati" → usa SEMPRE `v_storico_gare`.
+  "enti pubblici storici", "comuni/ASL/regioni gestite", "scadenze mandati" → usa SEMPRE 'v_storico_gare'.
 - Se l'utente parla di "trattativa", "pipeline commerciale", "preventivo", "opportunity",
-  "offerta in corso", "vinte/perse del mese" → usa `trattative`.
-- NON mescolare i due dataset: `v_storico_gare` è intelligence storica di mercato (chi gestiva quel
+  "offerta in corso", "vinte/perse del mese" → usa 'trattative'.
+- NON mescolare i due dataset: 'v_storico_gare' è intelligence storica di mercato (chi gestiva quel
   cliente PA, quando scade il mandato, condizioni di gara), NON pipeline commerciale attiva.
 
 Campi: id, anno_riferimento (int), ente_nome, provincia (2 lettere), tipologia, esito,
