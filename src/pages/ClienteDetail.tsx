@@ -75,6 +75,7 @@ function FieldInput({
   required,
   warning,
   action,
+  errorMessage,
 }: {
   label: string;
   field: string;
@@ -82,6 +83,7 @@ function FieldInput({
   required?: boolean;
   warning?: string | null;
   action?: React.ReactNode;
+  errorMessage?: string;
 }) {
   const { ef, readOnly, updateField, isFieldMissing, handleCFAutoFill } = useAnagraficaForm();
   const showError = !readOnly && required && isFieldMissing(field);
@@ -119,7 +121,7 @@ function FieldInput({
       )}
       {!readOnly && (
         <>
-          {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+          {showError && <p className="text-xs text-destructive mt-0.5">{errorMessage || "Campo obbligatorio"}</p>}
           {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
         </>
       )}
