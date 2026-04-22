@@ -57,7 +57,7 @@ export default function StoricoGarePage() {
   const isAdmin = profile?.ruolo === "admin" || profile?.ruolo === "responsabile_sede";
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0); // 0-based
   const [search, setSearch] = useState("");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [filtroProvincia, setFiltroProvincia] = useState("tutti");
