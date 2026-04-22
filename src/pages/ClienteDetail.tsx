@@ -94,25 +94,28 @@ function FieldInput({
       {readOnly ? (
         <p className="text-sm mt-1">{ef[field] || "—"}</p>
       ) : (
-        <Input
-          className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-          type={type}
-          value={ef[field] || ""}
-          onChange={(e) => {
-            const val =
-              field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva"
-                ? e.target.value.toUpperCase()
-                : e.target.value;
-            updateField(field, val);
-            if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
-              handleCFAutoFill(val);
-            }
-            if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
-              updateField("partita_iva", val);
-              toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
-            }
-          }}
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            type={type}
+            value={ef[field] || ""}
+            onChange={(e) => {
+              const val =
+                field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva"
+                  ? e.target.value.toUpperCase()
+                  : e.target.value;
+              updateField(field, val);
+              if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
+                handleCFAutoFill(val);
+              }
+              if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
+                updateField("partita_iva", val);
+                toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
+              }
+            }}
+          />
+          {action}
+        </div>
       )}
       {!readOnly && (
         <>
