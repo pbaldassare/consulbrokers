@@ -1482,7 +1482,7 @@ const TitoloDetail = () => {
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
-            <FieldRow label="Prodotto" value={fmt(t.prodotti?.nome_prodotto)} />
+            <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
             <FieldRow label="Tipo Portafoglio" value={fmt(t.tipo_portafoglio)} />
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
