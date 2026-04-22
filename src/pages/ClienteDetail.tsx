@@ -1251,23 +1251,44 @@ export default function ClienteDetail() {
   const ef = editFields;
   const readOnly = !editMode;
 
-  const FieldDisplay = ({ label, value }: { label: string; value: any }) => (
-    <div><span className="text-muted-foreground text-xs">{label}</span><p className="text-sm">{value || "—"}</p></div>
-  );
+  // Tracks the last CF that auto-filled fields, so we can overwrite previously
+  // auto-filled values when the user types a new (different) CF.
+  const lastAutoFilledCFRef = useRef<{ cf: string; sesso: string; dataNascita: string; comune: string; provincia: string; luogo: string } | null>(null);
 
   const handleCFAutoFill = (cf: string) => {
-    if (cf.length === 16) {
-      const parsed = parseCF(cf);
-      if (parsed) {
-        if (!ef.sesso) updateField("sesso", parsed.sesso);
-        if (!ef.data_nascita) updateField("data_nascita", parsed.dataNascita);
-        const info = lookupComune(parsed.codiceCatastale);
-        if (info) {
-          if (!ef.comune_nascita) updateField("comune_nascita", info.comune);
-          if (!ef.provincia_nascita) updateField("provincia_nascita", info.provincia);
-        }
-        toast.info("Dati estratti automaticamente dal Codice Fiscale");
-      }
+    if (cf.length !== 16) return;
+    const parsed = parseCF(cf);
+    if (!parsed) return;
+    const info = lookupComune(parsed.codiceCatastale);
+    const expectedLuogo = info ? `${info.comune} (${info.provincia})` : "";
+
+    const prev = lastAutoFilledCFRef.current;
+    // helper: a field is "free to overwrite" if empty OR equal to value previously auto-filled
+    const canOverwrite = (current: any, prevAutoVal: string | undefined) => {
+      const c = (current || "").toString();
+      if (!c.trim()) return true;
+      return !!prevAutoVal && c === prevAutoVal;
+    };
+
+    if (canOverwrite(ef.sesso, prev?.sesso)) updateField("sesso", parsed.sesso);
+    if (canOverwrite(ef.data_nascita, prev?.dataNascita)) updateField("data_nascita", parsed.dataNascita);
+    if (info) {
+      if (canOverwrite(ef.comune_nascita, prev?.comune)) updateField("comune_nascita", info.comune);
+      if (canOverwrite(ef.provincia_nascita, prev?.provincia)) updateField("provincia_nascita", info.provincia);
+      if (canOverwrite(ef.luogo_nascita, prev?.luogo)) updateField("luogo_nascita", expectedLuogo);
+    }
+
+    lastAutoFilledCFRef.current = {
+      cf,
+      sesso: parsed.sesso,
+      dataNascita: parsed.dataNascita,
+      comune: info?.comune || "",
+      provincia: info?.provincia || "",
+      luogo: expectedLuogo,
+    };
+
+    if (!prev || prev.cf !== cf) {
+      toast.info("Dati estratti automaticamente dal Codice Fiscale");
     }
   };
 
@@ -1326,105 +1347,14 @@ export default function ClienteDetail() {
   // Per il campo P.IVA/CF azienda, se manca uno mancano entrambi visivamente
   const isAziendaIdMissing = !isPrivato && missingFieldNames.has("partita_iva");
 
-  const RequiredMark = () => <span className="text-destructive ml-0.5">*</span>;
-
-  const FieldHint = ({ field, customWarning }: { field: string; customWarning?: string | null }) => {
-    if (!readOnly && isFieldRequired(field) && (isFieldMissing(field) || (field === "codice_fiscale_azienda" && isAziendaIdMissing))) {
-      return <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>;
-    }
-    if (customWarning) {
-      return <p className="text-xs text-amber-600 mt-0.5">{customWarning}</p>;
-    }
-    return null;
-  };
-
-  const FieldInput = ({ label, field, type = "text", required, warning }: { label: string; field: string; type?: string; required?: boolean; warning?: string | null }) => {
-    const showError = !readOnly && required && isFieldMissing(field);
-    return (
-      <div>
-        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{ef[field] || "—"}</p>
-        ) : (
-          <Input
-            className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-            type={type}
-            value={ef[field] || ""}
-            onChange={(e) => {
-              const val = field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva" ? e.target.value.toUpperCase() : e.target.value;
-              updateField(field, val);
-              if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
-                handleCFAutoFill(val);
-              }
-              if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
-                updateField("partita_iva", val);
-                toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
-              }
-            }}
-          />
-        )}
-        {!readOnly && (
-          <>
-            {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
-            {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
-          </>
-        )}
-      </div>
-    );
-  };
-
-  const FieldSelect = ({ label, field, options, required }: { label: string; field: string; options: { value: string; label: string }[]; required?: boolean }) => {
-    const showError = !readOnly && required && isFieldMissing(field);
-    return (
-      <div>
-        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{options.find(o => o.value === ef[field])?.label || ef[field] || "—"}</p>
-        ) : (
-          <SearchableSelect
-            className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
-            value={ef[field] || ""}
-            onValueChange={(v) => updateField(field, v)}
-            placeholder="—"
-            options={options}
-          />
-        )}
-        {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
-      </div>
-    );
-  };
-
-  const FieldSwitch = ({ label, field }: { label: string; field: string }) => (
-    <div className="flex items-center gap-2">
-      <Switch checked={!!ef[field]} onCheckedChange={(v) => updateField(field, v)} disabled={readOnly} />
-      <Label className="text-xs">{label}</Label>
-    </div>
-  );
-
-  const FieldAddress = ({ label, field, capField, cittaField, provinciaField, required }: { label: string; field: string; capField: string; cittaField: string; provinciaField: string; required?: boolean }) => {
-    const showError = !readOnly && required && isFieldMissing(field);
-    return (
-      <div>
-        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{ef[field] || "—"}</p>
-        ) : (
-          <AddressAutocomplete
-            value={ef[field] || ""}
-            onChange={(v) => updateField(field, v)}
-            onSelect={(components: AddressComponents) => {
-              updateField(field, components.indirizzo);
-              updateField(capField, components.cap);
-              updateField(cittaField, components.citta);
-              updateField(provinciaField, components.provincia);
-            }}
-            placeholder="Cerca indirizzo..."
-            className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
-          />
-        )}
-        {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
-      </div>
-    );
+  const anagraficaCtxValue: AnagraficaFormCtxType = {
+    ef,
+    readOnly,
+    updateField,
+    isFieldRequired,
+    isFieldMissing,
+    isAziendaIdMissing,
+    handleCFAutoFill,
   };
 
   return (
