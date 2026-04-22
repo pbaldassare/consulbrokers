@@ -1101,6 +1101,55 @@ export default function ClienteDetail() {
     },
   });
 
+  // Specialist (backoffice) corrente per il cliente
+  const { data: specialistRow } = useQuery({
+    queryKey: ["specialist_cliente", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        .select("profilo_id")
+        .eq("cliente_id", id)
+        .eq("ruolo", "backoffice")
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Lista profili Specialist (backoffice)
+  const { data: backofficeProfili = [] } = useQuery({
+    queryKey: ["profili_backoffice"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome")
+        .eq("ruolo", "backoffice")
+        .eq("attivo", true)
+        .order("cognome");
+      return (data || []) as any[];
+    },
+  });
+
+  const specialistAssigned = !!specialistRow?.profilo_id;
+
+  const upsertSpecialistMutation = useMutation({
+    mutationFn: async (profilo_id: string) => {
+      if (!id) throw new Error("ID cliente mancante");
+      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        .upsert(
+          { cliente_id: id, ruolo: "backoffice", profilo_id, percentuale: 0 },
+          { onConflict: "cliente_id,ruolo" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist_cliente", id] });
+      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
+      toast.success("Specialist aggiornato");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const [editFields, setEditFields] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -1313,6 +1362,7 @@ export default function ClienteDetail() {
     ? [
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
         { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
+        { field: "specialist_id", label: "Specialist", ok: specialistAssigned },
         { field: "codice_fiscale", label: "Codice Fiscale", ok: isCFValid(ef.codice_fiscale || "") },
         { field: "data_nascita", label: "Data di Nascita", ok: !!ef.data_nascita },
         { field: "luogo_nascita", label: "Luogo di Nascita", ok: !!(ef.luogo_nascita || "").trim() },
@@ -1321,6 +1371,7 @@ export default function ClienteDetail() {
     : [
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
         { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
+        { field: "specialist_id", label: "Specialist", ok: specialistAssigned },
         {
           field: "partita_iva",
           label: "Partita IVA o Codice Fiscale",
@@ -1596,14 +1647,40 @@ export default function ClienteDetail() {
                   )}
                 </div>
 
-                {/* Specialist (gestito in Codici Commerciali) */}
+                {/* Specialist (sincronizzato con Codici Commerciali) */}
                 <div>
-                  <Label className="text-xs">Specialist</Label>
-                  <p className="text-xs text-muted-foreground mt-1 leading-tight">
-                    Assegnato nella sezione{" "}
-                    <span className="font-medium text-foreground">Codici Commerciali (Rete)</span>{" "}
-                    qui sotto.
-                  </p>
+                  <Label className="text-xs">
+                    Specialist <span className="text-destructive">*</span>
+                  </Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {(() => {
+                        const p = backofficeProfili.find((bp: any) => bp.id === specialistRow?.profilo_id);
+                        return p ? `${p.cognome || ""} ${p.nome || ""}`.trim() : "—";
+                      })()}
+                    </p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        className={`h-8 text-xs ${isFieldMissing("specialist_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        value={specialistRow?.profilo_id || ""}
+                        onValueChange={(v) => {
+                          if (v) upsertSpecialistMutation.mutate(v);
+                        }}
+                        placeholder="— Seleziona specialist —"
+                        options={backofficeProfili.map((p: any) => ({
+                          value: p.id,
+                          label: `${p.cognome || ""} ${p.nome || ""}`.trim(),
+                        }))}
+                      />
+                      {isFieldMissing("specialist_id") && (
+                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Sincronizzato con Codici Commerciali (Rete)
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
