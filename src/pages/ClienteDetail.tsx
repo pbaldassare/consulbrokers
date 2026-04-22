@@ -807,7 +807,10 @@ export default function ClienteDetail() {
   };
 
   const saveDetailsMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (missing: { field: string; label: string }[]) => {
+      if (missing.length > 0) {
+        throw new Error("Campi obbligatori mancanti: " + missing.map((m) => m.label).join(", "));
+      }
       const {
         id: _id, created_at, updated_at, user_id, ufficio_id, ...rest
       } = editFields;
