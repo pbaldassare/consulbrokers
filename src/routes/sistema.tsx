@@ -23,6 +23,7 @@ import FlussoCompagniaDetail from "@/pages/FlussoCompagniaDetail";
 import PagamentiProvvigioniList from "@/pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "@/pages/PagamentoProvvigioneDetail";
 import SitemapPage from "@/pages/SitemapPage";
+import StoricoGarePage from "@/pages/StoricoGarePage";
 
 export const sistemaRoutes = (
   <>
@@ -56,5 +57,6 @@ export const sistemaRoutes = (
     <Route path="/report" element={<ReportPage />} />
     <Route path="/chat" element={<ComunicazioniPage />} />
     <Route path="/comunicazioni" element={<ComunicazioniPage />} />
+    <Route path="/trattative/storico-gare" element={<RoleGuard allowedRoles={["admin","cfo","responsabile_sede","ufficio","backoffice","account_executive","specialist","produttore","executive"]}><StoricoGarePage /></RoleGuard>} />
   </>
 );
