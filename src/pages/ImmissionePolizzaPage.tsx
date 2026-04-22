@@ -270,12 +270,12 @@ const ImmissionePolizzaPage = () => {
   }, [profile?.ufficio_id]);
 
   const { data: aeList } = useQuery({
-    queryKey: ["ae-list-immissione"],
+    queryKey: ["produttori-list-immissione"],
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla")
-        .eq("tipo", "account_executive")
+        .select("id, codice, cognome, nome, sigla, ragione_sociale, tipo")
+        .in("tipo", ["account_executive", "corrispondente", "responsabile_sede"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
@@ -424,10 +424,21 @@ const ImmissionePolizzaPage = () => {
         data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
-        produttore_id: selectedAE || null,
-        // Backoffice (Specialist) salvato come id profilo nel campo specialist
-        // (sovrascrive eventuale categoria 'danni/vita/auto/re')
-        ...(selectedBackofficeId ? { specialist: selectedBackofficeId } : {}),
+        // Produttore: salviamo il nome leggibile in produttore_nome (text).
+        // produttore_id resta NULL/legacy.
+        produttore_nome: (() => {
+          if (!selectedAE) return null;
+          const ae = (aeList || []).find((a: any) => a.id === selectedAE);
+          if (!ae) return null;
+          return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
+        })(),
+        // Backoffice (Specialist) salvato come "COGNOME NOME" leggibile in titoli.specialist
+        ...(selectedBackofficeId ? {
+          specialist: (() => {
+            const b = (backofficeList || []).find((x: any) => x.id === selectedBackofficeId);
+            return b ? `${(b as any).cognome || ""} ${(b as any).nome || ""}`.trim() : null;
+          })(),
+        } : {}),
       };
 
       const { data: newTitolo, error } = await supabase
