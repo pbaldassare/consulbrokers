@@ -698,20 +698,6 @@ function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: 
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
       <LookupField label="Zona" field="zona" options={zoneOpts} />
       <LookupField label="Indotto" field="indotto" options={indottiOpts} />
-      <div>
-        <Label className="text-xs">Gruppo Finanziario</Label>
-        {readOnly ? (
-          <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}</p>
-        ) : (
-          <SearchableSelect
-            className="h-8 text-xs"
-            value={ef.gruppo_finanziario_id || ""}
-            onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-            placeholder="— Seleziona gruppo —"
-            options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-          />
-        )}
-      </div>
       <LookupField label="Gruppo Statistico" field="gruppo_statistico" options={gruppiStatOpts} />
       <LookupField label="Attività" field="attivita" options={attivitaOpts} />
       <LookupField label="Settore" field="settore" options={settoriOpts} />
