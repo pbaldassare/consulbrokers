@@ -1133,7 +1133,7 @@ export default function ClienteDetail() {
         throw new Error("Campi obbligatori mancanti: " + missing.map((m) => m.label).join(", "));
       }
       const {
-        id: _id, created_at, updated_at, user_id, ufficio_id, ...rest
+        id: _id, created_at, updated_at, user_id, ...rest
       } = editFields;
       const { error } = await supabase.from("clienti").update(rest as any).eq("id", id!);
       if (error) throw error;
