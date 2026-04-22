@@ -673,12 +673,7 @@ const ImmissionePolizzaPage = () => {
               onChange={(e) => setProdottoNome(e.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Specialist</Label>
-            <SearchableSelect className="h-8 text-xs" value={specialist} onValueChange={setSpecialist} placeholder="—"
-              options={[{ value: "danni", label: "Danni" }, { value: "vita", label: "Vita" }, { value: "auto", label: "Auto" }, { value: "re", label: "RE" }]}
-            />
-          </div>
+          {/* Campo Specialist hardcoded rimosso: lo Specialist è ora unico (sezione Sede), salvato come nome leggibile in titoli.specialist */}
           <div className="space-y-1.5">
             <Label className="text-xs">Tipo Portafoglio</Label>
             <SearchableSelect className="h-8 text-xs" value={tipoPortafoglio} onValueChange={setTipoPortafoglio} placeholder="—"
