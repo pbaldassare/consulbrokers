@@ -50,7 +50,7 @@ const ImmissionePolizzaPage = () => {
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedRamo, setSelectedRamo] = useState("");
-  const [selectedProdotto, setSelectedProdotto] = useState("");
+  const [prodottoNome, setProdottoNome] = useState("");
   const [specialist, setSpecialist] = useState("");
   const [tipoPortafoglio, setTipoPortafoglio] = useState("diretto");
   const [cigRif, setCigRif] = useState("");
@@ -349,18 +349,6 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  const { data: prodottiList } = useQuery({
-    queryKey: ["prodotti-list-immissione", selectedCompagnia],
-    queryFn: async () => {
-      let q = supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto, compagnia_id, categoria_id").eq("attivo", true).order("nome_prodotto");
-      if (selectedCompagnia) q = q.eq("compagnia_id", selectedCompagnia);
-      const { data } = await q;
-      return data || [];
-    },
-  });
-
-  const selectedProdottoCategoriaId = prodottiList?.find((p) => p.id === selectedProdotto)?.categoria_id as string | undefined;
-
   // Gruppo ramo del ramo selezionato
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
@@ -368,46 +356,10 @@ const ImmissionePolizzaPage = () => {
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
-  const { data: provvigioneDb } = useQuery({
-    queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedProdottoCategoriaId],
-    queryFn: async () => {
-      if (!selectedCompagnia || !selectedProdottoCategoriaId) return null;
-      const { data } = await supabase
-        .from("provvigioni_compagnia_ramo")
-        .select("id, percentuale_provvigione")
-        .eq("compagnia_id", selectedCompagnia)
-        .eq("categoria_id", selectedProdottoCategoriaId)
-        .eq("attiva", true)
-        .limit(1)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!selectedCompagnia && !!selectedProdottoCategoriaId,
-  });
-
-  useEffect(() => {
-    if (selectedProdotto && prodottiList) {
-      const prod = prodottiList.find((p) => p.id === selectedProdotto);
-      if (prod?.compagnia_id && !selectedCompagnia) setSelectedCompagnia(prod.compagnia_id);
-    }
-  }, [selectedProdotto, prodottiList]);
-
-  useEffect(() => {
-    if (provvigioneDb) {
-      const val = String(provvigioneDb.percentuale_provvigione ?? "");
-      setPercentualeProvvigione(val);
-      setProvvigioneOriginalValue(val);
-      setProvvigioneFromDb(true);
-      setProvvigioneDbRecordId(provvigioneDb.id);
-    } else if (selectedCompagnia && selectedProdottoCategoriaId) {
-      setPercentualeProvvigione("");
-      setProvvigioneOriginalValue("");
-      setProvvigioneFromDb(false);
-      setProvvigioneDbRecordId(null);
-    }
-  }, [provvigioneDb, selectedCompagnia, selectedProdottoCategoriaId]);
-
-  const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
+  // Provvigione: rimossa lookup automatica per prodotto (prodotto è ora testo libero).
+  // L'utente inserisce manualmente la percentuale.
+  const provvigioneFromDb = false;
+  const isProvvigioneModified = false;
 
   // --- Computed ---
   const totFirma = (parseFloat(premioNetto || "0") + parseFloat(addizionali || "0") + parseFloat(tasse || "0"));
