@@ -325,29 +325,88 @@ WHERE p.convertito_cliente_id IS NULL
   AND u.nome_ufficio ILIKE '%milano%'
 GROUP BY u.nome_ufficio;
 
-### v_storico_gare (Storico Gare Pubbliche - Market Intelligence)
-NON è la pipeline trattative attive: è il dataset storico di gare/manifestazioni d'interesse PA.
+### v_storico_gare (Storico Gare Pubbliche - Market Intelligence storica PA)
+
+⚠️ REGOLA DI INSTRADAMENTO CRITICA:
+- Se l'utente parla di "gare", "manifestazioni d'interesse", "mandati PA", "broker incumbent",
+  "enti pubblici storici", "comuni/ASL/regioni gestite", "scadenze mandati" → usa SEMPRE `v_storico_gare`.
+- Se l'utente parla di "trattativa", "pipeline commerciale", "preventivo", "opportunity",
+  "offerta in corso", "vinte/perse del mese" → usa `trattative`.
+- NON mescolare i due dataset: `v_storico_gare` è intelligence storica di mercato (chi gestiva quel
+  cliente PA, quando scade il mandato, condizioni di gara), NON pipeline commerciale attiva.
+
 Campi: id, anno_riferimento (int), ente_nome, provincia (2 lettere), tipologia, esito,
 broker_incumbent, categoria_ente, data_consegna, data_inizio_mandato, data_fine_mandato,
-opzione_rinnovo_anni, flag_cauzione, flag_referenze_bancarie, flag_accesso_atti,
-flag_offerta_tecnica, note, cliente_id, stato_mandato (calcolato).
+opzione_rinnovo (testo libero), opzione_rinnovo_anni (int derivato),
+flag_cauzione, flag_referenze_bancarie, flag_accesso_atti, flag_offerta_tecnica (booleani sui
+requisiti di gara), note, cliente_id (auto-link al CRM se ente già anagrafato), stato_mandato (calcolato).
+
 Valori enum:
 - tipologia: 'manifestazione' | 'gara' | 'affidamento_diretto' | 'altro'
 - esito: 'vinta' | 'persa' | 'non_partecipato' | 'annullata' | 'in_corso' | 'non_classificato'
 - categoria_ente: 'comune' | 'provincia' | 'regione' | 'azienda_sanitaria' | 'universita' | 'consorzio' | 'societa_partecipata' | 'altro_ente'
 - stato_mandato: 'attivo' | 'in_scadenza_12m' | 'scaduto' | 'sconosciuto'
-- broker_incumbent normalizzato: 'INTERMEDIA', 'B&S ITALIA', 'AON', 'MARSH', 'WILLIS', 'MAG JLT', 'ASSITECA', ...
+- broker_incumbent normalizzato (UPPERCASE): 'INTERMEDIA', 'B&S ITALIA', 'AON', 'MARSH', 'WILLIS', 'MAG JLT', 'ASSITECA', ...
+
+Mappature naturali:
+- "comuni del Veneto" → categoria_ente='comune' AND provincia IN ('VE','PD','TV','VR','VI','RO','BL')
+- "ASL del Sud" → categoria_ente='azienda_sanitaria' AND provincia IN ('NA','SA','BA','LE','CT','PA',...)
+- "università" → categoria_ente='universita'
+- "mandati in scadenza" / "mandati che scadono" → stato_mandato='in_scadenza_12m'
+- "competitor" / "non noi" → broker_incumbent <> 'INTERMEDIA' AND broker_incumbent IS NOT NULL
+- "gare complesse" → flag_cauzione AND flag_referenze_bancarie AND flag_offerta_tecnica
 
 Esempi:
--- Win rate per anno e tipologia:
+-- Top 10 broker incumbent per numero di mandati attivi:
+SELECT broker_incumbent, COUNT(*) AS mandati
+FROM v_storico_gare
+WHERE broker_incumbent IS NOT NULL AND stato_mandato='attivo'
+GROUP BY broker_incumbent ORDER BY mandati DESC LIMIT 10;
+
+-- Mandati in scadenza nei prossimi 12 mesi gestiti da competitor:
+SELECT ente_nome, provincia, categoria_ente, broker_incumbent, data_fine_mandato
+FROM v_storico_gare
+WHERE stato_mandato='in_scadenza_12m'
+  AND broker_incumbent <> 'INTERMEDIA'
+  AND broker_incumbent IS NOT NULL
+ORDER BY data_fine_mandato ASC LIMIT 100;
+
+-- Win rate Intermedia per anno e categoria_ente:
+SELECT anno_riferimento, categoria_ente,
+  COUNT(*) FILTER (WHERE esito='vinta' AND broker_incumbent='INTERMEDIA')::float
+    / NULLIF(COUNT(*) FILTER (WHERE esito IN ('vinta','persa')),0) AS win_rate_intermedia,
+  COUNT(*) AS totale_gare
+FROM v_storico_gare
+GROUP BY 1,2 ORDER BY 1 DESC, 2;
+
+-- Comuni di una provincia con mandato scaduto e nessun broker incumbent (potenziali target):
+SELECT ente_nome, data_fine_mandato, anno_riferimento
+FROM v_storico_gare
+WHERE categoria_ente='comune' AND provincia='TV'
+  AND (stato_mandato='scaduto' OR broker_incumbent IS NULL)
+ORDER BY data_fine_mandato DESC NULLS LAST LIMIT 50;
+
+-- Gare con tutti i flag di complessità attivi:
+SELECT ente_nome, provincia, anno_riferimento, broker_incumbent, esito
+FROM v_storico_gare
+WHERE flag_cauzione AND flag_referenze_bancarie AND flag_offerta_tecnica
+ORDER BY anno_riferimento DESC LIMIT 50;
+
+-- Distribuzione gare per categoria_ente ultimi 5 anni:
+SELECT categoria_ente, COUNT(*) AS totale
+FROM v_storico_gare
+WHERE anno_riferimento >= EXTRACT(YEAR FROM CURRENT_DATE)::int - 5
+GROUP BY categoria_ente ORDER BY totale DESC;
+
+-- Enti auto-linkati al CRM raggruppati per esito:
+SELECT esito, COUNT(*) AS gare, COUNT(DISTINCT cliente_id) AS clienti_distinti
+FROM v_storico_gare
+WHERE cliente_id IS NOT NULL
+GROUP BY esito ORDER BY gare DESC;
+
+-- Win rate per anno e tipologia (generale):
 SELECT anno_riferimento, tipologia,
   COUNT(*) FILTER (WHERE esito='vinta')::float / NULLIF(COUNT(*),0) AS win_rate
 FROM v_storico_gare GROUP BY 1,2 ORDER BY 1 DESC;
-
--- Mandati in scadenza 12m gestiti da competitor:
-SELECT ente_nome, provincia, broker_incumbent, data_fine_mandato
-FROM v_storico_gare
-WHERE stato_mandato='in_scadenza_12m' AND broker_incumbent <> 'INTERMEDIA'
-ORDER BY data_fine_mandato LIMIT 50;
 `;
 
