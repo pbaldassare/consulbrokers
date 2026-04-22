@@ -1144,6 +1144,46 @@ export default function ClienteDetail() {
 
   const specialistAssigned = !!specialistRow?.profilo_id;
 
+  // Profili backoffice per il select Specialist nella card "Assegnazioni Gestionali"
+  const { data: profiliBackoffice = [] } = useQuery({
+    queryKey: ["profili_commerciali"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, ruolo, attivo")
+        .in("ruolo", ["produttore", "ufficio", "backoffice", "admin"])
+        .eq("attivo", true)
+        .order("cognome");
+      return (data || []) as any[];
+    },
+  });
+
+  const upsertSpecialistMutation = useMutation({
+    mutationFn: async (profilo_id: string | null) => {
+      if (!id) return;
+      if (!profilo_id) {
+        const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+          .delete()
+          .eq("cliente_id", id)
+          .eq("ruolo", "backoffice");
+        if (error) throw error;
+        return;
+      }
+      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        .upsert(
+          { cliente_id: id, ruolo: "backoffice", profilo_id },
+          { onConflict: "cliente_id,ruolo" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist_cliente", id] });
+      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
+      toast.success("Specialist aggiornato");
+    },
+    onError: (err: any) => toast.error(err.message || "Errore aggiornamento Specialist"),
+  });
+
   const [editFields, setEditFields] = useState<Record<string, any>>({});
   // Tracks the last CF auto-filled, used only to avoid spamming the toast.
   // Must be declared before any early return to keep hook order stable.
@@ -1596,7 +1636,7 @@ export default function ClienteDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Sede */}
                 <div>
                   <Label className="text-xs">
@@ -1646,10 +1686,43 @@ export default function ClienteDetail() {
                     </>
                   )}
                 </div>
+
+                {/* Specialist (Backoffice) */}
+                <div>
+                  <Label className="text-xs">
+                    Specialist{!readOnly && <RequiredMark />}
+                  </Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {(() => {
+                        const p = profiliBackoffice.find((x: any) => x.id === specialistRow?.profilo_id);
+                        return p ? `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—" : "—";
+                      })()}
+                    </p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        className={`h-8 text-xs ${!specialistAssigned ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        value={specialistRow?.profilo_id || ""}
+                        onValueChange={(v) => upsertSpecialistMutation.mutate(v || null)}
+                        placeholder="— Seleziona specialist —"
+                        options={profiliBackoffice
+                          .filter((p: any) => p.ruolo === "backoffice" || p.ruolo === "admin")
+                          .map((p: any) => ({
+                            value: p.id,
+                            label: `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—",
+                          }))}
+                      />
+                      {!specialistAssigned && (
+                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
               {!readOnly && (
                 <p className="text-[10px] text-muted-foreground mt-3">
-                  Specialist obbligatorio, si gestisce in "Codici Commerciali (Rete)".
+                  I dettagli del codice commerciale (mandato, % provvigione, brand, date) si gestiscono in "Codici Commerciali (Rete)".
                 </p>
               )}
             </CardContent>
