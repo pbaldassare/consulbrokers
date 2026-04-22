@@ -1554,7 +1554,26 @@ export default function ClienteDetail() {
                 ]} />
                 {isPrivato ? (
                   <>
-                    <FieldInput label="Codice Fiscale" field="codice_fiscale" required />
+                    <FieldInput
+                      label="Codice Fiscale"
+                      field="codice_fiscale"
+                      required
+                      action={
+                        ef.codice_fiscale && ef.codice_fiscale.length === 16 && parseCF(ef.codice_fiscale) ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 shrink-0"
+                            title="Compila automaticamente dati anagrafici dal CF"
+                            onClick={() => handleCFAutoFill(ef.codice_fiscale)}
+                          >
+                            <Sparkles className="h-3.5 w-3.5 mr-1" />
+                            Compila da CF
+                          </Button>
+                        ) : null
+                      }
+                    />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" required warning={dataNascitaWarning} />
                     <FieldComuneItaliano label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
                     <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" required />
