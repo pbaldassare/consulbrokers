@@ -1104,6 +1104,17 @@ export default function ClienteDetail() {
     },
   });
 
+  const { data: ufficiList = [] } = useQuery({
+    queryKey: ["uffici_lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome, codice")
+        .order("nome");
+      return (data || []) as any[];
+    },
+  });
+
   const [editFields, setEditFields] = useState<Record<string, any>>({});
 
   useEffect(() => {
