@@ -313,7 +313,7 @@ const TitoloDetail = () => {
     vincolo: "",
     targa_telaio: "",
     descrizione_polizza: "",
-    prodotto_id: "" as string | null,
+    prodotto_nome: "",
     specialist: "",
     produttore_id: "" as string | null,
     ufficio_id: "" as string | null,
@@ -325,19 +325,6 @@ const TitoloDetail = () => {
     { value: "POLIZZE FAMIGLIA FIORE", label: "POLIZZE FAMIGLIA FIORE" },
     { value: "gestione", label: "Gestione" },
   ];
-
-  const { data: prodottiOpts = [] } = useQuery({
-    queryKey: ["prodotti-by-compagnia", titolo?.compagnia_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("prodotti")
-        .select("id, nome_prodotto")
-        .eq("compagnia_id", titolo!.compagnia_id!)
-        .order("nome_prodotto");
-      return (data || []).map((p: any) => ({ value: p.id, label: p.nome_prodotto }));
-    },
-    enabled: editingContratto && !!titolo?.compagnia_id,
-  });
 
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-profiles"],
@@ -394,7 +381,7 @@ const TitoloDetail = () => {
         vincolo: (titolo as any).vincolo ?? "",
         targa_telaio: (titolo as any).targa_telaio ?? "",
         descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
-        prodotto_id: (titolo as any).prodotto_id ?? null,
+        prodotto_nome: (titolo as any).prodotto_nome ?? "",
         specialist: (titolo as any).specialist ?? "",
         produttore_id: (titolo as any).produttore_id ?? null,
         ufficio_id: (titolo as any).ufficio_id ?? null,
@@ -410,7 +397,7 @@ const TitoloDetail = () => {
       const after: Record<string, any> = {};
       const fields: (keyof typeof contrattoForm)[] = [
         "tipo_portafoglio", "cig_rif", "vincolo", "targa_telaio",
-        "descrizione_polizza", "prodotto_id", "specialist", "produttore_id", "ufficio_id",
+        "descrizione_polizza", "prodotto_nome", "specialist", "produttore_id", "ufficio_id",
       ];
       fields.forEach((f) => {
         const oldV = (titolo as any)?.[f] ?? null;
@@ -426,7 +413,7 @@ const TitoloDetail = () => {
           vincolo: contrattoForm.vincolo || null,
           targa_telaio: contrattoForm.targa_telaio || null,
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
-          prodotto_id: contrattoForm.prodotto_id || null,
+          prodotto_nome: contrattoForm.prodotto_nome || null,
           specialist: contrattoForm.specialist || null,
           produttore_id: contrattoForm.produttore_id || null,
           ufficio_id: contrattoForm.ufficio_id || null,
@@ -1065,7 +1052,7 @@ const TitoloDetail = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/carico")}><ArrowLeft className="w-5 h-5" /></Button>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
-          <p className="text-muted-foreground text-sm">{t.prodotti?.nome_prodotto} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
+          <p className="text-muted-foreground text-sm">{(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
         </div>
         {t.stato === "in_attesa_rinnovo" ? (
           <Badge className="ml-auto text-sm bg-orange-500 hover:bg-orange-600 text-white" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
@@ -1571,11 +1558,11 @@ const TitoloDetail = () => {
 
             <div className="space-y-1">
               <Label className="text-xs">Prodotto</Label>
-              <SearchableSelect
-                options={prodottiOpts}
-                value={contrattoForm.prodotto_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, prodotto_id: v || null }))}
-                placeholder="Seleziona prodotto"
+              <Input
+                type="text"
+                placeholder="Es. Tutela Legale, Cyber Risk…"
+                value={contrattoForm.prodotto_nome}
+                onChange={(e) => setContrattoForm(p => ({ ...p, prodotto_nome: e.target.value }))}
               />
             </div>
 
