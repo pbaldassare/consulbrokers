@@ -1095,13 +1095,13 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
-        .select("id, nome, codice")
-        .order("nome");
+        .select("id, nome_ufficio, codice_ufficio, attivo")
+        .order("nome_ufficio");
       return (data || []) as any[];
     },
   });
 
-  // Specialist (backoffice) corrente per il cliente
+  // Specialist (backoffice) corrente per il cliente — usato solo per validazione
   const { data: specialistRow } = useQuery({
     queryKey: ["specialist_cliente", id],
     queryFn: async () => {
@@ -1116,39 +1116,7 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
-  // Lista profili Specialist (backoffice)
-  const { data: backofficeProfili = [] } = useQuery({
-    queryKey: ["profili_backoffice"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome")
-        .eq("ruolo", "backoffice")
-        .eq("attivo", true)
-        .order("cognome");
-      return (data || []) as any[];
-    },
-  });
-
   const specialistAssigned = !!specialistRow?.profilo_id;
-
-  const upsertSpecialistMutation = useMutation({
-    mutationFn: async (profilo_id: string) => {
-      if (!id) throw new Error("ID cliente mancante");
-      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
-        .upsert(
-          { cliente_id: id, ruolo: "backoffice", profilo_id, percentuale: 0 },
-          { onConflict: "cliente_id,ruolo" }
-        );
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["specialist_cliente", id] });
-      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
-      toast.success("Specialist aggiornato");
-    },
-    onError: (err: any) => toast.error(err.message),
-  });
 
   const [editFields, setEditFields] = useState<Record<string, any>>({});
   // Tracks the last CF auto-filled, used only to avoid spamming the toast.
