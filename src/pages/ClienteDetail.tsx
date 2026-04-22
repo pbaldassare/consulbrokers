@@ -1327,18 +1327,18 @@ export default function ClienteDetail() {
                 ]} />
                 {isPrivato ? (
                   <>
-                    <FieldInput label="Codice Fiscale" field="codice_fiscale" />
-                    <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
-                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
-                    <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" />
+                    <FieldInput label="Codice Fiscale" field="codice_fiscale" required />
+                    <FieldInput label="Data di Nascita" field="data_nascita" type="date" required warning={dataNascitaWarning} />
+                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
+                    <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" required />
                     <FieldInput label="Città" field="citta_residenza" />
                     <FieldInput label="Provincia" field="provincia_residenza" />
                     <FieldInput label="CAP" field="cap_residenza" />
                   </>
                 ) : (
                   <>
-                    <FieldInput label="Partita IVA" field="partita_iva" />
-                    <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
+                    <FieldInput label="Partita IVA" field="partita_iva" required />
+                    <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" required />
                     <FieldInput label="Codice SDI" field="codice_sdi" />
                     <FieldSelect label="Forma Giuridica" field="forma_giuridica" options={[
                       { value: "srl", label: "S.R.L." }, { value: "spa", label: "S.P.A." }, { value: "sas", label: "S.A.S." },
