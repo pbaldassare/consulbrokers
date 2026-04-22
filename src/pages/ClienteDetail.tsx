@@ -1565,7 +1565,7 @@ export default function ClienteDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {/* Sede */}
                 <div>
                   <Label className="text-xs">
@@ -1573,54 +1573,28 @@ export default function ClienteDetail() {
                   </Label>
                   {readOnly ? (
                     <p className="text-sm mt-1">
-                      {ufficiList.find((u: any) => u.id === ef.ufficio_id)?.nome || "—"}
+                      {ufficiList.find((u: any) => u.id === ef.ufficio_id)?.nome_ufficio || "—"}
                     </p>
                   ) : (
                     <>
                       <SearchableSelect
                         className={`h-8 text-xs ${isFieldMissing("ufficio_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                        value={ef.ufficio_id || ""}
+                        value={String(ef.ufficio_id ?? "")}
                         onValueChange={(v) => updateField("ufficio_id", v || null)}
                         placeholder="— Seleziona sede —"
-                        options={ufficiList.map((u: any) => ({ value: u.id, label: u.nome }))}
+                        options={ufficiList.map((u: any) => ({ value: u.id, label: u.nome_ufficio }))}
                       />
                       {isFieldMissing("ufficio_id") && (
                         <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
                       )}
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Gruppo Finanziario e Specialist sono obbligatori e si gestiscono in "Dati Statistici" e "Codici Commerciali (Rete)".
+                      </p>
                     </>
                   )}
                 </div>
-
-                {/* Gruppo Finanziario */}
-                <div>
-                  <Label className="text-xs">
-                    Gruppo Finanziario{!readOnly && <RequiredMark />}
-                  </Label>
-                  {readOnly ? (
-                    <p className="text-sm mt-1">
-                      {gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}
-                    </p>
-                  ) : (
-                    <>
-                      <SearchableSelect
-                        className={`h-8 text-xs ${isFieldMissing("gruppo_finanziario_id") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                        value={ef.gruppo_finanziario_id || ""}
-                        onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
-                        placeholder="— Seleziona gruppo —"
-                        options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
-                      />
-                      {isFieldMissing("gruppo_finanziario_id") && (
-                        <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Specialist (sincronizzato con Codici Commerciali) */}
-                <div>
-                  <Label className="text-xs">
-                    Specialist <span className="text-destructive">*</span>
-                  </Label>
+              </div>
+            </CardContent>
                   {readOnly ? (
                     <p className="text-sm mt-1">
                       {(() => {
