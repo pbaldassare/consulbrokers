@@ -1,41 +1,43 @@
 
 
-## Import diretto dei dati Excel — senza secret, senza edge function
+## Storico Gare — refinements UI
 
-Hai ragione, niente secret. Faccio tutto dal sandbox via `psql` direttamente sul DB (accesso già disponibile).
+### Cambiamenti richiesti
 
-### Cosa faccio
+1. **Toggle "Solo nostri clienti" → "Solo Intermedia"**
+   - In `StoricoGarePage.tsx` rinomino il filtro toggle.
+   - Il filtro applica `WHERE broker_incumbent = 'INTERMEDIA'` (al posto del filtro su `cliente_id IS NOT NULL`).
+   - Etichetta UI: "Solo Intermedia" (mostra solo le gare dove eravamo noi il broker incumbent).
 
-1. **Copio** `user-uploads://ELENCO_GARE_GENERALE_1-3.xlsx` in `/tmp/elenco_gare.xlsx`.
-2. **Pulizia**: `TRUNCATE storico_gare` (la tabella è vuota o contiene tentativi precedenti — la azzero per non duplicare).
-3. **Parsing in Python** (pandas + openpyxl): leggo tutti i fogli, applico la stessa logica della edge function:
-   - skip righe vuote e righe di riepilogo (`TOT`, `PERCENTUALE`, `GARA VINTE`…),
-   - parse date in formati misti (`dd/mm/yyyy`, `dd.mm.yyyy`, serial Excel, fallback null se non parsabile),
-   - normalizzazione flag `SI`/`NO`/`X` → bool,
-   - derivazione `esito` da NOTE (vinta/persa/annullata/non_partecipato/in_corso),
-   - estrazione `anno_riferimento` dal nome del foglio (o, per fogli tipo "INTERMEDIA", dalla `data_inizio_mandato`),
-   - `provincia` ridotta a 2 char uppercase.
-4. **Generazione SQL** in batch da 200 righe → eseguo via `psql` con i `PG*` env vars già disponibili nel sandbox.
-5. **I trigger DB fanno il resto in automatico**:
-   - `broker_incumbent` normalizzato (B&S ITALIA, INTERMEDIA, AON, MARSH, WILLIS…),
-   - `categoria_ente` derivato da regex sul nome (comune/provincia/asl/università…),
-   - `opzione_rinnovo_anni` estratto da regex sul testo libero,
-   - auto-link a `clienti` via `ente_nome` ILIKE.
-6. **Report finale in chat**:
-   - righe totali inserite,
-   - breakdown per anno,
-   - breakdown per esito,
-   - breakdown per categoria_ente,
-   - n. clienti auto-linkati,
-   - n. errori di parsing date (righe inserite comunque, con date null + nota originale).
+2. **Rimozione KPI "Gare vinte"**
+   - Tolgo la card centrale "2 — Gare vinte" (poco significativa: l'esito reale richiede arricchimento manuale dei dati).
+   - Ridistribuisco le altre 2 card (Gare totali, Mandati in scadenza 12m) su layout `grid-cols-2`.
+
+3. **Aggiunta grafici in alto** (sopra la barra filtri, sotto le KPI)
+   - **Grafico A — Trend per anno** (barre verticali): conteggio gare per `anno_riferimento` (ultimi 13 anni). Mostra il volume di mercato annuo.
+   - **Grafico B — Top 8 broker incumbent** (barre orizzontali): conteggio gare per `broker_incumbent`, ordinato desc. Evidenzia i competitor dominanti.
+   - **Grafico C — Distribuzione per categoria ente** (donut/pie): % di gare per `categoria_ente` (comune, asl, regione, provincia, università, consorzio, società partecipata, altro).
+   - I grafici **rispettano i filtri applicati** (anno, provincia, esito, broker, categoria, stato mandato, flag): se filtri "provincia=TV", anche i grafici si aggiornano a soli dati TV.
+   - Layout: `grid-cols-1 lg:grid-cols-3` per affiancarli su desktop, stack su mobile.
+   - Libreria: `recharts` (già nel progetto, usata in altre dashboard come ClienteDashboard).
+
+### File da modificare
+
+- `src/pages/StoricoGarePage.tsx`:
+  - Rinomino state `soloNostriClienti` → `soloIntermedia` e cambio query da `.not('cliente_id', 'is', null)` a `.eq('broker_incumbent', 'INTERMEDIA')`.
+  - Rimuovo il blocco JSX della card "Gare vinte" e la relativa query/conteggio.
+  - Aggiungo 3 nuove query aggregate (con gli stessi filtri della tabella) per popolare i 3 grafici, gestite via `useEffect` parallelo a quello principale.
+  - Aggiungo blocco `<Card>` con tre `<ResponsiveContainer>` recharts (`BarChart` verticale, `BarChart` orizzontale, `PieChart`).
 
 ### Cosa NON tocco
 
-- Codice della edge function (resta com'è, useremo psql diretto).
-- Schema, vista, trigger, RLS di `storico_gare`.
-- Pagina UI `/trattative/storico-gare`.
+- Schema DB, vista `v_storico_gare`, trigger, edge function — già a posto.
+- Filtri esistenti (anno, provincia, tipologia, esito, broker, categoria, stato), pagination, ricerca testuale.
 
-### Verifica finale
+### Verifica
 
-Dopo l'import apri `/trattative/storico-gare`: vedi la lista paginata con i dati reali e i 7 filtri categoriali popolati. Ti riporto qui i conteggi per confronto col file originale.
+1. La card "Gare vinte" sparisce; restano 2 KPI in alto (1693 totali + 138 in scadenza).
+2. Il toggle in basso si chiama ora "Solo Intermedia"; attivandolo la lista scende a ~N record (quelli con `broker_incumbent='INTERMEDIA'`).
+3. Sopra i filtri appaiono 3 grafici affiancati: barre per anno, top broker, donut per categoria ente.
+4. Filtrando per "anno=2024" o "provincia=MI" i grafici si aggiornano coerentemente.
 
