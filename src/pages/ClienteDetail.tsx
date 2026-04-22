@@ -807,7 +807,10 @@ export default function ClienteDetail() {
   };
 
   const saveDetailsMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (missing: { field: string; label: string }[]) => {
+      if (missing.length > 0) {
+        throw new Error("Campi obbligatori mancanti: " + missing.map((m) => m.label).join(", "));
+      }
       const {
         id: _id, created_at, updated_at, user_id, ufficio_id, ...rest
       } = editFields;
@@ -963,43 +966,128 @@ export default function ClienteDetail() {
     }
   };
 
-  const FieldInput = ({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      {readOnly ? (
-        <p className="text-sm mt-1">{ef[field] || "—"}</p>
-      ) : (
-        <Input className="h-8 text-xs" type={type} value={ef[field] || ""} onChange={(e) => {
-          const val = field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva" ? e.target.value.toUpperCase() : e.target.value;
-          updateField(field, val);
-          if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
-            handleCFAutoFill(val);
-          }
-          if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
-            updateField("partita_iva", val);
-            toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
-          }
-        }} />
-      )}
-    </div>
-  );
+  // Coerenza CF (solo privati)
+  const cfParsed = isPrivato && ef.codice_fiscale && ef.codice_fiscale.length === 16
+    ? parseCF(ef.codice_fiscale)
+    : null;
+  const cfComune = cfParsed ? lookupComune(cfParsed.codiceCatastale) : null;
 
-  const FieldSelect = ({ label, field, options }: { label: string; field: string; options: { value: string; label: string }[] }) => (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      {readOnly ? (
-        <p className="text-sm mt-1">{options.find(o => o.value === ef[field])?.label || ef[field] || "—"}</p>
-      ) : (
-        <SearchableSelect
-          className="h-8 text-xs"
-          value={ef[field] || ""}
-          onValueChange={(v) => updateField(field, v)}
-          placeholder="—"
-          options={options}
-        />
-      )}
-    </div>
-  );
+  const dataNascitaWarning = (() => {
+    if (!cfParsed || !ef.data_nascita) return null;
+    if (ef.data_nascita !== cfParsed.dataNascita) {
+      const [y, m, d] = cfParsed.dataNascita.split("-");
+      return `Data non coerente con il CF (atteso: ${d}/${m}/${y})`;
+    }
+    return null;
+  })();
+
+  const luogoNascitaWarning = (() => {
+    if (!cfComune || !ef.luogo_nascita) return null;
+    const luogoUpper = String(ef.luogo_nascita).toUpperCase();
+    const expectedUpper = cfComune.comune.toUpperCase();
+    if (!luogoUpper.includes(expectedUpper) && !expectedUpper.includes(luogoUpper)) {
+      return `Luogo non coerente con il CF (atteso: ${cfComune.comune})`;
+    }
+    return null;
+  })();
+
+  // Validazione campi obbligatori
+  const isCFValid = (cf: string) => /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test((cf || "").toUpperCase());
+  const isPIVAValid = (p: string) => /^\d{11}$/.test(p || "");
+
+  const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
+    ? [
+        { field: "codice_fiscale", label: "Codice Fiscale", ok: isCFValid(ef.codice_fiscale || "") },
+        { field: "data_nascita", label: "Data di Nascita", ok: !!ef.data_nascita },
+        { field: "luogo_nascita", label: "Luogo di Nascita", ok: !!(ef.luogo_nascita || "").trim() },
+        { field: "indirizzo_residenza", label: "Indirizzo Residenza", ok: !!(ef.indirizzo_residenza || "").trim() },
+      ]
+    : [
+        {
+          field: "partita_iva",
+          label: "Partita IVA o Codice Fiscale",
+          ok: isPIVAValid(ef.partita_iva || "") || isPIVAValid(ef.codice_fiscale_azienda || "") || isCFValid(ef.codice_fiscale_azienda || ""),
+        },
+        { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
+        { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },
+      ];
+
+  const missingRequired = requiredFieldsList.filter((r) => !r.ok);
+  const requiredFieldNames = new Set(requiredFieldsList.map((r) => r.field));
+  const missingFieldNames = new Set(missingRequired.map((r) => r.field));
+
+  const isFieldRequired = (field: string) => requiredFieldNames.has(field);
+  const isFieldMissing = (field: string) => missingFieldNames.has(field);
+  // Per il campo P.IVA/CF azienda, se manca uno mancano entrambi visivamente
+  const isAziendaIdMissing = !isPrivato && missingFieldNames.has("partita_iva");
+
+  const RequiredMark = () => <span className="text-destructive ml-0.5">*</span>;
+
+  const FieldHint = ({ field, customWarning }: { field: string; customWarning?: string | null }) => {
+    if (!readOnly && isFieldRequired(field) && (isFieldMissing(field) || (field === "codice_fiscale_azienda" && isAziendaIdMissing))) {
+      return <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>;
+    }
+    if (customWarning) {
+      return <p className="text-xs text-amber-600 mt-0.5">{customWarning}</p>;
+    }
+    return null;
+  };
+
+  const FieldInput = ({ label, field, type = "text", required, warning }: { label: string; field: string; type?: string; required?: boolean; warning?: string | null }) => {
+    const showError = !readOnly && required && isFieldMissing(field);
+    return (
+      <div>
+        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
+        {readOnly ? (
+          <p className="text-sm mt-1">{ef[field] || "—"}</p>
+        ) : (
+          <Input
+            className={`h-8 text-xs ${showError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            type={type}
+            value={ef[field] || ""}
+            onChange={(e) => {
+              const val = field === "codice_fiscale" || field === "codice_fiscale_azienda" || field === "partita_iva" ? e.target.value.toUpperCase() : e.target.value;
+              updateField(field, val);
+              if ((field === "codice_fiscale" || field === "codice_fiscale_azienda") && val.length === 16) {
+                handleCFAutoFill(val);
+              }
+              if (field === "codice_fiscale_azienda" && val.length === 11 && /^\d{11}$/.test(val) && !ef.partita_iva) {
+                updateField("partita_iva", val);
+                toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
+              }
+            }}
+          />
+        )}
+        {!readOnly && (
+          <>
+            {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+            {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const FieldSelect = ({ label, field, options, required }: { label: string; field: string; options: { value: string; label: string }[]; required?: boolean }) => {
+    const showError = !readOnly && required && isFieldMissing(field);
+    return (
+      <div>
+        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
+        {readOnly ? (
+          <p className="text-sm mt-1">{options.find(o => o.value === ef[field])?.label || ef[field] || "—"}</p>
+        ) : (
+          <SearchableSelect
+            className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
+            value={ef[field] || ""}
+            onValueChange={(v) => updateField(field, v)}
+            placeholder="—"
+            options={options}
+          />
+        )}
+        {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+      </div>
+    );
+  };
 
   const FieldSwitch = ({ label, field }: { label: string; field: string }) => (
     <div className="flex items-center gap-2">
@@ -1008,27 +1096,31 @@ export default function ClienteDetail() {
     </div>
   );
 
-  const FieldAddress = ({ label, field, capField, cittaField, provinciaField }: { label: string; field: string; capField: string; cittaField: string; provinciaField: string }) => (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      {readOnly ? (
-        <p className="text-sm mt-1">{ef[field] || "—"}</p>
-      ) : (
-        <AddressAutocomplete
-          value={ef[field] || ""}
-          onChange={(v) => updateField(field, v)}
-          onSelect={(components: AddressComponents) => {
-            updateField(field, components.indirizzo);
-            updateField(capField, components.cap);
-            updateField(cittaField, components.citta);
-            updateField(provinciaField, components.provincia);
-          }}
-          placeholder="Cerca indirizzo..."
-          className="h-8 text-xs"
-        />
-      )}
-    </div>
-  );
+  const FieldAddress = ({ label, field, capField, cittaField, provinciaField, required }: { label: string; field: string; capField: string; cittaField: string; provinciaField: string; required?: boolean }) => {
+    const showError = !readOnly && required && isFieldMissing(field);
+    return (
+      <div>
+        <Label className="text-xs">{label}{required && <RequiredMark />}</Label>
+        {readOnly ? (
+          <p className="text-sm mt-1">{ef[field] || "—"}</p>
+        ) : (
+          <AddressAutocomplete
+            value={ef[field] || ""}
+            onChange={(v) => updateField(field, v)}
+            onSelect={(components: AddressComponents) => {
+              updateField(field, components.indirizzo);
+              updateField(capField, components.cap);
+              updateField(cittaField, components.citta);
+              updateField(provinciaField, components.provincia);
+            }}
+            placeholder="Cerca indirizzo..."
+            className={`h-8 text-xs ${showError ? "border-destructive" : ""}`}
+          />
+        )}
+        {showError && <p className="text-xs text-destructive mt-0.5">Campo obbligatorio</p>}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -1066,9 +1158,18 @@ export default function ClienteDetail() {
           </Label>
         </div>
         {editMode ? (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {missingRequired.length > 0 && (
+              <span className="text-xs text-destructive">Compila i campi obbligatori ({missingRequired.length})</span>
+            )}
             <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
-            <Button size="sm" onClick={() => saveDetailsMutation.mutate()} disabled={saveDetailsMutation.isPending}>Salva</Button>
+            <Button
+              size="sm"
+              onClick={() => saveDetailsMutation.mutate(missingRequired)}
+              disabled={saveDetailsMutation.isPending || missingRequired.length > 0}
+            >
+              Salva
+            </Button>
           </div>
         ) : (
           <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
@@ -1226,27 +1327,27 @@ export default function ClienteDetail() {
                 ]} />
                 {isPrivato ? (
                   <>
-                    <FieldInput label="Codice Fiscale" field="codice_fiscale" />
-                    <FieldInput label="Data di Nascita" field="data_nascita" type="date" />
-                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" />
-                    <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" />
+                    <FieldInput label="Codice Fiscale" field="codice_fiscale" required />
+                    <FieldInput label="Data di Nascita" field="data_nascita" type="date" required warning={dataNascitaWarning} />
+                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
+                    <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" required />
                     <FieldInput label="Città" field="citta_residenza" />
                     <FieldInput label="Provincia" field="provincia_residenza" />
                     <FieldInput label="CAP" field="cap_residenza" />
                   </>
                 ) : (
                   <>
-                    <FieldInput label="Partita IVA" field="partita_iva" />
-                    <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" />
+                    <FieldInput label="Partita IVA" field="partita_iva" required />
+                    <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" required />
                     <FieldInput label="Codice SDI" field="codice_sdi" />
-                    <FieldSelect label="Forma Giuridica" field="forma_giuridica" options={[
+                    <FieldSelect label="Forma Giuridica" field="forma_giuridica" required options={[
                       { value: "srl", label: "S.R.L." }, { value: "spa", label: "S.P.A." }, { value: "sas", label: "S.A.S." },
                       { value: "snc", label: "S.N.C." }, { value: "ditta_individuale", label: "Ditta Individuale" },
                       { value: "cooperativa", label: "Cooperativa" }, { value: "associazione", label: "Associazione" },
                       { value: "ente_pubblico", label: "Ente Pubblico" }, { value: "fondazione", label: "Fondazione" },
                       { value: "consorzio", label: "Consorzio" }, { value: "altro", label: "Altro" },
                     ]} />
-                    <FieldAddress label="Sede" field="indirizzo_sede" capField="cap_sede" cittaField="citta_sede" provinciaField="provincia_sede" />
+                    <FieldAddress label="Sede" field="indirizzo_sede" capField="cap_sede" cittaField="citta_sede" provinciaField="provincia_sede" required />
                     <FieldInput label="Città Sede" field="citta_sede" />
                     <FieldInput label="Provincia Sede" field="provincia_sede" />
                     <FieldInput label="CAP Sede" field="cap_sede" />
