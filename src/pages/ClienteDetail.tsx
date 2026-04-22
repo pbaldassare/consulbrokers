@@ -649,7 +649,7 @@ function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnl
 }
 
 /* ── Dati Statistici Sub-component ── */
-function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[] }) {
+function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari, isFieldMissing }: { ef: Record<string, any>; readOnly: boolean; updateField: (f: string, v: any) => void; gruppiFinanziari: any[]; isFieldMissing: (f: string) => boolean }) {
   const { data: zoneOpts = [] } = useLookupZone();
   const { data: indottiOpts = [] } = useLookupIndotti();
   const { data: attivitaOpts = [] } = useLookupAttivita();
@@ -694,8 +694,32 @@ function DatiStatisticiSection({ ef, readOnly, updateField, gruppiFinanziari }: 
     </div>
   );
 
+  const gfMissing = isFieldMissing("gruppo_finanziario_id");
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+      {/* Gruppo Finanziario (obbligatorio) */}
+      <div>
+        <Label className="text-xs">
+          Gruppo Finanziario{!readOnly && <span className="text-destructive ml-0.5">*</span>}
+        </Label>
+        {readOnly ? (
+          <p className="text-sm mt-1">{gruppiFinanziari.find((g: any) => g.id === ef.gruppo_finanziario_id)?.nome || "—"}</p>
+        ) : (
+          <>
+            <SearchableSelect
+              className={`h-8 text-xs ${gfMissing ? "border-destructive ring-1 ring-destructive" : ""}`}
+              value={ef.gruppo_finanziario_id || ""}
+              onValueChange={(v) => updateField("gruppo_finanziario_id", v || null)}
+              placeholder="— Seleziona gruppo —"
+              options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+            />
+            {gfMissing && (
+              <p className="text-[11px] text-destructive mt-1">Campo obbligatorio</p>
+            )}
+          </>
+        )}
+      </div>
       <LookupField label="Zona" field="zona" options={zoneOpts} />
       <LookupField label="Indotto" field="indotto" options={indottiOpts} />
       <LookupField label="Gruppo Statistico" field="gruppo_statistico" options={gruppiStatOpts} />
