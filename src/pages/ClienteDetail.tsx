@@ -1151,6 +1151,9 @@ export default function ClienteDetail() {
   });
 
   const [editFields, setEditFields] = useState<Record<string, any>>({});
+  // Tracks the last CF auto-filled, used only to avoid spamming the toast.
+  // Must be declared before any early return to keep hook order stable.
+  const lastAutoFilledCFRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (cliente) {
