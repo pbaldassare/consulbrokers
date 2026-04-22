@@ -74,12 +74,14 @@ function FieldInput({
   type = "text",
   required,
   warning,
+  action,
 }: {
   label: string;
   field: string;
   type?: string;
   required?: boolean;
   warning?: string | null;
+  action?: React.ReactNode;
 }) {
   const { ef, readOnly, updateField, isFieldMissing, handleCFAutoFill } = useAnagraficaForm();
   const showError = !readOnly && required && isFieldMissing(field);
