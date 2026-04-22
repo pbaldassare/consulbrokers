@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -61,7 +62,7 @@ const ImmissionePolizzaPage = () => {
   const [durataDa, setDurataDa] = useState("");
   const [durataA, setDurataA] = useState("");
   const [anniDurata, setAnniDurata] = useState("1");
-  const [tipoRinnovo, setTipoRinnovo] = useState("tacito_rinnovo");
+  const [tacitoRinnovo, setTacitoRinnovo] = useState(true);
   const [rate, setRate] = useState("1");
   const [moraGiorni, setMoraGiorni] = useState("15");
   const [garanziaDa, setGaranziaDa] = useState("");
@@ -482,7 +483,7 @@ const ImmissionePolizzaPage = () => {
         durata_da: durataDa || null,
         durata_a: durataA || null,
         anni_durata: parseInt(anniDurata) || 1,
-        tipo_rinnovo: tipoRinnovo,
+        tacito_rinnovo: tacitoRinnovo,
         periodicita,
         rate: parseInt(rate) || 1,
         mora_giorni: parseInt(moraGiorni) || 15,
@@ -538,7 +539,7 @@ const ImmissionePolizzaPage = () => {
         data_movimento: new Date().toISOString().split("T")[0],
         data_effetto: durataDa || null,
         data_scadenza: durataA || null,
-        tipo_rinnovo: tipoRinnovo === "tacito_rinnovo" ? "Tacito rinnovo" : tipoRinnovo,
+        tacito_rinnovo: tacitoRinnovo,
         descrizione: cigRif ? `CIG: ${cigRif}` : descrizionePolizza || null,
         valuta,
         premio: totFirma || 0,
@@ -854,14 +855,11 @@ const ImmissionePolizzaPage = () => {
             <Input type="date" value={limiteMora} onChange={(e) => setLimiteMora(e.target.value)} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Tipo Rinnovo</Label>
-            <SearchableSelect className="h-8 text-xs" value={tipoRinnovo} onValueChange={setTipoRinnovo} placeholder="—"
-              options={[
-                { value: "tacito_rinnovo", label: "Tacito Rinnovo" },
-                { value: "scadenza_naturale", label: "Scadenza Naturale" },
-                { value: "libera", label: "Libera" },
-              ]}
-            />
+            <Label className="text-xs">Tacito Rinnovo</Label>
+            <div className="flex items-center gap-2 h-8">
+              <Switch checked={tacitoRinnovo} onCheckedChange={setTacitoRinnovo} />
+              <span className="text-xs text-muted-foreground">{tacitoRinnovo ? "Sì" : "No"}</span>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">GG Mora</Label>

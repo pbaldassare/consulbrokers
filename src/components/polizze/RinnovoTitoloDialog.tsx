@@ -213,6 +213,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         rate: t.rate,
         periodicita: t.periodicita,
         tipo_rinnovo: t.tipo_rinnovo,
+        tacito_rinnovo: t.tacito_rinnovo ?? true,
         disdetta_mesi: t.disdetta_mesi,
         descrizione_polizza: t.descrizione_polizza,
         targa_telaio: t.targa_telaio,
