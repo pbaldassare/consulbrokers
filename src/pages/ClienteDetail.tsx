@@ -1543,6 +1543,7 @@ export default function ClienteDetail() {
         </TabsContent>
 
         <TabsContent value="anagrafica" className="space-y-6">
+          <AnagraficaFormCtx.Provider value={anagraficaCtxValue}>
           {/* Dati Anagrafici */}
           <Card>
             <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
@@ -1564,7 +1565,7 @@ export default function ClienteDetail() {
                   <>
                     <FieldInput label="Codice Fiscale" field="codice_fiscale" required />
                     <FieldInput label="Data di Nascita" field="data_nascita" type="date" required warning={dataNascitaWarning} />
-                    <FieldInput label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
+                    <FieldComuneItaliano label="Luogo di Nascita" field="luogo_nascita" required warning={luogoNascitaWarning} />
                     <FieldAddress label="Indirizzo Residenza" field="indirizzo_residenza" capField="cap_residenza" cittaField="citta_residenza" provinciaField="provincia_residenza" required />
                     <FieldInput label="Città" field="citta_residenza" />
                     <FieldInput label="Provincia" field="provincia_residenza" />
@@ -1650,7 +1651,7 @@ export default function ClienteDetail() {
                   <FieldSelect label="Sesso" field="sesso" options={[
                     { value: "M", label: "M" }, { value: "F", label: "F" }, { value: "na", label: "N/A" },
                   ]} />
-                  <FieldInput label="Comune Nascita" field="comune_nascita" />
+                  <FieldComuneItaliano label="Comune Nascita" field="comune_nascita" />
                   <FieldInput label="Provincia Nascita" field="provincia_nascita" />
                   <FieldSelect label="Tipo Sommario" field="tipo_sommario" options={[
                     { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "D", label: "D" }, { value: "E", label: "E" },
@@ -1694,6 +1695,7 @@ export default function ClienteDetail() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+          </AnagraficaFormCtx.Provider>
         </TabsContent>
       </Tabs>
 
