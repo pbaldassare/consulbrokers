@@ -53,6 +53,9 @@ percentuale_riparto, provvigioni_firma, provvigioni_quietanza).
 Campo chiave: tacito_rinnovo (boolean, default true) → true = polizza a tacito rinnovo,
 false = scadenza naturale/disdetta. Usa SEMPRE questo campo per filtrare/contare il
 tacito rinnovo. Il vecchio campo testuale `tipo_rinnovo` è legacy e NON va usato.
+Campo prodotto: usa SEMPRE `prodotto_nome` (text, testo libero) come verità per il
+nome prodotto della polizza. La FK `prodotto_id` → tabella `prodotti` è legacy:
+NON va letta né scritta (0 polizze su 1047 la usano).
 
 ### titoli_movimenti
 Storico movimenti polizza (rinnovi, sospensioni, ecc.). Collega titoli nel tempo.

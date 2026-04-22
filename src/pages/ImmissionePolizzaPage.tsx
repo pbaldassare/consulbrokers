@@ -50,7 +50,7 @@ const ImmissionePolizzaPage = () => {
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedRamo, setSelectedRamo] = useState("");
-  const [selectedProdotto, setSelectedProdotto] = useState("");
+  const [prodottoNome, setProdottoNome] = useState("");
   const [specialist, setSpecialist] = useState("");
   const [tipoPortafoglio, setTipoPortafoglio] = useState("diretto");
   const [cigRif, setCigRif] = useState("");
@@ -103,13 +103,8 @@ const ImmissionePolizzaPage = () => {
   const [dataIncasso, setDataIncasso] = useState("");
   const [numeroIncasso, setNumeroIncasso] = useState("");
 
-  // Provvigioni
+  // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
-  const [provvigioneFromDb, setProvvigioneFromDb] = useState(false);
-  const [provvigioneOriginalValue, setProvvigioneOriginalValue] = useState("");
-  const [provvigioneDbRecordId, setProvvigioneDbRecordId] = useState<string | null>(null);
-  const [showProvvigioneDialog, setShowProvvigioneDialog] = useState(false);
-  const [provvigioneDialogType, setProvvigioneDialogType] = useState<"new" | "update">("new");
 
   // === RCA AUTO State ===
   // Veicolo
@@ -349,18 +344,6 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  const { data: prodottiList } = useQuery({
-    queryKey: ["prodotti-list-immissione", selectedCompagnia],
-    queryFn: async () => {
-      let q = supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto, compagnia_id, categoria_id").eq("attivo", true).order("nome_prodotto");
-      if (selectedCompagnia) q = q.eq("compagnia_id", selectedCompagnia);
-      const { data } = await q;
-      return data || [];
-    },
-  });
-
-  const selectedProdottoCategoriaId = prodottiList?.find((p) => p.id === selectedProdotto)?.categoria_id as string | undefined;
-
   // Gruppo ramo del ramo selezionato
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
@@ -368,46 +351,10 @@ const ImmissionePolizzaPage = () => {
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
-  const { data: provvigioneDb } = useQuery({
-    queryKey: ["provvigione-lookup-ramo", selectedCompagnia, selectedProdottoCategoriaId],
-    queryFn: async () => {
-      if (!selectedCompagnia || !selectedProdottoCategoriaId) return null;
-      const { data } = await supabase
-        .from("provvigioni_compagnia_ramo")
-        .select("id, percentuale_provvigione")
-        .eq("compagnia_id", selectedCompagnia)
-        .eq("categoria_id", selectedProdottoCategoriaId)
-        .eq("attiva", true)
-        .limit(1)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!selectedCompagnia && !!selectedProdottoCategoriaId,
-  });
-
-  useEffect(() => {
-    if (selectedProdotto && prodottiList) {
-      const prod = prodottiList.find((p) => p.id === selectedProdotto);
-      if (prod?.compagnia_id && !selectedCompagnia) setSelectedCompagnia(prod.compagnia_id);
-    }
-  }, [selectedProdotto, prodottiList]);
-
-  useEffect(() => {
-    if (provvigioneDb) {
-      const val = String(provvigioneDb.percentuale_provvigione ?? "");
-      setPercentualeProvvigione(val);
-      setProvvigioneOriginalValue(val);
-      setProvvigioneFromDb(true);
-      setProvvigioneDbRecordId(provvigioneDb.id);
-    } else if (selectedCompagnia && selectedProdottoCategoriaId) {
-      setPercentualeProvvigione("");
-      setProvvigioneOriginalValue("");
-      setProvvigioneFromDb(false);
-      setProvvigioneDbRecordId(null);
-    }
-  }, [provvigioneDb, selectedCompagnia, selectedProdottoCategoriaId]);
-
-  const isProvvigioneModified = provvigioneFromDb && percentualeProvvigione !== provvigioneOriginalValue;
+  // Provvigione: rimossa lookup automatica per prodotto (prodotto è ora testo libero).
+  // L'utente inserisce manualmente la percentuale.
+  const provvigioneFromDb = false;
+  const isProvvigioneModified = false;
 
   // --- Computed ---
   const totFirma = (parseFloat(premioNetto || "0") + parseFloat(addizionali || "0") + parseFloat(tasse || "0"));
@@ -418,47 +365,6 @@ const ImmissionePolizzaPage = () => {
   // --- Handlers ---
 
   const handleConferma = () => {
-    const hasProvvigione = percentualeProvvigione !== "";
-    if (hasProvvigione && !provvigioneFromDb) {
-      setProvvigioneDialogType("new");
-      setShowProvvigioneDialog(true);
-      return;
-    }
-    if (hasProvvigione && isProvvigioneModified) {
-      setProvvigioneDialogType("update");
-      setShowProvvigioneDialog(true);
-      return;
-    }
-    finalizzaPolizza();
-  };
-
-  const handleProvvigioneSave = async () => {
-    try {
-      if (provvigioneDialogType === "new" && selectedCompagnia && selectedProdottoCategoriaId) {
-        await supabase.from("provvigioni_compagnia_ramo").insert({
-          compagnia_id: selectedCompagnia,
-          categoria_id: selectedProdottoCategoriaId,
-          percentuale_provvigione: parseFloat(percentualeProvvigione),
-          attiva: true,
-        } as any);
-        toast.success("Provvigione salvata per questa combinazione Compagnia+Ramo");
-      } else {
-        if (provvigioneDbRecordId) {
-          await supabase.from("provvigioni_compagnia_ramo")
-            .update({ percentuale_provvigione: parseFloat(percentualeProvvigione) } as any)
-            .eq("id", provvigioneDbRecordId);
-          toast.success("Provvigione default aggiornata");
-        }
-      }
-    } catch {
-      toast.error("Errore nel salvataggio della provvigione");
-    }
-    setShowProvvigioneDialog(false);
-    finalizzaPolizza();
-  };
-
-  const handleProvvigioneSkip = () => {
-    setShowProvvigioneDialog(false);
     finalizzaPolizza();
   };
 
@@ -472,7 +378,7 @@ const ImmissionePolizzaPage = () => {
         appendice: appendice || "000",
         compagnia_id: selectedCompagnia || null,
         ramo_id: selectedRamo || null,
-        prodotto_id: selectedProdotto || null,
+        prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         specialist: specialist || null,
         tipo_portafoglio: tipoPortafoglio,
@@ -749,12 +655,12 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
-            <SearchableSelect
+            <Input
+              type="text"
               className="h-8 text-xs"
-              value={selectedProdotto}
-              onValueChange={setSelectedProdotto}
-              placeholder="— Prodotto —"
-              options={(prodottiList || []).map((p) => ({ value: p.id, label: `${p.codice_prodotto || ""} - ${p.nome_prodotto}` }))}
+              placeholder="Nome prodotto (testo libero)"
+              value={prodottoNome}
+              onChange={(e) => setProdottoNome(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -1047,23 +953,14 @@ const ImmissionePolizzaPage = () => {
               type="number" step="0.01" min="0" max="100"
               value={percentualeProvvigione}
               onChange={(e) => setPercentualeProvvigione(e.target.value)}
-              placeholder={selectedCompagnia && selectedProdottoCategoriaId ? "Inserisci %" : "Seleziona compagnia e prodotto"}
-              disabled={!selectedCompagnia || !selectedProdottoCategoriaId}
+              placeholder={selectedCompagnia ? "Inserisci %" : "Seleziona compagnia"}
+              disabled={!selectedCompagnia}
               className="h-8 text-xs font-mono"
             />
           </div>
           <div className="flex items-center gap-2 pb-1">
-            {selectedProdottoCategoriaId && provvigioneFromDb && !isProvvigioneModified && (
-              <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Da database (Compagnia+Ramo)</Badge>
-            )}
-            {selectedProdottoCategoriaId && provvigioneFromDb && isProvvigioneModified && (
-              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">Modificato (era {provvigioneOriginalValue}%)</Badge>
-            )}
-            {selectedProdottoCategoriaId && !provvigioneFromDb && percentualeProvvigione && (
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">Nuovo valore</Badge>
-            )}
-            {selectedCompagnia && selectedProdottoCategoriaId && !provvigioneFromDb && !percentualeProvvigione && (
-              <span className="text-[10px] text-muted-foreground">Nessuna provvigione per questa combinazione</span>
+            {!selectedCompagnia && (
+              <span className="text-[10px] text-muted-foreground">Seleziona una compagnia</span>
             )}
           </div>
           {premioNetto && percentualeProvvigione && (
@@ -1327,25 +1224,6 @@ const ImmissionePolizzaPage = () => {
         <Button onClick={handleConferma} disabled={saving}>{saving ? "Salvataggio..." : "Conferma"}</Button>
       </div>
 
-      {/* DIALOG PROVVIGIONI */}
-      <AlertDialog open={showProvvigioneDialog} onOpenChange={setShowProvvigioneDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {provvigioneDialogType === "new" ? "Salvare provvigione come default?" : "Aggiornare provvigione default?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {provvigioneDialogType === "new"
-                ? `Non esiste una provvigione per questa combinazione Compagnia+Ramo. Vuoi salvare ${percentualeProvvigione}% come valore predefinito?`
-                : `La provvigione è cambiata da ${provvigioneOriginalValue}% a ${percentualeProvvigione}%. Vuoi aggiornare il valore predefinito?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleProvvigioneSkip}>No, solo per questa polizza</AlertDialogCancel>
-            <AlertDialogAction onClick={handleProvvigioneSave}>Sì, salva come default</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

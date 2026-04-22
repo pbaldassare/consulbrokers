@@ -197,7 +197,6 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         riga: nuovaRiga,
         cliente_anagrafica_id: t.cliente_anagrafica_id,
         cliente_id: t.cliente_id,
-        prodotto_id: t.prodotto_id,
         prodotto_nome: t.prodotto_nome,
         ufficio_id: ufficioPerRinnovo,
         produttore_id: t.produttore_id,
