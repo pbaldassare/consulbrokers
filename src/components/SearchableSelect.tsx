@@ -20,7 +20,7 @@ interface SearchableSelectProps {
   disabled?: boolean;
 }
 
-export function SearchableSelect({
+export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSelectProps>(({
   options,
   value,
   onValueChange,
@@ -28,7 +28,7 @@ export function SearchableSelect({
   emptyText = "Nessun risultato.",
   className,
   disabled = false,
-}: SearchableSelectProps) {
+}, ref) => {
   const [open, setOpen] = React.useState(false);
 
   const selectedLabel = options.find((o) => o.value === value)?.label;
@@ -37,6 +37,7 @@ export function SearchableSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={ref}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -72,4 +73,5 @@ export function SearchableSelect({
       </PopoverContent>
     </Popover>
   );
-}
+});
+SearchableSelect.displayName = "SearchableSelect";
