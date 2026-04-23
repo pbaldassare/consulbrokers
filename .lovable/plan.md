@@ -1,41 +1,24 @@
 
 
-## Fix campi Premio non modificabili nel dialog di Rinnovo
+## Nascondi sezione "Premio (modificabile)" dal dialog di Rinnovo
 
-### Causa
+### Obiettivo
 
-Nel dialog `RinnovoTitoloDialog.tsx` i 5 campi premio (Lordo, Netto, Tasse, Addizionali, Provvigioni) sono `<Input type="number" value={form.premio_lordo}>` con `value` di tipo **number** (non string). Questo crea due problemi che impediscono di scrivere:
+Nello screenshot del dialog `Rinnovo Polizza` (polizza 332437574), nascondere completamente la sezione **"Premio (modificabile)"** con i 5 campi: Premio Lordo, Premio Netto, Tasse, Addizionali, Provvigioni. Restano visibili solo l'header riepilogativo e la sezione **"Nuovo Periodo"** (Durata Da/A, Data Scadenza, Data Competenza, Garanzia Da/A).
 
-1. **Cancellazione blocca l'input**: quando l'utente seleziona "300" e digita una nuova cifra, lo state diventa momentaneamente vuoto → `parseFloat("") = NaN → || 0` → React riscrive `0` nel campo, il cursore torna in fondo, sembra che "non si possa scrivere".
-2. **Cifre decimali si perdono**: digitando "245," (virgola/punto intermedio) `parseFloat` ritorna 245 e l'input viene risincronizzato a "245", impedendo di completare "245.39".
+### Modifica in `src/components/polizze/RinnovoTitoloDialog.tsx`
 
-Inoltre c'è un warning React (`FieldRow` non usa `forwardRef`) lanciato da `TitoloDetail.tsx` che inquina la console ma non blocca il dialog.
+1. **Rimuovere il blocco JSX** della sezione "Premio (modificabile)" — il `<div>` che contiene il titolo "Premio (modificabile)" e i 5 `<Input>` (premio_lordo, premio_netto, tasse, addizionali, provvigioni).
+2. **Mantenere lo state `form` invariato** per i 5 campi premio: vengono comunque precompilati nell'`useEffect` con i valori del titolo origine e usati nella `mutationFn` per creare il nuovo titolo. Quindi il rinnovo continua a copiare correttamente i premi dal titolo precedente — semplicemente non sono più modificabili dall'UI.
+3. **Non toccare** la mutation, gli insert su `titoli`/`movimenti_polizza`, le date, l'header riepilogativo, i pulsanti Annulla/Conferma.
 
-### Fix in `src/components/polizze/RinnovoTitoloDialog.tsx`
+### Risultato
 
-**Convertire i 5 campi premio in `string` editabile** (stesso pattern già usato in `TitoloDetail.tsx → importiForm`):
-
-1. Cambiare il tipo dello state `form` per i 5 campi premio da `number` a `string` (`premio_lordo: ""`, ecc.).
-2. In `useEffect` precompilare con `String(Number(lordoBase) || 0)` invece di `Number(...)`.
-3. Negli `onChange` salvare direttamente `e.target.value` (string), senza `parseFloat`.
-4. Nella `mutationFn`, al momento dell'insert su `titoli`/`movimenti_polizza`, convertire con `parseFloat(form.premio_lordo) || 0` (e così per gli altri).
-
-Questo permette: scrivere/cancellare liberamente, inserire decimali con virgola o punto, mantenere il cursore stabile.
-
-### Fix collaterale: warning `FieldRow` ref
-
-In `src/pages/TitoloDetail.tsx` (riga ~59) il componente `FieldRow` è una function component ma viene usata in contesti (`AccordionTrigger` / `Tooltip`) che le passano un `ref`. Avvolgerlo con `React.forwardRef` per eliminare il warning rosso ricorrente in console.
-
-### Cosa NON tocco
-
-- Il flusso di rinnovo, la mutation, i payload DB (i numeri arrivano comunque corretti perché convertiti in `parseFloat` al momento dell'insert).
-- Le date del dialog (già funzionano).
-- La sezione "Importi" su `TitoloDetail` (è read-only di proposito con pulsante "Modifica" — funziona già).
+Il dialog diventa più compatto: header → "Nuovo Periodo" (date) → pulsanti. Il rinnovo creerà il nuovo titolo con gli stessi premi del titolo origine (comportamento di default già presente). Se in futuro servirà rieditarli, lo si può fare dal `TitoloDetail` del nuovo titolo tramite la sezione "Importi" (già editabile con il pulsante "Modifica").
 
 ### Verifica
 
-1. Apro polizza 332437574 → Rinnovo → clicco su "Premio Lordo": cancello "300" e digito "350,75" → il campo accetta tutta la sequenza, il cursore non salta indietro.
-2. Modifico anche Premio Netto, Tasse, Provvigioni → tutti scrivibili senza scatti.
-3. Confermo rinnovo → il nuovo titolo creato ha `premio_lordo = 350.75` (controllo nel detail del nuovo titolo).
-4. Console: il warning `Function components cannot be given refs … FieldRow` non compare più.
+1. Apro polizza 332437574 → Rinnovo: il dialog mostra solo header + Nuovo Periodo (date) + pulsanti, **senza** la sezione "Premio (modificabile)".
+2. Confermo Rinnovo: il nuovo titolo viene creato con `premio_lordo=300`, `premio_netto=245.39`, `tasse=54.61`, `addizionali=0`, `provvigioni=35.33` (stessi valori del titolo origine).
+3. Apro il detail del nuovo titolo → sezione "Importi" mostra gli stessi premi e resta editabile col pulsante "Modifica" come prima.
 
