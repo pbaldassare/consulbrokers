@@ -227,15 +227,15 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         garanzia_a: form.garanzia_a || null,
         // Premi - sia firma che quietanza vengono inizializzati con i valori confermati nel form,
         // così il nuovo titolo nasce già "allineato" (la quietanza riflette il premio corrente).
-        premio_lordo: form.premio_lordo,
-        premio_netto: form.premio_netto,
-        tasse: form.tasse,
-        addizionali: form.addizionali,
-        provvigioni_firma: form.provvigioni,
-        premio_netto_quietanza: form.premio_netto,
-        tasse_quietanza: form.tasse,
-        addizionali_quietanza: form.addizionali,
-        provvigioni_quietanza: form.provvigioni,
+        premio_lordo: parseFloat(form.premio_lordo) || 0,
+        premio_netto: parseFloat(form.premio_netto) || 0,
+        tasse: parseFloat(form.tasse) || 0,
+        addizionali: parseFloat(form.addizionali) || 0,
+        provvigioni_firma: parseFloat(form.provvigioni) || 0,
+        premio_netto_quietanza: parseFloat(form.premio_netto) || 0,
+        tasse_quietanza: parseFloat(form.tasse) || 0,
+        addizionali_quietanza: parseFloat(form.addizionali) || 0,
+        provvigioni_quietanza: parseFloat(form.provvigioni) || 0,
         // Stato nuovo: il rinnovo nasce IN ATTESA. Verrà attivato automaticamente
         // dal trigger DB `trg_attiva_rinnovo_su_messa_cassa` quando la polizza
         // origine viene messa a cassa (stato = 'incassato').
