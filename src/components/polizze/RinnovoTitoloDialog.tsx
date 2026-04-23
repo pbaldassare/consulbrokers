@@ -73,11 +73,11 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
     data_competenza: "",
     garanzia_da: "",
     garanzia_a: "",
-    premio_lordo: 0,
-    premio_netto: 0,
-    tasse: 0,
-    addizionali: 0,
-    provvigioni: 0,
+    premio_lordo: "" as string,
+    premio_netto: "" as string,
+    tasse: "" as string,
+    addizionali: "" as string,
+    provvigioni: "" as string,
   });
 
   // All'apertura: rifetch fresco del titolo dal DB per essere sicuri di usare i valori
