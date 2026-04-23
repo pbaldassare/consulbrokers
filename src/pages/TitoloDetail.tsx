@@ -36,12 +36,13 @@ const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { lo
 const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
 const fmtBool = (v: boolean | null) => v ? "Sì" : "No";
 
-const FieldRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <div className="flex justify-between py-1">
+const FieldRow = React.forwardRef<HTMLDivElement, { label: string; value: React.ReactNode }>(({ label, value }, ref) => (
+  <div ref={ref} className="flex justify-between py-1">
     <span className="text-xs text-muted-foreground">{label}</span>
     <span className="text-sm font-mono text-right">{value}</span>
   </div>
-);
+));
+FieldRow.displayName = "FieldRow";
 
 const SectionCollapsible = ({ title, icon: Icon, children, defaultOpen = true }: { title: string; icon: any; children: React.ReactNode; defaultOpen?: boolean }) => {
   const [open, setOpen] = useState(defaultOpen);
