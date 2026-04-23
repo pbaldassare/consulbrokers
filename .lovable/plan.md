@@ -1,34 +1,41 @@
 
 
-## Fix Specialist — usare `"Backoffice"` (B maiuscola)
+## Fix campi Premio non modificabili nel dialog di Rinnovo
 
 ### Causa
 
-Il trigger DB `validate_codici_commerciali_ruolo` accetta `'Backoffice'` (B maiuscola). Tutti i 544 record esistenti — inclusi quelli importati dall'Excel di Napoli con GUARRACINO/SCARPELLI — sono salvati come `'Backoffice'`. Il codice nuovo invece usa `'backoffice'` minuscolo, quindi:
-- la SELECT su `ruolo='backoffice'` ritorna sempre `[]` → il select Specialist sembra vuoto anche quando il dato c'è;
-- l'UPSERT con `ruolo='backoffice'` viene respinta dal trigger con errore 400 `"Invalid ruolo: backoffice"` → impossibile selezionare/cambiare lo Specialist.
+Nel dialog `RinnovoTitoloDialog.tsx` i 5 campi premio (Lordo, Netto, Tasse, Addizionali, Provvigioni) sono `<Input type="number" value={form.premio_lordo}>` con `value` di tipo **number** (non string). Questo crea due problemi che impediscono di scrivere:
 
-### Cosa cambia in `src/pages/ClienteDetail.tsx`
+1. **Cancellazione blocca l'input**: quando l'utente seleziona "300" e digita una nuova cifra, lo state diventa momentaneamente vuoto → `parseFloat("") = NaN → || 0` → React riscrive `0` nel campo, il cursore torna in fondo, sembra che "non si possa scrivere".
+2. **Cifre decimali si perdono**: digitando "245," (virgola/punto intermedio) `parseFloat` ritorna 245 e l'input viene risincronizzato a "245", impedendo di completare "245.39".
 
-Sostituire le 3 occorrenze di `"backoffice"` riferite alla colonna `codici_commerciali_cliente.ruolo` con `"Backoffice"`:
+Inoltre c'è un warning React (`FieldRow` non usa `forwardRef`) lanciato da `TitoloDetail.tsx` che inquina la console ma non blocca il dialog.
 
-1. Query `["specialist_cliente", id]` (riga ~1138): `.eq("ruolo", "Backoffice")`.
-2. Mutation `upsertSpecialistMutation` — branch DELETE (riga ~1168): `.eq("ruolo", "Backoffice")`.
-3. Mutation `upsertSpecialistMutation` — branch UPSERT (riga ~1174): payload `{ cliente_id: id, ruolo: "Backoffice", profilo_id }`.
+### Fix in `src/components/polizze/RinnovoTitoloDialog.tsx`
 
-Le query React Query restano con la chiave `["specialist_cliente", id]` (key invariata).
+**Convertire i 5 campi premio in `string` editabile** (stesso pattern già usato in `TitoloDetail.tsx → importiForm`):
+
+1. Cambiare il tipo dello state `form` per i 5 campi premio da `number` a `string` (`premio_lordo: ""`, ecc.).
+2. In `useEffect` precompilare con `String(Number(lordoBase) || 0)` invece di `Number(...)`.
+3. Negli `onChange` salvare direttamente `e.target.value` (string), senza `parseFloat`.
+4. Nella `mutationFn`, al momento dell'insert su `titoli`/`movimenti_polizza`, convertire con `parseFloat(form.premio_lordo) || 0` (e così per gli altri).
+
+Questo permette: scrivere/cancellare liberamente, inserire decimali con virgola o punto, mantenere il cursore stabile.
+
+### Fix collaterale: warning `FieldRow` ref
+
+In `src/pages/TitoloDetail.tsx` (riga ~59) il componente `FieldRow` è una function component ma viene usata in contesti (`AccordionTrigger` / `Tooltip`) che le passano un `ref`. Avvolgerlo con `React.forwardRef` per eliminare il warning rosso ricorrente in console.
 
 ### Cosa NON tocco
 
-- Trigger DB e dati esistenti (sono già corretti — il bug è solo nel codice nuovo).
-- Componente `CodiciCommercialiSection` / `CodiceCommercialeRow` (già usa la mappatura corretta `backoffice → Specialist` con i valori giusti).
-- Etichetta UI mostrata (`"Specialist"`) e label dropdown (`"Backoffice" → "Specialist"`) — invariate.
-- `requiredFieldsList`, validazione, sync con pannello "Codici Commerciali (Rete)".
+- Il flusso di rinnovo, la mutation, i payload DB (i numeri arrivano comunque corretti perché convertiti in `parseFloat` al momento dell'insert).
+- Le date del dialog (già funzionano).
+- La sezione "Importi" su `TitoloDetail` (è read-only di proposito con pulsante "Modifica" — funziona già).
 
 ### Verifica
 
-1. Apro ABBATE ANDREA → il select "Specialist" nella card in alto si pre-popola con il profilo importato dall'Excel (riga `Backoffice` esistente).
-2. Cambio Specialist dal select in alto → toast "Specialist aggiornato", nessun errore 400, la riga "Specialist" nel pannello "Codici Commerciali (Rete)" mostra subito lo stesso profilo.
-3. Apro un cliente senza riga Backoffice → bordo rosso + counter obbligatori + Salva bloccato. Selezionando uno Specialist la riga viene creata correttamente.
-4. Cambio lo Specialist dal pannello "Codici Commerciali (Rete)" → la card in alto si aggiorna live.
+1. Apro polizza 332437574 → Rinnovo → clicco su "Premio Lordo": cancello "300" e digito "350,75" → il campo accetta tutta la sequenza, il cursore non salta indietro.
+2. Modifico anche Premio Netto, Tasse, Provvigioni → tutti scrivibili senza scatti.
+3. Confermo rinnovo → il nuovo titolo creato ha `premio_lordo = 350.75` (controllo nel detail del nuovo titolo).
+4. Console: il warning `Function components cannot be given refs … FieldRow` non compare più.
 
