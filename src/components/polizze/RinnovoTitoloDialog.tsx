@@ -575,57 +575,6 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
               />
             </div>
           </div>
-
-          <div className="flex items-center gap-2 text-sm font-semibold text-primary pt-2">
-            Premio (modificabile)
-          </div>
-          <div className="grid grid-cols-5 gap-3">
-            <div>
-              <Label className="text-xs">Premio Lordo (€)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={form.premio_lordo}
-                onChange={(e) => setForm((f) => ({ ...f, premio_lordo: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Premio Netto (€)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={form.premio_netto}
-                onChange={(e) => setForm((f) => ({ ...f, premio_netto: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Tasse (€)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={form.tasse}
-                onChange={(e) => setForm((f) => ({ ...f, tasse: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Addizionali (€)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={form.addizionali}
-                onChange={(e) => setForm((f) => ({ ...f, addizionali: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Provvigioni (€)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={form.provvigioni}
-                onChange={(e) => setForm((f) => ({ ...f, provvigioni: e.target.value }))}
-              />
-            </div>
-          </div>
         </div>
 
         <DialogFooter>
