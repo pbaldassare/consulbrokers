@@ -583,46 +583,46 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
             <div>
               <Label className="text-xs">Premio Lordo (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.premio_lordo}
-                onChange={(e) => setForm((f) => ({ ...f, premio_lordo: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, premio_lordo: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Premio Netto (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.premio_netto}
-                onChange={(e) => setForm((f) => ({ ...f, premio_netto: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, premio_netto: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Tasse (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.tasse}
-                onChange={(e) => setForm((f) => ({ ...f, tasse: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, tasse: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Addizionali (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.addizionali}
-                onChange={(e) => setForm((f) => ({ ...f, addizionali: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, addizionali: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Provvigioni (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.provvigioni}
-                onChange={(e) => setForm((f) => ({ ...f, provvigioni: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, provvigioni: e.target.value }))}
               />
             </div>
           </div>
