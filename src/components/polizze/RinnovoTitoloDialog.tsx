@@ -336,7 +336,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           riga_nuova: nuovaRiga,
           durata_da: form.durata_da,
           durata_a: form.durata_a,
-          premio_lordo: form.premio_lordo,
+          premio_lordo: parseFloat(form.premio_lordo) || 0,
         },
         });
       } catch (logError) {
