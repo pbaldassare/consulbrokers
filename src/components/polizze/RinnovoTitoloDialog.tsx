@@ -73,11 +73,11 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
     data_competenza: "",
     garanzia_da: "",
     garanzia_a: "",
-    premio_lordo: 0,
-    premio_netto: 0,
-    tasse: 0,
-    addizionali: 0,
-    provvigioni: 0,
+    premio_lordo: "" as string,
+    premio_netto: "" as string,
+    tasse: "" as string,
+    addizionali: "" as string,
+    provvigioni: "" as string,
   });
 
   // All'apertura: rifetch fresco del titolo dal DB per essere sicuri di usare i valori
@@ -127,11 +127,11 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         data_competenza: nuovaDa,
         garanzia_da: garDa,
         garanzia_a: garA,
-        premio_lordo: Number(lordoBase) || 0,
-        premio_netto: Number(premioNettoBase) || 0,
-        tasse: Number(tasseBase) || 0,
-        addizionali: Number(addizBase) || 0,
-        provvigioni: Number(provvBase) || 0,
+        premio_lordo: String(Number(lordoBase) || 0),
+        premio_netto: String(Number(premioNettoBase) || 0),
+        tasse: String(Number(tasseBase) || 0),
+        addizionali: String(Number(addizBase) || 0),
+        provvigioni: String(Number(provvBase) || 0),
       });
     })();
     return () => { cancelled = true; };
@@ -227,15 +227,15 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         garanzia_a: form.garanzia_a || null,
         // Premi - sia firma che quietanza vengono inizializzati con i valori confermati nel form,
         // così il nuovo titolo nasce già "allineato" (la quietanza riflette il premio corrente).
-        premio_lordo: form.premio_lordo,
-        premio_netto: form.premio_netto,
-        tasse: form.tasse,
-        addizionali: form.addizionali,
-        provvigioni_firma: form.provvigioni,
-        premio_netto_quietanza: form.premio_netto,
-        tasse_quietanza: form.tasse,
-        addizionali_quietanza: form.addizionali,
-        provvigioni_quietanza: form.provvigioni,
+        premio_lordo: parseFloat(form.premio_lordo) || 0,
+        premio_netto: parseFloat(form.premio_netto) || 0,
+        tasse: parseFloat(form.tasse) || 0,
+        addizionali: parseFloat(form.addizionali) || 0,
+        provvigioni_firma: parseFloat(form.provvigioni) || 0,
+        premio_netto_quietanza: parseFloat(form.premio_netto) || 0,
+        tasse_quietanza: parseFloat(form.tasse) || 0,
+        addizionali_quietanza: parseFloat(form.addizionali) || 0,
+        provvigioni_quietanza: parseFloat(form.provvigioni) || 0,
         // Stato nuovo: il rinnovo nasce IN ATTESA. Verrà attivato automaticamente
         // dal trigger DB `trg_attiva_rinnovo_su_messa_cassa` quando la polizza
         // origine viene messa a cassa (stato = 'incassato').
@@ -292,9 +292,9 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           data_effetto: form.durata_da,
           data_scadenza: form.durata_a,
           data_rinnovo: form.durata_da,
-          premio: form.premio_lordo,
-          premio_netto: form.premio_netto,
-          tasse: form.tasse,
+          premio: parseFloat(form.premio_lordo) || 0,
+          premio_netto: parseFloat(form.premio_netto) || 0,
+          tasse: parseFloat(form.tasse) || 0,
           stato: "aperto",
           sostituisce_id: sostituisceMovId,
           ufficio_id: ufficioPerRinnovo,
@@ -336,7 +336,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
           riga_nuova: nuovaRiga,
           durata_da: form.durata_da,
           durata_a: form.durata_a,
-          premio_lordo: form.premio_lordo,
+          premio_lordo: parseFloat(form.premio_lordo) || 0,
         },
         });
       } catch (logError) {
@@ -583,46 +583,46 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
             <div>
               <Label className="text-xs">Premio Lordo (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.premio_lordo}
-                onChange={(e) => setForm((f) => ({ ...f, premio_lordo: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, premio_lordo: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Premio Netto (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.premio_netto}
-                onChange={(e) => setForm((f) => ({ ...f, premio_netto: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, premio_netto: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Tasse (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.tasse}
-                onChange={(e) => setForm((f) => ({ ...f, tasse: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, tasse: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Addizionali (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.addizionali}
-                onChange={(e) => setForm((f) => ({ ...f, addizionali: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, addizionali: e.target.value }))}
               />
             </div>
             <div>
               <Label className="text-xs">Provvigioni (€)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.provvigioni}
-                onChange={(e) => setForm((f) => ({ ...f, provvigioni: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setForm((f) => ({ ...f, provvigioni: e.target.value }))}
               />
             </div>
           </div>
