@@ -127,11 +127,11 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         data_competenza: nuovaDa,
         garanzia_da: garDa,
         garanzia_a: garA,
-        premio_lordo: Number(lordoBase) || 0,
-        premio_netto: Number(premioNettoBase) || 0,
-        tasse: Number(tasseBase) || 0,
-        addizionali: Number(addizBase) || 0,
-        provvigioni: Number(provvBase) || 0,
+        premio_lordo: String(Number(lordoBase) || 0),
+        premio_netto: String(Number(premioNettoBase) || 0),
+        tasse: String(Number(tasseBase) || 0),
+        addizionali: String(Number(addizBase) || 0),
+        provvigioni: String(Number(provvBase) || 0),
       });
     })();
     return () => { cancelled = true; };
