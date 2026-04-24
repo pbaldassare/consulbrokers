@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Copy, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Copy, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -1213,6 +1213,101 @@ const TitoloDetail = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Dove sono salvati i dati — sezione informativa sulla persistenza delle operazioni ciclo vita */}
+      <Collapsible>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardTitle className="text-sm flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-muted-foreground" />
+                  Dove sono salvati i dati
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (reference tabelle aggiornate per ogni operazione)
+                  </span>
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 text-sm">
+              {[
+                {
+                  icon: RefreshCw,
+                  nome: "Regolazione",
+                  header: "titoli — campi: regolazione=true, tipo_scadenza, periodicita, scadenza_regolazione",
+                  movimento: "— nessun movimento dedicato (è una proprietà del titolo, non un evento)",
+                  collegate: "attivita_log",
+                  note: null,
+                },
+                {
+                  icon: Clock,
+                  nome: "Sospensione",
+                  header: "titoli — campi: stato='sospeso', data_sospensione",
+                  movimento: "movimenti_polizza — tipo_documento='SO', data_movimento, note",
+                  collegate: "attivita_log",
+                  note: null,
+                },
+                {
+                  icon: CheckSquare,
+                  nome: "Riattivazione",
+                  header: "titoli — campi: stato='attivo', data_riattivazione",
+                  movimento: "movimenti_polizza — tipo_documento='RA', data_movimento, note",
+                  collegate: "attivita_log",
+                  note: null,
+                },
+                {
+                  icon: ArrowRightLeft,
+                  nome: "Sostituzione / Rinnovo",
+                  header: "titoli — nuovo record (numero_titolo nuovo) + sostituito_da_id sul vecchio titolo",
+                  movimento: "movimenti_polizza — tipo_documento='RN' sul nuovo titolo",
+                  collegate: "attivita_log (su entrambi i titoli, vecchio e nuovo)",
+                  note: null,
+                },
+                {
+                  icon: FileText,
+                  nome: "Appendice",
+                  header: "titoli — invariato (la polizza non cambia)",
+                  movimento: "movimenti_polizza — tipo_documento='AP' (riferimento all'appendice)",
+                  collegate: "appendici_polizza (record principale) + Storage (file PDF allegato)",
+                  note: null,
+                },
+                {
+                  icon: XCircle,
+                  nome: "Storno",
+                  header: "titoli — campi: stato='scaduto', data_storno",
+                  movimento: "— (gap noto: nessun movimento dedicato 'ST' viene attualmente generato)",
+                  collegate: "attivita_log",
+                  note: "Lo storno aggiorna solo lo stato del titolo. Non viene creata una riga in movimenti_polizza con tipo_documento='ST'.",
+                },
+              ].map((op) => {
+                const Icon = op.icon;
+                return (
+                  <div key={op.nome} className="border rounded-md p-3 bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2 font-semibold">
+                      <Icon className="w-4 h-4 text-primary" />
+                      <span>{op.nome}</span>
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground pl-6">
+                      <div><span className="font-medium text-foreground">Tabella header:</span> <code className="font-mono text-[11px]">{op.header}</code></div>
+                      <div><span className="font-medium text-foreground">Movimento:</span> <code className="font-mono text-[11px]">{op.movimento}</code></div>
+                      <div><span className="font-medium text-foreground">Tabelle collegate:</span> <code className="font-mono text-[11px]">{op.collegate}</code></div>
+                      {op.note && (
+                        <div className="flex gap-1 mt-2 pt-2 border-t border-border/50 text-amber-700 dark:text-amber-400">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <span>{op.note}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* MESSA A CASSA — nascosta se già incassata, salvo polizze poliennali attive (rate residue) */}
       {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
