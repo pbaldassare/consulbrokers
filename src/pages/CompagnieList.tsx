@@ -1164,7 +1164,7 @@ const CompagnieList = () => {
                           <TableCell>{c.nome_sede || "—"}</TableCell>
                           <TableCell>
                             {isPluri ? (
-                              <Badge variant="outline" className="gap-1 border-warning bg-warning/20 text-warning-foreground">
+                              <Badge variant="outline" className="gap-1 border-primary/40 bg-accent/40 text-foreground">
                                 <AlertTriangle className="w-3 h-3" />Plurimandatario
                               </Badge>
                             ) : (
