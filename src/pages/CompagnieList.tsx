@@ -844,9 +844,22 @@ function CompagnieMadriTab() {
               </TableHeader>
               <TableBody>
                 {filtered.map((g: any, idx: number) => (
-                  <TableRow key={g.id} className={`cursor-pointer hover:bg-muted/50 ${idx % 2 === 1 ? "bg-muted/20" : ""}`} onClick={() => openEdit(g)}>
+                  <TableRow
+                    key={g.id}
+                    className={`cursor-pointer hover:bg-muted/50 ${g.is_pluri ? "bg-amber-50 dark:bg-amber-950/30" : idx % 2 === 1 ? "bg-muted/20" : ""}`}
+                    onClick={() => openEdit(g)}
+                  >
                     <TableCell className="font-mono text-sm">{g.codice || "—"}</TableCell>
-                    <TableCell className="font-medium">{g.descrizione}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {g.descrizione}
+                        {g.is_pluri && (
+                          <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400 gap-1">
+                            <ShieldCheck className="w-3 h-3" />Fallback di sistema
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={g.agenzie_count > 0 ? "default" : "outline"}>{g.agenzie_count}</Badge>
                     </TableCell>
@@ -857,8 +870,10 @@ function CompagnieMadriTab() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count })}
+                        className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-30"
+                        disabled={g.is_pluri}
+                        title={g.is_pluri ? "Compagnia di sistema, non eliminabile" : "Elimina"}
+                        onClick={() => handleDeleteClick(g)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
