@@ -688,7 +688,18 @@ function CompagnieMadriTab() {
         }
       });
 
-      return (gruppiData || []).map((g: any) => ({ ...g, agenzie_count: counts[g.id] || 0 }));
+      const enriched = (gruppiData || []).map((g: any) => ({
+        ...g,
+        agenzie_count: counts[g.id] || 0,
+        is_pluri: g.codice === PLURIMANDATARIO_CODE,
+      }));
+
+      // PLURIMANDATARIO sempre in cima
+      return enriched.sort((a: any, b: any) => {
+        if (a.is_pluri && !b.is_pluri) return -1;
+        if (!a.is_pluri && b.is_pluri) return 1;
+        return (a.descrizione || "").localeCompare(b.descrizione || "");
+      });
     },
   });
 
