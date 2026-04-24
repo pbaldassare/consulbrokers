@@ -944,6 +944,7 @@ const CompagnieList = () => {
   const [searchNome, setSearchNome] = useState("");
   const [searchCodice, setSearchCodice] = useState("");
   const [searchSinistri, setSearchSinistri] = useState("");
+  const [onlyPluri, setOnlyPluri] = useState(false);
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
@@ -952,6 +953,22 @@ const CompagnieList = () => {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Lookup map id → { descrizione, codice } per arricchire la lista Agenzie
+  const { data: gruppiMap = {} } = useQuery({
+    queryKey: ["gruppi_compagnia_map"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, descrizione, codice");
+      const map: Record<string, { descrizione: string; codice: string | null; is_pluri: boolean }> = {};
+      (data || []).forEach((g: any) => {
+        map[g.id] = { descrizione: g.descrizione, codice: g.codice, is_pluri: g.codice === PLURIMANDATARIO_CODE };
+      });
+      return map;
+    },
+    staleTime: 1000 * 60 * 30,
   });
 
   const createMutation = useMutation({
