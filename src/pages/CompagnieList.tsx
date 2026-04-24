@@ -755,9 +755,21 @@ function CompagnieMadriTab() {
   });
 
   const openEdit = (g: any) => {
+    if (g.is_pluri) {
+      toast.info("Compagnia di sistema (PLURIMANDATARIO): non modificabile.");
+      return;
+    }
     setForm({ codice: g.codice || "", descrizione: g.descrizione || "", attivo: g.attivo ?? true });
     setEditId(g.id);
     setEditOpen(true);
+  };
+
+  const handleDeleteClick = (g: any) => {
+    if (g.is_pluri) {
+      toast.error("Compagnia di sistema (PLURIMANDATARIO): non eliminabile.");
+      return;
+    }
+    setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count });
   };
 
   const filtered = gruppi.filter((g: any) =>
