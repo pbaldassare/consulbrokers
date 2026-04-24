@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
+import { checkAppVersion } from "@/lib/versionCheck";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -23,6 +24,12 @@ const LoginPage = () => {
       toast.error("Errore di accesso");
       return;
     }
+
+    // Se è stato deployato un aggiornamento mentre l'utente era sulla pagina
+    // di login con bundle stale, intercetta qui e forza un hard reload prima
+    // di entrare nell'app. checkAppVersion ritorna true se il reload è avviato.
+    const willReload = await checkAppVersion();
+    if (willReload) return;
 
     // Fetch profile to determine landing route
     const { data: { user: loggedUser } } = await supabase.auth.getUser();
