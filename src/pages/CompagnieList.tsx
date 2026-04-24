@@ -1109,7 +1109,19 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Oppure il codice iniziale</Label>
                   <Input placeholder="Codice..." value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
-                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); }}>Reset</Button>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Filtro rapido</Label>
+                  <Button
+                    variant={onlyPluri ? "default" : "outline"}
+                    onClick={() => setOnlyPluri((v) => !v)}
+                    className="gap-2"
+                    title="Mostra solo agenzie da riassegnare"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Solo Plurimandatario {pluriCount > 0 && <Badge variant="secondary">{pluriCount}</Badge>}
+                  </Button>
+                </div>
+                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setOnlyPluri(false); }}>Reset</Button>
               </div>
             </CardContent>
           </Card>
