@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
+import { checkAppVersion } from "@/lib/versionCheck";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
