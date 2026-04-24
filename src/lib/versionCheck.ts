@@ -2,9 +2,34 @@
  * Version check: confronta la VITE_APP_VERSION embedded nel bundle JS
  * con il file /version.json servito statico (rigenerato a ogni build).
  * Se differiscono → forza un hard reload con cache busting.
+ *
+ * IMPORTANTE: attivo SOLO in produzione. In dev (preview Lovable / HMR)
+ * il timestamp del bundle e quello di public/version.json non sono mai
+ * sincronizzati al millisecondo, quindi il check produrrebbe loop spuri.
  */
 
 const BUNDLE_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
+const IS_PROD = import.meta.env.PROD;
+
+/**
+ * Pulisce i flag anti-loop residui in sessionStorage che non corrispondono
+ * più alla versione server attuale (garbage da reload precedenti).
+ */
+function cleanupStaleFlags(currentServerVersion: string) {
+  try {
+    const keep = `reloaded_for_${currentServerVersion}`;
+    const toRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith("reloaded_for_") && key !== keep) {
+        toRemove.push(key);
+      }
+    }
+    toRemove.forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    /* noop */
+  }
+}
 
 /**
  * Esegue il reload "hard" aggiungendo un parametro _v alla URL,
@@ -28,6 +53,8 @@ function hardReload(serverVersion: string) {
  * @returns true se è stato avviato un reload, false altrimenti.
  */
 export async function checkAppVersion(): Promise<boolean> {
+  // Skip in dev: timestamp non sincronizzati → loop spuri
+  if (!IS_PROD) return false;
   if (BUNDLE_VERSION === "dev") return false;
   try {
     const res = await fetch(`/version.json?t=${Date.now()}`, {
@@ -38,6 +65,10 @@ export async function checkAppVersion(): Promise<boolean> {
     const data = (await res.json()) as { version?: string };
     const serverVersion = data?.version;
     if (!serverVersion) return false;
+
+    // Pulisci flag vecchi prima di valutare
+    cleanupStaleFlags(serverVersion);
+
     if (serverVersion !== BUNDLE_VERSION) {
       console.info(
         `[VersionCheck] bundle=${BUNDLE_VERSION} server=${serverVersion} → hard reload`
@@ -58,6 +89,7 @@ export async function checkAppVersion(): Promise<boolean> {
  * Da chiamare una volta al boot dell'app.
  */
 export function startVersionPolling(intervalMs = 60_000) {
+  if (!IS_PROD) return;
   if (BUNDLE_VERSION === "dev") return;
 
   // Polling periodico

@@ -34,11 +34,13 @@ async function boot() {
     }
   }
 
-  // 2. Version check al boot — se obsoleto fa hard reload e interrompe il render
-  const willReload = await checkAppVersion();
-  if (willReload) return;
+  // 2. Version check al boot (solo PROD) — se obsoleto fa hard reload
+  if (import.meta.env.PROD) {
+    const willReload = await checkAppVersion();
+    if (willReload) return;
+  }
 
-  // 3. Render React + avvio polling
+  // 3. Render React + avvio polling (no-op in dev)
   createRoot(document.getElementById("root")!).render(<App />);
   startVersionPolling(60_000);
 }
