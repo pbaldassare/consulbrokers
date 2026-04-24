@@ -190,7 +190,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Anomalie Sistema", path: "/anomalie-sistema", icon: AlertTriangle },
         { label: "Backup & Export", path: "/backup-export", icon: HardDrive },
         { label: "Tabelle di Base", path: "/tabelle-base", icon: Database },
-        { label: "Compagnie", path: "/compagnie", icon: Building2 },
+        { label: "Compagnie / Agenzie", path: "/compagnie", icon: Building2 },
         { label: "Template Email", path: "/template", icon: Mail },
         { label: "Sitemap", path: "/sitemap", icon: Map },
       ],

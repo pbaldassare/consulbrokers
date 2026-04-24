@@ -17,7 +17,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "archivi": "Archivi",
   "clienti": "Clienti",
   "anagrafiche": "Anagrafiche Professionali",
-  "compagnie": "Compagnie",
+  "compagnie": "Compagnie / Agenzie",
   "categorie": "Categorie",
   "prodotti": "Prodotti",
   "portafoglio": "Portafoglio",
