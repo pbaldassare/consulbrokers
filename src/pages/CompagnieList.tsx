@@ -846,7 +846,7 @@ function CompagnieMadriTab() {
                 {filtered.map((g: any, idx: number) => (
                   <TableRow
                     key={g.id}
-                    className={`cursor-pointer hover:bg-muted/50 ${g.is_pluri ? "bg-amber-50 dark:bg-amber-950/30" : idx % 2 === 1 ? "bg-muted/20" : ""}`}
+                    className={`cursor-pointer hover:bg-muted/50 ${g.is_pluri ? "bg-warning/10" : idx % 2 === 1 ? "bg-muted/20" : ""}`}
                     onClick={() => openEdit(g)}
                   >
                     <TableCell className="font-mono text-sm">{g.codice || "—"}</TableCell>
@@ -854,7 +854,7 @@ function CompagnieMadriTab() {
                       <div className="flex items-center gap-2">
                         {g.descrizione}
                         {g.is_pluri && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400 gap-1">
+                          <Badge variant="outline" className="gap-1 border-warning text-warning-foreground bg-warning/20">
                             <ShieldCheck className="w-3 h-3" />Fallback di sistema
                           </Badge>
                         )}
