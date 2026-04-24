@@ -1156,7 +1156,7 @@ const CompagnieList = () => {
                       return (
                         <TableRow
                           key={c.id}
-                          className={`cursor-pointer hover:bg-muted/50 ${isPluri ? "bg-warning/5" : ""}`}
+                          className={`cursor-pointer hover:bg-muted/50 ${isPluri ? "bg-accent/30" : ""}`}
                           onClick={() => openEdit(c)}
                         >
                           <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
