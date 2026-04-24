@@ -1,94 +1,112 @@
 
 
-## Rinomina gerarchia: Gruppi → Compagnie → Agenzie (3 livelli, livello 3 vuoto per ora)
+## Collegamento Compagnie ↔ Agenzie + gestione "Plurimandatario"
 
-### Modello dati confermato dall'utente
+### Obiettivo
 
-| Cosa è oggi nel DB | Cosa diventa nella UI |
-|---|---|
-| `gruppi_compagnia` (134 record) | **Compagnie** (livello 1) |
-| `compagnie` (1.374 record) | **Agenzie** (livello 2) |
-| (non esiste) | **Agenzie di riferimento** (livello 3) — non popolato per ora |
+Garantire che ogni **Agenzia** (tabella `compagnie`) sia sempre collegata a una **Compagnia** (tabella `gruppi_compagnia`) — cioè `compagnie.gruppo_compagnia_id` sempre valorizzato. Per le agenzie attualmente orfane (76 record senza `gruppo_compagnia_id`), creare una Compagnia speciale **"PLURIMANDATARIO"** come fallback temporaneo, da risistemare in seguito.
 
-> Nota: NON rinomino le tabelle DB (rischio di rompere ~68 riferimenti tra codice e edge functions). Rinomino solo le **label UI**, e creo una tabella nuova solo per il livello 3 quando serve. Per ora il livello 3 lo lascio non implementato come da tua richiesta ("le agenzie di riferimento non le abbiamo").
+### Analisi stato attuale
 
-### Stato attuale dati
+Dai dati che già conosciamo (memoria progetto + step precedente):
+- **Tabella `gruppi_compagnia`** (UI: "Compagnia"): 134 record, FK `compagnie.gruppo_compagnia_id → gruppi_compagnia.id` (già esiste).
+- **Tabella `compagnie`** (UI: "Agenzia"): 1.374 record di cui:
+  - 1.298 con `gruppo_compagnia_id` valorizzato → OK
+  - **76 orfane** con `gruppo_compagnia_id IS NULL` → da assegnare
 
-- **134** "Compagnie" (oggi `gruppi_compagnia`)
-- **1.374** "Agenzie" (oggi `compagnie`), di cui:
-  - 1.298 collegate a una Compagnia tramite `gruppo_compagnia_id`
-  - 76 senza Compagnia padre (orfane — da assegnare manualmente in seguito)
+Verifico in fase di esecuzione il count esatto e i nomi delle 76 agenzie orfane (potrebbero essere broker plurimandatari, agenzie generiche, o dati incompleti) prima di assegnarle in massa.
 
 ### Soluzione proposta
 
-#### 1. Spostare la gestione "Compagnie" (ex Gruppi) dentro la pagina `/compagnie`
+#### 1. Migrazione DB (singola)
 
-Trasformo `CompagnieList.tsx` in pagina con **2 tab** (Tab 3 prevista ma disabilitata):
-
+**a)** Inserire un record speciale in `gruppi_compagnia`:
+```sql
+INSERT INTO gruppi_compagnia (codice, descrizione, attivo)
+VALUES ('PLURIMANDATARIO', 'PLURIMANDATARIO', true)
+ON CONFLICT (codice) DO NOTHING
+RETURNING id;
 ```
-[ Compagnie ] [ Agenzie ] [ Agenzie di riferimento (prossimamente) ]
+Lo identifico con codice `PLURIMANDATARIO` (univoco) per poterlo riconoscere facilmente in UI ed edge functions.
+
+**b)** Assegnare tutte le 76 agenzie orfane a questa Compagnia speciale:
+```sql
+UPDATE compagnie
+SET gruppo_compagnia_id = (SELECT id FROM gruppi_compagnia WHERE codice = 'PLURIMANDATARIO')
+WHERE gruppo_compagnia_id IS NULL;
 ```
 
-- **Tab Compagnie** (nuova) → CRUD su `gruppi_compagnia` (codice, descrizione, attivo). Mostra il count di agenzie figlie per ogni compagnia (es. "Generali — 23 agenzie").
-- **Tab Agenzie** → la lista attuale di `compagnie` con tutte le 60+ colonne già presenti, **rinominata** "Agenzie". Il select "Gruppo Compagnia" nella form viene rinominato → "Compagnia di appartenenza".
-- **Tab Agenzie di riferimento** → tab disabilitata con badge "Prossimamente" (placeholder — quando deciderai il modello dati la abilito).
+**c)** Aggiungere il vincolo NOT NULL su `compagnie.gruppo_compagnia_id` (così d'ora in poi nessuna agenzia può essere creata senza Compagnia padre):
+```sql
+ALTER TABLE compagnie 
+ALTER COLUMN gruppo_compagnia_id SET NOT NULL;
+```
 
-#### 2. Rimuovere "Gruppi Compagnia" da `/tabelle-base`
+**d)** (Opzionale ma consigliato) Aggiungere un commento sul record speciale per ricordarlo:
+```sql
+COMMENT ON COLUMN compagnie.gruppo_compagnia_id IS 
+'Compagnia di appartenenza (obbligatoria). Le agenzie senza una vera Compagnia sono assegnate al fallback PLURIMANDATARIO.';
+```
 
-In `TabelleBasePage.tsx` riga 1004 elimino l'entry `gruppi_compagnia` dalla lista delle tabelle base, perché ora la gestione è dentro `/compagnie` (no duplicazione).
+#### 2. Modifiche UI in `CompagnieList.tsx`
 
-#### 3. Rinominare le label UI ovunque (NO rinomina tabelle DB)
+**a) Form Agenzia (creazione/modifica)**:
+- Campo "Compagnia di appartenenza" diventa **obbligatorio** (asterisco rosso, validazione client + server).
+- Nel select, mostrare il record `PLURIMANDATARIO` con un'icona/badge giallo "⚠️ Fallback" per scoraggiarne l'uso senza motivo.
 
-| Vecchia label UI | Nuova label UI |
-|---|---|
-| "Compagnie" (sidebar, breadcrumb, titolo pagina) | **"Compagnie / Agenzie"** (titolo) — sidebar resta "Compagnie" come voce di menu, ma la pagina mostra le 2 tab sopra |
-| "Gruppi Compagnia" (TabelleBase, form Compagnie) | **"Compagnia"** |
-| "Gruppo Compagnia" (campo singolo) | **"Compagnia di appartenenza"** |
-| "Compagnia" (in form Agenzia) | **"Agenzia"** |
+**b) Tab "Agenzie"** (lista):
+- Aggiungere una **colonna "Compagnia"** che mostra `descrizione` del gruppo padre, leggendo via JOIN su `gruppi_compagnia`.
+- Aggiungere un **filtro rapido** "Solo Plurimandatario" per filtrare velocemente le 76 (+ future) agenzie da risistemare.
+- Badge giallo "⚠️ Plurimandatario" sulla riga, in modo visibile, per le agenzie assegnate al fallback.
 
-Ricerca file da toccare per le label (mi limito a UI labels — i nomi colonne DB e variabili JS restano):
-- `src/pages/CompagnieList.tsx` (titolo, header tabella, label form, dialog title)
-- `src/pages/TabelleBasePage.tsx` (rimozione entry)
-- `src/components/AppSidebar.tsx` (verifica voce "Compagnie" — mantengo nome ma cambio destinazione se serve)
-- Eventuali label in form polizza dove appare "Compagnia" → resta "Compagnia" (perché `titoli.compagnia_id` punta proprio al record giusto = Agenzia nel nuovo lessico). **ATTENZIONE**: questo è un punto delicato → vedi sotto.
+**c) Tab "Compagnie"** (gestione `gruppi_compagnia`):
+- Il record `PLURIMANDATARIO` viene mostrato in cima alla lista con badge speciale "Fallback di sistema".
+- Il record `PLURIMANDATARIO` **non può essere eliminato** né rinominato (codice protetto): mostro un alert se l'utente prova.
 
-#### 4. ⚠️ Ambiguità da risolvere subito: nelle polizze "Compagnia" cosa diventa?
+#### 3. Verifica integrità in altre parti del sistema
 
-Oggi `titoli.compagnia_id → compagnie.id`. Nel nuovo lessico questo è un'**Agenzia**, non una Compagnia.
+Cerco riferimenti a `gruppo_compagnia_id` nel codice (UI + edge functions) per verificare che la NOT NULL constraint non rompa flussi esistenti:
+- `import-compagnie/index.ts`: già gestisce `gruppo_compagnia` opzionale → in caso di valore mancante o non trovato in `groupMap`, dovrà fare fallback al PLURIMANDATARIO invece che inserire NULL.
+- Form di import bulk (se esistono): aggiornare per usare lo stesso fallback.
 
-Due opzioni — devo chiederti **dopo l'approvazione del piano** per non bloccare l'implementazione iniziale:
+#### 4. Edge function `import-compagnie` — aggiornamento minimo
 
-- **Opzione A (consigliata, no migrazione dati)**: nelle polizze e ovunque ci sia `compagnia_id`, la label UI diventa "Agenzia" (perché punta al record "Agenzia"). Mostro in più una colonna derivata "Compagnia" leggendo `compagnie.gruppo_compagnia_id → gruppi_compagnia.descrizione`.
-- **Opzione B (migrazione massiva)**: cambio `titoli.compagnia_id` per puntare a `gruppi_compagnia.id`. Sconsigliato: tocca tutto il sistema (sinistri, provvigioni, rimesse, flussi compagnie, rendiconti, AI, ~30+ file). Rischio molto alto.
+Modifico la riga 60 di `supabase/functions/import-compagnie/index.ts`:
+```ts
+gruppo_compagnia_id: c.gruppo_compagnia 
+  ? (groupMap[c.gruppo_compagnia] || PLURIMANDATARIO_ID) 
+  : PLURIMANDATARIO_ID,
+```
+dove `PLURIMANDATARIO_ID` viene fetchato all'inizio della function con una query su `gruppi_compagnia WHERE codice = 'PLURIMANDATARIO'`.
 
-**Per questo step iniziale propongo Opzione A**: nessuna migrazione DB, solo rename label e nuovi tab.
+### File modificati
 
-### File modificati in questo step
+1. **Migrazione SQL** (singola transazione): inserisce record PLURIMANDATARIO + UPDATE delle 76 orfane + ALTER TABLE NOT NULL.
+2. **`src/pages/CompagnieList.tsx`**:
+   - Tab Agenzie: nuova colonna "Compagnia" con JOIN, filtro "Solo Plurimandatario", badge giallo.
+   - Form Agenzia: campo "Compagnia di appartenenza" obbligatorio + badge fallback nel select.
+   - Tab Compagnie: PLURIMANDATARIO in cima con badge "Fallback di sistema", protetto da delete/rename.
+3. **`supabase/functions/import-compagnie/index.ts`**: fallback automatico a PLURIMANDATARIO se gruppo non trovato/null.
 
-1. **`src/pages/CompagnieList.tsx`** — wrapping con `<Tabs>`, aggiunta tab "Compagnie" (CRUD su `gruppi_compagnia` con count agenzie figlie), rinomina label "Gruppo Compagnia" → "Compagnia di appartenenza" nella form Agenzia, titolo pagina "Compagnie e Agenzie", aggiunta tab disabilitata "Agenzie di riferimento".
-2. **`src/pages/TabelleBasePage.tsx`** — rimozione riga 1004 (`gruppi_compagnia` non più qui).
-3. **`src/components/AppSidebar.tsx`** — rinomina voce menu "Compagnie" → "Compagnie / Agenzie" (link resta `/compagnie`).
-4. (eventuale) **breadcrumb** in `PageBreadcrumb.tsx` se c'è una mappatura statica del titolo `/compagnie`.
+### Cosa NON tocco
 
-### Cosa NON tocco in questo step
-
-- ❌ Tabelle DB (nessuna migrazione, nessun rename di colonne).
-- ❌ Edge functions (`import-compagnie`, `calcola-provvigioni`, ecc.) — continuano a usare `compagnie` e `gruppi_compagnia` con i nomi attuali.
-- ❌ Logica polizze, sinistri, provvigioni — restano funzionanti identiche, solo le label UI cambiano dove specificato.
-- ❌ Nuova tabella per "Agenzie di riferimento" (tab placeholder con badge "Prossimamente" — la creiamo in uno step successivo quando definirai il modello).
-- ❌ I 76 record di `compagnie` orfani (senza `gruppo_compagnia_id`): restano così, ma li evidenzio nella tab "Agenzie" con un badge "Senza compagnia" + filtro rapido per assegnarli.
+- ❌ Nessuna modifica alla logica polizze, sinistri, provvigioni — l'FK esisteva già, aggiungo solo il NOT NULL.
+- ❌ Nessuna rinomina di colonne DB.
+- ❌ Le 76 agenzie restano modificabili: in futuro le riassegnerai manualmente a Compagnie reali tramite la tab "Agenzie" filtrata.
+- ❌ Il livello 3 ("Agenzie di riferimento") resta non implementato (placeholder come deciso allo step precedente).
 
 ### Verifica
 
-1. `/compagnie` → vedo 3 tab: **Compagnie** (134 record con count agenzie), **Agenzie** (1.374 record con tutte le colonne attuali), **Agenzie di riferimento** (disabilitata, badge "Prossimamente").
-2. Tab Compagnie: posso creare/modificare/eliminare un record `gruppi_compagnia` con CRUD completo. Eliminazione bloccata se ha agenzie collegate (mostro warning "Ha N agenzie collegate, riassegnale prima").
-3. Tab Agenzie: la form di edit mostra il select "Compagnia di appartenenza" (non più "Gruppo Compagnia").
-4. `/tabelle-base` → entry "Gruppi Compagnia" sparita dalla lista.
-5. Sidebar: voce "Compagnie / Agenzie" punta a `/compagnie`.
-6. Polizze, provvigioni, rimesse, sinistri: tutto continua a funzionare identico (Opzione A, zero migrazione).
+1. **DB**: query `SELECT COUNT(*) FROM compagnie WHERE gruppo_compagnia_id IS NULL` → restituisce **0**.
+2. **DB**: query `SELECT descrizione, COUNT(c.id) FROM gruppi_compagnia g LEFT JOIN compagnie c ON c.gruppo_compagnia_id = g.id WHERE g.codice = 'PLURIMANDATARIO' GROUP BY g.descrizione` → restituisce **76**.
+3. **UI `/compagnie` Tab Compagnie**: vedo "PLURIMANDATARIO" in cima con badge "Fallback di sistema" e count `76 agenzie`.
+4. **UI Tab Agenzie**: filtro "Solo Plurimandatario" mostra esattamente 76 record con badge giallo. Nuova colonna "Compagnia" valorizzata su tutte le righe.
+5. **UI form Agenzia**: provando a salvare senza compagnia → errore di validazione ("Compagnia di appartenenza obbligatoria").
+6. **Tentativo delete su PLURIMANDATARIO**: bloccato con messaggio "Compagnia di sistema, non eliminabile".
+7. **Import compagnie via edge function** con `gruppo_compagnia` mancante: il record viene comunque creato e assegnato a PLURIMANDATARIO (non più NULL).
 
-### Prossimi step (dopo approvazione di QUESTO piano e implementazione)
+### Prossimi step (dopo questa implementazione)
 
-- **Step 2**: ti chiederò come vuoi modellare le "Agenzie di riferimento" (1 agenzia → N riferimenti? oppure 1 compagnia → N riferimenti?), e creo la nuova tabella + tab attiva.
-- **Step 3**: pulizia dei 76 record orfani (assegnazione manuale tramite UI dedicata o import bulk).
+- Tu (o un admin) usa il filtro "Solo Plurimandatario" nella tab Agenzie per riassegnare manualmente, una alla volta, le 76 agenzie alla loro vera Compagnia.
+- Quando il count delle agenzie sotto PLURIMANDATARIO scende a 0 (o quando deciderai), si potrà valutare se rimuovere il record speciale o tenerlo come fallback permanente per nuovi import.
 
