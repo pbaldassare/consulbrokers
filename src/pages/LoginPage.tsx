@@ -25,6 +25,12 @@ const LoginPage = () => {
       return;
     }
 
+    // Se è stato deployato un aggiornamento mentre l'utente era sulla pagina
+    // di login con bundle stale, intercetta qui e forza un hard reload prima
+    // di entrare nell'app. checkAppVersion ritorna true se il reload è avviato.
+    const willReload = await checkAppVersion();
+    if (willReload) return;
+
     // Fetch profile to determine landing route
     const { data: { user: loggedUser } } = await supabase.auth.getUser();
     let route = "/";
