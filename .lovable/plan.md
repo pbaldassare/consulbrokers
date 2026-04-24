@@ -1,95 +1,94 @@
 
 
-## Fix loop di reload del version check
+## Rinomina gerarchia: Gruppi → Compagnie → Agenzie (3 livelli, livello 3 vuoto per ora)
 
-### Problema osservato
+### Modello dati confermato dall'utente
 
-Dai console log:
+| Cosa è oggi nel DB | Cosa diventa nella UI |
+|---|---|
+| `gruppi_compagnia` (134 record) | **Compagnie** (livello 1) |
+| `compagnie` (1.374 record) | **Agenzie** (livello 2) |
+| (non esiste) | **Agenzie di riferimento** (livello 3) — non popolato per ora |
+
+> Nota: NON rinomino le tabelle DB (rischio di rompere ~68 riferimenti tra codice e edge functions). Rinomino solo le **label UI**, e creo una tabella nuova solo per il livello 3 quando serve. Per ora il livello 3 lo lascio non implementato come da tua richiesta ("le agenzie di riferimento non le abbiamo").
+
+### Stato attuale dati
+
+- **134** "Compagnie" (oggi `gruppi_compagnia`)
+- **1.374** "Agenzie" (oggi `compagnie`), di cui:
+  - 1.298 collegate a una Compagnia tramite `gruppo_compagnia_id`
+  - 76 senza Compagnia padre (orfane — da assegnare manualmente in seguito)
+
+### Soluzione proposta
+
+#### 1. Spostare la gestione "Compagnie" (ex Gruppi) dentro la pagina `/compagnie`
+
+Trasformo `CompagnieList.tsx` in pagina con **2 tab** (Tab 3 prevista ma disabilitata):
+
 ```
-[VersionCheck] reload già eseguito per 2026-04-24T12:48:13.602Z — skip per evitare loop
-```
-
-Significa che ad **ogni** boot della pagina il sistema rileva una discrepanza tra `BUNDLE_VERSION` (embedded nel JS) e `serverVersion` (letto da `/version.json`), e quindi tenta sempre il reload — bloccato solo dal flag anti-loop in `sessionStorage`. Risultato: l'utente vede comunque il warning, e in alcuni casi (sessionStorage svuotato dal browser) può finire in un loop di reload.
-
-### Causa
-
-`BUNDLE_VERSION` viene preso da `import.meta.env.VITE_APP_VERSION`, che in `vite.config.ts` è impostato a:
-```ts
-'import.meta.env.VITE_APP_VERSION': JSON.stringify(new Date().toISOString())
-```
-
-Questo timestamp viene generato **ad ogni avvio del dev server / hot reload**, **NON** allo stesso istante in cui il custom plugin scrive `public/version.json`. In sviluppo (Lovable preview) i due timestamp **non coincidono mai esattamente**, perché:
-
-1. `define` viene calcolato all'avvio di Vite → timestamp X
-2. Il plugin `writeVersionJson` scrive `version.json` in un altro hook → timestamp Y ≠ X
-3. Ad ogni HMR / restart del sandbox, X cambia ma il file su `public/version.json` resta quello vecchio (committato)
-
-Quindi `BUNDLE_VERSION !== serverVersion` praticamente sempre → reload sempre triggerato → loop.
-
-Inoltre il file `public/version.json` attualmente contiene `2026-04-24T12:48:13.602Z` (committato manualmente dall'AI), che non corrisponde al `define` di runtime.
-
-### Soluzione
-
-#### 1. Sincronizzare `VITE_APP_VERSION` e `version.json` con un **singolo timestamp** generato una volta sola
-
-In `vite.config.ts`:
-```ts
-const BUILD_TIMESTAMP = new Date().toISOString();
-
-export default defineConfig({
-  define: {
-    'import.meta.env.VITE_APP_VERSION': JSON.stringify(BUILD_TIMESTAMP),
-  },
-  plugins: [
-    {
-      name: 'write-version-json',
-      buildStart() {
-        // dev mode: scrive in public/
-        fs.writeFileSync('public/version.json', JSON.stringify({ version: BUILD_TIMESTAMP }));
-      },
-      closeBundle() {
-        // build mode: scrive anche in dist/
-        fs.writeFileSync('dist/version.json', JSON.stringify({ version: BUILD_TIMESTAMP }));
-      },
-    },
-    // ...altri plugin
-  ],
-});
+[ Compagnie ] [ Agenzie ] [ Agenzie di riferimento (prossimamente) ]
 ```
 
-Così `BUNDLE_VERSION === serverVersion` per definizione finché il sandbox non viene riavviato. Quando viene riavviato (= nuovo deploy), entrambi cambiano insieme → reload solo quando serve davvero.
+- **Tab Compagnie** (nuova) → CRUD su `gruppi_compagnia` (codice, descrizione, attivo). Mostra il count di agenzie figlie per ogni compagnia (es. "Generali — 23 agenzie").
+- **Tab Agenzie** → la lista attuale di `compagnie` con tutte le 60+ colonne già presenti, **rinominata** "Agenzie". Il select "Gruppo Compagnia" nella form viene rinominato → "Compagnia di appartenenza".
+- **Tab Agenzie di riferimento** → tab disabilitata con badge "Prossimamente" (placeholder — quando deciderai il modello dati la abilito).
 
-#### 2. Disabilitare completamente il version check in **dev mode**
+#### 2. Rimuovere "Gruppi Compagnia" da `/tabelle-base`
 
-In `vite.config.ts` Lovable usa lo stesso build sia per preview sia per produzione, ma possiamo distinguere via `mode`:
+In `TabelleBasePage.tsx` riga 1004 elimino l'entry `gruppi_compagnia` dalla lista delle tabelle base, perché ora la gestione è dentro `/compagnie` (no duplicazione).
 
-In `src/lib/versionCheck.ts` e `src/main.tsx`:
-- Se `import.meta.env.DEV === true` → **skip totale** del version check (no fetch, no polling, no reload). In dev/preview HMR gestisce già il refresh.
-- Solo in `import.meta.env.PROD === true` il check è attivo.
+#### 3. Rinominare le label UI ovunque (NO rinomina tabelle DB)
 
-Questo elimina i warning fastidiosi nella preview Lovable e previene loop dovuti a timestamp non sincronizzati durante lo sviluppo.
+| Vecchia label UI | Nuova label UI |
+|---|---|
+| "Compagnie" (sidebar, breadcrumb, titolo pagina) | **"Compagnie / Agenzie"** (titolo) — sidebar resta "Compagnie" come voce di menu, ma la pagina mostra le 2 tab sopra |
+| "Gruppi Compagnia" (TabelleBase, form Compagnie) | **"Compagnia"** |
+| "Gruppo Compagnia" (campo singolo) | **"Compagnia di appartenenza"** |
+| "Compagnia" (in form Agenzia) | **"Agenzia"** |
 
-#### 3. Pulizia del flag stale in `sessionStorage`
+Ricerca file da toccare per le label (mi limito a UI labels — i nomi colonne DB e variabili JS restano):
+- `src/pages/CompagnieList.tsx` (titolo, header tabella, label form, dialog title)
+- `src/pages/TabelleBasePage.tsx` (rimozione entry)
+- `src/components/AppSidebar.tsx` (verifica voce "Compagnie" — mantengo nome ma cambio destinazione se serve)
+- Eventuali label in form polizza dove appare "Compagnia" → resta "Compagnia" (perché `titoli.compagnia_id` punta proprio al record giusto = Agenzia nel nuovo lessico). **ATTENZIONE**: questo è un punto delicato → vedi sotto.
 
-Il flag `reloaded_for_<version>` resta in sessionStorage anche se la versione server cambia — accumulando garbage. Aggiungere cleanup: al boot, rimuovere tutti i flag `reloaded_for_*` che non corrispondono alla versione server attuale.
+#### 4. ⚠️ Ambiguità da risolvere subito: nelle polizze "Compagnia" cosa diventa?
 
-### File da modificare
+Oggi `titoli.compagnia_id → compagnie.id`. Nel nuovo lessico questo è un'**Agenzia**, non una Compagnia.
 
-1. **`vite.config.ts`** — definire `BUILD_TIMESTAMP` come costante module-level e usarla sia in `define` sia nel plugin `write-version-json` (sia `buildStart` per dev sia `closeBundle` per build).
-2. **`src/lib/versionCheck.ts`** — early-return se `import.meta.env.DEV`; aggiungere cleanup flag stale; usare `import.meta.env.PROD` come gate.
-3. **`src/main.tsx`** — wrappare `checkAppVersion()` e `startVersionPolling()` in `if (import.meta.env.PROD)`.
-4. **`public/version.json`** — sarà rigenerato automaticamente dal plugin al prossimo restart, nessuna modifica manuale.
+Due opzioni — devo chiederti **dopo l'approvazione del piano** per non bloccare l'implementazione iniziale:
 
-### Cosa NON tocco
+- **Opzione A (consigliata, no migrazione dati)**: nelle polizze e ovunque ci sia `compagnia_id`, la label UI diventa "Agenzia" (perché punta al record "Agenzia"). Mostro in più una colonna derivata "Compagnia" leggendo `compagnie.gruppo_compagnia_id → gruppi_compagnia.descrizione`.
+- **Opzione B (migrazione massiva)**: cambio `titoli.compagnia_id` per puntare a `gruppi_compagnia.id`. Sconsigliato: tocca tutto il sistema (sinistri, provvigioni, rimesse, flussi compagnie, rendiconti, AI, ~30+ file). Rischio molto alto.
 
-- La logica di hard reload (cache busting con `?_v=...`) resta corretta.
-- Il cleanup Service Worker in `main.tsx` resta sincrono prima del render.
-- L'integrazione in `LoginPage.tsx` resta — chiamerà `checkAppVersion()` che in dev sarà no-op, in prod farà il check vero.
+**Per questo step iniziale propongo Opzione A**: nessuna migrazione DB, solo rename label e nuovi tab.
+
+### File modificati in questo step
+
+1. **`src/pages/CompagnieList.tsx`** — wrapping con `<Tabs>`, aggiunta tab "Compagnie" (CRUD su `gruppi_compagnia` con count agenzie figlie), rinomina label "Gruppo Compagnia" → "Compagnia di appartenenza" nella form Agenzia, titolo pagina "Compagnie e Agenzie", aggiunta tab disabilitata "Agenzie di riferimento".
+2. **`src/pages/TabelleBasePage.tsx`** — rimozione riga 1004 (`gruppi_compagnia` non più qui).
+3. **`src/components/AppSidebar.tsx`** — rinomina voce menu "Compagnie" → "Compagnie / Agenzie" (link resta `/compagnie`).
+4. (eventuale) **breadcrumb** in `PageBreadcrumb.tsx` se c'è una mappatura statica del titolo `/compagnie`.
+
+### Cosa NON tocco in questo step
+
+- ❌ Tabelle DB (nessuna migrazione, nessun rename di colonne).
+- ❌ Edge functions (`import-compagnie`, `calcola-provvigioni`, ecc.) — continuano a usare `compagnie` e `gruppi_compagnia` con i nomi attuali.
+- ❌ Logica polizze, sinistri, provvigioni — restano funzionanti identiche, solo le label UI cambiano dove specificato.
+- ❌ Nuova tabella per "Agenzie di riferimento" (tab placeholder con badge "Prossimamente" — la creiamo in uno step successivo quando definirai il modello).
+- ❌ I 76 record di `compagnie` orfani (senza `gruppo_compagnia_id`): restano così, ma li evidenzio nella tab "Agenzie" con un badge "Senza compagnia" + filtro rapido per assegnarli.
 
 ### Verifica
 
-1. **Preview Lovable** (dev): nessun warning `[VersionCheck]` in console; nessun reload spurio; navigazione fluida.
-2. **Produzione** dopo nuovo deploy: utente in tab aperta riceve reload entro 60s o al cambio tab.
-3. **Console PROD**: log `[VersionCheck] bundle=<X> server=<Y> → hard reload` UNA SOLA VOLTA per nuova versione, poi silenzio.
-4. **sessionStorage**: solo il flag della versione corrente (vecchi puliti).
+1. `/compagnie` → vedo 3 tab: **Compagnie** (134 record con count agenzie), **Agenzie** (1.374 record con tutte le colonne attuali), **Agenzie di riferimento** (disabilitata, badge "Prossimamente").
+2. Tab Compagnie: posso creare/modificare/eliminare un record `gruppi_compagnia` con CRUD completo. Eliminazione bloccata se ha agenzie collegate (mostro warning "Ha N agenzie collegate, riassegnale prima").
+3. Tab Agenzie: la form di edit mostra il select "Compagnia di appartenenza" (non più "Gruppo Compagnia").
+4. `/tabelle-base` → entry "Gruppi Compagnia" sparita dalla lista.
+5. Sidebar: voce "Compagnie / Agenzie" punta a `/compagnie`.
+6. Polizze, provvigioni, rimesse, sinistri: tutto continua a funzionare identico (Opzione A, zero migrazione).
+
+### Prossimi step (dopo approvazione di QUESTO piano e implementazione)
+
+- **Step 2**: ti chiederò come vuoi modellare le "Agenzie di riferimento" (1 agenzia → N riferimenti? oppure 1 compagnia → N riferimenti?), e creo la nuova tabella + tab attiva.
+- **Step 3**: pulizia dei 76 record orfani (assegnazione manuale tramite UI dedicata o import bulk).
 
