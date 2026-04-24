@@ -846,7 +846,7 @@ function CompagnieMadriTab() {
                 {filtered.map((g: any, idx: number) => (
                   <TableRow
                     key={g.id}
-                    className={`cursor-pointer hover:bg-muted/50 ${g.is_pluri ? "bg-warning/10" : idx % 2 === 1 ? "bg-muted/20" : ""}`}
+                    className={`cursor-pointer hover:bg-muted/50 ${g.is_pluri ? "bg-accent/40" : idx % 2 === 1 ? "bg-muted/20" : ""}`}
                     onClick={() => openEdit(g)}
                   >
                     <TableCell className="font-mono text-sm">{g.codice || "—"}</TableCell>
