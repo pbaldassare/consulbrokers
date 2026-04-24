@@ -964,20 +964,23 @@ const CompagnieList = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Compagnie</h1>
-          <p className="text-muted-foreground">Gestione compagnie, sedi, prodotti e provvigioni — <span className="font-semibold">{compagnie.length}</span> compagnie totali</p>
+          <h1 className="text-2xl font-bold text-foreground">Compagnie / Agenzie</h1>
+          <p className="text-muted-foreground">
+            Gestione compagnie (gruppi madre), agenzie e provvigioni —{" "}
+            <span className="font-semibold">{compagnie.length}</span> agenzie totali
+          </p>
         </div>
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
           <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Nuova Compagnia</Button>
+            <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <CompagniaFormDialog
               form={form} setForm={setForm}
               onSave={() => createMutation.mutate()}
               saving={createMutation.isPending}
-              title="Nuova Compagnia"
-              saveLabel="Crea Compagnia"
+              title="Nuova Agenzia"
+              saveLabel="Crea Agenzia"
               compagniaId={null}
             />
           </DialogContent>
@@ -991,7 +994,7 @@ const CompagnieList = () => {
             form={form} setForm={setForm}
             onSave={() => updateMutation.mutate()}
             saving={updateMutation.isPending}
-            title="Modifica Compagnia"
+            title="Modifica Agenzia"
             saveLabel="Salva Modifiche"
             compagniaId={editId}
           />
@@ -999,18 +1002,29 @@ const CompagnieList = () => {
       </Dialog>
 
       {/* Main page tabs */}
-      <Tabs defaultValue="anagrafica" className="w-full">
+      <Tabs defaultValue="compagnie" className="w-full">
         <TabsList>
+          <TabsTrigger value="compagnie" className="gap-2">
+            <Layers className="w-4 h-4" />Compagnie
+          </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
-            <Building2 className="w-4 h-4" />Anagrafica Compagnia
+            <Building2 className="w-4 h-4" />Agenzie
           </TabsTrigger>
           <TabsTrigger value="sinistri" className="gap-2">
-            <ShieldAlert className="w-4 h-4" />Compagnie Sinistri
+            <ShieldAlert className="w-4 h-4" />Agenzie Sinistri
           </TabsTrigger>
           <TabsTrigger value="import-provvigioni" className="gap-2">
             <Brain className="w-4 h-4" />Import Provvigioni IA
           </TabsTrigger>
+          <TabsTrigger value="agenzie-rif" className="gap-2" disabled>
+            <Network className="w-4 h-4" />Agenzie di riferimento
+            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">Prossimamente</Badge>
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="compagnie" className="mt-4">
+          <CompagnieMadriTab />
+        </TabsContent>
 
         <TabsContent value="anagrafica" className="space-y-4 mt-4">
           <Card>
