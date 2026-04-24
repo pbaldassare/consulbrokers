@@ -535,17 +535,22 @@ function CompagniaFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Compagnia di appartenenza</Label>
+              <Label className="text-xs text-muted-foreground">
+                Compagnia di appartenenza <span className="text-destructive">*</span>
+              </Label>
               <SearchableSelect
                 options={gruppiCompagnia}
                 value={form.gruppo_compagnia_id}
                 onValueChange={(v) => {
                   setField("gruppo_compagnia_id", v);
                   const found = gruppiCompagnia.find((g: any) => g.value === v);
-                  setField("gruppo_compagnia", found?.label || "");
+                  setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
                 }}
                 placeholder="Seleziona compagnia..."
               />
+              {!form.gruppo_compagnia_id && (
+                <p className="text-xs text-destructive">Campo obbligatorio</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Tipo Mandatario</Label>
