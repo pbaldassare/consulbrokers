@@ -1,15 +1,15 @@
 ---
 name: RCA Auto Specific Data
-description: Validazioni e automazioni per polizze RCA Auto - catalogo veicoli locale con inserimento manuale
+description: Validazioni e automazioni per polizze RCA Auto - catalogo veicoli locale, usi RCA piatti, tipi veicolo come rami
 type: feature
 ---
 
 La gestione delle polizze RCA Auto integra:
 
-- **Catalogo veicoli locale**: tabelle `veicoli_marche` e `veicoli_modelli` (DB) precaricate con ~33 marche e ~350 modelli più diffusi in Italia. Flag `popolare` per ordinamento intelligente (popolari in cima).
-- **Inserimento manuale**: il componente `MarcaModelloCombobox` consente di aggiungere on-the-fly nuove marche/modelli direttamente dal form RCA con la voce "+ Aggiungi: «...»" in fondo alla lista. Auto-uppercase via trigger DB.
-- **Permessi**: lettura per tutti gli authenticated; INSERT/UPDATE riservato a staff (esclusi cliente/prospect).
-- **Hook**: `useVehicleMakes()`, `useVehicleModels(marca)`, `useAddMarca()`, `useAddModello()` in `src/hooks/useVehicleLookup.ts`.
-- **Form RCA**: `ImmissionePolizzaPage.tsx` usa `MarcaCombobox` e `ModelloCombobox` (non più NHTSA API).
-- **Classi BM**: 18 classi di merito (1A-18) per RCA Auto.
-- **Settori/Usi**: gerarchia di lookup tramite `useRcaSettori()` e `useRcaUsi(settoreId)`.
+- **Catalogo veicoli locale**: tabelle `veicoli_marche` e `veicoli_modelli` (DB) con flag `popolare` per ordinamento. Inserimento on-the-fly dal form via `MarcaModelloCombobox`.
+- **Tipi veicolo come rami**: i 16 ex `rca_settori` sono stati inglobati in `rami` con codici `RV01…RV16` e descrizioni `VEICOLO - …` sotto il gruppo `ZQ - R.C.A.`. La tabella `rca_settori` non esiste più.
+- **Usi RCA**: tabella `rca_usi` (43 record) come **lista piatta** senza dipendenza da settore (colonna `settore_id` rimossa). Hook `useRcaUsi()` senza parametri.
+- **Form RCA** (`ImmissionePolizzaPage.tsx`): non c'è più dropdown "Settore"; il valore `vSettore` viene popolato dal "Tipo Veicolo" selezionato. Il dropdown "Uso" è sempre abilitato.
+- **Permessi**: lettura per tutti gli authenticated; INSERT/UPDATE riservato a staff.
+- **Classi BM**: 18 classi di merito (1–18) per RCA Auto.
+- **Tipi veicolo hardcoded**: `TIPI_VEICOLO` in `src/lib/rcaConstants.ts` resta come riferimento alternativo nel form.

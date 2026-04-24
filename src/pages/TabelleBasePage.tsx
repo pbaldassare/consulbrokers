@@ -560,7 +560,7 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
   );
 };
 
-/* ────────── RCA Usi Tab (with settore FK) ────────── */
+/* ────────── RCA Usi Tab (lista piatta, no settore) ────────── */
 
 const RcaUsiTab = () => {
   const qc = useQueryClient();
@@ -568,31 +568,19 @@ const RcaUsiTab = () => {
   const [editing, setEditing] = useState<any>(null);
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
-  const [settoreId, setSettoreId] = useState("");
-  const [filtroSettore, setFiltroSettore] = useState("all");
-
-  const { data: settori = [] } = useQuery({
-    queryKey: ["rca-settori"],
-    queryFn: async () => {
-      const { data } = await (supabase.from("rca_settori" as any) as any).select("*").eq("attivo", true).order("codice");
-      return data || [];
-    },
-  });
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["rca-usi"],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("rca_usi" as any) as any).select("*, rca_settori(codice, descrizione)").order("codice");
+      const { data, error } = await (supabase.from("rca_usi" as any) as any).select("*").order("codice");
       if (error) throw error;
       return data as any[];
     },
   });
 
-  const filtered = filtroSettore === "all" ? items : items.filter((i: any) => i.settore_id === filtroSettore);
-
   const save = useMutation({
     mutationFn: async () => {
-      const payload = { codice, descrizione, settore_id: settoreId };
+      const payload = { codice, descrizione };
       if (editing) {
         const { error } = await (supabase.from("rca_usi" as any) as any).update(payload).eq("id", editing.id);
         if (error) throw error;
@@ -622,32 +610,20 @@ const RcaUsiTab = () => {
     onError: () => toast.error("Errore"),
   });
 
-  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setSettoreId(""); setOpen(true); };
-  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setSettoreId(g.settore_id); setOpen(true); };
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setOpen(true); };
   const closeDialog = () => { setOpen(false); setEditing(null); };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-lg">Usi RCA</CardTitle>
-        <div className="flex items-center gap-2">
-          <Select value={filtroSettore} onValueChange={setFiltroSettore}>
-            <SelectTrigger className="w-[260px]"><SelectValue placeholder="Filtra per settore" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti i settori</SelectItem>
-              {settori.map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>{s.codice} - {s.descrizione}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
-        </div>
+        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-40">Settore</TableHead>
               <TableHead className="w-24">Codice</TableHead>
               <TableHead>Descrizione</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
@@ -656,16 +632,11 @@ const RcaUsiTab = () => {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
-            ) : filtered.map((item: any) => (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+            ) : items.map((item: any) => (
               <TableRow key={item.id}>
-                <TableCell>
-                  {item.rca_settori ? (
-                    <Badge variant="secondary">{item.rca_settori.codice} - {item.rca_settori.descrizione}</Badge>
-                  ) : "—"}
-                </TableCell>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
                 <TableCell className="text-center">
@@ -684,21 +655,12 @@ const RcaUsiTab = () => {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Modifica Uso RCA" : "Nuovo Uso RCA"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label>Settore</Label>
-                <SearchableSelect
-                  value={settoreId}
-                  onValueChange={setSettoreId}
-                  placeholder="Seleziona settore..."
-                  options={settori.map((s: any) => ({ value: s.id, label: `${s.codice} - ${s.descrizione}` }))}
-                />
-              </div>
               <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 1" /></div>
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. PRIVATO" /></div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={closeDialog}>Annulla</Button>
-              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || !settoreId || save.isPending}>
+              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || save.isPending}>
                 {save.isPending ? "Salvataggio..." : "Salva"}
               </Button>
             </DialogFooter>
@@ -997,7 +959,7 @@ const TipoDocumentoTab = () => {
 const tabConfig: { value: string; label: string; tableName: string; queryKey: string; title: string; custom?: string | boolean }[] = [
   { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
   { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
-  { value: "rca_settori", label: "Settori RCA", tableName: "rca_settori", queryKey: "rca-settori", title: "Settore RCA" },
+  
   { value: "rca_usi", label: "Usi RCA", tableName: "rca_usi", queryKey: "rca-usi", title: "Uso RCA", custom: "rca_usi" },
   { value: "rca_garanzie", label: "Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia RCA", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
