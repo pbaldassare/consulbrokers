@@ -403,10 +403,13 @@ function CompagniaFormDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from("gruppi_compagnia" as any)
-        .select("id, descrizione")
+        .select("id, descrizione, codice")
         .eq("attivo", true)
         .order("descrizione");
-      return (data || []).map((g: any) => ({ value: g.id, label: g.descrizione }));
+      return (data || []).map((g: any) => ({
+        value: g.id,
+        label: g.codice === PLURIMANDATARIO_CODE ? `⚠️ ${g.descrizione} (Fallback)` : g.descrizione,
+      }));
     },
     staleTime: 1000 * 60 * 30,
   });
