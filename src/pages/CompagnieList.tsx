@@ -637,6 +637,253 @@ function CompagniaFormDialog({
   );
 }
 
+// ── Tab Compagnie (Gruppi Compagnia nel DB) ──
+
+interface GruppoForm {
+  codice: string;
+  descrizione: string;
+  attivo: boolean;
+}
+
+const emptyGruppo: GruppoForm = { codice: "", descrizione: "", attivo: true };
+
+function CompagnieMadriTab() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<GruppoForm>(emptyGruppo);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; descrizione: string; count: number } | null>(null);
+
+  const { data: gruppi = [], isLoading } = useQuery({
+    queryKey: ["compagnie-madri-list"],
+    queryFn: async () => {
+      const { data: gruppiData, error } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, codice, descrizione, attivo")
+        .order("descrizione");
+      if (error) throw error;
+
+      // Count agenzie per gruppo
+      const { data: countsData } = await supabase
+        .from("compagnie")
+        .select("gruppo_compagnia_id")
+        .not("gruppo_compagnia_id", "is", null);
+
+      const counts: Record<string, number> = {};
+      (countsData || []).forEach((row: any) => {
+        if (row.gruppo_compagnia_id) {
+          counts[row.gruppo_compagnia_id] = (counts[row.gruppo_compagnia_id] || 0) + 1;
+        }
+      });
+
+      return (gruppiData || []).map((g: any) => ({ ...g, agenzie_count: counts[g.id] || 0 }));
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("gruppi_compagnia" as any)
+        .insert({ codice: form.codice || null, descrizione: form.descrizione, attivo: form.attivo });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
+      setCreateOpen(false);
+      setForm(emptyGruppo);
+      toast.success("Compagnia creata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore creazione"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editId) return;
+      const { error } = await supabase
+        .from("gruppi_compagnia" as any)
+        .update({ codice: form.codice || null, descrizione: form.descrizione, attivo: form.attivo })
+        .eq("id", editId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
+      setEditOpen(false);
+      setEditId(null);
+      setForm(emptyGruppo);
+      toast.success("Compagnia aggiornata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore aggiornamento"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("gruppi_compagnia" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
+      setDeleteTarget(null);
+      toast.success("Compagnia eliminata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
+  });
+
+  const openEdit = (g: any) => {
+    setForm({ codice: g.codice || "", descrizione: g.descrizione || "", attivo: g.attivo ?? true });
+    setEditId(g.id);
+    setEditOpen(true);
+  };
+
+  const filtered = gruppi.filter((g: any) =>
+    !search || g.descrizione?.toLowerCase().includes(search.toLowerCase()) || g.codice?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const renderForm = () => (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Codice</Label>
+        <Input value={form.codice} onChange={(e) => setForm((p) => ({ ...p, codice: e.target.value }))} placeholder="es. GEN" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Descrizione *</Label>
+        <Input value={form.descrizione} onChange={(e) => setForm((p) => ({ ...p, descrizione: e.target.value }))} placeholder="es. Gruppo Generali" />
+      </div>
+      <div className="flex items-center justify-between border-t pt-3">
+        <Label className="text-sm">Attiva</Label>
+        <Switch checked={form.attivo} onCheckedChange={(v) => setForm((p) => ({ ...p, attivo: v }))} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-end gap-4">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs text-muted-foreground">Cerca per descrizione o codice</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Cerca compagnia..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              </div>
+            </div>
+            <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
+            <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyGruppo); }}>
+              <DialogTrigger asChild>
+                <Button><Plus className="w-4 h-4 mr-2" />Nuova Compagnia</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Nuova Compagnia</DialogTitle></DialogHeader>
+                {renderForm()}
+                <Button onClick={() => createMutation.mutate()} disabled={!form.descrizione || createMutation.isPending} className="w-full">
+                  {createMutation.isPending ? "Salvataggio..." : "Crea Compagnia"}
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Layers className="w-5 h-5" />Compagnie ({filtered.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-muted-foreground">Caricamento...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Codice</TableHead>
+                  <TableHead>Descrizione</TableHead>
+                  <TableHead className="text-center">Agenzie collegate</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead className="w-24 text-right">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((g: any, idx: number) => (
+                  <TableRow key={g.id} className={`cursor-pointer hover:bg-muted/50 ${idx % 2 === 1 ? "bg-muted/20" : ""}`} onClick={() => openEdit(g)}>
+                    <TableCell className="font-mono text-sm">{g.codice || "—"}</TableCell>
+                    <TableCell className="font-medium">{g.descrizione}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={g.agenzie_count > 0 ? "default" : "outline"}>{g.agenzie_count}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={g.attivo ? "default" : "secondary"}>{g.attivo ? "Attiva" : "Disattiva"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count })}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna compagnia trovata</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) { setEditId(null); setForm(emptyGruppo); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Modifica Compagnia</DialogTitle></DialogHeader>
+          {renderForm()}
+          <Button onClick={() => updateMutation.mutate()} disabled={!form.descrizione || updateMutation.isPending} className="w-full">
+            {updateMutation.isPending ? "Salvataggio..." : "Salva Modifiche"}
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare la compagnia?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && deleteTarget.count > 0 ? (
+                <>
+                  La compagnia <b>{deleteTarget.descrizione}</b> ha <b>{deleteTarget.count}</b> agenzie collegate.
+                  Riassegnale a un'altra compagnia prima di procedere all'eliminazione.
+                </>
+              ) : (
+                <>Stai per eliminare <b>{deleteTarget?.descrizione}</b>. L'operazione è irreversibile.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!deleteTarget && deleteTarget.count > 0}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 // ── Main Page ──
 
 const CompagnieList = () => {
