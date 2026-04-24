@@ -293,7 +293,7 @@ function ProvvigioniTabContent({ compagniaId }: { compagniaId: string | null }) 
     return (
       <div className="py-8 text-center text-muted-foreground">
         <Percent className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p>Salva la compagnia prima di configurare le provvigioni per ramo.</p>
+        <p>Salva l'agenzia prima di configurare le provvigioni per ramo.</p>
       </div>
     );
   }
@@ -430,7 +430,7 @@ function CompagniaFormDialog({
         <TabsContent value="anagrafica" className="space-y-3 mt-4">
           <div className="grid grid-cols-3 gap-3">
             {renderField("Codice Ricerca", "codice")}
-            {renderField("Nome Compagnia *", "nome")}
+            {renderField("Nome Agenzia *", "nome")}
             {renderField("Nome Sede", "nome_sede", "es. Milano 1, Roma Centro")}
           </div>
           {renderField("Nome (segue)", "nome_segue")}
