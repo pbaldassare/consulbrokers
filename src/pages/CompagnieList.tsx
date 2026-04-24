@@ -1017,8 +1017,11 @@ const CompagnieList = () => {
   const filteredAnagrafica = compagnie.filter((c: any) => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
-    return matchNome && matchCodice;
+    const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri);
+    return matchNome && matchCodice && matchPluri;
   });
+
+  const pluriCount = compagnie.filter((c: any) => (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri).length;
 
   const filteredSinistri = compagnie.filter((c: any) => {
     if (!searchSinistri) return true;
