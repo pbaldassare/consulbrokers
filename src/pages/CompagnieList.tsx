@@ -14,7 +14,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Building2, Search, ShieldAlert, Percent, Pencil, Brain, Layers, Trash2, Network } from "lucide-react";
+import { Plus, Building2, Search, ShieldAlert, Percent, Pencil, Brain, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
+
+const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -401,10 +403,13 @@ function CompagniaFormDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from("gruppi_compagnia" as any)
-        .select("id, descrizione")
+        .select("id, descrizione, codice")
         .eq("attivo", true)
         .order("descrizione");
-      return (data || []).map((g: any) => ({ value: g.id, label: g.descrizione }));
+      return (data || []).map((g: any) => ({
+        value: g.id,
+        label: g.codice === PLURIMANDATARIO_CODE ? `⚠️ ${g.descrizione} (Fallback)` : g.descrizione,
+      }));
     },
     staleTime: 1000 * 60 * 30,
   });
@@ -530,17 +535,22 @@ function CompagniaFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Compagnia di appartenenza</Label>
+              <Label className="text-xs text-muted-foreground">
+                Compagnia di appartenenza <span className="text-destructive">*</span>
+              </Label>
               <SearchableSelect
                 options={gruppiCompagnia}
                 value={form.gruppo_compagnia_id}
                 onValueChange={(v) => {
                   setField("gruppo_compagnia_id", v);
                   const found = gruppiCompagnia.find((g: any) => g.value === v);
-                  setField("gruppo_compagnia", found?.label || "");
+                  setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
                 }}
                 placeholder="Seleziona compagnia..."
               />
+              {!form.gruppo_compagnia_id && (
+                <p className="text-xs text-destructive">Campo obbligatorio</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Tipo Mandatario</Label>
@@ -630,7 +640,7 @@ function CompagniaFormDialog({
           <ProvvigioniTabContent compagniaId={compagniaId} />
         </TabsContent>
       </Tabs>
-      <Button onClick={onSave} disabled={!form.nome || saving} className="w-full mt-4">
+      <Button onClick={onSave} disabled={!form.nome || !form.gruppo_compagnia_id || saving} className="w-full mt-4">
         {saveLabel}
       </Button>
     </>
@@ -678,7 +688,18 @@ function CompagnieMadriTab() {
         }
       });
 
-      return (gruppiData || []).map((g: any) => ({ ...g, agenzie_count: counts[g.id] || 0 }));
+      const enriched = (gruppiData || []).map((g: any) => ({
+        ...g,
+        agenzie_count: counts[g.id] || 0,
+        is_pluri: g.codice === PLURIMANDATARIO_CODE,
+      }));
+
+      // PLURIMANDATARIO sempre in cima
+      return enriched.sort((a: any, b: any) => {
+        if (a.is_pluri && !b.is_pluri) return -1;
+        if (!a.is_pluri && b.is_pluri) return 1;
+        return (a.descrizione || "").localeCompare(b.descrizione || "");
+      });
     },
   });
 
@@ -734,9 +755,21 @@ function CompagnieMadriTab() {
   });
 
   const openEdit = (g: any) => {
+    if (g.is_pluri) {
+      toast.info("Compagnia di sistema (PLURIMANDATARIO): non modificabile.");
+      return;
+    }
     setForm({ codice: g.codice || "", descrizione: g.descrizione || "", attivo: g.attivo ?? true });
     setEditId(g.id);
     setEditOpen(true);
+  };
+
+  const handleDeleteClick = (g: any) => {
+    if (g.is_pluri) {
+      toast.error("Compagnia di sistema (PLURIMANDATARIO): non eliminabile.");
+      return;
+    }
+    setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count });
   };
 
   const filtered = gruppi.filter((g: any) =>
@@ -811,9 +844,22 @@ function CompagnieMadriTab() {
               </TableHeader>
               <TableBody>
                 {filtered.map((g: any, idx: number) => (
-                  <TableRow key={g.id} className={`cursor-pointer hover:bg-muted/50 ${idx % 2 === 1 ? "bg-muted/20" : ""}`} onClick={() => openEdit(g)}>
+                  <TableRow
+                    key={g.id}
+                    className={`cursor-pointer hover:bg-muted/50 ${g.is_pluri ? "bg-accent/40" : idx % 2 === 1 ? "bg-muted/20" : ""}`}
+                    onClick={() => openEdit(g)}
+                  >
                     <TableCell className="font-mono text-sm">{g.codice || "—"}</TableCell>
-                    <TableCell className="font-medium">{g.descrizione}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {g.descrizione}
+                        {g.is_pluri && (
+                          <Badge variant="outline" className="gap-1 border-primary/40 bg-accent/40 text-foreground">
+                            <ShieldCheck className="w-3 h-3" />Fallback di sistema
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={g.agenzie_count > 0 ? "default" : "outline"}>{g.agenzie_count}</Badge>
                     </TableCell>
@@ -824,8 +870,10 @@ function CompagnieMadriTab() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count })}
+                        className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-30"
+                        disabled={g.is_pluri}
+                        title={g.is_pluri ? "Compagnia di sistema, non eliminabile" : "Elimina"}
+                        onClick={() => handleDeleteClick(g)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -896,6 +944,7 @@ const CompagnieList = () => {
   const [searchNome, setSearchNome] = useState("");
   const [searchCodice, setSearchCodice] = useState("");
   const [searchSinistri, setSearchSinistri] = useState("");
+  const [onlyPluri, setOnlyPluri] = useState(false);
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
@@ -904,6 +953,22 @@ const CompagnieList = () => {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Lookup map id → { descrizione, codice } per arricchire la lista Agenzie
+  const { data: gruppiMap = {} } = useQuery({
+    queryKey: ["gruppi_compagnia_map"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, descrizione, codice");
+      const map: Record<string, { descrizione: string; codice: string | null; is_pluri: boolean }> = {};
+      (data || []).forEach((g: any) => {
+        map[g.id] = { descrizione: g.descrizione, codice: g.codice, is_pluri: g.codice === PLURIMANDATARIO_CODE };
+      });
+      return map;
+    },
+    staleTime: 1000 * 60 * 30,
   });
 
   const createMutation = useMutation({
@@ -952,8 +1017,11 @@ const CompagnieList = () => {
   const filteredAnagrafica = compagnie.filter((c: any) => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
-    return matchNome && matchCodice;
+    const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri);
+    return matchNome && matchCodice && matchPluri;
   });
+
+  const pluriCount = compagnie.filter((c: any) => (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri).length;
 
   const filteredSinistri = compagnie.filter((c: any) => {
     if (!searchSinistri) return true;
@@ -1041,7 +1109,19 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Oppure il codice iniziale</Label>
                   <Input placeholder="Codice..." value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
-                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); }}>Reset</Button>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Filtro rapido</Label>
+                  <Button
+                    variant={onlyPluri ? "default" : "outline"}
+                    onClick={() => setOnlyPluri((v) => !v)}
+                    className="gap-2"
+                    title="Mostra solo agenzie da riassegnare"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Solo Plurimandatario {pluriCount > 0 && <Badge variant="secondary">{pluriCount}</Badge>}
+                  </Button>
+                </div>
+                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setOnlyPluri(false); }}>Reset</Button>
               </div>
             </CardContent>
           </Card>
@@ -1070,24 +1150,40 @@ const CompagnieList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAnagrafica.map((c: any) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(c)}>
-                        <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
-                        <TableCell className="font-medium">{c.nome}</TableCell>
-                        <TableCell>{c.nome_sede || "—"}</TableCell>
-                        <TableCell>{c.gruppo_compagnia || "—"}</TableCell>
-                        <TableCell>{c.comune || "—"}</TableCell>
-                        <TableCell>{c.provincia || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
-                            {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredAnagrafica.map((c: any) => {
+                      const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
+                      const isPluri = grp?.is_pluri;
+                      return (
+                        <TableRow
+                          key={c.id}
+                          className={`cursor-pointer hover:bg-muted/50 ${isPluri ? "bg-accent/30" : ""}`}
+                          onClick={() => openEdit(c)}
+                        >
+                          <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
+                          <TableCell className="font-medium">{c.nome}</TableCell>
+                          <TableCell>{c.nome_sede || "—"}</TableCell>
+                          <TableCell>
+                            {isPluri ? (
+                              <Badge variant="outline" className="gap-1 border-primary/40 bg-accent/40 text-foreground">
+                                <AlertTriangle className="w-3 h-3" />Plurimandatario
+                              </Badge>
+                            ) : (
+                              <span>{grp?.descrizione || c.gruppo_compagnia || "—"}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{c.comune || "—"}</TableCell>
+                          <TableCell>{c.provincia || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
+                              {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {filteredAnagrafica.length === 0 && (
                       <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}

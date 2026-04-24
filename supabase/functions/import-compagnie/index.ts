@@ -42,6 +42,24 @@ Deno.serve(async (req) => {
       groupMap[g.descrizione] = g.id;
     }
 
+    // Ensure PLURIMANDATARIO fallback exists
+    let pluriId: string | null = null;
+    const { data: pluriRow } = await supabase
+      .from("gruppi_compagnia")
+      .select("id")
+      .eq("codice", "PLURIMANDATARIO")
+      .maybeSingle();
+    if (pluriRow) {
+      pluriId = pluriRow.id;
+    } else {
+      const { data: created } = await supabase
+        .from("gruppi_compagnia")
+        .insert({ codice: "PLURIMANDATARIO", descrizione: "PLURIMANDATARIO", attivo: true })
+        .select("id")
+        .single();
+      pluriId = created?.id || null;
+    }
+
     // Step 4: Insert compagnie in batches of 100
     let inserted = 0;
     let errors = 0;
@@ -50,7 +68,9 @@ Deno.serve(async (req) => {
     for (let i = 0; i < compagnie.length; i += batchSize) {
       const batch = compagnie.slice(i, i + batchSize).map((c: any) => ({
         ...c,
-        gruppo_compagnia_id: c.gruppo_compagnia ? groupMap[c.gruppo_compagnia] || null : null,
+        gruppo_compagnia_id: c.gruppo_compagnia
+          ? (groupMap[c.gruppo_compagnia] || pluriId)
+          : pluriId,
       }));
 
       const { error } = await supabase.from("compagnie").insert(batch);
