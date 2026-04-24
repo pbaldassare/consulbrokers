@@ -4610,7 +4610,7 @@ export type Database = {
         }
         Relationships: []
       }
-      rca_settori: {
+      rca_usi: {
         Row: {
           attivo: boolean | null
           codice: string
@@ -4633,41 +4633,6 @@ export type Database = {
           id?: string
         }
         Relationships: []
-      }
-      rca_usi: {
-        Row: {
-          attivo: boolean | null
-          codice: string
-          created_at: string | null
-          descrizione: string
-          id: string
-          settore_id: string
-        }
-        Insert: {
-          attivo?: boolean | null
-          codice: string
-          created_at?: string | null
-          descrizione: string
-          id?: string
-          settore_id: string
-        }
-        Update: {
-          attivo?: boolean | null
-          codice?: string
-          created_at?: string | null
-          descrizione?: string
-          id?: string
-          settore_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rca_usi_settore_id_fkey"
-            columns: ["settore_id"]
-            isOneToOne: false
-            referencedRelation: "rca_settori"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       report_salvati: {
         Row: {
