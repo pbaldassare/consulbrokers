@@ -1150,24 +1150,40 @@ const CompagnieList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAnagrafica.map((c: any) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(c)}>
-                        <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
-                        <TableCell className="font-medium">{c.nome}</TableCell>
-                        <TableCell>{c.nome_sede || "—"}</TableCell>
-                        <TableCell>{c.gruppo_compagnia || "—"}</TableCell>
-                        <TableCell>{c.comune || "—"}</TableCell>
-                        <TableCell>{c.provincia || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
-                            {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredAnagrafica.map((c: any) => {
+                      const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
+                      const isPluri = grp?.is_pluri;
+                      return (
+                        <TableRow
+                          key={c.id}
+                          className={`cursor-pointer hover:bg-muted/50 ${isPluri ? "bg-warning/5" : ""}`}
+                          onClick={() => openEdit(c)}
+                        >
+                          <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
+                          <TableCell className="font-medium">{c.nome}</TableCell>
+                          <TableCell>{c.nome_sede || "—"}</TableCell>
+                          <TableCell>
+                            {isPluri ? (
+                              <Badge variant="outline" className="gap-1 border-warning bg-warning/20 text-warning-foreground">
+                                <AlertTriangle className="w-3 h-3" />Plurimandatario
+                              </Badge>
+                            ) : (
+                              <span>{grp?.descrizione || c.gruppo_compagnia || "—"}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{c.comune || "—"}</TableCell>
+                          <TableCell>{c.provincia || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
+                              {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {filteredAnagrafica.length === 0 && (
                       <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
