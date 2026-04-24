@@ -1,103 +1,95 @@
 
 
-## Risoluzione cache stale al login (vedi sempre versione vecchia)
+## Fix loop di reload del version check
 
-### Diagnosi del problema
+### Problema osservato
 
-Il problema è causato da **3 difetti combinati** nel sistema di versioning attuale (`main.tsx` + `vite.config.ts` + `index.html`):
-
-#### 1. ⚠️ Bug logico in `main.tsx` (causa principale)
-
-Alla riga 11 il codice **scrive subito la nuova versione** in `localStorage`, **prima** del controllo anti-loop:
-
-```ts
-if (prevVersion && prevVersion !== APP_VERSION && APP_VERSION !== "dev") {
-  localStorage.setItem("app_version", APP_VERSION);   // ← scrive SUBITO
-  if (!sessionStorage.getItem(`refreshed_${APP_VERSION}`)) {
-    sessionStorage.setItem(`refreshed_${APP_VERSION}`, "1");
-    location.reload();   // dopo il reload, prevVersion === APP_VERSION → mai più reload
-  }
-}
+Dai console log:
+```
+[VersionCheck] reload già eseguito per 2026-04-24T12:48:13.602Z — skip per evitare loop
 ```
 
-Conseguenza: quando il browser carica HTML/JS **vecchi cachati** (dove `APP_VERSION` è il timestamp vecchio), il controllo passa, scrive la versione vecchia in localStorage, **non rileva mai più aggiornamenti** finché la sessione non viene chiusa. L'utente continua a vedere la vecchia UI anche dopo deploy nuovi.
+Significa che ad **ogni** boot della pagina il sistema rileva una discrepanza tra `BUNDLE_VERSION` (embedded nel JS) e `serverVersion` (letto da `/version.json`), e quindi tenta sempre il reload — bloccato solo dal flag anti-loop in `sessionStorage`. Risultato: l'utente vede comunque il warning, e in alcuni casi (sessionStorage svuotato dal browser) può finire in un loop di reload.
 
-#### 2. ⚠️ `VITE_APP_VERSION` calcolato a build-time è **dentro al bundle JS cachato**
+### Causa
 
-In `vite.config.ts`:
+`BUNDLE_VERSION` viene preso da `import.meta.env.VITE_APP_VERSION`, che in `vite.config.ts` è impostato a:
 ```ts
 'import.meta.env.VITE_APP_VERSION': JSON.stringify(new Date().toISOString())
 ```
 
-Questa stringa finisce dentro `index-[hash].js`. Se il browser serve il **vecchio** `index.html` dalla cache, carica anche il **vecchio** `index-[hash].js` con il **vecchio** `APP_VERSION` → l'app non sa di essere obsoleta. È un check inutile: confronta il timestamp del bundle con sé stesso.
+Questo timestamp viene generato **ad ogni avvio del dev server / hot reload**, **NON** allo stesso istante in cui il custom plugin scrive `public/version.json`. In sviluppo (Lovable preview) i due timestamp **non coincidono mai esattamente**, perché:
 
-#### 3. ⚠️ `index.html` non è realmente "no-cache" sui CDN
+1. `define` viene calcolato all'avvio di Vite → timestamp X
+2. Il plugin `writeVersionJson` scrive `version.json` in un altro hook → timestamp Y ≠ X
+3. Ad ogni HMR / restart del sandbox, X cambia ma il file su `public/version.json` resta quello vecchio (committato)
 
-I meta `Cache-Control` in HTML **vengono ignorati** da molti CDN/proxy (incluso Lovable hosting). Il `index.html` può restare cachato per ore, e con esso i riferimenti agli script vecchi.
+Quindi `BUNDLE_VERSION !== serverVersion` praticamente sempre → reload sempre triggerato → loop.
 
-#### 4. ⚠️ Service worker fantasma residuo
+Inoltre il file `public/version.json` attualmente contiene `2026-04-24T12:48:13.602Z` (committato manualmente dall'AI), che non corrisponde al `define` di runtime.
 
-Il cleanup SW in `main.tsx` viene eseguito **dopo** il primo render: se in passato un SW ha cachato l'app shell, il primo caricamento al login mostra ancora i contenuti vecchi prima dell'unregister.
+### Soluzione
 
-### Soluzione proposta
+#### 1. Sincronizzare `VITE_APP_VERSION` e `version.json` con un **singolo timestamp** generato una volta sola
 
-#### A. Riscrivere `main.tsx` con logica corretta
-
-Sequenza corretta:
-1. **Prima** registrare il listener visibility/focus.
-2. Al boot: leggere `prevVersion`, se diverso → **NON aggiornare** localStorage, fare reload "hard" (`location.reload()` con cache busting in querystring), poi al secondo giro la nuova `APP_VERSION` viene scritta.
-3. Aggiornare `localStorage` **solo** dopo che il render React è andato a buon fine (fine `createRoot().render`).
-4. Anti-loop basato su confronto: scrivere `app_version` solo all'esito positivo, non prima del reload.
-
-#### B. Polling server per nuova versione (vero fix)
-
-Al posto di confrontare `APP_VERSION` con sé stesso, fare **fetch periodico di `/version.json`** (file generato a build-time in `public/`) e confrontarlo con `APP_VERSION` del bundle in memoria. Quando differiscono → toast "Nuova versione disponibile" + reload con cache busting (`location.replace(location.pathname + '?v=' + Date.now())`).
-
-Implementazione:
-- Generare `public/version.json` a build-time tramite **plugin Vite custom** dentro `vite.config.ts` (hook `closeBundle` o `transformIndexHtml`) che scrive `{ "version": "<timestamp>" }`. Stesso timestamp viene iniettato in `VITE_APP_VERSION`.
-- In `main.tsx`: `setInterval(checkVersion, 60_000)` + check su `visibilitychange` + check al login (in `LoginPage` dopo signIn success).
-- Fetch con `cache: 'no-store'` per bypassare la cache HTTP.
-
-#### C. Hard reload con cache busting
-
-Sostituire `location.reload()` con:
+In `vite.config.ts`:
 ```ts
-const url = new URL(location.href);
-url.searchParams.set('_v', Date.now().toString());
-location.replace(url.toString());
+const BUILD_TIMESTAMP = new Date().toISOString();
+
+export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(BUILD_TIMESTAMP),
+  },
+  plugins: [
+    {
+      name: 'write-version-json',
+      buildStart() {
+        // dev mode: scrive in public/
+        fs.writeFileSync('public/version.json', JSON.stringify({ version: BUILD_TIMESTAMP }));
+      },
+      closeBundle() {
+        // build mode: scrive anche in dist/
+        fs.writeFileSync('dist/version.json', JSON.stringify({ version: BUILD_TIMESTAMP }));
+      },
+    },
+    // ...altri plugin
+  ],
+});
 ```
-Così il browser scarica davvero `index.html` nuovo bypassando cache HTTP/SW.
 
-#### D. Cleanup SW **sincrono prima del render**
+Così `BUNDLE_VERSION === serverVersion` per definizione finché il sandbox non viene riavviato. Quando viene riavviato (= nuovo deploy), entrambi cambiano insieme → reload solo quando serve davvero.
 
-Spostare il cleanup service worker in cima al file e attendere `await` prima di `createRoot().render`. In più, se vengono trovati SW registrati → fare un reload una tantum dopo unregister (flag in sessionStorage anti-loop).
+#### 2. Disabilitare completamente il version check in **dev mode**
 
-#### E. Headers Cache-Control corretti su `index.html` (lato hosting)
+In `vite.config.ts` Lovable usa lo stesso build sia per preview sia per produzione, ma possiamo distinguere via `mode`:
 
-I meta tag in HTML **non bastano**. Dato che Lovable serve l'app come SPA statica, `index.html` deve avere header HTTP `Cache-Control: no-cache, must-revalidate` lato CDN. Aggiungo un commento/nota in `index.html` e mi affido alla configurazione di hosting Lovable (che già dovrebbe gestirlo per `index.html` ma non per i bundle hashati). Se necessario, aggiungo anche un **redirect 302 query-busted** sul service worker fantasma.
+In `src/lib/versionCheck.ts` e `src/main.tsx`:
+- Se `import.meta.env.DEV === true` → **skip totale** del version check (no fetch, no polling, no reload). In dev/preview HMR gestisce già il refresh.
+- Solo in `import.meta.env.PROD === true` il check è attivo.
+
+Questo elimina i warning fastidiosi nella preview Lovable e previene loop dovuti a timestamp non sincronizzati durante lo sviluppo.
+
+#### 3. Pulizia del flag stale in `sessionStorage`
+
+Il flag `reloaded_for_<version>` resta in sessionStorage anche se la versione server cambia — accumulando garbage. Aggiungere cleanup: al boot, rimuovere tutti i flag `reloaded_for_*` che non corrispondono alla versione server attuale.
 
 ### File da modificare
 
-1. **`vite.config.ts`** — aggiungere plugin custom `writeVersionJson` che genera `public/version.json` con lo stesso timestamp di `VITE_APP_VERSION`. (Oppure scriverlo a `dist/version.json` nel hook `closeBundle`.)
-2. **`src/main.tsx`** — riscrittura completa:
-   - Cleanup SW **prima** del render (con flag anti-loop).
-   - Polling `/version.json` ogni 60s + on visibility + on focus.
-   - Hard reload con cache busting query.
-   - Scrittura `app_version` **solo** dopo render OK.
-3. **`src/lib/versionCheck.ts`** (nuovo) — funzione `checkAppVersion()` riutilizzabile da chiamare anche dopo login (`LoginPage.tsx`) per intercettare la versione vecchia subito dopo signIn.
-4. **`src/pages/LoginPage.tsx`** — dopo signIn riuscito, prima di `navigate(...)`, chiamare `await checkAppVersion()` così se l'utente ha bundle stale viene fatto reload immediato e ricomincia da app aggiornata.
-5. **`index.html`** — confermare meta no-cache (già presenti) e aggiungere `<link rel="manifest" href="/manifest.json?v=2">` (cache busting manifest).
+1. **`vite.config.ts`** — definire `BUILD_TIMESTAMP` come costante module-level e usarla sia in `define` sia nel plugin `write-version-json` (sia `buildStart` per dev sia `closeBundle` per build).
+2. **`src/lib/versionCheck.ts`** — early-return se `import.meta.env.DEV`; aggiungere cleanup flag stale; usare `import.meta.env.PROD` come gate.
+3. **`src/main.tsx`** — wrappare `checkAppVersion()` e `startVersionPolling()` in `if (import.meta.env.PROD)`.
+4. **`public/version.json`** — sarà rigenerato automaticamente dal plugin al prossimo restart, nessuna modifica manuale.
 
 ### Cosa NON tocco
 
-- La logica di autenticazione/Supabase, le rotte, gli `AuthGuard`/`RoleGuard`.
-- Il sistema di `APP_VERSION` come timestamp build (continuo a usarlo, ma confrontato con `version.json` lato server, non con sé stesso).
-- I dati (nessuna migrazione DB).
+- La logica di hard reload (cache busting con `?_v=...`) resta corretta.
+- Il cleanup Service Worker in `main.tsx` resta sincrono prima del render.
+- L'integrazione in `LoginPage.tsx` resta — chiamerà `checkAppVersion()` che in dev sarà no-op, in prod farà il check vero.
 
 ### Verifica
 
-1. **Deploy nuovo** → utente già loggato in tab aperta: entro 60s appare il reload automatico (o al cambio tab).
-2. **Login con cache vecchia**: dopo "Accedi" parte il check, se obsoleto → reload con `?_v=...`, al secondo caricamento entra nella dashboard con UI nuova.
-3. **Console**: log `[VersionCheck] current=<ts1> server=<ts2> → reload` quando rileva discrepanza; nessun loop di reload (test: due reload max per nuova versione).
-4. **Service worker**: in DevTools → Application → Service Workers: vuoto. Cache Storage: vuoto.
+1. **Preview Lovable** (dev): nessun warning `[VersionCheck]` in console; nessun reload spurio; navigazione fluida.
+2. **Produzione** dopo nuovo deploy: utente in tab aperta riceve reload entro 60s o al cambio tab.
+3. **Console PROD**: log `[VersionCheck] bundle=<X> server=<Y> → hard reload` UNA SOLA VOLTA per nuova versione, poi silenzio.
+4. **sessionStorage**: solo il flag della versione corrente (vecchi puliti).
 
