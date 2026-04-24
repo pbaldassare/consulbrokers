@@ -640,7 +640,7 @@ function CompagniaFormDialog({
           <ProvvigioniTabContent compagniaId={compagniaId} />
         </TabsContent>
       </Tabs>
-      <Button onClick={onSave} disabled={!form.nome || saving} className="w-full mt-4">
+      <Button onClick={onSave} disabled={!form.nome || !form.gruppo_compagnia_id || saving} className="w-full mt-4">
         {saveLabel}
       </Button>
     </>
