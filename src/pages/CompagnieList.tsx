@@ -1049,7 +1049,7 @@ const CompagnieList = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Building2 className="w-5 h-5" />Elenco ({filteredAnagrafica.length})
+                <Building2 className="w-5 h-5" />Elenco Agenzie ({filteredAnagrafica.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1062,7 +1062,7 @@ const CompagnieList = () => {
                       <TableHead>Codice</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Sede</TableHead>
-                      <TableHead>Gruppo</TableHead>
+                      <TableHead>Compagnia</TableHead>
                       <TableHead>Comune</TableHead>
                       <TableHead>Prov</TableHead>
                       <TableHead>Stato</TableHead>
@@ -1089,7 +1089,7 @@ const CompagnieList = () => {
                       </TableRow>
                     ))}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna compagnia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -1106,7 +1106,7 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Specificare il nome (anche parziale)</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca compagnia..." value={searchSinistri} onChange={(e) => setSearchSinistri(e.target.value)} className="pl-9" />
+                    <Input placeholder="Cerca agenzia..." value={searchSinistri} onChange={(e) => setSearchSinistri(e.target.value)} className="pl-9" />
                   </div>
                 </div>
                 <Button variant="secondary" onClick={() => setSearchSinistri("")}>Reset</Button>
@@ -1117,7 +1117,7 @@ const CompagnieList = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <ShieldAlert className="w-5 h-5" />Indirizzi Compagnia per Ufficio Sinistri ({filteredSinistri.length})
+                <ShieldAlert className="w-5 h-5" />Indirizzi Agenzia per Ufficio Sinistri ({filteredSinistri.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1128,7 +1128,7 @@ const CompagnieList = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Codice</TableHead>
-                      <TableHead>Nome Compagnia</TableHead>
+                      <TableHead>Nome Agenzia</TableHead>
                       <TableHead>Indirizzo</TableHead>
                       <TableHead>CAP</TableHead>
                       <TableHead>Comune</TableHead>
@@ -1151,7 +1151,7 @@ const CompagnieList = () => {
                       </TableRow>
                     ))}
                     {filteredSinistri.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna compagnia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
