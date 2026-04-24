@@ -973,7 +973,6 @@ const tabConfig: { value: string; label: string; tableName: string; queryKey: st
   { value: "lookup_contratti", label: "Contratti", tableName: "lookup_contratti", queryKey: "lookup-contratti", title: "Contratto" },
   { value: "lookup_fasce_fatturato", label: "Fasce Fatturato", tableName: "lookup_fasce_fatturato", queryKey: "lookup-fasce-fatturato", title: "Fascia Fatturato", custom: "ordered" },
   { value: "lookup_fasce_dipendenti", label: "Fasce Dipendenti", tableName: "lookup_fasce_dipendenti", queryKey: "lookup-fasce-dipendenti", title: "Fascia Dipendenti", custom: "ordered" },
-  { value: "lookup_risk_type", label: "Risk Type", tableName: "lookup_risk_type", queryKey: "lookup-risk-type", title: "Risk Type" },
   { value: "lookup_tipo_documento", label: "Tipo Documento", tableName: "lookup_tipo_documento", queryKey: "lookup-tipo-documento", title: "Tipo Documento", custom: "tipo_documento" },
   { value: "lookup_conti_incasso", label: "Conti Incasso", tableName: "lookup_conti_incasso", queryKey: "lookup-conti-incasso", title: "Conto Incasso" },
 ];
