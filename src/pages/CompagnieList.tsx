@@ -854,7 +854,7 @@ function CompagnieMadriTab() {
                       <div className="flex items-center gap-2">
                         {g.descrizione}
                         {g.is_pluri && (
-                          <Badge variant="outline" className="gap-1 border-warning text-warning-foreground bg-warning/20">
+                          <Badge variant="outline" className="gap-1 border-primary/40 bg-accent/40 text-foreground">
                             <ShieldCheck className="w-3 h-3" />Fallback di sistema
                           </Badge>
                         )}
