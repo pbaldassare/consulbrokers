@@ -1215,10 +1215,6 @@ const TitoloDetail = () => {
       )}
 
       {/* Dove sono salvati i dati — sezione informativa sulla persistenza delle operazioni ciclo vita */}
-      {(() => {
-        const [openPersist, setOpenPersist] = [undefined, undefined]; // placeholder rimosso
-        return null;
-      })()}
       <Collapsible>
         <Card>
           <CollapsibleTrigger asChild>
