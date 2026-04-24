@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
-import { useRcaSettori, useRcaUsi } from "@/hooks/useRcaLookups";
+import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { QuickClienteDialog } from "@/components/polizze/QuickClienteDialog";
 
 const ImmissionePolizzaPage = () => {
@@ -109,7 +109,6 @@ const ImmissionePolizzaPage = () => {
   // === RCA AUTO State ===
   // Veicolo
   const [vSettore, setVSettore] = useState("Autovetture");
-  const [vSettoreId, setVSettoreId] = useState("");
   const [vTipoVeicolo, setVTipoVeicolo] = useState("AUTOVETTURA");
   const [vUso, setVUso] = useState("PRIVATO");
   const [vMarca, setVMarca] = useState("");
@@ -124,8 +123,7 @@ const ImmissionePolizzaPage = () => {
   const [vClasseBm, setVClasseBm] = useState("");
 
   // RCA lookup hooks
-  const { data: rcaSettori } = useRcaSettori();
-  const { data: rcaUsi } = useRcaUsi(vSettoreId);
+  const { data: rcaUsi } = useRcaUsi();
   const [vMass1, setVMass1] = useState("0");
   const [vMass2, setVMass2] = useState("0");
   const [vMass3, setVMass3] = useState("0");
@@ -1061,19 +1059,14 @@ const ImmissionePolizzaPage = () => {
             <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">🚗 Dati Veicolo</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Settore</Label>
-                <SearchableSelect className="h-8 text-xs" value={vSettoreId} onValueChange={(v) => { setVSettoreId(v); setVUso(""); const s = rcaSettori?.find(s => s.value === v); if (s) setVSettore(s.descrizione); }} placeholder="—"
-                  options={rcaSettori || []} />
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs">Tipo Veicolo</Label>
-                <SearchableSelect className="h-8 text-xs" value={vTipoVeicolo} onValueChange={setVTipoVeicolo} placeholder="—"
+                <SearchableSelect className="h-8 text-xs" value={vTipoVeicolo} onValueChange={(v) => { setVTipoVeicolo(v); setVSettore(v); }} placeholder="—"
                   options={TIPI_VEICOLO} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Uso</Label>
                 <SearchableSelect className="h-8 text-xs" value={vUso} onValueChange={setVUso} placeholder="—"
-                  options={rcaUsi || []} disabled={!vSettoreId} />
+                  options={rcaUsi || []} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Provincia Circolazione</Label>
