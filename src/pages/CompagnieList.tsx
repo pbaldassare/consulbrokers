@@ -787,6 +787,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<GruppoForm>(emptyGruppo);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; descrizione: string; count: number } | null>(null);
+  const [agenzieDialog, setAgenzieDialog] = useState<{ gruppoId: string; gruppoDescrizione: string } | null>(null);
 
   const { data: gruppi = [], isLoading } = useQuery({
     queryKey: ["compagnie-madri-list"],
