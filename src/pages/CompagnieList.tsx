@@ -1157,6 +1157,15 @@ const CompagnieList = () => {
     setEditOpen(true);
   };
 
+  const handleOpenAgenziaById = (compagniaId: string) => {
+    const c = (compagnie as any[]).find((x) => x.id === compagniaId);
+    if (c) {
+      openEdit(c);
+    } else {
+      toast.error("Agenzia non trovata");
+    }
+  };
+
   const filteredAnagrafica = compagnie.filter((c: any) => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
