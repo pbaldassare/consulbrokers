@@ -1217,7 +1217,7 @@ const CompagnieList = () => {
       </Dialog>
 
       {/* Main page tabs */}
-      <Tabs defaultValue="compagnie" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="compagnie" className="gap-2">
             <Layers className="w-4 h-4" />Compagnie
@@ -1235,7 +1235,7 @@ const CompagnieList = () => {
         </TabsList>
 
         <TabsContent value="compagnie" className="mt-4">
-          <CompagnieMadriTab />
+          <CompagnieMadriTab onOpenAgenzia={handleOpenAgenziaById} />
         </TabsContent>
 
         <TabsContent value="anagrafica" className="space-y-4 mt-4">
