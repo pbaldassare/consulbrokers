@@ -1,28 +1,29 @@
-
-
-## Nascondere tab "Risk Type" da Tabelle di Base
+## Nascondere tab "Agenzie Sinistri" da /compagnie
 
 ### Problema
-Nello screenshot la tab **"Risk Type"** (0 record) è visibile in `/tabelle-base` e mostra "Nessun elemento inserito". L'utente non la usa e vuole nasconderla.
+In `/compagnie` la tab **"Agenzie Sinistri"** è visibile tra "Agenzie" e "Import Provvigioni IA". L'utente non la usa al momento e vuole nasconderla completamente (label + contenuto).
 
 ### Soluzione
 
-**File modificato**: `src/pages/TabelleBasePage.tsx`
-- Rimuovo l'entry `risk_type` (o nome equivalente) dall'array delle tabelle disponibili.
-- Stesso pattern già usato per "Settori RCA" e "Zone".
+**File modificato**: `src/pages/CompagnieList.tsx`
+
+1. Rimuovo il `<TabsTrigger value="sinistri">` (righe 1081-1083) — la label "Agenzie Sinistri" con icona `ShieldAlert`.
+2. Rimuovo il corrispondente blocco `<TabsContent value="sinistri">` (più sotto nello stesso file) con tutto il contenuto della tab.
+3. Se l'import di `ShieldAlert` da `lucide-react` resta inutilizzato, lo rimuovo.
+
+### Risultato
+Tab rimanenti in `/compagnie`:
+- Compagnie
+- Agenzie
+- Import Provvigioni IA
+- Agenzie di riferimento (Prossimamente)
 
 ### Cosa NON tocco
-- ❌ **Nessuna modifica DB**: la tabella resta nel database come fallback (è già vuota, ma potrebbe essere referenziata).
-- ❌ Le altre tab restano intatte.
+- ❌ Nessuna modifica DB
+- ❌ Nessuna delle altre tab
+- ❌ Nessun dato sulle agenzie sinistri (resta tutto in DB, solo nascosto dall'UI)
 
 ### Verifica
-1. `/tabelle-base` → la tab "Risk Type 0" non appare più nell'elenco.
-2. Le altre tab (Gruppi Ramo, Rami, Usi RCA, Garanzie RCA, Gruppi Statistici, Gruppi Finanziari, Tipi Mandatario, Tipi Rinnovo, Filiali, Indotti, Attività, Settori, Contratti, Fasce Fatturato, Fasce Dipendenti, Tipo Documento, Conti Incasso) restano funzionanti.
-
-### Suggerimento
-Vedo nello screenshot altre tab a **0 record** che probabilmente non servono:
-- **Contratti** (0)
-- **Conti Incasso** (0)
-
-Se vuoi le tolgo nello stesso colpo, dimmelo (rispondi "sì togli anche Contratti e Conti Incasso" oppure "no solo Risk Type").
-
+1. `/compagnie` → la tab "Agenzie Sinistri" non appare più
+2. Le altre 4 tab restano funzionanti
+3. Nessun errore console
