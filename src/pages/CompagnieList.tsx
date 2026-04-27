@@ -657,7 +657,129 @@ interface GruppoForm {
 
 const emptyGruppo: GruppoForm = { codice: "", descrizione: "", attivo: true };
 
-function CompagnieMadriTab() {
+// ── Dialog: Agenzie collegate a una compagnia madre ──
+function AgenzieCollegateDialog({
+  gruppoId,
+  gruppoDescrizione,
+  open,
+  onClose,
+  onOpenAgenzia,
+}: {
+  gruppoId: string | null;
+  gruppoDescrizione: string;
+  open: boolean;
+  onClose: () => void;
+  onOpenAgenzia?: (compagniaId: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  const { data: agenzie = [], isLoading } = useQuery({
+    queryKey: ["agenzie-collegate", gruppoId],
+    queryFn: async () => {
+      if (!gruppoId) return [];
+      const { data, error } = await supabase
+        .from("compagnie")
+        .select("id, codice, nome, nome_sede, comune, provincia, stato, attiva")
+        .eq("gruppo_compagnia_id", gruppoId)
+        .order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!gruppoId && open,
+  });
+
+  const filtered = agenzie.filter((a: any) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      a.nome?.toLowerCase().includes(q) ||
+      a.nome_sede?.toLowerCase().includes(q) ||
+      a.codice?.toLowerCase().includes(q) ||
+      a.comune?.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setSearch(""); onClose(); } }}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="w-5 h-5" />
+            Agenzie collegate a <span className="text-primary">{gruppoDescrizione}</span>
+            <Badge variant="secondary" className="ml-2">{agenzie.length}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca per nome, sede, codice o comune..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+            autoFocus
+          />
+        </div>
+
+        <div className="max-h-[60vh] overflow-auto border rounded-md">
+          {isLoading ? (
+            <p className="p-4 text-muted-foreground">Caricamento...</p>
+          ) : (
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead className="w-28">Codice</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Sede</TableHead>
+                  <TableHead>Comune</TableHead>
+                  <TableHead className="w-16">Prov</TableHead>
+                  <TableHead className="w-28">Stato</TableHead>
+                  <TableHead className="w-20 text-right">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((a: any, idx: number) => (
+                  <TableRow key={a.id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
+                    <TableCell className="font-mono text-sm">{a.codice || "—"}</TableCell>
+                    <TableCell className="font-medium">{a.nome || "—"}</TableCell>
+                    <TableCell>{a.nome_sede || "—"}</TableCell>
+                    <TableCell>{a.comune || "—"}</TableCell>
+                    <TableCell>{a.provincia || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={a.stato === "Attivo" ? "default" : "secondary"}>
+                        {a.stato || (a.attiva ? "Attivo" : "Non Operativo")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {onOpenAgenzia && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { onOpenAgenzia(a.id); onClose(); }}
+                        >
+                          Apri
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      {agenzie.length === 0 ? "Nessuna agenzia collegata" : "Nessun risultato per la ricerca"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: string) => void } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -665,6 +787,7 @@ function CompagnieMadriTab() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<GruppoForm>(emptyGruppo);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; descrizione: string; count: number } | null>(null);
+  const [agenzieDialog, setAgenzieDialog] = useState<{ gruppoId: string; gruppoDescrizione: string } | null>(null);
 
   const { data: gruppi = [], isLoading } = useQuery({
     queryKey: ["compagnie-madri-list"],
@@ -860,8 +983,19 @@ function CompagnieMadriTab() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={g.agenzie_count > 0 ? "default" : "outline"}>{g.agenzie_count}</Badge>
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      {g.agenzie_count > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setAgenzieDialog({ gruppoId: g.id, gruppoDescrizione: g.descrizione })}
+                          title="Vedi agenzie collegate"
+                          className="transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                        >
+                          <Badge variant="default" className="cursor-pointer">{g.agenzie_count}</Badge>
+                        </button>
+                      ) : (
+                        <Badge variant="outline">0</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={g.attivo ? "default" : "secondary"}>{g.attivo ? "Attiva" : "Disattiva"}</Badge>
@@ -928,6 +1062,14 @@ function CompagnieMadriTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AgenzieCollegateDialog
+        gruppoId={agenzieDialog?.gruppoId ?? null}
+        gruppoDescrizione={agenzieDialog?.gruppoDescrizione ?? ""}
+        open={!!agenzieDialog}
+        onClose={() => setAgenzieDialog(null)}
+        onOpenAgenzia={onOpenAgenzia}
+      />
     </div>
   );
 }
@@ -945,6 +1087,7 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
+  const [activeTab, setActiveTab] = useState("compagnie");
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
@@ -1014,6 +1157,15 @@ const CompagnieList = () => {
     setEditOpen(true);
   };
 
+  const handleOpenAgenziaById = (compagniaId: string) => {
+    const c = (compagnie as any[]).find((x) => x.id === compagniaId);
+    if (c) {
+      openEdit(c);
+    } else {
+      toast.error("Agenzia non trovata");
+    }
+  };
+
   const filteredAnagrafica = compagnie.filter((c: any) => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
@@ -1065,7 +1217,7 @@ const CompagnieList = () => {
       </Dialog>
 
       {/* Main page tabs */}
-      <Tabs defaultValue="compagnie" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="compagnie" className="gap-2">
             <Layers className="w-4 h-4" />Compagnie
@@ -1083,7 +1235,7 @@ const CompagnieList = () => {
         </TabsList>
 
         <TabsContent value="compagnie" className="mt-4">
-          <CompagnieMadriTab />
+          <CompagnieMadriTab onOpenAgenzia={handleOpenAgenziaById} />
         </TabsContent>
 
         <TabsContent value="anagrafica" className="space-y-4 mt-4">
