@@ -1,53 +1,46 @@
+
 ## Obiettivo
 
-Aggregare i duplicati residui delle compagnie causati da differenze di **maiuscole/minuscole, suffissi societari (SPA, S.p.A., Assicurazioni, S.A., Ltd, …), punteggiatura, asterischi e apostrofi**. Questi varianti non erano stati catturati dalla normalizzazione precedente perché differiscono per più di sole maiuscole.
+Nella pagina **Compagnie / Agenzie** → tab **Compagnie**, attualmente la colonna "Agenzie collegate" mostra solo un badge col conteggio (es. ALLIANZ → 20). L'utente vuole poter cliccare su quel badge per vedere **quali sono** le agenzie/sedi collegate a quella compagnia madre.
 
-## Analisi
+## Cosa cambia per l'utente
 
-Dopo il primo dedup (1.374 → 740) restano **35 cluster** con varianti tipografiche, per un totale di **~50 record duplicati** da consolidare. Esempi chiave:
+- Il badge numerico nella colonna "Agenzie collegate" diventa **cliccabile** (cursor pointer + hover evidenziato).
+- Cliccando si apre un **dialog** intitolato *"Agenzie collegate a {NOME COMPAGNIA}"* con una tabella che elenca:
+  - Codice agenzia (es. GC011)
+  - Nome / nome sede
+  - Comune + provincia
+  - Stato (Attiva / Sospesa / Non Operativa)
+  - Pulsante "Apri" che porta alla scheda dell'agenzia (apre il dialog di modifica esistente nella tab Agenzie)
+- Filtro di ricerca testuale dentro il dialog (utile per gruppi grandi come ALLIANZ con 20 agenzie).
+- Click sulla riga della tabella della compagnia continua a funzionare come oggi (apre il dialog di modifica della compagnia madre); il click sul badge ferma la propagazione.
+- Se il conteggio è 0, il badge resta non cliccabile (come oggi).
 
-- **ASSIMOCO**: `*ASSIMOCO ASS.NI` (B0736) + `ASSIMOCO SPA` (ASM000)
-- **GENERALI ITALIA**: `GENERALI ITALIA SPA` (188 titoli) + `*Generali Italia S.p.a.` (2 titoli)
-- **ALLIANZ**: 4 varianti (`ALLIANZ`, `ALLIANZ SPA`, `*Allianz Assicurazioni`, `ALLIANZ S.p.A.`) – 33 titoli totali
-- **HELVETIA**: 5 varianti (`HELVETIA`, `HELVETIA SA`, `HELVETIA SPA`, `HELVETIA VITA`, `*Helvetia Assicurazioni`) ⚠️ *vedi nota Vita/Danni sotto*
-- **REVO INSURANCE**: 47 titoli su `REVO Insurance S.p.A.` + duplicato `REVO INSURANCE SPA`
-- **LLOYD'S**: `LLOYD'S INSURANCE COMPANY S.A.` (33 titoli) + variante con apostrofo curvo `’`
-- Altri: AMISSIMA, ARAG, AXA, ARGOGLOBAL, CHUBB, COFACE, D.A.S., ERGO, GROUPAMA, HDI, ITAS, LIGURIA, NOBIS, QBE, REALE MUTUA, TUTELA LEGALE, UNIPOL, UNIPOLSAI, VITTORIA, ecc.
+## Modifiche tecniche
 
-## Regole di clustering proposte (normalizzazione 2° giro)
+**File da modificare**: `src/pages/CompagnieList.tsx`
 
-Due nomi appartengono allo stesso cluster se, **DOPO** queste trasformazioni, risultano identici:
+1. Nuovo state nel componente `CompagnieMadriTab`:
+   - `agenzieDialog: { gruppoId: string; gruppoDescrizione: string } | null`
 
-1. UPPER + TRIM + collassa spazi multipli
-2. Rimuovi asterischi iniziali (`*`)
-3. Sostituisci apostrofi curvi `’` con dritti `'`
-4. Rimuovi tutta la punteggiatura (`.`, `,`, `'`, `(`, `)`, `-`, `/`)
-5. Rimuovi i suffissi societari finali (anche ripetuti): `SPA`, `S P A`, `SRL`, `S R L`, `SA`, `S A`, `AG`, `PLC`, `LTD`, `LIMITED`, `ASSICURAZIONI`, `ASSICURAZIONE`, `ASSICURATIVA`, `COMPAGNIA`, `INSURANCE`, `MUTUA`, `SOC`, `SOCIETA`, `GROUP`, `GRUPPO`, `ITALIA`
-6. Collassa di nuovo spazi
+2. Nuovo componente interno `AgenzieCollegateDialog` che:
+   - Riceve `gruppoId`, `gruppoDescrizione`, `onClose`
+   - Esegue una `useQuery` su `compagnie` filtrando per `gruppo_compagnia_id = gruppoId`, selezionando `id, codice, nome, nome_sede, comune, provincia, stato`, ordinando per `nome`
+   - Mostra una `Input` di ricerca + `Table` con le colonne descritte sopra
+   - Ogni riga ha un bottone che chiude il dialog ed emette un evento per aprire la scheda agenzia (vedi punto 4)
 
-### Eccezioni (NON aggregare)
+3. Nel `<TableCell>` della colonna "Agenzie collegate" (riga 863-865):
+   - Wrappare il `Badge` in un `<button>` con `onClick={(e) => { e.stopPropagation(); setAgenzieDialog({...}); }}`
+   - Disabilitato quando `agenzie_count === 0`
+   - Tooltip "Vedi agenzie collegate"
 
-- **HELVETIA VITA** resta separata da HELVETIA SPA (ramo Vita vs Danni – business diverso)
-- **HDI** vs **HDI ASSICURAZIONI**: due gruppi distinti (HDI Global vs HDI Assicurazioni Retail) → mantengo entrambi i cluster ma consolido le varianti **dentro** ciascuno
-- **AXA** vs **AXA ASS.NI**: probabile holding vs operativa → mantengo separati (puoi confermare diversamente)
-- Tutto ciò che contiene "Div.", "Vita", "Danni", "Global" specifico → resta separato
+4. Per il bottone "Apri" che porta alla scheda agenzia: dato che le tab Compagnie e Agenzie sono nello stesso file, sollevo lo state in `CompagnieList` (componente padre):
+   - Aggiungo prop opzionale `onOpenAgenzia?: (compagniaId: string) => void` a `CompagnieMadriTab`
+   - Il padre passa una callback che fa `setActiveTab("agenzie")` e setta uno state `pendingOpenAgenziaId` letto dalla tab Agenzie per aprire automaticamente il dialog di edit.
 
-## Master record per cluster
+5. Nessuna modifica al database — i dati esistono già (`compagnie.gruppo_compagnia_id`).
 
-Stessa regola del primo round: vince il record con **più titoli collegati**; a parità, quello con il nome più "pulito" (senza asterisco iniziale, con suffisso SPA esplicito).
+## Note
 
-## Steps
-
-1. **Genera PDF di anteprima** `duplicati_compagnie_round2.pdf` con i 35 cluster, master proposto evidenziato e impatto su titoli/sinistri/flussi.
-2. **Attesa conferma utente** (puoi escludere singoli cluster prima dell'esecuzione).
-3. **Migrazione transazionale**:
-   - Snapshot di sicurezza `compagnie_snapshot_round2`
-   - Remap FK su: `titoli`, `sinistri`, `prodotti`, `flussi_compagnia`, `provvigioni_compagnia_ramo`, `rimessa_premi`, `dettaglio_riparto`, `document_folders`, `anagrafiche_professionali`, `trattative`
-   - DELETE dei record duplicati
-4. **Verifica integrità** post-migrazione (conteggi titoli/sinistri invariati) e bump `version.json`.
-
-## Output atteso
-
-- Compagnie: **740 → ~705** (≈35 record eliminati)
-- Zero perdita dati: tutti i collegamenti rimappati sui master
-- Lista `/compagnie` definitivamente pulita
+- Per gruppi grandi (PLURIMANDATARIO con 54 agenzie), la lista è scrollabile con `max-h-[60vh] overflow-auto`.
+- Performance: la query è leggera (filtro indicizzato su FK), nessun problema atteso.
