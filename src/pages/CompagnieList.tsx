@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Building2, Search, ShieldAlert, Percent, Pencil, Brain, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
 
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
@@ -943,7 +943,7 @@ const CompagnieList = () => {
 
   const [searchNome, setSearchNome] = useState("");
   const [searchCodice, setSearchCodice] = useState("");
-  const [searchSinistri, setSearchSinistri] = useState("");
+  
   const [onlyPluri, setOnlyPluri] = useState(false);
 
   const { data: compagnie = [], isLoading } = useQuery({
@@ -1023,11 +1023,6 @@ const CompagnieList = () => {
 
   const pluriCount = compagnie.filter((c: any) => (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri).length;
 
-  const filteredSinistri = compagnie.filter((c: any) => {
-    if (!searchSinistri) return true;
-    return c.nome?.toLowerCase().includes(searchSinistri.toLowerCase());
-  });
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1077,9 +1072,6 @@ const CompagnieList = () => {
           </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
             <Building2 className="w-4 h-4" />Agenzie
-          </TabsTrigger>
-          <TabsTrigger value="sinistri" className="gap-2">
-            <ShieldAlert className="w-4 h-4" />Agenzie Sinistri
           </TabsTrigger>
           <TabsTrigger value="import-provvigioni" className="gap-2">
             <Brain className="w-4 h-4" />Import Provvigioni IA
@@ -1185,68 +1177,6 @@ const CompagnieList = () => {
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="sinistri" className="space-y-4 mt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-end gap-4">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Specificare il nome (anche parziale)</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca agenzia..." value={searchSinistri} onChange={(e) => setSearchSinistri(e.target.value)} className="pl-9" />
-                  </div>
-                </div>
-                <Button variant="secondary" onClick={() => setSearchSinistri("")}>Reset</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ShieldAlert className="w-5 h-5" />Indirizzi Agenzia per Ufficio Sinistri ({filteredSinistri.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <p className="text-muted-foreground">Caricamento...</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Codice</TableHead>
-                      <TableHead>Nome Agenzia</TableHead>
-                      <TableHead>Indirizzo</TableHead>
-                      <TableHead>CAP</TableHead>
-                      <TableHead>Comune</TableHead>
-                      <TableHead>Prov</TableHead>
-                      <TableHead>Telefono</TableHead>
-                      <TableHead>PEC</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSinistri.map((c: any) => (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(c)}>
-                        <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
-                        <TableCell className="font-medium">{c.nome}</TableCell>
-                        <TableCell>{c.indirizzo || "—"}</TableCell>
-                        <TableCell>{c.cap || "—"}</TableCell>
-                        <TableCell>{c.comune || "—"}</TableCell>
-                        <TableCell>{c.provincia || "—"}</TableCell>
-                        <TableCell>{c.telefono || "—"}</TableCell>
-                        <TableCell className="text-sm">{c.pec || "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredSinistri.length === 0 && (
                       <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
