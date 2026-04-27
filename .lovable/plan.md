@@ -1,29 +1,44 @@
-## Nascondere tab "Agenzie Sinistri" da /compagnie
+## Aggregazione Compagnie con Nomi Simili
 
-### Problema
-In `/compagnie` la tab **"Agenzie Sinistri"** è visibile tra "Agenzie" e "Import Provvigioni IA". L'utente non la usa al momento e vuole nasconderla completamente (label + contenuto).
+### Situazione attuale
+- **1.374 record** in `compagnie` ma solo **761 nomi univoci** (dopo normalizzazione spazi/maiuscole)
+- Esempio: 30 record per "GENERALI ITALIA SPA (DIV. INA/ASS.)", 26 per "SOCIETA' REALE MUTUA DI ASS.NI", 22 per "UNIPOLSAI ASS.NI SPA (DIV. AURORA)", ecc.
+- Le 1.374 compagnie hanno **830 titoli** e **5 sinistri** collegati che vanno preservati
 
-### Soluzione
+### Obiettivo
+Ridurre i duplicati mantenendo **un solo record "master"** per ogni nome compagnia (normalizzato), e **rimappando tutti i collegamenti** (titoli, sinistri, prodotti, flussi, ecc.) sul master.
 
-**File modificato**: `src/pages/CompagnieList.tsx`
+### Strategia di matching
+Considero "duplicati" i record con **stesso nome dopo normalizzazione**:
+- Trim degli spazi
+- Spazi multipli → spazio singolo
+- UPPER case
+- Rimozione asterisco iniziale (`*GENERALI ITALIA SPA` = `GENERALI ITALIA SPA`)
 
-1. Rimuovo il `<TabsTrigger value="sinistri">` (righe 1081-1083) — la label "Agenzie Sinistri" con icona `ShieldAlert`.
-2. Rimuovo il corrispondente blocco `<TabsContent value="sinistri">` (più sotto nello stesso file) con tutto il contenuto della tab.
-3. Se l'import di `ShieldAlert` da `lucide-react` resta inutilizzato, lo rimuovo.
+**NON aggrego** nomi diversi anche se dello stesso gruppo (es. "GENERALI ITALIA SPA (DIV. INA/ASS.)" resta separato da "GENERALI ITALIA SPA" — sono divisioni diverse). L'aggregazione cross-divisione è già garantita dal `gruppo_compagnia_id`.
 
-### Risultato
-Tab rimanenti in `/compagnie`:
-- Compagnie
-- Agenzie
-- Import Provvigioni IA
-- Agenzie di riferimento (Prossimamente)
+### Approccio in 3 step
 
-### Cosa NON tocco
-- ❌ Nessuna modifica DB
-- ❌ Nessuna delle altre tab
-- ❌ Nessun dato sulle agenzie sinistri (resta tutto in DB, solo nascosto dall'UI)
+**Step 1 — Report di anteprima (PDF)**
+Genero `/mnt/documents/duplicati_compagnie_aggregazione.pdf` con:
+- Lista cluster (nome master + codici duplicati + nº titoli/sinistri collegati per record)
+- Master scelto = record con più titoli collegati (in caso di parità: codice alfabeticamente primo)
+- Totale record da eliminare
 
-### Verifica
-1. `/compagnie` → la tab "Agenzie Sinistri" non appare più
-2. Le altre 4 tab restano funzionanti
-3. Nessun errore console
+**Step 2 — Tu approvi il PDF**
+Confermi se i cluster sono corretti, oppure mi indichi eccezioni da escludere.
+
+**Step 3 — Migrazione DB (dopo OK)**
+Migrazione SQL transazionale che:
+1. Per ogni cluster, identifica master_id
+2. UPDATE su tutte le tabelle dipendenti: `titoli`, `sinistri`, `prodotti`, `flussi_compagnia`, `provvigioni_compagnia_ramo`, `rimessa_premi`, `dettaglio_riparto`, `document_folders`, `anagrafiche_professionali` → sostituisce `compagnia_id` duplicato con master_id
+3. DELETE dei record duplicati da `compagnie`
+4. Risultato atteso: ~613 record eliminati, da 1.374 → ~761 compagnie
+
+### Sicurezza
+- ❌ Nessun dato perso: tutti i collegamenti vengono ri-mappati prima del DELETE
+- ❌ Nessuna modifica UI in questo step
+- ✅ Migrazione reversibile via backup pre-esecuzione (snapshot tabella `compagnie` salvato in `compagnie_backup_pre_dedup`)
+
+### Cosa ti consegno ora
+Solo il **PDF di anteprima** con i cluster proposti. La migrazione effettiva parte solo dopo tuo OK esplicito.
