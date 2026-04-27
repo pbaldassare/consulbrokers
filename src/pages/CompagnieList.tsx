@@ -983,8 +983,19 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={g.agenzie_count > 0 ? "default" : "outline"}>{g.agenzie_count}</Badge>
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      {g.agenzie_count > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setAgenzieDialog({ gruppoId: g.id, gruppoDescrizione: g.descrizione })}
+                          title="Vedi agenzie collegate"
+                          className="transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                        >
+                          <Badge variant="default" className="cursor-pointer">{g.agenzie_count}</Badge>
+                        </button>
+                      ) : (
+                        <Badge variant="outline">0</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={g.attivo ? "default" : "secondary"}>{g.attivo ? "Attiva" : "Disattiva"}</Badge>
