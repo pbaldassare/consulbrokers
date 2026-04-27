@@ -1062,6 +1062,14 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AgenzieCollegateDialog
+        gruppoId={agenzieDialog?.gruppoId ?? null}
+        gruppoDescrizione={agenzieDialog?.gruppoDescrizione ?? ""}
+        open={!!agenzieDialog}
+        onClose={() => setAgenzieDialog(null)}
+        onOpenAgenzia={onOpenAgenzia}
+      />
     </div>
   );
 }
