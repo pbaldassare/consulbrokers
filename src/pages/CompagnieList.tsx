@@ -1087,6 +1087,7 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
+  const [activeTab, setActiveTab] = useState("compagnie");
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
