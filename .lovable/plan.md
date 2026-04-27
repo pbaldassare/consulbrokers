@@ -1,44 +1,53 @@
-## Aggregazione Compagnie con Nomi Simili
+## Obiettivo
 
-### Situazione attuale
-- **1.374 record** in `compagnie` ma solo **761 nomi univoci** (dopo normalizzazione spazi/maiuscole)
-- Esempio: 30 record per "GENERALI ITALIA SPA (DIV. INA/ASS.)", 26 per "SOCIETA' REALE MUTUA DI ASS.NI", 22 per "UNIPOLSAI ASS.NI SPA (DIV. AURORA)", ecc.
-- Le 1.374 compagnie hanno **830 titoli** e **5 sinistri** collegati che vanno preservati
+Aggregare i duplicati residui delle compagnie causati da differenze di **maiuscole/minuscole, suffissi societari (SPA, S.p.A., Assicurazioni, S.A., Ltd, …), punteggiatura, asterischi e apostrofi**. Questi varianti non erano stati catturati dalla normalizzazione precedente perché differiscono per più di sole maiuscole.
 
-### Obiettivo
-Ridurre i duplicati mantenendo **un solo record "master"** per ogni nome compagnia (normalizzato), e **rimappando tutti i collegamenti** (titoli, sinistri, prodotti, flussi, ecc.) sul master.
+## Analisi
 
-### Strategia di matching
-Considero "duplicati" i record con **stesso nome dopo normalizzazione**:
-- Trim degli spazi
-- Spazi multipli → spazio singolo
-- UPPER case
-- Rimozione asterisco iniziale (`*GENERALI ITALIA SPA` = `GENERALI ITALIA SPA`)
+Dopo il primo dedup (1.374 → 740) restano **35 cluster** con varianti tipografiche, per un totale di **~50 record duplicati** da consolidare. Esempi chiave:
 
-**NON aggrego** nomi diversi anche se dello stesso gruppo (es. "GENERALI ITALIA SPA (DIV. INA/ASS.)" resta separato da "GENERALI ITALIA SPA" — sono divisioni diverse). L'aggregazione cross-divisione è già garantita dal `gruppo_compagnia_id`.
+- **ASSIMOCO**: `*ASSIMOCO ASS.NI` (B0736) + `ASSIMOCO SPA` (ASM000)
+- **GENERALI ITALIA**: `GENERALI ITALIA SPA` (188 titoli) + `*Generali Italia S.p.a.` (2 titoli)
+- **ALLIANZ**: 4 varianti (`ALLIANZ`, `ALLIANZ SPA`, `*Allianz Assicurazioni`, `ALLIANZ S.p.A.`) – 33 titoli totali
+- **HELVETIA**: 5 varianti (`HELVETIA`, `HELVETIA SA`, `HELVETIA SPA`, `HELVETIA VITA`, `*Helvetia Assicurazioni`) ⚠️ *vedi nota Vita/Danni sotto*
+- **REVO INSURANCE**: 47 titoli su `REVO Insurance S.p.A.` + duplicato `REVO INSURANCE SPA`
+- **LLOYD'S**: `LLOYD'S INSURANCE COMPANY S.A.` (33 titoli) + variante con apostrofo curvo `’`
+- Altri: AMISSIMA, ARAG, AXA, ARGOGLOBAL, CHUBB, COFACE, D.A.S., ERGO, GROUPAMA, HDI, ITAS, LIGURIA, NOBIS, QBE, REALE MUTUA, TUTELA LEGALE, UNIPOL, UNIPOLSAI, VITTORIA, ecc.
 
-### Approccio in 3 step
+## Regole di clustering proposte (normalizzazione 2° giro)
 
-**Step 1 — Report di anteprima (PDF)**
-Genero `/mnt/documents/duplicati_compagnie_aggregazione.pdf` con:
-- Lista cluster (nome master + codici duplicati + nº titoli/sinistri collegati per record)
-- Master scelto = record con più titoli collegati (in caso di parità: codice alfabeticamente primo)
-- Totale record da eliminare
+Due nomi appartengono allo stesso cluster se, **DOPO** queste trasformazioni, risultano identici:
 
-**Step 2 — Tu approvi il PDF**
-Confermi se i cluster sono corretti, oppure mi indichi eccezioni da escludere.
+1. UPPER + TRIM + collassa spazi multipli
+2. Rimuovi asterischi iniziali (`*`)
+3. Sostituisci apostrofi curvi `’` con dritti `'`
+4. Rimuovi tutta la punteggiatura (`.`, `,`, `'`, `(`, `)`, `-`, `/`)
+5. Rimuovi i suffissi societari finali (anche ripetuti): `SPA`, `S P A`, `SRL`, `S R L`, `SA`, `S A`, `AG`, `PLC`, `LTD`, `LIMITED`, `ASSICURAZIONI`, `ASSICURAZIONE`, `ASSICURATIVA`, `COMPAGNIA`, `INSURANCE`, `MUTUA`, `SOC`, `SOCIETA`, `GROUP`, `GRUPPO`, `ITALIA`
+6. Collassa di nuovo spazi
 
-**Step 3 — Migrazione DB (dopo OK)**
-Migrazione SQL transazionale che:
-1. Per ogni cluster, identifica master_id
-2. UPDATE su tutte le tabelle dipendenti: `titoli`, `sinistri`, `prodotti`, `flussi_compagnia`, `provvigioni_compagnia_ramo`, `rimessa_premi`, `dettaglio_riparto`, `document_folders`, `anagrafiche_professionali` → sostituisce `compagnia_id` duplicato con master_id
-3. DELETE dei record duplicati da `compagnie`
-4. Risultato atteso: ~613 record eliminati, da 1.374 → ~761 compagnie
+### Eccezioni (NON aggregare)
 
-### Sicurezza
-- ❌ Nessun dato perso: tutti i collegamenti vengono ri-mappati prima del DELETE
-- ❌ Nessuna modifica UI in questo step
-- ✅ Migrazione reversibile via backup pre-esecuzione (snapshot tabella `compagnie` salvato in `compagnie_backup_pre_dedup`)
+- **HELVETIA VITA** resta separata da HELVETIA SPA (ramo Vita vs Danni – business diverso)
+- **HDI** vs **HDI ASSICURAZIONI**: due gruppi distinti (HDI Global vs HDI Assicurazioni Retail) → mantengo entrambi i cluster ma consolido le varianti **dentro** ciascuno
+- **AXA** vs **AXA ASS.NI**: probabile holding vs operativa → mantengo separati (puoi confermare diversamente)
+- Tutto ciò che contiene "Div.", "Vita", "Danni", "Global" specifico → resta separato
 
-### Cosa ti consegno ora
-Solo il **PDF di anteprima** con i cluster proposti. La migrazione effettiva parte solo dopo tuo OK esplicito.
+## Master record per cluster
+
+Stessa regola del primo round: vince il record con **più titoli collegati**; a parità, quello con il nome più "pulito" (senza asterisco iniziale, con suffisso SPA esplicito).
+
+## Steps
+
+1. **Genera PDF di anteprima** `duplicati_compagnie_round2.pdf` con i 35 cluster, master proposto evidenziato e impatto su titoli/sinistri/flussi.
+2. **Attesa conferma utente** (puoi escludere singoli cluster prima dell'esecuzione).
+3. **Migrazione transazionale**:
+   - Snapshot di sicurezza `compagnie_snapshot_round2`
+   - Remap FK su: `titoli`, `sinistri`, `prodotti`, `flussi_compagnia`, `provvigioni_compagnia_ramo`, `rimessa_premi`, `dettaglio_riparto`, `document_folders`, `anagrafiche_professionali`, `trattative`
+   - DELETE dei record duplicati
+4. **Verifica integrità** post-migrazione (conteggi titoli/sinistri invariati) e bump `version.json`.
+
+## Output atteso
+
+- Compagnie: **740 → ~705** (≈35 record eliminati)
+- Zero perdita dati: tutti i collegamenti rimappati sui master
+- Lista `/compagnie` definitivamente pulita
