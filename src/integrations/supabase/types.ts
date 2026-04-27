@@ -1689,6 +1689,156 @@ export type Database = {
         }
         Relationships: []
       }
+      compagnie_snapshot_round2: {
+        Row: {
+          allegato_excel_avvisi: boolean | null
+          allegato_excel_ec: boolean | null
+          attiva: boolean | null
+          aut_incasso_118: boolean | null
+          bic: string | null
+          cap: string | null
+          cellulare: string | null
+          citta_banca: string | null
+          codice: string | null
+          codice_abi: string | null
+          codice_cab: string | null
+          codice_fiscale: string | null
+          comune: string | null
+          created_at: string | null
+          escluso_all4: boolean | null
+          fax: string | null
+          firma_digitale: string | null
+          gruppo_compagnia: string | null
+          gruppo_compagnia_id: string | null
+          gruppo_statistico: string | null
+          iban: string | null
+          id: string | null
+          indirizzo: string | null
+          intestato_a: string | null
+          iscrizione_rui_num: string | null
+          iscrizione_rui_sez: string | null
+          mail: string | null
+          mail_avvisi: string | null
+          mail_ec: string | null
+          nazione: string | null
+          nome: string | null
+          nome_sede: string | null
+          nome_segue: string | null
+          note: string | null
+          pagamento: string | null
+          partita_iva: string | null
+          pec: string | null
+          percentuale_ra: number | null
+          provincia: string | null
+          ra_ec_negativi: boolean | null
+          snapshot_at: string | null
+          stato: string | null
+          telefono: string | null
+          tipo_copertura: string | null
+          tipo_mandatario: string | null
+          tipo_pagamento: string | null
+          ultima_scadenza_polizza: string | null
+        }
+        Insert: {
+          allegato_excel_avvisi?: boolean | null
+          allegato_excel_ec?: boolean | null
+          attiva?: boolean | null
+          aut_incasso_118?: boolean | null
+          bic?: string | null
+          cap?: string | null
+          cellulare?: string | null
+          citta_banca?: string | null
+          codice?: string | null
+          codice_abi?: string | null
+          codice_cab?: string | null
+          codice_fiscale?: string | null
+          comune?: string | null
+          created_at?: string | null
+          escluso_all4?: boolean | null
+          fax?: string | null
+          firma_digitale?: string | null
+          gruppo_compagnia?: string | null
+          gruppo_compagnia_id?: string | null
+          gruppo_statistico?: string | null
+          iban?: string | null
+          id?: string | null
+          indirizzo?: string | null
+          intestato_a?: string | null
+          iscrizione_rui_num?: string | null
+          iscrizione_rui_sez?: string | null
+          mail?: string | null
+          mail_avvisi?: string | null
+          mail_ec?: string | null
+          nazione?: string | null
+          nome?: string | null
+          nome_sede?: string | null
+          nome_segue?: string | null
+          note?: string | null
+          pagamento?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          percentuale_ra?: number | null
+          provincia?: string | null
+          ra_ec_negativi?: boolean | null
+          snapshot_at?: string | null
+          stato?: string | null
+          telefono?: string | null
+          tipo_copertura?: string | null
+          tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
+          ultima_scadenza_polizza?: string | null
+        }
+        Update: {
+          allegato_excel_avvisi?: boolean | null
+          allegato_excel_ec?: boolean | null
+          attiva?: boolean | null
+          aut_incasso_118?: boolean | null
+          bic?: string | null
+          cap?: string | null
+          cellulare?: string | null
+          citta_banca?: string | null
+          codice?: string | null
+          codice_abi?: string | null
+          codice_cab?: string | null
+          codice_fiscale?: string | null
+          comune?: string | null
+          created_at?: string | null
+          escluso_all4?: boolean | null
+          fax?: string | null
+          firma_digitale?: string | null
+          gruppo_compagnia?: string | null
+          gruppo_compagnia_id?: string | null
+          gruppo_statistico?: string | null
+          iban?: string | null
+          id?: string | null
+          indirizzo?: string | null
+          intestato_a?: string | null
+          iscrizione_rui_num?: string | null
+          iscrizione_rui_sez?: string | null
+          mail?: string | null
+          mail_avvisi?: string | null
+          mail_ec?: string | null
+          nazione?: string | null
+          nome?: string | null
+          nome_sede?: string | null
+          nome_segue?: string | null
+          note?: string | null
+          pagamento?: string | null
+          partita_iva?: string | null
+          pec?: string | null
+          percentuale_ra?: number | null
+          provincia?: string | null
+          ra_ec_negativi?: boolean | null
+          snapshot_at?: string | null
+          stato?: string | null
+          telefono?: string | null
+          tipo_copertura?: string | null
+          tipo_mandatario?: string | null
+          tipo_pagamento?: string | null
+          ultima_scadenza_polizza?: string | null
+        }
+        Relationships: []
+      }
       conducenti_polizza: {
         Row: {
           cap: string | null
