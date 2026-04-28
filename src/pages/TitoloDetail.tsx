@@ -395,12 +395,14 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
-        .select("id, nome, codice")
+        .select("id, nome, codice, gruppo_compagnia")
         .eq("attiva", true)
         .order("nome");
       return (data || []).map((c: any) => ({
         value: c.id,
         label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
+        description: c.gruppo_compagnia ? `Gruppo: ${c.gruppo_compagnia}` : undefined,
+        searchText: c.gruppo_compagnia || undefined,
       }));
     },
     enabled: editingContratto,
@@ -1659,7 +1661,7 @@ const TitoloDetail = () => {
 
         {!editingContratto ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-            <FieldRow label="Compagnia" value={
+            <FieldRow label="Compagnia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
@@ -1696,12 +1698,12 @@ const TitoloDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {/* Read-only fields */}
             <div className="space-y-1">
-              <Label className="text-xs">Compagnia</Label>
+              <Label className="text-xs">Compagnia / Agenzia di rif.</Label>
               <SearchableSelect
                 options={compagnieOpts}
                 value={contrattoForm.compagnia_id || ""}
                 onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
-                placeholder="Seleziona compagnia"
+                placeholder="— Seleziona compagnia / agenzia —"
               />
             </div>
             <div className="space-y-1">

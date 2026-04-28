@@ -1,49 +1,26 @@
 ## Obiettivo
 
-Sulla pagina **Immissione Polizza** (`/portafoglio/immissione`), la select "Compagnia" deve diventare **"Compagnia / Agenzia di rif."** e mostrare in modo chiaro sia il nome della compagnia (gruppo madre) sia l'agenzia/sede di riferimento, restando comunque un'unica select con ricerca.
+Sulla pagina **Modifica Polizza** (`TitoloDetail.tsx`), allineare la voce "Compagnia" alla nuova convenzione già applicata in Immissione: rinominarla in **"Compagnia / Agenzia di rif."** e mostrare nella select il gruppo madre come riga secondaria.
 
-## Stato attuale
+## Contesto
 
-- La tabella `compagnie` contiene già record che rappresentano la combinazione **Compagnia + Agenzia/Sede** (es. `*ALLIANZ RAS SAN DONA' - GALESSO & PARTNERS SRL`, `*AURORA ASS.NI ODERZO-CADAMURO MARIO`).
-- Ogni record ha un `gruppo_compagnia_id` che lo collega al **gruppo madre** (es. ALLIANZ, GENERALI, UNIPOL, AXA).
-- La label oggi mostrata è semplicemente `{codice} - {nome}`, senza distinzione visiva tra gruppo madre e agenzia.
+In Immissione Polizza la modifica è già stata fatta: `compagnie` rappresenta la combinazione Compagnia + Agenzia, e la select mostra `{codice} - {nome agenzia}` con sotto `Gruppo: {gruppo_compagnia}`. In `TitoloDetail.tsx` invece la label è ancora "Compagnia" sia in lettura che in modifica → refuso da correggere.
 
-## Cosa cambia
+## Modifiche puntuali in `src/pages/TitoloDetail.tsx`
 
-### 1. Rinomina label
-- "Compagnia" → **"Compagnia / Agenzia di rif."**
-- Placeholder: `— Seleziona compagnia / agenzia —`
+1. **Query `compagnieOpts`** (righe 393-407): aggiungere `gruppo_compagnia` al `.select` e mappare `description: c.gruppo_compagnia ? \`Gruppo: ${c.gruppo_compagnia}\` : undefined` sull'opzione (sfruttando il campo già supportato da `SearchableSelect`).
 
-### 2. Query arricchita
-La query `compagnie-list-immissione` viene estesa per includere il nome del gruppo madre:
-```
-.select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id")
-```
+2. **Modalità lettura** (riga 1662): cambiare la label `FieldRow` da `"Compagnia"` a `"Compagnia / Agenzia di rif."`.
 
-### 3. Resa visiva della SearchableSelect
-Per ogni opzione della tendina mostriamo due righe:
-- **Riga 1 (principale)**: `{codice} — {nome agenzia/sede}`
-- **Riga 2 (secondaria, più piccola e attenuata)**: `Gruppo: {gruppo_compagnia}` (nascosta se il gruppo non è valorizzato o coincide col nome).
+3. **Modalità modifica** (righe 1699 e 1704):
+   - `<Label>` → `Compagnia / Agenzia di rif.`
+   - `placeholder` della `SearchableSelect` → `— Seleziona compagnia / agenzia —`
 
-Per ottenere questo, modifichiamo `SearchableSelect` (o passiamo opzioni con un campo `description` opzionale) in modo che ogni `CommandItem` possa renderizzare un sottotitolo. Il campo di ricerca continuerà a matchare sia il nome agenzia sia il nome del gruppo (concateniamo entrambi nel `value` del CommandItem usato per la ricerca).
+## Fuori scope
 
-Quando la select è chiusa, il bottone mostrerà solo la riga principale (codice + nome agenzia) per non rompere l'altezza.
-
-### 4. Nessuna modifica al salvataggio
-Il valore salvato resta `compagnia_id` (UUID del record selezionato): non serve aggiungere colonne in `titoli`. Tutte le pagine che leggono `compagnia_id` continuano a funzionare.
+- Non si toccano `DuplicazionePolizzaPage.tsx` né `RinnoviPolizzaPage.tsx` in questo step (se servisse, lo facciamo come follow-up con la stessa logica).
+- Nessun cambiamento di schema o di dati salvati: continua a essere salvato `compagnia_id`.
 
 ## File toccati
 
-- `src/components/SearchableSelect.tsx` — aggiunto campo opzionale `description` su `SearchableSelectOption`; il `CommandItem` lo renderizza come seconda riga in `text-xs text-muted-foreground`. Backward compatible (nessun consumer attuale rotto).
-- `src/pages/ImmissionePolizzaPage.tsx`:
-  - query `compagnie-list-immissione`: aggiungere `gruppo_compagnia` e `gruppo_compagnia_id`;
-  - label e placeholder aggiornati;
-  - mapping options con `description: c.gruppo_compagnia` quando presente.
-
-## Fuori scope (eventuale follow-up)
-
-- Estendere lo stesso pattern alla pagina **Modifica Polizza** (`TitoloDetail.tsx`) e alla **Duplicazione/Rinnovo**: posso farlo subito dopo, ma lo lascio fuori da questo step per mantenere la modifica chirurgica.
-
-## Domanda di conferma
-
-Procedo così, oppure vuoi che applichi la stessa rinomina + visualizzazione anche su TitoloDetail / Duplicazione / Rinnovo nello stesso giro?
+- `src/pages/TitoloDetail.tsx` (3 punti come sopra).
