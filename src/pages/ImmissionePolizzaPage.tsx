@@ -1244,7 +1244,7 @@ const ImmissionePolizzaPage = () => {
 
           {/* DATI CONDUCENTE */}
           <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">👤 Dati Conducente</legend>
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Dati Conducente</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
