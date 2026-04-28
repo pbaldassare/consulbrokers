@@ -1,35 +1,53 @@
-## Problema
+## Obiettivo
 
-Quando modifichi il Commerciale e salvi, in DB il valore **viene effettivamente aggiornato** (verificato: l'ultima PATCH ha settato `anagrafica_commerciale_id = 55ff2a7d-...` con successo, status 204). Il problema è solo **visivo**: nel riquadro "Commerciale & Provvigioni" continua ad apparire "INTERFIDI SRL" perché il nome mostrato viene letto da un altro campo (`produttore_nome`, testo libero del contratto), che ha priorità sul commerciale appena salvato.
+La sezione "Dati Veicolo" oggi è **sempre visibile** in fondo al dettaglio di ogni polizza, anche quando il ramo non c'entra nulla con gli autoveicoli. Inoltre i ~30 campi sono mostrati in un'unica griglia disordinata. Va trasformata in una sezione **condizionale** (compare solo per rami auto) e **strutturata in sotto-blocchi logici**.
 
-Codice attuale (`src/pages/TitoloDetail.tsx` riga 2063):
-```ts
-const commName = t.produttore_nome || (t.commerciale ? `${t.commerciale.nome} ${t.commerciale.cognome}` : "Sede");
-```
-Non considera mai `anagrafica_commerciale_id` → `anagrafiche_professionali`, che è la nuova fonte di verità.
+Tutti i campi necessari sono già nella tabella `veicoli_polizza` — non servono migrazioni DB. Lavoro solo di UI in `src/pages/TitoloDetail.tsx`.
 
-## Soluzione
+## Quando si attiva la sezione
 
-### 1. Fix display Commerciale (`src/pages/TitoloDetail.tsx`)
-- Caricare la query del titolo includendo il join `anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)`.
-- Cambiare la priorità del nome mostrato a:
-  1. `anagrafica_commerciale.ragione_sociale` (o `cognome nome`) se presente
-  2. fallback `produttore_nome` (testo libero legacy)
-  3. fallback `commerciale.nome cognome` (FK profili legacy)
-  4. "Sede"
-- Stessa priorità nel display dopo aver chiuso l'edit.
+La sezione "Dati Veicolo / RCA Auto" sarà visibile se il ramo della polizza appartiene alla famiglia auto. Codici ramo coinvolti (già in DB):
 
-### 2. Allineare anche `produttore_nome` al salvataggio
-Per evitare incoerenze future con altre viste (es. lista titoli, report) che leggono `produttore_nome`, all'interno di `saveCommMutation` settare anche `produttore_nome`:
-- Se è selezionata un'anagrafica → `produttore_nome = label dell'anagrafica` (ragione sociale o cognome+nome).
-- Se "Nessuno (Sede)" → `produttore_nome = null`.
+- **PI** R. C. AUTOVEICOLI · **QA** R. C. AUTO · **QAC** RCA & ARD · **QC** R. C. AUTOCARRI · **QF/QG/QR/QU** RC interni Flotte auto · **DAB** Assistenza RCA · **PJ** Franchigie RCA
+- Tutti i rami **RV01–RV16** (statistici "VEICOLO – ...")
 
-In questo modo il campo testo libero resta sincronizzato e tutti i punti del sistema vedono lo stesso nome subito dopo il salvataggio.
+Logica: `isRamoAuto = codice ∈ lista oppure codice inizia con "RV" oppure descrizione contiene "AUTO"/"VEICOL"`. Se `isRamoAuto` è false → la sezione non viene renderizzata.
 
-### 3. (Opzionale) Conferma visiva su 204
-Aggiungere `.select("id").single()` alla mutation per verificare effettivamente che la riga sia stata aggiornata (ed eventualmente mostrare errore se 0 righe), in modo che in futuro un blocco RLS non passi inosservato.
+Caso limite: se la polizza **non** è di ramo auto ma esiste già un record `veicoli_polizza` collegato (dato legacy), mostriamo comunque la sezione con un piccolo badge "Dati legacy" per non perdere l'informazione.
+
+## Riorganizzazione campi in 4 sotto-blocchi
+
+La sezione resta un unico `SectionCollapsible` "Dati Veicolo (RCA Auto)" con icona Car, ma internamente è suddivisa in 4 gruppi con titoletto, sia in lettura che in modifica:
+
+**1. Identificazione veicolo**
+Settore · Tipo Veicolo · Uso · Targa · Marca · Modello · Versione · Descrizione · Telaio (VIN) · Immatricolazione · Anno Acquisto · Provincia Circolazione
+
+**2. Dati tecnici**
+CV · KW · CC · Posti · Peso Motrice · Peso Rimorchio · Peso Totale · Alimentazione · Tipologia Guida
+
+**3. Garanzie e massimali**
+Massimale 1 · Massimale 2 · Massimale 3 · Franchigia · Peius · Temporanea · Carico/Scarico · Rimorchio · Competizione
+
+**4. Bonus / Malus**
+Classe B/M (CU)
+*(Lasciamo il blocco predisposto: la tabella `veicoli_polizza` ha solo `classe_bm`. Se in futuro vuoi gestire anche CI, attestato di rischio e numero sinistri ultimi 5 anni dovremo aggiungere colonne — non lo facciamo ora come da tua indicazione di "ordinare ciò che già c'è".)*
+
+## Comportamento UX
+
+- Pulsante "Modifica/Aggiungi" resta in alto come ora
+- In modalità lettura: griglia 4 colonne sotto ogni titoletto, valori vuoti mostrati come "—"
+- In modalità modifica: stessa suddivisione in 4 blocchi con i Form input già esistenti, in griglia 3-4 colonne
+- Nessuna modifica al salvataggio: la mutation esistente `saveVeicoloMutation` continua a inviare l'intero `veicoloForm` a `veicoli_polizza`
 
 ## File toccati
-- `src/pages/TitoloDetail.tsx` (query select + saveCommMutation + display commName)
 
-Nessuna migrazione DB necessaria: i dati sono già corretti, è solo un bug di rendering.
+- `src/pages/TitoloDetail.tsx` — riga 2410-2496: sostituisco la sezione esistente con la versione condizionale + raggruppata. Aggiungo helper `isRamoAuto(t.ramo)` in cima al file.
+
+## Cosa NON viene toccato
+
+- Schema DB (nessuna migration)
+- Tabella `veicoli_polizza` e relativa mutation di salvataggio
+- Campo `targa_telaio` legacy in sezione "CONTRATTO" (resta dov'è, è separato)
+- Le altre sezioni della pagina (Contratto, Periodo, Premi, Movimenti, ecc.)
+
+Confermi e procedo?
