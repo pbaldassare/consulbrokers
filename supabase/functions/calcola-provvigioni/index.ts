@@ -42,51 +42,80 @@ Deno.serve(async (req) => {
     // Delete old provvigioni for this titolo
     await supabaseAdmin.from("provvigioni_generate").delete().eq("titolo_id", titolo_id);
 
+    // Lookup admin (Consulbrokers SPA) anagrafica id from settings
+    let adminAnagraficaId: string | null = null;
+    {
+      const { data: setting } = await supabaseAdmin
+        .from("impostazioni_sistema")
+        .select("valore_json")
+        .eq("chiave", "admin_anagrafica_id")
+        .maybeSingle();
+      adminAnagraficaId = (setting?.valore_json as any)?.anagrafica_id ?? null;
+    }
+
     const provvQuietanza = titolo.provvigioni_quietanza;
 
     // === PRIMARY PATH: use provvigioni_quietanza from titolo ===
     if (provvQuietanza != null && provvQuietanza > 0) {
       const percComm = titolo.percentuale_commerciale ?? 100;
-      // Determine if there's a real commercial agent (not Consul)
       const hasCommerciale = titolo.anagrafica_commerciale_id != null || titolo.commerciale_id != null;
-      const isConsulOnly = !hasCommerciale || percComm >= 100;
-      
-      // Build commerciale identifier for tipo_destinatario
-      const commercialeUserId = titolo.commerciale_id; // profiles FK (may be null)
-      const commercialeName = titolo.produttore_nome;
-      
-      const rows: any[] = [];
+      const isAdminOnly = !hasCommerciale || percComm >= 100;
 
-      if (!isConsulOnly && percComm > 0) {
-        // Commerciale gets their share
+      // Special case: commerciale IS the admin (Consulbrokers SPA) → split is statistical only
+      const commercialeIsAdmin =
+        adminAnagraficaId != null &&
+        titolo.anagrafica_commerciale_id != null &&
+        titolo.anagrafica_commerciale_id === adminAnagraficaId;
+
+      const commercialeUserId = titolo.commerciale_id;
+      const rows: any[] = [];
+      const totale = Math.round(provvQuietanza * 100) / 100;
+
+      if (!isAdminOnly && percComm > 0) {
         const importoComm = Math.round((provvQuietanza * percComm) / 100 * 100) / 100;
+        const importoAdmin = Math.round((provvQuietanza - importoComm) * 100) / 100;
+
+        // Commerciale row — solo_statistico=true if commerciale == admin (would double-count)
         rows.push({
           titolo_id,
           user_id: commercialeUserId || null,
           percentuale: percComm,
           importo_provvigione: importoComm,
           tipo_destinatario: "commerciale",
+          solo_statistico: commercialeIsAdmin,
         });
 
-        // Consul gets the rest
-        const importoConsul = Math.round((provvQuietanza - importoComm) * 100) / 100;
-        if (importoConsul > 0) {
+        // Admin (Consulbrokers SPA) row — gets the residual quota.
+        // If commerciale == admin, this row carries the FULL economic value (totale)
+        // and the commerciale row above is only statistical.
+        if (commercialeIsAdmin) {
+          rows.push({
+            titolo_id,
+            user_id: null,
+            percentuale: 100,
+            importo_provvigione: totale,
+            tipo_destinatario: "admin",
+            solo_statistico: false,
+          });
+        } else if (importoAdmin > 0) {
           rows.push({
             titolo_id,
             user_id: null,
             percentuale: 100 - percComm,
-            importo_provvigione: importoConsul,
-            tipo_destinatario: "consul",
+            importo_provvigione: importoAdmin,
+            tipo_destinatario: "admin",
+            solo_statistico: false,
           });
         }
       } else {
-        // No commerciale or 100% — everything goes to Consul
+        // No commerciale or 100% to admin — everything goes to admin
         rows.push({
           titolo_id,
           user_id: null,
           percentuale: 100,
-          importo_provvigione: Math.round(provvQuietanza * 100) / 100,
-          tipo_destinatario: "consul",
+          importo_provvigione: totale,
+          tipo_destinatario: "admin",
+          solo_statistico: false,
         });
       }
 
