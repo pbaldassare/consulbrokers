@@ -1,53 +1,49 @@
 ## Obiettivo
 
-La sezione "Dati Veicolo" oggi è **sempre visibile** in fondo al dettaglio di ogni polizza, anche quando il ramo non c'entra nulla con gli autoveicoli. Inoltre i ~30 campi sono mostrati in un'unica griglia disordinata. Va trasformata in una sezione **condizionale** (compare solo per rami auto) e **strutturata in sotto-blocchi logici**.
+Sulla pagina **Immissione Polizza** (`/portafoglio/immissione`), la select "Compagnia" deve diventare **"Compagnia / Agenzia di rif."** e mostrare in modo chiaro sia il nome della compagnia (gruppo madre) sia l'agenzia/sede di riferimento, restando comunque un'unica select con ricerca.
 
-Tutti i campi necessari sono già nella tabella `veicoli_polizza` — non servono migrazioni DB. Lavoro solo di UI in `src/pages/TitoloDetail.tsx`.
+## Stato attuale
 
-## Quando si attiva la sezione
+- La tabella `compagnie` contiene già record che rappresentano la combinazione **Compagnia + Agenzia/Sede** (es. `*ALLIANZ RAS SAN DONA' - GALESSO & PARTNERS SRL`, `*AURORA ASS.NI ODERZO-CADAMURO MARIO`).
+- Ogni record ha un `gruppo_compagnia_id` che lo collega al **gruppo madre** (es. ALLIANZ, GENERALI, UNIPOL, AXA).
+- La label oggi mostrata è semplicemente `{codice} - {nome}`, senza distinzione visiva tra gruppo madre e agenzia.
 
-La sezione "Dati Veicolo / RCA Auto" sarà visibile se il ramo della polizza appartiene alla famiglia auto. Codici ramo coinvolti (già in DB):
+## Cosa cambia
 
-- **PI** R. C. AUTOVEICOLI · **QA** R. C. AUTO · **QAC** RCA & ARD · **QC** R. C. AUTOCARRI · **QF/QG/QR/QU** RC interni Flotte auto · **DAB** Assistenza RCA · **PJ** Franchigie RCA
-- Tutti i rami **RV01–RV16** (statistici "VEICOLO – ...")
+### 1. Rinomina label
+- "Compagnia" → **"Compagnia / Agenzia di rif."**
+- Placeholder: `— Seleziona compagnia / agenzia —`
 
-Logica: `isRamoAuto = codice ∈ lista oppure codice inizia con "RV" oppure descrizione contiene "AUTO"/"VEICOL"`. Se `isRamoAuto` è false → la sezione non viene renderizzata.
+### 2. Query arricchita
+La query `compagnie-list-immissione` viene estesa per includere il nome del gruppo madre:
+```
+.select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id")
+```
 
-Caso limite: se la polizza **non** è di ramo auto ma esiste già un record `veicoli_polizza` collegato (dato legacy), mostriamo comunque la sezione con un piccolo badge "Dati legacy" per non perdere l'informazione.
+### 3. Resa visiva della SearchableSelect
+Per ogni opzione della tendina mostriamo due righe:
+- **Riga 1 (principale)**: `{codice} — {nome agenzia/sede}`
+- **Riga 2 (secondaria, più piccola e attenuata)**: `Gruppo: {gruppo_compagnia}` (nascosta se il gruppo non è valorizzato o coincide col nome).
 
-## Riorganizzazione campi in 4 sotto-blocchi
+Per ottenere questo, modifichiamo `SearchableSelect` (o passiamo opzioni con un campo `description` opzionale) in modo che ogni `CommandItem` possa renderizzare un sottotitolo. Il campo di ricerca continuerà a matchare sia il nome agenzia sia il nome del gruppo (concateniamo entrambi nel `value` del CommandItem usato per la ricerca).
 
-La sezione resta un unico `SectionCollapsible` "Dati Veicolo (RCA Auto)" con icona Car, ma internamente è suddivisa in 4 gruppi con titoletto, sia in lettura che in modifica:
+Quando la select è chiusa, il bottone mostrerà solo la riga principale (codice + nome agenzia) per non rompere l'altezza.
 
-**1. Identificazione veicolo**
-Settore · Tipo Veicolo · Uso · Targa · Marca · Modello · Versione · Descrizione · Telaio (VIN) · Immatricolazione · Anno Acquisto · Provincia Circolazione
-
-**2. Dati tecnici**
-CV · KW · CC · Posti · Peso Motrice · Peso Rimorchio · Peso Totale · Alimentazione · Tipologia Guida
-
-**3. Garanzie e massimali**
-Massimale 1 · Massimale 2 · Massimale 3 · Franchigia · Peius · Temporanea · Carico/Scarico · Rimorchio · Competizione
-
-**4. Bonus / Malus**
-Classe B/M (CU)
-*(Lasciamo il blocco predisposto: la tabella `veicoli_polizza` ha solo `classe_bm`. Se in futuro vuoi gestire anche CI, attestato di rischio e numero sinistri ultimi 5 anni dovremo aggiungere colonne — non lo facciamo ora come da tua indicazione di "ordinare ciò che già c'è".)*
-
-## Comportamento UX
-
-- Pulsante "Modifica/Aggiungi" resta in alto come ora
-- In modalità lettura: griglia 4 colonne sotto ogni titoletto, valori vuoti mostrati come "—"
-- In modalità modifica: stessa suddivisione in 4 blocchi con i Form input già esistenti, in griglia 3-4 colonne
-- Nessuna modifica al salvataggio: la mutation esistente `saveVeicoloMutation` continua a inviare l'intero `veicoloForm` a `veicoli_polizza`
+### 4. Nessuna modifica al salvataggio
+Il valore salvato resta `compagnia_id` (UUID del record selezionato): non serve aggiungere colonne in `titoli`. Tutte le pagine che leggono `compagnia_id` continuano a funzionare.
 
 ## File toccati
 
-- `src/pages/TitoloDetail.tsx` — riga 2410-2496: sostituisco la sezione esistente con la versione condizionale + raggruppata. Aggiungo helper `isRamoAuto(t.ramo)` in cima al file.
+- `src/components/SearchableSelect.tsx` — aggiunto campo opzionale `description` su `SearchableSelectOption`; il `CommandItem` lo renderizza come seconda riga in `text-xs text-muted-foreground`. Backward compatible (nessun consumer attuale rotto).
+- `src/pages/ImmissionePolizzaPage.tsx`:
+  - query `compagnie-list-immissione`: aggiungere `gruppo_compagnia` e `gruppo_compagnia_id`;
+  - label e placeholder aggiornati;
+  - mapping options con `description: c.gruppo_compagnia` quando presente.
 
-## Cosa NON viene toccato
+## Fuori scope (eventuale follow-up)
 
-- Schema DB (nessuna migration)
-- Tabella `veicoli_polizza` e relativa mutation di salvataggio
-- Campo `targa_telaio` legacy in sezione "CONTRATTO" (resta dov'è, è separato)
-- Le altre sezioni della pagina (Contratto, Periodo, Premi, Movimenti, ecc.)
+- Estendere lo stesso pattern alla pagina **Modifica Polizza** (`TitoloDetail.tsx`) e alla **Duplicazione/Rinnovo**: posso farlo subito dopo, ma lo lascio fuori da questo step per mantenere la modifica chirurgica.
 
-Confermi e procedo?
+## Domanda di conferma
+
+Procedo così, oppure vuoi che applichi la stessa rinomina + visualizzazione anche su TitoloDetail / Duplicazione / Rinnovo nello stesso giro?

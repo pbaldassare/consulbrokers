@@ -8,6 +8,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 export interface SearchableSelectOption {
   value: string;
   label: string;
+  /** Optional secondary line shown under the label inside the dropdown (not in the trigger). */
+  description?: string;
+  /** Extra text included in the search index but not displayed. */
+  searchText?: string;
 }
 
 interface SearchableSelectProps {
@@ -56,14 +60,19 @@ export function SearchableSelect({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={`${option.label} ${option.description ?? ""} ${option.searchText ?? ""}`.trim()}
                   onSelect={() => {
                     onValueChange(option.value === value ? "" : option.value);
                     setOpen(false);
                   }}
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
-                  {option.label}
+                  <Check className={cn("mr-2 h-4 w-4 mt-0.5 shrink-0", value === option.value ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{option.label}</span>
+                    {option.description && (
+                      <span className="text-[10px] text-muted-foreground truncate">{option.description}</span>
+                    )}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>
