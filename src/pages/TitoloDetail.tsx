@@ -870,6 +870,8 @@ const TitoloDetail = () => {
       franchigia: v.franchigia != null ? String(v.franchigia) : "",
       temporanea: !!v.temporanea,
       carico_scarico: !!v.carico_scarico,
+      rimorchio: !!v.rimorchio,
+      competizione: !!v.competizione,
       cv: v.cv != null ? String(v.cv) : "",
       kw: v.kw != null ? String(v.kw) : "",
       cc: v.cc != null ? String(v.cc) : "",
@@ -887,7 +889,7 @@ const TitoloDetail = () => {
     mutationFn: async () => {
       const intFields = ["anno_acquisto","cv","kw","cc","posti","peso_motrice","peso_rimorchio","peso_totale"];
       const numFields = ["massimale_1","massimale_2","massimale_3","franchigia"];
-      const boolFields = ["peius","temporanea","carico_scarico"];
+      const boolFields = ["peius","temporanea","carico_scarico","rimorchio","competizione"];
       const payload: any = { titolo_id: id };
       Object.keys(veicoloForm).forEach((k) => {
         const raw = veicoloForm[k];
