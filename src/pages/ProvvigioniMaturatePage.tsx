@@ -37,7 +37,7 @@ const ProvvigioniMaturatePage = () => {
       const { data } = await supabase
         .from("provvigioni_generate")
         .select(`
-          id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario,
+          id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario, solo_statistico,
           titoli!inner(
             id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome,
             compagnie!titoli_compagnia_id_fkey(nome),
@@ -46,7 +46,7 @@ const ProvvigioniMaturatePage = () => {
           profiles!provvigioni_generate_user_id_fkey(nome, cognome)
         `)
         .eq("pagata", false)
-        .neq("tipo_destinatario", "consul")
+        .eq("solo_statistico", false)
         .gte("titoli.data_messa_cassa", meseDa)
         .lte("titoli.data_messa_cassa", meseA)
         .order("calcolata_il", { ascending: true })
