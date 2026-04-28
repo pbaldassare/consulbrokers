@@ -1,105 +1,51 @@
 ## Obiettivo
 
-Permettere ad un'**agenzia plurimandataria** o ad un **broker** di avere **più rapporti contemporanei con compagnie diverse** (es. Eticura ↔ Unipol, Helvetia, Bene), tracciandoli e distinguendoli singolarmente, con persistenza in DB e storico completo.
+Nella pagina **Immissione Polizza** (`/portafoglio/immissione`), mostrare i campi specifici di ramo solo quando hanno senso:
 
-Oggi `compagnie.gruppo_compagnia_id` è un singolo riferimento (1:1 verso `gruppi_compagnia`). Servono rapporti **N:N** tra `compagnie` (agenzia) e `gruppi_compagnia` (compagnia madre).
+- Il campo **Targa/Telaio** nel blocco "Contratto" deve apparire **solo se il ramo selezionato è RCA Auto** (`isRCA === true`). Per polizze non-auto (es. RC Generale, Vita, Infortuni…) sparisce, perché non serve.
+- Le sezioni RCA esistenti (🚗 Dati Veicolo, 💰 Dati Premio per Garanzia, 👤 Dati Conducente) — che già appaiono condizionalmente — vanno **rese visivamente più riconoscibili** quando attive (header colorato, icona, separatore netto dal resto del form).
+- Quando il ramo NON è auto, nessun campo "veicolo" deve essere visibile né salvato.
 
----
+## Cambiamenti tecnici (file: `src/pages/ImmissionePolizzaPage.tsx`)
 
-## 1. Database — nuova tabella `compagnia_rapporti`
+### 1. Targa/Telaio condizionale nel blocco Contratto
+- Linee ~705–712: il `<div>` con label "Targa/Telaio" viene wrappato in `{isRCA && (...)}`.
+- Quando il ramo cambia da auto a non-auto, resettare lo state `targaTelaio` a "" per evitare salvataggi sporchi (effetto in un `useEffect([isRCA])`).
+- Adeguare il grid del blocco: con 4 colonne fisse, quando Targa/Telaio è nascosto la riga resta a 3 elementi — accettabile, oppure passare il grid a `grid-cols-2 md:grid-cols-3` quando `!isRCA` per evitare colonna vuota.
 
-```sql
-CREATE TABLE public.compagnia_rapporti (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  compagnia_id uuid NOT NULL REFERENCES compagnie(id) ON DELETE CASCADE,
-  gruppo_compagnia_id uuid NOT NULL REFERENCES gruppi_compagnia(id) ON DELETE RESTRICT,
-  
-  -- Dati distintivi del rapporto
-  codice_rapporto text,            -- es. codice agenzia presso quella compagnia
-  tipo_rapporto text,              -- "Mandato diretto", "Sub-agenzia", "Convenzione broker", ecc.
-  rami_abilitati text[],           -- es. ["RCA","Vita","Property"]
-  data_inizio date,
-  data_fine date,                  -- NULL = ancora attivo
-  attivo boolean NOT NULL DEFAULT true,
-  
-  -- Tracciabilità economica
-  percentuale_provvigione numeric(5,2),
-  iban_dedicato text,
-  referente_compagnia text,
-  email_referente text,
-  telefono_referente text,
-  
-  note text,
-  
-  -- Audit
-  created_at timestamptz NOT NULL DEFAULT now(),
-  created_by uuid REFERENCES auth.users(id),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  updated_by uuid REFERENCES auth.users(id),
-  
-  UNIQUE (compagnia_id, gruppo_compagnia_id, data_inizio)
-);
+### 2. Migliore grafica delle sezioni RCA
+Le tre fieldset RCA (linee 1064–1227) oggi hanno solo `border-l-4 border-l-primary`. Le rendiamo più distinte:
 
-CREATE INDEX ON compagnia_rapporti (compagnia_id);
-CREATE INDEX ON compagnia_rapporti (gruppo_compagnia_id);
-CREATE INDEX ON compagnia_rapporti (attivo) WHERE attivo = true;
-```
+- Banner di intestazione RCA prima delle 3 fieldset, tipo:
+  ```
+  ┌─────────────────────────────────────────────┐
+  │ 🚗 SEZIONE RCA AUTO — dati veicolo richiesti│
+  └─────────────────────────────────────────────┘
+  ```
+  con sfondo `bg-primary/5`, testo `text-primary`, padding e bordo arrotondato.
+- Le legend già hanno emoji 🚗 💰 👤 — uniformare lo sfondo a `bg-primary/15` e aggiungere icona `lucide-react` (`Car`, `Receipt`, `User`).
+- Aggiungere una sottile separazione visiva (margin-top maggiore) tra il blocco "Tipo" e l'inizio delle sezioni RCA.
 
-**RLS**: lettura per utenti autenticati interni; scrittura riservata a ruoli admin/compagnie (allineata alle policy esistenti su `compagnie`).
+### 3. Pulizia stato (anti-bug salvataggio)
+Aggiungere un `useEffect` che osserva `isRCA`:
+- Se diventa `false`, azzera tutti gli `v*` e `c*` (vMarca, vModello, vTarga, vTelaio, vClasseBm, premiGaranzia, cNome, cCognome, …) e `targaTelaio`.
+- Questo evita che, se l'utente prima sceglie "Auto", compila qualcosa, poi cambia ramo, i dati veicolo restino in memoria e vengano salvati comunque dalla `if (isRCA) { ... insert rca_dati ... }` (linea 467–473).
 
-**Trigger di logging**: insert/update/delete loggati nella `attivita_log` esistente per timeline (entità `compagnia`, ID = `compagnia_id`).
+### 4. Hint UX
+Sotto il dropdown "Ramo" (blocco Contratto), quando `isRCA === true` mostrare un piccolo testo informativo:
+> "Ramo RCA rilevato: in fondo alla pagina troverai le sezioni dedicate a veicolo, garanzie e conducente."
 
-**Migrazione dati esistenti**: per ogni `compagnie` con `gruppo_compagnia_id` valorizzato, creare un primo rapporto in `compagnia_rapporti` (così non si perdono i collegamenti correnti). Il campo `compagnie.gruppo_compagnia_id` resta come "rapporto principale/legacy" — non rimosso ora per non rompere viste/report.
+## Cosa NON cambia
 
----
+- Schema DB e logica di salvataggio in `rca_dati` restano identici.
+- Le tre sezioni RCA esistenti restano dove sono (in fondo al form), continuano ad apparire solo se `isRCA`.
+- Il rilevamento `isRCA` resta basato su `gruppo_ramo` + checkbox `polizzaAuto` (linea 350).
+- Nessuna modifica a `RinnovoTitoloDialog.tsx`, `TitoloDetail.tsx` o ad altre pagine.
 
-## 2. UI — Modale "Gestione Rapporti" in `/compagnie`
+## File toccati
 
-Nella riga di ogni agenzia (tab "Anagrafica Agenzie") aggiungere un'icona **Network** (`Layers`/`Network` lucide) nella colonna azioni → apre un **Dialog** dedicato.
+- `src/pages/ImmissionePolizzaPage.tsx` (unico file)
 
-**Header del modale**: nome agenzia + chip "Plurimandataria" / "Broker" (visibile solo se l'agenzia è plurimandataria, broker o ha già >1 rapporto — altrimenti pulsante visibile ma con avviso).
+## Estensione futura (non in questo task)
 
-**Corpo**:
-- Tabella zebrata dei rapporti esistenti con colonne:
-  `Compagnia` · `Codice rapporto` · `Tipo` · `Rami` · `Inizio` · `Fine` · `% Provv.` · `Stato` · `Azioni (Edit/Chiudi/Elimina)`
-- Bottone **"+ Nuovo Rapporto"** apre form inline con:
-  - `SearchableSelect` Compagnia madre (da `gruppi_compagnia`, escludendo quelle già attive per evitare duplicati)
-  - Codice rapporto
-  - Tipo rapporto (select: Mandato diretto / Sub-agenzia / Convenzione broker / Coverholder / Altro)
-  - Rami abilitati (multi-select)
-  - Data inizio (default oggi) · Data fine (opzionale)
-  - % provvigione · IBAN dedicato
-  - Referente (nome, email, telefono)
-  - Note
-- Azione **"Chiudi rapporto"** → setta `data_fine = oggi` e `attivo = false` (non cancella, mantiene storico).
-
-**Indicatori in lista agenzie**: nella tabella esistente, accanto al nome dell'agenzia mostrare un badge `N rapporti` cliccabile che apre direttamente il modale.
-
----
-
-## 3. Tracciabilità
-
-- Ogni create/update/delete su `compagnia_rapporti` viene loggato via trigger DB → visibile nella timeline esistente dell'agenzia.
-- Il modale mostra in fondo una mini-timeline degli ultimi 10 eventi sui rapporti di quella agenzia.
-
----
-
-## Dettagli tecnici
-
-**File coinvolti**:
-- Nuova migrazione SQL: tabella `compagnia_rapporti` + RLS + trigger + backfill iniziale.
-- `src/pages/CompagnieList.tsx` — aggiunta colonna azione "Rapporti" + dialog.
-- Nuovo componente `src/components/compagnie/RapportiCompagniaDialog.tsx` — gestione CRUD rapporti.
-- Hook `useRapportiCompagnia(compagniaId)` con React Query (chiavi: `['rapporti-compagnia', compagniaId]`).
-
-**Pattern**: `SearchableSelect` per la scelta compagnia madre (rispetta la convenzione di progetto), tabella zebrata, debounce 350ms su ricerche, paginazione non necessaria (rapporti per agenzia tipicamente < 50).
-
-**Cosa NON tocchiamo ora**:
-- `compagnie.gruppo_compagnia_id` resta valorizzato (rapporto "principale" legacy) per non rompere viste/report esistenti.
-- I report che oggi raggruppano per `gruppo_compagnia_id` continueranno a funzionare; in una fase successiva si potranno migrare a leggere i rapporti attivi.
-
----
-
-## Domanda prima di procedere
-
-Vuoi che il pulsante "Gestione Rapporti" sia visibile **su tutte le agenzie** o **solo su quelle marcate come Plurimandatario/Broker**? (default proposto: visibile su tutte, ma evidenziato con badge sulle plurimandatarie/broker).
+Se in seguito vorrai applicare la stessa logica "campi-per-ramo" anche ad altri rami (es. Vita → beneficiari; Infortuni → professione/sport; Trasporti → tratta/merce), useremo lo stesso pattern: gruppo-ramo → blocco condizionale dedicato. Fammelo sapere e lo aggiungiamo.
