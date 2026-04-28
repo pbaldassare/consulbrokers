@@ -1661,7 +1661,7 @@ const TitoloDetail = () => {
 
         {!editingContratto ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-            <FieldRow label="Compagnia" value={
+            <FieldRow label="Compagnia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
