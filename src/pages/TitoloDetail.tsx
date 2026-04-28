@@ -1698,12 +1698,12 @@ const TitoloDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {/* Read-only fields */}
             <div className="space-y-1">
-              <Label className="text-xs">Compagnia</Label>
+              <Label className="text-xs">Compagnia / Agenzia di rif.</Label>
               <SearchableSelect
                 options={compagnieOpts}
                 value={contrattoForm.compagnia_id || ""}
                 onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
-                placeholder="Seleziona compagnia"
+                placeholder="— Seleziona compagnia / agenzia —"
               />
             </div>
             <div className="space-y-1">
