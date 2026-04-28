@@ -16,8 +16,12 @@ const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
     case "commerciale":
       return <Badge className="bg-blue-100 text-blue-800 border-blue-300" variant="outline">Commerciale</Badge>;
+    case "admin":
+      return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300" variant="outline">Consulbrokers SPA</Badge>;
     case "sede":
       return <Badge className="bg-purple-100 text-purple-800 border-purple-300" variant="outline">Sede</Badge>;
+    case "consul":
+      return <Badge className="bg-amber-100 text-amber-800 border-amber-300" variant="outline">Consul (legacy)</Badge>;
     default:
       return <Badge className="bg-gray-100 text-gray-600 border-gray-300" variant="outline">—</Badge>;
   }
