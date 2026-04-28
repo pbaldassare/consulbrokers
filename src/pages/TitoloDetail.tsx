@@ -244,14 +244,25 @@ const TitoloDetail = () => {
 
   const saveCommMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      // Determina il nome leggibile da scrivere su produttore_nome (campo testo legacy usato in molte viste)
+      let nomeLeggibile: string | null = null;
+      if (commForm.anagrafica_commerciale_id) {
+        const sel = (anagraficheComm as any[]).find((a: any) => a.value === commForm.anagrafica_commerciale_id);
+        nomeLeggibile = sel?.label || null;
+      }
+      const { data, error } = await supabase
         .from("titoli")
         .update({
           anagrafica_commerciale_id: commForm.anagrafica_commerciale_id || null,
           percentuale_commerciale: commForm.percentuale_commerciale,
+          produttore_nome: nomeLeggibile,
         } as any)
-        .eq("id", id!);
+        .eq("id", id!)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Nessuna riga aggiornata: verifica i permessi (RLS).");
+      }
       // Ricalcola provvigioni se incassato
       if (titolo?.stato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
