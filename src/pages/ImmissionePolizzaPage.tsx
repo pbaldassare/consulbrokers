@@ -321,7 +321,7 @@ const ImmissionePolizzaPage = () => {
   const { data: compagnieList } = useQuery({
     queryKey: ["compagnie-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -633,13 +633,23 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">Compagnia</Label>
+            <Label className="text-xs">Compagnia / Agenzia di rif.</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
               onValueChange={setSelectedCompagnia}
-              placeholder="— Compagnia —"
-              options={(compagnieList || []).map((c) => ({ value: c.id, label: `${c.codice || ""} - ${c.nome}` }))}
+              placeholder="— Seleziona compagnia / agenzia —"
+              options={(compagnieList || []).map((c: any) => {
+                const gruppo = (c.gruppo_compagnia || "").trim();
+                const nome = c.nome || "";
+                const showGruppo = gruppo && gruppo.toLowerCase() !== nome.toLowerCase();
+                return {
+                  value: c.id,
+                  label: `${c.codice || ""} - ${nome}`,
+                  description: showGruppo ? `Gruppo: ${gruppo}` : undefined,
+                  searchText: gruppo,
+                };
+              })}
             />
           </div>
           <div className="space-y-1.5 col-span-2">
