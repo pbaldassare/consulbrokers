@@ -1092,9 +1092,20 @@ const ImmissionePolizzaPage = () => {
       {/* === SEZIONI RCA AUTO === */}
       {isRCA && (
         <>
+          {/* Banner intro RCA */}
+          <div className="rounded-lg border-2 border-primary/30 bg-primary/5 px-4 py-3 flex items-center gap-3 mt-2">
+            <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+              <Car className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-primary uppercase tracking-wide">Sezione RCA Auto</p>
+              <p className="text-xs text-muted-foreground">Compila i dati specifici del veicolo, delle garanzie e del conducente.</p>
+            </div>
+          </div>
+
           {/* DATI VEICOLO */}
           <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">🚗 Dati Veicolo</legend>
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><Car className="h-3.5 w-3.5" /> Dati Veicolo</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo Veicolo</Label>
