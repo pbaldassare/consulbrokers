@@ -1,64 +1,105 @@
 ## Obiettivo
 
-Nella tab **Compagnie** (gruppi madre, tabella `gruppi_compagnia`) eliminare i duplicati che differiscono solo per maiuscole/minuscole (o spazi), unendoli in un'unica voce e ricollegando tutte le agenzie figlie.
+Permettere ad un'**agenzia plurimandataria** o ad un **broker** di avere **più rapporti contemporanei con compagnie diverse** (es. Eticura ↔ Unipol, Helvetia, Bene), tracciandoli e distinguendoli singolarmente, con persistenza in DB e storico completo.
 
-## Duplicati rilevati nel DB
+Oggi `compagnie.gruppo_compagnia_id` è un singolo riferimento (1:1 verso `gruppi_compagnia`). Servono rapporti **N:N** tra `compagnie` (agenzia) e `gruppi_compagnia` (compagnia madre).
 
-Il check case-insensitive su `gruppi_compagnia.descrizione` ha trovato 4 coppie:
+---
 
-| Norm. | Voce A (codice / descr / n. agenzie) | Voce B (codice / descr / n. agenzie) |
-|---|---|---|
-| AIG | GC001 / "AIG" / 5 | GC011 / "Aig" / 1 |
-| ASSIMOCO | GC007 / "ASSIMOCO" / 0 | GC019 / "Assimoco" / 1 |
-| ROLAND | GC105 / "ROLAND" / 1 | GC109 / "Roland" / 1 |
-| PLURIMANDATARIO | PLURIMANDATARIO / "PLURIMANDATARIO" / 54 | GC099 / "Plurimandatario" / 86 |
-
-Nessun altro duplicato esatto (case-insensitive + trim) presente. La tabella `compagnie` (le 649 agenzie/sedi) non contiene nomi duplicati.
-
-## Strategia di merge
-
-Per ogni coppia: scegliere un **vincitore** (quello da tenere) e un **perdente** (da eliminare). Regole:
-
-1. **PLURIMANDATARIO**: si tiene la riga con `codice = 'PLURIMANDATARIO'` (è il fallback di sistema riconosciuto dal codice in `CompagnieList.tsx` tramite la costante `PLURIMANDATARIO_CODE` e dalla edge function `import-compagnie`). Le 86 agenzie collegate a "Plurimandatario" (GC099) verranno spostate sotto "PLURIMANDATARIO".
-2. **AIG / ASSIMOCO / ROLAND**: si tiene la riga in **MAIUSCOLO** (allineato alle convenzioni di `GRUPPI_STATISTICI` in `CompagnieList.tsx`, tutte maiuscole). Codici tenuti: GC001, GC007, GC105.
-
-### Migrazione SQL (in un'unica transazione)
-
-Per ciascuna coppia, nello stesso ordine:
+## 1. Database — nuova tabella `compagnia_rapporti`
 
 ```sql
--- Sposta le agenzie figlie dal "perdente" al "vincitore"
-UPDATE compagnie
-SET gruppo_compagnia_id = '<id_vincitore>',
-    gruppo_compagnia    = '<descrizione_vincitore>'
-WHERE gruppo_compagnia_id = '<id_perdente>';
+CREATE TABLE public.compagnia_rapporti (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  compagnia_id uuid NOT NULL REFERENCES compagnie(id) ON DELETE CASCADE,
+  gruppo_compagnia_id uuid NOT NULL REFERENCES gruppi_compagnia(id) ON DELETE RESTRICT,
+  
+  -- Dati distintivi del rapporto
+  codice_rapporto text,            -- es. codice agenzia presso quella compagnia
+  tipo_rapporto text,              -- "Mandato diretto", "Sub-agenzia", "Convenzione broker", ecc.
+  rami_abilitati text[],           -- es. ["RCA","Vita","Property"]
+  data_inizio date,
+  data_fine date,                  -- NULL = ancora attivo
+  attivo boolean NOT NULL DEFAULT true,
+  
+  -- Tracciabilità economica
+  percentuale_provvigione numeric(5,2),
+  iban_dedicato text,
+  referente_compagnia text,
+  email_referente text,
+  telefono_referente text,
+  
+  note text,
+  
+  -- Audit
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid REFERENCES auth.users(id),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid REFERENCES auth.users(id),
+  
+  UNIQUE (compagnia_id, gruppo_compagnia_id, data_inizio)
+);
 
--- Elimina la riga duplicata
-DELETE FROM gruppi_compagnia WHERE id = '<id_perdente>';
+CREATE INDEX ON compagnia_rapporti (compagnia_id);
+CREATE INDEX ON compagnia_rapporti (gruppo_compagnia_id);
+CREATE INDEX ON compagnia_rapporti (attivo) WHERE attivo = true;
 ```
 
-Nessuna FK formale punta a `gruppi_compagnia` (verificato su `information_schema`); l'unica colonna applicativa che la referenzia è `compagnie.gruppo_compagnia_id` (le tabelle `compagnie_snapshot_*` sono backup storici e restano intatte).
+**RLS**: lettura per utenti autenticati interni; scrittura riservata a ruoli admin/compagnie (allineata alle policy esistenti su `compagnie`).
 
-Inoltre, allineamento del campo denormalizzato `compagnie.gruppo_compagnia` (testo) ai casi corretti in maiuscolo per coerenza visiva nella select "Compagnia / Agenzia di rif." già introdotta.
+**Trigger di logging**: insert/update/delete loggati nella `attivita_log` esistente per timeline (entità `compagnia`, ID = `compagnia_id`).
 
-## Prevenzione futura
+**Migrazione dati esistenti**: per ogni `compagnie` con `gruppo_compagnia_id` valorizzato, creare un primo rapporto in `compagnia_rapporti` (così non si perdono i collegamenti correnti). Il campo `compagnie.gruppo_compagnia_id` resta come "rapporto principale/legacy" — non rimosso ora per non rompere viste/report.
 
-Aggiungere un **unique index case-insensitive** su `gruppi_compagnia` per evitare il rientro di duplicati:
+---
 
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS gruppi_compagnia_descrizione_ci_uniq
-  ON public.gruppi_compagnia (UPPER(TRIM(descrizione)));
-```
+## 2. UI — Modale "Gestione Rapporti" in `/compagnie`
 
-E, lato UI (`CompagnieMadriTab` in `src/pages/CompagnieList.tsx`), nelle mutation `create` ed `update` aggiungere un check preventivo: se esiste già un gruppo con `UPPER(TRIM(descrizione))` uguale (escludendo l'id corrente in update), mostrare toast di errore "Esiste già una compagnia con questo nome" senza chiamare il DB.
+Nella riga di ogni agenzia (tab "Anagrafica Agenzie") aggiungere un'icona **Network** (`Layers`/`Network` lucide) nella colonna azioni → apre un **Dialog** dedicato.
 
-## Cosa NON viene fatto
+**Header del modale**: nome agenzia + chip "Plurimandataria" / "Broker" (visibile solo se l'agenzia è plurimandataria, broker o ha già >1 rapporto — altrimenti pulsante visibile ma con avviso).
 
-- Nessun cambio di schema su `compagnie` (i 649 record sono già univoci).
-- Nessuna modifica alle tabelle snapshot di backup (`compagnie_snapshot_post_dedup`, `compagnie_snapshot_round2`).
-- Nessuna modifica al fallback applicativo `PLURIMANDATARIO_CODE` (continua a funzionare, anzi diventa univoco).
+**Corpo**:
+- Tabella zebrata dei rapporti esistenti con colonne:
+  `Compagnia` · `Codice rapporto` · `Tipo` · `Rami` · `Inizio` · `Fine` · `% Provv.` · `Stato` · `Azioni (Edit/Chiudi/Elimina)`
+- Bottone **"+ Nuovo Rapporto"** apre form inline con:
+  - `SearchableSelect` Compagnia madre (da `gruppi_compagnia`, escludendo quelle già attive per evitare duplicati)
+  - Codice rapporto
+  - Tipo rapporto (select: Mandato diretto / Sub-agenzia / Convenzione broker / Coverholder / Altro)
+  - Rami abilitati (multi-select)
+  - Data inizio (default oggi) · Data fine (opzionale)
+  - % provvigione · IBAN dedicato
+  - Referente (nome, email, telefono)
+  - Note
+- Azione **"Chiudi rapporto"** → setta `data_fine = oggi` e `attivo = false` (non cancella, mantiene storico).
 
-## File toccati
+**Indicatori in lista agenzie**: nella tabella esistente, accanto al nome dell'agenzia mostrare un badge `N rapporti` cliccabile che apre direttamente il modale.
 
-- **Migrazione DB**: 4 merge + 4 delete + 1 unique index (un'unica migration).
-- `src/pages/CompagnieList.tsx`: aggiunta validazione anti-duplicato (case-insensitive) nelle mutation `createMutation` e `updateMutation` di `CompagnieMadriTab`.
+---
+
+## 3. Tracciabilità
+
+- Ogni create/update/delete su `compagnia_rapporti` viene loggato via trigger DB → visibile nella timeline esistente dell'agenzia.
+- Il modale mostra in fondo una mini-timeline degli ultimi 10 eventi sui rapporti di quella agenzia.
+
+---
+
+## Dettagli tecnici
+
+**File coinvolti**:
+- Nuova migrazione SQL: tabella `compagnia_rapporti` + RLS + trigger + backfill iniziale.
+- `src/pages/CompagnieList.tsx` — aggiunta colonna azione "Rapporti" + dialog.
+- Nuovo componente `src/components/compagnie/RapportiCompagniaDialog.tsx` — gestione CRUD rapporti.
+- Hook `useRapportiCompagnia(compagniaId)` con React Query (chiavi: `['rapporti-compagnia', compagniaId]`).
+
+**Pattern**: `SearchableSelect` per la scelta compagnia madre (rispetta la convenzione di progetto), tabella zebrata, debounce 350ms su ricerche, paginazione non necessaria (rapporti per agenzia tipicamente < 50).
+
+**Cosa NON tocchiamo ora**:
+- `compagnie.gruppo_compagnia_id` resta valorizzato (rapporto "principale" legacy) per non rompere viste/report esistenti.
+- I report che oggi raggruppano per `gruppo_compagnia_id` continueranno a funzionare; in una fase successiva si potranno migrare a leggere i rapporti attivi.
+
+---
+
+## Domanda prima di procedere
+
+Vuoi che il pulsante "Gestione Rapporti" sia visibile **su tutte le agenzie** o **solo su quelle marcate come Plurimandatario/Broker**? (default proposto: visibile su tutte, ma evidenziato con badge sulle plurimandatarie/broker).

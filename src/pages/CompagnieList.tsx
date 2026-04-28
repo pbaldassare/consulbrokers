@@ -18,6 +18,7 @@ import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Networ
 
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
+import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -1106,6 +1107,7 @@ const CompagnieList = () => {
   
   const [onlyPluri, setOnlyPluri] = useState(false);
   const [activeTab, setActiveTab] = useState("compagnie");
+  const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
@@ -1130,6 +1132,24 @@ const CompagnieList = () => {
       return map;
     },
     staleTime: 1000 * 60 * 30,
+  });
+
+  // Conteggio rapporti attivi per agenzia
+  const { data: rapportiCounts = {} } = useQuery({
+    queryKey: ["compagnia_rapporti_counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("compagnia_id, attivo");
+      const counts: Record<string, { tot: number; attivi: number }> = {};
+      (data || []).forEach((r: any) => {
+        if (!counts[r.compagnia_id]) counts[r.compagnia_id] = { tot: 0, attivi: 0 };
+        counts[r.compagnia_id].tot++;
+        if (r.attivo) counts[r.compagnia_id].attivi++;
+      });
+      return counts;
+    },
+    staleTime: 1000 * 60,
   });
 
   const createMutation = useMutation({
@@ -1308,6 +1328,7 @@ const CompagnieList = () => {
                       <TableHead>Comune</TableHead>
                       <TableHead>Prov</TableHead>
                       <TableHead>Stato</TableHead>
+                      <TableHead className="text-center">Rapporti</TableHead>
                       <TableHead>Attiva</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1315,6 +1336,7 @@ const CompagnieList = () => {
                     {filteredAnagrafica.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
                       const isPluri = grp?.is_pluri;
+                      const rc = (rapportiCounts as any)[c.id] || { tot: 0, attivi: 0 };
                       return (
                         <TableRow
                           key={c.id}
@@ -1340,6 +1362,18 @@ const CompagnieList = () => {
                               {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant={rc.attivi > 1 ? "default" : "outline"}
+                              size="sm"
+                              className="gap-1 h-7"
+                              onClick={() => setRapportiTarget({ id: c.id, nome: c.nome })}
+                              title="Gestisci rapporti con compagnie"
+                            >
+                              <Network className="w-3.5 h-3.5" />
+                              {rc.attivi}{rc.tot > rc.attivi ? `/${rc.tot}` : ""}
+                            </Button>
+                          </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
                           </TableCell>
@@ -1347,7 +1381,7 @@ const CompagnieList = () => {
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -1361,6 +1395,14 @@ const CompagnieList = () => {
         </TabsContent>
 
       </Tabs>
+
+      {/* Dialog gestione rapporti N:N agenzia ↔ compagnia */}
+      <RapportiCompagniaDialog
+        open={!!rapportiTarget}
+        onOpenChange={(v) => !v && setRapportiTarget(null)}
+        compagniaId={rapportiTarget?.id || null}
+        compagniaNome={rapportiTarget?.nome || ""}
+      />
     </div>
   );
 };
