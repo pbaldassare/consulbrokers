@@ -2061,16 +2061,33 @@ const TitoloDetail = () => {
               const percComm = t.percentuale_commerciale ?? 100;
               const provvQ = t.provvigioni_quietanza;
               const commName = t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
+              const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
+              const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
+              const importoComm = provvQ != null ? provvQ * percComm / 100 : 0;
+              const importoAdmin = provvQ != null ? provvQ * (100 - percComm) / 100 : 0;
               return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                  <FieldRow label="Commerciale" value={commName} />
-                  <FieldRow label="% Commerciale" value={`${percComm}%`} />
-                  {provvQ != null && provvQ > 0 && (
-                    <>
-                      <FieldRow label="Provv. Commerciale" value={fmtEuro(provvQ * percComm / 100)} />
-                      <FieldRow label="Provv. Consul" value={fmtEuro(provvQ * (100 - percComm) / 100)} />
-                    </>
+                <div className="space-y-3">
+                  {commercialeIsAdmin && (
+                    <div className="text-xs px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900">
+                      Commerciale = Consulbrokers SPA (admin) → split <strong>solo statistico</strong>: l'intera quota va a Consulbrokers SPA.
+                    </div>
                   )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+                    <FieldRow label="Commerciale" value={commName} />
+                    <FieldRow label="% Commerciale" value={`${percComm}%`} />
+                    {provvQ != null && provvQ > 0 && (
+                      <>
+                        <FieldRow
+                          label={commercialeIsAdmin ? "Provv. Commerciale (statistica)" : "Provv. Commerciale"}
+                          value={fmtEuro(importoComm)}
+                        />
+                        <FieldRow
+                          label="Provv. Consulbrokers SPA"
+                          value={fmtEuro(commercialeIsAdmin ? provvQ : importoAdmin)}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })()}
