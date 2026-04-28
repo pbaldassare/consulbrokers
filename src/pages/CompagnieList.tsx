@@ -1328,6 +1328,7 @@ const CompagnieList = () => {
                       <TableHead>Comune</TableHead>
                       <TableHead>Prov</TableHead>
                       <TableHead>Stato</TableHead>
+                      <TableHead className="text-center">Rapporti</TableHead>
                       <TableHead>Attiva</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1335,6 +1336,7 @@ const CompagnieList = () => {
                     {filteredAnagrafica.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
                       const isPluri = grp?.is_pluri;
+                      const rc = (rapportiCounts as any)[c.id] || { tot: 0, attivi: 0 };
                       return (
                         <TableRow
                           key={c.id}
@@ -1360,6 +1362,18 @@ const CompagnieList = () => {
                               {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant={rc.attivi > 1 ? "default" : "outline"}
+                              size="sm"
+                              className="gap-1 h-7"
+                              onClick={() => setRapportiTarget({ id: c.id, nome: c.nome })}
+                              title="Gestisci rapporti con compagnie"
+                            >
+                              <Network className="w-3.5 h-3.5" />
+                              {rc.attivi}{rc.tot > rc.attivi ? `/${rc.tot}` : ""}
+                            </Button>
+                          </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
                           </TableCell>
@@ -1367,7 +1381,7 @@ const CompagnieList = () => {
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
