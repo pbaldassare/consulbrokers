@@ -1395,6 +1395,14 @@ const CompagnieList = () => {
         </TabsContent>
 
       </Tabs>
+
+      {/* Dialog gestione rapporti N:N agenzia ↔ compagnia */}
+      <RapportiCompagniaDialog
+        open={!!rapportiTarget}
+        onOpenChange={(v) => !v && setRapportiTarget(null)}
+        compagniaId={rapportiTarget?.id || null}
+        compagniaNome={rapportiTarget?.nome || ""}
+      />
     </div>
   );
 };
