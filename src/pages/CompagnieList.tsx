@@ -1107,6 +1107,7 @@ const CompagnieList = () => {
   
   const [onlyPluri, setOnlyPluri] = useState(false);
   const [activeTab, setActiveTab] = useState("compagnie");
+  const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
