@@ -152,6 +152,19 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // Admin anagrafica id (Consulbrokers SPA / casa madre) — dynamic from settings
+  const { data: adminAnagraficaId } = useQuery({
+    queryKey: ["admin_anagrafica_id"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("impostazioni_sistema")
+        .select("valore_json")
+        .eq("chiave", "admin_anagrafica_id")
+        .maybeSingle();
+      return ((data?.valore_json as any)?.anagrafica_id as string | null) ?? null;
+    },
+  });
+
   const { data: riparto = [] } = useQuery({
     queryKey: ["riparto", id],
     queryFn: async () => {
