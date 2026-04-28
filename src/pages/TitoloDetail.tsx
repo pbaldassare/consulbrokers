@@ -36,6 +36,26 @@ const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { lo
 const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
 const fmtBool = (v: boolean | null) => v ? "Sì" : "No";
 
+// Determina se il ramo della polizza è di tipo Auto/Veicoli (RCA, ARD, statistici RV*).
+// In questo caso vanno mostrati i campi tecnici del veicolo.
+const RAMI_AUTO_CODICI = new Set(["PI", "QA", "QAC", "QC", "QF", "QG", "QR", "QU", "DAB", "PJ"]);
+const isRamoAuto = (ramo: any) => {
+  if (!ramo) return false;
+  const cod = String(ramo.codice || "").toUpperCase().trim();
+  const desc = String(ramo.descrizione || "").toUpperCase();
+  if (RAMI_AUTO_CODICI.has(cod)) return true;
+  if (cod.startsWith("RV")) return true;
+  if (/\bAUTO\b|\bAUTOVEIC|\bAUTOCARR|\bVEICOL/.test(desc)) return true;
+  return false;
+};
+
+// Sotto-titolo per i blocchi interni alla sezione Veicolo
+const SubBlockTitle = ({ children }: { children: React.ReactNode }) => (
+  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mt-3 mb-2 pb-1 border-b border-border/60">
+    {children}
+  </h4>
+);
+
 const FieldRow = React.forwardRef<HTMLDivElement, { label: string; value: React.ReactNode }>(({ label, value }, ref) => (
   <div ref={ref} className="flex justify-between py-1">
     <span className="text-xs text-muted-foreground">{label}</span>
