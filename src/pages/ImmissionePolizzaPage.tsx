@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Search, Car, Receipt, User, Info } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
@@ -349,6 +349,26 @@ const ImmissionePolizzaPage = () => {
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
+  // Quando il ramo NON è auto, azzeriamo tutti i dati veicolo/conducente per evitare salvataggi sporchi
+  useEffect(() => {
+    if (isRCA) return;
+    setTargaTelaio("");
+    setVMarca(""); setVModello(""); setVVersione(""); setVTarga(""); setVTelaio("");
+    setVDescrizione(""); setVDataImmatricolazione(""); setVAnnoAcquisto("");
+    setVProvinciaCircolazione(""); setVClasseBm("");
+    setVMass1("0"); setVMass2("0"); setVMass3("0");
+    setVPeius(false); setVFranchigia("0"); setVTemporanea(false);
+    setVCaricoScarico(false); setVCompetizione(false); setVRimorchio(false);
+    setVCv("0"); setVKw("0"); setVCc("0"); setVPosti("0");
+    setVPesoMotrice("0"); setVPesoRimorchio("0"); setVPesoTotale("0");
+    setVTipologiaGuida(""); setVTipoAlimentazione("");
+    setPremiGaranzia(garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i })));
+    setCNome(""); setCCognome(""); setCIndirizzo(""); setCCap("");
+    setCCitta(""); setCProvincia(""); setCDataNascita("");
+    setCTipoPatente(""); setCDataRilascioPatente(""); setCNote("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRCA]);
+
   // Provvigione: rimossa lookup automatica per prodotto (prodotto è ora testo libero).
   // L'utente inserisce manualmente la percentuale.
   const provvigioneFromDb = false;
@@ -670,6 +690,12 @@ const ImmissionePolizzaPage = () => {
                 </Badge>
               )}
             </div>
+            {isRCA && (
+              <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
+                <Info className="h-3 w-3" />
+                Ramo RCA rilevato: in fondo alla pagina troverai le sezioni Veicolo, Garanzie e Conducente.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
@@ -706,10 +732,12 @@ const ImmissionePolizzaPage = () => {
             <Label className="text-xs">Appendice</Label>
             <Input value={appendice} onChange={(e) => setAppendice(e.target.value)} className="h-8 text-xs" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Targa/Telaio</Label>
-            <Input value={targaTelaio} onChange={(e) => setTargaTelaio(e.target.value)} className="h-8 text-xs" />
-          </div>
+          {isRCA && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1"><Car className="h-3 w-3 text-primary" />Targa/Telaio</Label>
+              <Input value={targaTelaio} onChange={(e) => setTargaTelaio(e.target.value.toUpperCase())} className="h-8 text-xs font-mono" />
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -1064,9 +1092,20 @@ const ImmissionePolizzaPage = () => {
       {/* === SEZIONI RCA AUTO === */}
       {isRCA && (
         <>
+          {/* Banner intro RCA */}
+          <div className="rounded-lg border-2 border-primary/30 bg-primary/5 px-4 py-3 flex items-center gap-3 mt-2">
+            <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+              <Car className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-primary uppercase tracking-wide">Sezione RCA Auto</p>
+              <p className="text-xs text-muted-foreground">Compila i dati specifici del veicolo, delle garanzie e del conducente.</p>
+            </div>
+          </div>
+
           {/* DATI VEICOLO */}
           <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">🚗 Dati Veicolo</legend>
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><Car className="h-3.5 w-3.5" /> Dati Veicolo</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo Veicolo</Label>
@@ -1168,7 +1207,7 @@ const ImmissionePolizzaPage = () => {
 
           {/* DATI PREMIO PER GARANZIA */}
           <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">💰 Dati Premio per Garanzia</legend>
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Dati Premio per Garanzia</legend>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -1205,7 +1244,7 @@ const ImmissionePolizzaPage = () => {
 
           {/* DATI CONDUCENTE */}
           <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">👤 Dati Conducente</legend>
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Dati Conducente</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
