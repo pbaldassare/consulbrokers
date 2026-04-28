@@ -732,10 +732,12 @@ const ImmissionePolizzaPage = () => {
             <Label className="text-xs">Appendice</Label>
             <Input value={appendice} onChange={(e) => setAppendice(e.target.value)} className="h-8 text-xs" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Targa/Telaio</Label>
-            <Input value={targaTelaio} onChange={(e) => setTargaTelaio(e.target.value)} className="h-8 text-xs" />
-          </div>
+          {isRCA && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1"><Car className="h-3 w-3 text-primary" />Targa/Telaio</Label>
+              <Input value={targaTelaio} onChange={(e) => setTargaTelaio(e.target.value.toUpperCase())} className="h-8 text-xs font-mono" />
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
