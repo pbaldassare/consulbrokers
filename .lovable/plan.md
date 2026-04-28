@@ -1,53 +1,35 @@
-## Stato attuale (verificato)
+## Problema
 
-In `supabase/functions/calcola-provvigioni/index.ts` (path primario, quando `provvigioni_quietanza > 0`) la logica è già corretta concettualmente:
+Quando modifichi il Commerciale e salvi, in DB il valore **viene effettivamente aggiornato** (verificato: l'ultima PATCH ha settato `anagrafica_commerciale_id = 55ff2a7d-...` con successo, status 204). Il problema è solo **visivo**: nel riquadro "Commerciale & Provvigioni" continua ad apparire "INTERFIDI SRL" perché il nome mostrato viene letto da un altro campo (`produttore_nome`, testo libero del contratto), che ha priorità sul commerciale appena salvato.
 
-- Se esiste un commerciale e `percentuale_commerciale < 100` → 2 righe in `provvigioni_generate`:
-  - `tipo_destinatario = 'commerciale'`, `user_id = commerciale_id`, importo = `provvQ * %comm/100`
-  - `tipo_destinatario = 'consul'`, `user_id = NULL`, importo = differenza (la quota di Consulbrokers SPA / casa madre)
-- Se non c'è commerciale o `%comm = 100` → 1 riga `'consul'` con il 100%.
+Codice attuale (`src/pages/TitoloDetail.tsx` riga 2063):
+```ts
+const commName = t.produttore_nome || (t.commerciale ? `${t.commerciale.nome} ${t.commerciale.cognome}` : "Sede");
+```
+Non considera mai `anagrafica_commerciale_id` → `anagrafiche_professionali`, che è la nuova fonte di verità.
 
-Frontend (`TitoloDetail.tsx`, sezione "Commerciale & Provvigioni") mostra correttamente `Provv. Commerciale` e `Provv. Consul` calcolati live.
+## Soluzione
 
-DB conferma: 132 righe `commerciale` (€ 8.111,52) e 290 righe `consul` (€ 281.898,97).
+### 1. Fix display Commerciale (`src/pages/TitoloDetail.tsx`)
+- Caricare la query del titolo includendo il join `anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)`.
+- Cambiare la priorità del nome mostrato a:
+  1. `anagrafica_commerciale.ragione_sociale` (o `cognome nome`) se presente
+  2. fallback `produttore_nome` (testo libero legacy)
+  3. fallback `commerciale.nome cognome` (FK profili legacy)
+  4. "Sede"
+- Stessa priorità nel display dopo aver chiuso l'edit.
 
-## Problemi rilevati
+### 2. Allineare anche `produttore_nome` al salvataggio
+Per evitare incoerenze future con altre viste (es. lista titoli, report) che leggono `produttore_nome`, all'interno di `saveCommMutation` settare anche `produttore_nome`:
+- Se è selezionata un'anagrafica → `produttore_nome = label dell'anagrafica` (ragione sociale o cognome+nome).
+- Se "Nessuno (Sede)" → `produttore_nome = null`.
 
-1. **Etichetta ambigua**: la quota residua è `tipo_destinatario = 'consul'` ma rappresenta in realtà la **casa madre Consulbrokers & Partners SPA** (admin). Confondere "Consul" (intermediario rete) con "Consulbrokers SPA" (admin/broker capofila) crea ambiguità in report e export.
-2. **Caso "commerciale = Consulbrokers SPA"**: oggi se l'anagrafica commerciale è la stessa Consulbrokers SPA, vengono comunque generate 2 righe distinte (`commerciale` + `consul`) con divisione economica reale, mentre l'utente vuole che in quel caso lo split sia **solo statistico** (le due quote vanno alla stessa entità, nessuna separazione economica reale).
-3. Nessuna identificazione persistente di "chi è l'admin" → manca un puntatore a Consulbrokers SPA (esiste già come `anagrafiche_professionali` id `b5029abb-72dd-454f-bbd1-2d758964a379`, ragione "CONSULBROKERS & PARTNERS SPA").
+In questo modo il campo testo libero resta sincronizzato e tutti i punti del sistema vedono lo stesso nome subito dopo il salvataggio.
 
-## Piano
+### 3. (Opzionale) Conferma visiva su 204
+Aggiungere `.select("id").single()` alla mutation per verificare effettivamente che la riga sia stata aggiornata (ed eventualmente mostrare errore se 0 righe), in modo che in futuro un blocco RLS non passi inosservato.
 
-### 1. Settings: identificare l'admin (Consulbrokers SPA)
-Inserire in `impostazioni_sistema` la chiave `admin_anagrafica_id` con valore JSON `{ "anagrafica_id": "b5029abb-72dd-454f-bbd1-2d758964a379" }`. Una piccola UI in `ImpostazioniPage` per cambiarla (SearchableSelect su `anagrafiche_professionali`).
+## File toccati
+- `src/pages/TitoloDetail.tsx` (query select + saveCommMutation + display commName)
 
-### 2. Edge function `calcola-provvigioni` — refinement
-- Leggere `admin_anagrafica_id` da `impostazioni_sistema`.
-- Rinominare `tipo_destinatario = 'consul'` per la quota residua in **`'admin'`** (più chiaro: rappresenta Consulbrokers SPA). Mantenere `'consul'` solo per il fallback "no commerciale" legacy se serve, oppure migrare anche quello a `'admin'`.
-- **Caso speciale**: se `anagrafica_commerciale_id == admin_anagrafica_id` → generare comunque 2 righe per fini statistici, ma con un flag `solo_statistico = true` sulla riga `commerciale` (quella che altrimenti rappresenterebbe doppio pagamento). I report finanziari sommano solo righe con `solo_statistico = false`; i report statistici le sommano tutte.
-
-### 3. Schema DB
-- Aggiungere `provvigioni_generate.solo_statistico boolean NOT NULL DEFAULT false`.
-- Aggiornare il CHECK / commento su `tipo_destinatario` per documentare i valori: `'commerciale' | 'admin' | 'consul' (legacy)`.
-- Migrazione one-shot: rietichettare le 290 righe esistenti `'consul'` → `'admin'` quando provengono da titoli con commerciale valorizzato (split reale); lasciare `'consul'` se provengono dal fallback.
-
-### 4. Frontend
-- `TitoloDetail.tsx`: nella sezione "Commerciale & Provvigioni" rinominare la riga `Provv. Consul` in **`Provv. Consulbrokers SPA (admin)`**. Se il commerciale coincide con l'admin, mostrare un badge "Split solo statistico — stessa entità" e riportare un unico totale economico.
-- `ProvvigioniMaturatePage`: aggiungere colonna/badge per distinguere `commerciale` / `admin (Consulbrokers SPA)` / `solo statistico`. Il filtro `.neq("tipo_destinatario", "consul")` esistente diventa `.neq("solo_statistico", true)` per escludere le righe puramente statistiche dai pagamenti reali.
-- Aggiornare le legend e i tooltip dove appare "Consul" per chiarire la differenza tra "Consul" (rete intermediari) e "Consulbrokers SPA" (admin/casa madre).
-
-### 5. Report e estrazioni
-Verificare che `ProvvigioniSedePage`, `EstrazioniStampe` e i report contabili usino `solo_statistico = false` quando aggregano valori monetari reali, e ignorino il flag quando producono statistiche di produzione per commerciale.
-
-### 6. Memoria
-Aggiornare `mem://insurance/policy-commission-split` (o crearla se mancante) con:
-- Regola: quota residua = Consulbrokers SPA (admin), `tipo_destinatario = 'admin'`.
-- Eccezione: se commerciale = admin, split solo statistico (`solo_statistico = true` sulla riga commerciale).
-- Pointer all'`admin_anagrafica_id` in `impostazioni_sistema`.
-
-## Cosa NON cambia
-
-- La logica matematica dello split (`provvQ * %comm/100`) rimane identica.
-- Le percentuali in `titoli.percentuale_commerciale` non vengono toccate.
-- I pagamenti già emessi (`pagamenti_provvigioni`) restano invariati.
+Nessuna migrazione DB necessaria: i dati sono già corretti, è solo un bug di rendering.
