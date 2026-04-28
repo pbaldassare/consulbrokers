@@ -1384,6 +1384,87 @@ export type Database = {
           },
         ]
       }
+      compagnia_rapporti: {
+        Row: {
+          attivo: boolean
+          codice_rapporto: string | null
+          compagnia_id: string
+          created_at: string
+          created_by: string | null
+          data_fine: string | null
+          data_inizio: string | null
+          email_referente: string | null
+          gruppo_compagnia_id: string
+          iban_dedicato: string | null
+          id: string
+          note: string | null
+          percentuale_provvigione: number | null
+          rami_abilitati: string[] | null
+          referente_compagnia: string | null
+          telefono_referente: string | null
+          tipo_rapporto: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          attivo?: boolean
+          codice_rapporto?: string | null
+          compagnia_id: string
+          created_at?: string
+          created_by?: string | null
+          data_fine?: string | null
+          data_inizio?: string | null
+          email_referente?: string | null
+          gruppo_compagnia_id: string
+          iban_dedicato?: string | null
+          id?: string
+          note?: string | null
+          percentuale_provvigione?: number | null
+          rami_abilitati?: string[] | null
+          referente_compagnia?: string | null
+          telefono_referente?: string | null
+          tipo_rapporto?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          attivo?: boolean
+          codice_rapporto?: string | null
+          compagnia_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_fine?: string | null
+          data_inizio?: string | null
+          email_referente?: string | null
+          gruppo_compagnia_id?: string
+          iban_dedicato?: string | null
+          id?: string
+          note?: string | null
+          percentuale_provvigione?: number | null
+          rami_abilitati?: string[] | null
+          referente_compagnia?: string | null
+          telefono_referente?: string | null
+          tipo_rapporto?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compagnia_rapporti_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compagnia_rapporti_gruppo_compagnia_id_fkey"
+            columns: ["gruppo_compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_compagnia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compagnie: {
         Row: {
           allegato_excel_avvisi: boolean | null
