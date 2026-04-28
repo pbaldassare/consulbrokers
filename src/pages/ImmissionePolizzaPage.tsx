@@ -349,6 +349,26 @@ const ImmissionePolizzaPage = () => {
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
 
+  // Quando il ramo NON è auto, azzeriamo tutti i dati veicolo/conducente per evitare salvataggi sporchi
+  useEffect(() => {
+    if (isRCA) return;
+    setTargaTelaio("");
+    setVMarca(""); setVModello(""); setVVersione(""); setVTarga(""); setVTelaio("");
+    setVDescrizione(""); setVDataImmatricolazione(""); setVAnnoAcquisto("");
+    setVProvinciaCircolazione(""); setVClasseBm("");
+    setVMass1("0"); setVMass2("0"); setVMass3("0");
+    setVPeius(false); setVFranchigia("0"); setVTemporanea(false);
+    setVCaricoScarico(false); setVCompetizione(false); setVRimorchio(false);
+    setVCv("0"); setVKw("0"); setVCc("0"); setVPosti("0");
+    setVPesoMotrice("0"); setVPesoRimorchio("0"); setVPesoTotale("0");
+    setVTipologiaGuida(""); setVTipoAlimentazione("");
+    setPremiGaranzia(garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i })));
+    setCNome(""); setCCognome(""); setCIndirizzo(""); setCCap("");
+    setCCitta(""); setCProvincia(""); setCDataNascita("");
+    setCTipoPatente(""); setCDataRilascioPatente(""); setCNote("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRCA]);
+
   // Provvigione: rimossa lookup automatica per prodotto (prodotto è ora testo libero).
   // L'utente inserisce manualmente la percentuale.
   const provvigioneFromDb = false;
