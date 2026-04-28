@@ -690,6 +690,12 @@ const ImmissionePolizzaPage = () => {
                 </Badge>
               )}
             </div>
+            {isRCA && (
+              <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
+                <Info className="h-3 w-3" />
+                Ramo RCA rilevato: in fondo alla pagina troverai le sezioni Veicolo, Garanzie e Conducente.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
