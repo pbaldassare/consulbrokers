@@ -1207,7 +1207,7 @@ const ImmissionePolizzaPage = () => {
 
           {/* DATI PREMIO PER GARANZIA */}
           <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">💰 Dati Premio per Garanzia</legend>
+            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Dati Premio per Garanzia</legend>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
