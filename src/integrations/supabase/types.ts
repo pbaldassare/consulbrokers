@@ -7190,6 +7190,14 @@ export type Database = {
       get_chat_unread_count: { Args: { _user_id: string }; Returns: number }
       get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
+      get_rapporti_counts_per_compagnia: {
+        Args: never
+        Returns: {
+          attivi: number
+          compagnia_id: string
+          tot: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

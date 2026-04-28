@@ -1134,22 +1134,19 @@ const CompagnieList = () => {
     staleTime: 1000 * 60 * 30,
   });
 
-  // Conteggio rapporti attivi per agenzia
+  // Conteggio rapporti attivi per agenzia (RPC aggregata lato DB, evita limite 1000 righe)
   const { data: rapportiCounts = {} } = useQuery({
     queryKey: ["compagnia_rapporti_counts"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("compagnia_rapporti" as any)
-        .select("compagnia_id, attivo");
+      const { data, error } = await supabase.rpc("get_rapporti_counts_per_compagnia" as any);
+      if (error) throw error;
       const counts: Record<string, { tot: number; attivi: number }> = {};
       (data || []).forEach((r: any) => {
-        if (!counts[r.compagnia_id]) counts[r.compagnia_id] = { tot: 0, attivi: 0 };
-        counts[r.compagnia_id].tot++;
-        if (r.attivo) counts[r.compagnia_id].attivi++;
+        counts[r.compagnia_id] = { tot: Number(r.tot) || 0, attivi: Number(r.attivi) || 0 };
       });
       return counts;
     },
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 30,
   });
 
   const createMutation = useMutation({
