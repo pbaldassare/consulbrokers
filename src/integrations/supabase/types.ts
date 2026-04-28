@@ -2588,6 +2588,7 @@ export type Database = {
       }
       fornitori: {
         Row: {
+          anagrafica_professionale_id: string | null
           attivo: boolean | null
           cap: string | null
           codice: string | null
@@ -2610,6 +2611,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          anagrafica_professionale_id?: string | null
           attivo?: boolean | null
           cap?: string | null
           codice?: string | null
@@ -2632,6 +2634,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          anagrafica_professionale_id?: string | null
           attivo?: boolean | null
           cap?: string | null
           codice?: string | null
@@ -2654,6 +2657,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fornitori_anagrafica_professionale_id_fkey"
+            columns: ["anagrafica_professionale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fornitori_ufficio_id_fkey"
             columns: ["ufficio_id"]
