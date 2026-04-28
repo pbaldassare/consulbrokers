@@ -395,12 +395,14 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
-        .select("id, nome, codice")
+        .select("id, nome, codice, gruppo_compagnia")
         .eq("attiva", true)
         .order("nome");
       return (data || []).map((c: any) => ({
         value: c.id,
         label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
+        description: c.gruppo_compagnia ? `Gruppo: ${c.gruppo_compagnia}` : undefined,
+        searchText: c.gruppo_compagnia || undefined,
       }));
     },
     enabled: editingContratto,
