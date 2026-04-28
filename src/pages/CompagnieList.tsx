@@ -828,9 +828,18 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      const norm = form.descrizione.trim().toUpperCase();
+      // Check anti-duplicato case-insensitive
+      const { data: existing } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, descrizione")
+        .ilike("descrizione", form.descrizione.trim());
+      if ((existing || []).some((g: any) => (g.descrizione || "").trim().toUpperCase() === norm)) {
+        throw new Error("Esiste già una compagnia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+      }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
-        .insert({ codice: form.codice || null, descrizione: form.descrizione, attivo: form.attivo });
+        .insert({ codice: form.codice || null, descrizione: form.descrizione.trim(), attivo: form.attivo });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -846,9 +855,18 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editId) return;
+      const norm = form.descrizione.trim().toUpperCase();
+      // Check anti-duplicato case-insensitive (escluso il record corrente)
+      const { data: existing } = await supabase
+        .from("gruppi_compagnia" as any)
+        .select("id, descrizione")
+        .ilike("descrizione", form.descrizione.trim());
+      if ((existing || []).some((g: any) => g.id !== editId && (g.descrizione || "").trim().toUpperCase() === norm)) {
+        throw new Error("Esiste già una compagnia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+      }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
-        .update({ codice: form.codice || null, descrizione: form.descrizione, attivo: form.attivo })
+        .update({ codice: form.codice || null, descrizione: form.descrizione.trim(), attivo: form.attivo })
         .eq("id", editId);
       if (error) throw error;
     },
