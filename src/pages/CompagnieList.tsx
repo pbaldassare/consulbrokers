@@ -1134,6 +1134,24 @@ const CompagnieList = () => {
     staleTime: 1000 * 60 * 30,
   });
 
+  // Conteggio rapporti attivi per agenzia
+  const { data: rapportiCounts = {} } = useQuery({
+    queryKey: ["compagnia_rapporti_counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("compagnia_id, attivo");
+      const counts: Record<string, { tot: number; attivi: number }> = {};
+      (data || []).forEach((r: any) => {
+        if (!counts[r.compagnia_id]) counts[r.compagnia_id] = { tot: 0, attivi: 0 };
+        counts[r.compagnia_id].tot++;
+        if (r.attivo) counts[r.compagnia_id].attivi++;
+      });
+      return counts;
+    },
+    staleTime: 1000 * 60,
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("compagnie").insert(formToPayload(form) as any);
