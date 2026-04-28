@@ -130,6 +130,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       setFormOpen(false);
       setForm(emptyForm);
       toast.success("Rapporto salvato");
@@ -147,6 +148,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       toast.success("Rapporto chiuso");
     },
     onError: () => toast.error("Errore"),
@@ -159,6 +161,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       setDeleteId(null);
       toast.success("Rapporto eliminato");
     },
