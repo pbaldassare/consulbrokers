@@ -2071,7 +2071,11 @@ const TitoloDetail = () => {
             {(() => {
               const percComm = t.percentuale_commerciale ?? 100;
               const provvQ = t.provvigioni_quietanza;
-              const commName = t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
+              const anagComm: any = (t as any).anagrafica_commerciale;
+              const anagCommName = anagComm
+                ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
+                : null;
+              const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
               const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
               const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
               const importoComm = provvQ != null ? provvQ * percComm / 100 : 0;
