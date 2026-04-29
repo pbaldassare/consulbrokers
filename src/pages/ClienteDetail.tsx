@@ -1804,6 +1804,14 @@ export default function ClienteDetail() {
                     <FieldInput label="Città Sede" field="citta_sede" />
                     <FieldInput label="Provincia Sede" field="provincia_sede" />
                     <FieldInput label="CAP Sede" field="cap_sede" />
+                    {isEnte && (
+                      <FieldInput
+                        label="Codice CUP"
+                        field="codice_cup"
+                        required
+                        errorMessage="Codice CUP obbligatorio per Ente"
+                      />
+                    )}
                   </>
                 )}
                 <FieldInput
