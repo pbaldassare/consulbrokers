@@ -13,18 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, UserCheck, Scale, Briefcase, Eye, Users } from "lucide-react";
+import { Plus, Search, Briefcase, Users } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const TIPI = [
-  { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
-  { value: "perito", label: "Periti", icon: Eye },
-  { value: "legale", label: "Legali", icon: Scale },
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
   { value: "corrispondente", label: "Produttori", icon: Users },
-  { value: "executive", label: "Executive", icon: Briefcase },
   { value: "responsabile_sede", label: "Resp. Sede", icon: Users },
-  { value: "produttore_sede", label: "Prod. Sede", icon: Users },
 ] as const;
 
 type TipoAnagrafica = typeof TIPI[number]["value"];
@@ -92,10 +87,10 @@ const emptyForm = {
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
 
-const AnagraficheProfessionaliPage = () => {
+const AnagraficheInternePage = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TipoAnagrafica>("liquidatore");
+  const [activeTab, setActiveTab] = useState<TipoAnagrafica>("account_executive");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -130,10 +125,10 @@ const AnagraficheProfessionaliPage = () => {
     },
   });
 
-  const isCommerciale = ['account_executive', 'corrispondente', 'executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
+  const isCommerciale = ['account_executive', 'corrispondente', 'responsabile_sede'].includes(activeTab);
   const isAE = activeTab === "account_executive";
   const isCorr = activeTab === "corrispondente";
-  const isNewCommercial = ['executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
+  const isNewCommercial = activeTab === "responsabile_sede";
   const isProduttore = isCommerciale;
 
   const createMutation = useMutation({
@@ -774,8 +769,8 @@ const AnagraficheProfessionaliPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Anagrafiche</h1>
-          <p className="text-sm text-muted-foreground">Liquidatori, Periti, Legali, Account Executive, Produttori, Executive, Resp. Sede, Prod. Sede</p>
+          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Interne</h1>
+          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />Nuovo
@@ -839,4 +834,4 @@ const AnagraficheProfessionaliPage = () => {
   );
 };
 
-export default AnagraficheProfessionaliPage;
+export default AnagraficheInternePage;
