@@ -1407,6 +1407,8 @@ export default function ClienteDetail() {
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
   const emailOk = isEmailValid(ef.email || "");
 
+  const isEnte = cliente.tipo_cliente === "ente";
+
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
@@ -1430,6 +1432,7 @@ export default function ClienteDetail() {
         },
         { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
         { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },
+        ...(isEnte ? [{ field: "codice_cup", label: "Codice CUP", ok: !!(ef.codice_cup || "").trim() }] : []),
       ];
 
   const missingRequired = requiredFieldsList.filter((r) => !r.ok);
