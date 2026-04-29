@@ -1,6 +1,6 @@
 ---
 name: Gruppi Finanziari - Tipo Soggetto
-description: Il flag tipo_soggetto su gruppi_finanziari (privato/azienda/ente) governa dinamicamente i campi anagrafica cliente; tipo_cliente è derivato automaticamente.
+description: Il flag tipo_soggetto su gruppi_finanziari (privato/azienda/ente) governa dinamicamente i campi anagrafica cliente; tipo_cliente è derivato automaticamente dal Gruppo Finanziario.
 type: feature
 ---
 
@@ -9,7 +9,9 @@ type: feature
 - `clienti.codice_cup` text (nullable a DB, obbligatorio lato form solo per ENTE)
 
 ## Derivazione automatica
-Quando si seleziona un Gruppo Finanziario su un cliente, `clienti.tipo_cliente` viene automaticamente derivato dal `tipo_soggetto` del gruppo. Il campo non è modificabile separatamente.
+- **Nuovo Cliente** (`ClientiList.tsx`): in cima al modal il primo campo è **Gruppo Finanziario** (SearchableSelect). Selezionandolo, `tipoCliente` viene impostato automaticamente da `gruppo.tipo_soggetto` e mostrato come **badge read-only** con suffisso "(auto)". Non esiste più un selettore Tipo Cliente modificabile manualmente.
+- **Cliente Detail** (`ClienteDetail.tsx`): stessa logica — cambiando `gruppo_finanziario_id` viene aggiornato `tipo_cliente`.
+- Il duplicato Gruppo Finanziario nella sezione "Dati Statistici" del modal è ora **read-only** (Input disabled): l'unico punto di selezione è in cima.
 
 ## Campi per tipologia (ClienteDetail.tsx)
 - **PRIVATO**: nome, cognome, CF (16 char, validato e con auto-fill di sesso/data/luogo nascita via `parseCF`), data/luogo nascita, indirizzo residenza.
