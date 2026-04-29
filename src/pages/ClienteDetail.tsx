@@ -426,7 +426,6 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
   const [profiloId, setProfiloId] = useState(existing?.profilo_id || "");
   const [percentuale, setPercentuale] = useState(existing?.percentuale?.toString() || "0");
   const [societaBrand, setSocietaBrand] = useState(existing?.societa_brand || "");
-  const [filiale, setFiliale] = useState(existing?.filiale || "");
   const [mandato, setMandato] = useState(existing?.mandato || "");
   const [dataAcquisito, setDataAcquisito] = useState(existing?.data_acquisito || "");
   const [scadenzaMandato, setScadenzaMandato] = useState(existing?.scadenza_mandato || "");
@@ -440,7 +439,6 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
       setProfiloId(existing.profilo_id || "");
       setPercentuale(existing.percentuale?.toString() || "0");
       setSocietaBrand(existing.societa_brand || "");
-      setFiliale(existing.filiale || "");
       setMandato(existing.mandato || "");
       setDataAcquisito(existing.data_acquisito || "");
       setScadenzaMandato(existing.scadenza_mandato || "");
@@ -459,7 +457,6 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
       profilo_id: profiloId || null,
       percentuale: parseFloat(percentuale) || 0,
       societa_brand: societaBrand || null,
-      filiale: filiale || null,
       mandato: mandato || null,
       data_acquisito: dataAcquisito || null,
       scadenza_mandato: scadenzaMandato || null,
@@ -494,10 +491,6 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
           <div>
             <Label className="text-xs">Società/Brand</Label>
             <Input className="h-8 text-xs" value={societaBrand} onChange={(e) => setSocietaBrand(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Filiale</Label>
-            <Input className="h-8 text-xs" value={filiale} onChange={(e) => setFiliale(e.target.value)} />
           </div>
           <div>
             <Label className="text-xs">Mandato</Label>

@@ -19,7 +19,6 @@ const RinnoviPolizzaPage = () => {
   const [gruppoRamo, setGruppoRamo] = useState("");
   const [ramo, setRamo] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
-  const [filiale, setFiliale] = useState("");
   const [specialist, setSpecialist] = useState("");
   const [indotto, setIndotto] = useState("");
   const [autoFilter, setAutoFilter] = useState("tutti");
@@ -123,10 +122,6 @@ const RinnoviPolizzaPage = () => {
                 {aeList?.map((ae) => (
                   <option key={ae.id} value={ae.id}>{ae.sigla || ae.codice} - {ae.cognome} {ae.nome}</option>
                 ))}
-              </select>
-              <Label className="shrink-0">Filiale</Label>
-              <select value={filiale} onChange={(e) => setFiliale(e.target.value)} className={`${selectClass} flex-1`}>
-                <option value="">Tutte le filiali</option>
               </select>
             </div>
 
