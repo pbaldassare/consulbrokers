@@ -89,11 +89,15 @@ function DatiStatisticiCreate(props: {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Gruppo Finanziario</Label>
-          <SearchableSelect
-            value={p.gruppoFinanziarioId}
-            onValueChange={p.setGruppoFinanziarioId}
-            placeholder="— Seleziona gruppo finanziario —"
-            options={p.gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+          <Input
+            readOnly
+            value={
+              p.gruppiFinanziari.find((g: any) => g.id === p.gruppoFinanziarioId)
+                ? `${p.gruppiFinanziari.find((g: any) => g.id === p.gruppoFinanziarioId)?.codice} - ${p.gruppiFinanziari.find((g: any) => g.id === p.gruppoFinanziarioId)?.nome}`
+                : ""
+            }
+            placeholder="Seleziona in alto nella sezione Tipo Cliente"
+            className="bg-muted/50"
           />
         </div>
         <div>
