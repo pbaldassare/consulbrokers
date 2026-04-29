@@ -1109,7 +1109,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("gruppi_finanziari" as any)
-        .select("id, codice, nome, descrizione")
+        .select("id, codice, nome, descrizione, tipo_soggetto")
         .eq("attivo", true)
         .order("codice");
       return (data || []) as any[];
