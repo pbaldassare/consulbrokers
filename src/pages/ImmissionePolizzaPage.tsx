@@ -22,7 +22,9 @@ import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
-import { QuickClienteDialog } from "@/components/polizze/QuickClienteDialog";
+import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
+import { Button as UIButton } from "@/components/ui/button";
+import { UserPlus } from "lucide-react";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -571,7 +573,13 @@ const ImmissionePolizzaPage = () => {
               }))}
             />
           </div>
-          <QuickClienteDialog
+          <NuovoClienteDialog
+            trigger={
+              <UIButton type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                <UserPlus className="w-3.5 h-3.5" />
+                Nuovo Cliente
+              </UIButton>
+            }
             onCreated={(id, label) => {
               setSelectedClienteId(id);
               setClienteSearch(label);
