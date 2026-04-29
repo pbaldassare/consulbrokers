@@ -1196,7 +1196,18 @@ export default function ClienteDetail() {
   }, [cliente]);
 
   const updateField = (field: string, value: any) => {
-    setEditFields((prev) => ({ ...prev, [field]: value }));
+    setEditFields((prev) => {
+      const next = { ...prev, [field]: value };
+      // Deriva tipo_cliente automaticamente dal tipo_soggetto del gruppo finanziario
+      if (field === "gruppo_finanziario_id") {
+        const gf = (gruppiFinanziari as any[]).find((g) => g.id === value);
+        const ts = gf?.tipo_soggetto;
+        if (ts && ["privato", "azienda", "ente"].includes(ts) && next.tipo_cliente !== ts) {
+          next.tipo_cliente = ts;
+        }
+      }
+      return next;
+    });
   };
 
   const saveDetailsMutation = useMutation({
