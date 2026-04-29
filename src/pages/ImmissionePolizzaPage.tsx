@@ -23,7 +23,6 @@ import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
-import { Button as UIButton } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 
 const ImmissionePolizzaPage = () => {
