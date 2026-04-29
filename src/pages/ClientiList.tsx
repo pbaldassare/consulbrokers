@@ -29,7 +29,6 @@ interface CommercialRole {
   profilo_id: string;
   percentuale: string;
   societa_brand: string;
-  filiale: string;
   mandato: string;
   data_acquisito: string;
   scadenza_mandato: string;
@@ -43,7 +42,6 @@ const emptyRole = (): CommercialRole => ({
   profilo_id: "",
   percentuale: "",
   societa_brand: "",
-  filiale: "",
   mandato: "",
   data_acquisito: "",
   scadenza_mandato: "",
@@ -391,7 +389,6 @@ const ClientiList = () => {
         ruolo: r.ruolo,
         percentuale: r.data.percentuale ? parseFloat(r.data.percentuale) : null,
         societa_brand: r.data.societa_brand || null,
-        filiale: r.data.filiale || null,
         mandato: r.data.mandato || null,
         data_acquisito: r.data.data_acquisito || null,
         scadenza_mandato: r.data.scadenza_mandato || null,
@@ -569,10 +566,6 @@ const ClientiList = () => {
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <Label className="text-xs">Filiale</Label>
-          <Input value={role.filiale} onChange={(e) => updateRole(setter, "filiale", e.target.value)} />
-        </div>
-        <div>
           <Label className="text-xs">Mandato</Label>
           <Input value={role.mandato} onChange={(e) => updateRole(setter, "mandato", e.target.value)} />
         </div>
@@ -580,6 +573,7 @@ const ClientiList = () => {
           <Label className="text-xs">Data Acquisizione</Label>
           <Input type="date" value={role.data_acquisito} onChange={(e) => updateRole(setter, "data_acquisito", e.target.value)} />
         </div>
+        <div />
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>

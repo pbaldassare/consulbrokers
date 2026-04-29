@@ -1035,7 +1035,6 @@ const tabConfig: { value: string; label: string; tableName: string; queryKey: st
   { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },
   { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },
   { value: "tipi_rinnovo", label: "Tipi Rinnovo", tableName: "tipi_rinnovo", queryKey: "tipi-rinnovo", title: "Tipo Rinnovo" },
-  { value: "filiali", label: "Filiali", tableName: "filiali", queryKey: "filiali-lookup", title: "Filiale" },
   { value: "lookup_indotti", label: "Indotti", tableName: "lookup_indotti", queryKey: "lookup-indotti", title: "Indotto" },
   { value: "lookup_attivita", label: "Attività", tableName: "lookup_attivita", queryKey: "lookup-attivita", title: "Attività" },
   { value: "lookup_settori", label: "Settori", tableName: "lookup_settori", queryKey: "lookup-settori", title: "Settore" },
