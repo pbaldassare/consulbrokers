@@ -1,54 +1,49 @@
-# Unificazione Filiali → Sedi
+## Problema
 
-## Stato attuale
-- `uffici` (Sedi) — 2 record: `001 Ufficio di Napoli`, `SDO SEDE SAN DONA' DI PIAVE`. Gestita da `Gestione Sedi`.
-- `filiali` — 18 record, tutti già concettualmente "sedi/uffici" (es. `UF-BER Ufficio di Bergamo`, `SEDE`, `FIL1`, `AMB-DEMO`...).
-- Campi text liberi (NON FK):
-  - `titoli.filiale` — 1043 righe valorizzate, 3 valori distinti
-  - `codici_commerciali_cliente.filiale` — 543 righe, 20 valori distinti (in gran parte testo libero tipo nomi broker o "SEDE NAPOLI", non collegati a `filiali`).
-- UI che cita "filiale": `TabelleBasePage` (sezione lookup), `ClientiList`, `ClienteDetail`, `RinnoviPolizzaPage` (filtro), `DocPrecontrattualePage` (option in select tipo riferimento).
+In `Immissione Polizza` (`/portafoglio/immissione`), il pulsante "Nuovo Cliente" apre `QuickClienteDialog` — un form ridotto che NON rispecchia il flusso normale di creazione cliente. Mancano:
 
-## Decisione
-Filiale = Sede. Si tiene **una sola** entità (`uffici`/Sedi). Si rimuove la voce **Filiali** da Tabelle Base e dall'UI clienti/rinnovi. I dati `filiali` non collegati a UI funzionali (i campi text non sono FK) restano inerti in DB ma non più gestiti.
+- Gruppo Finanziario in cima (con derivazione automatica del Tipo Cliente)
+- Codice CUP obbligatorio per Ente
+- Validazione/auto-fill CF (sesso, nascita, luogo via `parseCF`)
+- Sync 11-cifre CF → P.IVA
+- Forma giuridica, SDI, indirizzi, dati statistici, ecc.
 
-## Modifiche
+Inoltre i tab Privato/Azienda/Ente sono manualmente selezionabili invece di essere derivati dal Gruppo Finanziario (regola già fissata in memory).
 
-### 1. Tabelle Base — rimuovere voce "Filiali"
-`src/pages/TabelleBasePage.tsx` linea 1038: eliminare la riga `{ value: "filiali", ... }` dall'elenco lookup. Voce non più visibile nel selettore di Tabelle Base.
+## Soluzione
 
-### 2. Anagrafica cliente — rimuovere campo "Filiale"
-`src/pages/ClienteDetail.tsx`:
-- Rimuovere state `filiale` (linea 429), reset (443), invio in payload (462), Label+Input (499-500).
+Riusare lo **stesso identico modal** già presente in `ClientiList.tsx` (righe 614→1071) anche dentro `ImmissionePolizzaPage`, in modo che ci sia un'unica esperienza di creazione cliente in tutta l'app.
 
-`src/pages/ClientiList.tsx` (sub-form ruoli commerciali):
-- Rimuovere `filiale` dall'interfaccia ruolo (32), default (46), payload insert (394), Label+Input (572-573).
+### Approccio: estrazione in componente condiviso
 
-NB: il campo `codici_commerciali_cliente.filiale` resta in DB (storico), ma non più editabile da UI.
+1. **Estrarre** il contenuto del modal "Nuovo Cliente" da `src/pages/ClientiList.tsx` in un nuovo componente riutilizzabile `src/components/clienti/NuovoClienteDialog.tsx` con interfaccia:
+   ```ts
+   interface NuovoClienteDialogProps {
+     trigger?: React.ReactNode;          // bottone custom (default: "Nuovo Cliente")
+     onCreated?: (clienteId: string, label: string) => void;  // callback opzionale
+     open?: boolean;                     // controllo esterno opzionale
+     onOpenChange?: (o: boolean) => void;
+   }
+   ```
+   Il componente incapsula tutto lo stato (gruppo finanziario, tipo derivato, anagrafica, indirizzi, dati statistici, ruoli commerciali, ecc.) e l'insert su `clienti`.
 
-### 3. Rinnovi — rimuovere filtro "Filiale"
-`src/pages/RinnoviPolizzaPage.tsx`: rimuovere state `filiale` (22), Label+select (127-129) e ogni riferimento a `filiale` nel filtro query.
+2. **Refactor `ClientiList.tsx`**: rimuovere il blocco inline e usare `<NuovoClienteDialog onCreated={...} />`. Comportamento invariato.
 
-### 4. DocPrecontrattualePage
-`src/pages/DocPrecontrattualePage.tsx` linea 252: la option `<option value="Filiale">Filiale</option>` è il *tipo riferimento* del documento (Sede/Filiale/Agenzia). Dato che ora Filiale ≡ Sede, **rimuovere** l'option "Filiale" lasciando "Sede".
+3. **Refactor `ImmissionePolizzaPage.tsx`**:
+   - Rimuovere import e uso di `QuickClienteDialog`.
+   - Inserire `<NuovoClienteDialog onCreated={(id, label) => { /* seleziona il cliente appena creato nel form polizza */ }} trigger={<Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"><UserPlus className="w-3.5 h-3.5"/>Nuovo Cliente</Button>} />` al posto del dialog attuale.
+   - Il callback `onCreated` aggiorna il SearchableSelect "Cliente" con il cliente appena creato (stesso comportamento attuale di `QuickClienteDialog`).
 
-### 5. Sidebar / navigazione
-Verificare in `AppSidebar.tsx` che non esista una voce "Filiali" separata; se presente, rimuoverla (Gestione Sedi è già l'unica entry).
+4. **Deprecare `QuickClienteDialog`**:
+   - Verificare con `rg "QuickClienteDialog"` se è usato altrove. Se solo in Immissione Polizza, eliminare il file `src/components/polizze/QuickClienteDialog.tsx`. Altrimenti aggiornare anche gli altri usi.
 
-### 6. Database (nessuna distruzione dati)
-- **NON** droppare la tabella `filiali` né le colonne `filiale` su `titoli`/`codici_commerciali_cliente` per preservare lo storico.
-- Migrazione ottimale: nessuna. Si lascia tutto inerte. (Se in futuro si vorrà fare cleanup, faremo una migrazione separata di archiviazione.)
+## File coinvolti
 
-### 7. Memoria
-Aggiornare `mem://insurance/...` con nota: "Filiali unificate dentro Sedi (`uffici`). Tabella `filiali` deprecata, mantenuta solo per storico — non esporre in UI."
+- **Nuovo**: `src/components/clienti/NuovoClienteDialog.tsx`
+- **Modificati**: `src/pages/ClientiList.tsx`, `src/pages/ImmissionePolizzaPage.tsx`
+- **Eliminato** (se non più usato): `src/components/polizze/QuickClienteDialog.tsx`
+- **Memory update**: aggiornare `mem://insurance/gruppi-finanziari-tipo-soggetto.md` per chiarire che il modal completo è ora un componente condiviso `NuovoClienteDialog` usato sia in Anagrafica Clienti sia in Immissione Polizza.
 
-## File toccati
-- `src/pages/TabelleBasePage.tsx`
-- `src/pages/ClienteDetail.tsx`
-- `src/pages/ClientiList.tsx`
-- `src/pages/RinnoviPolizzaPage.tsx`
-- `src/pages/DocPrecontrattualePage.tsx`
-- `src/components/AppSidebar.tsx` (solo se contiene voce Filiali)
-- nuova memoria di deprecazione
+## Risultato atteso
 
-## Note / domande
-- I 18 record di `filiali` (es. "Ufficio di Bergamo", "Ufficio Cauzioni") **non** sono presenti tra le 2 Sedi di `uffici`. Vuoi che li **migri come nuove Sedi** in `uffici` (insert dei 18 record) oppure restano semplicemente storici e non più gestiti? Default proposto: **non migrare** (le Sedi reali sono solo 2; gli altri sembrano dati di test/legacy). Confermi?
+Cliccando "Nuovo Cliente" da Immissione Polizza si apre lo stesso modal grande (max-w-3xl, scrollabile) di Anagrafica Clienti, con Gruppo Finanziario in cima, badge Tipo Cliente auto-derivato, CUP per Ente, validazione CF, ecc. Una volta creato, il cliente viene selezionato automaticamente nel form polizza.
