@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Building2, Landmark } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 
 /* ────────── Generic CRUD Tab ────────── */
@@ -303,6 +304,25 @@ const RamiTab = () => {
 
 /* ────────── Gruppi Finanziari Tab ────────── */
 
+type TipoSoggetto = "privato" | "azienda" | "ente";
+
+const TIPO_SOGGETTO_META: Record<TipoSoggetto, { label: string; icon: typeof User; badgeClass: string }> = {
+  privato: { label: "Privato", icon: User, badgeClass: "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200" },
+  azienda: { label: "Azienda", icon: Building2, badgeClass: "bg-primary/15 text-primary hover:bg-primary/15 border-primary/30" },
+  ente:    { label: "Ente",    icon: Landmark,  badgeClass: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200" },
+};
+
+const TipoSoggettoBadge = ({ tipo }: { tipo: TipoSoggetto }) => {
+  const meta = TIPO_SOGGETTO_META[tipo] ?? TIPO_SOGGETTO_META.azienda;
+  const Icon = meta.icon;
+  return (
+    <Badge variant="outline" className={`gap-1 font-medium ${meta.badgeClass}`}>
+      <Icon className="w-3 h-3" />
+      {meta.label}
+    </Badge>
+  );
+};
+
 const GruppiFinanziariTab = () => {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -310,6 +330,7 @@ const GruppiFinanziariTab = () => {
   const [codice, setCodice] = useState("");
   const [nome, setNome] = useState("");
   const [descrizione, setDescrizione] = useState("");
+  const [tipoSoggetto, setTipoSoggetto] = useState<TipoSoggetto>("azienda");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["gruppi-finanziari"],
@@ -325,11 +346,12 @@ const GruppiFinanziariTab = () => {
 
   const save = useMutation({
     mutationFn: async () => {
+      const payload = { codice, nome, descrizione, tipo_soggetto: tipoSoggetto };
       if (editing) {
-        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).update({ codice, nome, descrizione }).eq("id", editing.id);
+        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).insert({ codice, nome, descrizione });
+        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).insert(payload);
         if (error) throw error;
       }
     },
@@ -361,8 +383,18 @@ const GruppiFinanziariTab = () => {
     onError: (e: any) => toast.error("Errore"),
   });
 
-  const openNew = () => { setEditing(null); setCodice(""); setNome(""); setDescrizione(""); setOpen(true); };
-  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setNome(g.nome || ""); setDescrizione(g.descrizione); setOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setCodice(""); setNome(""); setDescrizione("");
+    setTipoSoggetto("azienda");
+    setOpen(true);
+  };
+  const openEdit = (g: any) => {
+    setEditing(g);
+    setCodice(g.codice); setNome(g.nome || ""); setDescrizione(g.descrizione);
+    setTipoSoggetto((g.tipo_soggetto as TipoSoggetto) || "azienda");
+    setOpen(true);
+  };
   const closeDialog = () => { setOpen(false); setEditing(null); };
 
   return (
@@ -378,20 +410,24 @@ const GruppiFinanziariTab = () => {
               <TableHead className="w-24">Codice</TableHead>
               <TableHead>Nome</TableHead>
               <TableHead>Descrizione</TableHead>
+              <TableHead className="w-32">Tipo</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
-            ) : items.map((item) => (
-              <TableRow key={item.id}>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+            ) : items.map((item, idx) => (
+              <TableRow key={item.id} className={idx % 2 === 1 ? "bg-muted/30" : undefined}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell className="font-medium">{item.nome || "—"}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
+                <TableCell>
+                  <TipoSoggettoBadge tipo={(item.tipo_soggetto as TipoSoggetto) || "azienda"} />
+                </TableCell>
                 <TableCell className="text-center">
                   <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
                 </TableCell>
@@ -411,6 +447,39 @@ const GruppiFinanziariTab = () => {
               <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. ISP" /></div>
               <div><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Intesa Sanpaolo S.p.A." /></div>
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Descrizione..." /></div>
+
+              <div className="space-y-2">
+                <Label>Tipo Soggetto</Label>
+                <p className="text-xs text-muted-foreground">
+                  Determina i campi che verranno richiesti in anagrafica cliente per questo gruppo.
+                </p>
+                <RadioGroup
+                  value={tipoSoggetto}
+                  onValueChange={(v) => setTipoSoggetto(v as TipoSoggetto)}
+                  className="grid grid-cols-3 gap-2"
+                >
+                  {(Object.keys(TIPO_SOGGETTO_META) as TipoSoggetto[]).map((key) => {
+                    const meta = TIPO_SOGGETTO_META[key];
+                    const Icon = meta.icon;
+                    const selected = tipoSoggetto === key;
+                    return (
+                      <Label
+                        key={key}
+                        htmlFor={`tipo-${key}`}
+                        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                          selected
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-muted hover:border-primary/40"
+                        }`}
+                      >
+                        <RadioGroupItem id={`tipo-${key}`} value={key} className="sr-only" />
+                        <Icon className={`w-6 h-6 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                        <span className={`text-sm font-medium ${selected ? "text-primary" : ""}`}>{meta.label}</span>
+                      </Label>
+                    );
+                  })}
+                </RadioGroup>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={closeDialog}>Annulla</Button>

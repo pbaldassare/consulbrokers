@@ -2786,6 +2786,7 @@ export type Database = {
           descrizione: string
           id: string
           nome: string
+          tipo_soggetto: string
         }
         Insert: {
           attivo?: boolean
@@ -2794,6 +2795,7 @@ export type Database = {
           descrizione: string
           id?: string
           nome?: string
+          tipo_soggetto?: string
         }
         Update: {
           attivo?: boolean
@@ -2802,6 +2804,7 @@ export type Database = {
           descrizione?: string
           id?: string
           nome?: string
+          tipo_soggetto?: string
         }
         Relationships: []
       }
