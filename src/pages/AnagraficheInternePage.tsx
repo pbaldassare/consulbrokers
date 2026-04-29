@@ -335,8 +335,8 @@ const AnagraficheInternePage = () => {
   });
 
   const tipoLabel = TIPI.find((t) => t.value === activeTab)?.label || "";
-  const isPeritiLegali = activeTab === "perito" || activeTab === "legale";
-  const isLiquidatore = activeTab === "liquidatore";
+  const isPeritiLegali = false;
+  const isLiquidatore = false;
 
   const renderTableHeaders = () => {
     if (isPeritiLegali) {
