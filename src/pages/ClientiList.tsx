@@ -620,17 +620,40 @@ const ClientiList = () => {
               <DialogTitle>Nuovo Cliente</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label>Tipo Cliente</Label>
-                <Select value={tipoCliente} onValueChange={(v) => setTipoCliente(v as "privato" | "azienda" | "ente")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="privato">Privato</SelectItem>
-                    <SelectItem value="azienda">Azienda</SelectItem>
-                    <SelectItem value="ente">Ente</SelectItem>
-                  </SelectContent>
-                </Select>
-               </div>
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <div>
+                  <Label>Gruppo Finanziario</Label>
+                  <SearchableSelect
+                    value={gruppoFinanziarioId}
+                    onValueChange={(v) => {
+                      setGruppoFinanziarioId(v);
+                      const gf = gruppiFinanziari.find((g: any) => g.id === v);
+                      if (gf?.tipo_soggetto) {
+                        setTipoCliente(gf.tipo_soggetto as "privato" | "azienda" | "ente");
+                      }
+                    }}
+                    placeholder="— Cerca e seleziona gruppo finanziario —"
+                    options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="mb-0">Tipo Cliente:</Label>
+                  {gruppoFinanziarioId ? (
+                    <Badge variant="outline" className={
+                      tipoCliente === "privato" ? "border-blue-500 text-blue-700 bg-blue-50" :
+                      tipoCliente === "azienda" ? "border-emerald-600 text-emerald-700 bg-emerald-50" :
+                      "border-amber-600 text-amber-700 bg-amber-50"
+                    }>
+                      {tipoCliente === "privato" ? "Privato" : tipoCliente === "azienda" ? "Azienda" : "Ente"} (auto)
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      Seleziona un gruppo finanziario
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
 
               {/* AI Document Scanner */}
               {tipoCliente === "privato" ? (
