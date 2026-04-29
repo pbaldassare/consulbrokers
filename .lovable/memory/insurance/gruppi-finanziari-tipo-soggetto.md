@@ -1,6 +1,6 @@
 ---
 name: Gruppi Finanziari - Tipo Soggetto
-description: Il flag tipo_soggetto su gruppi_finanziari (privato/azienda/ente) governa dinamicamente i campi anagrafica cliente; tipo_cliente è derivato automaticamente dal Gruppo Finanziario.
+description: Il flag tipo_soggetto su gruppi_finanziari (privato/azienda/ente) governa dinamicamente i campi anagrafica cliente; tipo_cliente è derivato automaticamente dal Gruppo Finanziario. Modal "Nuovo Cliente" condiviso in `src/components/clienti/NuovoClienteDialog.tsx` e usato sia in ClientiList sia in ImmissionePolizzaPage (QuickClienteDialog deprecato).
 type: feature
 ---
 
