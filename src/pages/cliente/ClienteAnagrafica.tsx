@@ -31,6 +31,7 @@ const ClienteAnagrafica = () => {
     { icon: FileText, label: "P.IVA", value: cliente.partita_iva },
     { icon: FileText, label: "Codice Fiscale", value: cliente.codice_fiscale_azienda || cliente.codice_fiscale },
     { icon: FileText, label: "Codice SDI", value: cliente.codice_sdi },
+    { icon: FileText, label: "Codice CUP", value: cliente.codice_cup },
     { icon: MapPin, label: "Sede", value: [cliente.indirizzo_sede, cliente.cap_sede, cliente.citta_sede, cliente.provincia_sede ? `(${cliente.provincia_sede})` : null].filter(Boolean).join(", ") },
     { icon: Mail, label: "Email", value: cliente.email },
     { icon: Mail, label: "PEC", value: cliente.pec },

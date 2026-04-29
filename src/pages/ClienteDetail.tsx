@@ -1109,7 +1109,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("gruppi_finanziari" as any)
-        .select("id, codice, nome, descrizione")
+        .select("id, codice, nome, descrizione, tipo_soggetto")
         .eq("attivo", true)
         .order("codice");
       return (data || []) as any[];
@@ -1196,7 +1196,18 @@ export default function ClienteDetail() {
   }, [cliente]);
 
   const updateField = (field: string, value: any) => {
-    setEditFields((prev) => ({ ...prev, [field]: value }));
+    setEditFields((prev) => {
+      const next = { ...prev, [field]: value };
+      // Deriva tipo_cliente automaticamente dal tipo_soggetto del gruppo finanziario
+      if (field === "gruppo_finanziario_id") {
+        const gf = (gruppiFinanziari as any[]).find((g) => g.id === value);
+        const ts = gf?.tipo_soggetto;
+        if (ts && ["privato", "azienda", "ente"].includes(ts) && next.tipo_cliente !== ts) {
+          next.tipo_cliente = ts;
+        }
+      }
+      return next;
+    });
   };
 
   const saveDetailsMutation = useMutation({
@@ -1396,6 +1407,8 @@ export default function ClienteDetail() {
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
   const emailOk = isEmailValid(ef.email || "");
 
+  const isEnte = cliente.tipo_cliente === "ente";
+
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
@@ -1419,6 +1432,7 @@ export default function ClienteDetail() {
         },
         { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
         { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },
+        ...(isEnte ? [{ field: "codice_cup", label: "Codice CUP", ok: !!(ef.codice_cup || "").trim() }] : []),
       ];
 
   const missingRequired = requiredFieldsList.filter((r) => !r.ok);
@@ -1790,6 +1804,14 @@ export default function ClienteDetail() {
                     <FieldInput label="Città Sede" field="citta_sede" />
                     <FieldInput label="Provincia Sede" field="provincia_sede" />
                     <FieldInput label="CAP Sede" field="cap_sede" />
+                    {isEnte && (
+                      <FieldInput
+                        label="Codice CUP"
+                        field="codice_cup"
+                        required
+                        errorMessage="Codice CUP obbligatorio per Ente"
+                      />
+                    )}
                   </>
                 )}
                 <FieldInput
