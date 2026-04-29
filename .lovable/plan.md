@@ -1,51 +1,58 @@
 ## Obiettivo
 
-Nella pagina **Immissione Polizza** (`/portafoglio/immissione`), mostrare i campi specifici di ramo solo quando hanno senso:
+1. Eliminare le tab **Executive** e **Prod. Sede** dalla gestione anagrafiche (non più usate).
+2. Sostituire la pagina unica `Anagrafiche Professionali` con **due pagine separate**:
+   - **Anagrafiche Compagnie** → Liquidatori, Periti, Legali (figure esterne nominate dalle compagnie).
+   - **Anagrafiche Interne** → Account Executive, Produttori, Resp. Sede (figure interne all'agenzia).
+3. Rimuovere la voce "Anagrafiche Professionali" dalla sidebar e sostituirla con le due nuove voci.
 
-- Il campo **Targa/Telaio** nel blocco "Contratto" deve apparire **solo se il ramo selezionato è RCA Auto** (`isRCA === true`). Per polizze non-auto (es. RC Generale, Vita, Infortuni…) sparisce, perché non serve.
-- Le sezioni RCA esistenti (🚗 Dati Veicolo, 💰 Dati Premio per Garanzia, 👤 Dati Conducente) — che già appaiono condizionalmente — vanno **rese visivamente più riconoscibili** quando attive (header colorato, icona, separatore netto dal resto del form).
-- Quando il ramo NON è auto, nessun campo "veicolo" deve essere visibile né salvato.
+## Verifica dati esistenti
 
-## Cambiamenti tecnici (file: `src/pages/ImmissionePolizzaPage.tsx`)
+Query DB conferma:
+- `executive`: **0 record** → tab eliminabile senza perdita.
+- `produttore_sede`: **0 record** → tab eliminabile senza perdita.
+- `liquidatore` 12, `perito` 8, `legale` 5 → andranno nella pagina Compagnie.
+- `account_executive` 186, `corrispondente` 250, `responsabile_sede` 186 → andranno nella pagina Interne.
 
-### 1. Targa/Telaio condizionale nel blocco Contratto
-- Linee ~705–712: il `<div>` con label "Targa/Telaio" viene wrappato in `{isRCA && (...)}`.
-- Quando il ramo cambia da auto a non-auto, resettare lo state `targaTelaio` a "" per evitare salvataggi sporchi (effetto in un `useEffect([isRCA])`).
-- Adeguare il grid del blocco: con 4 colonne fisse, quando Targa/Telaio è nascosto la riga resta a 3 elementi — accettabile, oppure passare il grid a `grid-cols-2 md:grid-cols-3` quando `!isRCA` per evitare colonna vuota.
+La tabella DB `anagrafiche_professionali` resta unica (tutto il resto del sistema vi punta — sinistri, titoli, polizze, contabilità, edge functions). Cambia solo l'interfaccia di gestione, filtrando per `tipo`.
 
-### 2. Migliore grafica delle sezioni RCA
-Le tre fieldset RCA (linee 1064–1227) oggi hanno solo `border-l-4 border-l-primary`. Le rendiamo più distinte:
+## Modifiche
 
-- Banner di intestazione RCA prima delle 3 fieldset, tipo:
-  ```
-  ┌─────────────────────────────────────────────┐
-  │ 🚗 SEZIONE RCA AUTO — dati veicolo richiesti│
-  └─────────────────────────────────────────────┘
-  ```
-  con sfondo `bg-primary/5`, testo `text-primary`, padding e bordo arrotondato.
-- Le legend già hanno emoji 🚗 💰 👤 — uniformare lo sfondo a `bg-primary/15` e aggiungere icona `lucide-react` (`Car`, `Receipt`, `User`).
-- Aggiungere una sottile separazione visiva (margin-top maggiore) tra il blocco "Tipo" e l'inizio delle sezioni RCA.
+### 1. Nuove pagine
+- `src/pages/AnagraficheCompagniePage.tsx` — gestione di **liquidatore / perito / legale** (3 tab). Riusa la stessa logica/markup dell'attuale pagina ma limitando `TIPI` a questi tre valori e mantenendo solo le viste tabella + form pertinenti (peritiLegali / liquidatore).
+- `src/pages/AnagraficheInternePage.tsx` — gestione di **account_executive / corrispondente / responsabile_sede** (3 tab). Riusa la logica commerciale (AE / Corr / Sede) dell'attuale pagina; mantiene il dropdown "Sede" come oggi.
 
-### 3. Pulizia stato (anti-bug salvataggio)
-Aggiungere un `useEffect` che osserva `isRCA`:
-- Se diventa `false`, azzera tutti gli `v*` e `c*` (vMarca, vModello, vTarga, vTelaio, vClasseBm, premiGaranzia, cNome, cCognome, …) e `targaTelaio`.
-- Questo evita che, se l'utente prima sceglie "Auto", compila qualcosa, poi cambia ramo, i dati veicolo restino in memoria e vengano salvati comunque dalla `if (isRCA) { ... insert rca_dati ... }` (linea 467–473).
+Entrambe le pagine sono adattamenti dell'attuale `AnagraficheProfessionaliPage.tsx`, non riscritture.
 
-### 4. Hint UX
-Sotto il dropdown "Ramo" (blocco Contratto), quando `isRCA === true` mostrare un piccolo testo informativo:
-> "Ramo RCA rilevato: in fondo alla pagina troverai le sezioni dedicate a veicolo, garanzie e conducente."
+### 2. Routing (`src/routes/archivi.tsx`)
+- Rimuovere `<Route path="/archivi/anagrafiche" …>`.
+- Aggiungere:
+  - `/archivi/anagrafiche-compagnie` → `AnagraficheCompagniePage`
+  - `/archivi/anagrafiche-interne` → `AnagraficheInternePage`
+- Mantenere `/archivi/anagrafiche` come **redirect** a `/archivi/anagrafiche-interne` per non rompere link/bookmark esistenti (incluso `getDefaultRoute.ts` e `Dashboard.tsx`).
 
-## Cosa NON cambia
+### 3. Sidebar (`src/components/AppSidebar.tsx`)
+Sostituire l'unica voce "Anagrafiche Professionali" con due voci:
+- "Anagrafiche Compagnie" → `/archivi/anagrafiche-compagnie` (icona `Scale` o `Building2`)
+- "Anagrafiche Interne" → `/archivi/anagrafiche-interne` (icona `Briefcase`)
 
-- Schema DB e logica di salvataggio in `rca_dati` restano identici.
-- Le tre sezioni RCA esistenti restano dove sono (in fondo al form), continuano ad apparire solo se `isRCA`.
-- Il rilevamento `isRCA` resta basato su `gruppo_ramo` + checkbox `polizzaAuto` (linea 350).
-- Nessuna modifica a `RinnovoTitoloDialog.tsx`, `TitoloDetail.tsx` o ad altre pagine.
+Il permesso `anagrafiche` controlla entrambe (nessun cambio al sistema permessi).
 
-## File toccati
+### 4. File da rimuovere
+- `src/pages/AnagraficheProfessionaliPage.tsx` (sostituita dalle due nuove).
 
-- `src/pages/ImmissionePolizzaPage.tsx` (unico file)
+### 5. Pulizia tipi obsoleti
+Nelle nuove pagine NON includere i valori `executive` e `produttore_sede` nell'array `TIPI`. La validazione DB (`validate_anagrafiche_professionali_tipo`) li accetta ancora ma non saranno più creabili dall'UI. Nessuna migration necessaria (zero record da migrare).
 
-## Estensione futura (non in questo task)
+## File interessati
 
-Se in seguito vorrai applicare la stessa logica "campi-per-ramo" anche ad altri rami (es. Vita → beneficiari; Infortuni → professione/sport; Trasporti → tratta/merce), useremo lo stesso pattern: gruppo-ramo → blocco condizionale dedicato. Fammelo sapere e lo aggiungiamo.
+- creato: `src/pages/AnagraficheCompagniePage.tsx`
+- creato: `src/pages/AnagraficheInternePage.tsx`
+- modificato: `src/routes/archivi.tsx`
+- modificato: `src/components/AppSidebar.tsx`
+- eliminato: `src/pages/AnagraficheProfessionaliPage.tsx`
+
+## Fuori scope
+
+- Nessuna modifica a tabella DB, RLS, edge functions, o relazioni (sinistri/titoli/contabilità continuano a funzionare).
+- Nessun cambio ai permessi (`permessi_json.anagrafiche` resta unico).

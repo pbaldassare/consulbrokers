@@ -54,6 +54,7 @@ import {
   TrendingUp,
   ShieldCheck,
   Sparkles,
+  Scale,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -138,7 +139,8 @@ const sidebarEntries: SidebarEntry[] = [
       hideForRoles: ["ufficio"],
       children: [
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
-        { label: "Anagrafiche Professionali", path: "/archivi/anagrafiche", icon: Briefcase },
+        { label: "Anagrafiche Compagnie", path: "/archivi/anagrafiche-compagnie", icon: Scale },
+        { label: "Anagrafiche Interne", path: "/archivi/anagrafiche-interne", icon: Briefcase },
         { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
       ],
     },
