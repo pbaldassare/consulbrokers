@@ -330,7 +330,7 @@ const ClientiList = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("gruppi_finanziari" as any)
-        .select("id, codice, nome")
+        .select("id, codice, nome, tipo_soggetto")
         .eq("attivo", true)
         .order("codice");
       return (data || []) as any[];
