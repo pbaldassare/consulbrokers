@@ -967,6 +967,7 @@ export type Database = {
           cliente_captive: boolean | null
           cliente_non_ceduto: boolean | null
           codice_ateco: string | null
+          codice_cup: string | null
           codice_fiscale: string | null
           codice_fiscale_azienda: string | null
           codice_ricerca: string | null
@@ -1052,6 +1053,7 @@ export type Database = {
           cliente_captive?: boolean | null
           cliente_non_ceduto?: boolean | null
           codice_ateco?: string | null
+          codice_cup?: string | null
           codice_fiscale?: string | null
           codice_fiscale_azienda?: string | null
           codice_ricerca?: string | null
@@ -1137,6 +1139,7 @@ export type Database = {
           cliente_captive?: boolean | null
           cliente_non_ceduto?: boolean | null
           codice_ateco?: string | null
+          codice_cup?: string | null
           codice_fiscale?: string | null
           codice_fiscale_azienda?: string | null
           codice_ricerca?: string | null
