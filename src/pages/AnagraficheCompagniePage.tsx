@@ -125,11 +125,11 @@ const AnagraficheCompagniePage = () => {
     },
   });
 
-  const isCommerciale = ['account_executive', 'corrispondente', 'executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
-  const isAE = activeTab === "account_executive";
-  const isCorr = activeTab === "corrispondente";
-  const isNewCommercial = ['executive', 'responsabile_sede', 'produttore_sede'].includes(activeTab);
-  const isProduttore = isCommerciale;
+  const isCommerciale = false;
+  const isAE = false;
+  const isCorr = false;
+  const isNewCommercial = false;
+  const isProduttore = false;
 
   const createMutation = useMutation({
     mutationFn: async () => {
