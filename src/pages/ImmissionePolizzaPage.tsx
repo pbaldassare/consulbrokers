@@ -574,10 +574,10 @@ const ImmissionePolizzaPage = () => {
           </div>
           <NuovoClienteDialog
             trigger={
-              <UIButton type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+              <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5">
                 <UserPlus className="w-3.5 h-3.5" />
                 Nuovo Cliente
-              </UIButton>
+              </Button>
             }
             onCreated={(id, label) => {
               setSelectedClienteId(id);
