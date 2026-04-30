@@ -13,10 +13,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Briefcase, Users, UserCog, Building2 } from "lucide-react";
+import { Plus, Search, Briefcase, Users, UserCog, Building2, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
+
+/** Date picker inline (shadcn) — value is ISO yyyy-MM-dd or "" */
+const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const parsed = value ? parseISO(value) : undefined;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {parsed ? format(parsed, "dd/MM/yyyy") : <span>gg/mm/aaaa</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={parsed}
+          onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")}
+          locale={it}
+          captionLayout="dropdown-buttons"
+          fromYear={1980}
+          toYear={new Date().getFullYear() + 1}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const TIPI = [
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
