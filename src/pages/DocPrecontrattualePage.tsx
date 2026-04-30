@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildPrecontrattualePdf, type PrecontrattualeData } from "@/lib/precontrattuale-pdf";
+import PdfPreview from "@/components/PdfPreview";
 
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
@@ -223,7 +224,7 @@ const DocPrecontrattualePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
 
   const buildData = (): PrecontrattualeData => {
@@ -277,9 +278,8 @@ const DocPrecontrattualePage = () => {
   const handleAnteprima = async () => {
     try {
       setIsBuilding(true);
-      const blob = await generateBlob();
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
+      const bytes = await buildPrecontrattualePdf(buildData());
+      setPreviewBytes(bytes);
     } catch (e: any) {
       toast.error("Errore generazione anteprima: " + (e?.message || e));
     } finally {
