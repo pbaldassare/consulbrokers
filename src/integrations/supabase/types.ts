@@ -6559,32 +6559,41 @@ export type Database = {
       uffici: {
         Row: {
           attivo: boolean | null
+          cap: string | null
+          citta: string | null
           codice_ufficio: string | null
           created_at: string | null
           email: string | null
           id: string
           indirizzo: string | null
           nome_ufficio: string
+          provincia: string | null
           telefono: string | null
         }
         Insert: {
           attivo?: boolean | null
+          cap?: string | null
+          citta?: string | null
           codice_ufficio?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
           indirizzo?: string | null
           nome_ufficio: string
+          provincia?: string | null
           telefono?: string | null
         }
         Update: {
           attivo?: boolean | null
+          cap?: string | null
+          citta?: string | null
           codice_ufficio?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
           indirizzo?: string | null
           nome_ufficio?: string
+          provincia?: string | null
           telefono?: string | null
         }
         Relationships: []
