@@ -114,7 +114,7 @@ const DocPrecontrattualePage = () => {
     queryFn: async () => {
       if (!clienteIdParam) return null;
 
-      const { data: cli } = await supabase
+      const { data: cliRaw } = await supabase
         .from("clienti")
         .select(
           "id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva, " +
@@ -123,15 +123,17 @@ const DocPrecontrattualePage = () => {
         )
         .eq("id", clienteIdParam)
         .maybeSingle();
+      const cli: any = cliRaw;
       if (!cli) return null;
 
-      const { data: ufficio } = cli.ufficio_id
+      const { data: ufficioRaw } = cli.ufficio_id
         ? await supabase
             .from("uffici")
             .select("id, nome_ufficio, indirizzo, email, telefono")
             .eq("id", cli.ufficio_id)
             .maybeSingle()
         : { data: null as any };
+      const ufficio: any = ufficioRaw;
 
       const { data: assegn } = await (supabase.from("codici_commerciali_cliente" as any) as any)
         .select("profilo_id")
