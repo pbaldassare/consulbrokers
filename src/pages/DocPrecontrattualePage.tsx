@@ -138,6 +138,17 @@ const DocPrecontrattualePage = () => {
     },
   });
 
+  const { data: ufficiList } = useQuery({
+    queryKey: ["uffici-list-doc"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, indirizzo")
+        .order("nome_ufficio");
+      return data || [];
+    },
+  });
+
   // ============== PREFILL DA CLIENTE ==============
   // Query: cliente + sede + specialist (Backoffice in codici_commerciali_cliente -> profile)
   const { data: prefillData } = useQuery({
