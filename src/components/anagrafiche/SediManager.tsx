@@ -20,6 +20,9 @@ interface Ufficio {
   codice_ufficio: string;
   nome_ufficio: string;
   indirizzo: string | null;
+  cap: string | null;
+  citta: string | null;
+  provincia: string | null;
   email: string | null;
   telefono: string | null;
   attivo: boolean;
@@ -31,12 +34,18 @@ interface SediManagerProps {
   showHeader?: boolean;
 }
 
+const composeIndirizzoFull = (u: Pick<Ufficio, "indirizzo" | "cap" | "citta" | "provincia">) => {
+  const cityPart = [u.cap, u.citta].filter(Boolean).join(" ");
+  const tail = [cityPart, u.provincia ? `(${u.provincia})` : ""].filter(Boolean).join(" ");
+  return [u.indirizzo, tail].filter(Boolean).join(", ");
+};
+
 const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
-  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", email: "", telefono: "", attivo: true });
+  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true });
 
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
@@ -83,11 +92,14 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; email: string; telefono: string; attivo: boolean }) => {
+    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean }) => {
       const payload = {
         codice_ufficio: data.codice_ufficio,
         nome_ufficio: data.nome_ufficio,
         indirizzo: data.indirizzo || null,
+        cap: data.cap || null,
+        citta: data.citta || null,
+        provincia: data.provincia ? data.provincia.toUpperCase() : null,
         email: data.email || null,
         telefono: data.telefono || null,
         attivo: data.attivo,
@@ -110,7 +122,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
-    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", email: "", telefono: "", attivo: true });
+    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true });
     setDialogOpen(true);
   };
 
@@ -120,6 +132,9 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       codice_ufficio: u.codice_ufficio || "",
       nome_ufficio: u.nome_ufficio || "",
       indirizzo: u.indirizzo || "",
+      cap: u.cap || "",
+      citta: u.citta || "",
+      provincia: u.provincia || "",
       email: u.email || "",
       telefono: u.telefono || "",
       attivo: u.attivo,
