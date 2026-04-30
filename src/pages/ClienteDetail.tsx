@@ -1482,23 +1482,32 @@ export default function ClienteDetail() {
             {cliente.attivo ? "Attivo" : "Disattivo"}
           </Label>
         </div>
-        {editMode ? (
-          <div className="flex items-center gap-2">
-            {missingRequired.length > 0 && (
-              <span className="text-xs text-destructive">Compila i campi obbligatori ({missingRequired.length})</span>
-            )}
-            <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
-            <Button
-              size="sm"
-              onClick={() => saveDetailsMutation.mutate(missingRequired)}
-              disabled={saveDetailsMutation.isPending || missingRequired.length > 0}
-            >
-              Salva
-            </Button>
-          </div>
-        ) : (
-          <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/doc-precontrattuale?clienteId=${id}`)}
+          >
+            <FileText className="w-4 h-4 mr-1" /> Genera Precontrattuale
+          </Button>
+          {editMode ? (
+            <>
+              {missingRequired.length > 0 && (
+                <span className="text-xs text-destructive">Compila i campi obbligatori ({missingRequired.length})</span>
+              )}
+              <Button variant="outline" size="sm" onClick={() => { setEditFields({ ...cliente }); setEditMode(false); }}>Annulla</Button>
+              <Button
+                size="sm"
+                onClick={() => saveDetailsMutation.mutate(missingRequired)}
+                disabled={saveDetailsMutation.isPending || missingRequired.length > 0}
+              >
+                Salva
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs - positioned right after header */}

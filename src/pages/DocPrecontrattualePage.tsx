@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const clienteIdParam = searchParams.get("clienteId");
 
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
@@ -103,6 +105,121 @@ const DocPrecontrattualePage = () => {
       return data || [];
     },
   });
+
+  // ============== PREFILL DA CLIENTE ==============
+  // Query: cliente + sede + specialist (Backoffice in codici_commerciali_cliente -> profile)
+  const { data: prefillData } = useQuery({
+    queryKey: ["doc-precontr-prefill", clienteIdParam],
+    enabled: !!clienteIdParam,
+    queryFn: async () => {
+      if (!clienteIdParam) return null;
+
+      const { data: cliRaw } = await supabase
+        .from("clienti")
+        .select(
+          "id, nome, cognome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva, " +
+          "indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, " +
+          "indirizzo_sede, cap_sede, citta_sede, provincia_sede, ufficio_id"
+        )
+        .eq("id", clienteIdParam)
+        .maybeSingle();
+      const cli: any = cliRaw;
+      if (!cli) return null;
+
+      const { data: ufficioRaw } = cli.ufficio_id
+        ? await supabase
+            .from("uffici")
+            .select("id, nome_ufficio, indirizzo, email, telefono")
+            .eq("id", cli.ufficio_id)
+            .maybeSingle()
+        : { data: null as any };
+      const ufficio: any = ufficioRaw;
+
+      const { data: assegn } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        .select("profilo_id")
+        .eq("cliente_id", clienteIdParam)
+        .eq("ruolo", "Backoffice")
+        .maybeSingle();
+
+      let specialist: any = null;
+      if (assegn?.profilo_id) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("id, nome, cognome, email, telefono, indirizzo, cap, citta, provincia, nome_rui, sezione_rui, numero_rui, data_iscrizione_rui")
+          .eq("id", assegn.profilo_id)
+          .maybeSingle();
+        specialist = p;
+      }
+      return { cliente: cli, ufficio, specialist };
+    },
+  });
+
+  // Helper: parsa "Via Roma 1, 80100 Napoli, NA" in {via, cap, citta, prov}
+  const parseIndirizzoSede = (full?: string | null) => {
+    if (!full) return { via: "", cap: "", citta: "", prov: "" };
+    const parts = full.split(",").map((s) => s.trim()).filter(Boolean);
+    let via = parts[0] || "";
+    let cap = "", citta = "", prov = "";
+    // cerca "CAP città" oppure singoli pezzi
+    for (let i = 1; i < parts.length; i++) {
+      const p = parts[i];
+      const m = p.match(/^(\d{5})\s+(.+)$/);
+      if (m) { cap = m[1]; citta = m[2]; }
+      else if (p.length === 2 && /^[A-Za-z]{2}$/.test(p)) { prov = p.toUpperCase(); }
+      else if (!citta) { citta = p; }
+    }
+    return { via, cap, citta, prov };
+  };
+
+  useEffect(() => {
+    if (!prefillData) return;
+    const { cliente: cli, ufficio, specialist } = prefillData;
+
+    // --- CLIENTE ---
+    setCodiceCliente(cli.codice_fiscale || cli.partita_iva || "");
+    setCodiceFiscale(cli.codice_fiscale || "");
+    setPartitaIva(cli.partita_iva || "");
+
+    const isPrivato = cli.tipo_cliente === "privato";
+    const ind = isPrivato ? cli.indirizzo_residenza : (cli.indirizzo_sede || cli.indirizzo_residenza);
+    const c   = isPrivato ? cli.cap_residenza : (cli.cap_sede || cli.cap_residenza);
+    const ci  = isPrivato ? cli.citta_residenza : (cli.citta_sede || cli.citta_residenza);
+    const pr  = isPrivato ? cli.provincia_residenza : (cli.provincia_sede || cli.provincia_residenza);
+    setIndirizzo(ind || "");
+    setCap(c || "");
+    setCitta(ci || "");
+    setProvincia(pr || "");
+    setNazione("Italia");
+
+    // --- INTERMEDIARIO RUI: Specialist + Sede ---
+    if (specialist) {
+      setNomeCognomeRui(
+        specialist.nome_rui ||
+          `${specialist.cognome || ""} ${specialist.nome || ""}`.trim()
+      );
+      setSezioneRui(specialist.sezione_rui || "");
+      setNumeroRui(specialist.numero_rui || "");
+      setDataIscrizione(
+        specialist.data_iscrizione_rui
+          ? new Date(specialist.data_iscrizione_rui).toLocaleDateString("it-IT")
+          : ""
+      );
+      setEmailRui(specialist.email || ufficio?.email || "");
+      setTelRui(specialist.telefono || ufficio?.telefono || "");
+    }
+    // Indirizzo intermediario = SEDE (uffici.indirizzo è testo unico)
+    if (ufficio) {
+      const parsed = parseIndirizzoSede(ufficio.indirizzo);
+      setIndirizzoRui(parsed.via || ufficio.indirizzo || "");
+      setCapRui(parsed.cap);
+      setCittaRui(parsed.citta);
+      setProvinciaRui(parsed.prov);
+      setSede(ufficio.nome_ufficio || "Sede");
+      // marca l'intermediario con il nome della Sede (slot text libero)
+      setIntermediario(`sede:${ufficio.id}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillData]);
 
   const handleConferma = () => {
     // TODO: implementare logica conferma doc precontrattuale
