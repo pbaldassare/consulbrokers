@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { buildPrecontrattualePdf, type PrecontrattualeData } from "@/lib/precontrattuale-pdf";
 
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
