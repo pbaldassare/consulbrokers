@@ -1,58 +1,39 @@
-## Obiettivo
+## Problema
 
-Permettere di **creare nuove utenze Specialist (ed eventualmente Produttori) direttamente dalla pagina Anagrafiche Amministrative**, senza dover passare dal Centro Utenti & Privilegi. Il Centro Utenti rimane disponibile, ma non sarà più l'unico punto d'ingresso.
+Il dialog "Nuovo Specialist" (vedi screenshot) raccoglie solo i campi minimi (Cognome / Nome / Email / Sede / Telefono / CF / Password), ma serve raccogliere già in creazione **tutti i dati** richiesti — gli stessi del dialog di Modifica:
+- Dati base + Codice contabile + Descrizione + Fax
+- Indirizzo (con autocomplete) + CAP / Città / Provincia
+- **Dati RUI strutturati**: Nome RUI, Sezione, Numero, Data iscrizione (DatePicker)
+- Percentuali: Provvigione / Consulenza / RA
+- Banca: IBAN + Intestatario C/C
 
-L'edit della scheda anagrafica completa (RUI, sede, IBAN, percentuali) resta nell'Anagrafiche; in più, dalla stessa scheda, l'admin potrà:
-- creare l'utenza di sistema (Auth) per uno Specialist nuovo
-- resettare la password di uno Specialist esistente
-- attivare/disattivare l'accesso
-
-## Modifiche UI
+## Modifiche
 
 ### `src/components/anagrafiche/SpecialistList.tsx`
-1. **Pulsante "+ Nuovo Specialist"** in alto a destra accanto alla search.
-2. Apre un dialog **"Nuovo Specialist"** che raccoglie:
-   - Cognome, Nome, Email (obbligatori)
-   - Sede (obbligatoria, dropdown da `uffici`)
-   - Telefono, Codice Fiscale (opzionali)
-   - Password iniziale (default `Leone123!`, modificabile)
-   - Switch "Attivo" (default on)
-3. Al submit chiama l'edge function esistente **`create-user`** con:
-   - `ruolo: "backoffice"`
-   - `permessi_json`: permessi default del livello L4 Specialist (riusare `LEVELS` da `src/lib/userLevels.ts`)
-   - `ufficio_id`, `nome`, `cognome`, `email`, `password`
-4. Dopo creazione: invalidate query `specialist-profiles`, toast con email + password, e (opzionale) apre subito il dialog di edit completo per inserire RUI/IBAN/percentuali.
-5. Nel dialog di **edit** già esistente aggiungere una sezione "Accesso al sistema" con:
-   - Email (read-only, legata all'Auth)
-   - Pulsante **"Reset password"** → chiama edge function `provision-user` o nuova action su `create-user` per impostare nuova password
-   - Switch "Attivo" già presente (rimane invariato)
-   - Badge informativo "Utente Auth: id `xxx`"
 
-### `src/pages/AnagraficheInternePage.tsx` — tab Produttori
-Aggiungere lo stesso flusso "+ Nuovo Produttore" (ruolo `corrispondente_1` di default, modificabile a `corrispondente_2/3` nel form) con sede obbligatoria.
+1. Estendere lo state `newUser` con tutti i campi sopra (default "").
+2. Trasformare il dialog "Nuovo Specialist" in un layout a **tabs** identico a quello di Modifica:
+   - **Dati** (Codice contabile, Sede *, Cognome *, Nome, Descrizione, Email *, CF, Telefono, Fax, Password iniziale *)
+   - **Indirizzo** (`AddressAutocomplete` + CAP/Città/Provincia)
+   - **RUI** (Nome RUI, Sezione, Numero, Data iscrizione — `DateField`)
+   - **Provvigioni** (% Base, % Consulenza, % RA)
+   - **Banca** (IBAN uppercase, Intestatario C/C)
+3. La `createMutation` invierà tutti i campi all'edge function `create-user` (che già li accetta tutti — verificato: nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc sono già nel destructuring).
+4. Le percentuali vengono convertite a `Number()` se non vuote.
+5. Reset state al chiudere/successo via `initialNewUser`.
 
-### Banner informativo
-Aggiornare il banner blu in cima alle liste:
-> "Qui gestisci anagrafica completa **e creazione utenze**. Centro Utenti & Privilegi resta disponibile per gestione massiva ruoli e permessi."
+### `supabase/functions/create-user/index.ts`
 
-## Backend
+L'edge function attualmente non passa al `profiles.insert` i campi: `percentuale_base`, `percentuale_consulenza`. Vanno aggiunti al destructuring e all'insert per coerenza con il dialog.
 
-Nessuna nuova edge function: si riutilizza `supabase/functions/create-user` (già usata dal `CreateUserWizard`).
+### File toccati
 
-Per il reset password, verificare se esiste già un endpoint admin; se no, aggiungere a `create-user/index.ts` una action `?action=reset-password` che chiama `supabase.auth.admin.updateUserById(id, { password })` con verifica che il caller sia admin.
-
-Nessuna modifica al DB (il trigger `validate_profilo_sede_required` introdotto nel passo precedente continua a garantire che la Sede sia presente).
-
-## File toccati
-
-- `src/components/anagrafiche/SpecialistList.tsx` — pulsante + dialog "Nuovo Specialist", sezione "Accesso" nell'edit, reset password
-- `src/pages/AnagraficheInternePage.tsx` — stesso pattern per il tab Produttori
-- `supabase/functions/create-user/index.ts` — aggiunta action `reset-password` (solo se non già presente)
+- `src/components/anagrafiche/SpecialistList.tsx` — espansione form Nuovo Specialist con tabs
+- `supabase/functions/create-user/index.ts` — aggiunta `percentuale_base` e `percentuale_consulenza` all'insert profilo
 - `public/version.json` — bump
 
-## Note tecniche
+### Note
 
-- Riusare `LEVELS[3]` (L4 Specialist) per i permessi default Specialist e `LEVELS[2]` (L3) per Produttori — già definiti in `src/lib/userLevels.ts`.
-- Il trigger DB rifiuterà l'INSERT se manca `ufficio_id`, quindi la validazione client è solo UX.
-- Mantenere il pulsante "Centro Utenti" nel banner per chi vuole il wizard completo multi-step.
-- Toast finale deve mostrare chiaramente email + password generata, con pulsante copia.
+- Restano obbligatori solo: Cognome, Email, Sede, Password. Tutti gli altri campi sono opzionali ma compilabili subito.
+- Il trigger DB `validate_profilo_sede_required` continua a garantire la Sede obbligatoria.
+- Stesso pattern andrà replicato per "Nuovo Produttore" se confermato — non incluso ora per non ampliare lo scope.
