@@ -271,7 +271,7 @@ const DocPrecontrattualePage = () => {
 
   const generateBlob = async (): Promise<Blob> => {
     const bytes = await buildPrecontrattualePdf(buildData());
-    return new Blob([bytes], { type: "application/pdf" });
+    return new Blob([bytes as BlobPart], { type: "application/pdf" });
   };
 
   const handleAnteprima = async () => {
@@ -316,7 +316,7 @@ const DocPrecontrattualePage = () => {
     try {
       setIsBuilding(true);
       const bytes = await buildPrecontrattualePdf(buildData());
-      const blob = new Blob([bytes], { type: "application/pdf" });
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const name = fileName();
 
       // Download locale
