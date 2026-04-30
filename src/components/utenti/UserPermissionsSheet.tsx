@@ -265,11 +265,6 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                 permissions={permissions}
                 onChange={(k, v) => setPermissions((p) => ({ ...p, [k]: v }))}
               />
-            </TabsContent>
-
-            <TabsContent value="permissions-extra" className="hidden" />
-
-            <TabsContent value="permissions" className="space-y-3 mt-0">
               <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
                 <div>
                   <Label className="font-medium">Riceve provvigioni</Label>
