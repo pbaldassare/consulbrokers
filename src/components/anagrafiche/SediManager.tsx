@@ -20,6 +20,9 @@ interface Ufficio {
   codice_ufficio: string;
   nome_ufficio: string;
   indirizzo: string | null;
+  cap: string | null;
+  citta: string | null;
+  provincia: string | null;
   email: string | null;
   telefono: string | null;
   attivo: boolean;
@@ -31,12 +34,18 @@ interface SediManagerProps {
   showHeader?: boolean;
 }
 
+const composeIndirizzoFull = (u: Pick<Ufficio, "indirizzo" | "cap" | "citta" | "provincia">) => {
+  const cityPart = [u.cap, u.citta].filter(Boolean).join(" ");
+  const tail = [cityPart, u.provincia ? `(${u.provincia})` : ""].filter(Boolean).join(" ");
+  return [u.indirizzo, tail].filter(Boolean).join(", ");
+};
+
 const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
-  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", email: "", telefono: "", attivo: true });
+  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true });
 
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
@@ -83,11 +92,14 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; email: string; telefono: string; attivo: boolean }) => {
+    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean }) => {
       const payload = {
         codice_ufficio: data.codice_ufficio,
         nome_ufficio: data.nome_ufficio,
         indirizzo: data.indirizzo || null,
+        cap: data.cap || null,
+        citta: data.citta || null,
+        provincia: data.provincia ? data.provincia.toUpperCase() : null,
         email: data.email || null,
         telefono: data.telefono || null,
         attivo: data.attivo,
@@ -110,7 +122,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
-    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", email: "", telefono: "", attivo: true });
+    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true });
     setDialogOpen(true);
   };
 
@@ -120,6 +132,9 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       codice_ufficio: u.codice_ufficio || "",
       nome_ufficio: u.nome_ufficio || "",
       indirizzo: u.indirizzo || "",
+      cap: u.cap || "",
+      citta: u.citta || "",
+      provincia: u.provincia || "",
       email: u.email || "",
       telefono: u.telefono || "",
       attivo: u.attivo,
@@ -202,7 +217,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                   >
                     <TableCell className="font-mono font-medium">{u.codice_ufficio}</TableCell>
                     <TableCell className="font-medium">{u.nome_ufficio}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{u.indirizzo || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[260px] truncate">{composeIndirizzoFull(u) || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.telefono || "—"}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.utenti || 0}</TableCell>
@@ -245,16 +260,48 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               <Input value={formData.nome_ufficio} onChange={(e) => setFormData({ ...formData, nome_ufficio: e.target.value })} placeholder="es. Sede Milano" />
             </div>
             <div>
-              <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo</Label>
+              <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo (via e civico)</Label>
               <AddressAutocomplete
                 value={formData.indirizzo}
                 onChange={(v) => setFormData({ ...formData, indirizzo: v })}
                 onSelect={(c) => setFormData({
                   ...formData,
-                  indirizzo: [c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(", "),
+                  indirizzo: c.indirizzo || formData.indirizzo,
+                  cap: c.cap || formData.cap,
+                  citta: c.citta || formData.citta,
+                  provincia: (c.provincia || formData.provincia || "").toUpperCase(),
                 })}
-                placeholder="es. Via Roma 1, 20121 Milano"
+                placeholder="es. Via Roma 1"
               />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>CAP</Label>
+                <Input
+                  value={formData.cap}
+                  onChange={(e) => setFormData({ ...formData, cap: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                  placeholder="20121"
+                  inputMode="numeric"
+                  maxLength={5}
+                />
+              </div>
+              <div>
+                <Label>Città</Label>
+                <Input
+                  value={formData.citta}
+                  onChange={(e) => setFormData({ ...formData, citta: e.target.value })}
+                  placeholder="Milano"
+                />
+              </div>
+              <div>
+                <Label>Provincia</Label>
+                <Input
+                  value={formData.provincia}
+                  onChange={(e) => setFormData({ ...formData, provincia: e.target.value.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 2) })}
+                  placeholder="MI"
+                  maxLength={2}
+                />
+              </div>
             </div>
             <div>
               <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
@@ -343,7 +390,7 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
         </CardTitle>
         {(ufficio.indirizzo || ufficio.email || ufficio.telefono) && (
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
-            {ufficio.indirizzo && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ufficio.indirizzo}</span>}
+            {composeIndirizzoFull(ufficio) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{composeIndirizzoFull(ufficio)}</span>}
             {ufficio.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{ufficio.email}</span>}
             {ufficio.telefono && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{ufficio.telefono}</span>}
           </div>

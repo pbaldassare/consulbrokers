@@ -143,7 +143,7 @@ const DocPrecontrattualePage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
-        .select("id, nome_ufficio, indirizzo")
+        .select("id, nome_ufficio, indirizzo, cap, citta, provincia")
         .order("nome_ufficio");
       return data || [];
     },
@@ -172,7 +172,7 @@ const DocPrecontrattualePage = () => {
       const { data: ufficioRaw } = cli.ufficio_id
         ? await supabase
             .from("uffici")
-            .select("id, nome_ufficio, indirizzo, email, telefono")
+            .select("id, nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
             .eq("id", cli.ufficio_id)
             .maybeSingle()
         : { data: null as any };
@@ -251,13 +251,20 @@ const DocPrecontrattualePage = () => {
       setEmailRui(specialist.email || ufficio?.email || "");
       setTelRui(specialist.telefono || ufficio?.telefono || "");
     }
-    // Indirizzo intermediario = SEDE (uffici.indirizzo è testo unico)
+    // Indirizzo intermediario = SEDE: preferisci campi strutturati, fallback al parser legacy
     if (ufficio) {
-      const parsed = parseIndirizzoSede(ufficio.indirizzo);
-      setIndirizzoRui(parsed.via || ufficio.indirizzo || "");
-      setCapRui(parsed.cap);
-      setCittaRui(parsed.citta);
-      setProvinciaRui(parsed.prov);
+      if (ufficio.cap || ufficio.citta || ufficio.provincia) {
+        setIndirizzoRui(ufficio.indirizzo || "");
+        setCapRui(ufficio.cap || "");
+        setCittaRui(ufficio.citta || "");
+        setProvinciaRui(ufficio.provincia || "");
+      } else {
+        const parsed = parseIndirizzoSede(ufficio.indirizzo);
+        setIndirizzoRui(parsed.via || ufficio.indirizzo || "");
+        setCapRui(parsed.cap);
+        setCittaRui(parsed.citta);
+        setProvinciaRui(parsed.prov);
+      }
       setSede(ufficio.id || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -329,11 +336,18 @@ const DocPrecontrattualePage = () => {
     setTelRui(r.telefono || "");
   };
 
+  const composeIndirizzoSede = (u: any) => {
+    if (!u) return "";
+    const cityPart = [u.cap, u.citta].filter(Boolean).join(" ");
+    const tail = [cityPart, u.provincia ? `(${u.provincia})` : ""].filter(Boolean).join(" ");
+    return [u.indirizzo, tail].filter(Boolean).join(", ");
+  };
+
   const ufficiOptions = (ufficiList || []).map((u: any) => ({
     value: u.id,
     label: u.nome_ufficio || "—",
-    description: u.indirizzo || "",
-    searchText: u.indirizzo || "",
+    description: composeIndirizzoSede(u),
+    searchText: composeIndirizzoSede(u),
   }));
 
   const applySede = (id: string) => {
@@ -341,11 +355,18 @@ const DocPrecontrattualePage = () => {
     if (!id) return;
     const u: any = (ufficiList || []).find((x: any) => x.id === id);
     if (!u) return;
-    const parsed = parseIndirizzoSede(u.indirizzo);
-    setIndirizzoRui(parsed.via || u.indirizzo || "");
-    setCapRui(parsed.cap || "");
-    setCittaRui(parsed.citta || "");
-    setProvinciaRui(parsed.prov || "");
+    if (u.cap || u.citta || u.provincia) {
+      setIndirizzoRui(u.indirizzo || "");
+      setCapRui(u.cap || "");
+      setCittaRui(u.citta || "");
+      setProvinciaRui(u.provincia || "");
+    } else {
+      const parsed = parseIndirizzoSede(u.indirizzo);
+      setIndirizzoRui(parsed.via || u.indirizzo || "");
+      setCapRui(parsed.cap || "");
+      setCittaRui(parsed.citta || "");
+      setProvinciaRui(parsed.prov || "");
+    }
   };
 
   const buildData = (): PrecontrattualeData => {
