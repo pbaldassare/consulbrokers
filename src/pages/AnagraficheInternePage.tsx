@@ -596,7 +596,7 @@ const AnagraficheInternePage = () => {
     const isAdminUser = profile?.ruolo === "admin";
     return (
       <div className="mb-4">
-        <Label>Ufficio *</Label>
+        <Label>Sede <span className="text-destructive">*</span></Label>
         <Select
           value={form.ufficio_id || (profile?.ufficio_id ?? "")}
           onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
