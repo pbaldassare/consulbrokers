@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -137,11 +138,14 @@ const emptyForm = {
 const AnagraficheInternePage = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabValue>("account_executive");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as TabValue) || "account_executive";
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingEditId, setPendingEditId] = useState<string | null>(searchParams.get("edit"));
 
   const isAnagraficaTab = (TIPI as readonly { value: string }[]).some(t => t.value === activeTab);
   const tipoAnagrafica = isAnagraficaTab ? (activeTab as TipoAnagrafica) : "account_executive";
@@ -255,6 +259,9 @@ const AnagraficheInternePage = () => {
       const resolvedUfficioId = isProduttore
         ? (form.ufficio_id || profile?.ufficio_id || null)
         : (profile?.ufficio_id || null);
+      if (isProduttore && !resolvedUfficioId) {
+        throw new Error("Sede obbligatoria: assegna una Sede prima di salvare");
+      }
 
       const payload: Record<string, unknown> = {
         codice: form.codice || null,
@@ -361,6 +368,23 @@ const AnagraficheInternePage = () => {
     });
     setDialogOpen(true);
   };
+
+  // Deep-link: aprire in edit l'anagrafica richiesta dal Centro Utenti via ?edit=<id>
+  // Linka per id di profiles tramite codice_fornitore o codice (heuristica): cerchiamo per id direttamente
+  // Nota: si applica ai tab anagrafica
+  if (pendingEditId && isAnagraficaTab && items.length > 0) {
+    const target = items.find((i) => i.id === pendingEditId);
+    if (target && editingId !== target.id) {
+      // apri al prossimo tick per evitare loop di setState durante render
+      setTimeout(() => {
+        openEdit(target);
+        setPendingEditId(null);
+        const sp = new URLSearchParams(searchParams);
+        sp.delete("edit");
+        setSearchParams(sp, { replace: true });
+      }, 0);
+    }
+  }
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
@@ -572,7 +596,7 @@ const AnagraficheInternePage = () => {
     const isAdminUser = profile?.ruolo === "admin";
     return (
       <div className="mb-4">
-        <Label>Ufficio *</Label>
+        <Label>Sede <span className="text-destructive">*</span></Label>
         <Select
           value={form.ufficio_id || (profile?.ufficio_id ?? "")}
           onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
@@ -881,7 +905,15 @@ const AnagraficheInternePage = () => {
         ))}
 
         <TabsContent value="specialist" className="mt-4">
-          <SpecialistList />
+          <SpecialistList
+            editId={activeTab === "specialist" ? pendingEditId : null}
+            onEditConsumed={() => {
+              setPendingEditId(null);
+              const sp = new URLSearchParams(searchParams);
+              sp.delete("edit");
+              setSearchParams(sp, { replace: true });
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="sedi" className="mt-4">

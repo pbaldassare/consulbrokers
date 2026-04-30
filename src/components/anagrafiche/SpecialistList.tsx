@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -96,7 +96,12 @@ const DateField = ({ value, onChange }: { value: string; onChange: (v: string) =
 const SELECT_FIELDS =
   "id, nome, cognome, email, ruolo, ufficio_id, attivo, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, percentuale_base, percentuale_consulenza, note";
 
-const SpecialistList = () => {
+interface SpecialistListProps {
+  editId?: string | null;
+  onEditConsumed?: () => void;
+}
+
+const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -134,6 +139,7 @@ const SpecialistList = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessuno Specialist selezionato");
+      if (!form.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
       const payload: Record<string, unknown> = {
         cognome: form.cognome || null,
         nome: form.nome || null,
@@ -213,6 +219,17 @@ const SpecialistList = () => {
     setDialogOpen(true);
   };
 
+  // Deep-link: apri in edit la riga richiesta dal Centro Utenti
+  useEffect(() => {
+    if (!editId || items.length === 0) return;
+    const target = items.find((i) => i.id === editId);
+    if (target) {
+      openEdit(target);
+      onEditConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, items]);
+
   const filtered = items.filter((p) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -289,7 +306,13 @@ const SpecialistList = () => {
                       <div className="font-medium">{p.cognome || "—"}</div>
                       <div className="text-xs text-muted-foreground">{p.nome || ""}</div>
                     </TableCell>
-                    <TableCell className="text-sm">{p.ufficio_id ? (ufficioMap[p.ufficio_id] || "—") : "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {p.ufficio_id ? (
+                        ufficioMap[p.ufficio_id] || "—"
+                      ) : (
+                        <Badge variant="destructive" className="text-[10px]">Sede mancante</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">
                       {p.telefono && <div>Tel {p.telefono}</div>}
                       {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
@@ -338,7 +361,7 @@ const SpecialistList = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={form.codice_contabile} onChange={(e) => setForm({ ...form, codice_contabile: e.target.value })} /></div>
                   <div>
-                    <Label>Sede</Label>
+                    <Label>Sede <span className="text-destructive">*</span></Label>
                     <Select value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })}>
                       <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
                       <SelectContent>

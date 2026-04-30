@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS } from "@/lib/userLevels";
 import PermissionsMatrix from "./PermissionsMatrix";
-import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save } from "lucide-react";
+import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import ProfileAvatarUpload from "./ProfileAvatarUpload";
 import ProfileInfoForm from "./ProfileInfoForm";
@@ -31,11 +31,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [visibility, setVisibility] = useState<VisibilityScope>("self_only");
   const [ruolo, setRuolo] = useState<string>("");
-  const [ufficioId, setUfficioId] = useState<string>("");
   const [attivo, setAttivo] = useState(true);
   const [riceveProvvigioni, setRiceveProvvigioni] = useState(false);
-  const [percBase, setPercBase] = useState<number | "">("");
-  const [percRa, setPercRa] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [resetPwd, setResetPwd] = useState("");
 
@@ -53,11 +50,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
       setPermissions(typeof p === "object" ? Object.fromEntries(Object.entries(p).filter(([, v]) => typeof v === "boolean")) : {});
       setVisibility((p?._visibility as VisibilityScope) || getLevelByRole(user.ruolo).defaultVisibility);
       setRuolo(user.ruolo || "");
-      setUfficioId(user.ufficio_id || "");
       setAttivo(user.attivo !== false);
       setRiceveProvvigioni(!!p?.riceve_provvigioni);
-      setPercBase(user.percentuale_base ?? "");
-      setPercRa(user.percentuale_ra ?? "");
       setResetPwd("");
     }
   }, [user]);
@@ -76,11 +70,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
 
     const { error } = await supabase.from("profiles").update({
       ruolo,
-      ufficio_id: ufficioId || null,
       attivo,
       permessi_json: newPermissions,
-      percentuale_base: percBase === "" ? null : Number(percBase),
-      percentuale_ra: percRa === "" ? null : Number(percRa),
     }).eq("id", user.id);
 
     if (error) {
@@ -146,11 +137,10 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
         </SheetHeader>
 
         <Tabs defaultValue="anagrafica" className="flex-1 flex flex-col overflow-hidden mt-4">
-          <TabsList className="grid grid-cols-5">
+          <TabsList className="grid grid-cols-4">
             <TabsTrigger value="anagrafica" className="text-xs"><UserIcon className="w-3.5 h-3.5 mr-1" />Anagrafica</TabsTrigger>
             <TabsTrigger value="visibility" className="text-xs"><Eye className="w-3.5 h-3.5 mr-1" />Visibilità</TabsTrigger>
             <TabsTrigger value="permissions" className="text-xs"><Settings2 className="w-3.5 h-3.5 mr-1" />Permessi</TabsTrigger>
-            <TabsTrigger value="provvigioni" className="text-xs">Provvigioni</TabsTrigger>
             <TabsTrigger value="security" className="text-xs"><Shield className="w-3.5 h-3.5 mr-1" />Sicurezza</TabsTrigger>
           </TabsList>
 
@@ -199,16 +189,14 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Sede</Label>
-                  <Select value={ufficioId || "none"} onValueChange={(v) => setUfficioId(v === "none" ? "" : v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Nessuna —</SelectItem>
-                      {uffici?.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs">Sede assegnata</Label>
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/30">
+                    {user.uffici?.nome_ufficio ? (
+                      <span className="text-sm">{user.uffici.nome_ufficio}</span>
+                    ) : (
+                      <Badge variant="destructive" className="text-[10px]">Sede mancante</Badge>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
@@ -218,8 +206,39 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                 </div>
                 <Switch checked={attivo} onCheckedChange={setAttivo} />
               </div>
+              <div className="rounded-lg border bg-primary/5 p-3 flex items-start gap-2">
+                <ExternalLink className="w-4 h-4 mt-0.5 text-primary" />
+                <div className="flex-1 text-xs">
+                  <p className="font-medium text-foreground">Anagrafica completa, Sede, RUI, percentuali e IBAN</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    si gestiscono in <strong>Anagrafiche Amministrative</strong>. Qui solo ruolo, permessi e password.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const tabMap: Record<string, string> = {
+                      backoffice: "specialist",
+                      account_executive: "account_executive",
+                      corrispondente_1: "corrispondente",
+                      corrispondente_2: "corrispondente",
+                      corrispondente_3: "corrispondente",
+                      responsabile_sede: "responsabile_sede",
+                    };
+                    const tab = tabMap[ruolo];
+                    if (!tab) {
+                      toast.info("Questo ruolo non ha un'anagrafica amministrativa");
+                      return;
+                    }
+                    window.location.href = `/archivi/anagrafiche-amministrative?tab=${tab}&edit=${user.id}`;
+                  }}
+                >
+                  Apri anagrafica
+                </Button>
+              </div>
               <p className="text-[11px] text-muted-foreground">
-                Ruolo, sede e stato account si salvano con il pulsante "Salva modifiche" in fondo. I dati anagrafici si salvano con il pulsante dedicato qui sopra.
+                Ruolo, attivo e permessi si salvano col pulsante "Salva modifiche". Dati anagrafici col pulsante dedicato sopra.
               </p>
             </TabsContent>
 
@@ -246,25 +265,13 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                 permissions={permissions}
                 onChange={(k, v) => setPermissions((p) => ({ ...p, [k]: v }))}
               />
-            </TabsContent>
-
-            <TabsContent value="provvigioni" className="space-y-3 mt-0">
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <Label className="font-medium">Riceve provvigioni</Label>
+              <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
+                <div>
+                  <Label className="font-medium">Riceve provvigioni</Label>
+                  <p className="text-xs text-muted-foreground">Abilitazione modulo. Le percentuali si impostano in Anagrafiche Amministrative.</p>
+                </div>
                 <Switch checked={riceveProvvigioni} onCheckedChange={setRiceveProvvigioni} />
               </div>
-              {riceveProvvigioni && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">% Base</Label>
-                    <Input type="number" step="0.01" value={percBase} onChange={(e) => setPercBase(e.target.value === "" ? "" : Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">% RA</Label>
-                    <Input type="number" step="0.01" value={percRa} onChange={(e) => setPercRa(e.target.value === "" ? "" : Number(e.target.value))} />
-                  </div>
-                </div>
-              )}
             </TabsContent>
 
             <TabsContent value="security" className="space-y-3 mt-0">
