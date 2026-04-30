@@ -1,37 +1,25 @@
 ## Obiettivo
 
-Eliminare il selettore "Tipo intermediario" e mostrare un'**unica lista combinata** (Account Executive + Specialist + Produttori) nel `SearchableSelect` con ricerca. Alla selezione, capire automaticamente la fonte e popolare i campi RUI correttamente.
+Aggiungere una nuova opzione al menu a tendina "In qualità di" nella sezione INTERMEDIARIO ISCRITTO AL RUI:
 
-## Modifiche a `src/pages/DocPrecontrattualePage.tsx`
+> Addetto all'intermediazione al di fuori dei locali del broker (dipendente/collaboratore)
 
-### 1. Rimuovere il selettore "Tipo intermediario"
-Eliminare il `<select>` "Tipo intermediario" (UI) e lo state `tipoIntermediario` + il tipo `TipoIntermediario`. Mantenere solo `intermediario` (id selezionato).
+## Modifica
 
-### 2. Lista unica combinata
-Sostituire `intermediarioOptions` con un'unica lista che mette insieme i tre dataset, ordinata per cognome. Per sapere da quale tabella leggere al momento della selezione, ogni `value` viene **prefissato con l'origine**:
-- `ae:<id>` → record da `anagrafiche_professionali` (Account Executive)
-- `sp:<id>` → record da `profiles` (Specialist/Backoffice)
-- `pr:<id>` → record da `anagrafiche_professionali` (Produttore)
+In `src/pages/DocPrecontrattualePage.tsx`, nel `<select>` di "In qualità di" (riga ~641), aggiungere una quarta `<option>` dopo "Società di capitali":
 
-Il prefisso non è visibile all'utente (vede solo Cognome Nome + email come description).
+```tsx
+<option value="Addetto all'intermediazione al di fuori dei locali del broker (dipendente/collaboratore)">
+  Addetto all'intermediazione al di fuori dei locali del broker (dipendente/collaboratore)
+</option>
+```
 
-### 3. `applyIntermediario(id)` legge il prefisso
-- `id.split(":")` → `[origin, realId]`
-- Se `origin === "sp"` → cerca in `specialistList`, formatta `data_iscrizione_rui` come data IT
-- Altrimenti → cerca in `aeList` o `produttoreList`, usa il campo testuale `iscrizione_rui`
-- Popola gli stessi 10 campi RUI (Nome, Sezione, Numero, Data, Indirizzo, CAP, Città, Prov, Email, Tel)
+Il valore viene già usato come stringa nel PDF (campo `qualitaDi`), quindi nessuna modifica al generatore PDF.
 
-### 4. Prefill da cliente
-Nel `useEffect` che popola da `prefillData`, sostituire `setIntermediario(specialist.id)` con `setIntermediario(\`sp:${specialist.id}\`)` per restare coerente con il nuovo schema.
+## Nota sul mobile
 
-### 5. Bump versione
-`public/version.json` → nuovo timestamp.
-
-## Cosa NON cambia
-- Le 3 query (`aeList`, `specialistList`, `produttoreList`) restano: servono come sorgenti dati
-- Il PDF e `buildData()` non cambiano (usano gli state `nomeCognomeRui`, `sezioneRui`, ecc.)
-- Nessuna modifica DB
+Il `<select>` nativo è già responsive (apre il picker nativo su mobile/iOS/Android), quindi funziona correttamente anche da telefono.
 
 ## File modificati
 - `src/pages/DocPrecontrattualePage.tsx`
-- `public/version.json`
+- `public/version.json` (bump)

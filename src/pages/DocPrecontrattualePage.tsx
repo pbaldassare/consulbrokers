@@ -643,6 +643,7 @@ const DocPrecontrattualePage = () => {
                 <option value="Ditta individuale">Ditta individuale</option>
                 <option value="Società di persone">Società di persone</option>
                 <option value="Società di capitali">Società di capitali</option>
+                <option value="Addetto all'intermediazione al di fuori dei locali del broker (dipendente/collaboratore)">Addetto all'intermediazione al di fuori dei locali del broker (dipendente/collaboratore)</option>
               </select>
             </div>
           </div>
