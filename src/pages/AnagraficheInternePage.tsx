@@ -137,11 +137,14 @@ const emptyForm = {
 const AnagraficheInternePage = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabValue>("account_executive");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as TabValue) || "account_executive";
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingEditId, setPendingEditId] = useState<string | null>(searchParams.get("edit"));
 
   const isAnagraficaTab = (TIPI as readonly { value: string }[]).some(t => t.value === activeTab);
   const tipoAnagrafica = isAnagraficaTab ? (activeTab as TipoAnagrafica) : "account_executive";
