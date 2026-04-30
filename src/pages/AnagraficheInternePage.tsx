@@ -255,6 +255,9 @@ const AnagraficheInternePage = () => {
       const resolvedUfficioId = isProduttore
         ? (form.ufficio_id || profile?.ufficio_id || null)
         : (profile?.ufficio_id || null);
+      if (isProduttore && !resolvedUfficioId) {
+        throw new Error("Sede obbligatoria: assegna una Sede prima di salvare");
+      }
 
       const payload: Record<string, unknown> = {
         codice: form.codice || null,
