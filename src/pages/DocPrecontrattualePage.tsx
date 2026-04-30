@@ -14,6 +14,8 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const clienteIdParam = searchParams.get("clienteId");
 
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
