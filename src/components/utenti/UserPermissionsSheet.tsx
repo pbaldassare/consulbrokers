@@ -70,11 +70,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
 
     const { error } = await supabase.from("profiles").update({
       ruolo,
-      ufficio_id: ufficioId || null,
       attivo,
       permessi_json: newPermissions,
-      percentuale_base: percBase === "" ? null : Number(percBase),
-      percentuale_ra: percRa === "" ? null : Number(percRa),
     }).eq("id", user.id);
 
     if (error) {
