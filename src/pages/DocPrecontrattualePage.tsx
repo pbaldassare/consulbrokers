@@ -16,7 +16,7 @@ import { buildPrecontrattualePdf, type PrecontrattualeData } from "@/lib/precont
 import PdfPreview from "@/components/PdfPreview";
 import { SearchableSelect } from "@/components/SearchableSelect";
 
-type TipoIntermediario = "account_executive" | "specialist" | "produttore";
+
 
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
@@ -40,7 +40,6 @@ const DocPrecontrattualePage = () => {
   const [partitaIva, setPartitaIva] = useState("");
 
   // Intermediario RUI
-  const [tipoIntermediario, setTipoIntermediario] = useState<TipoIntermediario>("specialist");
   const [intermediario, setIntermediario] = useState("");
   const [sede, setSede] = useState("Sede");
   const [nomeCognomeRui, setNomeCognomeRui] = useState("");
@@ -226,8 +225,7 @@ const DocPrecontrattualePage = () => {
 
     // --- INTERMEDIARIO RUI: Specialist + Sede ---
     if (specialist) {
-      setTipoIntermediario("specialist");
-      setIntermediario(specialist.id);
+      setIntermediario(`sp:${specialist.id}`);
       setNomeCognomeRui(
         specialist.nome_rui ||
           `${specialist.cognome || ""} ${specialist.nome || ""}`.trim()
@@ -257,37 +255,41 @@ const DocPrecontrattualePage = () => {
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
 
-  // Opzioni del SearchableSelect in base al tipo
+  // Lista UNICA: AE + Specialist + Produttori, ordinata per cognome.
+  // Ogni value è prefissato con l'origine (ae:/sp:/pr:) per leggere dalla sorgente giusta.
   const intermediarioOptions = (() => {
-    if (tipoIntermediario === "specialist") {
-      return (specialistList || []).map((s: any) => ({
-        value: s.id,
-        label: `${s.cognome || ""} ${s.nome || ""}`.trim() || s.email || "—",
-        description: s.email || "",
-        searchText: `${s.email || ""} ${s.numero_rui || ""}`,
-      }));
-    }
-    if (tipoIntermediario === "produttore") {
-      return (produttoreList || []).map((p: any) => ({
-        value: p.id,
-        label: `${p.sigla || p.codice || ""}${p.sigla || p.codice ? " - " : ""}${p.cognome || ""} ${p.nome || ""}`.trim(),
-        description: p.tipo === "produttore_sede" ? "Produttore Sede" : "Consul / Corrispondente",
-        searchText: `${p.email || ""} ${p.numero_rui || ""}`,
-      }));
-    }
-    return (aeList || []).map((a: any) => ({
-      value: a.id,
-      label: `${a.sigla || a.codice || ""}${a.sigla || a.codice ? " - " : ""}${a.cognome || ""} ${a.nome || ""}`.trim(),
-      description: "Account Executive",
-      searchText: `${a.email || ""} ${a.numero_rui || ""}`,
+    const ae = (aeList || []).map((a: any) => ({
+      value: `ae:${a.id}`,
+      label: `${a.cognome || ""} ${a.nome || ""}`.trim() || a.sigla || a.codice || "—",
+      description: a.email || "",
+      searchText: `${a.sigla || ""} ${a.codice || ""} ${a.email || ""} ${a.numero_rui || ""}`,
+      _sortKey: (a.cognome || "").toLowerCase(),
     }));
+    const sp = (specialistList || []).map((s: any) => ({
+      value: `sp:${s.id}`,
+      label: `${s.cognome || ""} ${s.nome || ""}`.trim() || s.email || "—",
+      description: s.email || "",
+      searchText: `${s.email || ""} ${s.numero_rui || ""}`,
+      _sortKey: (s.cognome || "").toLowerCase(),
+    }));
+    const pr = (produttoreList || []).map((p: any) => ({
+      value: `pr:${p.id}`,
+      label: `${p.cognome || ""} ${p.nome || ""}`.trim() || p.sigla || p.codice || "—",
+      description: p.email || "",
+      searchText: `${p.sigla || ""} ${p.codice || ""} ${p.email || ""} ${p.numero_rui || ""}`,
+      _sortKey: (p.cognome || "").toLowerCase(),
+    }));
+    return [...ae, ...sp, ...pr]
+      .sort((a, b) => a._sortKey.localeCompare(b._sortKey))
+      .map(({ _sortKey, ...rest }) => rest);
   })();
 
   const applyIntermediario = (id: string) => {
     setIntermediario(id);
     if (!id) return;
-    if (tipoIntermediario === "specialist") {
-      const s: any = (specialistList || []).find((x: any) => x.id === id);
+    const [origin, realId] = id.split(":");
+    if (origin === "sp") {
+      const s: any = (specialistList || []).find((x: any) => x.id === realId);
       if (!s) return;
       setNomeCognomeRui(s.nome_rui || `${s.cognome || ""} ${s.nome || ""}`.trim());
       setSezioneRui(s.sezione_rui || "");
@@ -301,8 +303,8 @@ const DocPrecontrattualePage = () => {
       setTelRui(s.telefono || "");
       return;
     }
-    const list: any[] = tipoIntermediario === "produttore" ? (produttoreList || []) : (aeList || []);
-    const r: any = list.find((x: any) => x.id === id);
+    const list: any[] = origin === "pr" ? (produttoreList || []) : (aeList || []);
+    const r: any = list.find((x: any) => x.id === realId);
     if (!r) return;
     setNomeCognomeRui(r.nome_rui || `${r.cognome || ""} ${r.nome || ""}`.trim());
     setSezioneRui(r.sezione_rui || "");
@@ -561,21 +563,6 @@ const DocPrecontrattualePage = () => {
         <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Intermediario Iscritto al RUI</legend>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Tipo intermediario</Label>
-              <select
-                value={tipoIntermediario}
-                onChange={(e) => {
-                  setTipoIntermediario(e.target.value as TipoIntermediario);
-                  setIntermediario("");
-                }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="account_executive">Account Executive</option>
-                <option value="specialist">Specialist</option>
-                <option value="produttore">Produttore</option>
-              </select>
-            </div>
             <div className="space-y-1.5">
               <Label>Intermediario</Label>
               <SearchableSelect
