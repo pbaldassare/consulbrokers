@@ -155,7 +155,7 @@ const AnagraficheInternePage = () => {
       }
 
       const payload: Record<string, unknown> = {
-        tipo: activeTab,
+        tipo: tipoAnagrafica,
         codice: form.codice || null,
         nome: form.nome || null,
         nome_breve: form.nome_breve || null,
