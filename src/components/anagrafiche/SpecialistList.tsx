@@ -531,13 +531,101 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               </TabsContent>
             </Tabs>
 
+            <DialogFooter className="flex sm:justify-between gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => { setResetPwd("Leone123!"); setResetOpen(true); }} className="gap-1.5">
+                <KeyRound className="w-4 h-4" /> Reset password
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Salvataggio..." : "Salva"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: nuovo Specialist (crea utente Auth + profilo) */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" /> Nuovo Specialist
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
+            className="space-y-3"
+          >
+            <p className="text-xs text-muted-foreground">
+              Verrà creato un utente di sistema con ruolo <code>backoffice</code>. Dopo la creazione potrai completare RUI, IBAN e percentuali.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
+              <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
+              <div className="col-span-2"><Label>Email *</Label><Input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
+              <div>
+                <Label>Sede <span className="text-destructive">*</span></Label>
+                <Select value={newUser.ufficio_id} onValueChange={(v) => setNewUser({ ...newUser, ufficio_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
+                  <SelectContent>
+                    {uffici.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
+              <div><Label>Codice Fiscale</Label><Input value={newUser.codice_fiscale} onChange={(e) => setNewUser({ ...newUser, codice_fiscale: e.target.value.toUpperCase() })} /></div>
+              <div>
+                <Label>Password iniziale *</Label>
+                <div className="flex gap-1">
+                  <Input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
+                  <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(newUser.password)} title="Copia">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Salvataggio..." : "Salva"}
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creazione..." : "Crea Specialist"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: reset password */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-primary" /> Reset password
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Imposta una nuova password per <strong>{form.email || "questo utente"}</strong>. L'utente dovrà usare questa password al prossimo accesso.
+            </p>
+            <div>
+              <Label>Nuova password *</Label>
+              <div className="flex gap-1">
+                <Input value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} />
+                <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(resetPwd)} title="Copia">
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>Annulla</Button>
+            <Button onClick={() => resetPwdMutation.mutate()} disabled={resetPwdMutation.isPending}>
+              {resetPwdMutation.isPending ? "Aggiornamento..." : "Aggiorna password"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
