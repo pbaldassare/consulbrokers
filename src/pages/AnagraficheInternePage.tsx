@@ -99,19 +99,23 @@ const emptyForm = {
 const AnagraficheInternePage = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TipoAnagrafica>("account_executive");
+  const [activeTab, setActiveTab] = useState<TabValue>("account_executive");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const isAnagraficaTab = (TIPI as readonly { value: string }[]).some(t => t.value === activeTab);
+  const tipoAnagrafica = isAnagraficaTab ? (activeTab as TipoAnagrafica) : "account_executive";
+
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["anagrafiche_professionali", activeTab],
+    queryKey: ["anagrafiche_professionali", tipoAnagrafica],
+    enabled: isAnagraficaTab,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("anagrafiche_professionali")
         .select("*")
-        .eq("tipo", activeTab)
+        .eq("tipo", tipoAnagrafica)
         .order("cognome", { ascending: true });
       if (error) throw error;
       return data as unknown as Anagrafica[];
