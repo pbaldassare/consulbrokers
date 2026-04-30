@@ -40,6 +40,7 @@ const DocPrecontrattualePage = () => {
   const [partitaIva, setPartitaIva] = useState("");
 
   // Intermediario RUI
+  const [tipoIntermediario, setTipoIntermediario] = useState<TipoIntermediario>("specialist");
   const [intermediario, setIntermediario] = useState("");
   const [sede, setSede] = useState("Sede");
   const [nomeCognomeRui, setNomeCognomeRui] = useState("");
