@@ -226,6 +226,8 @@ const DocPrecontrattualePage = () => {
 
     // --- INTERMEDIARIO RUI: Specialist + Sede ---
     if (specialist) {
+      setTipoIntermediario("specialist");
+      setIntermediario(specialist.id);
       setNomeCognomeRui(
         specialist.nome_rui ||
           `${specialist.cognome || ""} ${specialist.nome || ""}`.trim()
@@ -248,8 +250,6 @@ const DocPrecontrattualePage = () => {
       setCittaRui(parsed.citta);
       setProvinciaRui(parsed.prov);
       setSede(ufficio.nome_ufficio || "Sede");
-      // marca l'intermediario con il nome della Sede (slot text libero)
-      setIntermediario(`sede:${ufficio.id}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
