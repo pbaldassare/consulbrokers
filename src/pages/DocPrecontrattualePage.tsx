@@ -223,8 +223,142 @@ const DocPrecontrattualePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
 
-  const handleConferma = () => {
-    // TODO: implementare logica conferma doc precontrattuale
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
+
+  const buildData = (): PrecontrattualeData => {
+    const cli = prefillData?.cliente as any;
+    const nomeRagSoc = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
+
+    const sezioneIIMap: Record<string, string> = {
+      consulenza_119ter_c3: "L'intermediario fornisce una consulenza ai sensi dell'art. 119-ter comma 3 del Codice delle Assicurazioni.",
+      consulenza_imparziale: "L'intermediario informa che ha fornito una consulenza fondata su un'analisi imparziale e personale ai sensi dell'articolo 119-ter, comma 4, del Codice in quanto fondata sull'analisi di un numero sufficiente di prodotti assicurativi disponibili sul mercato che gli consenta di formulare una raccomandazione personalizzata.",
+      distribuzione_obblighi: "L'intermediario informa che distribuisce contratti in assenza di obblighi contrattuali che impongano loro di offrire esclusivamente i contratti di una o più imprese di assicurazione.",
+    };
+    const sezioneIVMap: Record<string, string> = {
+      patrimonio_autonomo: "I premi pagati dal contraente agli intermediari e le somme destinate ai risarcimenti o ai pagamenti dovuti alle imprese di assicurazione, se regolati per il tramite dell'intermediario, costituiscono patrimonio autonomo e separato dal patrimonio dell'intermediario stesso.",
+      fideiussione_117: "Ha costituito ai sensi dell'art. 117 comma 3 bis del Codice delle Assicurazioni una fideiussione a garanzia della capacità finanziaria richiesta dalla stessa norma, pari al 4% dei premi incassati, con un minimo di € 18.750,00.",
+    };
+
+    return {
+      clienteNomeRagSoc: nomeRagSoc || "-",
+      clienteCF: codiceFiscale,
+      clientePIVA: partitaIva,
+      clienteIndirizzo: indirizzo,
+      clienteCap: cap,
+      clienteCitta: citta,
+      clienteProvincia: provincia,
+      polizzaNumero: polizza,
+      polizzaRiferimento: riferimento,
+      polizzaCompagniaTesto: compagniaData?.nome || "",
+      polizzaRamo: ramo,
+      specialistNomeCognome: nomeCognomeRui,
+      specialistSezioneRui: sezioneRui,
+      specialistNumeroRui: numeroRui,
+      specialistDataIscrizione: dataIscrizione,
+      specialistEmail: emailRui,
+      specialistTelefono: telRui,
+      specialistIndirizzo: [indirizzoRui, capRui, cittaRui, provinciaRui].filter(Boolean).join(" - "),
+      modelloDistribuzione,
+      collaborazioneAltri,
+      sezioneII_testo: sezioneIIMap[sezioneII] || "",
+      tipoRemunerazione,
+      sezioneIV_testo: sezioneIVMap[sezioneIV] || "",
+      pagamentoNonLiberatorio,
+      dataOggi: new Date().toLocaleDateString("it-IT"),
+    };
+  };
+
+  const generateBlob = async (): Promise<Blob> => {
+    const bytes = await buildPrecontrattualePdf(buildData());
+    return new Blob([bytes], { type: "application/pdf" });
+  };
+
+  const handleAnteprima = async () => {
+    try {
+      setIsBuilding(true);
+      const blob = await generateBlob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    } catch (e: any) {
+      toast.error("Errore generazione anteprima: " + (e?.message || e));
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
+  const handleStampa = async () => {
+    try {
+      setIsBuilding(true);
+      const blob = await generateBlob();
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (w) {
+        w.addEventListener("load", () => {
+          try { w.print(); } catch {}
+        });
+      }
+    } catch (e: any) {
+      toast.error("Errore stampa: " + (e?.message || e));
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
+  const fileName = () => {
+    const cli = prefillData?.cliente as any;
+    const surname = (cli?.cognome || cli?.ragione_sociale || "Cliente").replace(/\s+/g, "_");
+    const today = new Date().toISOString().slice(0, 10);
+    return `Precontrattuale_${surname}_${today}.pdf`;
+  };
+
+  const handleSalva = async () => {
+    try {
+      setIsBuilding(true);
+      const bytes = await buildPrecontrattualePdf(buildData());
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const name = fileName();
+
+      // Download locale
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+      // Upload su Archivio Documentale (solo se abbiamo cliente)
+      if (clienteIdParam) {
+        const path = `${clienteIdParam}/precontrattuale/${Date.now()}_${name}`;
+        const { error: upErr } = await supabase.storage
+          .from("documenti_clienti")
+          .upload(path, blob, { contentType: "application/pdf", upsert: false });
+        if (upErr) throw upErr;
+
+        const { data: userData } = await supabase.auth.getUser();
+        const { error: dbErr } = await supabase.from("documenti").insert({
+          nome_file: name,
+          path_storage: path,
+          bucket_name: "documenti_clienti",
+          entita_tipo: "cliente",
+          entita_id: clienteIdParam,
+          categoria: "Precontrattuale",
+          visibile_al_cliente: true,
+          caricato_da: userData?.user?.id ?? null,
+        } as any);
+        if (dbErr) throw dbErr;
+
+        toast.success("PDF salvato e archiviato in Archivio Documentale");
+      } else {
+        toast.success("PDF generato");
+      }
+    } catch (e: any) {
+      toast.error("Errore salvataggio: " + (e?.message || e));
+    } finally {
+      setIsBuilding(false);
+    }
   };
 
   return (
