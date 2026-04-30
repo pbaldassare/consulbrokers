@@ -369,6 +369,23 @@ const AnagraficheInternePage = () => {
     setDialogOpen(true);
   };
 
+  // Deep-link: aprire in edit l'anagrafica richiesta dal Centro Utenti via ?edit=<id>
+  // Linka per id di profiles tramite codice_fornitore o codice (heuristica): cerchiamo per id direttamente
+  // Nota: si applica ai tab anagrafica
+  if (pendingEditId && isAnagraficaTab && items.length > 0) {
+    const target = items.find((i) => i.id === pendingEditId);
+    if (target && editingId !== target.id) {
+      // apri al prossimo tick per evitare loop di setState durante render
+      setTimeout(() => {
+        openEdit(target);
+        setPendingEditId(null);
+        const sp = new URLSearchParams(searchParams);
+        sp.delete("edit");
+        setSearchParams(sp, { replace: true });
+      }, 0);
+    }
+  }
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
       const { error } = await supabase.from("anagrafiche_professionali").update({ attivo }).eq("id", id);
