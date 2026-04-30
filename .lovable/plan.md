@@ -1,39 +1,42 @@
-## Problema
+## Obiettivo
 
-Il dialog "Nuovo Specialist" (vedi screenshot) raccoglie solo i campi minimi (Cognome / Nome / Email / Sede / Telefono / CF / Password), ma serve raccogliere già in creazione **tutti i dati** richiesti — gli stessi del dialog di Modifica:
-- Dati base + Codice contabile + Descrizione + Fax
-- Indirizzo (con autocomplete) + CAP / Città / Provincia
-- **Dati RUI strutturati**: Nome RUI, Sezione, Numero, Data iscrizione (DatePicker)
-- Percentuali: Provvigione / Consulenza / RA
-- Banca: IBAN + Intestatario C/C
+Creare in DB una nuova utenza Specialist (ruolo `backoffice`) per **Paola Scarpelli**, collegata alla **Sede Napoli**, con i dati RUI già compilati.
 
-## Modifiche
+## Dati da inserire
 
-### `src/components/anagrafiche/SpecialistList.tsx`
+| Campo | Valore |
+|---|---|
+| Nome | Paola |
+| Cognome | Scarpelli |
+| Email | pscarpelli@consulbrokers.it |
+| Telefono | 081 7648268 |
+| Sede (ufficio) | Napoli |
+| Sezione RUI | E |
+| Numero RUI | E000354024 |
+| Data iscrizione RUI | 14/09/2010 |
+| Password iniziale | Leone123! |
+| Ruolo | `backoffice` (Specialist L4) |
+| Permessi | default L4 da `LEVELS[2].defaultPermissions` |
 
-1. Estendere lo state `newUser` con tutti i campi sopra (default "").
-2. Trasformare il dialog "Nuovo Specialist" in un layout a **tabs** identico a quello di Modifica:
-   - **Dati** (Codice contabile, Sede *, Cognome *, Nome, Descrizione, Email *, CF, Telefono, Fax, Password iniziale *)
-   - **Indirizzo** (`AddressAutocomplete` + CAP/Città/Provincia)
-   - **RUI** (Nome RUI, Sezione, Numero, Data iscrizione — `DateField`)
-   - **Provvigioni** (% Base, % Consulenza, % RA)
-   - **Banca** (IBAN uppercase, Intestatario C/C)
-3. La `createMutation` invierà tutti i campi all'edge function `create-user` (che già li accetta tutti — verificato: nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc sono già nel destructuring).
-4. Le percentuali vengono convertite a `Number()` se non vuote.
-5. Reset state al chiudere/successo via `initialNewUser`.
+Provvigioni, IBAN, indirizzo e codice contabile restano vuoti — completabili dopo dalla scheda di modifica.
 
-### `supabase/functions/create-user/index.ts`
+## Operazioni
 
-L'edge function attualmente non passa al `profiles.insert` i campi: `percentuale_base`, `percentuale_consulenza`. Vanno aggiunti al destructuring e all'insert per coerenza con il dialog.
+1. **Lookup `ufficio_id` Sede Napoli** tramite query su `uffici` (per non hardcodare un UUID).
+2. **Invocare l'edge function `create-user`** già esistente (deployata) con il payload completo:
+   - crea utente in `auth.users` con email + password `Leone123!` (email_confirm: true)
+   - crea record in `profiles` con tutti i campi sopra
+   - assegna `user_roles.role = 'backoffice'`
+   - logga in `log_attivita`
+3. **Verifica post-creazione** con query su `profiles` per confermare che l'utenza sia presente con Sede Napoli e dati RUI corretti.
 
-### File toccati
+## Note
 
-- `src/components/anagrafiche/SpecialistList.tsx` — espansione form Nuovo Specialist con tabs
-- `supabase/functions/create-user/index.ts` — aggiunta `percentuale_base` e `percentuale_consulenza` all'insert profilo
-- `public/version.json` — bump
+- Nessuna modifica a codice o schema: si usa solo l'infrastruttura già pronta (edge function `create-user`).
+- Il trigger `validate_profilo_sede_required` accetta perché passiamo `ufficio_id`.
+- Il trigger `sync_iscrizione_rui_text` formatterà automaticamente `iscrizione_rui` come "14/09/2010".
+- L'email `pscarpelli@consulbrokers.it` deve essere libera in `auth.users`; in caso di duplicato avviso e chiedo come procedere (alias `+napoli` oppure reset password sull'utenza esistente).
 
-### Note
+## File toccati
 
-- Restano obbligatori solo: Cognome, Email, Sede, Password. Tutti gli altri campi sono opzionali ma compilabili subito.
-- Il trigger DB `validate_profilo_sede_required` continua a garantire la Sede obbligatoria.
-- Stesso pattern andrà replicato per "Nuovo Produttore" se confermato — non incluso ora per non ampliare lo scope.
+Nessuno. Solo chiamate runtime (edge function + query verifica) + bump `public/version.json`.
