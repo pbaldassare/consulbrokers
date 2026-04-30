@@ -219,9 +219,25 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           cognome: newUser.cognome,
           email: newUser.email,
           telefono: newUser.telefono || null,
+          fax: newUser.fax || null,
           codice_fiscale: newUser.codice_fiscale ? newUser.codice_fiscale.toUpperCase() : null,
+          descrizione: newUser.descrizione || null,
           ruolo: "backoffice",
           ufficio_id: newUser.ufficio_id,
+          codice_contabile: newUser.codice_contabile || null,
+          indirizzo: newUser.indirizzo || null,
+          cap: newUser.cap || null,
+          citta: newUser.citta || null,
+          provincia: newUser.provincia || null,
+          nome_rui: newUser.nome_rui || null,
+          sezione_rui: newUser.sezione_rui || null,
+          numero_rui: newUser.numero_rui || null,
+          data_iscrizione_rui: newUser.data_iscrizione_rui || null,
+          percentuale_base: newUser.percentuale_base ? Number(newUser.percentuale_base) : null,
+          percentuale_consulenza: newUser.percentuale_consulenza ? Number(newUser.percentuale_consulenza) : null,
+          percentuale_ra: newUser.percentuale_ra ? Number(newUser.percentuale_ra) : null,
+          iban: newUser.iban ? newUser.iban.toUpperCase() : null,
+          intestatario_cc: newUser.intestatario_cc || null,
           permessi_json: LEVELS[2].defaultPermissions,
           password: newUser.password,
         },
@@ -245,11 +261,10 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         duration: 10000,
       });
       setCreateOpen(false);
-      setNewUser({ cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "", ufficio_id: "", password: "Leone123!" });
-      // Apri subito edit per completare RUI/IBAN/percentuali
+      setNewUser(initialNewUser);
+      // Apri subito edit per completare eventuali campi mancanti
       setTimeout(() => {
         if (newId) {
-          // Trigger reload then open edit via items refetch handled by editId effect indirectly; simpler: refetch then set editingId
           queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }).then(() => {
             setTimeout(() => {
               setEditingId(newId);
