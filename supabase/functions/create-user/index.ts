@@ -51,12 +51,44 @@ Deno.serve(async (req) => {
       });
     }
 
+    const body = await req.json();
+    const action = body.action || "create";
+
+    // ---- Action: reset-password ----
+    if (action === "reset-password") {
+      const { user_id, password } = body;
+      if (!user_id || !password) {
+        return new Response(JSON.stringify({ error: "user_id e password obbligatori" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error: updErr } = await adminClient.auth.admin.updateUserById(user_id, { password });
+      if (updErr) {
+        return new Response(JSON.stringify({ error: `Errore reset password: ${updErr.message}` }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await adminClient.from("log_attivita").insert({
+        user_id: caller.id,
+        azione: "reset_password_utente",
+        entita_tipo: "profile",
+        entita_id: user_id,
+        dettagli_json: { reset_by: caller.email },
+      });
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const {
       nome, cognome, email, ruolo, ufficio_id, permessi_json, password,
       descrizione, indirizzo, cap, citta, provincia, telefono, fax,
       codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui,
       codice_contabile, percentuale_ra, iban, intestatario_cc,
-    } = await req.json();
+    } = body;
 
     if (!email || !nome || !cognome || !ruolo) {
       return new Response(
