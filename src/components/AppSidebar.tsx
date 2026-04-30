@@ -140,8 +140,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
         { label: "Anagrafiche Compagnie", path: "/archivi/anagrafiche-compagnie", icon: Scale },
-        { label: "Anagrafiche Interne", path: "/archivi/anagrafiche-interne", icon: Briefcase },
-        { label: "Gestione Sedi", path: "/gestione-uffici", icon: Building2 },
+        { label: "Anagrafiche Amministrative", path: "/archivi/anagrafiche-amministrative", icon: Briefcase },
       ],
     },
   },

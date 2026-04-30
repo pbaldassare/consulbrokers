@@ -19,8 +19,9 @@ export const archiviRoutes = (
     <Route path="/archivi/clienti/deduplica" element={<DeduplicaClientiPage />} />
     <Route path="/archivi/clienti/:id" element={<ClienteDetail />} />
     <Route path="/archivi/anagrafiche-compagnie" element={<AnagraficheCompagniePage />} />
-    <Route path="/archivi/anagrafiche-interne" element={<AnagraficheInternePage />} />
-    <Route path="/archivi/anagrafiche" element={<Navigate to="/archivi/anagrafiche-interne" replace />} />
+    <Route path="/archivi/anagrafiche-amministrative" element={<AnagraficheInternePage />} />
+    <Route path="/archivi/anagrafiche-interne" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
+    <Route path="/archivi/anagrafiche" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
     <Route path="/trattative" element={<TrattativeList />} />
     <Route path="/trattative/calendario" element={<CalendarioTrattativePage />} />
     <Route path="/trattative/storico" element={<StoricoTrattativePage />} />

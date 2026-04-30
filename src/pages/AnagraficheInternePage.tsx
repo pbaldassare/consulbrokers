@@ -13,8 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Briefcase, Users } from "lucide-react";
+import { Plus, Search, Briefcase, Users, UserCog, Building2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import SediManager from "@/components/anagrafiche/SediManager";
+import SpecialistList from "@/components/anagrafiche/SpecialistList";
 
 const TIPI = [
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
@@ -22,7 +24,14 @@ const TIPI = [
   { value: "responsabile_sede", label: "Resp. Sede", icon: Users },
 ] as const;
 
+// Tab speciali (non basati su anagrafiche_professionali)
+const EXTRA_TABS = [
+  { value: "specialist", label: "Specialist", icon: UserCog },
+  { value: "sedi", label: "Sedi", icon: Building2 },
+] as const;
+
 type TipoAnagrafica = typeof TIPI[number]["value"];
+type TabValue = TipoAnagrafica | typeof EXTRA_TABS[number]["value"];
 
 interface Anagrafica {
   id: string;
@@ -90,19 +99,23 @@ const emptyForm = {
 const AnagraficheInternePage = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TipoAnagrafica>("account_executive");
+  const [activeTab, setActiveTab] = useState<TabValue>("account_executive");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const isAnagraficaTab = (TIPI as readonly { value: string }[]).some(t => t.value === activeTab);
+  const tipoAnagrafica = isAnagraficaTab ? (activeTab as TipoAnagrafica) : "account_executive";
+
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["anagrafiche_professionali", activeTab],
+    queryKey: ["anagrafiche_professionali", tipoAnagrafica],
+    enabled: isAnagraficaTab,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("anagrafiche_professionali")
         .select("*")
-        .eq("tipo", activeTab)
+        .eq("tipo", tipoAnagrafica)
         .order("cognome", { ascending: true });
       if (error) throw error;
       return data as unknown as Anagrafica[];
@@ -142,7 +155,7 @@ const AnagraficheInternePage = () => {
       }
 
       const payload: Record<string, unknown> = {
-        tipo: activeTab,
+        tipo: tipoAnagrafica,
         codice: form.codice || null,
         nome: form.nome || null,
         nome_breve: form.nome_breve || null,
@@ -769,30 +782,39 @@ const AnagraficheInternePage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Interne</h1>
-          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede</p>
+          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Amministrative</h1>
+          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
         </div>
-        <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />Nuovo
-        </Button>
+        {isAnagraficaTab && (
+          <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />Nuovo
+          </Button>
+        )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TipoAnagrafica); setSearch(""); }}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TabValue); setSearch(""); }}>
         <TabsList>
           {TIPI.map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
               <t.icon className="w-4 h-4" />{t.label}
             </TabsTrigger>
           ))}
+          {EXTRA_TABS.map((t) => (
+            <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
+              <t.icon className="w-4 h-4" />{t.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <div className="mt-4 flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Cerca per nome, codice, email, città..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        {isAnagraficaTab && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Cerca per nome, codice, email, città..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <Badge variant="secondary">{filtered.length} risultati</Badge>
           </div>
-          <Badge variant="secondary">{filtered.length} risultati</Badge>
-        </div>
+        )}
 
         {TIPI.map((t) => (
           <TabsContent key={t.value} value={t.value}>
@@ -812,6 +834,14 @@ const AnagraficheInternePage = () => {
             </div>
           </TabsContent>
         ))}
+
+        <TabsContent value="specialist" className="mt-4">
+          <SpecialistList />
+        </TabsContent>
+
+        <TabsContent value="sedi" className="mt-4">
+          <SediManager showHeader={false} />
+        </TabsContent>
       </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
