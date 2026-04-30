@@ -110,6 +110,17 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
 
+  // --- Create new Specialist user ---
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "",
+    ufficio_id: "", password: "Leone123!",
+  });
+
+  // --- Reset password ---
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetPwd, setResetPwd] = useState("Leone123!");
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["specialist-profiles"],
     queryFn: async () => {
