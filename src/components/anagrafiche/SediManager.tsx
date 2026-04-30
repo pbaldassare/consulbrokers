@@ -217,7 +217,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                   >
                     <TableCell className="font-mono font-medium">{u.codice_ufficio}</TableCell>
                     <TableCell className="font-medium">{u.nome_ufficio}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{u.indirizzo || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[260px] truncate">{composeIndirizzoFull(u) || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.telefono || "—"}</TableCell>
                     <TableCell className="text-center">{counts[u.id]?.utenti || 0}</TableCell>
@@ -358,7 +358,7 @@ const UfficioDetail = ({ ufficio, uffici }: { ufficio: Ufficio; uffici: Ufficio[
         </CardTitle>
         {(ufficio.indirizzo || ufficio.email || ufficio.telefono) && (
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
-            {ufficio.indirizzo && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ufficio.indirizzo}</span>}
+            {composeIndirizzoFull(ufficio) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{composeIndirizzoFull(ufficio)}</span>}
             {ufficio.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{ufficio.email}</span>}
             {ufficio.telefono && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{ufficio.telefono}</span>}
           </div>
