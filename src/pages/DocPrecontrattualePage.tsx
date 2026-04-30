@@ -257,6 +257,65 @@ const DocPrecontrattualePage = () => {
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
 
+  // Opzioni del SearchableSelect in base al tipo
+  const intermediarioOptions = (() => {
+    if (tipoIntermediario === "specialist") {
+      return (specialistList || []).map((s: any) => ({
+        value: s.id,
+        label: `${s.cognome || ""} ${s.nome || ""}`.trim() || s.email || "—",
+        description: s.email || "",
+        searchText: `${s.email || ""} ${s.numero_rui || ""}`,
+      }));
+    }
+    if (tipoIntermediario === "produttore") {
+      return (produttoreList || []).map((p: any) => ({
+        value: p.id,
+        label: `${p.sigla || p.codice || ""}${p.sigla || p.codice ? " - " : ""}${p.cognome || ""} ${p.nome || ""}`.trim(),
+        description: p.tipo === "produttore_sede" ? "Produttore Sede" : "Consul / Corrispondente",
+        searchText: `${p.email || ""} ${p.numero_rui || ""}`,
+      }));
+    }
+    return (aeList || []).map((a: any) => ({
+      value: a.id,
+      label: `${a.sigla || a.codice || ""}${a.sigla || a.codice ? " - " : ""}${a.cognome || ""} ${a.nome || ""}`.trim(),
+      description: "Account Executive",
+      searchText: `${a.email || ""} ${a.numero_rui || ""}`,
+    }));
+  })();
+
+  const applyIntermediario = (id: string) => {
+    setIntermediario(id);
+    if (!id) return;
+    if (tipoIntermediario === "specialist") {
+      const s: any = (specialistList || []).find((x: any) => x.id === id);
+      if (!s) return;
+      setNomeCognomeRui(s.nome_rui || `${s.cognome || ""} ${s.nome || ""}`.trim());
+      setSezioneRui(s.sezione_rui || "");
+      setNumeroRui(s.numero_rui || "");
+      setDataIscrizione(s.data_iscrizione_rui ? new Date(s.data_iscrizione_rui).toLocaleDateString("it-IT") : "");
+      setIndirizzoRui(s.indirizzo || "");
+      setCapRui(s.cap || "");
+      setCittaRui(s.citta || "");
+      setProvinciaRui(s.provincia || "");
+      setEmailRui(s.email || "");
+      setTelRui(s.telefono || "");
+      return;
+    }
+    const list: any[] = tipoIntermediario === "produttore" ? (produttoreList || []) : (aeList || []);
+    const r: any = list.find((x: any) => x.id === id);
+    if (!r) return;
+    setNomeCognomeRui(r.nome_rui || `${r.cognome || ""} ${r.nome || ""}`.trim());
+    setSezioneRui(r.sezione_rui || "");
+    setNumeroRui(r.numero_rui || "");
+    setDataIscrizione(r.iscrizione_rui || "");
+    setIndirizzoRui(r.indirizzo || "");
+    setCapRui(r.cap || "");
+    setCittaRui(r.citta || "");
+    setProvinciaRui(r.provincia || "");
+    setEmailRui(r.email || "");
+    setTelRui(r.telefono || "");
+  };
+
   const buildData = (): PrecontrattualeData => {
     const cli = prefillData?.cliente as any;
     const nomeRagSoc = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
