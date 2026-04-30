@@ -190,16 +190,14 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Sede</Label>
-                  <Select value={ufficioId || "none"} onValueChange={(v) => setUfficioId(v === "none" ? "" : v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Nessuna —</SelectItem>
-                      {uffici?.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.nome_ufficio}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs">Sede assegnata</Label>
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/30">
+                    {user.uffici?.nome_ufficio ? (
+                      <span className="text-sm">{user.uffici.nome_ufficio}</span>
+                    ) : (
+                      <Badge variant="destructive" className="text-[10px]">Sede mancante</Badge>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
@@ -209,8 +207,39 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
                 </div>
                 <Switch checked={attivo} onCheckedChange={setAttivo} />
               </div>
+              <div className="rounded-lg border bg-primary/5 p-3 flex items-start gap-2">
+                <ExternalLink className="w-4 h-4 mt-0.5 text-primary" />
+                <div className="flex-1 text-xs">
+                  <p className="font-medium text-foreground">Anagrafica completa, Sede, RUI, percentuali e IBAN</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    si gestiscono in <strong>Anagrafiche Amministrative</strong>. Qui solo ruolo, permessi e password.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const tabMap: Record<string, string> = {
+                      backoffice: "specialist",
+                      account_executive: "account_executive",
+                      corrispondente_1: "corrispondente",
+                      corrispondente_2: "corrispondente",
+                      corrispondente_3: "corrispondente",
+                      responsabile_sede: "responsabile_sede",
+                    };
+                    const tab = tabMap[ruolo];
+                    if (!tab) {
+                      toast.info("Questo ruolo non ha un'anagrafica amministrativa");
+                      return;
+                    }
+                    window.location.href = `/archivi/anagrafiche-amministrative?tab=${tab}&edit=${user.id}`;
+                  }}
+                >
+                  Apri anagrafica
+                </Button>
+              </div>
               <p className="text-[11px] text-muted-foreground">
-                Ruolo, sede e stato account si salvano con il pulsante "Salva modifiche" in fondo. I dati anagrafici si salvano con il pulsante dedicato qui sopra.
+                Ruolo, attivo e permessi si salvano col pulsante "Salva modifiche". Dati anagrafici col pulsante dedicato sopra.
               </p>
             </TabsContent>
 
