@@ -260,16 +260,48 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               <Input value={formData.nome_ufficio} onChange={(e) => setFormData({ ...formData, nome_ufficio: e.target.value })} placeholder="es. Sede Milano" />
             </div>
             <div>
-              <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo</Label>
+              <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo (via e civico)</Label>
               <AddressAutocomplete
                 value={formData.indirizzo}
                 onChange={(v) => setFormData({ ...formData, indirizzo: v })}
                 onSelect={(c) => setFormData({
                   ...formData,
-                  indirizzo: [c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(", "),
+                  indirizzo: c.indirizzo || formData.indirizzo,
+                  cap: c.cap || formData.cap,
+                  citta: c.citta || formData.citta,
+                  provincia: (c.provincia || formData.provincia || "").toUpperCase(),
                 })}
-                placeholder="es. Via Roma 1, 20121 Milano"
+                placeholder="es. Via Roma 1"
               />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>CAP</Label>
+                <Input
+                  value={formData.cap}
+                  onChange={(e) => setFormData({ ...formData, cap: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                  placeholder="20121"
+                  inputMode="numeric"
+                  maxLength={5}
+                />
+              </div>
+              <div>
+                <Label>Città</Label>
+                <Input
+                  value={formData.citta}
+                  onChange={(e) => setFormData({ ...formData, citta: e.target.value })}
+                  placeholder="Milano"
+                />
+              </div>
+              <div>
+                <Label>Provincia</Label>
+                <Input
+                  value={formData.provincia}
+                  onChange={(e) => setFormData({ ...formData, provincia: e.target.value.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 2) })}
+                  placeholder="MI"
+                  maxLength={2}
+                />
+              </div>
             </div>
             <div>
               <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
