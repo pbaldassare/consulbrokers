@@ -306,7 +306,13 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                       <div className="font-medium">{p.cognome || "—"}</div>
                       <div className="text-xs text-muted-foreground">{p.nome || ""}</div>
                     </TableCell>
-                    <TableCell className="text-sm">{p.ufficio_id ? (ufficioMap[p.ufficio_id] || "—") : "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {p.ufficio_id ? (
+                        ufficioMap[p.ufficio_id] || "—"
+                      ) : (
+                        <Badge variant="destructive" className="text-[10px]">Sede mancante</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">
                       {p.telefono && <div>Tel {p.telefono}</div>}
                       {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
