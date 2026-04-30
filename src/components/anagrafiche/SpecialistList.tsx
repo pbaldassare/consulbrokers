@@ -200,6 +200,92 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }),
   });
 
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!newUser.cognome || !newUser.email) throw new Error("Cognome ed email sono obbligatori");
+      if (!newUser.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
+      if (!newUser.password || newUser.password.length < 6) throw new Error("Password minimo 6 caratteri");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await supabase.functions.invoke("create-user", {
+        body: {
+          nome: newUser.nome,
+          cognome: newUser.cognome,
+          email: newUser.email,
+          telefono: newUser.telefono || null,
+          codice_fiscale: newUser.codice_fiscale ? newUser.codice_fiscale.toUpperCase() : null,
+          ruolo: "backoffice",
+          ufficio_id: newUser.ufficio_id,
+          permessi_json: LEVELS[2].defaultPermissions,
+          password: newUser.password,
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.error || (res.data as any)?.error) {
+        throw new Error((res.data as any)?.error || res.error?.message || "Errore creazione");
+      }
+      return (res.data as any)?.user_id as string;
+    },
+    onSuccess: (newId) => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
+      const email = newUser.email;
+      const pwd = newUser.password;
+      toast.success("Specialist creato", {
+        description: `${email} • password: ${pwd}`,
+        action: {
+          label: "Copia credenziali",
+          onClick: () => navigator.clipboard.writeText(`${email} / ${pwd}`),
+        },
+        duration: 10000,
+      });
+      setCreateOpen(false);
+      setNewUser({ cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "", ufficio_id: "", password: "Leone123!" });
+      // Apri subito edit per completare RUI/IBAN/percentuali
+      setTimeout(() => {
+        if (newId) {
+          // Trigger reload then open edit via items refetch handled by editId effect indirectly; simpler: refetch then set editingId
+          queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }).then(() => {
+            setTimeout(() => {
+              setEditingId(newId);
+            }, 100);
+          });
+        }
+      }, 200);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetPwdMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("Nessuno Specialist selezionato");
+      if (!resetPwd || resetPwd.length < 6) throw new Error("Password minimo 6 caratteri");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await supabase.functions.invoke("create-user", {
+        body: { action: "reset-password", user_id: editingId, password: resetPwd },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.error || (res.data as any)?.error) {
+        throw new Error((res.data as any)?.error || res.error?.message || "Errore reset");
+      }
+    },
+    onSuccess: () => {
+      const pwd = resetPwd;
+      const email = form.email;
+      toast.success("Password resettata", {
+        description: `${email} • nuova password: ${pwd}`,
+        action: {
+          label: "Copia",
+          onClick: () => navigator.clipboard.writeText(`${email} / ${pwd}`),
+        },
+        duration: 10000,
+      });
+      setResetOpen(false);
+      setResetPwd("Leone123!");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const openEdit = (item: SpecialistRow) => {
     setEditingId(item.id);
     setForm({
