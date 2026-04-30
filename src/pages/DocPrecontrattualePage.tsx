@@ -101,12 +101,38 @@ const DocPrecontrattualePage = () => {
   });
 
   const { data: aeList } = useQuery({
-    queryKey: ["ae-list-doc"],
+    queryKey: ["interm-ae-list-doc"],
     queryFn: async () => {
       const { data } = await supabase
         .from("anagrafiche_professionali")
         .select("id, codice, cognome, nome, sigla, sezione_rui, numero_rui, iscrizione_rui, nome_rui, indirizzo, cap, citta, provincia, email, telefono")
         .eq("tipo", "account_executive")
+        .eq("attivo", true)
+        .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: specialistList } = useQuery({
+    queryKey: ["interm-specialist-list-doc"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, cognome, email, telefono, indirizzo, cap, citta, provincia, nome_rui, sezione_rui, numero_rui, data_iscrizione_rui, ufficio_id")
+        .eq("ruolo", "backoffice")
+        .eq("attivo", true)
+        .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: produttoreList } = useQuery({
+    queryKey: ["interm-produttore-list-doc"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, codice, cognome, nome, sigla, sezione_rui, numero_rui, iscrizione_rui, nome_rui, indirizzo, cap, citta, provincia, email, telefono, tipo")
+        .in("tipo", ["produttore_sede", "corrispondente"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
