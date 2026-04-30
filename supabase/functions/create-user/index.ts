@@ -137,6 +137,8 @@ Deno.serve(async (req) => {
       numero_rui: numero_rui || null,
       sezione_rui: sezione_rui || null,
       codice_contabile: codice_contabile || null,
+      percentuale_base: percentuale_base ?? null,
+      percentuale_consulenza: percentuale_consulenza ?? null,
       percentuale_ra: percentuale_ra ?? null,
       iban: iban || null,
       intestatario_cc: intestatario_cc || null,
