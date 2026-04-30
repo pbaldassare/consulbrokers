@@ -96,7 +96,12 @@ const DateField = ({ value, onChange }: { value: string; onChange: (v: string) =
 const SELECT_FIELDS =
   "id, nome, cognome, email, ruolo, ufficio_id, attivo, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, percentuale_base, percentuale_consulenza, note";
 
-const SpecialistList = () => {
+interface SpecialistListProps {
+  editId?: string | null;
+  onEditConsumed?: () => void;
+}
+
+const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
