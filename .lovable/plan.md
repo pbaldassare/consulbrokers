@@ -1,42 +1,38 @@
 ## Obiettivo
 
-Creare in DB una nuova utenza Specialist (ruolo `backoffice`) per **Paola Scarpelli**, collegata alla **Sede Napoli**, con i dati RUI già compilati.
+Integrare il componente `AddressAutocomplete` (Google Maps Places) nel campo **Indirizzo** del dialog "Nuova/Modifica Sede" in `SediManager.tsx`, coerente con gli altri form (Clienti, Compagnie, Specialist, Prospect).
 
-## Dati da inserire
+## Modifiche
 
-| Campo | Valore |
-|---|---|
-| Nome | Paola |
-| Cognome | Scarpelli |
-| Email | pscarpelli@consulbrokers.it |
-| Telefono | 081 7648268 |
-| Sede (ufficio) | Napoli |
-| Sezione RUI | E |
-| Numero RUI | E000354024 |
-| Data iscrizione RUI | 14/09/2010 |
-| Password iniziale | Leone123! |
-| Ruolo | `backoffice` (Specialist L4) |
-| Permessi | default L4 da `LEVELS[2].defaultPermissions` |
+**File**: `src/components/anagrafiche/SediManager.tsx`
 
-Provvigioni, IBAN, indirizzo e codice contabile restano vuoti — completabili dopo dalla scheda di modifica.
+1. **Import** (riga 15): aggiungere
+   ```ts
+   import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+   ```
 
-## Operazioni
+2. **Campo Indirizzo nel form** (riga 248): sostituire l'`<Input>` con:
+   ```tsx
+   <AddressAutocomplete
+     value={formData.indirizzo}
+     onChange={(v) => setFormData({ ...formData, indirizzo: v })}
+     onSelect={(c) => setFormData({
+       ...formData,
+       indirizzo: [c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(", "),
+     })}
+     placeholder="es. Via Roma 1, 20121 Milano"
+   />
+   ```
 
-1. **Lookup `ufficio_id` Sede Napoli** tramite query su `uffici` (per non hardcodare un UUID).
-2. **Invocare l'edge function `create-user`** già esistente (deployata) con il payload completo:
-   - crea utente in `auth.users` con email + password `Leone123!` (email_confirm: true)
-   - crea record in `profiles` con tutti i campi sopra
-   - assegna `user_roles.role = 'backoffice'`
-   - logga in `log_attivita`
-3. **Verifica post-creazione** con query su `profiles` per confermare che l'utenza sia presente con Sede Napoli e dati RUI corretti.
+3. **Bump** `public/version.json`.
 
-## Note
+## Note tecniche
 
-- Nessuna modifica a codice o schema: si usa solo l'infrastruttura già pronta (edge function `create-user`).
-- Il trigger `validate_profilo_sede_required` accetta perché passiamo `ufficio_id`.
-- Il trigger `sync_iscrizione_rui_text` formatterà automaticamente `iscrizione_rui` come "14/09/2010".
-- L'email `pscarpelli@consulbrokers.it` deve essere libera in `auth.users`; in caso di duplicato avviso e chiedo come procedere (alias `+napoli` oppure reset password sull'utenza esistente).
+- La tabella `uffici` ha solo la colonna `indirizzo` (text), non campi separati cap/città/provincia → al `onSelect` salvo l'indirizzo completo concatenato.
+- Stessa chiave `VITE_GOOGLE_MAPS_API_KEY` già usata negli altri form, nessuna nuova secret.
+- Nessuna migration, nessun cambio schema.
 
 ## File toccati
 
-Nessuno. Solo chiamate runtime (edge function + query verifica) + bump `public/version.json`.
+- `src/components/anagrafiche/SediManager.tsx`
+- `public/version.json`
