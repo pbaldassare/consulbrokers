@@ -613,7 +613,7 @@ const AnagraficheInternePage = () => {
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Dati RUI</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
-                <div><Label>Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
                 <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
                 <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
               </div>
@@ -734,7 +734,7 @@ const AnagraficheInternePage = () => {
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Iscrizione RUI</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Nome Iscrizione RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
-                <div><Label>Data Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
                 <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
                 <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} /></div>
               </div>
