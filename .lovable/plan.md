@@ -1,49 +1,52 @@
-## Problema
+## Obiettivo
 
-In `Immissione Polizza` (`/portafoglio/immissione`), il pulsante "Nuovo Cliente" apre `QuickClienteDialog` — un form ridotto che NON rispecchia il flusso normale di creazione cliente. Mancano:
+Trasformare `Anagrafiche Interne` in una pagina unica chiamata **`Anagrafiche Amministrative`** che raccolga in tab tutte le figure interne all'agenzia + le sedi:
 
-- Gruppo Finanziario in cima (con derivazione automatica del Tipo Cliente)
-- Codice CUP obbligatorio per Ente
-- Validazione/auto-fill CF (sesso, nascita, luogo via `parseCF`)
-- Sync 11-cifre CF → P.IVA
-- Forma giuridica, SDI, indirizzi, dati statistici, ecc.
+```
+Anagrafiche Amministrative
+ ├─ Account Executive   (anagrafiche_professionali · tipo=account_executive)   [esistente]
+ ├─ Produttori          (anagrafiche_professionali · tipo=corrispondente)      [esistente]
+ ├─ Resp. Sede          (anagrafiche_professionali · tipo=responsabile_sede)   [esistente]
+ ├─ Specialist          (profiles · ruolo=backoffice)                          [NUOVO tab]
+ └─ Sedi                (uffici)                                               [NUOVO tab]
+```
 
-Inoltre i tab Privato/Azienda/Ente sono manualmente selezionabili invece di essere derivati dal Gruppo Finanziario (regola già fissata in memory).
+Lo Specialist oggi è un **utente di sistema** (`profiles.ruolo='backoffice'`, attualmente 1 attivo, "AC" Admin Consul lo include come admin), non un'anagrafica professionale: lo mostro in sola "vista + stato attivo" leggendo da `profiles`, senza creare una nuova tabella. La gestione completa dell'utente resta su `Sistema → Utenti & Privilegi`.
 
-## Soluzione
+## Modifiche
 
-Riusare lo **stesso identico modal** già presente in `ClientiList.tsx` (righe 614→1071) anche dentro `ImmissionePolizzaPage`, in modo che ci sia un'unica esperienza di creazione cliente in tutta l'app.
+### 1. Rinomina pagina
+- **`src/pages/AnagraficheInternePage.tsx`** → rinomino in **`AnagraficheAmministrativePage.tsx`**.
+- Titolo header: `Anagrafiche Amministrative`
+- Sottotitolo: `Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi`
 
-### Approccio: estrazione in componente condiviso
+### 2. Nuovi tab nella TabsList esistente
+Estendo `TIPI` (oggi 3 valori) aggiungendo due item gestiti separatamente nel render:
+- **Specialist** — tabella read-only (Nome, Cognome, Email, Sede, Stato) con query su `profiles` filtrato per `ruolo IN ('backoffice','admin')` e `attivo=true`. Bottone "Modifica" che apre il pannello utente esistente (`/sistema/utenti/:id`) — niente CRUD locale.
+- **Sedi** — riuso integrale del componente `GestioneUfficiPage` come tab embedded (card + tabella uffici già pronti, dialog per creare/modificare). Ne estraggo il body in un componente `SediTabContent` per montarlo qui.
 
-1. **Estrarre** il contenuto del modal "Nuovo Cliente" da `src/pages/ClientiList.tsx` in un nuovo componente riutilizzabile `src/components/clienti/NuovoClienteDialog.tsx` con interfaccia:
-   ```ts
-   interface NuovoClienteDialogProps {
-     trigger?: React.ReactNode;          // bottone custom (default: "Nuovo Cliente")
-     onCreated?: (clienteId: string, label: string) => void;  // callback opzionale
-     open?: boolean;                     // controllo esterno opzionale
-     onOpenChange?: (o: boolean) => void;
-   }
-   ```
-   Il componente incapsula tutto lo stato (gruppo finanziario, tipo derivato, anagrafica, indirizzi, dati statistici, ruoli commerciali, ecc.) e l'insert su `clienti`.
+### 3. Route & navigazione
+- **`src/routes/archivi.tsx`**: nuova route `/archivi/anagrafiche-amministrative` + redirect da `/archivi/anagrafiche-interne` per non rompere link esistenti.
+- **`src/routes/sistema.tsx`**: la route `/gestione-uffici` resta (admin-only) per back-compat, ma diventa secondaria — la gestione primaria delle sedi avviene nel tab.
+- **`src/components/AppSidebar.tsx`**: 
+  - Voce `Anagrafiche Interne` → rinominata `Anagrafiche Amministrative`, path `/archivi/anagrafiche-amministrative`.
+  - Voce `Gestione Sedi` → **rimossa** dal menu (ora è un tab dentro Anagrafiche Amministrative).
 
-2. **Refactor `ClientiList.tsx`**: rimuovere il blocco inline e usare `<NuovoClienteDialog onCreated={...} />`. Comportamento invariato.
+### 4. Permessi
+- I tab Account Executive / Produttori / Resp. Sede / Specialist: visibili a tutti i livelli che già vedono Anagrafiche Interne.
+- Il tab **Sedi** richiede `RoleGuard allowedRoles=["admin"]` (stesso vincolo attuale di `/gestione-uffici`); per gli altri ruoli il tab non viene mostrato.
 
-3. **Refactor `ImmissionePolizzaPage.tsx`**:
-   - Rimuovere import e uso di `QuickClienteDialog`.
-   - Inserire `<NuovoClienteDialog onCreated={(id, label) => { /* seleziona il cliente appena creato nel form polizza */ }} trigger={<Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"><UserPlus className="w-3.5 h-3.5"/>Nuovo Cliente</Button>} />` al posto del dialog attuale.
-   - Il callback `onCreated` aggiorna il SearchableSelect "Cliente" con il cliente appena creato (stesso comportamento attuale di `QuickClienteDialog`).
-
-4. **Deprecare `QuickClienteDialog`**:
-   - Verificare con `rg "QuickClienteDialog"` se è usato altrove. Se solo in Immissione Polizza, eliminare il file `src/components/polizze/QuickClienteDialog.tsx`. Altrimenti aggiornare anche gli altri usi.
+### 5. Memory
+Aggiorno `mem://ui/terminology-conventions` aggiungendo: pagina unica "Anagrafiche Amministrative" raggruppa AE/Produttori/Resp.Sede/Specialist/Sedi.
 
 ## File coinvolti
 
-- **Nuovo**: `src/components/clienti/NuovoClienteDialog.tsx`
-- **Modificati**: `src/pages/ClientiList.tsx`, `src/pages/ImmissionePolizzaPage.tsx`
-- **Eliminato** (se non più usato): `src/components/polizze/QuickClienteDialog.tsx`
-- **Memory update**: aggiornare `mem://insurance/gruppi-finanziari-tipo-soggetto.md` per chiarire che il modal completo è ora un componente condiviso `NuovoClienteDialog` usato sia in Anagrafica Clienti sia in Immissione Polizza.
+- **Rinominato**: `src/pages/AnagraficheInternePage.tsx` → `src/pages/AnagraficheAmministrativePage.tsx`
+- **Nuovo**: `src/components/anagrafiche/SediTabContent.tsx` (estratto dal body di `GestioneUfficiPage`)
+- **Nuovo**: `src/components/anagrafiche/SpecialistTabContent.tsx` (lista read-only da `profiles`)
+- **Modificati**: `src/routes/archivi.tsx`, `src/routes/sistema.tsx`, `src/components/AppSidebar.tsx`, `src/pages/GestioneUfficiPage.tsx` (refactor per esportare il body riusabile)
+- **Memory**: `.lovable/memory/ui/terminology-conventions.md`
 
 ## Risultato atteso
 
-Cliccando "Nuovo Cliente" da Immissione Polizza si apre lo stesso modal grande (max-w-3xl, scrollabile) di Anagrafica Clienti, con Gruppo Finanziario in cima, badge Tipo Cliente auto-derivato, CUP per Ente, validazione CF, ecc. Una volta creato, il cliente viene selezionato automaticamente nel form polizza.
+Cliccando sulla voce sidebar **Anagrafiche Amministrative** si apre una pagina con 5 tab: i 3 tab esistenti restano identici (CRUD su `anagrafiche_professionali`), il tab **Specialist** mostra la lista degli utenti backoffice, il tab **Sedi** mostra la gestione completa degli uffici (precedentemente in `/gestione-uffici`). La voce separata "Gestione Sedi" sparisce dalla sidebar.
