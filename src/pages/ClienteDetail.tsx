@@ -1486,7 +1486,7 @@ export default function ClienteDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/doc-precontrattuale?clienteId=${id}`)}
+            onClick={() => navigate(`/portafoglio/doc-precontrattuale?clienteId=${id}`)}
           >
             <FileText className="w-4 h-4 mr-1" /> Genera Precontrattuale
           </Button>
