@@ -362,14 +362,18 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           />
         </div>
         <Badge variant="secondary">{filtered.length} risultati</Badge>
+        <div className="flex-1" />
+        <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
+          <UserPlus className="w-4 h-4" /> Nuovo Specialist
+        </Button>
       </div>
 
       <div className="rounded-md border bg-card p-3 text-xs text-muted-foreground flex items-start gap-2">
         <UserCog className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div className="flex-1">
           Gli <strong>Specialist</strong> sono utenti di sistema (ruolo <code className="text-foreground">backoffice</code>).
-          Qui modifichi l'anagrafica completa: dati personali, RUI, percentuali e coordinate bancarie.
-          Per <strong>creare un nuovo Specialist</strong> con accesso al sistema, usa Centro Utenti & Privilegi.
+          Qui crei e modifichi l'utenza completa: dati personali, RUI, percentuali e coordinate bancarie.
+          Centro Utenti & Privilegi resta disponibile per gestione massiva di ruoli e permessi.
         </div>
         <Button size="sm" variant="outline" onClick={() => navigate("/utenti-privilegi")}>
           <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Centro Utenti
