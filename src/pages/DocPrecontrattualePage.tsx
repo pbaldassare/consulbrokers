@@ -14,6 +14,9 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildPrecontrattualePdf, type PrecontrattualeData } from "@/lib/precontrattuale-pdf";
 import PdfPreview from "@/components/PdfPreview";
+import { SearchableSelect } from "@/components/SearchableSelect";
+
+type TipoIntermediario = "account_executive" | "specialist" | "produttore";
 
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
