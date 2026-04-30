@@ -137,11 +137,10 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
         </SheetHeader>
 
         <Tabs defaultValue="anagrafica" className="flex-1 flex flex-col overflow-hidden mt-4">
-          <TabsList className="grid grid-cols-5">
+          <TabsList className="grid grid-cols-4">
             <TabsTrigger value="anagrafica" className="text-xs"><UserIcon className="w-3.5 h-3.5 mr-1" />Anagrafica</TabsTrigger>
             <TabsTrigger value="visibility" className="text-xs"><Eye className="w-3.5 h-3.5 mr-1" />Visibilità</TabsTrigger>
             <TabsTrigger value="permissions" className="text-xs"><Settings2 className="w-3.5 h-3.5 mr-1" />Permessi</TabsTrigger>
-            <TabsTrigger value="provvigioni" className="text-xs">Provvigioni</TabsTrigger>
             <TabsTrigger value="security" className="text-xs"><Shield className="w-3.5 h-3.5 mr-1" />Sicurezza</TabsTrigger>
           </TabsList>
 
@@ -268,23 +267,16 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
               />
             </TabsContent>
 
-            <TabsContent value="provvigioni" className="space-y-3 mt-0">
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <Label className="font-medium">Riceve provvigioni</Label>
+            <TabsContent value="permissions-extra" className="hidden" />
+
+            <TabsContent value="permissions" className="space-y-3 mt-0">
+              <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
+                <div>
+                  <Label className="font-medium">Riceve provvigioni</Label>
+                  <p className="text-xs text-muted-foreground">Abilitazione modulo. Le percentuali si impostano in Anagrafiche Amministrative.</p>
+                </div>
                 <Switch checked={riceveProvvigioni} onCheckedChange={setRiceveProvvigioni} />
               </div>
-              {riceveProvvigioni && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">% Base</Label>
-                    <Input type="number" step="0.01" value={percBase} onChange={(e) => setPercBase(e.target.value === "" ? "" : Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">% RA</Label>
-                    <Input type="number" step="0.01" value={percRa} onChange={(e) => setPercRa(e.target.value === "" ? "" : Number(e.target.value))} />
-                  </div>
-                </div>
-              )}
             </TabsContent>
 
             <TabsContent value="security" className="space-y-3 mt-0">
