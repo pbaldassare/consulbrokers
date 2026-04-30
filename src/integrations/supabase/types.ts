@@ -95,6 +95,7 @@ export type Database = {
           cognome: string | null
           compagnia_id: string | null
           created_at: string | null
+          data_iscrizione_rui: string | null
           email: string | null
           fax: string | null
           iban: string | null
@@ -143,6 +144,7 @@ export type Database = {
           cognome?: string | null
           compagnia_id?: string | null
           created_at?: string | null
+          data_iscrizione_rui?: string | null
           email?: string | null
           fax?: string | null
           iban?: string | null
@@ -191,6 +193,7 @@ export type Database = {
           cognome?: string | null
           compagnia_id?: string | null
           created_at?: string | null
+          data_iscrizione_rui?: string | null
           email?: string | null
           fax?: string | null
           iban?: string | null

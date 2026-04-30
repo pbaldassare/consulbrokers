@@ -13,10 +13,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Briefcase, Users, UserCog, Building2 } from "lucide-react";
+import { Plus, Search, Briefcase, Users, UserCog, Building2, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
+
+/** Date picker inline (shadcn) — value is ISO yyyy-MM-dd or "" */
+const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const parsed = value ? parseISO(value) : undefined;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {parsed ? format(parsed, "dd/MM/yyyy") : <span>gg/mm/aaaa</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={parsed}
+          onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")}
+          locale={it}
+          captionLayout="dropdown-buttons"
+          fromYear={1980}
+          toYear={new Date().getFullYear() + 1}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const TIPI = [
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
@@ -67,6 +104,7 @@ interface Anagrafica {
   banca_riga3: string | null;
   nome_rui: string | null;
   iscrizione_rui: string | null;
+  data_iscrizione_rui: string | null;
   numero_rui: string | null;
   sezione_rui: string | null;
   annullato: boolean | null;
@@ -90,7 +128,7 @@ const emptyForm = {
   ufficio_id: "",
   // AE
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
-  nome_rui: "", iscrizione_rui: "", numero_rui: "", sezione_rui: "",
+  nome_rui: "", iscrizione_rui: "", data_iscrizione_rui: "", numero_rui: "", sezione_rui: "",
   // Produttori / commerciali
   percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "",
   abi: "", cab: "", iban: "", intestatario_cc: "",
@@ -185,7 +223,7 @@ const AnagraficheInternePage = () => {
         banca_riga2: form.banca_riga2 || null,
         banca_riga3: form.banca_riga3 || null,
         nome_rui: form.nome_rui || null,
-        iscrizione_rui: form.iscrizione_rui || null,
+        data_iscrizione_rui: form.data_iscrizione_rui || null,
         numero_rui: form.numero_rui || null,
         sezione_rui: form.sezione_rui || null,
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
@@ -248,7 +286,7 @@ const AnagraficheInternePage = () => {
         banca_riga2: form.banca_riga2 || null,
         banca_riga3: form.banca_riga3 || null,
         nome_rui: form.nome_rui || null,
-        iscrizione_rui: form.iscrizione_rui || null,
+        data_iscrizione_rui: form.data_iscrizione_rui || null,
         numero_rui: form.numero_rui || null,
         sezione_rui: form.sezione_rui || null,
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
@@ -309,6 +347,7 @@ const AnagraficheInternePage = () => {
       banca_riga3: item.banca_riga3 || "",
       nome_rui: item.nome_rui || "",
       iscrizione_rui: item.iscrizione_rui || "",
+      data_iscrizione_rui: item.data_iscrizione_rui || "",
       numero_rui: item.numero_rui || "",
       sezione_rui: item.sezione_rui || "",
       percentuale_base: item.percentuale_base?.toString() || "",
@@ -574,7 +613,7 @@ const AnagraficheInternePage = () => {
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Dati RUI</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
-                <div><Label>Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
                 <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
                 <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
               </div>
@@ -616,11 +655,17 @@ const AnagraficheInternePage = () => {
                 <div><Label>Azienda o Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
                 <div><Label>Segue o Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="grid grid-cols-3 gap-3 mt-2">
                 <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
                 <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
                 <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div><Label>RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Iscrizione RUI</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
+                <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
+                <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
+                <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
               </div>
             </TabsContent>
             <TabsContent value="indirizzo" className="space-y-3 mt-3">
@@ -695,7 +740,7 @@ const AnagraficheInternePage = () => {
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Iscrizione RUI</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Nome Iscrizione RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
-                <div><Label>Data Iscrizione RUI</Label><Input value={form.iscrizione_rui} onChange={(e) => setForm({ ...form, iscrizione_rui: e.target.value })} placeholder="dd/mm/yyyy" /></div>
+                <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
                 <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
                 <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} /></div>
               </div>
