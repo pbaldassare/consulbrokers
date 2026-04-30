@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -139,6 +139,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessuno Specialist selezionato");
+      if (!form.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
       const payload: Record<string, unknown> = {
         cognome: form.cognome || null,
         nome: form.nome || null,
