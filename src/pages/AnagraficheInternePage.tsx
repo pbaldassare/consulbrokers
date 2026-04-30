@@ -888,7 +888,15 @@ const AnagraficheInternePage = () => {
         ))}
 
         <TabsContent value="specialist" className="mt-4">
-          <SpecialistList />
+          <SpecialistList
+            editId={activeTab === "specialist" ? pendingEditId : null}
+            onEditConsumed={() => {
+              setPendingEditId(null);
+              const sp = new URLSearchParams(searchParams);
+              sp.delete("edit");
+              setSearchParams(sp, { replace: true });
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="sedi" className="mt-4">
