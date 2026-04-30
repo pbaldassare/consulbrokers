@@ -562,29 +562,29 @@ const DocPrecontrattualePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Intermediario</Label>
-              <select value={intermediario} onChange={(e) => {
-                setIntermediario(e.target.value);
-                const ae = aeList?.find((a) => a.id === e.target.value);
-                if (ae) {
-                  setNomeCognomeRui(ae.nome_rui || `${ae.cognome || ""} ${ae.nome || ""}`);
-                  setSezioneRui(ae.sezione_rui || "");
-                  setNumeroRui(ae.numero_rui || "");
-                  setDataIscrizione(ae.iscrizione_rui || "");
-                  setIndirizzoRui(ae.indirizzo || "");
-                  setCapRui(ae.cap || "");
-                  setCittaRui(ae.citta || "");
-                  setProvinciaRui(ae.provincia || "");
-                  setEmailRui(ae.email || "");
-                  setTelRui(ae.telefono || "");
-                }
-              }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <option value="">— Seleziona —</option>
-                {aeList?.map((ae) => (
-                  <option key={ae.id} value={ae.id}>{ae.sigla || ae.codice} - {ae.cognome} {ae.nome}</option>
-                ))}
+              <Label>Tipo intermediario</Label>
+              <select
+                value={tipoIntermediario}
+                onChange={(e) => {
+                  setTipoIntermediario(e.target.value as TipoIntermediario);
+                  setIntermediario("");
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="account_executive">Account Executive</option>
+                <option value="specialist">Specialist</option>
+                <option value="produttore">Produttore</option>
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Intermediario</Label>
+              <SearchableSelect
+                options={intermediarioOptions}
+                value={intermediario}
+                onValueChange={applyIntermediario}
+                placeholder="— Cerca e seleziona —"
+                emptyText="Nessun intermediario trovato."
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Sede</Label>
