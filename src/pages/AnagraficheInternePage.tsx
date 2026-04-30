@@ -13,8 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Briefcase, Users } from "lucide-react";
+import { Plus, Search, Briefcase, Users, UserCog, Building2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import SediManager from "@/components/anagrafiche/SediManager";
+import SpecialistList from "@/components/anagrafiche/SpecialistList";
 
 const TIPI = [
   { value: "account_executive", label: "Account Executive", icon: Briefcase },
@@ -22,7 +24,14 @@ const TIPI = [
   { value: "responsabile_sede", label: "Resp. Sede", icon: Users },
 ] as const;
 
+// Tab speciali (non basati su anagrafiche_professionali)
+const EXTRA_TABS = [
+  { value: "specialist", label: "Specialist", icon: UserCog },
+  { value: "sedi", label: "Sedi", icon: Building2 },
+] as const;
+
 type TipoAnagrafica = typeof TIPI[number]["value"];
+type TabValue = TipoAnagrafica | typeof EXTRA_TABS[number]["value"];
 
 interface Anagrafica {
   id: string;
