@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface Ufficio {
   id: string;
@@ -245,7 +246,15 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
             </div>
             <div>
               <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo</Label>
-              <Input value={formData.indirizzo} onChange={(e) => setFormData({ ...formData, indirizzo: e.target.value })} placeholder="es. Via Roma 1, 20121 Milano" />
+              <AddressAutocomplete
+                value={formData.indirizzo}
+                onChange={(v) => setFormData({ ...formData, indirizzo: v })}
+                onSelect={(c) => setFormData({
+                  ...formData,
+                  indirizzo: [c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(", "),
+                })}
+                placeholder="es. Via Roma 1, 20121 Milano"
+              />
             </div>
             <div>
               <Label className="flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
