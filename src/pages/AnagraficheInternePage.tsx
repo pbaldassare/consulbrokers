@@ -104,6 +104,7 @@ interface Anagrafica {
   banca_riga3: string | null;
   nome_rui: string | null;
   iscrizione_rui: string | null;
+  data_iscrizione_rui: string | null;
   numero_rui: string | null;
   sezione_rui: string | null;
   annullato: boolean | null;
