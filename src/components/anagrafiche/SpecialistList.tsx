@@ -112,10 +112,16 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
 
   // --- Create new Specialist user ---
   const [createOpen, setCreateOpen] = useState(false);
-  const [newUser, setNewUser] = useState({
-    cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "",
-    ufficio_id: "", password: "Leone123!",
-  });
+  const initialNewUser = {
+    cognome: "", nome: "", email: "", telefono: "", fax: "", codice_fiscale: "",
+    descrizione: "", ufficio_id: "", codice_contabile: "",
+    indirizzo: "", cap: "", citta: "", provincia: "",
+    nome_rui: "", sezione_rui: "", numero_rui: "", data_iscrizione_rui: "",
+    percentuale_base: "", percentuale_consulenza: "", percentuale_ra: "",
+    iban: "", intestatario_cc: "",
+    password: "Leone123!",
+  };
+  const [newUser, setNewUser] = useState(initialNewUser);
 
   // --- Reset password ---
   const [resetOpen, setResetOpen] = useState(false);
