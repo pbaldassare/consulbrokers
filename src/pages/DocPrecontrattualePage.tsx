@@ -329,6 +329,25 @@ const DocPrecontrattualePage = () => {
     setTelRui(r.telefono || "");
   };
 
+  const ufficiOptions = (ufficiList || []).map((u: any) => ({
+    value: u.id,
+    label: u.nome_ufficio || "—",
+    description: u.indirizzo || "",
+    searchText: u.indirizzo || "",
+  }));
+
+  const applySede = (id: string) => {
+    setSede(id);
+    if (!id) return;
+    const u: any = (ufficiList || []).find((x: any) => x.id === id);
+    if (!u) return;
+    const parsed = parseIndirizzoSede(u.indirizzo);
+    setIndirizzoRui(parsed.via || u.indirizzo || "");
+    setCapRui(parsed.cap || "");
+    setCittaRui(parsed.citta || "");
+    setProvinciaRui(parsed.prov || "");
+  };
+
   const buildData = (): PrecontrattualeData => {
     const cli = prefillData?.cliente as any;
     const nomeRagSoc = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
