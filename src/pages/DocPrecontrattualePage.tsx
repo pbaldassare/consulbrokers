@@ -41,7 +41,7 @@ const DocPrecontrattualePage = () => {
 
   // Intermediario RUI
   const [intermediario, setIntermediario] = useState("");
-  const [sede, setSede] = useState("Sede");
+  const [sede, setSede] = useState<string>("");
   const [nomeCognomeRui, setNomeCognomeRui] = useState("");
   const [sezioneRui, setSezioneRui] = useState("");
   const [numeroRui, setNumeroRui] = useState("");
@@ -134,6 +134,17 @@ const DocPrecontrattualePage = () => {
         .in("tipo", ["produttore_sede", "corrispondente"])
         .eq("attivo", true)
         .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: ufficiList } = useQuery({
+    queryKey: ["uffici-list-doc"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, indirizzo")
+        .order("nome_ufficio");
       return data || [];
     },
   });
@@ -247,7 +258,7 @@ const DocPrecontrattualePage = () => {
       setCapRui(parsed.cap);
       setCittaRui(parsed.citta);
       setProvinciaRui(parsed.prov);
-      setSede(ufficio.nome_ufficio || "Sede");
+      setSede(ufficio.id || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
@@ -316,6 +327,25 @@ const DocPrecontrattualePage = () => {
     setProvinciaRui(r.provincia || "");
     setEmailRui(r.email || "");
     setTelRui(r.telefono || "");
+  };
+
+  const ufficiOptions = (ufficiList || []).map((u: any) => ({
+    value: u.id,
+    label: u.nome_ufficio || "—",
+    description: u.indirizzo || "",
+    searchText: u.indirizzo || "",
+  }));
+
+  const applySede = (id: string) => {
+    setSede(id);
+    if (!id) return;
+    const u: any = (ufficiList || []).find((x: any) => x.id === id);
+    if (!u) return;
+    const parsed = parseIndirizzoSede(u.indirizzo);
+    setIndirizzoRui(parsed.via || u.indirizzo || "");
+    setCapRui(parsed.cap || "");
+    setCittaRui(parsed.citta || "");
+    setProvinciaRui(parsed.prov || "");
   };
 
   const buildData = (): PrecontrattualeData => {
@@ -575,10 +605,13 @@ const DocPrecontrattualePage = () => {
             </div>
             <div className="space-y-1.5">
               <Label>Sede</Label>
-              <select value={sede} onChange={(e) => setSede(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <option value="Sede">Sede</option>
-              </select>
+              <SearchableSelect
+                options={ufficiOptions}
+                value={sede}
+                onValueChange={applySede}
+                placeholder="— Cerca e seleziona Sede —"
+                emptyText="Nessuna sede trovata."
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="nome-rui">Nome e Cognome</Label>
