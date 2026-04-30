@@ -782,30 +782,39 @@ const AnagraficheInternePage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Interne</h1>
-          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede</p>
+          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Amministrative</h1>
+          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
         </div>
-        <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />Nuovo
-        </Button>
+        {isAnagraficaTab && (
+          <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />Nuovo
+          </Button>
+        )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TipoAnagrafica); setSearch(""); }}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TabValue); setSearch(""); }}>
         <TabsList>
           {TIPI.map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
               <t.icon className="w-4 h-4" />{t.label}
             </TabsTrigger>
           ))}
+          {EXTRA_TABS.map((t) => (
+            <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
+              <t.icon className="w-4 h-4" />{t.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <div className="mt-4 flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Cerca per nome, codice, email, città..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        {isAnagraficaTab && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Cerca per nome, codice, email, città..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <Badge variant="secondary">{filtered.length} risultati</Badge>
           </div>
-          <Badge variant="secondary">{filtered.length} risultati</Badge>
-        </div>
+        )}
 
         {TIPI.map((t) => (
           <TabsContent key={t.value} value={t.value}>
@@ -825,6 +834,14 @@ const AnagraficheInternePage = () => {
             </div>
           </TabsContent>
         ))}
+
+        <TabsContent value="specialist" className="mt-4">
+          <SpecialistList />
+        </TabsContent>
+
+        <TabsContent value="sedi" className="mt-4">
+          <SediManager showHeader={false} />
+        </TabsContent>
       </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
