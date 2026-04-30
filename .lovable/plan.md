@@ -1,52 +1,101 @@
 ## Obiettivo
 
-Trasformare `Anagrafiche Interne` in una pagina unica chiamata **`Anagrafiche Amministrative`** che raccolga in tab tutte le figure interne all'agenzia + le sedi:
+Gestire **Specialist** come anagrafica interna completa (stesso form dei Produttori) e portare i campi **RUI strutturati (Sezione, Numero, Data iscrizione)** sia su Specialist che su Produttori.
 
+Decisioni utente:
+- **Specialist = solo profilo arricchito**: nessuna nuova entità in `anagrafiche_professionali`. La gestione resta sulla tabella `profiles` (che già contiene tutti i campi necessari: codice contabile, RUI strutturato, IBAN, percentuali, indirizzo).
+- **Data iscrizione RUI = DATE vera** ovunque, con date picker.
+
+---
+
+## 1. Database (1 sola migration)
+
+`anagrafiche_professionali.iscrizione_rui` oggi è `text` (placeholder dd/mm/yyyy). Va portato a `date` per uniformità con `profiles.data_iscrizione_rui`.
+
+```sql
+-- Step 1: nuova colonna date
+ALTER TABLE public.anagrafiche_professionali 
+  ADD COLUMN data_iscrizione_rui date;
+
+-- Step 2: backfill (192 record, tutti già in formato ISO o timestamp ISO)
+UPDATE public.anagrafiche_professionali
+   SET data_iscrizione_rui = (iscrizione_rui::timestamp)::date
+ WHERE iscrizione_rui IS NOT NULL AND iscrizione_rui <> '';
+
+-- Step 3: la colonna text resta (legacy, usata in DocPrecontrattualePage come stringa) 
+-- ma il form scriverà solo data_iscrizione_rui. Sincronizzo via trigger per non rompere i lettori legacy.
+CREATE OR REPLACE FUNCTION public.sync_iscrizione_rui_text()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.data_iscrizione_rui IS NOT NULL THEN
+    NEW.iscrizione_rui := to_char(NEW.data_iscrizione_rui, 'DD/MM/YYYY');
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_sync_iscrizione_rui
+BEFORE INSERT OR UPDATE ON public.anagrafiche_professionali
+FOR EACH ROW EXECUTE FUNCTION public.sync_iscrizione_rui_text();
 ```
-Anagrafiche Amministrative
- ├─ Account Executive   (anagrafiche_professionali · tipo=account_executive)   [esistente]
- ├─ Produttori          (anagrafiche_professionali · tipo=corrispondente)      [esistente]
- ├─ Resp. Sede          (anagrafiche_professionali · tipo=responsabile_sede)   [esistente]
- ├─ Specialist          (profiles · ruolo=backoffice)                          [NUOVO tab]
- └─ Sedi                (uffici)                                               [NUOVO tab]
-```
 
-Lo Specialist oggi è un **utente di sistema** (`profiles.ruolo='backoffice'`, attualmente 1 attivo, "AC" Admin Consul lo include come admin), non un'anagrafica professionale: lo mostro in sola "vista + stato attivo" leggendo da `profiles`, senza creare una nuova tabella. La gestione completa dell'utente resta su `Sistema → Utenti & Privilegi`.
+Nessuna modifica a `profiles` (campi RUI già completi e tipizzati correttamente).
 
-## Modifiche
+---
 
-### 1. Rinomina pagina
-- **`src/pages/AnagraficheInternePage.tsx`** → rinomino in **`AnagraficheAmministrativePage.tsx`**.
-- Titolo header: `Anagrafiche Amministrative`
-- Sottotitolo: `Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi`
+## 2. Tab Specialist → form completo (sostituisce la lista read-only)
 
-### 2. Nuovi tab nella TabsList esistente
-Estendo `TIPI` (oggi 3 valori) aggiungendo due item gestiti separatamente nel render:
-- **Specialist** — tabella read-only (Nome, Cognome, Email, Sede, Stato) con query su `profiles` filtrato per `ruolo IN ('backoffice','admin')` e `attivo=true`. Bottone "Modifica" che apre il pannello utente esistente (`/sistema/utenti/:id`) — niente CRUD locale.
-- **Sedi** — riuso integrale del componente `GestioneUfficiPage` come tab embedded (card + tabella uffici già pronti, dialog per creare/modificare). Ne estraggo il body in un componente `SediTabContent` per montarlo qui.
+`src/components/anagrafiche/SpecialistList.tsx` viene **riscritto** per diventare un manager CRUD su `profiles` (filtro `ruolo = 'backoffice'`), modellato sul form Produttori, scrivendo direttamente sulla tabella `profiles`.
 
-### 3. Route & navigazione
-- **`src/routes/archivi.tsx`**: nuova route `/archivi/anagrafiche-amministrative` + redirect da `/archivi/anagrafiche-interne` per non rompere link esistenti.
-- **`src/routes/sistema.tsx`**: la route `/gestione-uffici` resta (admin-only) per back-compat, ma diventa secondaria — la gestione primaria delle sedi avviene nel tab.
-- **`src/components/AppSidebar.tsx`**: 
-  - Voce `Anagrafiche Interne` → rinominata `Anagrafiche Amministrative`, path `/archivi/anagrafiche-amministrative`.
-  - Voce `Gestione Sedi` → **rimossa** dal menu (ora è un tab dentro Anagrafiche Amministrative).
+Tabella (zebra, come da memory):
+- Codice contabile · Cognome / Nome · Sede · Tel / Email · % Provv / Cons / RA · IBAN · Stato (Attivo)
 
-### 4. Permessi
-- I tab Account Executive / Produttori / Resp. Sede / Specialist: visibili a tutti i livelli che già vedono Anagrafiche Interne.
-- Il tab **Sedi** richiede `RoleGuard allowedRoles=["admin"]` (stesso vincolo attuale di `/gestione-uffici`); per gli altri ruoli il tab non viene mostrato.
+Form (Dialog con tabs come Produttori):
+- **Dati**: codice contabile, cognome, nome, email, telefono, fax, codice fiscale, descrizione, sede (Select uffici)
+- **Indirizzo**: indirizzo (con `AddressAutocomplete`), CAP, città, provincia
+- **RUI**: Nome RUI · **Sezione RUI** · **Numero RUI** · **Data iscrizione RUI** (date picker shadcn con `pointer-events-auto`)
+- **Provvigioni**: % base · % consulenza · % RA
+- **Banca**: IBAN · Intestatario C/C
+- **Note**: textarea + toggle Attivo
 
-### 5. Memory
-Aggiorno `mem://ui/terminology-conventions` aggiungendo: pagina unica "Anagrafiche Amministrative" raggruppa AE/Produttori/Resp.Sede/Specialist/Sedi.
+Vincoli:
+- La creazione di un nuovo Specialist NON crea utenti in `auth.users` (resta competenza di Centro Utenti & Privilegi). Banner informativo in alto: *"Per creare un nuovo Specialist con accesso al sistema usa Centro Utenti & Privilegi. Qui puoi gestire i dati anagrafici degli Specialist esistenti."* + bottone "Vai a Centro Utenti".
+- Il pulsante "Nuovo" nel tab Specialist è disabilitato/nascosto: si possono solo modificare anagrafiche di utenti backoffice già esistenti. Si evita così disallineamento profilo↔auth.
+- Click su riga apre il Dialog di modifica.
 
-## File coinvolti
+---
 
-- **Rinominato**: `src/pages/AnagraficheInternePage.tsx` → `src/pages/AnagraficheAmministrativePage.tsx`
-- **Nuovo**: `src/components/anagrafiche/SediTabContent.tsx` (estratto dal body di `GestioneUfficiPage`)
-- **Nuovo**: `src/components/anagrafiche/SpecialistTabContent.tsx` (lista read-only da `profiles`)
-- **Modificati**: `src/routes/archivi.tsx`, `src/routes/sistema.tsx`, `src/components/AppSidebar.tsx`, `src/pages/GestioneUfficiPage.tsx` (refactor per esportare il body riusabile)
-- **Memory**: `.lovable/memory/ui/terminology-conventions.md`
+## 3. Form Produttori → aggiunta RUI strutturato
 
-## Risultato atteso
+In `src/pages/AnagraficheInternePage.tsx`, tab Produttori (`isCorr`):
+- Sostituire il singolo campo `RUI` (riga 623) con un blocco RUI nel tab "Dati" (o nuovo sub-blocco):
+  - `Nome RUI` · `Sezione RUI` · `Numero RUI` · `Data iscrizione RUI` (date picker)
+- Stato form: aggiungere `data_iscrizione_rui` (string ISO) e gestirlo nel save (`upsertMutation`).
+- Tabella elenco Produttori: aggiungere colonna compatta "RUI" che mostra `Sez. X · N° Y · dd/mm/yyyy` (riusando il pattern AE righe 447-452).
 
-Cliccando sulla voce sidebar **Anagrafiche Amministrative** si apre una pagina con 5 tab: i 3 tab esistenti restano identici (CRUD su `anagrafiche_professionali`), il tab **Specialist** mostra la lista degli utenti backoffice, il tab **Sedi** mostra la gestione completa degli uffici (precedentemente in `/gestione-uffici`). La voce separata "Gestione Sedi" sparisce dalla sidebar.
+---
+
+## 4. Form AE / Resp. Sede → date picker per Iscrizione RUI
+
+Stessi campi già presenti (riga 577) ma `Input` testo con placeholder dd/mm/yyyy → sostituito con date picker shadcn legato a `data_iscrizione_rui`. Il campo legacy `iscrizione_rui` viene popolato automaticamente dal trigger DB.
+
+---
+
+## 5. File toccati
+
+| File | Modifica |
+|------|----------|
+| Migration SQL | colonna `data_iscrizione_rui` + trigger sync su `anagrafiche_professionali` |
+| `src/components/anagrafiche/SpecialistList.tsx` | riscrittura completa: CRUD su `profiles` con tabs e date picker RUI |
+| `src/pages/AnagraficheInternePage.tsx` | form Produttori: blocco RUI strutturato + date picker; AE/Resp.Sede: date picker per data; tabella Produttori: colonna RUI; tipi form e save aggiornati |
+| `src/pages/DocPrecontrattualePage.tsx` | nessuna modifica (continua a leggere `iscrizione_rui` text, mantenuto in sync dal trigger) |
+| `mem://ui/terminology-conventions.md` | nota: Specialist gestiti come profili arricchiti, non come anagrafiche professionali |
+
+---
+
+## Note tecniche
+
+- Date picker: pattern shadcn standard con `Popover` + `Calendar` e `className="p-3 pointer-events-auto"` (richiesto per funzionare dentro Dialog).
+- Persistenza: `data_iscrizione_rui` salvato come `YYYY-MM-DD` o `null`.
+- Backward compat: `iscrizione_rui` (text) continua a esistere e viene aggiornato dal trigger DB ad ogni insert/update; i lettori legacy (es. precontrattuale) restano funzionanti.
+- Nessun impatto su `compagnie.iscrizione_rui_sez/num` (entità diversa, già strutturata).
+- Nessuna nuova RLS: `profiles` ha già policy esistenti; il tab Specialist scriverà via stesso ruolo dell'utente loggato (admin / responsabile_sede già autorizzati a UPDATE su profiles).
