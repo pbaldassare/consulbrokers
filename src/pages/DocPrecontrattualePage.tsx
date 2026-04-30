@@ -258,7 +258,7 @@ const DocPrecontrattualePage = () => {
       setCapRui(parsed.cap);
       setCittaRui(parsed.citta);
       setProvinciaRui(parsed.prov);
-      setSede(ufficio.nome_ufficio || "Sede");
+      setSede(ufficio.id || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
