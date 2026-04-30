@@ -317,7 +317,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     setDialogOpen(true);
   };
 
-  // Deep-link: apri in edit la riga richiesta dal Centro Utenti
+  // Deep-link: apri in edit la riga richiesta dal Centro Utenti o subito dopo creazione
   useEffect(() => {
     if (!editId || items.length === 0) return;
     const target = items.find((i) => i.id === editId);
@@ -327,6 +327,15 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, items]);
+
+  // Apri dialog edit quando editingId viene impostato programmaticamente (post-create)
+  useEffect(() => {
+    if (editingId && !dialogOpen && items.length > 0) {
+      const target = items.find((i) => i.id === editingId);
+      if (target) openEdit(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, items]);
 
   const filtered = items.filter((p) => {
     if (!search) return true;
