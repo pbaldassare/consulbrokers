@@ -662,14 +662,12 @@ const DocPrecontrattualePage = () => {
       </div>
 
       {/* PREVIEW DIALOG */}
-      <Dialog open={!!previewUrl} onOpenChange={(o) => { if (!o) { if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); } }}>
+      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0">
           <DialogHeader className="px-4 pt-3">
             <DialogTitle>Anteprima Documentazione Precontrattuale</DialogTitle>
           </DialogHeader>
-          {previewUrl && (
-            <iframe src={previewUrl} className="flex-1 w-full rounded-b-lg" title="Anteprima PDF" />
-          )}
+          <PdfPreview data={previewBytes} />
         </DialogContent>
       </Dialog>
     </div>
