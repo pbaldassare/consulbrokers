@@ -1,54 +1,58 @@
 ## Obiettivo
 
-Separare nettamente le responsabilità:
-- **Anagrafiche Amministrative** = unico posto dove si gestiscono dati personali, RUI, banca, percentuali, **Sede di appartenenza** di Specialist, Produttori, Account Executive, Resp. Sede.
-- **Centro Utenti & Privilegi** = solo creazione utente di sistema, ruolo, password, permessi (`permessi_json`), attivo/disattivo. Niente più editing di sede, percentuali, RUI, banca.
+Permettere di **creare nuove utenze Specialist (ed eventualmente Produttori) direttamente dalla pagina Anagrafiche Amministrative**, senza dover passare dal Centro Utenti & Privilegi. Il Centro Utenti rimane disponibile, ma non sarà più l'unico punto d'ingresso.
 
-Regola di business: **ogni Specialist e ogni Produttore deve essere collegato a una Sede** (`ufficio_id` obbligatorio). Anche Resp. Sede e Account Executive devono averla.
-
-## Modifiche al Database
-
-1. **Backfill dati mancanti**: per ogni `profiles` con ruolo in (`backoffice`, `account_executive`, `corrispondente_*`, `responsabile_sede`) che ha `ufficio_id` NULL, segnalarlo (query di audit) — NON forzare un valore arbitrario.
-2. **Vincolo NOT NULL condizionato** tramite trigger `validate_profilo_sede_required`:
-   - se `ruolo` ∈ {`backoffice`, `account_executive`, `corrispondente_1/2/3`, `responsabile_sede`} ⇒ `ufficio_id` obbligatorio (RAISE EXCEPTION se NULL).
-   - non si applica ai ruoli `admin`, `cliente`, `prospect`.
-3. Nessuna modifica strutturale alle colonne (sono già tutte presenti in `profiles`: `ufficio_id`, `codice_contabile`, `nome_rui`, `numero_rui`, `sezione_rui`, `data_iscrizione_rui`, `percentuale_base`, `percentuale_consulenza`, `percentuale_ra`, `iban`, `intestatario_cc`).
+L'edit della scheda anagrafica completa (RUI, sede, IBAN, percentuali) resta nell'Anagrafiche; in più, dalla stessa scheda, l'admin potrà:
+- creare l'utenza di sistema (Auth) per uno Specialist nuovo
+- resettare la password di uno Specialist esistente
+- attivare/disattivare l'accesso
 
 ## Modifiche UI
 
 ### `src/components/anagrafiche/SpecialistList.tsx`
-- Rendere **Sede obbligatoria** nel form (asterisco, validazione client + messaggio).
-- Bloccare il salvataggio se Sede vuota.
-- Mostrare warning sulla riga della tabella se uno Specialist non ha Sede (badge "Sede mancante" rosso).
-- Banner aggiornato: "Per CREARE un nuovo Specialist (utente di sistema con password) usa Centro Utenti & Privilegi. Tutti gli altri dati (anagrafica, RUI, banca, percentuali, **Sede**) si gestiscono qui."
+1. **Pulsante "+ Nuovo Specialist"** in alto a destra accanto alla search.
+2. Apre un dialog **"Nuovo Specialist"** che raccoglie:
+   - Cognome, Nome, Email (obbligatori)
+   - Sede (obbligatoria, dropdown da `uffici`)
+   - Telefono, Codice Fiscale (opzionali)
+   - Password iniziale (default `Leone123!`, modificabile)
+   - Switch "Attivo" (default on)
+3. Al submit chiama l'edge function esistente **`create-user`** con:
+   - `ruolo: "backoffice"`
+   - `permessi_json`: permessi default del livello L4 Specialist (riusare `LEVELS` da `src/lib/userLevels.ts`)
+   - `ufficio_id`, `nome`, `cognome`, `email`, `password`
+4. Dopo creazione: invalidate query `specialist-profiles`, toast con email + password, e (opzionale) apre subito il dialog di edit completo per inserire RUI/IBAN/percentuali.
+5. Nel dialog di **edit** già esistente aggiungere una sezione "Accesso al sistema" con:
+   - Email (read-only, legata all'Auth)
+   - Pulsante **"Reset password"** → chiama edge function `provision-user` o nuova action su `create-user` per impostare nuova password
+   - Switch "Attivo" già presente (rimane invariato)
+   - Badge informativo "Utente Auth: id `xxx`"
 
-### `src/pages/AnagraficheInternePage.tsx`
-- Rendere Sede obbligatoria nei form Account Executive, Produttori, Resp. Sede (già presente come campo: aggiungere validazione + asterisco).
+### `src/pages/AnagraficheInternePage.tsx` — tab Produttori
+Aggiungere lo stesso flusso "+ Nuovo Produttore" (ruolo `corrispondente_1` di default, modificabile a `corrispondente_2/3` nel form) con sede obbligatoria.
 
-### `src/pages/GestioneUtentiPrivilegi.tsx`
-- **Rimuovere** dalla schermata di edit utente i campi: `ufficio_id`, `percentuale_base`, `percentuale_ra`, eventuale RUI/IBAN se presenti.
-- Lasciare solo: email, ruolo, attivo, `permessi_json`, password reset.
-- Per ogni utente mostrare in sola lettura un link "Modifica anagrafica completa →" che porta in Anagrafiche Amministrative al tab corretto in base al ruolo, con la riga preselezionata/aperta in edit.
-- Mostrare anche in sola lettura la Sede attualmente assegnata (con badge "non impostata" in rosso se mancante).
+### Banner informativo
+Aggiornare il banner blu in cima alle liste:
+> "Qui gestisci anagrafica completa **e creazione utenze**. Centro Utenti & Privilegi resta disponibile per gestione massiva ruoli e permessi."
 
-### Navigazione
-- Da Centro Utenti il link "Modifica anagrafica" naviga a:
-  - ruolo `backoffice` → `/archivi/anagrafiche-amministrative?tab=specialist&edit=<id>`
-  - ruolo `account_executive` → `?tab=account_executive&edit=<id>`
-  - ruolo `corrispondente_*` → `?tab=corrispondente&edit=<id>`
-  - ruolo `responsabile_sede` → `?tab=responsabile_sede&edit=<id>`
-- Le pagine target leggono i query param e aprono il dialog di edit.
+## Backend
+
+Nessuna nuova edge function: si riutilizza `supabase/functions/create-user` (già usata dal `CreateUserWizard`).
+
+Per il reset password, verificare se esiste già un endpoint admin; se no, aggiungere a `create-user/index.ts` una action `?action=reset-password` che chiama `supabase.auth.admin.updateUserById(id, { password })` con verifica che il caller sia admin.
+
+Nessuna modifica al DB (il trigger `validate_profilo_sede_required` introdotto nel passo precedente continua a garantire che la Sede sia presente).
 
 ## File toccati
 
-- nuova migration SQL: trigger `validate_profilo_sede_required` su `profiles`
-- `src/components/anagrafiche/SpecialistList.tsx` (Sede obbligatoria + badge warning)
-- `src/pages/AnagraficheInternePage.tsx` (Sede obbligatoria sugli altri tab + supporto query param `tab` e `edit`)
-- `src/pages/GestioneUtentiPrivilegi.tsx` (rimozione campi anagrafici, link a Anagrafiche, badge Sede mancante)
-- aggiornamento memory `mem://auth/user-management-and-profile-schema` con nuova divisione di responsabilità
-- bump `public/version.json`
+- `src/components/anagrafiche/SpecialistList.tsx` — pulsante + dialog "Nuovo Specialist", sezione "Accesso" nell'edit, reset password
+- `src/pages/AnagraficheInternePage.tsx` — stesso pattern per il tab Produttori
+- `supabase/functions/create-user/index.ts` — aggiunta action `reset-password` (solo se non già presente)
+- `public/version.json` — bump
 
-## Note importanti
+## Note tecniche
 
-- **Audit preliminare**: dopo l'applicazione del trigger, qualsiasi UPDATE su un profilo "professionale" senza Sede fallirà. Prima di attivare il trigger eseguo una SELECT per elencare i profili attualmente senza Sede e li mostro all'utente nei log così può sistemarli (oppure il trigger viene applicato solo sugli INSERT/UPDATE futuri in cui il campo `ufficio_id` viene toccato — preferisco questa variante più sicura: il trigger blocca solo se dopo l'operazione `ufficio_id IS NULL` su un ruolo professionale, evitando rotture su update di altri campi solo se il valore esisteva già; la regola è quindi "non puoi salvare un profilo professionale senza Sede").
-- Centro Utenti rimane l'**unico** punto per creare l'utente Auth (chiama già edge function dedicata) — non duplichiamo questa logica in Anagrafiche.
+- Riusare `LEVELS[3]` (L4 Specialist) per i permessi default Specialist e `LEVELS[2]` (L3) per Produttori — già definiti in `src/lib/userLevels.ts`.
+- Il trigger DB rifiuterà l'INSERT se manca `ufficio_id`, quindi la validazione client è solo UX.
+- Mantenere il pulsante "Centro Utenti" nel banner per chi vuole il wizard completo multi-step.
+- Toast finale deve mostrare chiaramente email + password generata, con pulsante copia.

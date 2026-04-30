@@ -17,9 +17,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Search, Pencil, UserCog, ExternalLink, CalendarIcon } from "lucide-react";
+import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { LEVELS } from "@/lib/userLevels";
 
 interface SpecialistRow {
   id: string;
@@ -109,6 +110,17 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
 
+  // --- Create new Specialist user ---
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "",
+    ufficio_id: "", password: "Leone123!",
+  });
+
+  // --- Reset password ---
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetPwd, setResetPwd] = useState("Leone123!");
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["specialist-profiles"],
     queryFn: async () => {
@@ -188,6 +200,92 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }),
   });
 
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!newUser.cognome || !newUser.email) throw new Error("Cognome ed email sono obbligatori");
+      if (!newUser.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
+      if (!newUser.password || newUser.password.length < 6) throw new Error("Password minimo 6 caratteri");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await supabase.functions.invoke("create-user", {
+        body: {
+          nome: newUser.nome,
+          cognome: newUser.cognome,
+          email: newUser.email,
+          telefono: newUser.telefono || null,
+          codice_fiscale: newUser.codice_fiscale ? newUser.codice_fiscale.toUpperCase() : null,
+          ruolo: "backoffice",
+          ufficio_id: newUser.ufficio_id,
+          permessi_json: LEVELS[2].defaultPermissions,
+          password: newUser.password,
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.error || (res.data as any)?.error) {
+        throw new Error((res.data as any)?.error || res.error?.message || "Errore creazione");
+      }
+      return (res.data as any)?.user_id as string;
+    },
+    onSuccess: (newId) => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
+      const email = newUser.email;
+      const pwd = newUser.password;
+      toast.success("Specialist creato", {
+        description: `${email} • password: ${pwd}`,
+        action: {
+          label: "Copia credenziali",
+          onClick: () => navigator.clipboard.writeText(`${email} / ${pwd}`),
+        },
+        duration: 10000,
+      });
+      setCreateOpen(false);
+      setNewUser({ cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "", ufficio_id: "", password: "Leone123!" });
+      // Apri subito edit per completare RUI/IBAN/percentuali
+      setTimeout(() => {
+        if (newId) {
+          // Trigger reload then open edit via items refetch handled by editId effect indirectly; simpler: refetch then set editingId
+          queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }).then(() => {
+            setTimeout(() => {
+              setEditingId(newId);
+            }, 100);
+          });
+        }
+      }, 200);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetPwdMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("Nessuno Specialist selezionato");
+      if (!resetPwd || resetPwd.length < 6) throw new Error("Password minimo 6 caratteri");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await supabase.functions.invoke("create-user", {
+        body: { action: "reset-password", user_id: editingId, password: resetPwd },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.error || (res.data as any)?.error) {
+        throw new Error((res.data as any)?.error || res.error?.message || "Errore reset");
+      }
+    },
+    onSuccess: () => {
+      const pwd = resetPwd;
+      const email = form.email;
+      toast.success("Password resettata", {
+        description: `${email} • nuova password: ${pwd}`,
+        action: {
+          label: "Copia",
+          onClick: () => navigator.clipboard.writeText(`${email} / ${pwd}`),
+        },
+        duration: 10000,
+      });
+      setResetOpen(false);
+      setResetPwd("Leone123!");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const openEdit = (item: SpecialistRow) => {
     setEditingId(item.id);
     setForm({
@@ -219,7 +317,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     setDialogOpen(true);
   };
 
-  // Deep-link: apri in edit la riga richiesta dal Centro Utenti
+  // Deep-link: apri in edit la riga richiesta dal Centro Utenti o subito dopo creazione
   useEffect(() => {
     if (!editId || items.length === 0) return;
     const target = items.find((i) => i.id === editId);
@@ -229,6 +327,15 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, items]);
+
+  // Apri dialog edit quando editingId viene impostato programmaticamente (post-create)
+  useEffect(() => {
+    if (editingId && !dialogOpen && items.length > 0) {
+      const target = items.find((i) => i.id === editingId);
+      if (target) openEdit(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, items]);
 
   const filtered = items.filter((p) => {
     if (!search) return true;
@@ -255,14 +362,18 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           />
         </div>
         <Badge variant="secondary">{filtered.length} risultati</Badge>
+        <div className="flex-1" />
+        <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
+          <UserPlus className="w-4 h-4" /> Nuovo Specialist
+        </Button>
       </div>
 
       <div className="rounded-md border bg-card p-3 text-xs text-muted-foreground flex items-start gap-2">
         <UserCog className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div className="flex-1">
           Gli <strong>Specialist</strong> sono utenti di sistema (ruolo <code className="text-foreground">backoffice</code>).
-          Qui modifichi l'anagrafica completa: dati personali, RUI, percentuali e coordinate bancarie.
-          Per <strong>creare un nuovo Specialist</strong> con accesso al sistema, usa Centro Utenti & Privilegi.
+          Qui crei e modifichi l'utenza completa: dati personali, RUI, percentuali e coordinate bancarie.
+          Centro Utenti & Privilegi resta disponibile per gestione massiva di ruoli e permessi.
         </div>
         <Button size="sm" variant="outline" onClick={() => navigate("/utenti-privilegi")}>
           <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Centro Utenti
@@ -420,13 +531,101 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               </TabsContent>
             </Tabs>
 
+            <DialogFooter className="flex sm:justify-between gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => { setResetPwd("Leone123!"); setResetOpen(true); }} className="gap-1.5">
+                <KeyRound className="w-4 h-4" /> Reset password
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Salvataggio..." : "Salva"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: nuovo Specialist (crea utente Auth + profilo) */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" /> Nuovo Specialist
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
+            className="space-y-3"
+          >
+            <p className="text-xs text-muted-foreground">
+              Verrà creato un utente di sistema con ruolo <code>backoffice</code>. Dopo la creazione potrai completare RUI, IBAN e percentuali.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
+              <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
+              <div className="col-span-2"><Label>Email *</Label><Input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
+              <div>
+                <Label>Sede <span className="text-destructive">*</span></Label>
+                <Select value={newUser.ufficio_id} onValueChange={(v) => setNewUser({ ...newUser, ufficio_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
+                  <SelectContent>
+                    {uffici.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
+              <div><Label>Codice Fiscale</Label><Input value={newUser.codice_fiscale} onChange={(e) => setNewUser({ ...newUser, codice_fiscale: e.target.value.toUpperCase() })} /></div>
+              <div>
+                <Label>Password iniziale *</Label>
+                <div className="flex gap-1">
+                  <Input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
+                  <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(newUser.password)} title="Copia">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Salvataggio..." : "Salva"}
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creazione..." : "Crea Specialist"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: reset password */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-primary" /> Reset password
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Imposta una nuova password per <strong>{form.email || "questo utente"}</strong>. L'utente dovrà usare questa password al prossimo accesso.
+            </p>
+            <div>
+              <Label>Nuova password *</Label>
+              <div className="flex gap-1">
+                <Input value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} />
+                <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(resetPwd)} title="Copia">
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>Annulla</Button>
+            <Button onClick={() => resetPwdMutation.mutate()} disabled={resetPwdMutation.isPending}>
+              {resetPwdMutation.isPending ? "Aggiornamento..." : "Aggiorna password"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
