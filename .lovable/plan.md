@@ -1,45 +1,37 @@
 ## Obiettivo
 
-Nel form "Documentazione Precontrattuale", il campo **Intermediario** deve permettere di scegliere tra tre tipologie di soggetti e avere ricerca:
+Eliminare il selettore "Tipo intermediario" e mostrare un'**unica lista combinata** (Account Executive + Specialist + Produttori) nel `SearchableSelect` con ricerca. Alla selezione, capire automaticamente la fonte e popolare i campi RUI correttamente.
 
-1. **Account Executive** (AE)
-2. **Specialist** (Backoffice)
-3. **Produttore** (Consul / Produttore Sede)
+## Modifiche a `src/pages/DocPrecontrattualePage.tsx`
 
-Alla selezione, i campi RUI (Nome, Sezione, Numero, Data iscrizione, Indirizzo, CAP, Città, Prov, Email, Tel) devono essere auto-popolati dal soggetto scelto.
+### 1. Rimuovere il selettore "Tipo intermediario"
+Eliminare il `<select>` "Tipo intermediario" (UI) e lo state `tipoIntermediario` + il tipo `TipoIntermediario`. Mantenere solo `intermediario` (id selezionato).
 
-## UI
+### 2. Lista unica combinata
+Sostituire `intermediarioOptions` con un'unica lista che mette insieme i tre dataset, ordinata per cognome. Per sapere da quale tabella leggere al momento della selezione, ogni `value` viene **prefissato con l'origine**:
+- `ae:<id>` → record da `anagrafiche_professionali` (Account Executive)
+- `sp:<id>` → record da `profiles` (Specialist/Backoffice)
+- `pr:<id>` → record da `anagrafiche_professionali` (Produttore)
 
-In `src/pages/DocPrecontrattualePage.tsx`, sostituire l'attuale input/selettore "Intermediario" con due controlli affiancati:
+Il prefisso non è visibile all'utente (vede solo Cognome Nome + email come description).
 
-- **Tipo intermediario** (Select piccolo): `Account Executive` | `Specialist` | `Produttore`
-- **Intermediario** (`SearchableSelect` — Popover + Command, come da convenzione progetto): lista filtrata in base al tipo, con search box che filtra per cognome/nome/sigla/codice.
+### 3. `applyIntermediario(id)` legge il prefisso
+- `id.split(":")` → `[origin, realId]`
+- Se `origin === "sp"` → cerca in `specialistList`, formatta `data_iscrizione_rui` come data IT
+- Altrimenti → cerca in `aeList` o `produttoreList`, usa il campo testuale `iscrizione_rui`
+- Popola gli stessi 10 campi RUI (Nome, Sezione, Numero, Data, Indirizzo, CAP, Città, Prov, Email, Tel)
 
-Mantenere il prefill automatico esistente (quando si arriva da un cliente, viene preselezionato lo Specialist Backoffice assegnato), ma rendere modificabile sia il tipo sia il soggetto.
+### 4. Prefill da cliente
+Nel `useEffect` che popola da `prefillData`, sostituire `setIntermediario(specialist.id)` con `setIntermediario(\`sp:${specialist.id}\`)` per restare coerente con il nuovo schema.
 
-## Fonti dati
+### 5. Bump versione
+`public/version.json` → nuovo timestamp.
 
-| Tipo UI | Tabella / filtro |
-|---|---|
-| Account Executive | `anagrafiche_professionali` WHERE `tipo='account_executive'` AND `attivo=true` |
-| Specialist | `profiles` WHERE `ruolo='backoffice'` AND `attivo=true` |
-| Produttore | `anagrafiche_professionali` WHERE `tipo IN ('produttore_sede','corrispondente')` AND `attivo=true` |
-
-Campi letti per il prefill RUI:
-- `anagrafiche_professionali`: `cognome, nome, nome_rui, sezione_rui, numero_rui, iscrizione_rui, indirizzo, cap, citta, provincia, email, telefono`
-- `profiles`: `cognome, nome, nome_rui, sezione_rui, numero_rui, data_iscrizione_rui, indirizzo, cap, citta, provincia, email, telefono` (+ fallback `email/telefono` da `uffici` collegato a `ufficio_id`)
-
-## Comportamento
-
-1. Cambiando il **Tipo**, si svuota la selezione e si ricarica la lista (3 React Query keys separate, una per tipo).
-2. Selezionando un soggetto:
-   - Si compilano automaticamente i 10 campi RUI dell'intermediario (gli stessi `setNomeCognomeRui`, `setSezioneRui`, ecc. già presenti).
-   - I campi restano modificabili a mano (l'utente può correggere prima di generare il PDF).
-3. La generazione PDF (`buildData()` → `buildPrecontrattualePdf`) non cambia: usa già gli stati `nomeCognomeRui`, `sezioneRui`, `numeroRui`, `dataIscrizione`, `emailRui`, `telRui`, `indirizzoRui/capRui/cittaRui/provinciaRui`.
+## Cosa NON cambia
+- Le 3 query (`aeList`, `specialistList`, `produttoreList`) restano: servono come sorgenti dati
+- Il PDF e `buildData()` non cambiano (usano gli state `nomeCognomeRui`, `sezioneRui`, ecc.)
+- Nessuna modifica DB
 
 ## File modificati
-
-- `src/pages/DocPrecontrattualePage.tsx` — nuovi state `tipoIntermediario` + `intermediarioId`, 3 query (AE, Specialist, Produttore), sostituzione del selettore con `SearchableSelect`, `useEffect` che popola i campi RUI alla selezione.
-- `public/version.json` — bump versione.
-
-Nessuna modifica a DB o edge functions.
+- `src/pages/DocPrecontrattualePage.tsx`
+- `public/version.json`
