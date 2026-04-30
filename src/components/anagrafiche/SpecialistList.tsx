@@ -112,10 +112,16 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
 
   // --- Create new Specialist user ---
   const [createOpen, setCreateOpen] = useState(false);
-  const [newUser, setNewUser] = useState({
-    cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "",
-    ufficio_id: "", password: "Leone123!",
-  });
+  const initialNewUser = {
+    cognome: "", nome: "", email: "", telefono: "", fax: "", codice_fiscale: "",
+    descrizione: "", ufficio_id: "", codice_contabile: "",
+    indirizzo: "", cap: "", citta: "", provincia: "",
+    nome_rui: "", sezione_rui: "", numero_rui: "", data_iscrizione_rui: "",
+    percentuale_base: "", percentuale_consulenza: "", percentuale_ra: "",
+    iban: "", intestatario_cc: "",
+    password: "Leone123!",
+  };
+  const [newUser, setNewUser] = useState(initialNewUser);
 
   // --- Reset password ---
   const [resetOpen, setResetOpen] = useState(false);
@@ -213,9 +219,25 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           cognome: newUser.cognome,
           email: newUser.email,
           telefono: newUser.telefono || null,
+          fax: newUser.fax || null,
           codice_fiscale: newUser.codice_fiscale ? newUser.codice_fiscale.toUpperCase() : null,
+          descrizione: newUser.descrizione || null,
           ruolo: "backoffice",
           ufficio_id: newUser.ufficio_id,
+          codice_contabile: newUser.codice_contabile || null,
+          indirizzo: newUser.indirizzo || null,
+          cap: newUser.cap || null,
+          citta: newUser.citta || null,
+          provincia: newUser.provincia || null,
+          nome_rui: newUser.nome_rui || null,
+          sezione_rui: newUser.sezione_rui || null,
+          numero_rui: newUser.numero_rui || null,
+          data_iscrizione_rui: newUser.data_iscrizione_rui || null,
+          percentuale_base: newUser.percentuale_base ? Number(newUser.percentuale_base) : null,
+          percentuale_consulenza: newUser.percentuale_consulenza ? Number(newUser.percentuale_consulenza) : null,
+          percentuale_ra: newUser.percentuale_ra ? Number(newUser.percentuale_ra) : null,
+          iban: newUser.iban ? newUser.iban.toUpperCase() : null,
+          intestatario_cc: newUser.intestatario_cc || null,
           permessi_json: LEVELS[2].defaultPermissions,
           password: newUser.password,
         },
@@ -239,11 +261,10 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         duration: 10000,
       });
       setCreateOpen(false);
-      setNewUser({ cognome: "", nome: "", email: "", telefono: "", codice_fiscale: "", ufficio_id: "", password: "Leone123!" });
-      // Apri subito edit per completare RUI/IBAN/percentuali
+      setNewUser(initialNewUser);
+      // Apri subito edit per completare eventuali campi mancanti
       setTimeout(() => {
         if (newId) {
-          // Trigger reload then open edit via items refetch handled by editId effect indirectly; simpler: refetch then set editingId
           queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }).then(() => {
             setTimeout(() => {
               setEditingId(newId);
@@ -547,8 +568,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       </Dialog>
 
       {/* Dialog: nuovo Specialist (crea utente Auth + profilo) */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-xl">
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setNewUser(initialNewUser); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-primary" /> Nuovo Specialist
@@ -556,38 +577,88 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           </DialogHeader>
           <form
             onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
-            className="space-y-3"
+            className="space-y-4"
           >
             <p className="text-xs text-muted-foreground">
-              Verrà creato un utente di sistema con ruolo <code>backoffice</code>. Dopo la creazione potrai completare RUI, IBAN e percentuali.
+              Verrà creato un utente di sistema con ruolo <code>backoffice</code>. Compila tutte le sezioni: dati anagrafici, RUI, percentuali e banca.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
-              <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
-              <div className="col-span-2"><Label>Email *</Label><Input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
-              <div>
-                <Label>Sede <span className="text-destructive">*</span></Label>
-                <Select value={newUser.ufficio_id} onValueChange={(v) => setNewUser({ ...newUser, ufficio_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
-                  <SelectContent>
-                    {uffici.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
-              <div><Label>Codice Fiscale</Label><Input value={newUser.codice_fiscale} onChange={(e) => setNewUser({ ...newUser, codice_fiscale: e.target.value.toUpperCase() })} /></div>
-              <div>
-                <Label>Password iniziale *</Label>
-                <div className="flex gap-1">
-                  <Input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
-                  <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(newUser.password)} title="Copia">
-                    <Copy className="w-4 h-4" />
-                  </Button>
+
+            <Tabs defaultValue="dati">
+              <TabsList className="grid grid-cols-5">
+                <TabsTrigger value="dati">Dati</TabsTrigger>
+                <TabsTrigger value="indirizzo">Indirizzo</TabsTrigger>
+                <TabsTrigger value="rui">RUI</TabsTrigger>
+                <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
+                <TabsTrigger value="banca">Banca</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="dati" className="space-y-3 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Codice contabile</Label><Input value={newUser.codice_contabile} onChange={(e) => setNewUser({ ...newUser, codice_contabile: e.target.value })} /></div>
+                  <div>
+                    <Label>Sede <span className="text-destructive">*</span></Label>
+                    <Select value={newUser.ufficio_id} onValueChange={(v) => setNewUser({ ...newUser, ufficio_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
+                      <SelectContent>
+                        {uffici.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
+                  <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
+                  <div className="col-span-2"><Label>Descrizione</Label><Input value={newUser.descrizione} onChange={(e) => setNewUser({ ...newUser, descrizione: e.target.value })} /></div>
+                  <div><Label>Email *</Label><Input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
+                  <div><Label>Codice Fiscale</Label><Input value={newUser.codice_fiscale} onChange={(e) => setNewUser({ ...newUser, codice_fiscale: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
+                  <div><Label>Fax</Label><Input value={newUser.fax} onChange={(e) => setNewUser({ ...newUser, fax: e.target.value })} /></div>
+                  <div className="col-span-2">
+                    <Label>Password iniziale *</Label>
+                    <div className="flex gap-1">
+                      <Input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
+                      <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(newUser.password)} title="Copia">
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="indirizzo" className="space-y-3 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2"><Label>Indirizzo</Label><AddressAutocomplete value={newUser.indirizzo} onChange={(v) => setNewUser({ ...newUser, indirizzo: v })} onSelect={(c) => setNewUser((u) => ({ ...u, cap: c.cap, citta: c.citta, provincia: c.provincia }))} /></div>
+                  <div><Label>CAP</Label><Input value={newUser.cap} onChange={(e) => setNewUser({ ...newUser, cap: e.target.value })} /></div>
+                  <div><Label>Città</Label><Input value={newUser.citta} onChange={(e) => setNewUser({ ...newUser, citta: e.target.value })} /></div>
+                  <div><Label>Provincia</Label><Input value={newUser.provincia} onChange={(e) => setNewUser({ ...newUser, provincia: e.target.value.toUpperCase() })} maxLength={2} /></div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="rui" className="space-y-3 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Nome RUI</Label><Input value={newUser.nome_rui} onChange={(e) => setNewUser({ ...newUser, nome_rui: e.target.value })} /></div>
+                  <div><Label>Sezione RUI</Label><Input value={newUser.sezione_rui} onChange={(e) => setNewUser({ ...newUser, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
+                  <div><Label>Numero RUI</Label><Input value={newUser.numero_rui} onChange={(e) => setNewUser({ ...newUser, numero_rui: e.target.value })} /></div>
+                  <div><Label>Data iscrizione RUI</Label><DateField value={newUser.data_iscrizione_rui} onChange={(v) => setNewUser({ ...newUser, data_iscrizione_rui: v })} /></div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="provvigioni" className="space-y-3 mt-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={newUser.percentuale_base} onChange={(e) => setNewUser({ ...newUser, percentuale_base: e.target.value })} /></div>
+                  <div><Label>% Consulenza</Label><Input type="number" step="0.01" value={newUser.percentuale_consulenza} onChange={(e) => setNewUser({ ...newUser, percentuale_consulenza: e.target.value })} /></div>
+                  <div><Label>% RA</Label><Input type="number" step="0.01" value={newUser.percentuale_ra} onChange={(e) => setNewUser({ ...newUser, percentuale_ra: e.target.value })} /></div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="banca" className="space-y-3 mt-3">
+                <div className="grid grid-cols-1 gap-3">
+                  <div><Label>IBAN</Label><Input value={newUser.iban} onChange={(e) => setNewUser({ ...newUser, iban: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>Intestatario C/C</Label><Input value={newUser.intestatario_cc} onChange={(e) => setNewUser({ ...newUser, intestatario_cc: e.target.value })} /></div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
               <Button type="submit" disabled={createMutation.isPending}>

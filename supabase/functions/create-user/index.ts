@@ -87,7 +87,8 @@ Deno.serve(async (req) => {
       nome, cognome, email, ruolo, ufficio_id, permessi_json, password,
       descrizione, indirizzo, cap, citta, provincia, telefono, fax,
       codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui,
-      codice_contabile, percentuale_ra, iban, intestatario_cc,
+      codice_contabile, percentuale_base, percentuale_consulenza, percentuale_ra,
+      iban, intestatario_cc,
     } = body;
 
     if (!email || !nome || !cognome || !ruolo) {
@@ -136,6 +137,8 @@ Deno.serve(async (req) => {
       numero_rui: numero_rui || null,
       sezione_rui: sezione_rui || null,
       codice_contabile: codice_contabile || null,
+      percentuale_base: percentuale_base ?? null,
+      percentuale_consulenza: percentuale_consulenza ?? null,
       percentuale_ra: percentuale_ra ?? null,
       iban: iban || null,
       intestatario_cc: intestatario_cc || null,
