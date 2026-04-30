@@ -219,6 +219,17 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     setDialogOpen(true);
   };
 
+  // Deep-link: apri in edit la riga richiesta dal Centro Utenti
+  useEffect(() => {
+    if (!editId || items.length === 0) return;
+    const target = items.find((i) => i.id === editId);
+    if (target) {
+      openEdit(target);
+      onEditConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, items]);
+
   const filtered = items.filter((p) => {
     if (!search) return true;
     const s = search.toLowerCase();
