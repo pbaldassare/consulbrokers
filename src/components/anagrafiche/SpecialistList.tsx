@@ -361,7 +361,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={form.codice_contabile} onChange={(e) => setForm({ ...form, codice_contabile: e.target.value })} /></div>
                   <div>
-                    <Label>Sede</Label>
+                    <Label>Sede <span className="text-destructive">*</span></Label>
                     <Select value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })}>
                       <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
                       <SelectContent>
