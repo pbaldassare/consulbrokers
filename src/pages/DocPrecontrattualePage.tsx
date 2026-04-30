@@ -653,12 +653,25 @@ const DocPrecontrattualePage = () => {
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
-        <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <Button variant="secondary" onClick={() => navigate(-1)}>Chiudi</Button>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => toast.info("Funzionalità allegati in arrivo")}>Tutti gli Allegati</Button>
-          <Button onClick={handleConferma}>Conferma</Button>
+          <Button variant="outline" onClick={handleAnteprima} disabled={isBuilding}>Anteprima</Button>
+          <Button variant="outline" onClick={handleStampa} disabled={isBuilding}>Stampa</Button>
+          <Button onClick={handleSalva} disabled={isBuilding}>Salva PDF</Button>
         </div>
       </div>
+
+      {/* PREVIEW DIALOG */}
+      <Dialog open={!!previewUrl} onOpenChange={(o) => { if (!o) { if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); } }}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-4 pt-3">
+            <DialogTitle>Anteprima Documentazione Precontrattuale</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <iframe src={previewUrl} className="flex-1 w-full rounded-b-lg" title="Anteprima PDF" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
