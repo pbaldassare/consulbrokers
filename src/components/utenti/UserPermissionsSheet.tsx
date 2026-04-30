@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getLevelByRole, ROLE_LABELS, VISIBILITY_LABEL, VisibilityScope, LEVELS } from "@/lib/userLevels";
 import PermissionsMatrix from "./PermissionsMatrix";
-import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save } from "lucide-react";
+import { KeyRound, Power, Shield, User as UserIcon, Eye, Settings2, Save, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import ProfileAvatarUpload from "./ProfileAvatarUpload";
 import ProfileInfoForm from "./ProfileInfoForm";
@@ -31,11 +31,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [visibility, setVisibility] = useState<VisibilityScope>("self_only");
   const [ruolo, setRuolo] = useState<string>("");
-  const [ufficioId, setUfficioId] = useState<string>("");
   const [attivo, setAttivo] = useState(true);
   const [riceveProvvigioni, setRiceveProvvigioni] = useState(false);
-  const [percBase, setPercBase] = useState<number | "">("");
-  const [percRa, setPercRa] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [resetPwd, setResetPwd] = useState("");
 
@@ -53,11 +50,8 @@ const UserPermissionsSheet = ({ user, open, onOpenChange, onSaved }: Props) => {
       setPermissions(typeof p === "object" ? Object.fromEntries(Object.entries(p).filter(([, v]) => typeof v === "boolean")) : {});
       setVisibility((p?._visibility as VisibilityScope) || getLevelByRole(user.ruolo).defaultVisibility);
       setRuolo(user.ruolo || "");
-      setUfficioId(user.ufficio_id || "");
       setAttivo(user.attivo !== false);
       setRiceveProvvigioni(!!p?.riceve_provvigioni);
-      setPercBase(user.percentuale_base ?? "");
-      setPercRa(user.percentuale_ra ?? "");
       setResetPwd("");
     }
   }, [user]);
