@@ -135,10 +135,23 @@ const AddressAutocomplete = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) return;
-    loadGoogleMapsScript().then(() => setReady(true)).catch(console.error);
+    if (!GOOGLE_MAPS_API_KEY) {
+      setError("Chiave Google Maps mancante");
+      return;
+    }
+    const onAuthFail = () => setError("Autocomplete non disponibile — verifica chiave/dominio Google Maps");
+    authFailureListeners.add(onAuthFail);
+    if (googleAuthFailed) onAuthFail();
+    loadGoogleMapsScript()
+      .then(() => setReady(true))
+      .catch((e) => {
+        console.error(e);
+        setError("Autocomplete non disponibile");
+      });
+    return () => { authFailureListeners.delete(onAuthFail); };
   }, []);
 
   const initAutocomplete = useCallback(() => {
