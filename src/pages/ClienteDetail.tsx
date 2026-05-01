@@ -1676,7 +1676,17 @@ export default function ClienteDetail() {
         </TabsContent>
 
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
-        <TabsContent value="timeline"><TimelineTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
+        <TabsContent value="timeline">
+          <TimelineTab
+            entitaTipo="cliente"
+            entitaId={id!}
+            extraEntities={[
+              { tipo: "titolo", ids: (polizze as any[]).map((p) => p.id) },
+              { tipo: "sinistro", ids: relatedIds?.sinistri || [] },
+              { tipo: "trattativa", ids: relatedIds?.trattative || [] },
+            ]}
+          />
+        </TabsContent>
 
         <TabsContent value="trattative">
           <TrattativeClienteSection clienteId={id!} />
