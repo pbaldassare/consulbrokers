@@ -1183,10 +1183,16 @@ export default function ClienteDetail() {
   const lastAutoFilledCFRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (cliente) {
-      setEditFields({ ...cliente });
+    if (!cliente) return;
+    const next: any = { ...cliente };
+    // Auto-allinea tipo_cliente al tipo_soggetto del Gruppo Finanziario (anche per record legacy)
+    const gf = (gruppiFinanziari as any[]).find((g) => g.id === cliente.gruppo_finanziario_id);
+    const ts = gf?.tipo_soggetto;
+    if (ts && ["privato", "azienda", "ente"].includes(ts) && next.tipo_cliente !== ts) {
+      next.tipo_cliente = ts;
     }
-  }, [cliente]);
+    setEditFields(next);
+  }, [cliente, gruppiFinanziari]);
 
   const updateField = (field: string, value: any) => {
     setEditFields((prev) => {
@@ -1328,10 +1334,18 @@ export default function ClienteDetail() {
 
   if (!cliente) return null;
 
-  const isPrivato = cliente.tipo_cliente === "privato";
+  // Tipo cliente EFFETTIVO derivato live dal Gruppo Finanziario (governa l'intero layout anagrafica)
+  const _gfSelected = (gruppiFinanziari as any[]).find((g) => g.id === editFields.gruppo_finanziario_id);
+  const effectiveTipoCliente: "privato" | "azienda" | "ente" =
+    ((_gfSelected?.tipo_soggetto as any) || editFields.tipo_cliente || cliente.tipo_cliente || "privato");
+  const tipoIsAuto = !!_gfSelected?.tipo_soggetto;
+
+  const isPrivato = effectiveTipoCliente === "privato";
+  const isAzienda = effectiveTipoCliente === "azienda";
+
   const displayName = isPrivato
-    ? `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || "—"
-    : cliente.ragione_sociale || "—";
+    ? `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || cliente.ragione_sociale || "—"
+    : cliente.ragione_sociale || `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || "—";
 
   const getClienteDisplayName = (c: any) => {
     if (!c) return "—";
@@ -1400,7 +1414,7 @@ export default function ClienteDetail() {
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
   const emailOk = isEmailValid(ef.email || "");
 
-  const isEnte = cliente.tipo_cliente === "ente";
+  const isEnte = effectiveTipoCliente === "ente";
 
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
@@ -1457,7 +1471,8 @@ export default function ClienteDetail() {
           <h1 className="text-2xl font-bold">{displayName}</h1>
           <p className="text-muted-foreground flex items-center gap-1.5">
             {isPrivato ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
-            {isPrivato ? "Cliente Privato" : "Azienda"}
+            {isPrivato ? "Cliente Privato" : isAzienda ? "Cliente Azienda" : "Cliente Ente"}
+            {tipoIsAuto && <span className="text-[10px] text-muted-foreground ml-1">(auto da Gruppo Finanziario)</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card">
