@@ -29,6 +29,19 @@ declare global {
 
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
+let googleAuthFailed = false;
+const authFailureListeners = new Set<() => void>();
+
+if (typeof window !== "undefined") {
+  (window as any).gm_authFailure = () => {
+    googleAuthFailed = true;
+    console.error(
+      "[AddressAutocomplete] Google Maps auth failure: chiave API non valida, dominio non autorizzato, o Places API non abilitata. " +
+        "Verifica https://console.cloud.google.com/google/maps-apis/credentials"
+    );
+    authFailureListeners.forEach((fn) => fn());
+  };
+}
 
 function loadGoogleMapsScript(): Promise<void> {
   if (googleScriptLoaded && window.google?.maps?.places) {
@@ -42,15 +55,23 @@ function loadGoogleMapsScript(): Promise<void> {
       resolve();
       return;
     }
+    if (!GOOGLE_MAPS_API_KEY) {
+      googleScriptPromise = null;
+      reject(new Error("VITE_GOOGLE_MAPS_API_KEY non configurata"));
+      return;
+    }
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
       googleScriptLoaded = true;
       resolve();
     };
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    script.onerror = () => {
+      googleScriptPromise = null;
+      reject(new Error("Failed to load Google Maps script (network/blocked)"));
+    };
     document.head.appendChild(script);
   });
   return googleScriptPromise;
@@ -114,10 +135,23 @@ const AddressAutocomplete = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) return;
-    loadGoogleMapsScript().then(() => setReady(true)).catch(console.error);
+    if (!GOOGLE_MAPS_API_KEY) {
+      setError("Chiave Google Maps mancante");
+      return;
+    }
+    const onAuthFail = () => setError("Autocomplete non disponibile — verifica chiave/dominio Google Maps");
+    authFailureListeners.add(onAuthFail);
+    if (googleAuthFailed) onAuthFail();
+    loadGoogleMapsScript()
+      .then(() => setReady(true))
+      .catch((e) => {
+        console.error(e);
+        setError("Autocomplete non disponibile");
+      });
+    return () => { authFailureListeners.delete(onAuthFail); };
   }, []);
 
   const initAutocomplete = useCallback(() => {
@@ -163,8 +197,11 @@ const AddressAutocomplete = ({
         disabled={disabled}
         autoComplete="off"
       />
-      {ready && (
+      {ready && !error && (
         <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      )}
+      {error && (
+        <p className="text-xs text-destructive mt-1">{error} — inserisci CAP, città e provincia manualmente.</p>
       )}
     </div>
   );
