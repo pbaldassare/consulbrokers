@@ -1471,7 +1471,8 @@ export default function ClienteDetail() {
           <h1 className="text-2xl font-bold">{displayName}</h1>
           <p className="text-muted-foreground flex items-center gap-1.5">
             {isPrivato ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
-            {isPrivato ? "Cliente Privato" : "Azienda"}
+            {isPrivato ? "Cliente Privato" : isAzienda ? "Cliente Azienda" : "Cliente Ente"}
+            {tipoIsAuto && <span className="text-[10px] text-muted-foreground ml-1">(auto da Gruppo Finanziario)</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card">
