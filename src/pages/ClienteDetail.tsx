@@ -1544,7 +1544,7 @@ export default function ClienteDetail() {
             <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
             <TabsTrigger value="documenti">Documenti</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="timeline">Log Attività</TabsTrigger>
             <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
             <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
           </TabsList>
