@@ -1469,10 +1469,20 @@ export default function ClienteDetail() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{displayName}</h1>
-          <p className="text-muted-foreground flex items-center gap-1.5">
+          <p className="text-muted-foreground flex items-center gap-1.5 flex-wrap">
             {isPrivato ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
             {isPrivato ? "Cliente Privato" : isAzienda ? "Cliente Azienda" : "Cliente Ente"}
-            {tipoIsAuto && <span className="text-[10px] text-muted-foreground ml-1">(auto da Gruppo Finanziario)</span>}
+            {tipoIsAuto ? (
+              <span className="text-[10px] text-muted-foreground ml-1">(auto da Gruppo Finanziario)</span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-1"
+                title="Nessun Gruppo Finanziario assegnato: tipologia derivata dal valore storico. Assegna un Gruppo Finanziario per allineare automaticamente i campi anagrafici."
+              >
+                <AlertTriangle className="h-3 w-3" />
+                Tipologia da valore storico — assegna un Gruppo Finanziario
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-card">
