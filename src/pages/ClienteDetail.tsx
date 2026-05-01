@@ -1242,6 +1242,22 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
+  // IDs delle entità collegate al cliente per aggregazione log attività
+  const { data: relatedIds } = useQuery({
+    queryKey: ["cliente_related_ids", id],
+    queryFn: async () => {
+      const [{ data: sin }, { data: tra }] = await Promise.all([
+        supabase.from("sinistri").select("id").eq("cliente_anagrafica_id", id!),
+        supabase.from("trattative").select("id").eq("cliente_id", id!),
+      ]);
+      return {
+        sinistri: (sin || []).map((s: any) => s.id),
+        trattative: (tra || []).map((t: any) => t.id),
+      };
+    },
+    enabled: !!id,
+  });
+
   const { data: relazioni = [] } = useQuery({
     queryKey: ["relazioni_cliente", id],
     queryFn: async () => {
