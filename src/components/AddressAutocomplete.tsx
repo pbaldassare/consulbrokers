@@ -62,18 +62,41 @@ function extractAddressComponents(place: any): AddressComponents {
   let route = "";
   let cap = "";
   let citta = "";
-  let provincia = "";
+
+  let cittaLocality = "";
+  let cittaLevel3 = "";
+  let cittaPostalTown = "";
+  let provinciaShort = "";
+  let provinciaLong = "";
 
   for (const c of components) {
     const types: string[] = c.types;
     if (types.includes("street_number")) street_number = c.long_name;
     else if (types.includes("route")) route = c.long_name;
     else if (types.includes("postal_code")) cap = c.long_name;
-    else if (types.includes("locality") || types.includes("administrative_area_level_3")) {
-      if (!citta) citta = c.long_name;
+    else if (types.includes("locality")) cittaLocality = c.long_name;
+    else if (types.includes("postal_town")) cittaPostalTown = c.long_name;
+    else if (types.includes("administrative_area_level_3")) cittaLevel3 = c.long_name;
+    else if (types.includes("administrative_area_level_2")) {
+      provinciaShort = c.short_name;
+      provinciaLong = c.long_name;
     }
-    else if (types.includes("administrative_area_level_2")) provincia = c.short_name;
   }
+
+  // Fallback chain: locality → postal_town → admin_level_3
+  citta = cittaLocality || cittaPostalTown || cittaLevel3 || "";
+
+  // Provincia: prefer 2-letter short code; if missing, derive from long name (first 2 chars uppercase as last resort)
+  let provincia = provinciaShort || "";
+  if (!provincia && provinciaLong) {
+    // Some Italian metropolitan areas return long name only (e.g. "Roma Capitale")
+    provincia = provinciaLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
+  }
+  provincia = provincia.toUpperCase().slice(0, 2);
+
+  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile dall'autocomplete Google");
+  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile dall'autocomplete Google");
+  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile dall'autocomplete Google");
 
   const indirizzo = [route, street_number].filter(Boolean).join(", ");
   return { indirizzo, cap, citta, provincia };

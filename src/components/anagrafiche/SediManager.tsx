@@ -267,9 +267,9 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                 onSelect={(c) => setFormData({
                   ...formData,
                   indirizzo: c.indirizzo || formData.indirizzo,
-                  cap: c.cap || formData.cap,
-                  citta: c.citta || formData.citta,
-                  provincia: (c.provincia || formData.provincia || "").toUpperCase(),
+                  cap: c.cap,
+                  citta: c.citta,
+                  provincia: (c.provincia || "").toUpperCase(),
                 })}
                 placeholder="es. Via Roma 1"
               />
