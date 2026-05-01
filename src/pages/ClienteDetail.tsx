@@ -1183,10 +1183,16 @@ export default function ClienteDetail() {
   const lastAutoFilledCFRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (cliente) {
-      setEditFields({ ...cliente });
+    if (!cliente) return;
+    const next: any = { ...cliente };
+    // Auto-allinea tipo_cliente al tipo_soggetto del Gruppo Finanziario (anche per record legacy)
+    const gf = (gruppiFinanziari as any[]).find((g) => g.id === cliente.gruppo_finanziario_id);
+    const ts = gf?.tipo_soggetto;
+    if (ts && ["privato", "azienda", "ente"].includes(ts) && next.tipo_cliente !== ts) {
+      next.tipo_cliente = ts;
     }
-  }, [cliente]);
+    setEditFields(next);
+  }, [cliente, gruppiFinanziari]);
 
   const updateField = (field: string, value: any) => {
     setEditFields((prev) => {
