@@ -62,7 +62,6 @@ function extractAddressComponents(place: any): AddressComponents {
   let route = "";
   let cap = "";
   let citta = "";
-  let provincia = "";
 
   let cittaLocality = "";
   let cittaLevel3 = "";
