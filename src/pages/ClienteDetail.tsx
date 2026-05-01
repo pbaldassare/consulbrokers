@@ -1552,9 +1552,10 @@ export default function ClienteDetail() {
       </div>
 
       {/* Tabs - positioned right after header */}
-      <Tabs defaultValue="polizze">
+      <Tabs defaultValue="anagrafica">
         <div className="flex items-center flex-wrap gap-1">
           <TabsList className="flex-wrap">
+            <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
             <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({polizze.length})</TabsTrigger>
             <TabsTrigger value="sinistri"><AlertTriangle className="w-4 h-4 mr-1" />Sinistri</TabsTrigger>
             <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
@@ -1562,7 +1563,6 @@ export default function ClienteDetail() {
             <TabsTrigger value="chat">Chat</TabsTrigger>
             <TabsTrigger value="timeline">Log Attività</TabsTrigger>
             <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
-            <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
           </TabsList>
           <AreaRiservataHeaderButton cliente={cliente} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["cliente", id] })} />
         </div>
