@@ -1242,6 +1242,22 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
+  // IDs delle entità collegate al cliente per aggregazione log attività
+  const { data: relatedIds } = useQuery({
+    queryKey: ["cliente_related_ids", id],
+    queryFn: async () => {
+      const [{ data: sin }, { data: tra }] = await Promise.all([
+        supabase.from("sinistri").select("id").eq("cliente_anagrafica_id", id!),
+        supabase.from("trattative").select("id").eq("cliente_id", id!),
+      ]);
+      return {
+        sinistri: (sin || []).map((s: any) => s.id),
+        trattative: (tra || []).map((t: any) => t.id),
+      };
+    },
+    enabled: !!id,
+  });
+
   const { data: relazioni = [] } = useQuery({
     queryKey: ["relazioni_cliente", id],
     queryFn: async () => {
@@ -1544,7 +1560,7 @@ export default function ClienteDetail() {
             <TabsTrigger value="relazioni"><Link2 className="w-4 h-4 mr-1" />{isPrivato ? "Aziende" : "Persone"} ({relazioni.length})</TabsTrigger>
             <TabsTrigger value="documenti">Documenti</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="timeline">Log Attività</TabsTrigger>
             <TabsTrigger value="trattative"><FileText className="w-4 h-4 mr-1" />Trattative</TabsTrigger>
             <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
           </TabsList>
@@ -1660,7 +1676,17 @@ export default function ClienteDetail() {
         </TabsContent>
 
         <TabsContent value="chat"><ChatTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
-        <TabsContent value="timeline"><TimelineTab entitaTipo="cliente" entitaId={id!} /></TabsContent>
+        <TabsContent value="timeline">
+          <TimelineTab
+            entitaTipo="cliente"
+            entitaId={id!}
+            extraEntities={[
+              { tipo: "titolo", ids: (polizze as any[]).map((p) => p.id) },
+              { tipo: "sinistro", ids: relatedIds?.sinistri || [] },
+              { tipo: "trattativa", ids: relatedIds?.trattative || [] },
+            ]}
+          />
+        </TabsContent>
 
         <TabsContent value="trattative">
           <TrattativeClienteSection clienteId={id!} />

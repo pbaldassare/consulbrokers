@@ -226,7 +226,7 @@ async function addUfficioStaff(ufficioId: string, add: AddFn) {
     .select("id, nome, cognome, ruolo")
     .eq("ufficio_id", ufficioId)
     .eq("attivo", true)
-    .in("ruolo", ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo"]);
+    .in("ruolo", ["admin", "ufficio", "produttore", "backoffice", "contabilita", "cfo", "responsabile_sede"]);
 
   (staff || []).forEach((s: any) => {
     add(s.id, s.ruolo || "staff", `${s.cognome || ""} ${s.nome || ""}`.trim());
