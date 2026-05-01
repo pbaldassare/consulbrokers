@@ -29,6 +29,19 @@ declare global {
 
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
+let googleAuthFailed = false;
+const authFailureListeners = new Set<() => void>();
+
+if (typeof window !== "undefined") {
+  (window as any).gm_authFailure = () => {
+    googleAuthFailed = true;
+    console.error(
+      "[AddressAutocomplete] Google Maps auth failure: chiave API non valida, dominio non autorizzato, o Places API non abilitata. " +
+        "Verifica https://console.cloud.google.com/google/maps-apis/credentials"
+    );
+    authFailureListeners.forEach((fn) => fn());
+  };
+}
 
 function loadGoogleMapsScript(): Promise<void> {
   if (googleScriptLoaded && window.google?.maps?.places) {
@@ -42,15 +55,23 @@ function loadGoogleMapsScript(): Promise<void> {
       resolve();
       return;
     }
+    if (!GOOGLE_MAPS_API_KEY) {
+      googleScriptPromise = null;
+      reject(new Error("VITE_GOOGLE_MAPS_API_KEY non configurata"));
+      return;
+    }
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
       googleScriptLoaded = true;
       resolve();
     };
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    script.onerror = () => {
+      googleScriptPromise = null;
+      reject(new Error("Failed to load Google Maps script (network/blocked)"));
+    };
     document.head.appendChild(script);
   });
   return googleScriptPromise;
