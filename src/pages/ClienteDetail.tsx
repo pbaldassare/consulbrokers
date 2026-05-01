@@ -1414,7 +1414,7 @@ export default function ClienteDetail() {
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
   const emailOk = isEmailValid(ef.email || "");
 
-  const isEnte = cliente.tipo_cliente === "ente";
+  const isEnte = effectiveTipoCliente === "ente";
 
   const requiredFieldsList: { field: string; label: string; ok: boolean }[] = isPrivato
     ? [
