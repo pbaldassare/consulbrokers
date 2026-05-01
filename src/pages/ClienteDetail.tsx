@@ -1334,10 +1334,18 @@ export default function ClienteDetail() {
 
   if (!cliente) return null;
 
-  const isPrivato = cliente.tipo_cliente === "privato";
+  // Tipo cliente EFFETTIVO derivato live dal Gruppo Finanziario (governa l'intero layout anagrafica)
+  const _gfSelected = (gruppiFinanziari as any[]).find((g) => g.id === editFields.gruppo_finanziario_id);
+  const effectiveTipoCliente: "privato" | "azienda" | "ente" =
+    ((_gfSelected?.tipo_soggetto as any) || editFields.tipo_cliente || cliente.tipo_cliente || "privato");
+  const tipoIsAuto = !!_gfSelected?.tipo_soggetto;
+
+  const isPrivato = effectiveTipoCliente === "privato";
+  const isAzienda = effectiveTipoCliente === "azienda";
+
   const displayName = isPrivato
-    ? `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || "—"
-    : cliente.ragione_sociale || "—";
+    ? `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || cliente.ragione_sociale || "—"
+    : cliente.ragione_sociale || `${cliente.cognome || ""} ${cliente.nome || ""}`.trim() || "—";
 
   const getClienteDisplayName = (c: any) => {
     if (!c) return "—";
