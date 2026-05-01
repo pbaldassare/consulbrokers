@@ -197,8 +197,11 @@ const AddressAutocomplete = ({
         disabled={disabled}
         autoComplete="off"
       />
-      {ready && (
+      {ready && !error && (
         <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      )}
+      {error && (
+        <p className="text-xs text-destructive mt-1">{error} — inserisci CAP, città e provincia manualmente.</p>
       )}
     </div>
   );
