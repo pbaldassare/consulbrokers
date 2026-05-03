@@ -263,14 +263,14 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               <Label className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Indirizzo (via e civico)</Label>
               <AddressAutocomplete
                 value={formData.indirizzo}
-                onChange={(v) => setFormData({ ...formData, indirizzo: v })}
-                onSelect={(c) => setFormData({
-                  ...formData,
-                  indirizzo: c.indirizzo || formData.indirizzo,
-                  cap: c.cap,
-                  citta: c.citta,
-                  provincia: (c.provincia || "").toUpperCase(),
-                })}
+                onChange={(v) => setFormData((prev) => ({ ...prev, indirizzo: v }))}
+                onSelect={(c) => setFormData((prev) => ({
+                  ...prev,
+                  indirizzo: c.indirizzo || prev.indirizzo,
+                  cap: c.cap || prev.cap,
+                  citta: c.citta || prev.citta,
+                  provincia: (c.provincia || prev.provincia || "").toUpperCase(),
+                }))}
                 placeholder="es. Via Roma 1"
               />
             </div>
