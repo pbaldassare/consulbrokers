@@ -3,17 +3,15 @@
  * con il file /version.json servito statico (rigenerato a ogni build).
  * Se differiscono → forza un hard reload con cache busting.
  *
- * IMPORTANTE: attivo SOLO in produzione. In dev (preview Lovable / HMR)
- * il timestamp del bundle e quello di public/version.json non sono mai
- * sincronizzati al millisecondo, quindi il check produrrebbe loop spuri.
+ * Funziona sia in produzione che in preview (Lovable proxy serve
+ * /version.json con Cache-Control: no-store), con anti-loop per versione.
  */
 
-const BUNDLE_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
-const IS_PROD = import.meta.env.PROD;
+const BUNDLE_VERSION = (import.meta.env.VITE_APP_VERSION as string) || "dev";
 
 /**
  * Pulisce i flag anti-loop residui in sessionStorage che non corrispondono
- * più alla versione server attuale (garbage da reload precedenti).
+ * più alla versione server attuale.
  */
 function cleanupStaleFlags(currentServerVersion: string) {
   try {
@@ -32,19 +30,23 @@ function cleanupStaleFlags(currentServerVersion: string) {
 }
 
 /**
- * Esegue il reload "hard" aggiungendo un parametro _v alla URL,
- * così il browser bypassa cache HTTP/SW e scarica index.html nuovo.
- * Usa sessionStorage come anti-loop: max 1 reload per versione server.
+ * Hard reload con cache busting + anti-loop (max 1 reload per versione server).
  */
 function hardReload(serverVersion: string) {
   const flag = `reloaded_for_${serverVersion}`;
-  if (sessionStorage.getItem(flag)) {
-    console.warn("[VersionCheck] reload già eseguito per", serverVersion, "— skip per evitare loop");
-    return;
+  try {
+    if (sessionStorage.getItem(flag)) {
+      console.warn("[VersionCheck] reload già eseguito per", serverVersion, "— skip");
+      return;
+    }
+    sessionStorage.setItem(flag, "1");
+  } catch {
+    /* noop */
   }
-  sessionStorage.setItem(flag, "1");
   const url = new URL(window.location.href);
-  url.searchParams.set("_v", Date.now().toString());
+  // pulisce eventuali param vecchi e ne mette uno solo
+  url.searchParams.delete("_v");
+  url.searchParams.set("app_v", serverVersion);
   window.location.replace(url.toString());
 }
 
@@ -53,7 +55,6 @@ function hardReload(serverVersion: string) {
  * @returns true se è stato avviato un reload, false altrimenti.
  */
 export async function checkAppVersion(): Promise<boolean> {
-  // Skip solo se non abbiamo una versione di bundle valida
   if (BUNDLE_VERSION === "dev") return false;
   try {
     const res = await fetch(`/version.json?t=${Date.now()}`, {
@@ -65,7 +66,6 @@ export async function checkAppVersion(): Promise<boolean> {
     const serverVersion = data?.version;
     if (!serverVersion) return false;
 
-    // Pulisci flag vecchi prima di valutare
     cleanupStaleFlags(serverVersion);
 
     if (serverVersion !== BUNDLE_VERSION) {
@@ -77,7 +77,6 @@ export async function checkAppVersion(): Promise<boolean> {
     }
     return false;
   } catch (err) {
-    // Network/fetch error: non bloccare l'app
     console.warn("[VersionCheck] check fallito:", err);
     return false;
   }
@@ -85,24 +84,20 @@ export async function checkAppVersion(): Promise<boolean> {
 
 /**
  * Avvia il polling periodico (60s) + check su visibility/focus.
- * Da chiamare una volta al boot dell'app.
  */
 export function startVersionPolling(intervalMs = 60_000) {
   if (BUNDLE_VERSION === "dev") return;
 
-  // Polling periodico
   setInterval(() => {
     void checkAppVersion();
   }, intervalMs);
 
-  // Check quando la tab torna visibile
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       void checkAppVersion();
     }
   });
 
-  // Check su focus finestra
   window.addEventListener("focus", () => {
     void checkAppVersion();
   });

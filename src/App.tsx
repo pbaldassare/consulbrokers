@@ -12,6 +12,7 @@ import MioProfilo from "./pages/MioProfilo";
 import AiAssistantPage from "./pages/AiAssistantPage";
 import NotFound from "./pages/NotFound";
 
+import AppVersionGuard from "./components/AppVersionGuard";
 import { archiviRoutes } from "./routes/archivi";
 import { portafoglioRoutes } from "./routes/portafoglio";
 import { sinistriRoutes } from "./routes/sinistri";
@@ -28,6 +29,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <BrowserRouter>
+          <AppVersionGuard />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
