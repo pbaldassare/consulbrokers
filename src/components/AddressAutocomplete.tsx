@@ -522,6 +522,7 @@ const AddressAutocomplete = ({
 
   useEffect(() => {
     return () => {
+      if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
       document.querySelectorAll(".pac-container").forEach((el) => el.remove());
     };
   }, []);
