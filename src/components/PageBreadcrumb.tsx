@@ -53,7 +53,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "contabilita": "Contabilità",
   
   "chiusura-giornaliera": "Chiusura Giornaliera",
-  "ec-compagnia": "E/C Compagnia",
+  "ec-compagnia": "E/C Agenzie",
   "ec-produttori": "E/C Produttori",
   "stampa-primanota": "Stampa Primanota",
   "check-primanota": "Check Primanota",
