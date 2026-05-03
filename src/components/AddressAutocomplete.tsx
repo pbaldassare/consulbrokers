@@ -330,6 +330,7 @@ const AddressAutocomplete = ({
   const sessionTokenRef = useRef<GoogleAutocompleteSessionToken | undefined>();
   const requestIdRef = useRef(0);
   const blurTimeoutRef = useRef<number | null>(null);
+  const suppressPredictionsRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [predictions, setPredictions] = useState<GoogleAutocompletePrediction[]>([]);
@@ -466,11 +467,13 @@ const AddressAutocomplete = ({
 
   useEffect(() => {
     if (!ready || disabled) return;
+    if (suppressPredictionsRef.current) return;
     const timer = window.setTimeout(() => fetchPredictions(value), 350);
     return () => window.clearTimeout(timer);
   }, [disabled, fetchPredictions, ready, value]);
 
   const handleSelectPrediction = useCallback(async (prediction: GoogleAutocompletePrediction) => {
+    suppressPredictionsRef.current = true;
     setOpen(false);
     setPredictions([]);
     setLoadingDetails(true);
@@ -501,6 +504,7 @@ const AddressAutocomplete = ({
   }, [fetchPlaceDetails, geocodePrediction, missingDetailsWarning, onChange, onSelect]);
 
   const handleInputChange = useCallback((nextValue: string) => {
+    suppressPredictionsRef.current = false;
     setSelectionWarning(null);
     onChange(nextValue);
   }, [onChange]);
