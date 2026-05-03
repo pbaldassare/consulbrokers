@@ -186,16 +186,23 @@ function loadGoogleMapsScript(): Promise<void> {
   return googleScriptPromise;
 }
 
+function cleanProvinceName(name: string): string {
+  return name
+    .replace(/^(Città\s+Metropolitana\s+di\s+|Provincia\s+di\s+|Libero\s+Consorzio\s+Comunale\s+di\s+)/i, "")
+    .trim();
+}
+
 function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
   const components = place.address_components || [];
   let street_number = "";
   let route = "";
   let cap = "";
-  let citta = "";
 
   let cittaLocality = "";
   let cittaLevel3 = "";
   let cittaPostalTown = "";
+  let cittaSublocality = "";
+  let cittaLevel2 = "";
   let provinciaShort = "";
   let provinciaLong = "";
 
@@ -207,28 +214,35 @@ function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
     else if (types.includes("locality")) cittaLocality = c.long_name;
     else if (types.includes("postal_town")) cittaPostalTown = c.long_name;
     else if (types.includes("administrative_area_level_3")) cittaLevel3 = c.long_name;
+    else if (types.includes("sublocality") || types.includes("sublocality_level_1")) cittaSublocality = c.long_name;
     else if (types.includes("administrative_area_level_2")) {
       provinciaShort = c.short_name;
       provinciaLong = c.long_name;
+      cittaLevel2 = c.long_name;
     }
   }
 
-  // Fallback chain: locality → postal_town → admin_level_3
-  citta = cittaLocality || cittaPostalTown || cittaLevel3 || "";
+  const citta =
+    cittaLocality || cittaPostalTown || cittaLevel3 || cittaSublocality || cleanProvinceName(cittaLevel2) || "";
 
-  // Provincia: prefer 2-letter short code; if missing, derive from long name (first 2 chars uppercase as last resort)
-  let provincia = provinciaShort || "";
-  if (!provincia && provinciaLong) {
-    // Some Italian metropolitan areas return long name only (e.g. "Roma Capitale")
-    provincia = provinciaLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
+  let provincia = "";
+  const cleanedShort = cleanProvinceName(provinciaShort || "");
+  if (cleanedShort && /^[A-Za-z]{2}$/.test(cleanedShort)) {
+    provincia = cleanedShort.toUpperCase();
+  } else if (provinciaLong) {
+    const cleanedLong = cleanProvinceName(provinciaLong);
+    provincia = cleanedLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
   }
-  provincia = provincia.toUpperCase().slice(0, 2);
 
-  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile dall'autocomplete Google");
-  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile dall'autocomplete Google");
-  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile dall'autocomplete Google");
+  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile");
+  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile");
+  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile");
 
-  const indirizzo = [route, street_number].filter(Boolean).join(", ");
+  let indirizzo = [route, street_number].filter(Boolean).join(", ");
+  if (!indirizzo && place.formatted_address) {
+    // Fallback: take first segment before comma
+    indirizzo = place.formatted_address.split(",")[0].trim();
+  }
   return { indirizzo, cap, citta, provincia };
 }
 
