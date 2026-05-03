@@ -108,7 +108,7 @@ const ECAgenziaPdfPage = () => {
     }
   }, [sede]); // eslint-disable-line
 
-  // Titoli
+  // Titoli — se titoliIds presenti li usa, altrimenti tutti gli incassati dell'agenzia (filtrati per periodo se passato), escludendo quelli già in rimessa
   const { data: titoli } = useQuery({
     queryKey: ["ec-pdf-titoli", compagniaId, titoliIds.join(","), periodoDal, periodoAl],
     enabled: !!compagniaId,
@@ -118,12 +118,19 @@ const ECAgenziaPdfPage = () => {
         .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
-      if (titoliIds.length > 0) q = q.in("id", titoliIds);
-      else {
+      if (titoliIds.length > 0) {
+        q = q.in("id", titoliIds);
+      } else {
         if (periodoDal) q = q.gte("data_messa_cassa", periodoDal);
         if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
+        // Escludi titoli già rimessati (solo quando non è una selezione esplicita)
+        const { data: rimRaw } = await supabase.from("rimessa_dettaglio").select("titolo_id");
+        const rimSet = new Set((rimRaw || []).map((r: any) => r.titolo_id));
+        const { data, error } = await q.order("data_messa_cassa", { ascending: true });
+        if (error) throw error;
+        return (data || []).filter((t: any) => !rimSet.has(t.id));
       }
-      const { data, error } = await q;
+      const { data, error } = await q.order("data_messa_cassa", { ascending: true });
       if (error) throw error;
       return data || [];
     },
