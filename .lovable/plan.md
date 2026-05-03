@@ -1,46 +1,36 @@
-Ho verificato la sessione: Google Maps ora mostra i suggerimenti, ma quando selezioni “Via Mergellina, 2, Napoli, NA, Italia” non parte una chiamata di dettaglio luogo visibile e i campi restano quelli vecchi. Il problema non è più la chiave API: è la logica di selezione/dettaglio, che con l’Autocomplete legacy può restituire un risultato incompleto o non scatenare abbastanza robustamente l’aggiornamento dei campi.
+## Obiettivo
+Nella scheda Cliente (e nel modal "Nuovo Cliente"), per i clienti di tipo **AZIENDA / ENTE**:
 
-Piano di intervento:
+1. Quando l'utente digita una **Partita IVA** di 11 cifre, copiare automaticamente lo stesso valore nel **Codice Fiscale Azienda** (se vuoto), lasciandolo comunque modificabile.
+2. Verificare/garantire che il campo **Sede** sia un autocomplete Google Maps che compila automaticamente **Indirizzo Sede, Città Sede, Provincia Sede, CAP Sede**.
 
-1. Rendere l’autocomplete indipendente dal vecchio `getPlace()` incompleto
-   - Integrare `AutocompleteService.getPlacePredictions` e `PlacesService.getDetails` in modo controllato.
-   - Quando l’utente digita e seleziona un indirizzo, usare sempre il `place_id` della prediction selezionata per chiamare `getDetails`.
-   - Richiedere esplicitamente `address_components`, `formatted_address`, `place_id`, `name`, `geometry`.
+## Stato attuale (verificato)
+- `src/pages/ClienteDetail.tsx` (riga 110-116): esiste già la copia inversa **CF azienda (11 cifre) → P.IVA**, ma NON il contrario.
+- `src/pages/ClienteDetail.tsx` (riga 1856): il campo "Sede" usa già `FieldAddress` → `AddressAutocomplete`, che riempie `indirizzo_sede`, `cap_sede`, `citta_sede`, `provincia_sede`. Quindi la parte maps è già in piedi (recentemente sistemata). Le righe successive (1857-1859) mostrano comunque i 3 campi come Input semplici per consentire correzione manuale.
+- `src/components/clienti/NuovoClienteDialog.tsx`: stesso schema da allineare per coerenza.
 
-2. Aggiungere una lista suggerimenti gestita dall’app
-   - Sostituire/affiancare il menu `.pac-container` di Google con un dropdown React interno.
-   - Questo evita il bug per cui il click sul suggerimento Google cambia il testo ma non aggiorna CAP/Città/Provincia.
-   - Ogni click sul suggerimento chiamerà direttamente la funzione che popola i campi.
+## Modifiche
 
-3. Rafforzare parsing indirizzi italiani
-   - CAP da `postal_code`.
-   - Città da `locality`, poi `postal_town`, poi `administrative_area_level_3`, poi fallback dal testo della prediction.
-   - Provincia da `administrative_area_level_2.short_name`, normalizzata a due lettere uppercase.
-   - Gestione di testi come “Napoli, NA, Italia” anche se Google non restituisce tutti i componenti.
+### 1. `src/pages/ClienteDetail.tsx`
+Nel `FieldInput.onChange` (intorno riga 104-117), aggiungere il blocco simmetrico:
 
-4. Correggere il caso “civico prima della via”
-   - Nella sessione Google mostra anche risultati con testo tipo `2, Via Mergellina`.
-   - Normalizzerò l’indirizzo salvato in formato italiano: `Via Mergellina, 2`.
+```ts
+if (field === "partita_iva" && val.length === 11 && /^\d{11}$/.test(val) && !ef.codice_fiscale_azienda) {
+  updateField("codice_fiscale_azienda", val);
+  toast.info("Codice Fiscale Azienda copiato dalla Partita IVA");
+}
+```
 
-5. Aggiornare `SediManager`
-   - Mantenere update funzionali su `formData`.
-   - Sovrascrivere CAP/Città/Provincia quando arriva una selezione Google valida, invece di lasciare i vecchi valori “Milano / MI”.
-   - Non cancellare manualmente i campi se Google non fornisce un dettaglio valido.
+Il campo `codice_fiscale_azienda` resta editabile, quindi l'utente può sempre modificarlo dopo la copia automatica.
 
-6. Aggiungere feedback utile in UI
-   - Se dopo la selezione Google non torna CAP/Città/Provincia, mostrare un messaggio chiaro e non silenzioso.
-   - Se invece il dettaglio arriva, aggiornare immediatamente i tre campi.
+### 2. `src/components/clienti/NuovoClienteDialog.tsx`
+- Applicare la stessa logica di copia P.IVA → CF Azienda sull'`onChange` del campo Partita IVA (mantenendo la copia inversa già esistente).
+- Verificare che il campo "Sede / Indirizzo sede" usi `AddressAutocomplete` con `onSelect` che popola CAP/Città/Provincia tramite functional update (`setFormData(prev => ({...prev, ...}))`); se è un Input semplice, sostituirlo con `AddressAutocomplete` analogamente a `SediManager.tsx`.
 
-File da modificare:
-- `src/components/AddressAutocomplete.tsx`
-- `src/components/anagrafiche/SediManager.tsx`
-- `public/version.json` per forzare refresh cache
+### 3. Sede in ClienteDetail
+Nessuna modifica al campo Sede: è già `FieldAddress` con autocompilazione. Verificare in preview che, selezionando un indirizzo dal menu Google, i tre campi sotto (Città/Provincia/CAP) si popolino. Se il problema persiste lì, il fix è già stato fatto in `AddressAutocomplete.tsx` con il fallback Geocoder + parsing manuale.
 
-Risultato atteso:
-- Se digiti “viale mergellina 2” e selezioni “Via Mergellina, 2, Napoli, NA, Italia”, i campi devono diventare indicativamente:
-  - Indirizzo: `Via Mergellina, 2`
-  - Città: `Napoli`
-  - Provincia: `NA`
-  - CAP: popolato se Google lo restituisce per quel civico; in caso contrario resta invariato o vuoto con messaggio chiaro.
-
-Nota: per alcuni indirizzi Google può non restituire il CAP specifico se il luogo/prediction è a livello strada e non civico preciso. In quel caso posso aggiungere anche un fallback ulteriore tramite Geocoding API sulla `formatted_address`, ma prima sistemo la selezione perché oggi non sta aggiornando nemmeno Città e Provincia.
+## Note
+- Nessuna modifica DB.
+- Nessuna logica retroattiva sui clienti esistenti.
+- Bump `public/version.json`.
