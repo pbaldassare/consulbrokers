@@ -143,7 +143,7 @@ const DocPrecontrattualePage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
-        .select("id, nome_ufficio, indirizzo, cap, citta, provincia")
+        .select("id, nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
         .order("nome_ufficio");
       return data || [];
     },

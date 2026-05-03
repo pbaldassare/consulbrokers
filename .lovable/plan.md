@@ -1,36 +1,53 @@
 ## Obiettivo
-Nella scheda Cliente (e nel modal "Nuovo Cliente"), per i clienti di tipo **AZIENDA / ENTE**:
 
-1. Quando l'utente digita una **Partita IVA** di 11 cifre, copiare automaticamente lo stesso valore nel **Codice Fiscale Azienda** (se vuoto), lasciandolo comunque modificabile.
-2. Verificare/garantire che il campo **Sede** sia un autocomplete Google Maps che compila automaticamente **Indirizzo Sede, Città Sede, Provincia Sede, CAP Sede**.
+Quando si seleziona una **Sede** (es. "Ufficio di Napoli") nella pagina `/portafoglio/doc-precontrattuale`, devono essere ripresi automaticamente dal DB tutti i dati della sede (indirizzo, CAP, città, provincia, **email** e **telefono**) e questi dati devono comparire nel PDF della precontrattuale insieme agli altri.
 
-## Stato attuale (verificato)
-- `src/pages/ClienteDetail.tsx` (riga 110-116): esiste già la copia inversa **CF azienda (11 cifre) → P.IVA**, ma NON il contrario.
-- `src/pages/ClienteDetail.tsx` (riga 1856): il campo "Sede" usa già `FieldAddress` → `AddressAutocomplete`, che riempie `indirizzo_sede`, `cap_sede`, `citta_sede`, `provincia_sede`. Quindi la parte maps è già in piedi (recentemente sistemata). Le righe successive (1857-1859) mostrano comunque i 3 campi come Input semplici per consentire correzione manuale.
-- `src/components/clienti/NuovoClienteDialog.tsx`: stesso schema da allineare per coerenza.
+## Stato attuale
+
+- La query `ufficiList` in `src/pages/DocPrecontrattualePage.tsx` (riga 144) seleziona solo `id, nome_ufficio, indirizzo, cap, citta, provincia` → **mancano `email` e `telefono`**.
+- `applySede` popola Indirizzo/CAP/Città/Prov ma **non** popola E-mail e Tel della sezione RUI.
+- Il PDF (`src/lib/precontrattuale-pdf.ts`) mostra `specialistIndirizzo` come singola stringa concatenata: la sede non è valorizzata in modo distinto.
+- Sede "Ufficio di Napoli" sul DB ha `email = segreteria@consulbrokers`, telefono nullo. Sede "San Donà" ha telefono `0421 307800`.
 
 ## Modifiche
 
-### 1. `src/pages/ClienteDetail.tsx`
-Nel `FieldInput.onChange` (intorno riga 104-117), aggiungere il blocco simmetrico:
+### 1. `src/pages/DocPrecontrattualePage.tsx`
 
-```ts
-if (field === "partita_iva" && val.length === 11 && /^\d{11}$/.test(val) && !ef.codice_fiscale_azienda) {
-  updateField("codice_fiscale_azienda", val);
-  toast.info("Codice Fiscale Azienda copiato dalla Partita IVA");
-}
-```
+- Estendere la `select` di `ufficiList` aggiungendo `email, telefono`.
+- In `applySede`:
+  - popolare `indirizzoRui / capRui / cittaRui / provinciaRui` dai campi strutturati della sede (già fatto), con fallback al parser legacy.
+  - **Sovrascrivere sempre** `emailRui` e `telRui` con quelli della sede selezionata se presenti (la sede è la fonte ufficiale per il documento precontrattuale). Se la sede non li ha, mantenere quelli attuali.
+- In `composeIndirizzoSede`: già ok, viene riusato.
+- Passare al PDF tre nuovi campi dedicati alla **Sede Operativa**: `sedeNome`, `sedeIndirizzo` (già composto), `sedeEmail`, `sedeTelefono`.
 
-Il campo `codice_fiscale_azienda` resta editabile, quindi l'utente può sempre modificarlo dopo la copia automatica.
+### 2. `src/lib/precontrattuale-pdf.ts`
 
-### 2. `src/components/clienti/NuovoClienteDialog.tsx`
-- Applicare la stessa logica di copia P.IVA → CF Azienda sull'`onChange` del campo Partita IVA (mantenendo la copia inversa già esistente).
-- Verificare che il campo "Sede / Indirizzo sede" usi `AddressAutocomplete` con `onSelect` che popola CAP/Città/Provincia tramite functional update (`setFormData(prev => ({...prev, ...}))`); se è un Input semplice, sostituirlo con `AddressAutocomplete` analogamente a `SediManager.tsx`.
+- Aggiungere a `PrecontrattualeData` i campi opzionali:
+  ```ts
+  sedeNome?: string;
+  sedeIndirizzoCompleto?: string;
+  sedeEmail?: string;
+  sedeTelefono?: string;
+  ```
+- Nel blocco MUP "INTERMEDIARIO CHE ENTRA IN CONTATTO CON IL CLIENTE" (intorno a riga 377), dopo la riga `Indirizzo: …`, aggiungere un blocco "Sede Operativa":
+  ```
+  Sede Operativa: {sedeNome}
+  Indirizzo: {sedeIndirizzoCompleto}
+  Telefono: {sedeTelefono}   e-mail: {sedeEmail}
+  ```
+  mostrato solo se `sedeNome` è presente.
 
-### 3. Sede in ClienteDetail
-Nessuna modifica al campo Sede: è già `FieldAddress` con autocompilazione. Verificare in preview che, selezionando un indirizzo dal menu Google, i tre campi sotto (Città/Provincia/CAP) si popolino. Se il problema persiste lì, il fix è già stato fatto in `AddressAutocomplete.tsx` con il fallback Geocoder + parsing manuale.
+### 3. `public/version.json`
 
-## Note
-- Nessuna modifica DB.
-- Nessuna logica retroattiva sui clienti esistenti.
-- Bump `public/version.json`.
+Bump versione per forzare reload.
+
+## Risultato atteso
+
+- Selezionando "Ufficio di Napoli" → CAP `80122`, Città `Napoli`, Prov `NA`, Indirizzo `Via Mergellina, 2`, E-mail `segreteria@consulbrokers` (già visibile nello screenshot per Indirizzo/CAP/Città/Prov; ora anche e-mail/telefono).
+- Nel PDF precontrattuale generato comparirà un blocco "Sede Operativa" con nome sede, indirizzo completo, telefono e e-mail, oltre ai dati già presenti dello Specialist e di Consulbrokers.
+
+## File modificati
+
+- `src/pages/DocPrecontrattualePage.tsx`
+- `src/lib/precontrattuale-pdf.ts`
+- `public/version.json`
