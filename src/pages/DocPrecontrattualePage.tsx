@@ -21,7 +21,8 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const clienteIdParam = searchParams.get("clienteId");
+  const clienteIdParamRaw = searchParams.get("clienteId");
+  const titoloIdParam = searchParams.get("titoloId");
 
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
