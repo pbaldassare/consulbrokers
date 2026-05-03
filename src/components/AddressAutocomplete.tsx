@@ -64,23 +64,30 @@ declare global {
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
 let googleAuthFailed = false;
+let AutocompleteCtorCached: AutocompleteCtor | null = null;
 const authFailureListeners = new Set<() => void>();
 
 function hasPlacesAutocomplete(): boolean {
-  return Boolean(window.google?.maps?.places?.Autocomplete);
+  return Boolean(AutocompleteCtorCached || window.google?.maps?.places?.Autocomplete);
 }
 
 async function ensurePlacesLibrary(): Promise<void> {
-  if (hasPlacesAutocomplete()) return;
+  if (AutocompleteCtorCached) return;
+  if (window.google?.maps?.places?.Autocomplete) {
+    AutocompleteCtorCached = window.google.maps.places.Autocomplete;
+    return;
+  }
 
   const importLibrary = window.google?.maps?.importLibrary;
-  if (typeof importLibrary === "function") {
-    await importLibrary("places");
+  if (typeof importLibrary !== "function") {
+    throw new Error("google.maps.importLibrary non disponibile");
   }
-
-  if (!hasPlacesAutocomplete()) {
+  const places = await importLibrary("places");
+  const Ctor = (places?.Autocomplete as AutocompleteCtor | undefined) ?? window.google?.maps?.places?.Autocomplete;
+  if (!Ctor) {
     throw new Error("Google Places Autocomplete non disponibile");
   }
+  AutocompleteCtorCached = Ctor;
 }
 
 if (typeof window !== "undefined") {
