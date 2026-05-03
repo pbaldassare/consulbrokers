@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { MapPin } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -34,23 +34,51 @@ interface GooglePlaceResult {
   address_components?: GoogleAddressComponent[];
 }
 
-interface GoogleAutocompleteInstance {
-  addListener: (eventName: "place_changed", handler: () => void) => void;
-  getPlace: () => GooglePlaceResult;
+interface GoogleAutocompletePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting?: {
+    main_text?: string;
+    secondary_text?: string;
+  };
 }
 
-type AutocompleteCtor = new (
-  input: HTMLInputElement,
-  options: {
-    types: string[];
-    componentRestrictions: { country: string };
-    fields: string[];
-  }
-) => GoogleAutocompleteInstance;
+interface AutocompleteServiceInstance {
+  getPlacePredictions: (
+    request: {
+      input: string;
+      types: string[];
+      componentRestrictions: { country: string };
+      language?: string;
+      sessionToken?: GoogleAutocompleteSessionToken;
+    },
+    callback: (predictions: GoogleAutocompletePrediction[] | null, status: string) => void
+  ) => void;
+}
+
+type AutocompleteServiceCtor = new () => AutocompleteServiceInstance;
+
+interface GoogleGeocoderResult {
+  formatted_address?: string;
+  address_components?: GoogleAddressComponent[];
+}
+
+interface GoogleGeocoderInstance {
+  geocode: (
+    request: { placeId?: string; address?: string; componentRestrictions?: { country: string } },
+    callback: (results: GoogleGeocoderResult[] | null, status: string) => void
+  ) => void;
+}
+
+type GeocoderCtor = new () => GoogleGeocoderInstance;
+
+interface GoogleAutocompleteSessionToken {}
+
+type AutocompleteSessionTokenCtor = new () => GoogleAutocompleteSessionToken;
 
 interface PlacesServiceInstance {
   getDetails: (
-    request: { placeId: string; fields: string[] },
+    request: { placeId: string; fields: string[]; sessionToken?: GoogleAutocompleteSessionToken },
     callback: (result: GooglePlaceResult | null, status: string) => void
   ) => void;
 }
@@ -60,12 +88,16 @@ type PlacesServiceCtor = new (attrContainer: HTMLElement | unknown) => PlacesSer
 interface GoogleMapsGlobal {
   maps?: {
     importLibrary?: (libraryName: string) => Promise<Record<string, unknown>>;
+    Geocoder?: GeocoderCtor;
+    GeocoderStatus?: { OK: string };
     places?: {
-      Autocomplete?: AutocompleteCtor;
+      AutocompleteService?: AutocompleteServiceCtor;
+      AutocompleteSessionToken?: AutocompleteSessionTokenCtor;
       PlacesService?: PlacesServiceCtor;
-      PlacesServiceStatus?: { OK: string };
+      PlacesServiceStatus?: { OK: string; ZERO_RESULTS?: string };
+      AutocompleteServiceStatus?: { OK: string; ZERO_RESULTS?: string };
     };
-  };
+  }
 }
 
 declare global {
@@ -78,30 +110,24 @@ declare global {
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
 let googleAuthFailed = false;
-let AutocompleteCtorCached: AutocompleteCtor | null = null;
 const authFailureListeners = new Set<() => void>();
 
-function hasPlacesAutocomplete(): boolean {
-  return Boolean(AutocompleteCtorCached || window.google?.maps?.places?.Autocomplete);
+function hasPlacesServices(): boolean {
+  const places = window.google?.maps?.places;
+  return Boolean(places?.AutocompleteService && places?.PlacesService);
 }
 
 async function waitForPlaces(timeoutMs = 8000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (window.google?.maps?.places?.Autocomplete) {
-      AutocompleteCtorCached = window.google.maps.places.Autocomplete;
+    if (hasPlacesServices()) {
       return;
     }
-    // Try modern importLibrary if available
     const importLibrary = window.google?.maps?.importLibrary;
     if (typeof importLibrary === "function") {
       try {
-        const places = await importLibrary("places");
-        const Ctor = (places?.Autocomplete as AutocompleteCtor | undefined) ?? window.google?.maps?.places?.Autocomplete;
-        if (Ctor) {
-          AutocompleteCtorCached = Ctor;
-          return;
-        }
+        await importLibrary("places");
+        if (hasPlacesServices()) return;
       } catch {
         // fall through and retry polling
       }
@@ -112,7 +138,7 @@ async function waitForPlaces(timeoutMs = 8000): Promise<void> {
 }
 
 async function ensurePlacesLibrary(): Promise<void> {
-  if (AutocompleteCtorCached) return;
+  if (hasPlacesServices()) return;
   await waitForPlaces();
 }
 
@@ -128,13 +154,13 @@ if (typeof window !== "undefined") {
 }
 
 function loadGoogleMapsScript(): Promise<void> {
-  if (googleScriptLoaded && hasPlacesAutocomplete()) {
+  if (googleScriptLoaded && hasPlacesServices()) {
     return Promise.resolve();
   }
   if (googleScriptPromise) return googleScriptPromise;
 
   googleScriptPromise = new Promise((resolve, reject) => {
-    if (hasPlacesAutocomplete()) {
+    if (hasPlacesServices()) {
       googleScriptLoaded = true;
       resolve();
       return;
@@ -192,7 +218,54 @@ function cleanProvinceName(name: string): string {
     .trim();
 }
 
-function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
+function parseAddressText(text: string): Partial<AddressComponents> {
+  const parts = text
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^italia$/i.test(part));
+
+  const capMatch = text.match(/\b\d{5}\b/);
+  const cap = capMatch?.[0] || "";
+  const provinciaIndex = parts.findIndex((part) => /^\(?[A-Z]{2}\)?$/i.test(part));
+  const provinciaMatch = text.match(/\b([A-Z]{2})\b(?=\s*,\s*Italia\b|\s*$)/i);
+  const provincia = provinciaIndex >= 0
+    ? parts[provinciaIndex].replace(/[^A-Za-z]/g, "").toUpperCase()
+    : (provinciaMatch?.[1] || "").toUpperCase();
+
+  let citta = "";
+  if (cap) {
+    const capPart = parts.find((part) => part.includes(cap));
+    citta = capPart?.replace(cap, "").replace(new RegExp(`\\b${provincia}\\b`, "i"), "").trim() || "";
+  }
+  if (!citta && provinciaIndex > 0) citta = parts[provinciaIndex - 1];
+
+  const addressParts = provinciaIndex >= 0 ? parts.slice(0, Math.max(0, provinciaIndex - 1)) : parts.slice(0, 2);
+  let indirizzo = addressParts.join(", ").replace(cap, "").trim();
+  if (/^\d+[A-Za-z]?$/i.test(addressParts[0] || "") && addressParts[1]) {
+    indirizzo = `${addressParts[1]}, ${addressParts[0]}`;
+  }
+
+  return { indirizzo, cap, citta, provincia };
+}
+
+function mergeAddressComponents(primary: AddressComponents, fallback: Partial<AddressComponents>): AddressComponents {
+  return {
+    indirizzo: primary.indirizzo || fallback.indirizzo || "",
+    cap: primary.cap || fallback.cap || "",
+    citta: primary.citta || fallback.citta || "",
+    provincia: primary.provincia || fallback.provincia || "",
+  };
+}
+
+function mergeManyAddressComponents(...items: Partial<AddressComponents>[]): AddressComponents {
+  return items.reduce<AddressComponents>(
+    (acc, item) => mergeAddressComponents(acc, item),
+    { indirizzo: "", cap: "", citta: "", provincia: "" }
+  );
+}
+
+function extractAddressComponents(place: GooglePlaceResult, fallbackText = ""): AddressComponents {
   const components = place.address_components || [];
   let street_number = "";
   let route = "";
@@ -234,16 +307,22 @@ function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
     provincia = cleanedLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
   }
 
-  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile");
-  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile");
-  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile");
-
   let indirizzo = [route, street_number].filter(Boolean).join(", ");
   if (!indirizzo && place.formatted_address) {
     // Fallback: take first segment before comma
     indirizzo = place.formatted_address.split(",")[0].trim();
   }
-  return { indirizzo, cap, citta, provincia };
+
+  const parsed = mergeAddressComponents(
+    { indirizzo, cap, citta, provincia },
+    parseAddressText(fallbackText || place.formatted_address || "")
+  );
+
+  if (!parsed.cap) console.warn("[AddressAutocomplete] CAP non disponibile");
+  if (!parsed.citta) console.warn("[AddressAutocomplete] Città non disponibile");
+  if (!parsed.provincia) console.warn("[AddressAutocomplete] Provincia non disponibile");
+
+  return parsed;
 }
 
 const AddressAutocomplete = ({
@@ -256,9 +335,25 @@ const AddressAutocomplete = ({
   disabled,
 }: AddressAutocompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<GoogleAutocompleteInstance | null>(null);
+  const autocompleteServiceRef = useRef<AutocompleteServiceInstance | null>(null);
+  const placesServiceRef = useRef<PlacesServiceInstance | null>(null);
+  const geocoderRef = useRef<GoogleGeocoderInstance | null>(null);
+  const sessionTokenRef = useRef<GoogleAutocompleteSessionToken | undefined>();
+  const requestIdRef = useRef(0);
+  const blurTimeoutRef = useRef<number | null>(null);
+  const suppressPredictionsRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [predictions, setPredictions] = useState<GoogleAutocompletePrediction[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
+
+  const missingDetailsWarning = useMemo(
+    () => "Google non ha restituito tutti i dettagli: verifica CAP, città e provincia.",
+    []
+  );
 
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
@@ -277,66 +372,157 @@ const AddressAutocomplete = ({
     return () => { authFailureListeners.delete(onAuthFail); };
   }, []);
 
-  const initAutocomplete = useCallback(() => {
-    if (!ready || !inputRef.current || autocompleteRef.current) return;
-    const Autocomplete = AutocompleteCtorCached ?? window.google?.maps?.places?.Autocomplete;
-    if (!Autocomplete) {
+  const initServices = useCallback(() => {
+    if (!ready || !inputRef.current || autocompleteServiceRef.current) return;
+    const places = window.google?.maps?.places;
+    const AutocompleteService = places?.AutocompleteService;
+    const PlacesService = places?.PlacesService;
+    if (!AutocompleteService || !PlacesService) {
       setReady(false);
       setError("Autocomplete non disponibile");
       return;
     }
 
-    const ac = new Autocomplete(inputRef.current, {
-      types: ["address"],
-      componentRestrictions: { country: "it" },
-      fields: ["address_components", "formatted_address", "place_id", "name", "geometry"],
-    });
-
-    const handleParsed = (place: GooglePlaceResult) => {
-      const parsed = extractAddressComponents(place);
-      onChange(parsed.indirizzo || place.formatted_address || "");
-      onSelect?.(parsed);
-    };
-
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      if (place.address_components && place.address_components.length > 0) {
-        handleParsed(place);
-        return;
-      }
-      // Fallback: fetch full details via PlacesService
-      const PlacesService = window.google?.maps?.places?.PlacesService;
-      if (place.place_id && PlacesService && inputRef.current) {
-        try {
-          const svc = new PlacesService(inputRef.current);
-          svc.getDetails(
-            {
-              placeId: place.place_id,
-              fields: ["address_components", "formatted_address", "name", "geometry"],
-            },
-            (result, status) => {
-              const okStatus = window.google?.maps?.places?.PlacesServiceStatus?.OK ?? "OK";
-              if (status === okStatus && result) handleParsed(result);
-              else console.warn("[AddressAutocomplete] getDetails fallito:", status);
-            }
-          );
-        } catch (err) {
-          console.warn("[AddressAutocomplete] PlacesService non disponibile:", err);
-        }
-      } else {
-        console.warn("[AddressAutocomplete] place senza address_components né place_id");
-      }
-    });
-
-    autocompleteRef.current = ac;
-  }, [ready, onChange, onSelect]);
+    autocompleteServiceRef.current = new AutocompleteService();
+    placesServiceRef.current = new PlacesService(inputRef.current);
+    if (window.google?.maps?.Geocoder) geocoderRef.current = new window.google.maps.Geocoder();
+    if (places?.AutocompleteSessionToken) sessionTokenRef.current = new places.AutocompleteSessionToken();
+  }, [ready]);
 
   useEffect(() => {
-    initAutocomplete();
-  }, [initAutocomplete]);
+    initServices();
+  }, [initServices]);
+
+  const fetchPlaceDetails = useCallback((prediction: GoogleAutocompletePrediction) => {
+    const service = placesServiceRef.current;
+    if (!service) return Promise.resolve<GooglePlaceResult | null>(null);
+    return new Promise<GooglePlaceResult | null>((resolve) => {
+      service.getDetails(
+        {
+          placeId: prediction.place_id,
+          fields: ["address_components", "formatted_address", "place_id", "name", "geometry"],
+          sessionToken: sessionTokenRef.current,
+        },
+        (result, status) => {
+          const okStatus = window.google?.maps?.places?.PlacesServiceStatus?.OK ?? "OK";
+          if (status === okStatus && result) resolve(result);
+          else {
+            console.warn("[AddressAutocomplete] getDetails fallito:", status);
+            resolve(null);
+          }
+        }
+      );
+    });
+  }, []);
+
+  const geocodePrediction = useCallback((prediction: GoogleAutocompletePrediction) => {
+    const geocoder = geocoderRef.current;
+    if (!geocoder) return Promise.resolve<GooglePlaceResult | null>(null);
+    return new Promise<GooglePlaceResult | null>((resolve) => {
+      geocoder.geocode(
+        { placeId: prediction.place_id, componentRestrictions: { country: "IT" } },
+        (results, status) => {
+          const okStatus = window.google?.maps?.GeocoderStatus?.OK ?? "OK";
+          if (status === okStatus && results?.[0]) resolve(results[0]);
+          else {
+            geocoder.geocode(
+              { address: prediction.description, componentRestrictions: { country: "IT" } },
+              (addressResults, addressStatus) => {
+                if (addressStatus === okStatus && addressResults?.[0]) resolve(addressResults[0]);
+                else {
+                  console.warn("[AddressAutocomplete] geocode fallito:", status, addressStatus);
+                  resolve(null);
+                }
+              }
+            );
+          }
+        }
+      );
+    });
+  }, []);
+
+  const fetchPredictions = useCallback((input: string) => {
+    const service = autocompleteServiceRef.current;
+    const term = input.trim();
+    const requestId = ++requestIdRef.current;
+
+    if (!service || term.length < 3) {
+      setPredictions([]);
+      setOpen(false);
+      setLoadingPredictions(false);
+      return;
+    }
+
+    setLoadingPredictions(true);
+    service.getPlacePredictions(
+      {
+        input: term,
+        types: ["address"],
+        componentRestrictions: { country: "it" },
+        language: "it",
+        sessionToken: sessionTokenRef.current,
+      },
+      (items, status) => {
+        if (suppressPredictionsRef.current) return;
+        if (requestId !== requestIdRef.current) return;
+        const okStatus = window.google?.maps?.places?.AutocompleteServiceStatus?.OK ?? "OK";
+        setLoadingPredictions(false);
+        if (status === okStatus && items?.length) {
+          setPredictions(items.slice(0, 6));
+          setOpen(true);
+        } else {
+          setPredictions([]);
+          setOpen(false);
+        }
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!ready || disabled) return;
+    if (suppressPredictionsRef.current) return;
+    const timer = window.setTimeout(() => fetchPredictions(value), 350);
+    return () => window.clearTimeout(timer);
+  }, [disabled, fetchPredictions, ready, value]);
+
+  const handleSelectPrediction = useCallback(async (prediction: GoogleAutocompletePrediction) => {
+    suppressPredictionsRef.current = true;
+    requestIdRef.current += 1;
+    setOpen(false);
+    setPredictions([]);
+    setLoadingDetails(true);
+    setSelectionWarning(null);
+    onChange(prediction.structured_formatting?.main_text || prediction.description);
+
+    const details = await fetchPlaceDetails(prediction);
+    const geocoded = details?.address_components?.some((c) => c.types.includes("postal_code"))
+      ? null
+      : await geocodePrediction(prediction);
+
+    const parsedDetails = details ? extractAddressComponents(details, prediction.description) : null;
+    const parsedGeocode = geocoded ? extractAddressComponents(geocoded, prediction.description) : null;
+    const fallback = parseAddressText(prediction.description);
+    const parsed = mergeManyAddressComponents(parsedDetails || {}, parsedGeocode || {}, fallback);
+
+    onChange(parsed.indirizzo || prediction.structured_formatting?.main_text || prediction.description);
+    onSelect?.(parsed);
+    if (!parsed.cap || !parsed.citta || !parsed.provincia) setSelectionWarning(missingDetailsWarning);
+    else setSelectionWarning(null);
+    setLoadingDetails(false);
+    sessionTokenRef.current = window.google?.maps?.places?.AutocompleteSessionToken
+      ? new window.google.maps.places.AutocompleteSessionToken()
+      : undefined;
+  }, [fetchPlaceDetails, geocodePrediction, missingDetailsWarning, onChange, onSelect]);
+
+  const handleInputChange = useCallback((nextValue: string) => {
+    suppressPredictionsRef.current = false;
+    setSelectionWarning(null);
+    onChange(nextValue);
+  }, [onChange]);
 
   useEffect(() => {
     return () => {
+      if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
       document.querySelectorAll(".pac-container").forEach((el) => el.remove());
     };
   }, []);
@@ -347,17 +533,52 @@ const AddressAutocomplete = ({
         ref={inputRef}
         id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => handleInputChange(e.target.value)}
+        onFocus={() => predictions.length > 0 && setOpen(true)}
+        onBlur={() => {
+          blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+        }}
         placeholder={placeholder}
         className={className}
         disabled={disabled}
         autoComplete="off"
       />
-      {ready && !error && (
+      {(loadingPredictions || loadingDetails) && (
+        <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin pointer-events-none" />
+      )}
+      {ready && !error && !loadingPredictions && !loadingDetails && (
         <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      )}
+      {open && predictions.length > 0 && !disabled && (
+        <div className="absolute z-[70] mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+          {predictions.map((prediction) => (
+            <button
+              key={prediction.place_id}
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+              }}
+              onClick={() => handleSelectPrediction(prediction)}
+            >
+              <span className="block font-medium">
+                {prediction.structured_formatting?.main_text || prediction.description}
+              </span>
+              {prediction.structured_formatting?.secondary_text && (
+                <span className="block text-xs text-muted-foreground">
+                  {prediction.structured_formatting.secondary_text}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       )}
       {error && (
         <p className="text-xs text-destructive mt-1">{error} — inserisci CAP, città e provincia manualmente.</p>
+      )}
+      {selectionWarning && !error && (
+        <p className="text-xs text-muted-foreground mt-1">{selectionWarning}</p>
       )}
     </div>
   );

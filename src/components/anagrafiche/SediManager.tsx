@@ -264,13 +264,16 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               <AddressAutocomplete
                 value={formData.indirizzo}
                 onChange={(v) => setFormData((prev) => ({ ...prev, indirizzo: v }))}
-                onSelect={(c) => setFormData((prev) => ({
-                  ...prev,
-                  indirizzo: c.indirizzo || prev.indirizzo,
-                  cap: c.cap || prev.cap,
-                  citta: c.citta || prev.citta,
-                  provincia: (c.provincia || prev.provincia || "").toUpperCase(),
-                }))}
+                onSelect={(c) => setFormData((prev) => {
+                  const hasLocationDetails = Boolean(c.cap || c.citta || c.provincia);
+                  return {
+                    ...prev,
+                    indirizzo: c.indirizzo || prev.indirizzo,
+                    cap: hasLocationDetails ? c.cap : prev.cap,
+                    citta: hasLocationDetails ? c.citta : prev.citta,
+                    provincia: hasLocationDetails ? (c.provincia || "").toUpperCase() : prev.provincia,
+                  };
+                })}
                 placeholder="es. Via Roma 1"
               />
             </div>

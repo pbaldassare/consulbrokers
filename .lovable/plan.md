@@ -1,32 +1,46 @@
-Il problema ora non è più il caricamento di Maps: dai log Google Places si inizializza. Il punto debole è che stiamo usando il vecchio `google.maps.places.Autocomplete`, che per alcuni risultati può restituire un `PlaceResult` incompleto oppure senza `address_components` completi. Inoltre nel componente padre `SediManager` l’handler usa uno snapshot di `formData`, quindi conviene renderlo più sicuro con aggiornamenti funzionali.
+Ho verificato la sessione: Google Maps ora mostra i suggerimenti, ma quando selezioni “Via Mergellina, 2, Napoli, NA, Italia” non parte una chiamata di dettaglio luogo visibile e i campi restano quelli vecchi. Il problema non è più la chiave API: è la logica di selezione/dettaglio, che con l’Autocomplete legacy può restituire un risultato incompleto o non scatenare abbastanza robustamente l’aggiornamento dei campi.
 
 Piano di intervento:
 
-1. Rendere `AddressAutocomplete` robusto sulla selezione
-   - Modificare il tipo `GooglePlaceResult` per includere anche `place_id`, `formatted_address` e `name`.
-   - Nel listener `place_changed`, se `getPlace()` non contiene `address_components` completi, chiamare `PlacesService.getDetails` usando `place_id`.
-   - Richiedere esplicitamente nei details: `address_components`, `formatted_address`, `name`, `geometry`.
-   - Solo dopo i details, estrarre e inviare al padre indirizzo, CAP, città e provincia.
+1. Rendere l’autocomplete indipendente dal vecchio `getPlace()` incompleto
+   - Integrare `AutocompleteService.getPlacePredictions` e `PlacesService.getDetails` in modo controllato.
+   - Quando l’utente digita e seleziona un indirizzo, usare sempre il `place_id` della prediction selezionata per chiamare `getDetails`.
+   - Richiedere esplicitamente `address_components`, `formatted_address`, `place_id`, `name`, `geometry`.
 
-2. Migliorare l’estrazione dati italiani
-   - Mantenere `postal_code` per CAP.
-   - Per città usare questa priorità: `locality`, `postal_town`, `administrative_area_level_3`, `sublocality`, `administrative_area_level_2` come fallback.
-   - Per provincia usare `administrative_area_level_2.short_name` quando disponibile, ripulendo prefissi tipo `Città Metropolitana di` o `Provincia di` se Google restituisce nomi lunghi.
-   - Normalizzare l’indirizzo come `Via/Piazza ..., civico`, ma se mancano route/civico usare `formatted_address` ripulito dalla parte CAP/città/provincia.
+2. Aggiungere una lista suggerimenti gestita dall’app
+   - Sostituire/affiancare il menu `.pac-container` di Google con un dropdown React interno.
+   - Questo evita il bug per cui il click sul suggerimento Google cambia il testo ma non aggiorna CAP/Città/Provincia.
+   - Ogni click sul suggerimento chiamerà direttamente la funzione che popola i campi.
 
-3. Aggiungere fallback locale per i casi in cui Google non restituisce CAP
-   - Usare la libreria già presente `src/lib/comuniItaliani.ts` come fallback per città/provincia quando Google restituisce solo comune o provincia.
-   - Non inventare dati: il CAP verrà compilato solo se Google lo restituisce o se è deducibile in modo univoco dai dati locali disponibili; altrimenti resta manuale.
+3. Rafforzare parsing indirizzi italiani
+   - CAP da `postal_code`.
+   - Città da `locality`, poi `postal_town`, poi `administrative_area_level_3`, poi fallback dal testo della prediction.
+   - Provincia da `administrative_area_level_2.short_name`, normalizzata a due lettere uppercase.
+   - Gestione di testi come “Napoli, NA, Italia” anche se Google non restituisce tutti i componenti.
 
-4. Sistemare `SediManager`
-   - Cambiare `onChange` e `onSelect` dell’indirizzo usando `setFormData(prev => ...)` per evitare di sovrascrivere CAP/Città/Provincia con valori vecchi.
-   - Quando arriva una selezione valida, aggiornare sempre insieme `indirizzo`, `cap`, `citta`, `provincia`.
+4. Correggere il caso “civico prima della via”
+   - Nella sessione Google mostra anche risultati con testo tipo `2, Via Mergellina`.
+   - Normalizzerò l’indirizzo salvato in formato italiano: `Via Mergellina, 2`.
 
-5. Aggiornare cache/versione
-   - Incrementare `public/version.json` per forzare il refresh della preview.
+5. Aggiornare `SediManager`
+   - Mantenere update funzionali su `formData`.
+   - Sovrascrivere CAP/Città/Provincia quando arriva una selezione Google valida, invece di lasciare i vecchi valori “Milano / MI”.
+   - Non cancellare manualmente i campi se Google non fornisce un dettaglio valido.
+
+6. Aggiungere feedback utile in UI
+   - Se dopo la selezione Google non torna CAP/Città/Provincia, mostrare un messaggio chiaro e non silenzioso.
+   - Se invece il dettaglio arriva, aggiornare immediatamente i tre campi.
+
+File da modificare:
+- `src/components/AddressAutocomplete.tsx`
+- `src/components/anagrafiche/SediManager.tsx`
+- `public/version.json` per forzare refresh cache
 
 Risultato atteso:
-- Il menu Google continua ad apparire.
-- Selezionando un suggerimento, il componente non si ferma al valore testuale digitato ma recupera i dettagli completi del place.
-- CAP, Città e Provincia vengono popolati automaticamente quando Google fornisce questi dati.
-- Se Google restituisce un risultato parziale, il form resta modificabile manualmente senza blocchi.
+- Se digiti “viale mergellina 2” e selezioni “Via Mergellina, 2, Napoli, NA, Italia”, i campi devono diventare indicativamente:
+  - Indirizzo: `Via Mergellina, 2`
+  - Città: `Napoli`
+  - Provincia: `NA`
+  - CAP: popolato se Google lo restituisce per quel civico; in caso contrario resta invariato o vuoto con messaggio chiaro.
+
+Nota: per alcuni indirizzi Google può non restituire il CAP specifico se il luogo/prediction è a livello strada e non civico preciso. In quel caso posso aggiungere anche un fallback ulteriore tramite Geocoding API sulla `formatted_address`, ma prima sistemo la selezione perché oggi non sta aggiornando nemmeno Città e Provincia.
