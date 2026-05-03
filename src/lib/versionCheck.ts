@@ -53,8 +53,7 @@ function hardReload(serverVersion: string) {
  * @returns true se è stato avviato un reload, false altrimenti.
  */
 export async function checkAppVersion(): Promise<boolean> {
-  // Skip in dev: timestamp non sincronizzati → loop spuri
-  if (!IS_PROD) return false;
+  // Skip solo se non abbiamo una versione di bundle valida
   if (BUNDLE_VERSION === "dev") return false;
   try {
     const res = await fetch(`/version.json?t=${Date.now()}`, {
@@ -89,7 +88,6 @@ export async function checkAppVersion(): Promise<boolean> {
  * Da chiamare una volta al boot dell'app.
  */
 export function startVersionPolling(intervalMs = 60_000) {
-  if (!IS_PROD) return;
   if (BUNDLE_VERSION === "dev") return;
 
   // Polling periodico
