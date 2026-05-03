@@ -114,6 +114,10 @@ function FieldInput({
                 updateField("partita_iva", val);
                 toast.info("Partita IVA copiata dal Codice Fiscale Azienda");
               }
+              if (field === "partita_iva" && val.length === 11 && /^\d{11}$/.test(val) && !ef.codice_fiscale_azienda) {
+                updateField("codice_fiscale_azienda", val);
+                toast.info("Codice Fiscale Azienda copiato dalla Partita IVA");
+              }
             }}
           />
           {action}
