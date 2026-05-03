@@ -28,6 +28,9 @@ interface GoogleAddressComponent {
 }
 
 interface GooglePlaceResult {
+  place_id?: string;
+  formatted_address?: string;
+  name?: string;
   address_components?: GoogleAddressComponent[];
 }
 
@@ -45,11 +48,22 @@ type AutocompleteCtor = new (
   }
 ) => GoogleAutocompleteInstance;
 
+interface PlacesServiceInstance {
+  getDetails: (
+    request: { placeId: string; fields: string[] },
+    callback: (result: GooglePlaceResult | null, status: string) => void
+  ) => void;
+}
+
+type PlacesServiceCtor = new (attrContainer: HTMLElement | unknown) => PlacesServiceInstance;
+
 interface GoogleMapsGlobal {
   maps?: {
-    importLibrary?: (libraryName: string) => Promise<{ Autocomplete?: AutocompleteCtor } & Record<string, unknown>>;
+    importLibrary?: (libraryName: string) => Promise<Record<string, unknown>>;
     places?: {
       Autocomplete?: AutocompleteCtor;
+      PlacesService?: PlacesServiceCtor;
+      PlacesServiceStatus?: { OK: string };
     };
   };
 }
@@ -172,16 +186,23 @@ function loadGoogleMapsScript(): Promise<void> {
   return googleScriptPromise;
 }
 
+function cleanProvinceName(name: string): string {
+  return name
+    .replace(/^(Città\s+Metropolitana\s+di\s+|Provincia\s+di\s+|Libero\s+Consorzio\s+Comunale\s+di\s+)/i, "")
+    .trim();
+}
+
 function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
   const components = place.address_components || [];
   let street_number = "";
   let route = "";
   let cap = "";
-  let citta = "";
 
   let cittaLocality = "";
   let cittaLevel3 = "";
   let cittaPostalTown = "";
+  let cittaSublocality = "";
+  let cittaLevel2 = "";
   let provinciaShort = "";
   let provinciaLong = "";
 
@@ -193,28 +214,35 @@ function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
     else if (types.includes("locality")) cittaLocality = c.long_name;
     else if (types.includes("postal_town")) cittaPostalTown = c.long_name;
     else if (types.includes("administrative_area_level_3")) cittaLevel3 = c.long_name;
+    else if (types.includes("sublocality") || types.includes("sublocality_level_1")) cittaSublocality = c.long_name;
     else if (types.includes("administrative_area_level_2")) {
       provinciaShort = c.short_name;
       provinciaLong = c.long_name;
+      cittaLevel2 = c.long_name;
     }
   }
 
-  // Fallback chain: locality → postal_town → admin_level_3
-  citta = cittaLocality || cittaPostalTown || cittaLevel3 || "";
+  const citta =
+    cittaLocality || cittaPostalTown || cittaLevel3 || cittaSublocality || cleanProvinceName(cittaLevel2) || "";
 
-  // Provincia: prefer 2-letter short code; if missing, derive from long name (first 2 chars uppercase as last resort)
-  let provincia = provinciaShort || "";
-  if (!provincia && provinciaLong) {
-    // Some Italian metropolitan areas return long name only (e.g. "Roma Capitale")
-    provincia = provinciaLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
+  let provincia = "";
+  const cleanedShort = cleanProvinceName(provinciaShort || "");
+  if (cleanedShort && /^[A-Za-z]{2}$/.test(cleanedShort)) {
+    provincia = cleanedShort.toUpperCase();
+  } else if (provinciaLong) {
+    const cleanedLong = cleanProvinceName(provinciaLong);
+    provincia = cleanedLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
   }
-  provincia = provincia.toUpperCase().slice(0, 2);
 
-  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile dall'autocomplete Google");
-  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile dall'autocomplete Google");
-  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile dall'autocomplete Google");
+  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile");
+  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile");
+  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile");
 
-  const indirizzo = [route, street_number].filter(Boolean).join(", ");
+  let indirizzo = [route, street_number].filter(Boolean).join(", ");
+  if (!indirizzo && place.formatted_address) {
+    // Fallback: take first segment before comma
+    indirizzo = place.formatted_address.split(",")[0].trim();
+  }
   return { indirizzo, cap, citta, provincia };
 }
 
@@ -261,16 +289,43 @@ const AddressAutocomplete = ({
     const ac = new Autocomplete(inputRef.current, {
       types: ["address"],
       componentRestrictions: { country: "it" },
-      fields: ["address_components", "formatted_address"],
+      fields: ["address_components", "formatted_address", "place_id", "name", "geometry"],
     });
+
+    const handleParsed = (place: GooglePlaceResult) => {
+      const parsed = extractAddressComponents(place);
+      onChange(parsed.indirizzo || place.formatted_address || "");
+      onSelect?.(parsed);
+    };
 
     ac.addListener("place_changed", () => {
       const place = ac.getPlace();
-      if (!place.address_components) return;
-
-      const parsed = extractAddressComponents(place);
-      onChange(parsed.indirizzo);
-      onSelect?.(parsed);
+      if (place.address_components && place.address_components.length > 0) {
+        handleParsed(place);
+        return;
+      }
+      // Fallback: fetch full details via PlacesService
+      const PlacesService = window.google?.maps?.places?.PlacesService;
+      if (place.place_id && PlacesService && inputRef.current) {
+        try {
+          const svc = new PlacesService(inputRef.current);
+          svc.getDetails(
+            {
+              placeId: place.place_id,
+              fields: ["address_components", "formatted_address", "name", "geometry"],
+            },
+            (result, status) => {
+              const okStatus = window.google?.maps?.places?.PlacesServiceStatus?.OK ?? "OK";
+              if (status === okStatus && result) handleParsed(result);
+              else console.warn("[AddressAutocomplete] getDetails fallito:", status);
+            }
+          );
+        } catch (err) {
+          console.warn("[AddressAutocomplete] PlacesService non disponibile:", err);
+        }
+      } else {
+        console.warn("[AddressAutocomplete] place senza address_components né place_id");
+      }
     });
 
     autocompleteRef.current = ac;
