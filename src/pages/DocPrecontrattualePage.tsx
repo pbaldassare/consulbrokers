@@ -24,6 +24,23 @@ const DocPrecontrattualePage = () => {
   const clienteIdParamRaw = searchParams.get("clienteId");
   const titoloIdParam = searchParams.get("titoloId");
 
+  // Carica titolo se presente (per prefill polizza + derivare cliente)
+  const { data: titoloData } = useQuery({
+    queryKey: ["doc-precontr-titolo", titoloIdParam],
+    enabled: !!titoloIdParam,
+    queryFn: async () => {
+      if (!titoloIdParam) return null;
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riferimento, cliente_anagrafica_id, compagnia_id, ramo_id, compagnie:compagnia_id(nome, codice), rami:ramo_id(codice, descrizione)")
+        .eq("id", titoloIdParam)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
+  const clienteIdParam = clienteIdParamRaw || (titoloData?.cliente_anagrafica_id ?? null);
+
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
   const [polizza, setPolizza] = useState("");
