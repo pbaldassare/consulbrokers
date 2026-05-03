@@ -8,6 +8,7 @@ import QuadraturePremi from "@/pages/contabilita/QuadraturePremi";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECAgenziaPdfPage from "@/pages/contabilita/ECAgenziaPdfPage";
+import ECClientePdfPage from "@/pages/contabilita/ECClientePdfPage";
 import ECAgenzieStoricoPage from "@/pages/contabilita/ECAgenzieStoricoPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
 import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
@@ -36,6 +37,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
     <Route path="/contabilita/ec-agenzia/pdf" element={<ECAgenziaPdfPage />} />
+    <Route path="/contabilita/ec-cliente/pdf" element={<ECClientePdfPage />} />
     <Route path="/contabilita/ec-agenzia/storico" element={<ECAgenzieStoricoPage />} />
     <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
     <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />

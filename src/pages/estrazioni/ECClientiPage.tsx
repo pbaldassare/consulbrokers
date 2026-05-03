@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { ArrowLeft, Download, FileSpreadsheet, Users, TrendingUp, Wallet, Scale } from "lucide-react";
+import { ArrowLeft, Download, FileSpreadsheet, Users, TrendingUp, Wallet, Scale, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import EstrazioniFilters, { EstrazioniFiltersState, defaultFilters } from "@/components/estrazioni/EstrazioniFilters";
@@ -130,25 +130,34 @@ const ECClientiPage = () => {
               <TableHead className="text-right">Dare (Premi)</TableHead>
               <TableHead className="text-right">Avere (Incassato)</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
+              <TableHead className="text-right w-32">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-            ) : rows.map((c) => (
-              <TableRow key={c.cliente_id} className="cursor-pointer" onClick={() => navigate(`/archivi/clienti/${c.cliente_id}`)}>
-                <TableCell className="font-medium">{c.label}</TableCell>
-                <TableCell className="text-right">{fmt(c.totale_premi)}</TableCell>
-                <TableCell className="text-right">{fmt(c.totale_incassato)}</TableCell>
-                <TableCell className="text-right">
-                  <Badge variant={c.saldo > 0 ? "destructive" : "default"}>
-                    {fmt(c.saldo)}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
+            ) : rows.map((c) => {
+              const qs = new URLSearchParams({ clienteId: c.cliente_id });
+              if (filters.dateFrom) qs.set("periodoDal", format(filters.dateFrom, "yyyy-MM-dd"));
+              if (filters.dateTo) qs.set("periodoAl", format(filters.dateTo, "yyyy-MM-dd"));
+              return (
+                <TableRow key={c.cliente_id}>
+                  <TableCell className="font-medium cursor-pointer" onClick={() => navigate(`/archivi/clienti/${c.cliente_id}`)}>{c.label}</TableCell>
+                  <TableCell className="text-right">{fmt(c.totale_premi)}</TableCell>
+                  <TableCell className="text-right">{fmt(c.totale_incassato)}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={c.saldo > 0 ? "destructive" : "default"}>{fmt(c.saldo)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/contabilita/ec-cliente/pdf?${qs.toString()}`); }}>
+                      <FileText className="h-3.5 w-3.5 mr-1" /> PDF
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
           {rows.length > 0 && (
             <TableFooter>
@@ -157,6 +166,7 @@ const ECClientiPage = () => {
                 <TableCell className="text-right font-bold">{fmt(totPremi)}</TableCell>
                 <TableCell className="text-right font-bold">{fmt(totIncassato)}</TableCell>
                 <TableCell className="text-right font-bold">{fmt(totSaldo)}</TableCell>
+                <TableCell />
               </TableRow>
             </TableFooter>
           )}

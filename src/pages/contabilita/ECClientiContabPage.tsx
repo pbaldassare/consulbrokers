@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileSpreadsheet, Users, TrendingUp, Wallet, Scale, Filter, RotateCcw } from "lucide-react";
+import { Download, FileSpreadsheet, Users, TrendingUp, Wallet, Scale, Filter, RotateCcw, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -232,21 +232,32 @@ const ECClientiContabPage = () => {
               <TableHead className="text-right">Dare (Premi)</TableHead>
               <TableHead className="text-right">Avere (Incassato)</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
+              <TableHead className="text-right w-32">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-            ) : rows.map((c) => (
-              <TableRow key={c.cliente_id} className="cursor-pointer" onClick={() => navigate(`/archivi/clienti/${c.cliente_id}`)}>
-                <TableCell className="font-medium">{c.label}</TableCell>
-                <TableCell className="text-right">{fmt(c.totale_premi)}</TableCell>
-                <TableCell className="text-right">{fmt(c.totale_incassato)}</TableCell>
-                <TableCell className="text-right"><Badge variant={c.saldo > 0 ? "destructive" : "default"}>{fmt(c.saldo)}</Badge></TableCell>
-              </TableRow>
-            ))}
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
+            ) : rows.map((c) => {
+              const qs = new URLSearchParams({ clienteId: c.cliente_id });
+              if (filters.competenza_dal) qs.set("periodoDal", format(filters.competenza_dal, "yyyy-MM-dd"));
+              if (filters.competenza_al) qs.set("periodoAl", format(filters.competenza_al, "yyyy-MM-dd"));
+              return (
+                <TableRow key={c.cliente_id}>
+                  <TableCell className="font-medium cursor-pointer" onClick={() => navigate(`/archivi/clienti/${c.cliente_id}`)}>{c.label}</TableCell>
+                  <TableCell className="text-right">{fmt(c.totale_premi)}</TableCell>
+                  <TableCell className="text-right">{fmt(c.totale_incassato)}</TableCell>
+                  <TableCell className="text-right"><Badge variant={c.saldo > 0 ? "destructive" : "default"}>{fmt(c.saldo)}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/contabilita/ec-cliente/pdf?${qs.toString()}`); }}>
+                      <FileText className="h-3.5 w-3.5 mr-1" /> PDF
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
           {rows.length > 0 && (
             <TableFooter>
@@ -255,6 +266,7 @@ const ECClientiContabPage = () => {
                 <TableCell className="text-right font-bold">{fmt(totPremi)}</TableCell>
                 <TableCell className="text-right font-bold">{fmt(totIncassato)}</TableCell>
                 <TableCell className="text-right font-bold">{fmt(totSaldo)}</TableCell>
+                <TableCell />
               </TableRow>
             </TableFooter>
           )}
