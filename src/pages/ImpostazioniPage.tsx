@@ -178,6 +178,7 @@ const ImpostazioniPage = () => {
     const config = PARAM_CONFIG[chiave];
     const label = config?.label || chiave;
     const type = config?.type || "string";
+    const description = config?.description;
 
     return (
       <div key={chiave} className="flex flex-col gap-1.5">
@@ -192,6 +193,9 @@ const ImpostazioniPage = () => {
             onChange(chiave, v);
           }}
         />
+        {description && (
+          <p className="text-xs text-muted-foreground leading-snug">{description}</p>
+        )}
       </div>
     );
   };
