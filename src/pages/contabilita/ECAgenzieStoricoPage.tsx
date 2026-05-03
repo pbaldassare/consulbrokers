@@ -1,52 +1,74 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Download, Eye, FileText, Search } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import ServerPagination from "@/components/ServerPagination";
+import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import PdfPreview from "@/components/PdfPreview";
+
+const PAGE_SIZE = 25;
 
 const ECAgenzieStoricoPage = () => {
   const [q, setQ] = useState("");
+  const [agenziaId, setAgenziaId] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [page, setPage] = useState(0);
+  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+
+  useEffect(() => { setPage(0); }, [q, agenziaId, dateFrom, dateTo]);
+
+  // Agencies dropdown
+  const { data: agenzieOpts = [] } = useQuery({
+    queryKey: ["ec-agenzie-storico-agenzie"],
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
+      return (data || []).map((c: any) => ({ value: c.id, label: c.nome }));
+    },
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["ec-agenzie-storico"],
+    queryKey: ["ec-agenzie-storico", q, agenziaId, dateFrom, dateTo, page],
     queryFn: async () => {
-      const { data: docs, error } = await supabase
+      let query = supabase
         .from("documenti")
-        .select("id, nome_file, path_storage, bucket_name, entita_id, created_at, caricato_da, categoria")
+        .select("id, nome_file, path_storage, bucket_name, entita_id, created_at, caricato_da, categoria", { count: "exact" })
         .eq("categoria", "EC Agenzia")
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .order("created_at", { ascending: false });
+
+      if (agenziaId) query = query.eq("entita_id", agenziaId);
+      if (q.trim()) query = query.ilike("nome_file", `%${q.trim()}%`);
+      if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
+      if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
+
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data: docs, count, error } = await query.range(from, to);
       if (error) throw error;
 
       const compIds = Array.from(new Set((docs || []).map((d: any) => d.entita_id).filter(Boolean)));
       const compMap: Record<string, string> = {};
       if (compIds.length) {
-        const { data: comps } = await supabase
-          .from("compagnie")
-          .select("id, nome")
-          .in("id", compIds);
+        const { data: comps } = await supabase.from("compagnie").select("id, nome").in("id", compIds);
         (comps || []).forEach((c: any) => { compMap[c.id] = c.nome; });
       }
-      return (docs || []).map((d: any) => ({
-        ...d,
-        agenzia_nome: compMap[d.entita_id] || "—",
-      }));
+      return {
+        rows: (docs || []).map((d: any) => ({ ...d, agenzia_nome: compMap[d.entita_id] || "—" })),
+        total: count || 0,
+      };
     },
   });
 
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!term) return data || [];
-    return (data || []).filter((d: any) =>
-      (d.nome_file || "").toLowerCase().includes(term) ||
-      (d.agenzia_nome || "").toLowerCase().includes(term)
-    );
-  }, [data, q]);
+  const rows = data?.rows || [];
+  const total = data?.total || 0;
 
   const handleDownload = async (row: any) => {
     try {
@@ -56,12 +78,25 @@ const ECAgenzieStoricoPage = () => {
       if (error) throw error;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = row.nome_file;
+      a.href = url; a.download = row.nome_file;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     } catch (e: any) {
       toast.error("Errore download: " + (e?.message || e));
+    }
+  };
+
+  const handlePreview = async (row: any) => {
+    try {
+      const { data: blob, error } = await supabase.storage
+        .from(row.bucket_name || "documenti_generali")
+        .download(row.path_storage);
+      if (error) throw error;
+      const buf = await blob.arrayBuffer();
+      setPreviewBytes(new Uint8Array(buf));
+      setPreviewName(row.nome_file);
+    } catch (e: any) {
+      toast.error("Errore anteprima: " + (e?.message || e));
     }
   };
 
@@ -78,15 +113,25 @@ const ECAgenzieStoricoPage = () => {
       </div>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="relative max-w-md">
+        <CardContent className="p-4 grid gap-3 md:grid-cols-4">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Cerca per agenzia o nome file..."
-              className="pl-9"
-            />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca nome file..." className="pl-9" />
+          </div>
+          <FilterSearchableSelect
+            value={agenziaId}
+            onValueChange={setAgenziaId}
+            options={agenzieOpts}
+            placeholder="Agenzia"
+            allLabel="Tutte le agenzie"
+          />
+          <div>
+            <label className="text-xs text-muted-foreground">Da</label>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">A</label>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -98,20 +143,23 @@ const ECAgenzieStoricoPage = () => {
               <TableHead>Data</TableHead>
               <TableHead>Agenzia</TableHead>
               <TableHead>Nome File / Riferimento</TableHead>
-              <TableHead className="w-[120px] text-right">Azioni</TableHead>
+              <TableHead className="w-[200px] text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
+            ) : rows.length === 0 ? (
               <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nessun E/C archiviato</TableCell></TableRow>
-            ) : filtered.map((d: any, i: number) => (
+            ) : rows.map((d: any, i: number) => (
               <TableRow key={d.id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
                 <TableCell className="text-sm">{d.created_at ? format(new Date(d.created_at), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
                 <TableCell className="font-medium">{d.agenzia_nome}</TableCell>
                 <TableCell className="text-sm font-mono">{d.nome_file}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-1">
+                  <Button size="sm" variant="outline" onClick={() => handlePreview(d)}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Scarica
                   </Button>
@@ -121,6 +169,17 @@ const ECAgenzieStoricoPage = () => {
           </TableBody>
         </Table>
       </div>
+
+      <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+
+      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
+        <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-base font-mono">{previewName}</DialogTitle>
+          </DialogHeader>
+          <PdfPreview data={previewBytes} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
