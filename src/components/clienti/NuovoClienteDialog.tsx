@@ -628,7 +628,14 @@ export function NuovoClienteDialog({ trigger, onCreated }: NuovoClienteDialogPro
             <>
               <div><Label>{tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale"}</Label><Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Partita IVA</Label><Input value={partitaIva} onChange={(e) => setPartitaIva(e.target.value.toUpperCase())} maxLength={11} /></div>
+                <div><Label>Partita IVA</Label><Input value={partitaIva} onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  setPartitaIva(val);
+                  if (val.length === 11 && /^\d{11}$/.test(val) && !codiceFiscaleAzienda) {
+                    setCodiceFiscaleAzienda(val);
+                    toast.info("Codice Fiscale copiato dalla Partita IVA");
+                  }
+                }} maxLength={11} /></div>
                 <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente" : "Azienda"}</Label><Input value={codiceFiscaleAzienda} onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   setCodiceFiscaleAzienda(val);
