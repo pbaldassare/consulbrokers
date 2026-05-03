@@ -367,6 +367,8 @@ const DocPrecontrattualePage = () => {
       setCittaRui(parsed.citta || "");
       setProvinciaRui(parsed.prov || "");
     }
+    if (u.email) setEmailRui(u.email);
+    if (u.telefono) setTelRui(u.telefono);
   };
 
   const buildData = (): PrecontrattualeData => {
