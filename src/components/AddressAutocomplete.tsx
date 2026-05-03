@@ -36,18 +36,20 @@ interface GoogleAutocompleteInstance {
   getPlace: () => GooglePlaceResult;
 }
 
+type AutocompleteCtor = new (
+  input: HTMLInputElement,
+  options: {
+    types: string[];
+    componentRestrictions: { country: string };
+    fields: string[];
+  }
+) => GoogleAutocompleteInstance;
+
 interface GoogleMapsGlobal {
   maps?: {
-    importLibrary?: (libraryName: string) => Promise<unknown>;
+    importLibrary?: (libraryName: string) => Promise<{ Autocomplete?: AutocompleteCtor } & Record<string, unknown>>;
     places?: {
-      Autocomplete?: new (
-        input: HTMLInputElement,
-        options: {
-          types: string[];
-          componentRestrictions: { country: string };
-          fields: string[];
-        }
-      ) => GoogleAutocompleteInstance;
+      Autocomplete?: AutocompleteCtor;
     };
   };
 }
@@ -62,23 +64,30 @@ declare global {
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
 let googleAuthFailed = false;
+let AutocompleteCtorCached: AutocompleteCtor | null = null;
 const authFailureListeners = new Set<() => void>();
 
 function hasPlacesAutocomplete(): boolean {
-  return Boolean(window.google?.maps?.places?.Autocomplete);
+  return Boolean(AutocompleteCtorCached || window.google?.maps?.places?.Autocomplete);
 }
 
 async function ensurePlacesLibrary(): Promise<void> {
-  if (hasPlacesAutocomplete()) return;
+  if (AutocompleteCtorCached) return;
+  if (window.google?.maps?.places?.Autocomplete) {
+    AutocompleteCtorCached = window.google.maps.places.Autocomplete;
+    return;
+  }
 
   const importLibrary = window.google?.maps?.importLibrary;
-  if (typeof importLibrary === "function") {
-    await importLibrary("places");
+  if (typeof importLibrary !== "function") {
+    throw new Error("google.maps.importLibrary non disponibile");
   }
-
-  if (!hasPlacesAutocomplete()) {
+  const places = await importLibrary("places");
+  const Ctor = (places?.Autocomplete as AutocompleteCtor | undefined) ?? window.google?.maps?.places?.Autocomplete;
+  if (!Ctor) {
     throw new Error("Google Places Autocomplete non disponibile");
   }
+  AutocompleteCtorCached = Ctor;
 }
 
 if (typeof window !== "undefined") {
@@ -110,7 +119,7 @@ function loadGoogleMapsScript(): Promise<void> {
       return;
     }
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&language=it&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -212,7 +221,7 @@ const AddressAutocomplete = ({
 
   const initAutocomplete = useCallback(() => {
     if (!ready || !inputRef.current || autocompleteRef.current) return;
-    const Autocomplete = window.google?.maps?.places?.Autocomplete;
+    const Autocomplete = AutocompleteCtorCached ?? window.google?.maps?.places?.Autocomplete;
     if (!Autocomplete) {
       setReady(false);
       setError("Autocomplete non disponibile");
