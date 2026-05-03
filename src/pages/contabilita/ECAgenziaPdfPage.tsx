@@ -45,6 +45,15 @@ const ECAgenziaPdfPage = () => {
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Override sede mittente (intestazione)
+  const [sedeNome, setSedeNome] = useState("");
+  const [sedeIndirizzo, setSedeIndirizzo] = useState("");
+  const [sedeCap, setSedeCap] = useState("");
+  const [sedeCitta, setSedeCitta] = useState("");
+  const [sedeProvincia, setSedeProvincia] = useState("");
+  const [sedeEmail, setSedeEmail] = useState("");
+  const [sedeTelefono, setSedeTelefono] = useState("");
+
   // Agenzia
   const { data: agenzia } = useQuery({
     queryKey: ["ec-pdf-agenzia", compagniaId],
