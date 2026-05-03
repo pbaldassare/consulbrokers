@@ -1,35 +1,47 @@
-## Piano per risolvere la pagina non aggiornata
+## Problema
 
-Il problema visibile nello screenshot è che l’app sta ancora mostrando una versione vecchia: nel codice attuale `Anagrafica` è già prima di `Polizze`, ma nella preview risulta ancora non aggiornata o non riallineata al bundle più recente.
+Lo script Google Maps si carica correttamente ma `ensurePlacesLibrary` lancia `"Google Places Autocomplete non disponibile"`. Causa: con `loading=async&v=weekly`, dopo `importLibrary("places")` il costruttore `Autocomplete` viene restituito **dal valore di ritorno della Promise**, non sempre è subito assegnato a `window.google.maps.places.Autocomplete` nel timing in cui lo controlliamo (alcune build asincrone risolvono prima la Promise dell'assegnamento globale, oppure i tipi sono spostati nel nuovo namespace Places).
 
-### 1. Rendere l’ordine tab inequivocabile
-In `src/pages/ClienteDetail.tsx` controllerò e consoliderò l’ordine delle tab del dettaglio cliente:
+Il fallback "manuale" parte e quindi CAP/Città/Provincia non vengono compilati.
 
-```text
-Anagrafica → Polizze → Sinistri → Aziende/Persone → Documenti → Chat → Timeline → Trattative
+## Soluzione
+
+Modificare `src/components/AddressAutocomplete.tsx`:
+
+1. **Memorizzare il costruttore restituito da `importLibrary("places")`** invece di affidarsi a `window.google.maps.places.Autocomplete`. La nuova API ufficiale di Google è:
+   ```ts
+   const { Autocomplete } = await google.maps.importLibrary("places");
+   ```
+   Questo è il pattern raccomandato con `loading=async`.
+
+2. Salvare il costruttore in una variabile module-level (`AutocompleteCtor`) e usarla in `initAutocomplete` invece di leggerla dal global.
+
+3. Rimuovere il controllo bloccante `hasPlacesAutocomplete()` post-import: se `importLibrary` risolve con un oggetto che contiene `Autocomplete`, è valido.
+
+4. Rimuovere il parametro `&libraries=places` dall'URL (con `loading=async` Google raccomanda di non pre-caricarle e usare solo `importLibrary`), evitando warning.
+
+5. Bump `public/version.json`.
+
+## File da modificare
+
+- `src/components/AddressAutocomplete.tsx` — refactor caricamento Places API
+- `public/version.json` — bump versione
+
+## Snippet chiave
+
+```ts
+let AutocompleteCtor: typeof google.maps.places.Autocomplete | null = null;
+
+async function ensurePlacesLibrary() {
+  if (AutocompleteCtor) return;
+  const places = await window.google!.maps!.importLibrary!("places") as
+    { Autocomplete: typeof google.maps.places.Autocomplete };
+  AutocompleteCtor = places.Autocomplete;
+  if (!AutocompleteCtor) throw new Error("Places library senza Autocomplete");
+}
+
+// in initAutocomplete:
+const ac = new AutocompleteCtor!(inputRef.current, { ... });
 ```
 
-Se serve, aggiungerò anche una gestione controllata della tab attiva per evitare che stati/cache precedenti mantengano selezioni vecchie.
-
-### 2. Forzare refresh corretto della preview/app
-Interverrò sul meccanismo di versione/cache per far sì che la preview carichi il bundle aggiornato:
-
-- aggiornare `public/version.json` con una nuova versione;
-- rafforzare il controllo in `src/lib/versionCheck.ts` anche per preview/dev Lovable, senza creare loop infiniti;
-- aggiungere un evento su focus/visibilità pagina che verifica la versione anche quando l’utente torna sulla tab;
-- se viene rilevata una versione vecchia, forzare un reload con parametro cache-busting.
-
-### 3. Pulizia cache/service worker residui
-Il progetto ha già una pulizia dei service worker in `src/main.tsx`. La renderò più robusta così, se il browser sta servendo file vecchi, l’app prova a svuotare le cache residue prima di renderizzare.
-
-### 4. Confermare la parte Maps/manuale
-Mantengo il comportamento già aggiunto: se Google Maps non parte, il campo resta compilabile manualmente e l’utente vede il messaggio di errore. Non cambio la logica di parsing CAP/Città/Provincia già implementata.
-
-### File da modificare
-- `src/pages/ClienteDetail.tsx`
-- `src/lib/versionCheck.ts`
-- `src/main.tsx`
-- `public/version.json`
-
-### Risultato atteso
-Dopo il salvataggio, ricaricando la preview dovresti vedere subito la pagina aggiornata con `Anagrafica` prima di `Polizze`, e le prossime modifiche dovrebbero comparire senza rimanere bloccate su versioni vecchie.
+Confermi?

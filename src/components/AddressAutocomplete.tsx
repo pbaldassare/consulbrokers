@@ -36,18 +36,20 @@ interface GoogleAutocompleteInstance {
   getPlace: () => GooglePlaceResult;
 }
 
+type AutocompleteCtor = new (
+  input: HTMLInputElement,
+  options: {
+    types: string[];
+    componentRestrictions: { country: string };
+    fields: string[];
+  }
+) => GoogleAutocompleteInstance;
+
 interface GoogleMapsGlobal {
   maps?: {
-    importLibrary?: (libraryName: string) => Promise<unknown>;
+    importLibrary?: (libraryName: string) => Promise<{ Autocomplete?: AutocompleteCtor } & Record<string, unknown>>;
     places?: {
-      Autocomplete?: new (
-        input: HTMLInputElement,
-        options: {
-          types: string[];
-          componentRestrictions: { country: string };
-          fields: string[];
-        }
-      ) => GoogleAutocompleteInstance;
+      Autocomplete?: AutocompleteCtor;
     };
   };
 }
