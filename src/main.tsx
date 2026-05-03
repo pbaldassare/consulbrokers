@@ -72,10 +72,10 @@ async function boot() {
     return;
   }
 
-  // 2. Version check al boot (anche in preview) — se obsoleto fa hard reload
+  // 2. Version check al boot — se mismatch fa hard reload o mostra blocker
   //    PRIMA che React renderizzi la UI vecchia.
-  const willReload = await checkAppVersion();
-  if (willReload) return;
+  const status = await checkAppVersion();
+  if (status === "reload" || status === "block") return;
 
   // 3. Render React + avvio polling
   createRoot(document.getElementById("root")!).render(<App />);

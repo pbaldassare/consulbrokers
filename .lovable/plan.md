@@ -1,39 +1,33 @@
-Vedo il problema: c'è già un controllo versione, ma oggi lavora solo in produzione e solo dopo l'avvio del bundle. In preview/dev e durante navigazioni interne può quindi restare in memoria una build vecchia finché non si ricarica manualmente. Inoltre la pulizia cache/SW è una tantum (`sw_cleaned`) e non viene ripetuta a ogni nuova versione.
+Hai ragione: il problema non è solo cache. Dallo stato attuale si vede che la route `/portafoglio/estrazioni-stampe` sta ancora renderizzando la vecchia pagina con le vecchie card, mentre il nuovo E/C Agenzie è stato collegato solo sotto Contabilità. Inoltre il controllo versione ha un anti-loop troppo aggressivo: se ha già provato un reload per la stessa versione, poi lascia comunque renderizzare la UI vecchia.
 
 Piano di intervento:
 
-1. Rendere il bootstrap più robusto prima del render
-   - Estrarre una funzione centralizzata di “cache hygiene” che:
-     - elimina eventuali Service Worker residui;
-     - svuota le Cache API residue;
-     - salva la versione pulita, non solo un flag generico.
-   - Se trova e rimuove un vecchio SW/cache, forza un reload con cache-busting prima di mostrare l’app, così l’utente non vede prima la schermata vecchia.
+1. Collegare prima la nuova configurazione E/C Agenzie nella pagina corretta
+   - Aggiornare `src/pages/EstrazioniStampePage.tsx` aggiungendo/modificando le card per includere il flusso E/C Agenzie.
+   - La card deve puntare direttamente alla pagina operativa nuova: `/contabilita/ec-compagnia`.
+   - Aggiungere anche, se utile, la card storico: `/contabilita/ec-agenzia/storico`.
+   - Mantenere lo stile delle card esistenti, senza introdurre layout diverso.
 
-2. Migliorare il version check anche in preview
-   - Rendere `/version.json` controllabile anche in ambiente Lovable preview, non solo produzione, evitando loop.
-   - Usare un confronto sicuro tra versione bundle e versione server, con anti-loop per singola versione.
-   - In caso di mismatch, mostrare una schermata minimale “Aggiornamento in corso…” invece di far apparire per qualche secondo la UI vecchia.
+2. Allineare sidebar e nomenclatura per evitare doppie configurazioni
+   - Verificare che nel menu non restino voci ambigue tipo “E/C Compagnia” quando l’utente deve vedere “E/C Agenzie”.
+   - Tenere un solo ingresso coerente verso il nuovo flusso E/C Agenzie.
+   - Non eliminare le route tecniche esistenti, ma rendere la navigazione utente coerente.
 
-3. Collegare il controllo alle navigazioni interne
-   - Aggiungere un watcher React collegato al cambio route (`location.pathname/search`) che controlla la versione prima/durante la navigazione.
-   - Così quando clicchi una voce del menu o apri una nuova pagina, l’app verifica subito se esiste una versione nuova prima di visualizzare configurazioni obsolete.
+3. Sistemare il blocco del controllo versione
+   - Correggere `src/lib/versionCheck.ts`: oggi nei log compare `reload già eseguito ... — skip`, quindi la vecchia UI può rimanere in memoria.
+   - Se bundle e `/version.json` non coincidono, non deve semplicemente “saltare”: deve impedire la visualizzazione della UI vecchia e forzare un refresh pulito con un parametro cache-busting diverso.
+   - Evitare loop infiniti con un contatore limitato, non con un singolo flag permanente per versione.
 
-4. Rendere i reload davvero cache-busting
-   - Usare un parametro dedicato tipo `?app_v=<timestamp>` evitando accumuli disordinati.
-   - Preferire `window.location.replace(...)` per non sporcare la cronologia.
-   - Pulire eventuali parametri di cache-busting vecchi dopo l’avvio corretto, se necessario.
+4. Rendere il boot più sicuro
+   - In `src/main.tsx`, se il version check rileva mismatch o reload in corso, lasciare il loader e non montare React.
+   - Ripulire eventuali parametri `app_v` vecchi dopo un caricamento corretto.
+   - Mantenere la pulizia di service worker/cache già implementata.
 
-5. Aggiungere una piccola protezione UI globale
-   - Durante il check iniziale, invece di renderizzare subito l’app, visualizzare un loader coerente CBnet.
-   - Se serve aggiornare, l’utente vede solo il loader e poi la schermata corretta.
+5. Ridurre il rischio di configurazioni obsolete lato browser
+   - Aggiungere una piccola funzione di “hard refresh” più robusta: `app_v=<versione>-<timestamp>`.
+   - Se dopo 2 tentativi la versione resta diversa, mostrare un messaggio chiaro di aggiornamento invece di caricare schermate vecchie.
 
-File previsti:
-- `src/lib/versionCheck.ts`: refactor controllo versione/cache-busting.
-- `src/main.tsx`: bootstrap con pulizia cache/versione prima del render.
-- nuovo piccolo componente/hook tipo `AppVersionGuard` oppure modifica in `App.tsx` per controllo su cambio route.
-- eventuale aggiornamento `public/version.json` solo come conseguenza del build/version plugin esistente.
-
-Risultato atteso:
-- niente più “prima vedo la vecchia schermata, poi dopo reload quella corretta”;
-- alla prima apertura/navigazione viene caricata direttamente la versione aggiornata;
-- eventuali residui PWA/service worker/cache vengono rimossi in modo persistente per versione.
+6. Verifica finale
+   - Verificare che da `/portafoglio/estrazioni-stampe` si vedano subito le card aggiornate, inclusa E/C Agenzie.
+   - Verificare che cliccando E/C Agenzie si arrivi al nuovo flusso già implementato con selezione titoli, anteprima, stampa, salvataggio e storico.
+   - Verificare che il controllo versione non lasci più renderizzare una configurazione vecchia dopo il primo tentativo di refresh fallito.
