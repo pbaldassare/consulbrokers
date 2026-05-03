@@ -130,11 +130,12 @@ function loadGoogleMapsScript(): Promise<void> {
       reject(new Error("VITE_GOOGLE_MAPS_API_KEY non configurata"));
       return;
     }
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&language=it&loading=async&v=weekly`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
+
+    // Reuse pre-existing script tag if present
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src*="maps.googleapis.com/maps/api/js"]'
+    );
+    const handleReady = () => {
       ensurePlacesLibrary()
         .then(() => {
           googleScriptLoaded = true;
@@ -145,10 +146,27 @@ function loadGoogleMapsScript(): Promise<void> {
           reject(error);
         });
     };
-    script.onerror = () => {
+    const handleErr = () => {
       googleScriptPromise = null;
       reject(new Error("Failed to load Google Maps script (network/blocked)"));
     };
+
+    if (existing) {
+      if (window.google?.maps) {
+        handleReady();
+      } else {
+        existing.addEventListener("load", handleReady, { once: true });
+        existing.addEventListener("error", handleErr, { once: true });
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
+    script.async = true;
+    script.defer = true;
+    script.onload = handleReady;
+    script.onerror = handleErr;
     document.head.appendChild(script);
   });
   return googleScriptPromise;
