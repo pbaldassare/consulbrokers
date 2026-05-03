@@ -517,17 +517,52 @@ const AddressAutocomplete = ({
         ref={inputRef}
         id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => handleInputChange(e.target.value)}
+        onFocus={() => predictions.length > 0 && setOpen(true)}
+        onBlur={() => {
+          blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+        }}
         placeholder={placeholder}
         className={className}
         disabled={disabled}
         autoComplete="off"
       />
-      {ready && !error && (
+      {(loadingPredictions || loadingDetails) && (
+        <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin pointer-events-none" />
+      )}
+      {ready && !error && !loadingPredictions && !loadingDetails && (
         <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      )}
+      {open && predictions.length > 0 && !disabled && (
+        <div className="absolute z-[70] mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+          {predictions.map((prediction) => (
+            <button
+              key={prediction.place_id}
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+              }}
+              onClick={() => handleSelectPrediction(prediction)}
+            >
+              <span className="block font-medium">
+                {prediction.structured_formatting?.main_text || prediction.description}
+              </span>
+              {prediction.structured_formatting?.secondary_text && (
+                <span className="block text-xs text-muted-foreground">
+                  {prediction.structured_formatting.secondary_text}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       )}
       {error && (
         <p className="text-xs text-destructive mt-1">{error} — inserisci CAP, città e provincia manualmente.</p>
+      )}
+      {selectionWarning && !error && (
+        <p className="text-xs text-muted-foreground mt-1">{selectionWarning}</p>
       )}
     </div>
   );
