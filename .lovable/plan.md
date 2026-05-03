@@ -1,37 +1,35 @@
-## Fix: Google Maps autocomplete non parte
+## Piano per risolvere la pagina non aggiornata
 
-### Diagnosi
-Nello screenshot l'icona MapPin (visibile solo quando `ready=true`) **non compare**, e nei network logs non c'è alcuna richiesta a `maps.googleapis.com`. Il caricamento dello script fallisce silenziosamente.
+Il problema visibile nello screenshot è che l’app sta ancora mostrando una versione vecchia: nel codice attuale `Anagrafica` è già prima di `Polizze`, ma nella preview risulta ancora non aggiornata o non riallineata al bundle più recente.
 
-Cause più probabili:
-1. **Auth failure di Google** (chiave non valida, dominio `*.lovable.app` non tra i referrer autorizzati, o **Places API non abilitata** sul progetto Google Cloud). Google non chiama `script.onerror` in questi casi: invoca `window.gm_authFailure`, che oggi non è gestito.
-2. Mancato uso di `loading=async` (Google ora stampa warning + a volte blocca).
-3. Errore precedente che ha lasciato `googleScriptPromise` in stato rejected, impedendo retry.
+### 1. Rendere l’ordine tab inequivocabile
+In `src/pages/ClienteDetail.tsx` controllerò e consoliderò l’ordine delle tab del dettaglio cliente:
 
-### Modifiche
+```text
+Anagrafica → Polizze → Sinistri → Aziende/Persone → Documenti → Chat → Timeline → Trattative
+```
 
-**`src/components/AddressAutocomplete.tsx`**
-- Definire `window.gm_authFailure` globale → setta flag `googleAuthFailed`, logga messaggio chiaro con link a Google Cloud Console, notifica i componenti montati.
-- Aggiungere `loading=async&v=weekly` all'URL dello script (raccomandato da Google).
-- Validare `GOOGLE_MAPS_API_KEY` prima di iniettare lo script (reject esplicito).
-- Aggiungere stato `error` nel componente: se lo script fallisce o c'è auth failure, mostrare un piccolo testo rosso sotto l'input ("Autocomplete non disponibile — verifica chiave/dominio Google Maps") così l'utente capisce e può comunque digitare CAP/Città/Provincia manualmente.
-- Reset di `googleScriptPromise` quando il caricamento fallisce, per consentire un retry al prossimo mount.
+Se serve, aggiungerò anche una gestione controllata della tab attiva per evitare che stati/cache precedenti mantengano selezioni vecchie.
 
-**`public/version.json`** → bump.
+### 2. Forzare refresh corretto della preview/app
+Interverrò sul meccanismo di versione/cache per far sì che la preview carichi il bundle aggiornato:
 
-### Cosa deve fare l'utente in parallelo (probabile root cause)
-Nel pannello Google Cloud Console del progetto associato alla chiave `AIzaSyA76iVcQpSnl76_G6bJVnEeOUmWVd7278I`:
-1. **Abilitare le API**: "Maps JavaScript API" + "Places API".
-2. **Restrizioni della chiave** → HTTP referrers: aggiungere
-   - `https://*.lovable.app/*`
-   - `https://*.lovable.dev/*`
-   - `https://consulnet.iaconnect.it/*`
-   - `http://localhost:*/*`
-3. Salvare e attendere ~1-2 min per la propagazione.
+- aggiornare `public/version.json` con una nuova versione;
+- rafforzare il controllo in `src/lib/versionCheck.ts` anche per preview/dev Lovable, senza creare loop infiniti;
+- aggiungere un evento su focus/visibilità pagina che verifica la versione anche quando l’utente torna sulla tab;
+- se viene rilevata una versione vecchia, forzare un reload con parametro cache-busting.
 
-Senza questi permessi nessun fix lato codice farà partire l'autocomplete: il messaggio d'errore aggiunto al componente ti dirà esattamente quando il problema è risolto.
+### 3. Pulizia cache/service worker residui
+Il progetto ha già una pulizia dei service worker in `src/main.tsx`. La renderò più robusta così, se il browser sta servendo file vecchi, l’app prova a svuotare le cache residue prima di renderizzare.
 
-### Note tecniche
-- Nessuna modifica DB.
-- Nessuna modifica RLS o edge functions.
-- Il fix non tocca la logica di parsing migliorata nell'iterazione precedente.
+### 4. Confermare la parte Maps/manuale
+Mantengo il comportamento già aggiunto: se Google Maps non parte, il campo resta compilabile manualmente e l’utente vede il messaggio di errore. Non cambio la logica di parsing CAP/Città/Provincia già implementata.
+
+### File da modificare
+- `src/pages/ClienteDetail.tsx`
+- `src/lib/versionCheck.ts`
+- `src/main.tsx`
+- `public/version.json`
+
+### Risultato atteso
+Dopo il salvataggio, ricaricando la preview dovresti vedere subito la pagina aggiornata con `Anagrafica` prima di `Polizze`, e le prossime modifiche dovrebbero comparire senza rimanere bloccate su versioni vecchie.
