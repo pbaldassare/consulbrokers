@@ -77,13 +77,8 @@ const ECClientePdfPage = () => {
   });
 
   useEffect(() => {
-    if (sede) {
-      const cittaSede = sede.citta || "Napoli";
-      setLuogoData(`${cittaSede}, ${format(new Date(), "dd/MM/yyyy")}`);
-      if (sede.citta) setLuogoData(`${sede.citta}, ${format(new Date(), "dd/MM/yyyy")}`);
-    } else {
-      setLuogoData(`Napoli, ${format(new Date(), "dd/MM/yyyy")}`);
-    }
+    const cittaSede = sede?.citta || "Napoli";
+    setLuogoData(`${cittaSede}, ${format(new Date(), "dd/MM/yyyy")}`);
   }, [sede]);
 
   // Titoli del cliente
