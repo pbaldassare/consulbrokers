@@ -32,14 +32,50 @@ interface Ufficio {
   nome_ufficio: string;
 }
 
-const PARAM_CONFIG: Record<string, { label: string; type: "string" | "number"; min?: number; max?: number }> = {
-  password_default: { label: "Password di default", type: "string" },
-  giorni_tolleranza_matching_banca: { label: "Giorni tolleranza matching banca", type: "number", min: 0, max: 30 },
-  soglia_score_ok: { label: "Soglia score OK", type: "number", min: 0, max: 100 },
-  soglia_score_verifica: { label: "Soglia score verifica", type: "number", min: 0, max: 100 },
-  limiti_upload_file_mb: { label: "Limite upload file (MB)", type: "number", min: 1, max: 100 },
-  giorni_alert_eventi_sinistri: { label: "Giorni alert eventi sinistri", type: "number", min: 1, max: 90 },
+const PARAM_CONFIG: Record<string, { label: string; type: "string" | "number"; min?: number; max?: number; description?: string }> = {
+  password_default: {
+    label: "Password iniziale nuovi utenti",
+    type: "string",
+    description: "Password assegnata automaticamente quando viene creato un nuovo utente (cliente, prospect, corrispondente). L'utente dovrà cambiarla al primo accesso.",
+  },
+  giorni_tolleranza_matching_banca: {
+    label: "Tolleranza date matching bancario (giorni)",
+    type: "number",
+    min: 0,
+    max: 30,
+    description: "Finestra in giorni entro cui la riconciliazione AI considera un movimento bancario abbinabile a un titolo (data incasso ± giorni).",
+  },
+  soglia_score_ok: {
+    label: "Soglia auto-approvazione AI (0-100)",
+    type: "number",
+    min: 0,
+    max: 100,
+    description: "Punteggio minimo per cui il matching bancario AI viene approvato automaticamente senza revisione manuale.",
+  },
+  soglia_score_verifica: {
+    label: "Soglia revisione manuale AI (0-100)",
+    type: "number",
+    min: 0,
+    max: 100,
+    description: "Punteggio minimo per proporre il match in coda di verifica. Sotto questa soglia il match viene scartato.",
+  },
+  limiti_upload_file_mb: {
+    label: "Dimensione massima file caricabili (MB)",
+    type: "number",
+    min: 1,
+    max: 100,
+    description: "Limite per i file caricati nel documentale e negli allegati di polizze, sinistri e clienti.",
+  },
+  giorni_alert_eventi_sinistri: {
+    label: "Anticipo notifiche eventi sinistri (giorni)",
+    type: "number",
+    min: 1,
+    max: 90,
+    description: "Numero di giorni di anticipo per generare gli alert su scadenze e follow-up dei sinistri.",
+  },
 };
+
+const HIDDEN_KEYS = new Set(["admin_anagrafica_id"]);
 
 const ImpostazioniPage = () => {
   const { isAdmin, profile } = useAuth();
