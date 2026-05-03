@@ -232,11 +232,13 @@ const ImpostazioniPage = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sistemaSettings.map((s) =>
-                    renderField(s.chiave, editedValues[s.chiave], (chiave, val) =>
-                      setEditedValues((prev) => ({ ...prev, [chiave]: val }))
-                    )
-                  )}
+                  {sistemaSettings
+                    .filter((s) => !HIDDEN_KEYS.has(s.chiave))
+                    .map((s) =>
+                      renderField(s.chiave, editedValues[s.chiave], (chiave, val) =>
+                        setEditedValues((prev) => ({ ...prev, [chiave]: val }))
+                      )
+                    )}
                 </div>
                 <div className="flex justify-end pt-2">
                   <Button onClick={saveSistema} disabled={saving}>
