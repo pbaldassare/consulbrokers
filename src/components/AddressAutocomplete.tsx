@@ -21,9 +21,41 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
 }
 
+interface GoogleAddressComponent {
+  long_name: string;
+  short_name: string;
+  types: string[];
+}
+
+interface GooglePlaceResult {
+  address_components?: GoogleAddressComponent[];
+}
+
+interface GoogleAutocompleteInstance {
+  addListener: (eventName: "place_changed", handler: () => void) => void;
+  getPlace: () => GooglePlaceResult;
+}
+
+interface GoogleMapsGlobal {
+  maps?: {
+    importLibrary?: (libraryName: string) => Promise<unknown>;
+    places?: {
+      Autocomplete?: new (
+        input: HTMLInputElement,
+        options: {
+          types: string[];
+          componentRestrictions: { country: string };
+          fields: string[];
+        }
+      ) => GoogleAutocompleteInstance;
+    };
+  };
+}
+
 declare global {
   interface Window {
-    google?: any;
+    google?: GoogleMapsGlobal;
+    gm_authFailure?: () => void;
   }
 }
 
@@ -50,7 +82,7 @@ async function ensurePlacesLibrary(): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
-  (window as any).gm_authFailure = () => {
+  window.gm_authFailure = () => {
     googleAuthFailed = true;
     console.error(
       "[AddressAutocomplete] Google Maps auth failure: chiave API non valida, dominio non autorizzato, o Places API non abilitata. " +
@@ -101,8 +133,8 @@ function loadGoogleMapsScript(): Promise<void> {
   return googleScriptPromise;
 }
 
-function extractAddressComponents(place: any): AddressComponents {
-  const components: any[] = place.address_components || [];
+function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
+  const components = place.address_components || [];
   let street_number = "";
   let route = "";
   let cap = "";
@@ -157,7 +189,7 @@ const AddressAutocomplete = ({
   disabled,
 }: AddressAutocompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<any>(null);
+  const autocompleteRef = useRef<GoogleAutocompleteInstance | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,13 +212,14 @@ const AddressAutocomplete = ({
 
   const initAutocomplete = useCallback(() => {
     if (!ready || !inputRef.current || autocompleteRef.current) return;
-    if (!hasPlacesAutocomplete()) {
+    const Autocomplete = window.google?.maps?.places?.Autocomplete;
+    if (!Autocomplete) {
       setReady(false);
       setError("Autocomplete non disponibile");
       return;
     }
 
-    const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
+    const ac = new Autocomplete(inputRef.current, {
       types: ["address"],
       componentRestrictions: { country: "it" },
       fields: ["address_components", "formatted_address"],
