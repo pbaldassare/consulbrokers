@@ -50,6 +50,7 @@ interface AutocompleteServiceInstance {
       types: string[];
       componentRestrictions: { country: string };
       language?: string;
+      sessionToken?: GoogleAutocompleteSessionToken;
     },
     callback: (predictions: GoogleAutocompletePrediction[] | null, status: string) => void
   ) => void;
@@ -456,6 +457,7 @@ const AddressAutocomplete = ({
         types: ["address"],
         componentRestrictions: { country: "it" },
         language: "it",
+        sessionToken: sessionTokenRef.current,
       },
       (items, status) => {
         if (suppressPredictionsRef.current) return;
