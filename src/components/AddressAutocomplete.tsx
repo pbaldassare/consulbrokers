@@ -221,7 +221,7 @@ const AddressAutocomplete = ({
 
   const initAutocomplete = useCallback(() => {
     if (!ready || !inputRef.current || autocompleteRef.current) return;
-    const Autocomplete = window.google?.maps?.places?.Autocomplete;
+    const Autocomplete = AutocompleteCtorCached ?? window.google?.maps?.places?.Autocomplete;
     if (!Autocomplete) {
       setReady(false);
       setError("Autocomplete non disponibile");
