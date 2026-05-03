@@ -254,6 +254,13 @@ function mergeAddressComponents(primary: AddressComponents, fallback: Partial<Ad
   };
 }
 
+function mergeManyAddressComponents(...items: Partial<AddressComponents>[]): AddressComponents {
+  return items.reduce<AddressComponents>(
+    (acc, item) => mergeAddressComponents(acc, item),
+    { indirizzo: "", cap: "", citta: "", provincia: "" }
+  );
+}
+
 function extractAddressComponents(place: GooglePlaceResult, fallbackText = ""): AddressComponents {
   const components = place.address_components || [];
   let street_number = "";
@@ -488,10 +495,7 @@ const AddressAutocomplete = ({
     const parsedDetails = details ? extractAddressComponents(details, prediction.description) : null;
     const parsedGeocode = geocoded ? extractAddressComponents(geocoded, prediction.description) : null;
     const fallback = parseAddressText(prediction.description);
-    const parsed = mergeAddressComponents(
-      parsedDetails || { indirizzo: "", cap: "", citta: "", provincia: "" },
-      parsedGeocode || fallback
-    );
+    const parsed = mergeManyAddressComponents(parsedDetails || {}, parsedGeocode || {}, fallback);
 
     onChange(parsed.indirizzo || prediction.structured_formatting?.main_text || prediction.description);
     onSelect?.(parsed);
