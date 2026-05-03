@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { MapPin } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -34,23 +34,50 @@ interface GooglePlaceResult {
   address_components?: GoogleAddressComponent[];
 }
 
-interface GoogleAutocompleteInstance {
-  addListener: (eventName: "place_changed", handler: () => void) => void;
-  getPlace: () => GooglePlaceResult;
+interface GoogleAutocompletePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting?: {
+    main_text?: string;
+    secondary_text?: string;
+  };
 }
 
-type AutocompleteCtor = new (
-  input: HTMLInputElement,
-  options: {
-    types: string[];
-    componentRestrictions: { country: string };
-    fields: string[];
-  }
-) => GoogleAutocompleteInstance;
+interface AutocompleteServiceInstance {
+  getPlacePredictions: (
+    request: {
+      input: string;
+      types: string[];
+      componentRestrictions: { country: string };
+      language?: string;
+    },
+    callback: (predictions: GoogleAutocompletePrediction[] | null, status: string) => void
+  ) => void;
+}
+
+type AutocompleteServiceCtor = new () => AutocompleteServiceInstance;
+
+interface GoogleGeocoderResult {
+  formatted_address?: string;
+  address_components?: GoogleAddressComponent[];
+}
+
+interface GoogleGeocoderInstance {
+  geocode: (
+    request: { placeId?: string; address?: string; componentRestrictions?: { country: string } },
+    callback: (results: GoogleGeocoderResult[] | null, status: string) => void
+  ) => void;
+}
+
+type GeocoderCtor = new () => GoogleGeocoderInstance;
+
+interface GoogleAutocompleteSessionToken {}
+
+type AutocompleteSessionTokenCtor = new () => GoogleAutocompleteSessionToken;
 
 interface PlacesServiceInstance {
   getDetails: (
-    request: { placeId: string; fields: string[] },
+    request: { placeId: string; fields: string[]; sessionToken?: GoogleAutocompleteSessionToken },
     callback: (result: GooglePlaceResult | null, status: string) => void
   ) => void;
 }
@@ -60,12 +87,16 @@ type PlacesServiceCtor = new (attrContainer: HTMLElement | unknown) => PlacesSer
 interface GoogleMapsGlobal {
   maps?: {
     importLibrary?: (libraryName: string) => Promise<Record<string, unknown>>;
+    Geocoder?: GeocoderCtor;
+    GeocoderStatus?: { OK: string };
     places?: {
-      Autocomplete?: AutocompleteCtor;
+      AutocompleteService?: AutocompleteServiceCtor;
+      AutocompleteSessionToken?: AutocompleteSessionTokenCtor;
       PlacesService?: PlacesServiceCtor;
-      PlacesServiceStatus?: { OK: string };
+      PlacesServiceStatus?: { OK: string; ZERO_RESULTS?: string };
+      AutocompleteServiceStatus?: { OK: string; ZERO_RESULTS?: string };
     };
-  };
+  }
 }
 
 declare global {
@@ -78,30 +109,24 @@ declare global {
 let googleScriptLoaded = false;
 let googleScriptPromise: Promise<void> | null = null;
 let googleAuthFailed = false;
-let AutocompleteCtorCached: AutocompleteCtor | null = null;
 const authFailureListeners = new Set<() => void>();
 
-function hasPlacesAutocomplete(): boolean {
-  return Boolean(AutocompleteCtorCached || window.google?.maps?.places?.Autocomplete);
+function hasPlacesServices(): boolean {
+  const places = window.google?.maps?.places;
+  return Boolean(places?.AutocompleteService && places?.PlacesService);
 }
 
 async function waitForPlaces(timeoutMs = 8000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (window.google?.maps?.places?.Autocomplete) {
-      AutocompleteCtorCached = window.google.maps.places.Autocomplete;
+    if (hasPlacesServices()) {
       return;
     }
-    // Try modern importLibrary if available
     const importLibrary = window.google?.maps?.importLibrary;
     if (typeof importLibrary === "function") {
       try {
-        const places = await importLibrary("places");
-        const Ctor = (places?.Autocomplete as AutocompleteCtor | undefined) ?? window.google?.maps?.places?.Autocomplete;
-        if (Ctor) {
-          AutocompleteCtorCached = Ctor;
-          return;
-        }
+        await importLibrary("places");
+        if (hasPlacesServices()) return;
       } catch {
         // fall through and retry polling
       }
@@ -112,7 +137,7 @@ async function waitForPlaces(timeoutMs = 8000): Promise<void> {
 }
 
 async function ensurePlacesLibrary(): Promise<void> {
-  if (AutocompleteCtorCached) return;
+  if (hasPlacesServices()) return;
   await waitForPlaces();
 }
 
@@ -128,13 +153,13 @@ if (typeof window !== "undefined") {
 }
 
 function loadGoogleMapsScript(): Promise<void> {
-  if (googleScriptLoaded && hasPlacesAutocomplete()) {
+  if (googleScriptLoaded && hasPlacesServices()) {
     return Promise.resolve();
   }
   if (googleScriptPromise) return googleScriptPromise;
 
   googleScriptPromise = new Promise((resolve, reject) => {
-    if (hasPlacesAutocomplete()) {
+    if (hasPlacesServices()) {
       googleScriptLoaded = true;
       resolve();
       return;
@@ -192,7 +217,44 @@ function cleanProvinceName(name: string): string {
     .trim();
 }
 
-function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
+function parseAddressText(text: string): Partial<AddressComponents> {
+  const parts = text
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^italia$/i.test(part));
+
+  const capMatch = text.match(/\b\d{5}\b/);
+  const cap = capMatch?.[0] || "";
+  const provinciaIndex = parts.findIndex((part) => /^\(?[A-Z]{2}\)?$/i.test(part));
+  const provincia = provinciaIndex >= 0 ? parts[provinciaIndex].replace(/[^A-Za-z]/g, "").toUpperCase() : "";
+
+  let citta = "";
+  if (cap) {
+    const capPart = parts.find((part) => part.includes(cap));
+    citta = capPart?.replace(cap, "").trim() || "";
+  }
+  if (!citta && provinciaIndex > 0) citta = parts[provinciaIndex - 1];
+
+  const addressParts = provinciaIndex >= 0 ? parts.slice(0, Math.max(0, provinciaIndex - 1)) : parts.slice(0, 2);
+  let indirizzo = addressParts.join(", ").replace(cap, "").trim();
+  if (/^\d+[A-Za-z]?$/i.test(addressParts[0] || "") && addressParts[1]) {
+    indirizzo = `${addressParts[1]}, ${addressParts[0]}`;
+  }
+
+  return { indirizzo, cap, citta, provincia };
+}
+
+function mergeAddressComponents(primary: AddressComponents, fallback: Partial<AddressComponents>): AddressComponents {
+  return {
+    indirizzo: primary.indirizzo || fallback.indirizzo || "",
+    cap: primary.cap || fallback.cap || "",
+    citta: primary.citta || fallback.citta || "",
+    provincia: primary.provincia || fallback.provincia || "",
+  };
+}
+
+function extractAddressComponents(place: GooglePlaceResult, fallbackText = ""): AddressComponents {
   const components = place.address_components || [];
   let street_number = "";
   let route = "";
@@ -243,7 +305,17 @@ function extractAddressComponents(place: GooglePlaceResult): AddressComponents {
     // Fallback: take first segment before comma
     indirizzo = place.formatted_address.split(",")[0].trim();
   }
-  return { indirizzo, cap, citta, provincia };
+
+  const parsed = mergeAddressComponents(
+    { indirizzo, cap, citta, provincia },
+    parseAddressText(fallbackText || place.formatted_address || "")
+  );
+
+  if (!parsed.cap) console.warn("[AddressAutocomplete] CAP non disponibile");
+  if (!parsed.citta) console.warn("[AddressAutocomplete] Città non disponibile");
+  if (!parsed.provincia) console.warn("[AddressAutocomplete] Provincia non disponibile");
+
+  return parsed;
 }
 
 const AddressAutocomplete = ({
