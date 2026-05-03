@@ -8,6 +8,7 @@ import QuadraturePremi from "@/pages/contabilita/QuadraturePremi";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECAgenziaPdfPage from "@/pages/contabilita/ECAgenziaPdfPage";
+import ECAgenzieStoricoPage from "@/pages/contabilita/ECAgenzieStoricoPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
 import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
 
@@ -35,6 +36,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
     <Route path="/contabilita/ec-agenzia/pdf" element={<ECAgenziaPdfPage />} />
+    <Route path="/contabilita/ec-agenzia/storico" element={<ECAgenzieStoricoPage />} />
     <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
     <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />
     <Route path="/contabilita/stampa-primanota" element={<PlaceholderPage title="Stampa Primanota" description="Stampa movimenti di primanota" icon={Printer} />} />

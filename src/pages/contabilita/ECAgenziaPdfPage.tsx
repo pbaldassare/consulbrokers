@@ -45,6 +45,15 @@ const ECAgenziaPdfPage = () => {
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Override sede mittente (intestazione)
+  const [sedeNome, setSedeNome] = useState("");
+  const [sedeIndirizzo, setSedeIndirizzo] = useState("");
+  const [sedeCap, setSedeCap] = useState("");
+  const [sedeCitta, setSedeCitta] = useState("");
+  const [sedeProvincia, setSedeProvincia] = useState("");
+  const [sedeEmail, setSedeEmail] = useState("");
+  const [sedeTelefono, setSedeTelefono] = useState("");
+
   // Agenzia
   const { data: agenzia } = useQuery({
     queryKey: ["ec-pdf-agenzia", compagniaId],
@@ -59,7 +68,7 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Sede mittente (dall'utente loggato)
+  // Sede mittente (dall'utente loggato) — usata come default
   const { data: sede } = useQuery({
     queryKey: ["ec-pdf-sede", profile?.ufficio_id],
     enabled: !!profile?.ufficio_id,
@@ -73,7 +82,33 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Titoli
+  // Tutte le sedi (per selezione)
+  const { data: tutteSedi } = useQuery({
+    queryKey: ["ec-pdf-tutte-sedi"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      return data || [];
+    },
+  });
+
+  // Pre-popola override sede al primo caricamento
+  useEffect(() => {
+    if (sede && !sedeNome) {
+      setSedeNome(sede.nome_ufficio || "");
+      setSedeIndirizzo(sede.indirizzo || "");
+      setSedeCap(sede.cap || "");
+      setSedeCitta(sede.citta || "");
+      setSedeProvincia(sede.provincia || "");
+      setSedeEmail(sede.email || "");
+      setSedeTelefono(sede.telefono || "");
+    }
+  }, [sede]); // eslint-disable-line
+
+  // Titoli — se titoliIds presenti li usa, altrimenti tutti gli incassati dell'agenzia (filtrati per periodo se passato), escludendo quelli già in rimessa
   const { data: titoli } = useQuery({
     queryKey: ["ec-pdf-titoli", compagniaId, titoliIds.join(","), periodoDal, periodoAl],
     enabled: !!compagniaId,
@@ -83,12 +118,19 @@ const ECAgenziaPdfPage = () => {
         .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
-      if (titoliIds.length > 0) q = q.in("id", titoliIds);
-      else {
+      if (titoliIds.length > 0) {
+        q = q.in("id", titoliIds);
+      } else {
         if (periodoDal) q = q.gte("data_messa_cassa", periodoDal);
         if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
+        // Escludi titoli già rimessati (solo quando non è una selezione esplicita)
+        const { data: rimRaw } = await supabase.from("rimessa_dettaglio").select("titolo_id");
+        const rimSet = new Set((rimRaw || []).map((r: any) => r.titolo_id));
+        const { data, error } = await q.order("data_messa_cassa", { ascending: true });
+        if (error) throw error;
+        return (data || []).filter((t: any) => !rimSet.has(t.id));
       }
-      const { data, error } = await q;
+      const { data, error } = await q.order("data_messa_cassa", { ascending: true });
       if (error) throw error;
       return data || [];
     },
@@ -141,13 +183,13 @@ const ECAgenziaPdfPage = () => {
     const ra = (Number(agenzia?.percentuale_ra) || 0) * totaleProvvigioni / 100;
 
     return {
-      sedeNome: sede?.nome_ufficio || "",
-      sedeIndirizzo: sede?.indirizzo || "",
-      sedeCap: sede?.cap || "",
-      sedeCitta: sede?.citta || "",
-      sedeProvincia: sede?.provincia || "",
-      sedeEmail: sede?.email || "",
-      sedeTelefono: sede?.telefono || "",
+      sedeNome,
+      sedeIndirizzo,
+      sedeCap,
+      sedeCitta,
+      sedeProvincia,
+      sedeEmail,
+      sedeTelefono,
       riferimento,
       dataDocumento,
       periodoTesto,
@@ -285,6 +327,65 @@ const ECAgenziaPdfPage = () => {
           <div className="space-y-1.5 md:col-span-2">
             <Label>Note finali (opzionale)</Label>
             <Textarea value={noteFinali} onChange={(e) => setNoteFinali(e.target.value)} rows={2} />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Sede Mittente (intestazione)</legend>
+        {(tutteSedi || []).length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Carica dati da una Sede esistente</Label>
+            <select
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+              onChange={(e) => {
+                const u = (tutteSedi || []).find((x: any) => x.id === e.target.value);
+                if (!u) return;
+                setSedeNome(u.nome_ufficio || "");
+                setSedeIndirizzo(u.indirizzo || "");
+                setSedeCap(u.cap || "");
+                setSedeCitta(u.citta || "");
+                setSedeProvincia(u.provincia || "");
+                setSedeEmail(u.email || "");
+                setSedeTelefono(u.telefono || "");
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>Scegli sede...</option>
+              {(tutteSedi || []).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.nome_ufficio}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Nome Sede</Label>
+            <Input value={sedeNome} onChange={(e) => setSedeNome(e.target.value)} />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Indirizzo</Label>
+            <Input value={sedeIndirizzo} onChange={(e) => setSedeIndirizzo(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>CAP</Label>
+            <Input value={sedeCap} onChange={(e) => setSedeCap(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Città</Label>
+            <Input value={sedeCitta} onChange={(e) => setSedeCitta(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Provincia</Label>
+            <Input value={sedeProvincia} onChange={(e) => setSedeProvincia(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Telefono</Label>
+            <Input value={sedeTelefono} onChange={(e) => setSedeTelefono(e.target.value)} />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Email</Label>
+            <Input value={sedeEmail} onChange={(e) => setSedeEmail(e.target.value)} />
           </div>
         </div>
       </fieldset>
