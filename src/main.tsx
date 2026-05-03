@@ -5,42 +5,79 @@ import { checkAppVersion, startVersionPolling } from "./lib/versionCheck";
 
 /**
  * Boot sequence:
- * 1) Cleanup eventuali Service Worker fantasma (sincrono, prima del render)
- * 2) Check versione contro /version.json — se obsoleta → hard reload
+ * 1) Cleanup eventuali Service Worker fantasma + Cache API residue
+ * 2) Version check contro /version.json — se mismatch → hard reload PRIMA del render
+ *    (evita di mostrare la UI vecchia per qualche secondo)
  * 3) Render React + avvio polling versione
  */
-async function boot() {
-  // 1. Cleanup SW + Cache API residui (prima del render)
+
+function showBootLoader() {
+  const root = document.getElementById("root");
+  if (!root || root.childElementCount > 0) return;
+  root.innerHTML = `
+    <div style="
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(135deg,hsl(199 58% 14%),hsl(199 50% 24%),hsl(170 55% 32%));
+      color:#fff;font-family:system-ui,-apple-system,sans-serif;z-index:9999;
+    ">
+      <div style="text-align:center">
+        <div style="
+          width:42px;height:42px;border:3px solid rgba(255,255,255,.25);
+          border-top-color:#fff;border-radius:50%;
+          animation:cbnet-spin .9s linear infinite;margin:0 auto 16px;
+        "></div>
+        <div style="font-size:14px;letter-spacing:.18em;text-transform:uppercase;opacity:.85">
+          CBnet — Caricamento
+        </div>
+      </div>
+      <style>@keyframes cbnet-spin{to{transform:rotate(360deg)}}</style>
+    </div>
+  `;
+}
+
+async function cleanupServiceWorkersAndCaches(): Promise<boolean> {
+  let didCleanup = false;
   if ("serviceWorker" in navigator) {
     try {
       const regs = await navigator.serviceWorker.getRegistrations();
       if (regs.length > 0) {
         await Promise.all(regs.map((r) => r.unregister()));
-        // Anti-loop: ricarica una sola volta dopo aver rimosso SW vecchi
-        if (!sessionStorage.getItem("sw_cleaned")) {
-          sessionStorage.setItem("sw_cleaned", "1");
-          window.location.reload();
-          return;
-        }
+        didCleanup = true;
       }
     } catch {
       /* noop */
     }
     try {
       const names = await caches.keys();
-      await Promise.all(names.map((n) => caches.delete(n)));
+      if (names.length > 0) {
+        await Promise.all(names.map((n) => caches.delete(n)));
+        didCleanup = true;
+      }
     } catch {
       /* noop */
     }
   }
+  return didCleanup;
+}
 
-  // 2. Version check al boot (solo PROD) — se obsoleto fa hard reload
-  if (import.meta.env.PROD) {
-    const willReload = await checkAppVersion();
-    if (willReload) return;
+async function boot() {
+  showBootLoader();
+
+  // 1. Cleanup SW + Cache API residue — se ne troviamo, ricarichiamo una volta
+  //    per essere sicuri di partire pulitissimi.
+  const cleaned = await cleanupServiceWorkersAndCaches();
+  if (cleaned && !sessionStorage.getItem("sw_cleaned_v2")) {
+    sessionStorage.setItem("sw_cleaned_v2", "1");
+    window.location.reload();
+    return;
   }
 
-  // 3. Render React + avvio polling (no-op in dev)
+  // 2. Version check al boot (anche in preview) — se obsoleto fa hard reload
+  //    PRIMA che React renderizzi la UI vecchia.
+  const willReload = await checkAppVersion();
+  if (willReload) return;
+
+  // 3. Render React + avvio polling
   createRoot(document.getElementById("root")!).render(<App />);
   startVersionPolling(60_000);
 }

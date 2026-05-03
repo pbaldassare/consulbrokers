@@ -1,88 +1,39 @@
-## Obiettivo
+Vedo il problema: c'è già un controllo versione, ma oggi lavora solo in produzione e solo dopo l'avvio del bundle. In preview/dev e durante navigazioni interne può quindi restare in memoria una build vecchia finché non si ricarica manualmente. Inoltre la pulizia cache/SW è una tantum (`sw_cleaned`) e non viene ripetuta a ogni nuova versione.
 
-Implementare nel modulo **E/C Agenzie** la generazione del documento "Estratto Conto Agenzia" con **anteprima**, **download PDF** e **salvataggio in archivio documentale** — esattamente come già fatto per la Precontrattuale.
+Piano di intervento:
 
-## Verifica dati DB (già fatta)
+1. Rendere il bootstrap più robusto prima del render
+   - Estrarre una funzione centralizzata di “cache hygiene” che:
+     - elimina eventuali Service Worker residui;
+     - svuota le Cache API residue;
+     - salva la versione pulita, non solo un flag generico.
+   - Se trova e rimuove un vecchio SW/cache, forza un reload con cache-busting prima di mostrare l’app, così l’utente non vede prima la schermata vecchia.
 
-Tutti i campi necessari per replicare il modello PDF allegato esistono:
+2. Migliorare il version check anche in preview
+   - Rendere `/version.json` controllabile anche in ambiente Lovable preview, non solo produzione, evitando loop.
+   - Usare un confronto sicuro tra versione bundle e versione server, con anti-loop per singola versione.
+   - In caso di mismatch, mostrare una schermata minimale “Aggiornamento in corso…” invece di far apparire per qualche secondo la UI vecchia.
 
-- **Agenzia (`compagnie`)**: nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, mail, mail_ec, pec, percentuale_ra (per Ritenuta d'Acconto)
-- **Sede mittente (`uffici`)**: nome_ufficio, indirizzo, cap, citta, provincia, email, telefono — già usata nella Precontrattuale via `profiles.ufficio_id`
-- **Titoli (`titoli` + join rami/clienti_anagrafica)**: numero_titolo, riga, appendice, cliente, ramo (codice+descrizione), durata_da/a, premio_lordo, provvigioni_firma+quietanza, tipo_pagamento (per MI), data_messa_cassa
-- **Totali**: già calcolati lato pagina (Lordo, Provvigioni, Da Rimettere)
+3. Collegare il controllo alle navigazioni interne
+   - Aggiungere un watcher React collegato al cambio route (`location.pathname/search`) che controlla la versione prima/durante la navigazione.
+   - Così quando clicchi una voce del menu o apri una nuova pagina, l’app verifica subito se esiste una versione nuova prima di visualizzare configurazioni obsolete.
 
-Nessuna migrazione DB necessaria.
+4. Rendere i reload davvero cache-busting
+   - Usare un parametro dedicato tipo `?app_v=<timestamp>` evitando accumuli disordinati.
+   - Preferire `window.location.replace(...)` per non sporcare la cronologia.
+   - Pulire eventuali parametri di cache-busting vecchi dopo l’avvio corretto, se necessario.
 
-## Implementazione
+5. Aggiungere una piccola protezione UI globale
+   - Durante il check iniziale, invece di renderizzare subito l’app, visualizzare un loader coerente CBnet.
+   - Se serve aggiornare, l’utente vede solo il loader e poi la schermata corretta.
 
-### 1) Libreria PDF — `src/lib/ec-agenzia-pdf.ts`
-Stesso pattern di `precontrattuale-pdf.ts` (jsPDF + autotable).
+File previsti:
+- `src/lib/versionCheck.ts`: refactor controllo versione/cache-busting.
+- `src/main.tsx`: bootstrap con pulizia cache/versione prima del render.
+- nuovo piccolo componente/hook tipo `AppVersionGuard` oppure modifica in `App.tsx` per controllo su cambio route.
+- eventuale aggiornamento `public/version.json` solo come conseguenza del build/version plugin esistente.
 
-Esporta:
-- `buildECAgenziaPdf(data): jsPDF`
-- `previewECAgenziaPdf(data)` → blob URL per `<iframe>` o nuova tab
-- `downloadECAgenziaPdf(data, filename)` → trigger download
-- `uploadECAgenziaPdf(data, params)` → salva su Supabase Storage + crea record in `documenti`
-
-Layout fedele al modello:
-```text
-[Logo + intestazione Sede]                   [Logo certificazione]
-Mail: …
-Rif: BENAQ0/250338                Spettabile
-                                  AGENZIA NOME
-Estratto conto del gg/mm/aaaa     INDIRIZZO
-                                  CAP CITTA' PROV
-                                  Codice fiscale: …
-A saldo delle operazioni effettuate per conto della Vostra Agenzia
-per il periodo: <Mese Anno>.
-Pagamento a mezzo <Bonifico>
-c/c: <IBAN> intestato a <intestato_a>
-
-| Polizza | Cliente/Note | Ramo/Periodo | tp | Premio | Provvigioni | MI |
-| …       | …            | …            | …  | …      | …           | …  |
-                                  EURO    <Lordo>     <Provv>
-                                  Debito/Credito       <Lordo-Provv>
-                                  + Ritenuta Acconto   <RA>
-                                  A Vostro Credito     <Totale>
-
-[Footer Consulbrokers con sedi]
-```
-
-### 2) Pagina dedicata — `src/pages/contabilita/ECAgenziaPdfPage.tsx`
-Sulla falsariga di `DocPrecontrattualePage.tsx`:
-- Riceve query string: `?compagniaId=…&titoliIds=…&periodoDal=…&periodoAl=…`
-- Form modificabile: Riferimento, Data documento, Modalità pagamento, Note finali
-- Anteprima live in `<iframe>` con regenerazione su change
-- Tre pulsanti azione:
-  - **Scarica PDF** → `downloadECAgenziaPdf`
-  - **Salva in Archivio** → `uploadECAgenziaPdf` (bucket `documenti`, entità=`compagnia`, `entita_id=compagniaId`)
-  - **Invia via mail** → `send-email` edge function con allegato (a `mail_ec` dell'agenzia)
-- Logging via `logAttivita({azione:"stampa_ec_agenzia", entita_tipo:"compagnia", entita_id})`
-
-### 3) Integrazione in `ECCompagniaContabPage.tsx`
-- Nella riga agenzia espansa, aggiungere bottone **"Stampa E/C"** (icona `FileText`) accanto a "Paga Rimessa"
-- Apre `/contabilita/ec-agenzia/pdf?compagniaId=…&titoliIds=…&periodoDal=…&periodoAl=…` (con titoli selezionati o tutti)
-
-### 4) Integrazione in `RimessaDetail.tsx`
-- Aggiungere bottone "Scarica E/C PDF" sulla rimessa già creata, leggendo `rimessa_dettaglio.titolo_id` come fonte titoli
-
-### 5) Routing — `src/routes/contabilita.tsx`
-- Aggiungere `<Route path="/contabilita/ec-agenzia/pdf" element={<ECAgenziaPdfPage />} />`
-
-### 6) Versione
-- Bump `public/version.json`
-
-## File toccati
-
-- nuovo: `src/lib/ec-agenzia-pdf.ts`
-- nuovo: `src/pages/contabilita/ECAgenziaPdfPage.tsx`
-- modificato: `src/pages/contabilita/ECCompagniaContabPage.tsx`
-- modificato: `src/pages/RimessaDetail.tsx`
-- modificato: `src/routes/contabilita.tsx`
-- modificato: `public/version.json`
-
-## Note
-
-- Riuso completo del pattern Precontrattuale (header sede, footer Consulbrokers, anteprima iframe + download).
-- Salvataggio in archivio documentale mantiene tracciabilità storica per ogni E/C generato per agenzia.
-- La Ritenuta d'Acconto è calcolata come `provvigioni × compagnie.percentuale_ra` (default 0).
+Risultato atteso:
+- niente più “prima vedo la vecchia schermata, poi dopo reload quella corretta”;
+- alla prima apertura/navigazione viene caricata direttamente la versione aggiornata;
+- eventuali residui PWA/service worker/cache vengono rimossi in modo persistente per versione.
