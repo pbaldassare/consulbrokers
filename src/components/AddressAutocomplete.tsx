@@ -228,12 +228,15 @@ function parseAddressText(text: string): Partial<AddressComponents> {
   const capMatch = text.match(/\b\d{5}\b/);
   const cap = capMatch?.[0] || "";
   const provinciaIndex = parts.findIndex((part) => /^\(?[A-Z]{2}\)?$/i.test(part));
-  const provincia = provinciaIndex >= 0 ? parts[provinciaIndex].replace(/[^A-Za-z]/g, "").toUpperCase() : "";
+  const provinciaMatch = text.match(/\b([A-Z]{2})\b(?=\s*,\s*Italia\b|\s*$)/i);
+  const provincia = provinciaIndex >= 0
+    ? parts[provinciaIndex].replace(/[^A-Za-z]/g, "").toUpperCase()
+    : (provinciaMatch?.[1] || "").toUpperCase();
 
   let citta = "";
   if (cap) {
     const capPart = parts.find((part) => part.includes(cap));
-    citta = capPart?.replace(cap, "").trim() || "";
+    citta = capPart?.replace(cap, "").replace(new RegExp(`\\b${provincia}\\b`, "i"), "").trim() || "";
   }
   if (!citta && provinciaIndex > 0) citta = parts[provinciaIndex - 1];
 
