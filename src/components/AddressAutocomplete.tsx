@@ -289,16 +289,43 @@ const AddressAutocomplete = ({
     const ac = new Autocomplete(inputRef.current, {
       types: ["address"],
       componentRestrictions: { country: "it" },
-      fields: ["address_components", "formatted_address"],
+      fields: ["address_components", "formatted_address", "place_id", "name", "geometry"],
     });
+
+    const handleParsed = (place: GooglePlaceResult) => {
+      const parsed = extractAddressComponents(place);
+      onChange(parsed.indirizzo || place.formatted_address || "");
+      onSelect?.(parsed);
+    };
 
     ac.addListener("place_changed", () => {
       const place = ac.getPlace();
-      if (!place.address_components) return;
-
-      const parsed = extractAddressComponents(place);
-      onChange(parsed.indirizzo);
-      onSelect?.(parsed);
+      if (place.address_components && place.address_components.length > 0) {
+        handleParsed(place);
+        return;
+      }
+      // Fallback: fetch full details via PlacesService
+      const PlacesService = window.google?.maps?.places?.PlacesService;
+      if (place.place_id && PlacesService && inputRef.current) {
+        try {
+          const svc = new PlacesService(inputRef.current);
+          svc.getDetails(
+            {
+              placeId: place.place_id,
+              fields: ["address_components", "formatted_address", "name", "geometry"],
+            },
+            (result, status) => {
+              const okStatus = window.google?.maps?.places?.PlacesServiceStatus?.OK ?? "OK";
+              if (status === okStatus && result) handleParsed(result);
+              else console.warn("[AddressAutocomplete] getDetails fallito:", status);
+            }
+          );
+        } catch (err) {
+          console.warn("[AddressAutocomplete] PlacesService non disponibile:", err);
+        }
+      } else {
+        console.warn("[AddressAutocomplete] place senza address_components né place_id");
+      }
     });
 
     autocompleteRef.current = ac;
