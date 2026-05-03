@@ -331,6 +331,65 @@ const ECAgenziaPdfPage = () => {
         </div>
       </fieldset>
 
+      <fieldset className="border border-border rounded-lg p-5 space-y-4">
+        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Sede Mittente (intestazione)</legend>
+        {(tutteSedi || []).length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Carica dati da una Sede esistente</Label>
+            <select
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+              onChange={(e) => {
+                const u = (tutteSedi || []).find((x: any) => x.id === e.target.value);
+                if (!u) return;
+                setSedeNome(u.nome_ufficio || "");
+                setSedeIndirizzo(u.indirizzo || "");
+                setSedeCap(u.cap || "");
+                setSedeCitta(u.citta || "");
+                setSedeProvincia(u.provincia || "");
+                setSedeEmail(u.email || "");
+                setSedeTelefono(u.telefono || "");
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>Scegli sede...</option>
+              {(tutteSedi || []).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.nome_ufficio}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Nome Sede</Label>
+            <Input value={sedeNome} onChange={(e) => setSedeNome(e.target.value)} />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Indirizzo</Label>
+            <Input value={sedeIndirizzo} onChange={(e) => setSedeIndirizzo(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>CAP</Label>
+            <Input value={sedeCap} onChange={(e) => setSedeCap(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Città</Label>
+            <Input value={sedeCitta} onChange={(e) => setSedeCitta(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Provincia</Label>
+            <Input value={sedeProvincia} onChange={(e) => setSedeProvincia(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Telefono</Label>
+            <Input value={sedeTelefono} onChange={(e) => setSedeTelefono(e.target.value)} />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Email</Label>
+            <Input value={sedeEmail} onChange={(e) => setSedeEmail(e.target.value)} />
+          </div>
+        </div>
+      </fieldset>
+
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => navigate(-1)}>Chiudi</Button>
         <div className="flex gap-2">
