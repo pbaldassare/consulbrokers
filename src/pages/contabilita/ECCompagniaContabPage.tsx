@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard } from "lucide-react";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
@@ -403,18 +403,37 @@ const ECCompagniaContabPage = () => {
                     <TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
                     <TableCell className="text-right font-semibold text-teal-600 dark:text-teal-400">{fmt(daRimettere)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      {daRimettere > 0 && (
+                      <div className="flex gap-1">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           className="h-7 text-xs gap-1"
-                          disabled={creaRimessaMutation.isPending}
-                          onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere, r.titoli)}
+                          title="Stampa Estratto Conto Agenzia"
+                          onClick={() => {
+                            const sel = selectedTitoli[r.compagnia_id];
+                            const ids = sel && sel.size > 0 ? Array.from(sel).join(",") : "";
+                            const qs = new URLSearchParams({ compagniaId: r.compagnia_id });
+                            if (ids) qs.set("titoliIds", ids);
+                            if (filters.periodo_dal) qs.set("periodoDal", format(filters.periodo_dal, "yyyy-MM-dd"));
+                            if (filters.periodo_al) qs.set("periodoAl", format(filters.periodo_al, "yyyy-MM-dd"));
+                            navigate(`/contabilita/ec-agenzia/pdf?${qs.toString()}`);
+                          }}
                         >
-                          <CreditCard className="h-3 w-3" />
-                          {selectedCount > 0 ? `Paga Rimessa (${selectedCount})` : "Paga Rimessa"}
+                          <FileText className="h-3 w-3" /> Stampa E/C
                         </Button>
-                      )}
+                        {daRimettere > 0 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            disabled={creaRimessaMutation.isPending}
+                            onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere, r.titoli)}
+                          >
+                            <CreditCard className="h-3 w-3" />
+                            {selectedCount > 0 ? `Paga (${selectedCount})` : "Paga Rimessa"}
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                   {isExpanded && (
