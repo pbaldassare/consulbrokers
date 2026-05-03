@@ -183,13 +183,13 @@ const ECAgenziaPdfPage = () => {
     const ra = (Number(agenzia?.percentuale_ra) || 0) * totaleProvvigioni / 100;
 
     return {
-      sedeNome: sede?.nome_ufficio || "",
-      sedeIndirizzo: sede?.indirizzo || "",
-      sedeCap: sede?.cap || "",
-      sedeCitta: sede?.citta || "",
-      sedeProvincia: sede?.provincia || "",
-      sedeEmail: sede?.email || "",
-      sedeTelefono: sede?.telefono || "",
+      sedeNome,
+      sedeIndirizzo,
+      sedeCap,
+      sedeCitta,
+      sedeProvincia,
+      sedeEmail,
+      sedeTelefono,
       riferimento,
       dataDocumento,
       periodoTesto,
