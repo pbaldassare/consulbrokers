@@ -458,6 +458,7 @@ const AddressAutocomplete = ({
         language: "it",
       },
       (items, status) => {
+        if (suppressPredictionsRef.current) return;
         if (requestId !== requestIdRef.current) return;
         const okStatus = window.google?.maps?.places?.AutocompleteServiceStatus?.OK ?? "OK";
         setLoadingPredictions(false);
@@ -481,6 +482,7 @@ const AddressAutocomplete = ({
 
   const handleSelectPrediction = useCallback(async (prediction: GoogleAutocompletePrediction) => {
     suppressPredictionsRef.current = true;
+    requestIdRef.current += 1;
     setOpen(false);
     setPredictions([]);
     setLoadingDetails(true);
