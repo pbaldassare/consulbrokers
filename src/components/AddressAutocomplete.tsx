@@ -28,6 +28,9 @@ interface GoogleAddressComponent {
 }
 
 interface GooglePlaceResult {
+  place_id?: string;
+  formatted_address?: string;
+  name?: string;
   address_components?: GoogleAddressComponent[];
 }
 
@@ -45,11 +48,22 @@ type AutocompleteCtor = new (
   }
 ) => GoogleAutocompleteInstance;
 
+interface PlacesServiceInstance {
+  getDetails: (
+    request: { placeId: string; fields: string[] },
+    callback: (result: GooglePlaceResult | null, status: string) => void
+  ) => void;
+}
+
+type PlacesServiceCtor = new (attrContainer: HTMLElement | unknown) => PlacesServiceInstance;
+
 interface GoogleMapsGlobal {
   maps?: {
-    importLibrary?: (libraryName: string) => Promise<{ Autocomplete?: AutocompleteCtor } & Record<string, unknown>>;
+    importLibrary?: (libraryName: string) => Promise<Record<string, unknown>>;
     places?: {
       Autocomplete?: AutocompleteCtor;
+      PlacesService?: PlacesServiceCtor;
+      PlacesServiceStatus?: { OK: string };
     };
   };
 }
