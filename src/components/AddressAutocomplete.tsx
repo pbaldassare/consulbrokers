@@ -328,9 +328,24 @@ const AddressAutocomplete = ({
   disabled,
 }: AddressAutocompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<GoogleAutocompleteInstance | null>(null);
+  const autocompleteServiceRef = useRef<AutocompleteServiceInstance | null>(null);
+  const placesServiceRef = useRef<PlacesServiceInstance | null>(null);
+  const geocoderRef = useRef<GoogleGeocoderInstance | null>(null);
+  const sessionTokenRef = useRef<GoogleAutocompleteSessionToken | undefined>();
+  const requestIdRef = useRef(0);
+  const blurTimeoutRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [predictions, setPredictions] = useState<GoogleAutocompletePrediction[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
+
+  const missingDetailsWarning = useMemo(
+    () => "Google non ha restituito tutti i dettagli: verifica CAP, città e provincia.",
+    []
+  );
 
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
@@ -349,63 +364,74 @@ const AddressAutocomplete = ({
     return () => { authFailureListeners.delete(onAuthFail); };
   }, []);
 
-  const initAutocomplete = useCallback(() => {
-    if (!ready || !inputRef.current || autocompleteRef.current) return;
-    const Autocomplete = AutocompleteCtorCached ?? window.google?.maps?.places?.Autocomplete;
-    if (!Autocomplete) {
+  const initServices = useCallback(() => {
+    if (!ready || !inputRef.current || autocompleteServiceRef.current) return;
+    const places = window.google?.maps?.places;
+    const AutocompleteService = places?.AutocompleteService;
+    const PlacesService = places?.PlacesService;
+    if (!AutocompleteService || !PlacesService) {
       setReady(false);
       setError("Autocomplete non disponibile");
       return;
     }
 
-    const ac = new Autocomplete(inputRef.current, {
-      types: ["address"],
-      componentRestrictions: { country: "it" },
-      fields: ["address_components", "formatted_address", "place_id", "name", "geometry"],
-    });
-
-    const handleParsed = (place: GooglePlaceResult) => {
-      const parsed = extractAddressComponents(place);
-      onChange(parsed.indirizzo || place.formatted_address || "");
-      onSelect?.(parsed);
-    };
-
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      if (place.address_components && place.address_components.length > 0) {
-        handleParsed(place);
-        return;
-      }
-      // Fallback: fetch full details via PlacesService
-      const PlacesService = window.google?.maps?.places?.PlacesService;
-      if (place.place_id && PlacesService && inputRef.current) {
-        try {
-          const svc = new PlacesService(inputRef.current);
-          svc.getDetails(
-            {
-              placeId: place.place_id,
-              fields: ["address_components", "formatted_address", "name", "geometry"],
-            },
-            (result, status) => {
-              const okStatus = window.google?.maps?.places?.PlacesServiceStatus?.OK ?? "OK";
-              if (status === okStatus && result) handleParsed(result);
-              else console.warn("[AddressAutocomplete] getDetails fallito:", status);
-            }
-          );
-        } catch (err) {
-          console.warn("[AddressAutocomplete] PlacesService non disponibile:", err);
-        }
-      } else {
-        console.warn("[AddressAutocomplete] place senza address_components né place_id");
-      }
-    });
-
-    autocompleteRef.current = ac;
+    autocompleteServiceRef.current = new AutocompleteService();
+    placesServiceRef.current = new PlacesService(inputRef.current);
+    if (window.google?.maps?.Geocoder) geocoderRef.current = new window.google.maps.Geocoder();
+    if (places?.AutocompleteSessionToken) sessionTokenRef.current = new places.AutocompleteSessionToken();
   }, [ready, onChange, onSelect]);
 
   useEffect(() => {
-    initAutocomplete();
-  }, [initAutocomplete]);
+    initServices();
+  }, [initServices]);
+
+  const fetchPlaceDetails = useCallback((prediction: GoogleAutocompletePrediction) => {
+    const service = placesServiceRef.current;
+    if (!service) return Promise.resolve<GooglePlaceResult | null>(null);
+    return new Promise<GooglePlaceResult | null>((resolve) => {
+      service.getDetails(
+        {
+          placeId: prediction.place_id,
+          fields: ["address_components", "formatted_address", "place_id", "name", "geometry"],
+          sessionToken: sessionTokenRef.current,
+        },
+        (result, status) => {
+          const okStatus = window.google?.maps?.places?.PlacesServiceStatus?.OK ?? "OK";
+          if (status === okStatus && result) resolve(result);
+          else {
+            console.warn("[AddressAutocomplete] getDetails fallito:", status);
+            resolve(null);
+          }
+        }
+      );
+    });
+  }, []);
+
+  const geocodePrediction = useCallback((prediction: GoogleAutocompletePrediction) => {
+    const geocoder = geocoderRef.current;
+    if (!geocoder) return Promise.resolve<GooglePlaceResult | null>(null);
+    return new Promise<GooglePlaceResult | null>((resolve) => {
+      geocoder.geocode(
+        { placeId: prediction.place_id, componentRestrictions: { country: "IT" } },
+        (results, status) => {
+          const okStatus = window.google?.maps?.GeocoderStatus?.OK ?? "OK";
+          if (status === okStatus && results?.[0]) resolve(results[0]);
+          else {
+            geocoder.geocode(
+              { address: prediction.description, componentRestrictions: { country: "IT" } },
+              (addressResults, addressStatus) => {
+                if (addressStatus === okStatus && addressResults?.[0]) resolve(addressResults[0]);
+                else {
+                  console.warn("[AddressAutocomplete] geocode fallito:", status, addressStatus);
+                  resolve(null);
+                }
+              }
+            );
+          }
+        }
+      );
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
