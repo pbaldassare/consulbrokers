@@ -22,6 +22,11 @@ export interface PrecontrattualeData {
   specialistEmail: string;
   specialistTelefono: string;
   specialistIndirizzo: string;
+  // Sede operativa (ufficio dell'agenzia)
+  sedeNome?: string;
+  sedeIndirizzoCompleto?: string;
+  sedeEmail?: string;
+  sedeTelefono?: string;
   // Sezioni dinamiche
   modelloDistribuzione: string;
   collaborazioneAltri: boolean;
@@ -376,6 +381,15 @@ function renderMUP(ctx: Ctx, d: PrecontrattualeData) {
   drawText(ctx, `Telefono: ${d.specialistTelefono || "-"}   e-mail: ${d.specialistEmail || "-"}`, { size: 9 });
   drawText(ctx, `Indirizzo: ${d.specialistIndirizzo || "-"}`, { size: 9 });
   drawText(ctx, "Nella sua qualità di: Addetto all'intermediazione al di fuori dei locali del broker (dipendente/collaboratore)", { size: 9, italic: true });
+  if (d.sedeNome) {
+    spacer(ctx, 3);
+    drawText(ctx, "SEDE OPERATIVA:", { bold: true, size: 9 });
+    drawText(ctx, `${d.sedeNome}`, { size: 9 });
+    if (d.sedeIndirizzoCompleto) drawText(ctx, `Indirizzo: ${d.sedeIndirizzoCompleto}`, { size: 9 });
+    if (d.sedeTelefono || d.sedeEmail) {
+      drawText(ctx, `Telefono: ${d.sedeTelefono || "-"}   e-mail: ${d.sedeEmail || "-"}`, { size: 9 });
+    }
+  }
   spacer(ctx, 4);
   drawText(ctx, "ATTIVITÀ SVOLTA PER CONTO DI:", { bold: true, size: 9 });
   drawText(ctx, `Nome e Cognome: ${CB_RAGSOC}`, { size: 9 });

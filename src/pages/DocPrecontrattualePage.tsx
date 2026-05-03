@@ -143,7 +143,7 @@ const DocPrecontrattualePage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
-        .select("id, nome_ufficio, indirizzo, cap, citta, provincia")
+        .select("id, nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
         .order("nome_ufficio");
       return data || [];
     },
@@ -367,6 +367,8 @@ const DocPrecontrattualePage = () => {
       setCittaRui(parsed.citta || "");
       setProvinciaRui(parsed.prov || "");
     }
+    if (u.email) setEmailRui(u.email);
+    if (u.telefono) setTelRui(u.telefono);
   };
 
   const buildData = (): PrecontrattualeData => {
@@ -402,6 +404,10 @@ const DocPrecontrattualePage = () => {
       specialistEmail: emailRui,
       specialistTelefono: telRui,
       specialistIndirizzo: [indirizzoRui, capRui, cittaRui, provinciaRui].filter(Boolean).join(" - "),
+      sedeNome: (ufficiList || []).find((x: any) => x.id === sede)?.nome_ufficio || "",
+      sedeIndirizzoCompleto: composeIndirizzoSede((ufficiList || []).find((x: any) => x.id === sede)),
+      sedeEmail: (ufficiList || []).find((x: any) => x.id === sede)?.email || "",
+      sedeTelefono: (ufficiList || []).find((x: any) => x.id === sede)?.telefono || "",
       modelloDistribuzione,
       collaborazioneAltri,
       sezioneII_testo: sezioneIIMap[sezioneII] || "",
