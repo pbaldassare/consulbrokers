@@ -8,6 +8,7 @@ import QuadraturePremi from "@/pages/contabilita/QuadraturePremi";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECAgenziaPdfPage from "@/pages/contabilita/ECAgenziaPdfPage";
+import ECAgenzieStoricoPage from "@/pages/contabilita/ECAgenzieStoricoPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
 import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
 
