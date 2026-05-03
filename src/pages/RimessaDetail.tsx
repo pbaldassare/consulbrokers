@@ -249,7 +249,7 @@ const RimessaDetail = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Annullare questa rimessa?</AlertDialogTitle>
             <AlertDialogDescription>
-              I titoli inclusi torneranno disponibili per una nuova rimessa in EC Compagnia. Questa azione non può essere annullata.
+              I titoli inclusi torneranno disponibili per una nuova rimessa in E/C Agenzie. Questa azione non può essere annullata.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -237,7 +237,7 @@ const sezioni = [
       { nome: "Quadratura Premi", desc: "Verifica corrispondenza tra premi incassati e premi dovuti", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "Chiusura Contabile", desc: "Chiusura periodo contabile con generazione report", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Clienti", desc: "Estratto conto per singolo cliente con saldo e movimenti", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "E/C Compagnia", desc: "Estratto conto verso compagnia con premi e provvigioni", ruoli: ["admin", "ufficio", "contabilita"] },
+      { nome: "E/C Agenzie", desc: "Estratto conto verso agenzie/plurimandatarie con premi e provvigioni da rimettere", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Produttori", desc: "Estratto conto produttore con provvigioni maturate e liquidate", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "Import Provvigioni", desc: "Importazione file provvigioni da compagnie (PDF/Excel)", ruoli: ["admin", "ufficio"] },
       { nome: "Diff. Provvigioni", desc: "Analisi differenze tra provvigioni attese e ricevute", ruoli: ["admin", "ufficio"] },

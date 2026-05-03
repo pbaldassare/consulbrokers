@@ -318,16 +318,16 @@ const ECCompagniaContabPage = () => {
   };
 
   const exportCSV = () => {
-    const header = "Compagnia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
+    const header = "Agenzia,Codice,Data,Mail,Lordo,Provvigioni,Da Rimettere\n";
     const csv = rows.map((r) => `"${r.nome}","${r.codice}","${formatDateRange(r.data_min, r.data_max)}","${r.mail}",${r.lordo.toFixed(2)},${r.provvigioni.toFixed(2)},${(r.lordo - r.provvigioni).toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "ec_compagnia.csv"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "ec_agenzie.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 
   const kpiCards = [
-    { label: "N. Compagnie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
+    { label: "N. Agenzie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "Totale Lordo", value: fmt(totLordo), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Provvigioni", value: fmt(totProvv), icon: Percent, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
     { label: "Da Rimettere", value: fmt(totDaRimettere), icon: Scale, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
@@ -339,8 +339,8 @@ const ECCompagniaContabPage = () => {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="w-5 h-5 text-primary" /></div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">E/C Compagnia</h1>
-            <p className="text-sm text-muted-foreground">Estratto conto per compagnia — solo titoli ancora da rimettere</p>
+            <h1 className="text-2xl font-bold text-foreground">E/C Agenzie</h1>
+            <p className="text-sm text-muted-foreground">Estratto conto verso agenzie/plurimandatarie — solo titoli ancora da rimettere</p>
           </div>
         </div>
         <Button variant="outline" onClick={exportCSV} disabled={!rows.length}><Download className="mr-2 h-4 w-4" /> Esporta CSV</Button>
@@ -361,7 +361,7 @@ const ECCompagniaContabPage = () => {
           {hasFilters && <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setFilters({ ...defaultFilters })}><RotateCcw className="h-3 w-3 mr-1" /> Azzera</Button>}
         </div>
         <div className="flex flex-wrap gap-3 items-end">
-          <FilterSearchableSelect value={filters.compagnia_id} onValueChange={(v) => set({ compagnia_id: v })} options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))} placeholder="Compagnia" allLabel="Tutte le compagnie" className="w-[240px]" />
+          <FilterSearchableSelect value={filters.compagnia_id} onValueChange={(v) => set({ compagnia_id: v })} options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))} placeholder="Agenzia" allLabel="Tutte le agenzie" className="w-[240px]" />
           <FilterSearchableSelect value={filters.ufficio_id} onValueChange={(v) => set({ ufficio_id: v })} options={(uffici || []).map((u) => ({ value: u.id, label: u.nome_ufficio }))} placeholder="Sede" allLabel="Tutte le sedi" className="w-[200px]" />
           <FilterSearchableSelect value={filters.produttore_id} onValueChange={(v) => set({ produttore_id: v })} options={(produttori || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }))} placeholder="Produttore" allLabel="Tutti i produttori" className="w-[220px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
@@ -375,7 +375,7 @@ const ECCompagniaContabPage = () => {
         <Table>
           <TableHeader><TableRow>
             <TableHead className="w-[40px]"></TableHead>
-            <TableHead>Compagnia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
+            <TableHead>Agenzia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
             <TableHead className="text-right">Da Rimettere</TableHead>
             <TableHead className="w-[180px]">Azioni</TableHead>
@@ -516,7 +516,7 @@ const ECCompagniaContabPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
-              Paga Rimessa alla Compagnia
+              Paga Rimessa all'Agenzia
             </DialogTitle>
             <DialogDescription>
               {pagaDialog.compagniaNome} — {pagaDialog.titoliCount} titoli
@@ -524,14 +524,14 @@ const ECCompagniaContabPage = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>IBAN Compagnia</Label>
+              <Label>IBAN Agenzia</Label>
               <Input
                 value={pagaDialog.iban}
                 onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
                 placeholder="Inserisci IBAN"
               />
-              {!pagaDialog.iban && (
-                <p className="text-xs text-amber-600">IBAN non trovato per questa compagnia. Inserirlo manualmente.</p>
+                {!pagaDialog.iban && (
+                <p className="text-xs text-amber-600">IBAN non trovato per questa agenzia. Inserirlo manualmente.</p>
               )}
             </div>
             <div className="space-y-2">

@@ -267,7 +267,7 @@ const StoricoRimessePage = () => {
               Stai per annullare la rimessa per <strong>{annullaTarget?.compagnie?.nome}</strong> di{" "}
               <strong>{annullaTarget ? fmt(Number(annullaTarget.totale_importi) || 0) : ""}</strong>.
               <br /><br />
-              I titoli inclusi torneranno disponibili per una nuova rimessa in EC Compagnia. Questa azione non può essere annullata.
+              I titoli inclusi torneranno disponibili per una nuova rimessa in E/C Agenzie. Questa azione non può essere annullata.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

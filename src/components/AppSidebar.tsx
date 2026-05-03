@@ -170,7 +170,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
         { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare, hideForRoles: ["ufficio"] },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
-        { label: "E/C Compagnia", path: "/contabilita/ec-compagnia", icon: Building2, hideForRoles: ["ufficio"] },
+        { label: "E/C Agenzie", path: "/contabilita/ec-compagnia", icon: Building2, hideForRoles: ["ufficio"] },
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Stampa Primanota", path: "/contabilita/stampa-primanota", icon: Printer },
