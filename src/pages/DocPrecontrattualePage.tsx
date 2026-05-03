@@ -288,6 +288,21 @@ const DocPrecontrattualePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
 
+  // Prefill dati POLIZZA quando arriviamo da TitoloDetail
+  useEffect(() => {
+    if (!titoloData) return;
+    setPolizza(titoloData.numero_titolo || "");
+    setRiferimento(titoloData.riferimento || "");
+    const ramoTxt = titoloData.rami
+      ? `${titoloData.rami.codice || ""} ${titoloData.rami.descrizione || ""}`.trim()
+      : "";
+    if (ramoTxt) setRamo(ramoTxt);
+    const cmp = titoloData.compagnie;
+    if (cmp?.codice) setCodiceCompagnia(cmp.codice);
+    else if (cmp?.nome) setCodiceCompagnia(cmp.nome);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titoloData]);
+
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
 
