@@ -68,7 +68,7 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Sede mittente (dall'utente loggato)
+  // Sede mittente (dall'utente loggato) — usata come default
   const { data: sede } = useQuery({
     queryKey: ["ec-pdf-sede", profile?.ufficio_id],
     enabled: !!profile?.ufficio_id,
@@ -81,6 +81,32 @@ const ECAgenziaPdfPage = () => {
       return data as any;
     },
   });
+
+  // Tutte le sedi (per selezione)
+  const { data: tutteSedi } = useQuery({
+    queryKey: ["ec-pdf-tutte-sedi"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
+        .eq("attivo", true)
+        .order("nome_ufficio");
+      return data || [];
+    },
+  });
+
+  // Pre-popola override sede al primo caricamento
+  useEffect(() => {
+    if (sede && !sedeNome) {
+      setSedeNome(sede.nome_ufficio || "");
+      setSedeIndirizzo(sede.indirizzo || "");
+      setSedeCap(sede.cap || "");
+      setSedeCitta(sede.citta || "");
+      setSedeProvincia(sede.provincia || "");
+      setSedeEmail(sede.email || "");
+      setSedeTelefono(sede.telefono || "");
+    }
+  }, [sede]); // eslint-disable-line
 
   // Titoli
   const { data: titoli } = useQuery({
