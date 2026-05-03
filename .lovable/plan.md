@@ -1,53 +1,43 @@
 ## Obiettivo
+Aggiungere il documento **Precontrattuale** anche dal dettaglio della Polizza (Titolo), riutilizzando esattamente la stessa pagina/PDF già usata dal cliente, ma con **prefill aggiuntivo dei dati polizza** (numero, compagnia, ramo, riferimento).
 
-Quando si seleziona una **Sede** (es. "Ufficio di Napoli") nella pagina `/portafoglio/doc-precontrattuale`, devono essere ripresi automaticamente dal DB tutti i dati della sede (indirizzo, CAP, città, provincia, **email** e **telefono**) e questi dati devono comparire nel PDF della precontrattuale insieme agli altri.
+## Cosa cambia per l'utente
+- Sulla card **Operazioni** della pagina `/titoli/:id` compare un nuovo pulsante **Precontrattuale** (icona FileText).
+- Cliccandolo si apre la stessa pagina `DocPrecontrattualePage` già esistente, con anteprima e salva PDF, ma con compilati automaticamente:
+  - Tutti i dati Cliente + Sede + Specialist (come oggi quando si entra dal cliente)
+  - **Numero polizza**, **Riferimento**, **Compagnia**, **Ramo** della polizza selezionata
+- Stessa identica UI, stessa anteprima, stesso PDF (con blocco Sede Operativa già introdotto).
 
-## Stato attuale
+## Modifiche tecniche
 
-- La query `ufficiList` in `src/pages/DocPrecontrattualePage.tsx` (riga 144) seleziona solo `id, nome_ufficio, indirizzo, cap, citta, provincia` → **mancano `email` e `telefono`**.
-- `applySede` popola Indirizzo/CAP/Città/Prov ma **non** popola E-mail e Tel della sezione RUI.
-- Il PDF (`src/lib/precontrattuale-pdf.ts`) mostra `specialistIndirizzo` come singola stringa concatenata: la sede non è valorizzata in modo distinto.
-- Sede "Ufficio di Napoli" sul DB ha `email = segreteria@consulbrokers`, telefono nullo. Sede "San Donà" ha telefono `0421 307800`.
+### 1. `src/pages/TitoloDetail.tsx`
+Aggiungere nella card Operazioni (dopo "Regolazione") un Button:
+```tsx
+<Button variant="outline" size="sm" onClick={() => navigate(
+  `/portafoglio/doc-precontrattuale?titoloId=${t.id}&clienteId=${(t.cliente_anagrafica as any)?.id || ""}`
+)}>
+  <FileText className="w-4 h-4 mr-1" /> Precontrattuale
+</Button>
+```
 
-## Modifiche
-
-### 1. `src/pages/DocPrecontrattualePage.tsx`
-
-- Estendere la `select` di `ufficiList` aggiungendo `email, telefono`.
-- In `applySede`:
-  - popolare `indirizzoRui / capRui / cittaRui / provinciaRui` dai campi strutturati della sede (già fatto), con fallback al parser legacy.
-  - **Sovrascrivere sempre** `emailRui` e `telRui` con quelli della sede selezionata se presenti (la sede è la fonte ufficiale per il documento precontrattuale). Se la sede non li ha, mantenere quelli attuali.
-- In `composeIndirizzoSede`: già ok, viene riusato.
-- Passare al PDF tre nuovi campi dedicati alla **Sede Operativa**: `sedeNome`, `sedeIndirizzo` (già composto), `sedeEmail`, `sedeTelefono`.
-
-### 2. `src/lib/precontrattuale-pdf.ts`
-
-- Aggiungere a `PrecontrattualeData` i campi opzionali:
-  ```ts
-  sedeNome?: string;
-  sedeIndirizzoCompleto?: string;
-  sedeEmail?: string;
-  sedeTelefono?: string;
-  ```
-- Nel blocco MUP "INTERMEDIARIO CHE ENTRA IN CONTATTO CON IL CLIENTE" (intorno a riga 377), dopo la riga `Indirizzo: …`, aggiungere un blocco "Sede Operativa":
-  ```
-  Sede Operativa: {sedeNome}
-  Indirizzo: {sedeIndirizzoCompleto}
-  Telefono: {sedeTelefono}   e-mail: {sedeEmail}
-  ```
-  mostrato solo se `sedeNome` è presente.
+### 2. `src/pages/DocPrecontrattualePage.tsx`
+- Leggere nuovo query param `titoloId`.
+- Aggiungere una `useQuery` che carica il titolo:
+  - `titoli`: `numero_titolo, riferimento, ramo, prodotto_nome, compagnia_id, cliente_id`
+  - join `compagnie`: `nome, codice`
+- In un nuovo `useEffect([titoloData])`:
+  - `setPolizza(t.numero_titolo)`
+  - `setRiferimento(t.riferimento || "")`
+  - `setRamo(t.ramo || "")`
+  - `setCodiceCompagnia(compagnia.codice || compagnia.nome)` → triggera già la lookup esistente che popola `compagniaData.nome` usato nel PDF.
+- Se `clienteId` non passato ma `titoloId` sì, derivarlo da `t.cliente_id` per riusare la logica di prefill cliente esistente.
 
 ### 3. `public/version.json`
+Bump versione per refresh client.
 
-Bump versione per forzare reload.
-
-## Risultato atteso
-
-- Selezionando "Ufficio di Napoli" → CAP `80122`, Città `Napoli`, Prov `NA`, Indirizzo `Via Mergellina, 2`, E-mail `segreteria@consulbrokers` (già visibile nello screenshot per Indirizzo/CAP/Città/Prov; ora anche e-mail/telefono).
-- Nel PDF precontrattuale generato comparirà un blocco "Sede Operativa" con nome sede, indirizzo completo, telefono e e-mail, oltre ai dati già presenti dello Specialist e di Consulbrokers.
-
-## File modificati
-
-- `src/pages/DocPrecontrattualePage.tsx`
-- `src/lib/precontrattuale-pdf.ts`
+## File toccati
+- `src/pages/TitoloDetail.tsx` (1 bottone)
+- `src/pages/DocPrecontrattualePage.tsx` (query + effect prefill polizza)
 - `public/version.json`
+
+Nessuna modifica a `precontrattuale-pdf.ts`: il PDF già supporta `polizzaNumero`, `polizzaRiferimento`, `polizzaCompagniaTesto`, `polizzaRamo`.

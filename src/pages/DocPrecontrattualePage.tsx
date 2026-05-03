@@ -21,7 +21,25 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 const DocPrecontrattualePage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const clienteIdParam = searchParams.get("clienteId");
+  const clienteIdParamRaw = searchParams.get("clienteId");
+  const titoloIdParam = searchParams.get("titoloId");
+
+  // Carica titolo se presente (per prefill polizza + derivare cliente)
+  const { data: titoloData } = useQuery({
+    queryKey: ["doc-precontr-titolo", titoloIdParam],
+    enabled: !!titoloIdParam,
+    queryFn: async () => {
+      if (!titoloIdParam) return null;
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riferimento, cliente_anagrafica_id, compagnia_id, ramo_id, compagnie:compagnia_id(nome, codice), rami:ramo_id(codice, descrizione)")
+        .eq("id", titoloIdParam)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
+  const clienteIdParam = clienteIdParamRaw || (titoloData?.cliente_anagrafica_id ?? null);
 
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
@@ -269,6 +287,21 @@ const DocPrecontrattualePage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillData]);
+
+  // Prefill dati POLIZZA quando arriviamo da TitoloDetail
+  useEffect(() => {
+    if (!titoloData) return;
+    setPolizza(titoloData.numero_titolo || "");
+    setRiferimento(titoloData.riferimento || "");
+    const ramoTxt = titoloData.rami
+      ? `${titoloData.rami.codice || ""} ${titoloData.rami.descrizione || ""}`.trim()
+      : "";
+    if (ramoTxt) setRamo(ramoTxt);
+    const cmp = titoloData.compagnie;
+    if (cmp?.codice) setCodiceCompagnia(cmp.codice);
+    else if (cmp?.nome) setCodiceCompagnia(cmp.nome);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titoloData]);
 
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);

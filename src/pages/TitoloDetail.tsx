@@ -1237,6 +1237,9 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => document.getElementById("regolazione-section")?.scrollIntoView({ behavior: "smooth" })}>
               <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
             </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}`)}>
+              <FileText className="w-4 h-4 mr-1" /> Precontrattuale
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
