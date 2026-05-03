@@ -32,6 +32,23 @@ let googleScriptPromise: Promise<void> | null = null;
 let googleAuthFailed = false;
 const authFailureListeners = new Set<() => void>();
 
+function hasPlacesAutocomplete(): boolean {
+  return Boolean(window.google?.maps?.places?.Autocomplete);
+}
+
+async function ensurePlacesLibrary(): Promise<void> {
+  if (hasPlacesAutocomplete()) return;
+
+  const importLibrary = window.google?.maps?.importLibrary;
+  if (typeof importLibrary === "function") {
+    await importLibrary("places");
+  }
+
+  if (!hasPlacesAutocomplete()) {
+    throw new Error("Google Places Autocomplete non disponibile");
+  }
+}
+
 if (typeof window !== "undefined") {
   (window as any).gm_authFailure = () => {
     googleAuthFailed = true;
@@ -44,13 +61,13 @@ if (typeof window !== "undefined") {
 }
 
 function loadGoogleMapsScript(): Promise<void> {
-  if (googleScriptLoaded && window.google?.maps?.places) {
+  if (googleScriptLoaded && hasPlacesAutocomplete()) {
     return Promise.resolve();
   }
   if (googleScriptPromise) return googleScriptPromise;
 
   googleScriptPromise = new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) {
+    if (hasPlacesAutocomplete()) {
       googleScriptLoaded = true;
       resolve();
       return;
@@ -65,8 +82,15 @@ function loadGoogleMapsScript(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      googleScriptLoaded = true;
-      resolve();
+      ensurePlacesLibrary()
+        .then(() => {
+          googleScriptLoaded = true;
+          resolve();
+        })
+        .catch((error) => {
+          googleScriptPromise = null;
+          reject(error);
+        });
     };
     script.onerror = () => {
       googleScriptPromise = null;
@@ -156,6 +180,11 @@ const AddressAutocomplete = ({
 
   const initAutocomplete = useCallback(() => {
     if (!ready || !inputRef.current || autocompleteRef.current) return;
+    if (!hasPlacesAutocomplete()) {
+      setReady(false);
+      setError("Autocomplete non disponibile");
+      return;
+    }
 
     const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
       types: ["address"],
