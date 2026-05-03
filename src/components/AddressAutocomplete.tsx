@@ -71,23 +71,35 @@ function hasPlacesAutocomplete(): boolean {
   return Boolean(AutocompleteCtorCached || window.google?.maps?.places?.Autocomplete);
 }
 
+async function waitForPlaces(timeoutMs = 8000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (window.google?.maps?.places?.Autocomplete) {
+      AutocompleteCtorCached = window.google.maps.places.Autocomplete;
+      return;
+    }
+    // Try modern importLibrary if available
+    const importLibrary = window.google?.maps?.importLibrary;
+    if (typeof importLibrary === "function") {
+      try {
+        const places = await importLibrary("places");
+        const Ctor = (places?.Autocomplete as AutocompleteCtor | undefined) ?? window.google?.maps?.places?.Autocomplete;
+        if (Ctor) {
+          AutocompleteCtorCached = Ctor;
+          return;
+        }
+      } catch {
+        // fall through and retry polling
+      }
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error("Google Places Autocomplete non disponibile (timeout)");
+}
+
 async function ensurePlacesLibrary(): Promise<void> {
   if (AutocompleteCtorCached) return;
-  if (window.google?.maps?.places?.Autocomplete) {
-    AutocompleteCtorCached = window.google.maps.places.Autocomplete;
-    return;
-  }
-
-  const importLibrary = window.google?.maps?.importLibrary;
-  if (typeof importLibrary !== "function") {
-    throw new Error("google.maps.importLibrary non disponibile");
-  }
-  const places = await importLibrary("places");
-  const Ctor = (places?.Autocomplete as AutocompleteCtor | undefined) ?? window.google?.maps?.places?.Autocomplete;
-  if (!Ctor) {
-    throw new Error("Google Places Autocomplete non disponibile");
-  }
-  AutocompleteCtorCached = Ctor;
+  await waitForPlaces();
 }
 
 if (typeof window !== "undefined") {
@@ -118,11 +130,12 @@ function loadGoogleMapsScript(): Promise<void> {
       reject(new Error("VITE_GOOGLE_MAPS_API_KEY non configurata"));
       return;
     }
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&language=it&loading=async&v=weekly`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
+
+    // Reuse pre-existing script tag if present
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src*="maps.googleapis.com/maps/api/js"]'
+    );
+    const handleReady = () => {
       ensurePlacesLibrary()
         .then(() => {
           googleScriptLoaded = true;
@@ -133,10 +146,27 @@ function loadGoogleMapsScript(): Promise<void> {
           reject(error);
         });
     };
-    script.onerror = () => {
+    const handleErr = () => {
       googleScriptPromise = null;
       reject(new Error("Failed to load Google Maps script (network/blocked)"));
     };
+
+    if (existing) {
+      if (window.google?.maps) {
+        handleReady();
+      } else {
+        existing.addEventListener("load", handleReady, { once: true });
+        existing.addEventListener("error", handleErr, { once: true });
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=it&loading=async&v=weekly`;
+    script.async = true;
+    script.defer = true;
+    script.onload = handleReady;
+    script.onerror = handleErr;
     document.head.appendChild(script);
   });
   return googleScriptPromise;

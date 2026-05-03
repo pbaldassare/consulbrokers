@@ -1,47 +1,30 @@
-## Problema
+Ho verificato il problema: nella preview l’errore reale è `google.maps.importLibrary non disponibile`, quindi lo script Google Maps viene caricato in una modalità in cui `importLibrary` non è esposto. Per questo l’autocomplete non parte e l’indirizzo non viene “preso”.
 
-Lo script Google Maps si carica correttamente ma `ensurePlacesLibrary` lancia `"Google Places Autocomplete non disponibile"`. Causa: con `loading=async&v=weekly`, dopo `importLibrary("places")` il costruttore `Autocomplete` viene restituito **dal valore di ritorno della Promise**, non sempre è subito assegnato a `window.google.maps.places.Autocomplete` nel timing in cui lo controlliamo (alcune build asincrone risolvono prima la Promise dell'assegnamento globale, oppure i tipi sono spostati nel nuovo namespace Places).
+Piano di intervento:
 
-Il fallback "manuale" parte e quindi CAP/Città/Provincia non vengono compilati.
+1. Correggere il caricamento Google Maps in `src/components/AddressAutocomplete.tsx`
+   - Ripristinare il caricamento compatibile con Autocomplete classico usando `libraries=places` nell’URL dello script.
+   - Non dipendere solo da `google.maps.importLibrary`, perché nel browser attuale non è disponibile.
+   - Mantenere comunque un fallback: se `importLibrary` esiste lo uso, altrimenti uso `window.google.maps.places.Autocomplete`.
 
-## Soluzione
+2. Rendere l’inizializzazione più robusta
+   - Dopo `script.onload`, attendere esplicitamente che `window.google.maps.places.Autocomplete` sia realmente disponibile prima di inizializzare il campo.
+   - Evitare che il componente finisca subito in errore se il global Google è presente ma Places non è ancora agganciato.
+   - Gestire correttamente script già presenti in pagina per evitare caricamenti duplicati.
 
-Modificare `src/components/AddressAutocomplete.tsx`:
+3. Migliorare la selezione indirizzo
+   - Verificare che il listener `place_changed` venga collegato all’input.
+   - Continuare a estrarre e compilare: indirizzo normalizzato, CAP, città e provincia.
+   - Lasciare i campi manuali come fallback solo se Google fallisce davvero per chiave/dominio/API non abilitata.
 
-1. **Memorizzare il costruttore restituito da `importLibrary("places")`** invece di affidarsi a `window.google.maps.places.Autocomplete`. La nuova API ufficiale di Google è:
-   ```ts
-   const { Autocomplete } = await google.maps.importLibrary("places");
-   ```
-   Questo è il pattern raccomandato con `loading=async`.
+4. Aggiornare la versione app
+   - Incrementare `public/version.json` per forzare il refresh della preview ed evitare che resti servita una versione vecchia.
 
-2. Salvare il costruttore in una variabile module-level (`AutocompleteCtor`) e usarla in `initAutocomplete` invece di leggerla dal global.
+File da modificare:
+- `src/components/AddressAutocomplete.tsx`
+- `public/version.json`
 
-3. Rimuovere il controllo bloccante `hasPlacesAutocomplete()` post-import: se `importLibrary` risolve con un oggetto che contiene `Autocomplete`, è valido.
-
-4. Rimuovere il parametro `&libraries=places` dall'URL (con `loading=async` Google raccomanda di non pre-caricarle e usare solo `importLibrary`), evitando warning.
-
-5. Bump `public/version.json`.
-
-## File da modificare
-
-- `src/components/AddressAutocomplete.tsx` — refactor caricamento Places API
-- `public/version.json` — bump versione
-
-## Snippet chiave
-
-```ts
-let AutocompleteCtor: typeof google.maps.places.Autocomplete | null = null;
-
-async function ensurePlacesLibrary() {
-  if (AutocompleteCtor) return;
-  const places = await window.google!.maps!.importLibrary!("places") as
-    { Autocomplete: typeof google.maps.places.Autocomplete };
-  AutocompleteCtor = places.Autocomplete;
-  if (!AutocompleteCtor) throw new Error("Places library senza Autocomplete");
-}
-
-// in initAutocomplete:
-const ac = new AutocompleteCtor!(inputRef.current, { ... });
-```
-
-Confermi?
+Risultato atteso:
+- Digitando un indirizzo come “viale mergellina” il menu Google Places deve comparire sotto il campo.
+- Selezionando un suggerimento, il componente deve compilare automaticamente CAP, Città e Provincia.
+- L’errore rosso “Autocomplete non disponibile” deve comparire solo in caso di reale problema Google: chiave API non valida, dominio non autorizzato, Places API non abilitata o blocco rete.
