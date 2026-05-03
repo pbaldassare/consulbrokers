@@ -296,10 +296,6 @@ function extractAddressComponents(place: GooglePlaceResult, fallbackText = ""): 
     provincia = cleanedLong.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase();
   }
 
-  if (!cap) console.warn("[AddressAutocomplete] CAP non disponibile");
-  if (!citta) console.warn("[AddressAutocomplete] Città non disponibile");
-  if (!provincia) console.warn("[AddressAutocomplete] Provincia non disponibile");
-
   let indirizzo = [route, street_number].filter(Boolean).join(", ");
   if (!indirizzo && place.formatted_address) {
     // Fallback: take first segment before comma
@@ -379,7 +375,7 @@ const AddressAutocomplete = ({
     placesServiceRef.current = new PlacesService(inputRef.current);
     if (window.google?.maps?.Geocoder) geocoderRef.current = new window.google.maps.Geocoder();
     if (places?.AutocompleteSessionToken) sessionTokenRef.current = new places.AutocompleteSessionToken();
-  }, [ready, onChange, onSelect]);
+  }, [ready]);
 
   useEffect(() => {
     initServices();
@@ -432,6 +428,82 @@ const AddressAutocomplete = ({
       );
     });
   }, []);
+
+  const fetchPredictions = useCallback((input: string) => {
+    const service = autocompleteServiceRef.current;
+    const term = input.trim();
+    const requestId = ++requestIdRef.current;
+
+    if (!service || term.length < 3) {
+      setPredictions([]);
+      setOpen(false);
+      setLoadingPredictions(false);
+      return;
+    }
+
+    setLoadingPredictions(true);
+    service.getPlacePredictions(
+      {
+        input: term,
+        types: ["address"],
+        componentRestrictions: { country: "it" },
+        language: "it",
+      },
+      (items, status) => {
+        if (requestId !== requestIdRef.current) return;
+        const okStatus = window.google?.maps?.places?.AutocompleteServiceStatus?.OK ?? "OK";
+        setLoadingPredictions(false);
+        if (status === okStatus && items?.length) {
+          setPredictions(items.slice(0, 6));
+          setOpen(true);
+        } else {
+          setPredictions([]);
+          setOpen(false);
+        }
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!ready || disabled) return;
+    const timer = window.setTimeout(() => fetchPredictions(value), 350);
+    return () => window.clearTimeout(timer);
+  }, [disabled, fetchPredictions, ready, value]);
+
+  const handleSelectPrediction = useCallback(async (prediction: GoogleAutocompletePrediction) => {
+    setOpen(false);
+    setPredictions([]);
+    setLoadingDetails(true);
+    setSelectionWarning(null);
+    onChange(prediction.structured_formatting?.main_text || prediction.description);
+
+    const details = await fetchPlaceDetails(prediction);
+    const geocoded = details?.address_components?.some((c) => c.types.includes("postal_code"))
+      ? null
+      : await geocodePrediction(prediction);
+
+    const parsedDetails = details ? extractAddressComponents(details, prediction.description) : null;
+    const parsedGeocode = geocoded ? extractAddressComponents(geocoded, prediction.description) : null;
+    const fallback = parseAddressText(prediction.description);
+    const parsed = mergeAddressComponents(
+      parsedDetails || { indirizzo: "", cap: "", citta: "", provincia: "" },
+      parsedGeocode || fallback
+    );
+
+    onChange(parsed.indirizzo || prediction.structured_formatting?.main_text || prediction.description);
+    onSelect?.(parsed);
+    if (!parsed.cap || !parsed.citta || !parsed.provincia) setSelectionWarning(missingDetailsWarning);
+    else setSelectionWarning(null);
+    setLoadingDetails(false);
+    sessionTokenRef.current = window.google?.maps?.places?.AutocompleteSessionToken
+      ? new window.google.maps.places.AutocompleteSessionToken()
+      : undefined;
+  }, [fetchPlaceDetails, geocodePrediction, missingDetailsWarning, onChange, onSelect]);
+
+  const handleInputChange = useCallback((nextValue: string) => {
+    setSelectionWarning(null);
+    onChange(nextValue);
+  }, [onChange]);
 
   useEffect(() => {
     return () => {
