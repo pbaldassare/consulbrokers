@@ -378,7 +378,7 @@ const ECCompagniaContabPage = () => {
             <TableHead>Agenzia</TableHead><TableHead>Codice</TableHead><TableHead>Data</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
             <TableHead className="text-right">Da Rimettere</TableHead>
-            <TableHead className="w-[180px]">Azioni</TableHead>
+            <TableHead className="w-[260px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
