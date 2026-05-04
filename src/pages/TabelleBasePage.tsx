@@ -1042,7 +1042,7 @@ const tabConfig: { value: string; label: string; tableName: string; queryKey: st
   { value: "lookup_fasce_fatturato", label: "Fasce Fatturato", tableName: "lookup_fasce_fatturato", queryKey: "lookup-fasce-fatturato", title: "Fascia Fatturato", custom: "ordered" },
   { value: "lookup_fasce_dipendenti", label: "Fasce Dipendenti", tableName: "lookup_fasce_dipendenti", queryKey: "lookup-fasce-dipendenti", title: "Fascia Dipendenti", custom: "ordered" },
   { value: "lookup_tipo_documento", label: "Tipo Documento", tableName: "lookup_tipo_documento", queryKey: "lookup-tipo-documento", title: "Tipo Documento", custom: "tipo_documento" },
-  { value: "lookup_conti_incasso", label: "Conti Incasso", tableName: "lookup_conti_incasso", queryKey: "lookup-conti-incasso", title: "Conto Incasso" },
+  { value: "lookup_conti_incasso", label: "Causali Cassa/Banca", tableName: "lookup_conti_incasso", queryKey: "lookup-conti-incasso", title: "Causali Cassa/Banca (causali contabili — non contiene IBAN, per gli IBAN usa Archivi → Conti Bancari)" },
 ];
 
 const TabelleBasePage = () => {
