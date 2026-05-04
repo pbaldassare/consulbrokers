@@ -214,7 +214,7 @@ const RinnoviPolizzaPage = () => {
 
       {/* ACTIONS */}
       <div className="flex items-center gap-3 flex-wrap pt-2">
-        <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <Button variant="secondary" onClick={() => navigate("/portafoglio/attive")}>Chiudi</Button>
         <div className="flex-1" />
         <Button variant="outline">Lista</Button>
         <Button variant="outline">Excel</Button>

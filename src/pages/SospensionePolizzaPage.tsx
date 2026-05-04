@@ -224,7 +224,7 @@ const SospensionePolizzaPage = () => {
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
-        <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>Chiudi</Button>
         <Button onClick={handleConferma} disabled={sospensioneMutation.isPending}>
           {sospensioneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Conferma
