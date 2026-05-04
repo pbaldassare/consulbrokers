@@ -316,6 +316,15 @@ const ECClientePdfPage = () => {
           <div className="space-y-1.5">
             <Label>IBAN</Label>
             <Input value={iban} onChange={(e) => setIban(e.target.value)} />
+            {conto?.fonte && conto.fonte !== "nessuno" && (
+              <p className="text-[11px] text-muted-foreground">
+                Fonte:{" "}
+                {conto.fonte === "specialist" && "Specialist assegnato al cliente"}
+                {conto.fonte === "sede" && "Sede del cliente"}
+                {conto.fonte === "default" && "Conto di default Consulbrokers"}
+                {" "}— modificabile prima della stampa.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <Label>Ragione sociale (firma)</Label>
