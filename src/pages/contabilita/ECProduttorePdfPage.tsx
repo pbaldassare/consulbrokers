@@ -268,14 +268,14 @@ const ECProduttorePdfPage = () => {
   const handleSalva = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECProduttorePdf(buildData());
+      const bytes = await ensureBytes();
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const name = fileName();
       // Download anche in locale
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      withObjectUrl(bytes, (url) => {
+        const a = document.createElement("a"); a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+      });
 
       if (produttoreId) {
         const path = `${produttoreId}/ec_produttore/${Date.now()}_${name}`;
