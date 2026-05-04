@@ -365,7 +365,7 @@ export default function ContiBancariPage() {
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            <Button onClick={handleSave} disabled={upsert.isPending}>{upsert.isPending ? "Salvataggio…" : "Salva"}</Button>
+            <Button onClick={handleSave} disabled={upsert.isPending || !ibanValidation.valid}>{upsert.isPending ? "Salvataggio…" : "Salva"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
