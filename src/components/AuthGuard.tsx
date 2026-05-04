@@ -1,22 +1,42 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
 
 const AuthGuard = ({ children }: { children: ReactNode }) => {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return null;
+  // Profilo zombie (utente loggato ma profilo non recuperabile) → forza signOut
+  useEffect(() => {
+    if (!loading && user && !profile) {
+      console.warn("[AuthGuard] User without profile, signing out");
+      toast.error("Sessione non valida", { description: "Effettua nuovamente l'accesso." });
+      supabase.auth.signOut();
+    }
+  }, [loading, user, profile]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
   if (!user) return <Navigate to="/login" replace />;
+  if (!profile) return <Navigate to="/login" replace />;
 
   // Redirect clients to portal if trying to access gestionale
-  if (profile?.ruolo === "cliente" && !location.pathname.startsWith("/cliente")) {
+  if (profile.ruolo === "cliente" && !location.pathname.startsWith("/cliente")) {
     return <Navigate to="/cliente" replace />;
   }
 
   // Redirect prospects to portal if trying to access gestionale
-  if (profile?.ruolo === "prospect" && !location.pathname.startsWith("/prospect")) {
+  if (profile.ruolo === "prospect" && !location.pathname.startsWith("/prospect")) {
     return <Navigate to="/prospect" replace />;
   }
 

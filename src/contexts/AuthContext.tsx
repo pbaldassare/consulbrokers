@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!error && data) {
       setProfile(data as UserProfile);
     } else {
+      if (error) console.error("[AuthContext] fetchProfile error:", error);
       setProfile(null);
     }
     setLoading(false);
@@ -58,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         if (_event === "SIGNED_OUT") {
           setUser(null);
           setProfile(null);
@@ -68,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
+          // Defer to avoid deadlock with Supabase auth callbacks
           setTimeout(() => fetchProfile(currentUser.id), 0);
         } else {
           setProfile(null);
@@ -76,15 +78,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        fetchProfile(currentUser.id);
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          console.warn("[AuthContext] getSession error, clearing stale tokens:", error.message);
+          supabase.auth.signOut().finally(() => {
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          });
+          return;
+        }
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          fetchProfile(currentUser.id);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("[AuthContext] getSession exception:", err);
         setLoading(false);
-      }
-    });
+      });
 
     return () => subscription.unsubscribe();
   }, []);
