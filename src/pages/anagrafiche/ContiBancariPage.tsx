@@ -161,12 +161,18 @@ export default function ContiBancariPage() {
   const openNew = () => { setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (c: ContoBancario) => { setForm(c); setDialogOpen(true); };
 
+  const ibanValidation = validateIban(form.iban || "");
+
   const handleSave = () => {
-    if (!form.etichetta?.trim() || !form.iban?.trim() || !form.intestato_a?.trim()) {
-      toast.error("Etichetta, IBAN e intestatario sono obbligatori");
+    if (!form.etichetta?.trim() || !form.intestato_a?.trim()) {
+      toast.error("Etichetta e intestatario sono obbligatori");
       return;
     }
-    upsert.mutate(form);
+    if (!ibanValidation.valid) {
+      toast.error(ibanValidation.error || "IBAN non valido");
+      return;
+    }
+    upsert.mutate({ ...form, iban: ibanValidation.normalized });
   };
 
   return (
