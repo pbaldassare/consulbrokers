@@ -334,6 +334,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       percentuale_ra: item.percentuale_ra?.toString() || "",
       iban: item.iban || "",
       intestatario_cc: item.intestatario_cc || "",
+      conto_bancario_id: item.conto_bancario_id || "",
       note: item.note || "",
       attivo: item.attivo ?? true,
     });
