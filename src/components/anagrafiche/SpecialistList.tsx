@@ -21,6 +21,7 @@ import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { LEVELS } from "@/lib/userLevels";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 interface SpecialistRow {
   id: string;
