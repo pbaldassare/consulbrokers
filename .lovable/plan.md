@@ -1,41 +1,53 @@
-# Import portafoglio aprile 2026 (16 polizze)
+## Obiettivo
 
-## Step 1 — Anagrafiche di supporto
+1. Creare **GUARRACINO GAETANO** e **Gestione Milano** come veri profili Specialist (ruolo `backoffice`) con login.
+2. Rilegare i 16 titoli di aprile 2026 al profilo via `titoli.specialist` (UUID) e ripulire il testo libero.
+3. Mostrarti le polizze con **scadenza** in aprile 2026.
 
-| Tabella | Inserimento |
-|---|---|
-| `compagnie` | `SOCIETA' REALE MUTUA DI ASS.NI MALLOZZI SRL` (gruppo: REALE MUTUA) |
-| `uffici` | `SEDE CATANIA` — codice `CT`, città Catania, provincia CT |
-| `profiles` (backoffice) | GUARRACINO GAETANO, Gestione Milano |
-| `profiles` (produttore = Consul) | INTERFIDI SRL, SCIORIO NICOLA, Consulbrokers Digital Srl, E.M.A. SOLUZIONI ASSICURATIVE SRL |
+## Step 1 — Creare SEDE MILANO
 
-## Step 2 — Inserimento 16 titoli
+Attualmente in DB esistono solo: SEDE CATANIA, SEDE SAN DONA' DI PIAVE, Ufficio di Napoli. "Gestione Milano" è uno specialist Milano → serve la sede.
 
-Per ogni riga del file:
-- `cliente_id` ← cliente keeper corrispondente
-- `compagnia_id` ← compagnia mappata (CONSULBROKERS Milano per AXKY13OP)
-- `ramo_id` ← ramo mappato
-- `ufficio_id` ← Ufficio di Napoli o nuova SEDE CATANIA
-- `commerciale_id` ← Consul (NULL per le 3 polizze CONSULBROKERS senza produttore)
-- `specialist` ← testo (`GUARRACINO GAETANO` o `Gestione Milano`)
-- `numero_titolo`, `premio_lordo` ← dal file
-- `provvigioni_firma` ← colonna "Attive" (provvigioni attive)
-- `provvigioni_quietanza` ← colonna "Passive" (provvigioni passive)
-- `data_scadenza` ← colonna "Scadenza" (scadenza rata)
-- `durata_a` / `garanzia_a` ← colonna "Scad Polizza"
-- `durata_da` / `garanzia_da` ← Scad Polizza − 1 anno (o − 4 anni per la poliennale Lo Giudice 2027-01-19)
-- `rate` ← colonna "Fraz" (1 o 3)
-- `periodicita` ← `annuale` (o `quadrimestrale` se Fraz=3)
-- `stato` ← `attivo`
-- `tacito_rinnovo` ← `true`
-- `produttore_nome` ← testo del produttore (per backup leggibilità)
-- `ae_nome` ← `SEDE NAPOLI` / `SEDE CATANIA`
+Inserisco `uffici`:
+- **SEDE MILANO** (città Milano, provincia MI)
 
-Per le 5 polizze con targa (riga 2,4,6,7,10 del file) inserisco anche record in `veicoli_polizza` con: `targa`, `tipo_veicolo` (AUTOVETTURA / MOTOCICLO / NATANTE).
+Per **GUARRACINO GAETANO** assegno **SEDE CATANIA** (le sue polizze di aprile sono in area sud/Catania). Se preferisci altra sede dimmelo.
 
-## Step 3 — Verifica finale
+## Step 2 — Provisioning utenti via edge function `create-user`
 
-Conteggio titoli per cliente, totale premio lordo (atteso ~€ 89.951), totale Attive (~€ 6.346), totale Passive (~€ 2.890).
+Email fake (dominio interno) + password `Leone123!`:
 
-## Note
-Operazione idempotente: uso `ON CONFLICT DO NOTHING` su anagrafiche supporto. Se rilanciata non duplica.
+| Nome | Email | Sede | Ruolo |
+|------|-------|------|-------|
+| GUARRACINO GAETANO | `guarracino.gaetano@consulbrokers.local` | SEDE CATANIA | backoffice |
+| Gestione Milano | `gestione.milano@consulbrokers.local` | SEDE MILANO | backoffice |
+
+La function crea `auth.users` + `profiles` con `ruolo='backoffice'` e `ufficio_id` corretto.
+
+## Step 3 — Rilegare i 16 titoli di aprile 2026
+
+La colonna è `titoli.specialist` (text con il nome). La sostituisco con l'**UUID del profilo** appena creato:
+
+```sql
+UPDATE titoli SET specialist = '<uuid-guarracino>'
+ WHERE data_scadenza BETWEEN '2026-04-01' AND '2026-04-30'
+   AND specialist = 'GUARRACINO GAETANO';
+
+UPDATE titoli SET specialist = '<uuid-gestione-milano>'
+ WHERE data_scadenza BETWEEN '2026-04-01' AND '2026-04-30'
+   AND specialist = 'Gestione Milano';
+```
+
+Nota: `titoli.specialist` è `text` ma l'app la legge come riferimento al profilo (convenzione attuale del progetto). Se vuoi, in un secondo momento, posso convertirla in colonna `uuid` con FK a `profiles`.
+
+## Step 4 — Polizze con scadenza aprile 2026
+
+Già verificato: **16 titoli**, totale premio lordo €89.951,50. Te le mostro nella vista **Portafoglio › Carico** (rotta corrente `/portafoglio/carico`) filtrando per `data_scadenza` in aprile 2026, oppure ti genero un report on-demand. Confermo che la lista coincide con quella appena importata.
+
+## Domande aperte (rispondi solo se non sei d'accordo)
+
+- Sede di **GUARRACINO** = SEDE CATANIA ✔ (default proposto)
+- Email fake `*.consulbrokers.local` ✔
+- Password `Leone123!` ✔
+
+Se OK approva e procedo.
