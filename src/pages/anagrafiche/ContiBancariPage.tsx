@@ -85,7 +85,7 @@ export default function ContiBancariPage() {
     queryKey: ["uffici_for_conti"],
     queryFn: async () => {
       const { data } = await supabase.from("uffici" as any).select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
-      return (data || []) as Array<{ id: string; nome_ufficio: string }>;
+      return (data || []) as unknown as Array<{ id: string; nome_ufficio: string }>;
     },
   });
 
