@@ -364,6 +364,30 @@ export type Database = {
           },
         ]
       }
+      audit_config: {
+        Row: {
+          dedup_window_seconds: number
+          excluded_fields: string[]
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          dedup_window_seconds?: number
+          excluded_fields?: string[]
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          dedup_window_seconds?: number
+          excluded_fields?: string[]
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       banca_documenti: {
         Row: {
           created_at: string | null
@@ -3122,6 +3146,7 @@ export type Database = {
           entita_id: string | null
           entita_tipo: string | null
           id: string
+          is_duplicate: boolean
           severity: string
           ufficio_id: string | null
           user_id: string | null
@@ -3133,6 +3158,7 @@ export type Database = {
           entita_id?: string | null
           entita_tipo?: string | null
           id?: string
+          is_duplicate?: boolean
           severity?: string
           ufficio_id?: string | null
           user_id?: string | null
@@ -3144,6 +3170,7 @@ export type Database = {
           entita_id?: string | null
           entita_tipo?: string | null
           id?: string
+          is_duplicate?: boolean
           severity?: string
           ufficio_id?: string | null
           user_id?: string | null

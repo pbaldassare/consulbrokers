@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Settings, Building2, Save, Loader2 } from "lucide-react";
+import AuditConfigCard from "@/components/impostazioni/AuditConfigCard";
 
 interface ImpostazioneSistema {
   id: string;
@@ -221,6 +222,7 @@ const ImpostazioniPage = () => {
         <TabsList>
           {isAdmin && <TabsTrigger value="sistema">Sistema</TabsTrigger>}
           <TabsTrigger value="ufficio">Sede</TabsTrigger>
+          {isAdmin && <TabsTrigger value="audit">Log Attività</TabsTrigger>}
         </TabsList>
 
         {isAdmin && (
@@ -301,6 +303,12 @@ const ImpostazioniPage = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="audit">
+            <AuditConfigCard />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
