@@ -198,7 +198,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  { type: "single", item: { label: "Area CFO", path: "/cfo", icon: BarChart3, permissionKey: "cfo_area" } },
   {
     type: "group",
     group: {
