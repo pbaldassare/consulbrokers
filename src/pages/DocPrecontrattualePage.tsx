@@ -32,7 +32,7 @@ const DocPrecontrattualePage = () => {
       if (!titoloIdParam) return null;
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, riferimento, cliente_anagrafica_id, compagnia_id, ramo_id, compagnie:compagnia_id(nome, codice), rami:ramo_id(codice, descrizione)")
+        .select("id, numero_titolo, appendice, cliente_anagrafica_id, compagnia_id, ramo_id, data_scadenza, garanzia_da, durata_da, periodicita, premio_lordo, compagnie:compagnia_id(nome, codice), rami:ramo_id(codice, descrizione)")
         .eq("id", titoloIdParam)
         .maybeSingle();
       return data as any;
