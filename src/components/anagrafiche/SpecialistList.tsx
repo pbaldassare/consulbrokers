@@ -548,9 +548,22 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               </TabsContent>
 
               <TabsContent value="banca" className="space-y-3 mt-3">
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <Label className="font-semibold">Conto incassi clienti collegato a questo Specialist</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Se valorizzato, l'IBAN qui indicato verrà proposto al cliente nei suoi E/C al posto di quello della Sede.
+                    Selezionare un conto già censito in <strong>Conti Bancari</strong>.
+                  </p>
+                  <ContoBancarioSelect
+                    value={form.conto_bancario_id || null}
+                    onChange={(id) => setForm({ ...form, conto_bancario_id: id || "" })}
+                    tipi={["incasso_clienti"]}
+                    placeholder="Usa l'IBAN della Sede / default"
+                  />
+                </div>
                 <div className="grid grid-cols-1 gap-3">
-                  <div><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} /></div>
-                  <div><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
+                  <div><Label>IBAN (campo libero — legacy)</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>Intestatario C/C (legacy)</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
                 </div>
               </TabsContent>
             </Tabs>
