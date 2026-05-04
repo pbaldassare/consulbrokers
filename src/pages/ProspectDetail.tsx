@@ -448,7 +448,7 @@ const ProspectDetail = () => {
         <div>
           <Card className="p-5">
             <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4" />Timeline Attività
+              <Clock className="w-4 h-4" />Log Attività
             </h3>
             <TimelineTab
               entitaTipo="prospect"

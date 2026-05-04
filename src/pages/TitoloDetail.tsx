@@ -2694,7 +2694,7 @@ const TitoloDetail = () => {
           <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
           <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
+          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>
         </TabsList>
         <TabsContent value="movimenti">
           <Card>

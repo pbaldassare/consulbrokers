@@ -212,7 +212,7 @@ export default function SinistroDetail() {
           <TabsTrigger value="eventi">Eventi</TabsTrigger>
           <TabsTrigger value="documenti">Documenti</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="timeline">Log Attività</TabsTrigger>
         </TabsList>
 
         <TabsContent value="checklist" className="space-y-4">

@@ -157,7 +157,7 @@ export const TrattativaDetailDialog = ({ trattativa, open, onOpenChange }: Props
           <Tabs defaultValue="dettagli" className="w-full">
             <TabsList className="w-full justify-start">
               <TabsTrigger value="dettagli" className="gap-1.5"><ClipboardList className="w-3.5 h-3.5" />Dettagli</TabsTrigger>
-              <TabsTrigger value="timeline" className="gap-1.5"><History className="w-3.5 h-3.5" />Timeline</TabsTrigger>
+              <TabsTrigger value="timeline" className="gap-1.5"><History className="w-3.5 h-3.5" />Log Attività</TabsTrigger>
               <TabsTrigger value="documenti" className="gap-1.5"><FileText className="w-3.5 h-3.5" />Documenti</TabsTrigger>
               <TabsTrigger value="scadenze" className="gap-1.5"><CalendarDays className="w-3.5 h-3.5" />Scadenze</TabsTrigger>
             </TabsList>

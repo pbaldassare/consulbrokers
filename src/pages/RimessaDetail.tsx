@@ -177,7 +177,7 @@ const RimessaDetail = () => {
         <TabsList>
           <TabsTrigger value="titoli"><FileText className="w-4 h-4 mr-1" />Titoli ({dettagli.length})</TabsTrigger>
           <TabsTrigger value="xml"><Code className="w-4 h-4 mr-1" />XML</TabsTrigger>
-          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
+          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>
         </TabsList>
 
         <TabsContent value="titoli">
