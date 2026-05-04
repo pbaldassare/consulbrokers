@@ -19,6 +19,7 @@ import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Networ
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -103,6 +104,7 @@ interface CompagniaForm {
   intestato_a: string;
   bic: string;
   citta_banca: string;
+  conto_bancario_id: string | null;
   aut_incasso_118: boolean;
   tipo_copertura: string;
   ra_ec_negativi: boolean;
@@ -120,6 +122,7 @@ const emptyForm: CompagniaForm = {
   pagamento: "", tipo_pagamento: "", percentuale_ra: "",
   gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
   iban: "", codice_abi: "", codice_cab: "", intestato_a: "", bic: "", citta_banca: "",
+  conto_bancario_id: null,
   aut_incasso_118: false, tipo_copertura: "", ra_ec_negativi: false,
   allegato_excel_avvisi: false, allegato_excel_ec: false, firma_digitale: "No", escluso_all4: false,
 };
@@ -165,6 +168,7 @@ function dbToForm(c: any): CompagniaForm {
     intestato_a: c.intestato_a || "",
     bic: c.bic || "",
     citta_banca: c.citta_banca || "",
+    conto_bancario_id: c.conto_bancario_id || null,
     aut_incasso_118: c.aut_incasso_118 ?? false,
     tipo_copertura: c.tipo_copertura || "",
     ra_ec_negativi: c.ra_ec_negativi ?? false,
@@ -212,6 +216,7 @@ function formToPayload(form: CompagniaForm) {
     intestato_a: form.intestato_a || null,
     bic: form.bic || null,
     citta_banca: form.citta_banca || null,
+    conto_bancario_id: form.conto_bancario_id || null,
     aut_incasso_118: form.aut_incasso_118,
     tipo_copertura: form.tipo_copertura || null,
     ra_ec_negativi: form.ra_ec_negativi,
@@ -574,17 +579,19 @@ function CompagniaFormDialog({
           </div>
 
           <div className="border-t pt-3 mt-3">
-            <Label className="text-sm font-medium text-foreground">Dati Bancari</Label>
+            <Label className="text-sm font-medium text-foreground">Conto Bancario</Label>
           </div>
-          {renderField("CC/IBAN", "iban")}
-          <div className="grid grid-cols-2 gap-3">
-            {renderField("Codice ABI", "codice_abi")}
-            {renderField("Codice CAB", "codice_cab")}
-          </div>
-          {renderField("Intestato a", "intestato_a")}
-          <div className="grid grid-cols-2 gap-3">
-            {renderField("BIC", "bic")}
-            {renderField("Città Banca", "citta_banca")}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Conto bancario della compagnia</Label>
+            <ContoBancarioSelect
+              value={form.conto_bancario_id}
+              onChange={(id) => setField("conto_bancario_id", id)}
+              tipi={["compagnia", "generico"]}
+              placeholder="Seleziona dal registro Conti Bancari…"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Gestisci il registro dei conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>. Questo conto viene usato come default per le rimesse premi della compagnia.
+            </p>
           </div>
 
           <div className="border-t pt-3 mt-3">
