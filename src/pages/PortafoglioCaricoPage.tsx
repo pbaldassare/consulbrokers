@@ -300,7 +300,7 @@ const PortafoglioCaricoPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Carico del Mese</h1>
           <p className="text-sm text-muted-foreground">
-            Mostra polizze in scadenza a <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span> (12 mesi dopo il mese di lavorazione)
+            Polizze in scadenza a <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
