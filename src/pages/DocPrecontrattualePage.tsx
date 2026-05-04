@@ -246,6 +246,8 @@ const DocPrecontrattualePage = () => {
     setCodiceCliente(cli.codice_fiscale || cli.partita_iva || "");
     setCodiceFiscale(cli.codice_fiscale || "");
     setPartitaIva(cli.partita_iva || "");
+    const nomeCli = cli.ragione_sociale || `${cli.cognome || ""} ${cli.nome || ""}`.trim();
+    if (nomeCli) setContraente(nomeCli);
 
     const isPrivato = cli.tipo_cliente === "privato";
     const ind = isPrivato ? cli.indirizzo_residenza : (cli.indirizzo_sede || cli.indirizzo_residenza);
