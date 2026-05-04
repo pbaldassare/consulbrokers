@@ -61,8 +61,30 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnie")
-        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, mail_ec, mail")
+        .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, mail_ec, mail, conto_bancario_id")
         .eq("id", compagniaId)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
+  // Conto bancario master della compagnia: prima quello collegato, poi default per tipo 'compagnia'
+  const { data: contoCompagnia } = useQuery({
+    queryKey: ["ec-pdf-agenzia-conto", agenzia?.conto_bancario_id, compagniaId],
+    enabled: !!compagniaId,
+    queryFn: async () => {
+      if (agenzia?.conto_bancario_id) {
+        const { data } = await supabase.from("conti_bancari" as any)
+          .select("iban, intestato_a, banca")
+          .eq("id", agenzia.conto_bancario_id)
+          .maybeSingle();
+        if (data) return data as any;
+      }
+      const { data } = await supabase.from("conti_bancari" as any)
+        .select("iban, intestato_a, banca")
+        .eq("tipo", "compagnia")
+        .eq("is_default", true)
+        .eq("attivo", true)
         .maybeSingle();
       return data as any;
     },
@@ -201,8 +223,8 @@ const ECAgenziaPdfPage = () => {
       agenziaProvincia: agenzia?.provincia || "",
       agenziaCF: agenzia?.codice_fiscale || "",
       agenziaPIVA: agenzia?.partita_iva || "",
-      iban: agenzia?.iban || "",
-      intestatoA: agenzia?.intestato_a || agenzia?.nome || "",
+      iban: contoCompagnia?.iban || agenzia?.iban || "",
+      intestatoA: contoCompagnia?.intestato_a || agenzia?.intestato_a || agenzia?.nome || "",
       titoli: rows,
       totalePremio,
       totaleProvvigioni,
