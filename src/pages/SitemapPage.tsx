@@ -74,7 +74,7 @@ const ruoli = [
       "Quadratura premi e chiusura contabile",
       "E/C clienti, compagnie e produttori",
       "Contabilità ufficio completa",
-      "Gestione FatturaPA (emissione, ricezione)",
+      
     ],
   },
   {
