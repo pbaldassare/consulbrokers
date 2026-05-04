@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Archive, Search, RotateCcw, Plus } from "lucide-react";
+import { Archive, Search, Plus, Eye } from "lucide-react";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 
@@ -190,12 +190,16 @@ const PortafoglioStoricoPage = () => {
                   <TableHead>Stato</TableHead>
                   <TableHead>Dt. Sosp.</TableHead>
                   <TableHead>Lim. Riatt.</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {polizze.map((p: any) => (
-                  <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
+                {polizze.map((p: any, idx: number) => (
+                  <TableRow
+                    key={p.id}
+                    className={`cursor-pointer ${idx % 2 === 1 ? "bg-muted/30" : ""}`}
+                    onClick={() => navigate(`/titoli/${p.id}`)}
+                  >
                     <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
@@ -212,20 +216,17 @@ const PortafoglioStoricoPage = () => {
                     <TableCell className="text-sm">{fmtDate(p.data_sospensione)}</TableCell>
                     <TableCell className="text-sm">{fmtDate(p.limite_riattivazione)}</TableCell>
                     <TableCell>
-                      {p.stato === "sospeso" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(p.numero_titolo || "")}&clienteId=${p.cliente_anagrafica_id || ""}&titoloId=${p.id}`);
-                          }}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          Riattiva
-                        </Button>
-                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Apri dettaglio (sola consultazione)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/titoli/${p.id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
