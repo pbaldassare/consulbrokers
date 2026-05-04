@@ -1,15 +1,14 @@
 /**
- * Version check utilities.
+ * Version check + cache purge utilities.
  *
- * Confronta la versione del bundle caricato (VITE_APP_VERSION embedded a build-time)
- * con quella servita da /version.json (sempre richiesta cache-busted).
- *
- * Se non coincidono, l'utente sta eseguendo un bundle vecchio (cache browser,
- * service worker residuo, preview congelata): puliamo cache/SW e ricarichiamo.
+ * Confronta la versione del bundle (VITE_APP_VERSION embedded a build-time)
+ * con quella servita da /version.json. Se non coincidono, l'utente sta
+ * eseguendo un bundle vecchio: registriamo un kill-switch SW, puliamo cache
+ * e ricarichiamo (con throttle anti-loop).
  */
 
 const RELOAD_FLAG = "__cbnet_version_reload_ts";
-const RELOAD_THROTTLE_MS = 30_000; // evita reload loop
+const RELOAD_THROTTLE_MS = 30_000;
 const STORAGE_KEYS_TO_KEEP = (k: string) =>
   k.startsWith("sb-") || k.startsWith("supabase.");
 
@@ -45,8 +44,13 @@ export async function getVersionInfo(): Promise<VersionInfo> {
   };
 }
 
+/**
+ * Disinstalla service worker registrati e cancella tutte le cache.
+ * Se possibile, registra prima il kill-switch /sw.js per intercettare
+ * eventuali registrazioni residue.
+ */
 export async function purgeClientCaches(): Promise<void> {
-  // 1. Service workers
+  // 1. Service workers — unregister tutto
   try {
     if ("serviceWorker" in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
@@ -77,9 +81,6 @@ export async function purgeClientCaches(): Promise<void> {
   } catch {}
 }
 
-/**
- * Forza un reload con cache-busting, throttled per evitare loop infiniti.
- */
 export function forceReload(reason: string): void {
   try {
     const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);

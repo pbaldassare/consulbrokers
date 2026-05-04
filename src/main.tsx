@@ -1,13 +1,35 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { BUNDLE_VERSION, purgeClientCaches } from "./lib/versionCheck";
+import {
+  BUNDLE_VERSION,
+  ensureLatestVersion,
+  purgeClientCaches,
+} from "./lib/versionCheck";
 
-// Diagnostica versione in console
 console.info(`[CBnet] bundle version: ${BUNDLE_VERSION}`);
 
-// Best-effort: rimuovi service worker e cache residue da build precedenti.
-// Non blocca il render. La sessione Supabase (chiavi sb-*) è preservata.
-purgeClientCaches().catch(() => {});
+// Bootstrap: pulisce SW/cache residui PRIMA di montare la UI, poi verifica
+// la versione. Se il bundle è vecchio, ensureLatestVersion ricarica
+// la pagina e l'app non monta affatto la UI vecchia.
+async function bootstrap() {
+  try {
+    await purgeClientCaches();
+  } catch {}
 
-createRoot(document.getElementById("root")!).render(<App />);
+  let versionOk = true;
+  try {
+    versionOk = await ensureLatestVersion();
+  } catch {
+    versionOk = true; // non bloccare se il check fallisce
+  }
+
+  if (!versionOk) {
+    // reload imminente: non montare nulla
+    return;
+  }
+
+  createRoot(document.getElementById("root")!).render(<App />);
+}
+
+bootstrap();
