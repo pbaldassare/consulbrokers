@@ -152,7 +152,7 @@ const ECProduttorePdfPage = () => {
     const totalePremio = righe.reduce((s, r) => s + r.premio, 0);
     const totaleProvvigioni = righe.reduce((s, r) => s + r.provvigioni, 0);
     const totaleAltreOper = righe.reduce((s, r) => s + r.altreOper, 0);
-    const ra = (Number(percRA) || 0) * totaleProvvigioni / 100;
+    const ra = parsePerc(percRA) * totaleProvvigioni / 100;
 
     const prodNome = produttore?.ragione_sociale || `${produttore?.cognome || ""} ${produttore?.nome || ""}`.trim() || "";
 
@@ -177,9 +177,36 @@ const ECProduttorePdfPage = () => {
   };
 
   const handleAnteprima = async () => {
-    try { setBusy(true); setPreviewBytes(await buildECProduttorePdf(buildData())); }
-    catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
-    finally { setBusy(false); }
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewBytes(null);
+    try {
+      const bytes = await buildECProduttorePdf(buildData());
+      setPreviewBytes(bytes);
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      setPreviewError(msg);
+      toast.error("Errore anteprima: " + msg);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleStampaPreview = () => {
+    if (!previewBytes) return;
+    const blob = new Blob([previewBytes as BlobPart], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
+    if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+  };
+  const handleScaricaPreview = () => {
+    if (!previewBytes) return;
+    const blob = new Blob([previewBytes as BlobPart], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = fileName();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
 
   const handleStampa = async () => {
@@ -263,7 +290,7 @@ const ECProduttorePdfPage = () => {
           <div className="space-y-1.5"><Label>Numero rendiconto</Label><Input value={numeroRendiconto} onChange={(e) => setNumeroRendiconto(e.target.value)} /></div>
           <div className="space-y-1.5"><Label>Data rendiconto</Label><Input value={dataRendiconto} onChange={(e) => setDataRendiconto(e.target.value)} placeholder="gg/mm/aaaa" /></div>
           <div className="space-y-1.5"><Label>Periodo (testo)</Label><Input value={periodoTesto} onChange={(e) => setPeriodoTesto(e.target.value)} placeholder="Es: Gennaio 2026" /></div>
-          <div className="space-y-1.5"><Label>% Ritenuta d'Acconto</Label><Input value={percRA} onChange={(e) => setPercRA(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>% Ritenuta d'Acconto</Label><Input value={percRA} onChange={(e) => setPercRA(e.target.value)} onBlur={(e) => setPercRA(normalizePerc(e.target.value))} placeholder="es. 11,50" /></div>
           <div className="space-y-1.5 md:col-span-2"><Label>Note finali (opzionale)</Label><Textarea value={noteFinali} onChange={(e) => setNoteFinali(e.target.value)} rows={2} /></div>
         </div>
       </fieldset>
@@ -306,10 +333,28 @@ const ECProduttorePdfPage = () => {
         </div>
       </div>
 
-      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
+      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o) { setPreviewBytes(null); setPreviewError(null); } }}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-4 pt-3"><DialogTitle>Anteprima E/C Produttore</DialogTitle></DialogHeader>
-          <PdfPreview data={previewBytes} />
+          <DialogHeader className="px-4 pt-3 pb-2 border-b flex-row items-center justify-between space-y-0">
+            <DialogTitle>Anteprima E/C Produttore</DialogTitle>
+            <div className="flex gap-2 mr-8">
+              <Button size="sm" variant="outline" onClick={handleStampaPreview} disabled={!previewBytes}>Stampa</Button>
+              <Button size="sm" variant="outline" onClick={handleScaricaPreview} disabled={!previewBytes}>Scarica</Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {previewLoading ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">Generazione anteprima...</div>
+            ) : previewError ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-destructive p-6 text-center">
+                <p>Errore durante la generazione dell'anteprima</p>
+                <p className="text-sm font-mono">{previewError}</p>
+                <Button variant="outline" onClick={handleAnteprima}>Riprova</Button>
+              </div>
+            ) : previewBytes ? (
+              <PdfPreview data={previewBytes} />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
