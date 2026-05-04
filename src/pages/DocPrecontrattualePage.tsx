@@ -439,7 +439,11 @@ const DocPrecontrattualePage = () => {
 
   const buildData = (): PrecontrattualeData => {
     const cli = prefillData?.cliente as any;
-    const nomeRagSoc = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
+    const nomeRagSoc =
+      contraente ||
+      cli?.ragione_sociale ||
+      `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() ||
+      (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
 
     const sezioneIIMap: Record<string, string> = {
       consulenza_119ter_c3: "L'intermediario fornisce una consulenza ai sensi dell'art. 119-ter comma 3 del Codice delle Assicurazioni.",
@@ -461,8 +465,13 @@ const DocPrecontrattualePage = () => {
       clienteProvincia: provincia,
       polizzaNumero: polizza,
       polizzaRiferimento: riferimento,
-      polizzaCompagniaTesto: compagniaData?.nome || "",
+      polizzaCompagniaTesto: compagniaNome || compagniaData?.nome || "",
       polizzaRamo: ramo,
+      polizzaAppendice: appendice,
+      polizzaDataDecorrenza: dataDecorrenza,
+      polizzaDataScadenza: dataScadenza,
+      polizzaFrazionamento: frazionamento,
+      polizzaPremioLordo: premioLordo,
       specialistNomeCognome: nomeCognomeRui,
       specialistSezioneRui: sezioneRui,
       specialistNumeroRui: numeroRui,
