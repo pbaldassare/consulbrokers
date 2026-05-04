@@ -1,67 +1,83 @@
-# Gestione IBAN: Specialist → Sede → Default Consulbrokers
+## Problema
 
-## Decisioni confermate
+Sulla pagina **Precontrattuale** (`/portafoglio/doc-precontrattuale`) aperta dalla polizza **325346187 — GENERALI ITALIA SPA**, il prefill non riempie tutto il necessario:
 
-1. **Specialist = riga in `backoffice`** (anagrafica), non `profiles`. È la stessa tabella dove oggi gestiamo gli Specialist da Anagrafiche Interne.
-2. **Fallback silenzioso** sul conto di default Consulbrokers: se Specialist e Sede non hanno IBAN, il sistema usa sempre il default senza mostrare avvisi al cliente.
-3. **L'IBAN risolto resta sempre modificabile** in fase di stampa/invio: nel PDF E/C cliente e nei template email l'utente vedrà l'IBAN proposto ma potrà sostituirlo manualmente prima di confermare.
+**Cliente**
+- Nome/ragione sociale del contraente non è esposto come campo nel form (appare solo nel PDF se la query `prefillData` riesce). Se l'utente cambia il `Cliente (codice)` il nome non si aggiorna nel PDF.
+- Nessun fallback: se arrivo da `titoloId` ma `cliente_anagrafica_id` è null, anagrafica vuota.
 
-## Catena di priorità
+**Polizza** — molti dati della polizza sono nel DB ma non vengono né letti né stampati:
+- `appendice` non prefillato (esiste in `titoli.appendice`)
+- `data_decorrenza` (mappata su `garanzia_da` o `durata_da`) non prefillata né stampata
+- `data_scadenza` (`titoli.data_scadenza`) non prefillata né stampata
+- `frazionamento` (mappato da `titoli.periodicita`) assente
+- `premio_lordo` assente
+- **Compagnia**: la pagina mostra solo il `codice` dalla seconda query `compagniaData`. Il PDF dovrebbe usare il **nome completo** già disponibile in `titoloData.compagnie.nome` (più affidabile).
+
+## Cosa cambio
+
+### 1. Query titolo arricchita (`DocPrecontrattualePage.tsx`)
+
+Estendo `select` su `titoli` con: `appendice, data_scadenza, garanzia_da, durata_da, periodicita, premio_lordo`.
+Estendo join `compagnie` con campi minimi già usati.
+
+### 2. Nuovi state + prefill polizza
+
+Aggiungo state e li popolo nell'`useEffect` su `titoloData`:
+- `appendicePol`, `dataDecorrenza` (prendo `garanzia_da` se presente, altrimenti `durata_da`), `dataScadenza`, `frazionamento` (mapping `periodicita` → "Annuale/Semestrale/Trimestrale/Mensile/Unica"), `premioLordo` (formattato €).
+- Set `compagniaNome` direttamente da `titoloData.compagnie.nome` (oltre a `codiceCompagnia` per ricerca legacy).
+
+### 3. Campo "Contraente" visibile e governato dallo stato
+
+Aggiungo un input **"Contraente (Nome / Ragione Sociale)"** nella sezione "Contratto Intermediato", popolato:
+- da `prefillData.cliente` (priorità: `ragione_sociale` → `cognome nome`)
+- editabile manualmente in caso serva.
+
+Lo passo nel PDF come `clienteNomeRagSoc` invece di calcolarlo solo dentro `buildData()`.
+
+### 4. Estendo `PrecontrattualeData` + rendering PDF (`precontrattuale-pdf.ts`)
+
+Aggiungo i campi:
+```ts
+polizzaAppendice?: string;
+polizzaDataDecorrenza?: string;
+polizzaDataScadenza?: string;
+polizzaFrazionamento?: string;
+polizzaPremioLordo?: string;
+```
+
+Nel **MUP header** (riga `Cliente / Polizza`) sostituisco la singola riga con una **mini-tabella 2 colonne x 3 righe**:
 
 ```text
-IBAN proposto al cliente =
-  1) backoffice.conto_bancario_id          (Specialist assegnato al cliente)
-  2) uffici.conto_bancario_id              (Sede del cliente)
-  3) conti_bancari.is_default = true       (default Consulbrokers, tipo='incasso_clienti')
-
-→ override manuale possibile prima dell'invio
++----------------------------+----------------------------+
+| Cliente: [nome]            | Polizza: [nr]   App: [..]  |
++----------------------------+----------------------------+
+| CF: [..]  P.IVA: [..]      | Compagnia: [nome]          |
++----------------------------+----------------------------+
+| Indirizzo: [..]            | Decorrenza: [..]  Scad: [..]|
+|                            | Ramo: [..]  Frazion: [..]  |
+|                            | Premio lordo: € [..]       |
++----------------------------+----------------------------+
 ```
 
-## Modifiche DB (una migration)
+Mantengo lo stile esistente (font, colori, bordi sottili) — nessun restyle, solo righe in più.
 
-1. `ALTER TABLE uffici ADD COLUMN conto_bancario_id uuid REFERENCES conti_bancari(id) ON DELETE SET NULL;`
-2. `ALTER TABLE backoffice ADD COLUMN conto_bancario_id uuid REFERENCES conti_bancari(id) ON DELETE SET NULL;`
-3. Funzione SQL `get_iban_cliente(p_cliente_id uuid) RETURNS TABLE(iban text, intestato_a text, banca text, bic text, fonte text)` che applica la catena. `fonte ∈ ('specialist','sede','default')`. Mai NULL: se non c'è nemmeno un default attivo restituisce stringhe vuote con `fonte='nessuno'` (il frontend mostrerà comunque il campo editabile vuoto).
-4. Seed: assicurarsi che in `conti_bancari` esista un record con `is_default=true`, `tipo='incasso_clienti'`, `attivo=true`. Se non esiste, la migration lo crea con placeholder Consulbrokers da completare poi dall'admin via UI.
-5. Vincolo soft: trigger che impedisce di avere più di un `is_default=true` per ogni `tipo`.
+### 5. Compagnia nel testo c) della Sezione IV
 
-## Modifiche UI
+Sostituisco fallback `compagniaData?.nome` con `titoloData?.compagnie?.nome` se presente — più stabile.
 
-### `SediManager.tsx`
-Sostituire i 3 campi liberi IBAN/Intestato/Banca con `<ContoBancarioSelect tipi={["incasso_clienti","generico"]} />` legato a `conto_bancario_id`. Vecchi campi locali restano in DB (back-compat) ma non più editabili.
+## File coinvolti
 
-### `SpecialistList.tsx`
-Aggiungere `<ContoBancarioSelect>` nel form Specialist. Etichetta: "IBAN personale per incassi (opzionale, sovrascrive quello della Sede)".
+- `src/pages/DocPrecontrattualePage.tsx` (query, state, useEffect prefill, nuovo input Contraente, passaggio campi a `buildData`)
+- `src/lib/precontrattuale-pdf.ts` (interfaccia `PrecontrattualeData`, header MUP)
 
-### `ContiBancariPage.tsx`
-- Badge "Default" ben visibile sulla riga `is_default=true`.
-- Colonna "Usato da" con conteggio Sedi + Specialist che lo referenziano.
+## Cosa NON cambio
 
-### Nuovo helper `src/lib/resolveIbanCliente.ts`
-```ts
-export async function resolveIbanCliente(clienteId: string): Promise<{
-  iban: string; intestato_a: string; banca: string; bic: string;
-  fonte: 'specialist'|'sede'|'default'|'nessuno';
-}>
-```
-Chiama la RPC `get_iban_cliente`. Usato da PDF E/C cliente e dai template email.
+- Layout grafico generale del PDF, font, colori, sezioni testuali I/II/III/IV.
+- Logica intermediario RUI (Specialist + Sede), già funzionante.
+- Salvataggio in Archivio Documentale.
+- Bottoni Anteprima/Stampa/Salva.
 
-### `ECClientePdfPage.tsx`
-- Rimuovere fallback hardcoded.
-- Caricare l'IBAN tramite `resolveIbanCliente`.
-- Mostrare un campo IBAN **editabile** in alto (con valore preselezionato) prima del bottone "Genera PDF". L'utente può sovrascrivere prima della stampa.
-- Nessun avviso "IBAN non configurato": il default Consulbrokers entra in modo silenzioso.
+## Test
 
-## Cosa NON tocco
-
-- `conti_incasso` (Tabelle di Base): resta, è classificatore primanota.
-- IBAN compagnie / rapporti compagnia: già migrati nel giro precedente.
-- Drop colonne legacy `uffici.iban / intestato_a / banca`: pulizia separata, dopo verifica.
-
-## Output finale
-
-Dopo questa modifica, generando un E/C per qualsiasi cliente:
-- chi ha Specialist con IBAN personale → vede quello
-- altrimenti chi ha Sede con IBAN dedicato → vede quello della Sede
-- tutti gli altri → vedono silenziosamente il default Consulbrokers
-- e in ogni caso l'utente può ancora modificarlo a mano prima di stampare/inviare
+Aprirò la pagina sulla polizza 325346187, genererò anteprima e verificherò che compaiano nome contraente, appendice, decorrenza/scadenza, frazionamento, premio, compagnia "GENERALI ITALIA SPA".

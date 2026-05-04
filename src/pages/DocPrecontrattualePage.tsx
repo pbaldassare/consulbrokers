@@ -32,7 +32,7 @@ const DocPrecontrattualePage = () => {
       if (!titoloIdParam) return null;
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, riferimento, cliente_anagrafica_id, compagnia_id, ramo_id, compagnie:compagnia_id(nome, codice), rami:ramo_id(codice, descrizione)")
+        .select("id, numero_titolo, appendice, cliente_anagrafica_id, compagnia_id, ramo_id, data_scadenza, garanzia_da, durata_da, periodicita, premio_lordo, compagnie:compagnia_id(nome, codice), rami:ramo_id(codice, descrizione)")
         .eq("id", titoloIdParam)
         .maybeSingle();
       return data as any;
@@ -43,10 +43,12 @@ const DocPrecontrattualePage = () => {
 
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
+  const [contraente, setContraente] = useState("");
   const [polizza, setPolizza] = useState("");
   const [appendice, setAppendice] = useState("");
   const [riferimento, setRiferimento] = useState("");
   const [codiceCompagnia, setCodiceCompagnia] = useState("");
+  const [compagniaNome, setCompagniaNome] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
   const [cap, setCap] = useState("");
   const [citta, setCitta] = useState("");
@@ -54,6 +56,10 @@ const DocPrecontrattualePage = () => {
   const [nazione, setNazione] = useState("Italia");
   const [gruppo, setGruppo] = useState("");
   const [ramo, setRamo] = useState("");
+  const [dataDecorrenza, setDataDecorrenza] = useState("");
+  const [dataScadenza, setDataScadenza] = useState("");
+  const [frazionamento, setFrazionamento] = useState("");
+  const [premioLordo, setPremioLordo] = useState("");
   const [codiceFiscale, setCodiceFiscale] = useState("");
   const [partitaIva, setPartitaIva] = useState("");
 
@@ -240,6 +246,8 @@ const DocPrecontrattualePage = () => {
     setCodiceCliente(cli.codice_fiscale || cli.partita_iva || "");
     setCodiceFiscale(cli.codice_fiscale || "");
     setPartitaIva(cli.partita_iva || "");
+    const nomeCli = cli.ragione_sociale || `${cli.cognome || ""} ${cli.nome || ""}`.trim();
+    if (nomeCli) setContraente(nomeCli);
 
     const isPrivato = cli.tipo_cliente === "privato";
     const ind = isPrivato ? cli.indirizzo_residenza : (cli.indirizzo_sede || cli.indirizzo_residenza);
@@ -292,7 +300,7 @@ const DocPrecontrattualePage = () => {
   useEffect(() => {
     if (!titoloData) return;
     setPolizza(titoloData.numero_titolo || "");
-    setRiferimento(titoloData.riferimento || "");
+    setAppendice(titoloData.appendice || "");
     const ramoTxt = titoloData.rami
       ? `${titoloData.rami.codice || ""} ${titoloData.rami.descrizione || ""}`.trim()
       : "";
@@ -300,6 +308,31 @@ const DocPrecontrattualePage = () => {
     const cmp = titoloData.compagnie;
     if (cmp?.codice) setCodiceCompagnia(cmp.codice);
     else if (cmp?.nome) setCodiceCompagnia(cmp.nome);
+    if (cmp?.nome) setCompagniaNome(cmp.nome);
+
+    // Date: preferisci garanzia_da, fallback durata_da
+    const fmt = (d?: string | null) =>
+      d ? new Date(d).toLocaleDateString("it-IT") : "";
+    setDataDecorrenza(fmt(titoloData.garanzia_da || titoloData.durata_da));
+    setDataScadenza(fmt(titoloData.data_scadenza));
+
+    // Frazionamento da periodicita
+    const periodMap: Record<string, string> = {
+      A: "Annuale", S: "Semestrale", Q: "Quadrimestrale", T: "Trimestrale",
+      B: "Bimestrale", M: "Mensile", U: "Unica",
+      annuale: "Annuale", semestrale: "Semestrale", trimestrale: "Trimestrale",
+      mensile: "Mensile", unica: "Unica",
+    };
+    const per = (titoloData.periodicita || "").toString();
+    setFrazionamento(periodMap[per] || periodMap[per?.toUpperCase?.()] || per || "");
+
+    // Premio lordo formattato
+    if (titoloData.premio_lordo != null) {
+      const n = Number(titoloData.premio_lordo);
+      if (!Number.isNaN(n)) {
+        setPremioLordo(n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titoloData]);
 
@@ -406,7 +439,11 @@ const DocPrecontrattualePage = () => {
 
   const buildData = (): PrecontrattualeData => {
     const cli = prefillData?.cliente as any;
-    const nomeRagSoc = cli?.ragione_sociale || `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() || (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
+    const nomeRagSoc =
+      contraente ||
+      cli?.ragione_sociale ||
+      `${cli?.cognome || ""} ${cli?.nome || ""}`.trim() ||
+      (clienteData?.ragione_sociale || `${clienteData?.cognome || ""} ${clienteData?.nome || ""}`.trim());
 
     const sezioneIIMap: Record<string, string> = {
       consulenza_119ter_c3: "L'intermediario fornisce una consulenza ai sensi dell'art. 119-ter comma 3 del Codice delle Assicurazioni.",
@@ -428,8 +465,13 @@ const DocPrecontrattualePage = () => {
       clienteProvincia: provincia,
       polizzaNumero: polizza,
       polizzaRiferimento: riferimento,
-      polizzaCompagniaTesto: compagniaData?.nome || "",
+      polizzaCompagniaTesto: compagniaNome || compagniaData?.nome || "",
       polizzaRamo: ramo,
+      polizzaAppendice: appendice,
+      polizzaDataDecorrenza: dataDecorrenza,
+      polizzaDataScadenza: dataScadenza,
+      polizzaFrazionamento: frazionamento,
+      polizzaPremioLordo: premioLordo,
       specialistNomeCognome: nomeCognomeRui,
       specialistSezioneRui: sezioneRui,
       specialistNumeroRui: numeroRui,
@@ -570,6 +612,10 @@ const DocPrecontrattualePage = () => {
               )}
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="contraente-doc">Contraente (Nome / Ragione Sociale)</Label>
+              <Input id="contraente-doc" value={contraente} onChange={(e) => setContraente(e.target.value)} placeholder="Nome Cognome o Ragione Sociale" />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="indirizzo-doc">Indirizzo</Label>
               <AddressAutocomplete id="indirizzo-doc" value={indirizzo} onChange={setIndirizzo} onSelect={(c) => { setCap(c.cap); setCitta(c.citta); setProvincia(c.provincia); }} />
             </div>
@@ -642,7 +688,28 @@ const DocPrecontrattualePage = () => {
               <select value={ramo} onChange={(e) => setRamo(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <option value="">— Seleziona —</option>
+                {ramo && <option value={ramo}>{ramo}</option>}
               </select>
+            </div>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="dec-doc">Decorrenza</Label>
+                <Input id="dec-doc" value={dataDecorrenza} onChange={(e) => setDataDecorrenza(e.target.value)} placeholder="gg/mm/aaaa" />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="scad-doc">Scadenza</Label>
+                <Input id="scad-doc" value={dataScadenza} onChange={(e) => setDataScadenza(e.target.value)} placeholder="gg/mm/aaaa" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="fraz-doc">Frazionamento</Label>
+                <Input id="fraz-doc" value={frazionamento} onChange={(e) => setFrazionamento(e.target.value)} placeholder="Annuale / Semestrale ..." />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="premio-doc">Premio Lordo (€)</Label>
+                <Input id="premio-doc" value={premioLordo} onChange={(e) => setPremioLordo(e.target.value)} placeholder="0,00" />
+              </div>
             </div>
           </div>
         </div>
