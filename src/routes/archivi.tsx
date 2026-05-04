@@ -10,6 +10,7 @@ import TrattativeList from "@/pages/TrattativeList";
 import BandiPubbliciPage from "@/pages/BandiPubbliciPage";
 import CalendarioTrattativePage from "@/pages/CalendarioTrattativePage";
 import StoricoTrattativePage from "@/pages/StoricoTrattativePage";
+import ContiBancariPage from "@/pages/anagrafiche/ContiBancariPage";
 
 export const archiviRoutes = (
   <>
