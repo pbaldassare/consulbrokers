@@ -195,14 +195,24 @@ const ECProduttorePdfPage = () => {
     return `EC_Produttore_${p}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   };
 
+  const ensureBytes = async (): Promise<Uint8Array> => {
+    if (previewBytes && previewKey === cacheKey) return previewBytes;
+    const bytes = await buildECProduttorePdf(buildData());
+    setPreviewBytes(bytes);
+    setPreviewKey(cacheKey);
+    return bytes;
+  };
+
   const handleAnteprima = async () => {
     setPreviewOpen(true);
+    if (previewBytes && previewKey === cacheKey) return; // riusa cache
     setPreviewLoading(true);
     setPreviewError(null);
     setPreviewBytes(null);
     try {
       const bytes = await buildECProduttorePdf(buildData());
       setPreviewBytes(bytes);
+      setPreviewKey(cacheKey);
     } catch (e: any) {
       const msg = e?.message || String(e);
       setPreviewError(msg);
@@ -214,28 +224,31 @@ const ECProduttorePdfPage = () => {
 
   const handleStampaPreview = () => {
     if (!previewBytes) return;
-    const blob = new Blob([previewBytes as BlobPart], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, "_blank");
-    if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+    try {
+      withObjectUrl(previewBytes, (url) => {
+        const w = window.open(url, "_blank");
+        if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+      });
+    } catch (e: any) { toast.error("Errore stampa: " + (e?.message || e)); }
   };
   const handleScaricaPreview = () => {
     if (!previewBytes) return;
-    const blob = new Blob([previewBytes as BlobPart], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = fileName();
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    try {
+      withObjectUrl(previewBytes, (url) => {
+        const a = document.createElement("a"); a.href = url; a.download = fileName();
+        document.body.appendChild(a); a.click(); a.remove();
+      });
+    } catch (e: any) { toast.error("Errore download: " + (e?.message || e)); }
   };
 
   const handleStampa = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECProduttorePdf(buildData());
-      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const w = window.open(url, "_blank");
-      if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+      const bytes = await ensureBytes();
+      withObjectUrl(bytes, (url) => {
+        const w = window.open(url, "_blank");
+        if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+      });
     } catch (e: any) { toast.error("Errore stampa: " + (e?.message || e)); }
     finally { setBusy(false); }
   };
@@ -243,12 +256,11 @@ const ECProduttorePdfPage = () => {
   const handleScarica = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECProduttorePdf(buildData());
-      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = fileName();
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      const bytes = await ensureBytes();
+      withObjectUrl(bytes, (url) => {
+        const a = document.createElement("a"); a.href = url; a.download = fileName();
+        document.body.appendChild(a); a.click(); a.remove();
+      });
     } catch (e: any) { toast.error("Errore download: " + (e?.message || e)); }
     finally { setBusy(false); }
   };
