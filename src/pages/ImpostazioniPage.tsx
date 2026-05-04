@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Settings, Building2, Save, Loader2 } from "lucide-react";
+import AuditConfigCard from "@/components/impostazioni/AuditConfigCard";
 
 interface ImpostazioneSistema {
   id: string;
