@@ -149,7 +149,7 @@ const ECClientiStoricoPage = () => {
       </div>
 
       <Card>
-        <CardContent className="p-4 grid gap-3 md:grid-cols-4">
+        <CardContent className="p-4 grid gap-3 md:grid-cols-5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca nome file..." className="pl-9" />
@@ -161,6 +161,10 @@ const ECClientiStoricoPage = () => {
             placeholder="Cliente"
             allLabel="Tutti i clienti"
           />
+          <div>
+            <label className="text-xs text-muted-foreground">N. Polizza</label>
+            <Input value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="Es. 123456" />
+          </div>
           <div>
             <label className="text-xs text-muted-foreground">Da</label>
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
