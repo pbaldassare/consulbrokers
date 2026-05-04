@@ -14,6 +14,11 @@ export interface PrecontrattualeData {
   polizzaRiferimento: string;
   polizzaCompagniaTesto: string; // es: "GENERALI ITALIA SPA Agenzia Generale Venezia San Marco"
   polizzaRamo: string;
+  polizzaAppendice?: string;
+  polizzaDataDecorrenza?: string;
+  polizzaDataScadenza?: string;
+  polizzaFrazionamento?: string;
+  polizzaPremioLordo?: string;
   // Intermediario - Specialist
   specialistNomeCognome: string;
   specialistSezioneRui: string;
