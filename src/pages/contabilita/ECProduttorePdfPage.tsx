@@ -26,7 +26,7 @@ const ECProduttorePdfPage = () => {
   const [dataRendiconto, setDataRendiconto] = useState(params.get("dataEC") || format(new Date(), "dd/MM/yyyy"));
   const [periodoTesto, setPeriodoTesto] = useState(params.get("periodo") || "");
   const [noteFinali, setNoteFinali] = useState("");
-  const [percRA, setPercRA] = useState<string>("11.50");
+  const [percRA, setPercRA] = useState<string>("11,50");
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -65,7 +65,7 @@ const ECProduttorePdfPage = () => {
   });
 
   useEffect(() => {
-    if (produttore?.percentuale_ra != null) setPercRA(String(produttore.percentuale_ra));
+    if (produttore?.percentuale_ra != null) setPercRA(String(produttore.percentuale_ra).replace(".", ","));
   }, [produttore?.percentuale_ra]);
 
   const { data: sede } = useQuery({
