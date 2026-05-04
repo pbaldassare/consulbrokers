@@ -69,7 +69,7 @@ const ECClientePdfPage = () => {
     enabled: !!profile?.ufficio_id,
     queryFn: async () => {
       const { data } = await supabase.from("uffici")
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
+        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono, iban, intestato_a, banca")
         .eq("id", profile!.ufficio_id!)
         .maybeSingle();
       return data as any;
@@ -79,6 +79,9 @@ const ECClientePdfPage = () => {
   useEffect(() => {
     const cittaSede = sede?.citta || "Napoli";
     setLuogoData(`${cittaSede}, ${format(new Date(), "dd/MM/yyyy")}`);
+    if (sede?.iban) setIban(sede.iban);
+    if (sede?.intestato_a) setIntestatarioConto(sede.intestato_a);
+    if (sede?.banca) setBancaConto(sede.banca);
   }, [sede]);
 
   // Titoli del cliente
@@ -182,6 +185,21 @@ const ECClientePdfPage = () => {
       if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
     } catch (e: any) { toast.error("Errore stampa: " + (e?.message || e)); }
     finally { setBusy(false); }
+  };
+
+  const handleScarica = async () => {
+    try {
+      setBusy(true);
+      const bytes = await buildECClientePdf(buildData());
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      const name = fileName();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (e: any) {
+      toast.error("Errore download: " + (e?.message || e));
+    } finally { setBusy(false); }
   };
 
   const handleSalva = async () => {
@@ -296,6 +314,7 @@ const ECClientePdfPage = () => {
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleAnteprima} disabled={busy}>Anteprima</Button>
           <Button variant="outline" onClick={handleStampa} disabled={busy}>Stampa</Button>
+          <Button variant="outline" onClick={handleScarica} disabled={busy}>Scarica</Button>
           <Button onClick={handleSalva} disabled={busy}>Salva PDF</Button>
         </div>
       </div>

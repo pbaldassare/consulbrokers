@@ -25,6 +25,7 @@ const actions: ActionCard[] = [
   { label: "E/C Clienti", description: "Estratto conto clienti", icon: FileSpreadsheet, path: "/portafoglio/estrazioni/ec-clienti" },
   { label: "E/C Agenzie", description: "Estratto conto verso agenzie con anteprima, stampa e archivio", icon: FileText, path: "/contabilita/ec-compagnia" },
   { label: "Storico E/C Agenzie", description: "PDF E/C Agenzie archiviati: ricerca, filtri e anteprima", icon: Archive, path: "/contabilita/ec-agenzia/storico" },
+  { label: "Storico E/C Clienti", description: "PDF E/C Clienti archiviati: ricerca per cliente, periodo e download", icon: Archive, path: "/contabilita/ec-cliente/storico" },
 ];
 
 const EstrazioniStampePage = () => {
