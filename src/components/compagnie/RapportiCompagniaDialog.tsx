@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, XCircle, Network } from "lucide-react";
@@ -41,6 +42,7 @@ interface RapportoForm {
   attivo: boolean;
   percentuale_provvigione: string;
   iban_dedicato: string;
+  conto_bancario_id: string | null;
   referente_compagnia: string;
   email_referente: string;
   telefono_referente: string;
@@ -57,6 +59,7 @@ const emptyForm: RapportoForm = {
   attivo: true,
   percentuale_provvigione: "",
   iban_dedicato: "",
+  conto_bancario_id: null,
   referente_compagnia: "",
   email_referente: "",
   telefono_referente: "",
@@ -115,6 +118,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
         iban_dedicato: form.iban_dedicato || null,
+        conto_bancario_id: form.conto_bancario_id || null,
         referente_compagnia: form.referente_compagnia || null,
         email_referente: form.email_referente || null,
         telefono_referente: form.telefono_referente || null,
@@ -180,6 +184,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       attivo: r.attivo ?? true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
       iban_dedicato: r.iban_dedicato || "",
+      conto_bancario_id: r.conto_bancario_id || null,
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
       telefono_referente: r.telefono_referente || "",
@@ -381,12 +386,16 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">IBAN dedicato</Label>
-              <Input
-                value={form.iban_dedicato}
-                onChange={(e) => setForm((p) => ({ ...p, iban_dedicato: e.target.value }))}
-                placeholder="IT.."
+              <Label className="text-xs text-muted-foreground">Conto bancario dedicato</Label>
+              <ContoBancarioSelect
+                value={form.conto_bancario_id}
+                onChange={(id) => setForm((p) => ({ ...p, conto_bancario_id: id }))}
+                tipi={["compagnia", "generico"]}
+                placeholder="Usa il conto della compagnia"
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Se valorizzato, sostituisce l'IBAN della compagnia per questo specifico rapporto. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
+              </p>
             </div>
 
             <div className="border-t pt-3 space-y-3">

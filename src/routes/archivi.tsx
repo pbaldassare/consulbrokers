@@ -10,6 +10,7 @@ import TrattativeList from "@/pages/TrattativeList";
 import BandiPubbliciPage from "@/pages/BandiPubbliciPage";
 import CalendarioTrattativePage from "@/pages/CalendarioTrattativePage";
 import StoricoTrattativePage from "@/pages/StoricoTrattativePage";
+import ContiBancariPage from "@/pages/anagrafiche/ContiBancariPage";
 
 export const archiviRoutes = (
   <>
@@ -22,6 +23,7 @@ export const archiviRoutes = (
     <Route path="/archivi/anagrafiche-amministrative" element={<AnagraficheInternePage />} />
     <Route path="/archivi/anagrafiche-interne" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
     <Route path="/archivi/anagrafiche" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
+    <Route path="/archivi/conti-bancari" element={<ContiBancariPage />} />
     <Route path="/trattative" element={<TrattativeList />} />
     <Route path="/trattative/calendario" element={<CalendarioTrattativePage />} />
     <Route path="/trattative/storico" element={<StoricoTrattativePage />} />
