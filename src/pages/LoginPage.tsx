@@ -1,19 +1,39 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
-import { checkAppVersion } from "@/lib/versionCheck";
 
 const LoginPage = () => {
+  const { user, profile, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
+
+  // Già loggato → redirect reattivo (no window.location.replace, no loop)
+  if (!authLoading && user) {
+    const route = getDefaultRoute(profile) || "/";
+    return <Navigate to={route === "/login" ? "/" : route} replace />;
+  }
+
+  // Mostra spinner durante il bootstrap auth per evitare flash del form
+  if (authLoading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "linear-gradient(135deg, hsl(199 58% 14%), hsl(199 50% 24%), hsl(170 55% 32%))" }}
+      >
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,30 +41,12 @@ const LoginPage = () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      toast.error("Errore di accesso");
+      console.error("[LoginPage] signIn error:", error);
+      toast.error("Accesso fallito", { description: error.message });
       return;
     }
-
-    // Se è stato deployato un aggiornamento mentre l'utente era sulla pagina
-    // di login con bundle stale, intercetta qui e forza un hard reload prima
-    // di entrare nell'app. checkAppVersion ritorna true se il reload è avviato.
-    const willReload = await checkAppVersion();
-    if (willReload) return;
-
-    // Fetch profile to determine landing route
-    const { data: { user: loggedUser } } = await supabase.auth.getUser();
-    let route = "/";
-    if (loggedUser) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("ruolo, permessi_json")
-        .eq("id", loggedUser.id)
-        .maybeSingle();
-      route = getDefaultRoute(profile);
-    }
-
-    // Hard navigation — forces browser to load the latest build assets
-    window.location.replace(route);
+    // Nessuna navigazione manuale: onAuthStateChange aggiorna AuthContext,
+    // il guard in cima al componente fa il <Navigate> reattivo.
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -59,7 +61,7 @@ const LoginPage = () => {
     });
     setLoading(false);
     if (error) {
-      toast.error("Errore");
+      toast.error("Errore", { description: error.message });
     } else {
       toast.success("Email inviata", { description: "Controlla la tua casella per il link di reset." });
       setResetMode(false);
