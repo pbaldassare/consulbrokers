@@ -69,7 +69,7 @@ const ECClientePdfPage = () => {
     enabled: !!profile?.ufficio_id,
     queryFn: async () => {
       const { data } = await supabase.from("uffici")
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
+        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono, iban, intestato_a, banca")
         .eq("id", profile!.ufficio_id!)
         .maybeSingle();
       return data as any;
@@ -79,6 +79,9 @@ const ECClientePdfPage = () => {
   useEffect(() => {
     const cittaSede = sede?.citta || "Napoli";
     setLuogoData(`${cittaSede}, ${format(new Date(), "dd/MM/yyyy")}`);
+    if (sede?.iban) setIban(sede.iban);
+    if (sede?.intestato_a) setIntestatarioConto(sede.intestato_a);
+    if (sede?.banca) setBancaConto(sede.banca);
   }, [sede]);
 
   // Titoli del cliente
