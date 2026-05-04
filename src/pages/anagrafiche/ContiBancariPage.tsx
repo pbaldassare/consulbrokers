@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { validateIban } from "@/lib/validateIban";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface ContoBancario {
   id: string;
@@ -159,12 +161,18 @@ export default function ContiBancariPage() {
   const openNew = () => { setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (c: ContoBancario) => { setForm(c); setDialogOpen(true); };
 
+  const ibanValidation = validateIban(form.iban || "");
+
   const handleSave = () => {
-    if (!form.etichetta?.trim() || !form.iban?.trim() || !form.intestato_a?.trim()) {
-      toast.error("Etichetta, IBAN e intestatario sono obbligatori");
+    if (!form.etichetta?.trim() || !form.intestato_a?.trim()) {
+      toast.error("Etichetta e intestatario sono obbligatori");
       return;
     }
-    upsert.mutate(form);
+    if (!ibanValidation.valid) {
+      toast.error(ibanValidation.error || "IBAN non valido");
+      return;
+    }
+    upsert.mutate({ ...form, iban: ibanValidation.normalized });
   };
 
   return (
@@ -275,7 +283,26 @@ export default function ContiBancariPage() {
 
             <div>
               <Label>IBAN *</Label>
-              <Input value={form.iban || ""} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase().replace(/\s+/g, "") })} placeholder="IT70Q0306904214100000016469" className="font-mono" />
+              <Input
+                value={form.iban || ""}
+                onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase().replace(/\s+/g, "") })}
+                placeholder="IT70Q0306904214100000016469"
+                className={`font-mono ${form.iban && !ibanValidation.valid ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                aria-invalid={!!form.iban && !ibanValidation.valid}
+              />
+              {form.iban ? (
+                ibanValidation.valid ? (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> IBAN valido ({form.iban.slice(0, 2)})
+                  </p>
+                ) : (
+                  <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {ibanValidation.error}
+                  </p>
+                )
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Inserisci un IBAN valido (es. IT + 25 caratteri)</p>
+              )}
             </div>
 
             <div>
@@ -338,7 +365,7 @@ export default function ContiBancariPage() {
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            <Button onClick={handleSave} disabled={upsert.isPending}>{upsert.isPending ? "Salvataggio…" : "Salva"}</Button>
+            <Button onClick={handleSave} disabled={upsert.isPending || !ibanValidation.valid}>{upsert.isPending ? "Salvataggio…" : "Salva"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
