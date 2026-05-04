@@ -360,17 +360,42 @@ function renderMUP(ctx: Ctx, d: PrecontrattualeData) {
   drawText(ctx, "MODULO UNICO PRECONTRATTUALE (MUP) PER I PRODOTTI ASSICURATIVI", { bold: true, align: "center", size: 11 });
   spacer(ctx, 8);
 
-  // Cliente / Polizza header table
+  // Cliente / Polizza header table — 4 righe x 2 colonne
   const cellH = 14;
-  ctx.page.drawRectangle({ x: MARGIN.left, y: ctx.y - cellH, width: CONTENT_W / 2, height: cellH, borderColor: COLOR.line, borderWidth: 0.5 });
-  ctx.page.drawRectangle({ x: MARGIN.left + CONTENT_W / 2, y: ctx.y - cellH, width: CONTENT_W / 2, height: cellH, borderColor: COLOR.line, borderWidth: 0.5 });
-  ctx.page.drawText(`Cliente: ${d.clienteNomeRagSoc}`, { x: MARGIN.left + 4, y: ctx.y - 10, size: 9, font: ctx.bold });
-  ctx.page.drawText(`Polizza: ${d.polizzaNumero || "-"}`, { x: MARGIN.left + CONTENT_W / 2 + 4, y: ctx.y - 10, size: 9, font: ctx.bold });
-  ctx.y -= cellH + 4;
-  if (d.polizzaCompagniaTesto) {
-    drawText(ctx, d.polizzaCompagniaTesto, { italic: true, size: 9 });
+  const colW = CONTENT_W / 2;
+  const drawHeaderRow = (left: string, right: string, opts?: { bold?: boolean }) => {
+    ctx.page.drawRectangle({ x: MARGIN.left, y: ctx.y - cellH, width: colW, height: cellH, borderColor: COLOR.line, borderWidth: 0.5 });
+    ctx.page.drawRectangle({ x: MARGIN.left + colW, y: ctx.y - cellH, width: colW, height: cellH, borderColor: COLOR.line, borderWidth: 0.5 });
+    const f = opts?.bold ? ctx.bold : ctx.font;
+    ctx.page.drawText(left, { x: MARGIN.left + 4, y: ctx.y - 10, size: 8.5, font: f });
+    ctx.page.drawText(right, { x: MARGIN.left + colW + 4, y: ctx.y - 10, size: 8.5, font: f });
+    ctx.y -= cellH;
+  };
+
+  const polNum = d.polizzaNumero || "-";
+  const polApp = d.polizzaAppendice ? `   App: ${d.polizzaAppendice}` : "";
+  drawHeaderRow(`Cliente: ${d.clienteNomeRagSoc || "-"}`, `Polizza: ${polNum}${polApp}`, { bold: true });
+
+  const cfPiva = [
+    d.clienteCF ? `CF: ${d.clienteCF}` : "",
+    d.clientePIVA ? `P.IVA: ${d.clientePIVA}` : "",
+  ].filter(Boolean).join("   ") || "-";
+  drawHeaderRow(cfPiva, `Compagnia: ${d.polizzaCompagniaTesto || "-"}`);
+
+  const cliInd = [d.clienteIndirizzo, d.clienteCap, d.clienteCitta, d.clienteProvincia ? `(${d.clienteProvincia})` : ""].filter(Boolean).join(" ");
+  const decScad = `Decorr: ${d.polizzaDataDecorrenza || "-"}   Scad: ${d.polizzaDataScadenza || "-"}`;
+  drawHeaderRow(`Indirizzo: ${cliInd || "-"}`, decScad);
+
+  const ramoFraz = `Ramo: ${d.polizzaRamo || "-"}   Frazion: ${d.polizzaFrazionamento || "-"}`;
+  const premio = `Premio lordo: ${d.polizzaPremioLordo ? "€ " + d.polizzaPremioLordo : "-"}`;
+  drawHeaderRow(ramoFraz, premio);
+
+  ctx.y -= 4;
+  if (d.polizzaRiferimento) {
+    drawText(ctx, `Riferimento: ${d.polizzaRiferimento}`, { italic: true, size: 8.5 });
   }
   spacer(ctx, 4);
+
 
   drawText(ctx, "AVVERTENZA", { bold: true, align: "center", size: 9.5 });
   drawText(ctx, "Ai sensi della vigente normativa, il distributore ha l'obbligo di consegnare/trasmettere al contraente il presente modulo, prima della sottoscrizione della proposta o del contratto di assicurazione. Il documento può essere fornito con modalità non cartacea se appropriato rispetto alle modalità di distribuzione del prodotto assicurativo e il contraente lo consente (art. 120-quater del Codice delle Assicurazioni Private).", { size: 8.5 });
