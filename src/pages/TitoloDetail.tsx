@@ -1451,7 +1451,10 @@ const TitoloDetail = () => {
               </div>
             )}
             <div className="flex gap-2 flex-wrap">
-              {t.stato === "attivo" && (
+              {/* Incassa/Garantito visibili solo se polizza attiva E non ancora messa a cassa
+                  (oppure poliennale attiva con rate residue da incassare).
+                  Una polizza già incassata NON può essere incassata di nuovo. */}
+              {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale) && (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
                   const today = new Date().toISOString().slice(0, 10);
                   setCassaForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });
@@ -1460,7 +1463,7 @@ const TitoloDetail = () => {
                   <CheckSquare className="w-4 h-4 mr-1" /> Incassa
                 </Button>
               )}
-              {t.stato === "attivo" && (
+              {t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale) && (
                 <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
                   const today = new Date().toISOString().slice(0, 10);
                   setConferimentoForm({ dataMessaCassa: today, dataPagamento: today, dataDecorrenza: today, tipoPagamento: "contanti", banca: "" });

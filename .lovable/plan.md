@@ -1,59 +1,46 @@
-Hai ragione: dalla tua schermata e dalla verifica risulta che il problema non è solo il login. Il browser sta ancora eseguendo una shell vecchia e nel codice ci sono ancora alcune voci residue che non devono più comparire nel gestionale.
+## Problema
 
-Procedo così:
+Nel Dettaglio Polizza, sulle polizze in stato **"attivo"** vengono ancora mostrati i bottoni **Incassa** e **Garantito**. Ma una polizza "attiva" è già stata incassata (la messa a cassa porta lo stato a `incassato`; resta `attivo` solo nei casi di poliennale con rate future ancora da riscuotere). Quindi i bottoni rischiano di causare un secondo incasso sullo stesso titolo.
 
-1. Pulizia definitiva delle voci vecchie nel gestionale
-- Rimuovere dalla sidebar ogni voce residua non voluta:
-  - `FATTURAPA`
-  - `CONT. GENERALE`
-  - `Area CFO`
-  - `Comunicazioni` come voce di menu vecchia, mantenendo invece `Chat` dove previsto
-  - eventuali voci legacy non coerenti con la nuova struttura
-- Sistemare anche le route legacy in modo che, se un vecchio link viene aperto, non carichi più la pagina vecchia ma reindirizzi a una pagina valida.
-- Ripulire `SitemapPage` e configurazioni correlate per non mostrare più pagine vecchie come disponibili.
+Inoltre la regola va applicata coerentemente anche alla card "Messa a Cassa" e a tutti gli ingressi correlati (lista Carico del Mese, dialog di messa a cassa diretta dalla lista).
 
-2. Correzione vera del problema versione/cache alla login
-- Spostare il controllo versione prima del rendering dell’app e non solo dentro login/guard: se il bundle è vecchio, l’app non deve nemmeno montare la UI vecchia.
-- Aggiungere una schermata di “aggiornamento applicazione” mentre pulisce cache e service worker, così non resta visibile la vecchia dashboard/sidebar.
-- Rendere il check versione più robusto:
-  - fetch di `/version.json` con cache busting;
-  - confronto con versione bundle;
-  - pulizia Cache Storage;
-  - unregister di eventuali service worker rimasti;
-  - reload controllato senza loop.
+## Regola corretta
 
-3. Kill-switch service worker
-- Aggiungere file statici `public/sw.js` e `public/service-worker.js` con logica kill-switch.
-- Questo serve per disinstallare service worker già registrati in precedenti versioni: cancellano cache, reclamano i client e si unregisterano.
-- Questo è necessario perché cancellare il plugin PWA o fare cleanup da React non basta se un vecchio service worker intercetta la pagina prima che React parta.
+Una polizza è "incassabile" SOLO se:
+- `stato === "attivo"` **E**
+- `data_messa_cassa` è **NULL** (mai incassata) **OPPURE** è una poliennale con rate residue da incassare per il periodo corrente
 
-4. Manifest/PWA: togliere ciò che favorisce cache/installazioni stale nel gestionale
-- Sistemare `manifest.json` per evitare che continui a puntare a start URL vecchi o modalità standalone problematica per il gestionale.
-- Mantenere solo ciò che serve senza riattivare PWA/service worker.
-- Rimuovere eventuali meta cache-control inutili o fuorvianti da `index.html`, perché in preview/hosting i cache header reali sono gestiti dalla piattaforma.
+In tutti gli altri casi (polizza già con `data_messa_cassa` valorizzata e non poliennale, polizza in stato `incassato`, `sospeso`, `scaduto`) i bottoni **Incassa** e **Garantito** devono essere nascosti.
 
-5. Versione unica e visibile
-- Rendere la versione generata coerente fra bundle e `version.json`.
-- Aggiungere log diagnostico chiaro in console: bundle, server, match/mismatch.
-- Aggiornare `public/version.json` per forzare la nuova revisione.
+## Modifiche
 
-6. Verifica finale
-- Controllare `/`, `/login`, `/fatturapa`, `/cont-generale`, `/area-cfo`.
-- Verificare che le voci vecchie non compaiano più.
-- Verificare che dopo login venga caricata sempre la shell aggiornata.
+### 1. `src/pages/TitoloDetail.tsx` (linee 1453–1478)
 
-File previsti:
-- `src/main.tsx`
-- `src/lib/versionCheck.ts`
-- `src/components/AppVersionGuard.tsx` o sostituzione con bootstrap pre-render
-- `src/components/AppSidebar.tsx`
-- `src/routes/sistema.tsx`
-- `src/routes/portafoglio.tsx` se necessario
-- `src/pages/SitemapPage.tsx`
-- `public/sw.js`
-- `public/service-worker.js`
-- `public/manifest.json`
-- `public/version.json`
-- eventualmente `index.html`
+Sostituire la condizione `t.stato === "attivo"` sui due bottoni con la stessa logica già usata per mostrare la card: la costante `showMessaACassa` (riga 1134) che vale `!t.data_messa_cassa || (isPoliennale && t.stato === "attivo")`.
 
-Non tocco dati Supabase e non modifico report/KPI finanziari.
+Aggiungere anche il vincolo che la polizza sia in stato `attivo` (escludendo `sospeso`, `scaduto` per evitare incassi su polizze non operative).
+
+```text
+Bottone visibile sse:
+  t.stato === "attivo" && (!t.data_messa_cassa || isPoliennale)
+```
+
+### 2. Lista "Carico del Mese" / Storico — verifica
+
+Controllare `src/pages/PortafoglioCaricoPage.tsx` e `src/components/portafoglio/MessaCassaDialog.tsx` per assicurarsi che il pulsante di messa a cassa massiva non compaia su righe già incassate (`data_messa_cassa IS NOT NULL` e non poliennale). Se la lista Carico già filtra solo titoli senza `data_messa_cassa`, nessuna modifica necessaria — solo verifica.
+
+### 3. Hardening lato server (consigliato, da confermare)
+
+Aggiungere un trigger `BEFORE UPDATE` su `titoli` che blocchi la valorizzazione di `data_messa_cassa` se è già non-null, a meno che non sia una polizza poliennale attiva (caso rate successive). Questo previene doppi incassi anche da SQL diretto o import.
+
+```sql
+-- Pseudocodice
+IF OLD.data_messa_cassa IS NOT NULL
+   AND NEW.data_messa_cassa IS DISTINCT FROM OLD.data_messa_cassa
+   AND NOT (è_poliennale(NEW) AND NEW.stato = 'attivo')
+THEN RAISE EXCEPTION 'Polizza già incassata';
+```
+
+## Domanda di conferma
+
+Procedo con i punti 1 e 2 (fix UI immediato). Sul punto 3 (trigger DB anti-doppio-incasso) confermi che vuoi anche l'hardening server-side, o per ora basta la correzione UI?
