@@ -182,6 +182,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : null,
         iban: form.iban || null,
         intestatario_cc: form.intestatario_cc || null,
+        conto_bancario_id: form.conto_bancario_id || null,
         note: form.note || null,
         attivo: form.attivo,
         updated_at: new Date().toISOString(),
