@@ -421,8 +421,8 @@ const CruscottoGiornaliero = () => {
             </div>
           )}
           {scadenzeFornitori.length > 0 && (
-            <Button variant="link" size="sm" className="mt-2 p-0 h-auto" onClick={() => navigate("/cont-generale/scadenziario")}>
-              Vedi scadenziario →
+            <Button variant="link" size="sm" className="mt-2 p-0 h-auto" onClick={() => navigate("/contabilita")}>
+              Vai a Contabilità →
             </Button>
           )}
         </CardContent>
