@@ -24,6 +24,7 @@ import PagamentiProvvigioniList from "@/pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "@/pages/PagamentoProvvigioneDetail";
 import SitemapPage from "@/pages/SitemapPage";
 import StoricoGarePage from "@/pages/StoricoGarePage";
+import AreaCFO from "@/pages/AreaCFO";
 
 export const sistemaRoutes = (
   <>
@@ -43,7 +44,8 @@ export const sistemaRoutes = (
     <Route path="/sitemap" element={<RoleGuard allowedRoles={["admin"]}><SitemapPage /></RoleGuard>} />
 
     {/* STANDALONE */}
-    <Route path="/cfo" element={<Navigate to="/contabilita/cruscotto" replace />} />
+    <Route path="/area-cfo" element={<RoleGuard allowedRoles={["admin", "cfo"]}><AreaCFO /></RoleGuard>} />
+    <Route path="/cfo" element={<Navigate to="/area-cfo" replace />} />
     <Route path="/cont-generale" element={<Navigate to="/contabilita" replace />} />
     <Route path="/cont-generale/*" element={<Navigate to="/contabilita" replace />} />
     <Route path="/fatturapa" element={<Navigate to="/contabilita" replace />} />
