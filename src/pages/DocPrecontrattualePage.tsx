@@ -43,10 +43,12 @@ const DocPrecontrattualePage = () => {
 
   // Contratto intermediato
   const [codiceCliente, setCodiceCliente] = useState("");
+  const [contraente, setContraente] = useState("");
   const [polizza, setPolizza] = useState("");
   const [appendice, setAppendice] = useState("");
   const [riferimento, setRiferimento] = useState("");
   const [codiceCompagnia, setCodiceCompagnia] = useState("");
+  const [compagniaNome, setCompagniaNome] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
   const [cap, setCap] = useState("");
   const [citta, setCitta] = useState("");
@@ -54,6 +56,10 @@ const DocPrecontrattualePage = () => {
   const [nazione, setNazione] = useState("Italia");
   const [gruppo, setGruppo] = useState("");
   const [ramo, setRamo] = useState("");
+  const [dataDecorrenza, setDataDecorrenza] = useState("");
+  const [dataScadenza, setDataScadenza] = useState("");
+  const [frazionamento, setFrazionamento] = useState("");
+  const [premioLordo, setPremioLordo] = useState("");
   const [codiceFiscale, setCodiceFiscale] = useState("");
   const [partitaIva, setPartitaIva] = useState("");
 
