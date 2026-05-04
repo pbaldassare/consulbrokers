@@ -303,6 +303,12 @@ const ImpostazioniPage = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="audit">
+            <AuditConfigCard />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
