@@ -1,38 +1,41 @@
-# Cancellazione totale polizze (titoli)
+# Import portafoglio aprile 2026 (16 polizze)
 
-## Obiettivo
-Rimuovere tutti i 212 `titoli` rimasti in DB e i loro record dipendenti. I 12 clienti keeper restano in piedi, pronti a ricevere nuove polizze fornite manualmente in seguito.
+## Step 1 — Anagrafiche di supporto
 
-## Ambito dei dati eliminati
+| Tabella | Inserimento |
+|---|---|
+| `compagnie` | `SOCIETA' REALE MUTUA DI ASS.NI MALLOZZI SRL` (gruppo: REALE MUTUA) |
+| `uffici` | `SEDE CATANIA` — codice `CT`, città Catania, provincia CT |
+| `profiles` (backoffice) | GUARRACINO GAETANO, Gestione Milano |
+| `profiles` (produttore = Consul) | INTERFIDI SRL, SCIORIO NICOLA, Consulbrokers Digital Srl, E.M.A. SOLUZIONI ASSICURATIVE SRL |
 
-| Tabella | Righe attuali | Modalità |
-|---|---:|---|
-| `titoli` | 212 | DELETE diretto |
-| `movimenti_polizza` | 1.802 | CASCADE da titoli |
-| `provvigioni_generate` | 424 | CASCADE da titoli |
-| `premi_garanzia_polizza` | 15 | CASCADE da titoli |
-| `veicoli_polizza` | 4 | CASCADE da titoli |
-| `appendici_polizza` | 2 | CASCADE da titoli |
-| `conducenti_polizza` | 2 | CASCADE da titoli |
-| `sinistri` | 0 | nessuna azione necessaria |
-| `rimessa_dettaglio` | 0 | nessuna azione necessaria |
-| `note_restituzione_dettaglio` | 0 | nessuna azione necessaria |
-| `dettaglio_riparto` | 0 | CASCADE |
-| `portafoglio_incassi` | 0 | nessuna azione |
+## Step 2 — Inserimento 16 titoli
 
-Nessun riferimento `titolo_id` su `documenti`, `chat_canali`, `movimenti_contabili`: non serve toccarle.
+Per ogni riga del file:
+- `cliente_id` ← cliente keeper corrispondente
+- `compagnia_id` ← compagnia mappata (CONSULBROKERS Milano per AXKY13OP)
+- `ramo_id` ← ramo mappato
+- `ufficio_id` ← Ufficio di Napoli o nuova SEDE CATANIA
+- `commerciale_id` ← Consul (NULL per le 3 polizze CONSULBROKERS senza produttore)
+- `specialist` ← testo (`GUARRACINO GAETANO` o `Gestione Milano`)
+- `numero_titolo`, `premio_lordo` ← dal file
+- `provvigioni_firma` ← colonna "Attive" (provvigioni attive)
+- `provvigioni_quietanza` ← colonna "Passive" (provvigioni passive)
+- `data_scadenza` ← colonna "Scadenza" (scadenza rata)
+- `durata_a` / `garanzia_a` ← colonna "Scad Polizza"
+- `durata_da` / `garanzia_da` ← Scad Polizza − 1 anno (o − 4 anni per la poliennale Lo Giudice 2027-01-19)
+- `rate` ← colonna "Fraz" (1 o 3)
+- `periodicita` ← `annuale` (o `quadrimestrale` se Fraz=3)
+- `stato` ← `attivo`
+- `tacito_rinnovo` ← `true`
+- `produttore_nome` ← testo del produttore (per backup leggibilità)
+- `ae_nome` ← `SEDE NAPOLI` / `SEDE CATANIA`
 
-## Esecuzione (un'unica migration in transazione)
+Per le 5 polizze con targa (riga 2,4,6,7,10 del file) inserisco anche record in `veicoli_polizza` con: `targa`, `tipo_veicolo` (AUTOVETTURA / MOTOCICLO / NATANTE).
 
-1. `SET session_replication_role = 'replica'` per bypassare i trigger di lock (`lock_premi_storici`, `prevent_double_messa_cassa`, audit, ecc.).
-2. `DELETE FROM titoli;` — il CASCADE elimina automaticamente movimenti, provvigioni, garanzie, appendici, veicoli, conducenti, dettaglio_riparto.
-3. Ripristino `session_replication_role = 'origin'`.
-4. Verifica finale: `SELECT COUNT(*) FROM titoli` deve essere 0.
+## Step 3 — Verifica finale
 
-## Cosa NON viene toccato
-- I 12 clienti keeper (anagrafiche, sedi, referenti, codici commerciali, privacy).
-- Compagnie, rami, prodotti, gruppi finanziari, uffici, profili utente.
-- Storico contabile non collegato a titoli, template, impostazioni, log generali.
+Conteggio titoli per cliente, totale premio lordo (atteso ~€ 89.951), totale Attive (~€ 6.346), totale Passive (~€ 2.890).
 
 ## Note
-Operazione **irreversibile**. Conferma per procedere con la migration.
+Operazione idempotente: uso `ON CONFLICT DO NOTHING` su anagrafiche supporto. Se rilanciata non duplica.
