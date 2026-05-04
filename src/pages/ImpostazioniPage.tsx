@@ -222,6 +222,7 @@ const ImpostazioniPage = () => {
         <TabsList>
           {isAdmin && <TabsTrigger value="sistema">Sistema</TabsTrigger>}
           <TabsTrigger value="ufficio">Sede</TabsTrigger>
+          {isAdmin && <TabsTrigger value="audit">Log Attività</TabsTrigger>}
         </TabsList>
 
         {isAdmin && (
