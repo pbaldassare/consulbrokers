@@ -41,9 +41,9 @@ const ECClientePdfPage = () => {
   const [luogoData, setLuogoData] = useState("");
   const [oggetto, setOggetto] = useState("Estratto conto premi");
   const [introTesto, setIntroTesto] = useState("Vi trasmettiamo l'estratto conto delle operazioni condotte, pregandoVi di provvedere al saldo secondo quanto previsto dall'Art. 1901 c.c. e comunque entro i termini previsti dalle polizze.");
-  const [intestatarioConto, setIntestatarioConto] = useState("CONSULBROKERS DIGITAL SRL per conto compagnie");
-  const [bancaConto, setBancaConto] = useState("Intesa Sanpaolo SpA");
-  const [iban, setIban] = useState("IT70Q0306904214100000016469");
+  const [intestatarioConto, setIntestatarioConto] = useState("");
+  const [bancaConto, setBancaConto] = useState("");
+  const [iban, setIban] = useState("");
   const [ragioneSocialeFooter, setRagioneSocialeFooter] = useState("Consulbrokers Digital s.r.l.");
   const [noteFinali, setNoteFinali] = useState("");
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
@@ -63,26 +63,53 @@ const ECClientePdfPage = () => {
     },
   });
 
-  // Sede mittente
+  // Sede mittente (con conto incassi collegato)
   const { data: sede } = useQuery({
     queryKey: ["ec-cli-pdf-sede", profile?.ufficio_id],
     enabled: !!profile?.ufficio_id,
     queryFn: async () => {
-      const { data } = await supabase.from("uffici")
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono, iban, intestato_a, banca")
+      const { data } = await supabase.from("uffici" as any)
+        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono, conto_incasso_id")
         .eq("id", profile!.ufficio_id!)
         .maybeSingle();
       return data as any;
     },
   });
 
+  // Conto bancario di incasso: prima quello della Sede, poi il default master
+  const { data: conto } = useQuery({
+    queryKey: ["ec-cli-pdf-conto", sede?.conto_incasso_id],
+    queryFn: async () => {
+      if (sede?.conto_incasso_id) {
+        const { data } = await supabase.from("conti_bancari" as any)
+          .select("iban, intestato_a, banca")
+          .eq("id", sede.conto_incasso_id)
+          .maybeSingle();
+        if (data) return data as any;
+      }
+      const { data } = await supabase.from("conti_bancari" as any)
+        .select("iban, intestato_a, banca")
+        .eq("tipo", "incasso_clienti")
+        .eq("is_default", true)
+        .eq("attivo", true)
+        .maybeSingle();
+      return data as any;
+    },
+    enabled: !!profile,
+  });
+
   useEffect(() => {
     const cittaSede = sede?.citta || "Napoli";
     setLuogoData(`${cittaSede}, ${format(new Date(), "dd/MM/yyyy")}`);
-    if (sede?.iban) setIban(sede.iban);
-    if (sede?.intestato_a) setIntestatarioConto(sede.intestato_a);
-    if (sede?.banca) setBancaConto(sede.banca);
   }, [sede]);
+
+  useEffect(() => {
+    if (conto) {
+      if (conto.iban) setIban(conto.iban);
+      if (conto.intestato_a) setIntestatarioConto(conto.intestato_a);
+      if (conto.banca) setBancaConto(conto.banca);
+    }
+  }, [conto]);
 
   // Titoli del cliente
   const { data: titoli } = useQuery({
