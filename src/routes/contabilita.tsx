@@ -11,6 +11,8 @@ import ECClientePdfPage from "@/pages/contabilita/ECClientePdfPage";
 import ECAgenzieStoricoPage from "@/pages/contabilita/ECAgenzieStoricoPage";
 import ECClientiStoricoPage from "@/pages/contabilita/ECClientiStoricoPage";
 import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
+import ECProduttorePdfPage from "@/pages/contabilita/ECProduttorePdfPage";
+import ECProduttoriStoricoPage from "@/pages/contabilita/ECProduttoriStoricoPage";
 import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
 
 import RimessaList from "@/pages/RimessaList";
