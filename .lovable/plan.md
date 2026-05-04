@@ -1,83 +1,68 @@
-## Problema
+## Diagnosi: cosa fa "caricare pagine sbagliate"
 
-Sulla pagina **Precontrattuale** (`/portafoglio/doc-precontrattuale`) aperta dalla polizza **325346187 — GENERALI ITALIA SPA**, il prefill non riempie tutto il necessario:
+Analizzati `App.tsx`, `AuthGuard`, `LoginPage`, `Dashboard`, `RoleGuard`, `ClienteGuard`, `ProspectGuard`, `AppSidebar` e tutte le `routes/*.tsx`. Il login Supabase ora funziona (token 200, profilo admin caricato), ma il routing dopo l'accesso ha 4 bug reali:
 
-**Cliente**
-- Nome/ragione sociale del contraente non è esposto come campo nel form (appare solo nel PDF se la query `prefillData` riesce). Se l'utente cambia il `Cliente (codice)` il nome non si aggiorna nel PDF.
-- Nessun fallback: se arrivo da `titoloId` ma `cliente_anagrafica_id` è null, anagrafica vuota.
+### 1. Rotta `/prospect` registrata DUE VOLTE con guard diversi
+- `src/routes/archivi.tsx` riga 17: `<Route path="/prospect" element={<ProspectList />} />` dentro `AuthGuard` (gestionale interno)
+- `src/routes/prospect.tsx` riga 11: `<Route path="/prospect" element={<ProspectDashboard />} />` dentro `ProspectGuard` (portale prospect)
+- Anche la sidebar admin ha "Prospect → /prospect" (AppSidebar riga 102)
 
-**Polizza** — molti dati della polizza sono nel DB ma non vengono né letti né stampati:
-- `appendice` non prefillato (esiste in `titoli.appendice`)
-- `data_decorrenza` (mappata su `garanzia_da` o `durata_da`) non prefillata né stampata
-- `data_scadenza` (`titoli.data_scadenza`) non prefillata né stampata
-- `frazionamento` (mappato da `titoli.periodicita`) assente
-- `premio_lordo` assente
-- **Compagnia**: la pagina mostra solo il `codice` dalla seconda query `compagniaData`. Il PDF dovrebbe usare il **nome completo** già disponibile in `titoloData.compagnie.nome` (più affidabile).
+Risultato: cliccando "Prospect" da admin, React Router può matchare la rotta del portale prospect → `ProspectGuard` rifiuta admin → redirect a `/` → loop / pagina bianca. Bug confermato dal fatto che `ProspectGuard` ammette **solo** `ruolo === "prospect"`.
 
-## Cosa cambio
+### 2. `ProspectGuard` blocca admin e ufficio
+A differenza di `ClienteGuard` (che fa eccezione per admin/ufficio per anteprima portale), `ProspectGuard` butta fuori chiunque non sia prospect. Inconsistente e causa di redirect indesiderati.
 
-### 1. Query titolo arricchita (`DocPrecontrattualePage.tsx`)
+### 3. `ClienteGuard` mostra schermata bianca durante il check
+Riga 24: `if (loading || checking) return null;` → flash di pagina vuota invece di spinner. Inoltre `checking` parte sempre `true` anche per admin che non ha bisogno della query su `clienti`.
 
-Estendo `select` su `titoli` con: `appendice, data_scadenza, garanzia_da, durata_da, periodicita, premio_lordo`.
-Estendo join `compagnie` con campi minimi già usati.
+### 4. Doppio redirect su `/` per utenti senza permesso dashboard
+`AuthGuard` (righe 44-49) E `Dashboard` (righe 308-317) implementano entrambi la stessa logica "se non hai dashboard vai altrove". Si rincorrono: AuthGuard redirige, poi Dashboard si monta solo per un istante e re-redirige. Per ruoli con `permessi_json = null` (come admin) `getDefaultRoute` ritorna `/` e va bene; per altri profili può lampeggiare la pagina sbagliata prima di stabilizzarsi.
 
-### 2. Nuovi state + prefill polizza
+### 5. `LoginPage` redirect prima che il profile sia caricato
+Righe 21-24: appena `user` è valorizzato (ma `profile` ancora `null` per un tick), `getDefaultRoute(null)` ritorna `"/login"` → fallback a `/`. Poi quando il profile arriva un `cliente`/`prospect` viene rimbalzato altrove. Visivamente sembra che "carichi la pagina sbagliata".
 
-Aggiungo state e li popolo nell'`useEffect` su `titoloData`:
-- `appendicePol`, `dataDecorrenza` (prendo `garanzia_da` se presente, altrimenti `durata_da`), `dataScadenza`, `frazionamento` (mapping `periodicita` → "Annuale/Semestrale/Trimestrale/Mensile/Unica"), `premioLordo` (formattato €).
-- Set `compagniaNome` direttamente da `titoloData.compagnie.nome` (oltre a `codiceCompagnia` per ricerca legacy).
+---
 
-### 3. Campo "Contraente" visibile e governato dallo stato
+## Cosa farò (5 file, modifiche chirurgiche)
 
-Aggiungo un input **"Contraente (Nome / Ragione Sociale)"** nella sezione "Contratto Intermediato", popolato:
-- da `prefillData.cliente` (priorità: `ragione_sociale` → `cognome nome`)
-- editabile manualmente in caso serva.
+### A. `src/routes/archivi.tsx`
+- **Rimuovere** la rotta `/prospect` (lista prospect interna) e spostarla su `/archivi/prospect`
+- Lasciare `/prospect/:id` su `/archivi/prospect/:id`
+- Aggiungere alias `<Route path="/prospect-list" ...>` per non rompere link interni se servono
 
-Lo passo nel PDF come `clienteNomeRagSoc` invece di calcolarlo solo dentro `buildData()`.
+### B. `src/components/AppSidebar.tsx`
+- Cambiare il link sidebar admin da `/prospect` a `/archivi/prospect` (riga 102)
+- Aggiungere `hideForRoles: ["prospect","cliente"]` al gruppo Trattative per sicurezza
 
-### 4. Estendo `PrecontrattualeData` + rendering PDF (`precontrattuale-pdf.ts`)
+### C. `src/components/ProspectGuard.tsx`
+- Aggiungere spinner invece di `return null` (coerente con `AuthGuard`)
+- Permettere preview admin/ufficio come fa `ClienteGuard`
 
-Aggiungo i campi:
-```ts
-polizzaAppendice?: string;
-polizzaDataDecorrenza?: string;
-polizzaDataScadenza?: string;
-polizzaFrazionamento?: string;
-polizzaPremioLordo?: string;
-```
+### D. `src/components/ClienteGuard.tsx`
+- Sostituire `return null` con spinner durante `loading || checking`
+- Saltare la query su `clienti` per admin/ufficio (subito `setChecking(false)`)
 
-Nel **MUP header** (riga `Cliente / Polizza`) sostituisco la singola riga con una **mini-tabella 2 colonne x 3 righe**:
+### E. `src/components/AuthGuard.tsx` + `src/pages/Dashboard.tsx`
+- Mantenere la sola logica di redirect "no dashboard" in `AuthGuard` (già presente)
+- **Rimuovere** il `useEffect` duplicato in `Dashboard.tsx` (righe 307-317) per eliminare il doppio redirect
+
+### F. `src/pages/LoginPage.tsx`
+- Aspettare che `profile` sia caricato prima del redirect: condizione `!authLoading && user && profile` (oppure `!authLoading && user && profileResolved`)
+- Se `user` esiste ma profile ancora null e auth non è in loading, mostrare spinner per max 1-2 secondi prima di mandare a `/`
+
+---
+
+## File esatti che toccherò
 
 ```text
-+----------------------------+----------------------------+
-| Cliente: [nome]            | Polizza: [nr]   App: [..]  |
-+----------------------------+----------------------------+
-| CF: [..]  P.IVA: [..]      | Compagnia: [nome]          |
-+----------------------------+----------------------------+
-| Indirizzo: [..]            | Decorrenza: [..]  Scad: [..]|
-|                            | Ramo: [..]  Frazion: [..]  |
-|                            | Premio lordo: € [..]       |
-+----------------------------+----------------------------+
+src/routes/archivi.tsx          (sposta /prospect → /archivi/prospect)
+src/components/AppSidebar.tsx   (aggiorna link sidebar)
+src/components/ProspectGuard.tsx (spinner + admin preview)
+src/components/ClienteGuard.tsx (spinner + skip query per admin)
+src/pages/Dashboard.tsx         (rimuovi useEffect redirect duplicato)
+src/pages/LoginPage.tsx         (aspetta profile prima del Navigate)
 ```
 
-Mantengo lo stile esistente (font, colori, bordi sottili) — nessun restyle, solo righe in più.
+Nessuna migration DB, nessun cambio a `AuthContext`, nessuna modifica a `getDefaultRoute`.
 
-### 5. Compagnia nel testo c) della Sezione IV
-
-Sostituisco fallback `compagniaData?.nome` con `titoloData?.compagnie?.nome` se presente — più stabile.
-
-## File coinvolti
-
-- `src/pages/DocPrecontrattualePage.tsx` (query, state, useEffect prefill, nuovo input Contraente, passaggio campi a `buildData`)
-- `src/lib/precontrattuale-pdf.ts` (interfaccia `PrecontrattualeData`, header MUP)
-
-## Cosa NON cambio
-
-- Layout grafico generale del PDF, font, colori, sezioni testuali I/II/III/IV.
-- Logica intermediario RUI (Specialist + Sede), già funzionante.
-- Salvataggio in Archivio Documentale.
-- Bottoni Anteprima/Stampa/Salva.
-
-## Test
-
-Aprirò la pagina sulla polizza 325346187, genererò anteprima e verificherò che compaiano nome contraente, appendice, decorrenza/scadenza, frazionamento, premio, compagnia "GENERALI ITALIA SPA".
+Confermi e procedo?

@@ -17,14 +17,14 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
 
-  // Già loggato → redirect reattivo (no window.location.replace, no loop)
-  if (!authLoading && user) {
+  // Già loggato + profilo caricato → redirect reattivo verso la rotta corretta
+  if (!authLoading && user && profile) {
     const route = getDefaultRoute(profile) || "/";
     return <Navigate to={route === "/login" ? "/" : route} replace />;
   }
 
-  // Mostra spinner durante il bootstrap auth per evitare flash del form
-  if (authLoading) {
+  // Bootstrap auth in corso, OPPURE user presente ma profile ancora in fetch → spinner (no flash form, no redirect prematuro)
+  if (authLoading || (user && !profile)) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

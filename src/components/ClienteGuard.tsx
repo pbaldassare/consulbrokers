@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,8 +9,19 @@ const ClienteGuard = ({ children }: { children: ReactNode }) => {
   const [areaType, setAreaType] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
+  const isPreviewRole = profile?.ruolo === "admin" || profile?.ruolo === "ufficio";
+
   useEffect(() => {
-    if (!user || loading) return;
+    if (loading) return;
+    if (!user) {
+      setChecking(false);
+      return;
+    }
+    // Admin/ufficio: anteprima portale, no query su clienti
+    if (isPreviewRole) {
+      setChecking(false);
+      return;
+    }
     supabase
       .from("clienti")
       .select("area_riservata_tipo")
@@ -19,12 +31,17 @@ const ClienteGuard = ({ children }: { children: ReactNode }) => {
         setAreaType((data as any)?.area_riservata_tipo || "nessuna");
         setChecking(false);
       });
-  }, [user, loading]);
+  }, [user, loading, isPreviewRole]);
 
-  if (loading || checking) return null;
+  if (loading || checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
-  // Allow admin/ufficio to preview the client portal
-  if (profile?.ruolo === "admin" || profile?.ruolo === "ufficio") return <>{children}</>;
+  if (isPreviewRole) return <>{children}</>;
   if (profile?.ruolo !== "cliente") return <Navigate to="/" replace />;
   if (areaType === "nessuna") return <Navigate to="/login" replace />;
 

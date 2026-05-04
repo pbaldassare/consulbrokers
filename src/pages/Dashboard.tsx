@@ -304,17 +304,8 @@ const Dashboard = () => {
   const roleLabel = ROLE_LABELS[ruolo] || ruolo;
   const { loading, admin, ufficio, produttore, contabilita, cfo } = useDashboardData(ruolo);
 
-  // Redirect users without dashboard permission
-  useEffect(() => {
-    if (!profile) return;
-    if (!isAdmin && !hasPermission("dashboard")) {
-      const perms = profile.permessi_json as Record<string, boolean> | null;
-      if (perms?.titoli) { navigate("/portafoglio/attive", { replace: true }); return; }
-      if (perms?.contabilita) { navigate("/contabilita", { replace: true }); return; }
-      if (perms?.portafoglio) { navigate("/portafoglio/documentale", { replace: true }); return; }
-      if (perms?.anagrafiche) { navigate("/archivi/anagrafiche", { replace: true }); return; }
-    }
-  }, [profile, isAdmin, hasPermission, navigate]);
+  // NOTE: il redirect "no dashboard" è gestito centralmente da AuthGuard via getDefaultRoute().
+  // Rimosso il useEffect duplicato che causava doppio redirect / flash di pagina sbagliata.
 
   const renderDashboard = () => {
     switch (ruolo) {
