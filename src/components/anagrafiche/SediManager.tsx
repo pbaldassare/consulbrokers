@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 interface Ufficio {
   id: string;
@@ -27,6 +28,7 @@ interface Ufficio {
   telefono: string | null;
   attivo: boolean;
   created_at: string;
+  conto_incasso_id?: string | null;
 }
 
 interface SediManagerProps {
@@ -45,7 +47,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
-  const [formData, setFormData] = useState({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true });
+  const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_incasso_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_incasso_id: null });
 
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
@@ -92,7 +94,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean }) => {
+    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_incasso_id: string | null }) => {
       const payload = {
         codice_ufficio: data.codice_ufficio,
         nome_ufficio: data.nome_ufficio,
@@ -103,6 +105,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
         email: data.email || null,
         telefono: data.telefono || null,
         attivo: data.attivo,
+        conto_incasso_id: data.conto_incasso_id,
       };
       if (data.id) {
         const { error } = await supabase.from("uffici" as any).update(payload).eq("id", data.id);
@@ -122,7 +125,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
-    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true });
+    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_incasso_id: null });
     setDialogOpen(true);
   };
 
@@ -138,6 +141,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       email: u.email || "",
       telefono: u.telefono || "",
       attivo: u.attivo,
+      conto_incasso_id: u.conto_incasso_id || null,
     });
     setDialogOpen(true);
   };
@@ -313,6 +317,16 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
             <div>
               <Label className="flex items-center gap-1"><Phone className="w-3 h-3" /> Telefono</Label>
               <Input value={formData.telefono} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} placeholder="es. 02 1234567" />
+            </div>
+            <div className="border-t border-border pt-4 space-y-2">
+              <Label className="flex items-center gap-1 font-semibold"><Banknote className="w-3 h-3" /> Conto incassi clienti</Label>
+              <p className="text-xs text-muted-foreground">IBAN su cui i clienti di questa Sede pagano (compare nell'E/C cliente PDF). Se non impostato, viene usato il conto di default.</p>
+              <ContoBancarioSelect
+                value={formData.conto_incasso_id}
+                onChange={(id) => setFormData({ ...formData, conto_incasso_id: id })}
+                tipi={["incasso_clienti"]}
+                placeholder="Usa il default di sistema"
+              />
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={formData.attivo} onCheckedChange={(v) => setFormData({ ...formData, attivo: v })} />
