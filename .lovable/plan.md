@@ -1,45 +1,28 @@
-# Allineamento UI al master `conti_bancari`
+# Rimozione del legacy `iban_dedicato` da `RapportiCompagniaDialog`
 
-Hai ragione: il master `conti_bancari` è in piedi, ma alcune pagine "vecchie" mostrano ancora i form testuali liberi per IBAN / intestatario / banca, e il PDF E/C Agenzia legge ancora dai vecchi campi `compagnie.iban` invece del master. Questo è ciò che vedi ancora "vecchio".
+Il campo `iban_dedicato` è già stato sostituito a livello UI dal selettore master `ContoBancarioSelect` (che scrive su `conto_bancario_id`), ma il valore continua a vivere in:
 
-## Pagine da sistemare
+- l'interfaccia TypeScript `RapportoForm` (riga 44)
+- il valore iniziale `emptyForm` (riga 61)
+- il payload inviato a `compagnia_rapporti` in INSERT/UPDATE (riga 120)
+- il caricamento del form in `openEdit` (riga 186)
 
-### 1) `src/pages/CompagnieList.tsx` — tab "Coordinate Bancarie"
-Oggi mostra input testuali liberi per: `iban`, `codice_abi`, `codice_cab`, `intestato_a`, `bic`, `citta_banca`.
+## Modifiche a `src/components/compagnie/RapportiCompagniaDialog.tsx`
 
-Cambio:
-- Rimuovere quei 6 input.
-- Aggiungere un solo `ContoBancarioSelect` (filtro `tipi=['compagnia','generico']`) legato a `compagnie.conto_bancario_id`.
-- Sotto il select, anteprima read-only delle coordinate (intestatario, banca, IBAN mascherato, BIC) lette da `conti_bancari`.
-- Link: "Gestisci i conti in Anagrafiche → Conti Bancari".
-- I vecchi campi non vengono più scritti (restano in DB per back-compat, come da memoria del piano).
+1. Rimuovere il campo `iban_dedicato: string` dall'interfaccia `RapportoForm`.
+2. Rimuovere `iban_dedicato: ""` da `emptyForm`.
+3. Rimuovere `iban_dedicato: form.iban_dedicato || null` dal payload della mutation `saveMutation` (lasciando solo `conto_bancario_id`).
+4. Rimuovere `iban_dedicato: r.iban_dedicato || ""` dalla funzione `openEdit`.
 
-### 2) `src/pages/AnagraficheCompagniePage.tsx` — tab "Banca" / "RUI & Banca"
-Oggi mostra `banca_riga1/2/3`, `abi`, `cab`, `iban`, `intestatario_cc`, sia in colonna tabella che nel form.
+Nessun input visibile da rimuovere: il campo non era già più editabile da UI.
 
-Cambio:
-- Form: stesso pattern del punto 1 — un solo `ContoBancarioSelect` su `conto_bancario_id`, anteprima coordinate, link al master.
-- Tabella: la colonna "Banca / IBAN" diventa una sola, mostra `etichetta` del conto collegato + IBAN mascherato (join con `conti_bancari`). Se non collegato → "—".
-- Rimosse le tre righe `banca_riga1/2/3` e i campi ABI/CAB/IBAN/intestatario dal form.
+## Effetto
 
-### 3) `src/pages/contabilita/ECAgenziaPdfPage.tsx` — generazione PDF
-Oggi `select(... iban, intestato_a ...)` da `compagnie` e usa quei valori nel PDF.
+Da questo momento, salvando un rapporto:
+- il campo legacy `compagnia_rapporti.iban_dedicato` non viene più sovrascritto (resta a NULL per i nuovi inserimenti, mantiene il valore esistente per quelli vecchi finché non vengono modificati)
+- il valore esistente NON viene azzerato durante un update perché il campo è semplicemente omesso dal payload (Postgres lascia invariate le colonne non menzionate)
+- l'unica fonte di verità per il conto del rapporto è `conto_bancario_id` → `conti_bancari`
 
-Cambio:
-- Query estesa con `conto_bancario_id` e join annidato `conti_bancari!compagnie_conto_bancario_id_fkey ( iban, intestato_a, banca, bic )`.
-- Cascata di risoluzione (stessa logica di `ECClientePdfPage`):
-  1. `compagnie.conto_bancario_id` → `conti_bancari` (se valorizzato)
-  2. fallback: `conti_bancari WHERE tipo='compagnia' AND is_default=true`
-  3. fallback finale: campi vecchi `compagnie.iban` / `intestato_a` (per back-compat finché non puliamo i dati) — con warning in console
-- Il riquadro "override manuale" prima di stampare il PDF resta, ma viene pre-popolato dal master.
+## Fuori scope
 
-## Fuori scope (chiedo conferma se vuoi farlo ora)
-
-- Pulizia colonne deprecate (`compagnie.iban/intestato_a/bic/citta_banca/codice_abi/codice_cab`, `companies.banca_riga1/2/3`, `iban_dedicato` su rapporti, `uffici.iban/intestato_a/banca`): le lascio in DB. Se confermi, in un secondo step le marchiamo come deprecate con un commento SQL e poi le droppiamo dopo la verifica.
-- `RapportiCompagniaDialog`: l'input testuale `iban_dedicato` non è più visibile in UI ma viene ancora salvato nello state. Posso rimuoverlo del tutto dal payload (resta solo `conto_bancario_id`).
-
-## Risultato per l'utente
-
-In tutte le pagine compagnia vedi un unico campo "Conto bancario" che pesca dal master `conti_bancari` (gestito in *Anagrafiche → Conti Bancari*), con anteprima coordinate. L'E/C Agenzia PDF mostra l'IBAN del master, niente più dato locale orfano.
-
-Procedo?
+Drop della colonna `compagnia_rapporti.iban_dedicato`: la lascio in DB per back-compat, come da piano IBAN approvato. La rimuoveremo con una migration separata dopo aver verificato che nessuna lettura residua la usa.
