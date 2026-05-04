@@ -1,16 +1,13 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { BUNDLE_VERSION, purgeClientCaches } from "./lib/versionCheck";
 
-// Best-effort: rimuovi service worker e cache residue da build precedenti,
-// senza bloccare il render né forzare reload.
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then((regs) => regs.forEach((r) => r.unregister()))
-    .catch(() => {});
-  if (typeof caches !== "undefined") {
-    caches.keys().then((names) => names.forEach((n) => caches.delete(n))).catch(() => {});
-  }
-}
+// Diagnostica versione in console
+console.info(`[CBnet] bundle version: ${BUNDLE_VERSION}`);
+
+// Best-effort: rimuovi service worker e cache residue da build precedenti.
+// Non blocca il render. La sessione Supabase (chiavi sb-*) è preservata.
+purgeClientCaches().catch(() => {});
 
 createRoot(document.getElementById("root")!).render(<App />);
