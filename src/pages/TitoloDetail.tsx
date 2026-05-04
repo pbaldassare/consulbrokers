@@ -1450,6 +1450,17 @@ const TitoloDetail = () => {
                 )}
               </div>
             )}
+            {/* Banner informativo: spiega perché Incassa/Garantito non sono disponibili */}
+            {t.data_messa_cassa && !isPoliennale && (
+              <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <strong>Polizza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
+                  Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili: una polizza non può essere incassata due volte.
+                  {isAdmin && " Per registrare un nuovo incasso, annulla prima la messa a cassa precedente."}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2 flex-wrap">
               {/* Incassa/Garantito visibili solo se polizza attiva E non ancora messa a cassa
                   (oppure poliennale attiva con rate residue da incassare).
