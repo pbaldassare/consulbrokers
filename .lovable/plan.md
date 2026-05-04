@@ -1,47 +1,61 @@
-Ho verificato il codice: il menu non mostra più FatturaPA come voce reale, ma sono rimasti riferimenti legacy che possono far comparire pagine vecchie o link errati:
+## Verifica dati vs PDF allegato
 
-- Sidebar: `Area CFO` è ancora una voce visibile per admin perché l'admin passa sempre tutti i permessi.
-- Route: `/cfo` è ancora registrata e quindi raggiungibile.
-- Sitemap/permessi/breadcrumb: contengono ancora testi come `FatturaPA`, `Contabilità Generale`, `Area CFO`, `cont-generale`.
-- Cruscotto contabilità: c'è un link a `/cont-generale/scadenziario`, pagina non più esposta.
-- Search globale: alcuni risultati puntano a `/cfo` e `/prodotti`, creando navigazioni vecchie/rotte.
-- Route contabilità: importa ancora pagine di contabilità generale non usate; non vengono renderizzate, ma vanno tolte per non lasciare ambiguità.
+Il PDF di esempio è un Rendiconto Provvigioni per produttore/commerciale ("ASSICURASUD SRL"), con una tabella di righe e totali finali con Ritenuta d'Acconto e netto a credito. Tutti i dati richiesti sono già nel database.
 
-Piano di correzione:
+### Mappatura campi PDF → DB
 
-1. Ripulire la sidebar
-   - Rimuovere completamente `Area CFO` da `AppSidebar`.
-   - Eliminare import/icona inutili collegati a quella voce.
-   - Lasciare visibili solo le sezioni attive: Home, Trattative, Bandi, Chat, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche.
+| Campo PDF | Origine |
+|---|---|
+| Mittente (Consulbrokers, sedi, P.IVA, REA, RUI) | costanti del PDF (già in `ec-cliente-pdf.ts`) |
+| Destinatario (ragione sociale, indirizzo, città, prov, CAP) | `anagrafiche_professionali` (ragione_sociale/cognome+nome, indirizzo, cap, citta, provincia) |
+| Rendiconto n. / data | input utente (Descrizione Periodo, Data E/C già presenti nei filtri) |
+| Periodo intermediazioni | input utente (Descrizione Periodo) |
+| Riga: Data | `titoli.data_messa_cassa` (o `data_incasso` se mancante) |
+| Riga: Polizza Delegataria | `titoli.numero_titolo` (+ `riga` se valorizzato → "n - r") |
+| Riga: Cliente/Note | `clienti.ragione_sociale` o `cognome nome` (via `cliente_anagrafica_id`) |
+| Riga: Ramo | `rami.descrizione` |
+| Riga: Periodo | `garanzia_da` – `garanzia_a` |
+| Riga: tp (PI/PQ/AM) | derivato: `appendice IS NOT NULL` → AM; `sostituisce_polizza IS NOT NULL` → PQ; altrimenti PI |
+| Riga: Premio | `titoli.premio_lordo` |
+| Riga: Provvigioni | `provvigioni_generate.importo_provvigione` (somma per titolo+user_id) |
+| Riga: altre oper | 0,00 (placeholder, non c'è gestione separata) |
+| Totali Premio / Provvigioni | somma colonne |
+| Debito/Credito | totale provvigioni |
+| Ritenuta d'Acconto | totale provvigioni × `anagrafiche_professionali.percentuale_ra` (default 11,50% se nullo, come da PDF: 1.342,20 / 11.671,34 ≈ 11,5%) |
+| A Vostro Credito | provvigioni − ritenuta |
+| Note legali (Esente IVA / bollo) | costanti |
 
-2. Bloccare le route legacy
-   - Rimuovere la route `/cfo` da `src/routes/sistema.tsx`.
-   - Togliere l'import di `AreaCFO`.
-   - Aggiungere redirect sicuri dalle vecchie URL principali verso pagine attive, per evitare che un link salvato apra pagine vecchie:
-     - `/cfo` → `/contabilita/cruscotto`
-     - `/cont-generale/*` → `/contabilita`
-     - `/fatturapa/*` → `/contabilita`
-     - `/prodotti` e `/categorie` → `/compagnie` o tabelle corrette se già gestite lì.
+**Conclusione**: abbiamo tutti i dati. Unica derivazione è il codice **tp** (PI/PQ/AM) calcolato dalle colonne `appendice` e `sostituisce_polizza` di `titoli`.
 
-3. Pulire Contabilità da import e link obsoleti
-   - Rimuovere da `src/routes/contabilita.tsx` gli import non usati di contabilità generale (`PrimanotaGeneralePage`, `ScadenziarioPage`, `ElabPeriodichePage`, `ClientiContabGeneralePage`, `DichiarativiCUPage`, `ElabAnnualiPage`, `FornitoriPage`, `BancaImport`, `PianoDeiContiPage`, icone inutili).
-   - Cambiare nel `CruscottoGiornaliero` il link `Vedi scadenziario` da `/cont-generale/scadenziario` a una pagina attiva o rimuovere il bottone se la sezione non deve esistere più.
+## Cosa implementare
 
-4. Aggiornare ricerca globale
-   - Cambiare i risultati “provvigioni non pagate” che oggi puntano a `/cfo`, facendoli puntare a `/pagamenti-provvigioni` o `/provvigioni-maturate`.
-   - Cambiare i risultati prodotto da `/prodotti` a `/compagnie` oppure non renderli cliccabili verso route inesistenti.
+1. **`src/lib/ec-produttore-pdf.ts`** (nuovo)  
+   Generatore PDF in stile uguale a `ec-agenzia-pdf.ts` / `ec-cliente-pdf.ts`: header con logo, mittente, destinatario, "Rendiconto n. … del …", tabella 8 colonne (Data | Polizza | Cliente | Ramo/Periodo | tp | Premio | Provvigioni | Altre op.), riepilogo finale (Totale Premio, Totale Provvigioni, Debito/Credito, Ritenuta Acconto, A Vostro Credito), note legali, footer Consulbrokers. Restituisce `Uint8Array`.
 
-5. Pulire breadcrumb, sitemap e permessi visibili
-   - Rimuovere/aggiornare label legacy in `PageBreadcrumb`: `fatturapa`, `cont-generale`, `cfo`.
-   - Aggiornare `SitemapPage` eliminando `FatturaPA`, `Contabilità Generale`, `Area CFO` e riferimenti a fornitori/scadenziario se non fanno parte della visualizzazione attiva.
-   - Aggiornare `userLevels.ts` rinominando o togliendo `cfo_area` dalla visualizzazione dei permessi, così non appare più come area funzionale attiva.
+2. **`src/pages/contabilita/ECProduttorePdfPage.tsx`** (nuovo)  
+   Pagina dedicata `/contabilita/ec-produttori/:produttoreId/pdf` (analoga a `ECAgenziaPdfPage` / `ECClientePdfPage`). Carica:
+   - anagrafica produttore (per intestazione + percentuale_ra)
+   - provvigioni del produttore filtrate per periodo (parametri da query string)
+   - join con `titoli`, `clienti`, `rami`
+   - Calcola righe + totali e renderizza:
+     - Anteprima a video (iframe `application/pdf` blob)
+     - Pulsanti: **Anteprima**, **Stampa**, **Scarica PDF** (download diretto senza salvare), **Salva PDF in archivio** (insert in `documenti` + upload bucket, come per cliente/agenzia)
 
-6. Correggere link rotti già esistenti
-   - I pulsanti “Chiudi” in varie pagine polizza puntano a `/portafoglio/gestione-polizze`, route non registrata: li aggiorno a `/portafoglio/attive` o alla pagina titolo quando disponibile.
+3. **Aggiornamento `ECProduttoriContabPage.tsx`**  
+   - Per ogni riga: pulsante "Anteprima/Stampa" che apre la nuova pagina con i parametri (`produttore_id`, `data_limite_incassi`, `desc_periodo`, `data_ec`, `data_valuta`).
+   - Pulsante in toolbar "Anteprima E/C" attivo quando è selezionato un singolo produttore.
 
-7. Verifica finale
-   - Ricerca testuale per confermare che non restino più riferimenti visibili a `FatturaPA`, `Contabilità Generale`, `Area CFO`, `/cfo`, `/cont-generale`, `/fatturapa`.
-   - Controllo che sidebar e route puntino solo a pagine attive.
-   - Se il browser è disponibile e l'utente è loggato, verifico la sidebar nella preview; se chiede login, segnalo che serve accedere in preview.
+4. **`src/pages/contabilita/ECProduttoriStoricoPage.tsx`** (nuovo)  
+   Pagina elenco PDF salvati per produttori: filtri (ricerca, produttore, periodo, paginazione 25), download diretto da `bucket_name` + `path_storage` come per E/C clienti/agenzie. Filtra `documenti` per `categoria = 'ec_produttore'`.
 
-Risultato atteso: spariscono definitivamente dalla visualizzazione e dai link navigabili le vecchie pagine come FatturaPA/Contabilità Generale/Area CFO, evitando anche che ricerche, breadcrumb o link interni le ripropongano.
+5. **Routing & Navigazione**  
+   - `src/routes/contabilita.tsx`: registrare le 2 nuove route (`ec-produttori/:id/pdf` e `ec-produttori/storico`).
+   - `src/components/AppSidebar.tsx`: aggiungere voce "Storico E/C Produttori" sotto Contabilità Ufficio.
+   - `src/pages/EstrazioniStampePage.tsx`: card per accedere allo storico produttori.
+
+6. **Migrazione**: nessuna modifica schema. La categoria `ec_produttore` viene scritta come stringa nei `documenti` (in linea con `ec_cliente` e `ec_agenzia`).
+
+## Note tecniche
+- Determinazione `tp`: `appendice ? 'AM' : (sostituisce_polizza ? 'PQ' : 'PI')`.
+- Ritenuta d'acconto: `percentuale_ra` da anagrafica produttore; fallback 11.50%.
+- I dati salvati nel record archivio (snapshot dei filtri) saranno usati al re-download per garantire idempotenza.
