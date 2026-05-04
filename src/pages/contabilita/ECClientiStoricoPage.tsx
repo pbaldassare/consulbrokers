@@ -17,6 +17,7 @@ const PAGE_SIZE = 25;
 
 const ECClientiStoricoPage = () => {
   const [q, setQ] = useState("");
+  const [numeroPolizza, setNumeroPolizza] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
@@ -24,7 +25,7 @@ const ECClientiStoricoPage = () => {
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
-  useEffect(() => { setPage(0); }, [q, clienteId, dateFrom, dateTo]);
+  useEffect(() => { setPage(0); }, [q, numeroPolizza, clienteId, dateFrom, dateTo]);
 
   const { data: clientiOpts = [] } = useQuery({
     queryKey: ["ec-clienti-storico-clienti"],
@@ -41,8 +42,23 @@ const ECClientiStoricoPage = () => {
     },
   });
 
+  // Se filtro per numero polizza: trova prima i clienti che hanno quella polizza
+  const { data: clientiConPolizza } = useQuery({
+    queryKey: ["ec-clienti-storico-by-polizza", numeroPolizza],
+    enabled: numeroPolizza.trim().length >= 3,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("cliente_anagrafica_id")
+        .ilike("numero_titolo", `%${numeroPolizza.trim()}%`)
+        .not("cliente_anagrafica_id", "is", null)
+        .limit(1000);
+      return Array.from(new Set((data || []).map((r: any) => r.cliente_anagrafica_id).filter(Boolean)));
+    },
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ["ec-clienti-storico", q, clienteId, dateFrom, dateTo, page],
+    queryKey: ["ec-clienti-storico", q, numeroPolizza, clienteId, dateFrom, dateTo, page, clientiConPolizza],
     queryFn: async () => {
       let query = supabase
         .from("documenti")
@@ -53,6 +69,14 @@ const ECClientiStoricoPage = () => {
 
       if (clienteId) query = query.eq("entita_id", clienteId);
       if (q.trim()) query = query.ilike("nome_file", `%${q.trim()}%`);
+      if (numeroPolizza.trim().length >= 3) {
+        const ids = clientiConPolizza || [];
+        if (ids.length === 0) {
+          // nessun risultato possibile
+          return { rows: [], total: 0 };
+        }
+        query = query.in("entita_id", ids);
+      }
       if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
       if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
 
@@ -125,7 +149,7 @@ const ECClientiStoricoPage = () => {
       </div>
 
       <Card>
-        <CardContent className="p-4 grid gap-3 md:grid-cols-4">
+        <CardContent className="p-4 grid gap-3 md:grid-cols-5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca nome file..." className="pl-9" />
@@ -137,6 +161,10 @@ const ECClientiStoricoPage = () => {
             placeholder="Cliente"
             allLabel="Tutti i clienti"
           />
+          <div>
+            <label className="text-xs text-muted-foreground">N. Polizza</label>
+            <Input value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="Es. 123456" />
+          </div>
           <div>
             <label className="text-xs text-muted-foreground">Da</label>
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
