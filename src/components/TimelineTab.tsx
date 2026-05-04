@@ -18,12 +18,39 @@ const SEVERITY_CONFIG: Record<string, { icon: React.ElementType; color: string; 
   critical: { icon: AlertCircle, color: "text-destructive", badge: "destructive" },
 };
 
+function fmtVal(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Sì" : "No";
+  if (typeof v === "object") return JSON.stringify(v);
+  const s = String(v);
+  // Tronca valori lunghi
+  return s.length > 80 ? s.slice(0, 80) + "…" : s;
+}
+
+function humanizeField(k: string): string {
+  return k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+interface FieldChange { old: unknown; new: unknown; }
+
+function extractChanges(details: Record<string, unknown> | null): Record<string, FieldChange> | null {
+  if (!details) return null;
+  const c = details.changes as Record<string, FieldChange> | undefined;
+  if (c && typeof c === "object" && Object.keys(c).length > 0) return c;
+  return null;
+}
+
 function formatDetails(details: Record<string, unknown> | null): string | null {
   if (!details) return null;
   if (details.stato_precedente && details.nuovo_stato) {
     return `${details.stato_precedente} → ${details.nuovo_stato}`;
   }
-  const entries = Object.entries(details).filter(([, v]) => v != null && v !== "");
+  if (details.descrizione && typeof details.descrizione === "string") {
+    return details.descrizione;
+  }
+  const entries = Object.entries(details).filter(
+    ([k, v]) => v != null && v !== "" && !["changes", "op"].includes(k)
+  );
   if (entries.length === 0) return null;
   return entries.map(([k, v]) => `${k.replace(/_/g, " ")}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ");
 }
