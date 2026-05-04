@@ -172,6 +172,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "E/C Agenzie", path: "/contabilita/ec-compagnia", icon: Building2, hideForRoles: ["ufficio"] },
         { label: "Storico E/C Agenzie", path: "/contabilita/ec-agenzia/storico", icon: Archive, hideForRoles: ["ufficio"] },
+        { label: "Storico E/C Clienti", path: "/contabilita/ec-cliente/storico", icon: Archive },
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Stampa Primanota", path: "/contabilita/stampa-primanota", icon: Printer },
