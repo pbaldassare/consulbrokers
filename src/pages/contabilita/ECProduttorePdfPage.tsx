@@ -43,6 +43,15 @@ const ECProduttorePdfPage = () => {
     return n ? n.toString().replace(".", ",") : "";
   };
 
+  // Sede mittente
+  const [sedeNome, setSedeNome] = useState("");
+  const [sedeIndirizzo, setSedeIndirizzo] = useState("");
+  const [sedeCap, setSedeCap] = useState("");
+  const [sedeCitta, setSedeCitta] = useState("");
+  const [sedeProvincia, setSedeProvincia] = useState("");
+  const [sedeEmail, setSedeEmail] = useState("");
+  const [sedeTelefono, setSedeTelefono] = useState("");
+
   // Chiave cache anteprima: cambia solo se cambiano i parametri rilevanti
   const cacheKey = useMemo(() => JSON.stringify({
     produttoreId, periodoDal, periodoAl,
@@ -60,15 +69,6 @@ const ECProduttorePdfPage = () => {
       setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 5000);
     }
   };
-
-  // Sede mittente
-  const [sedeNome, setSedeNome] = useState("");
-  const [sedeIndirizzo, setSedeIndirizzo] = useState("");
-  const [sedeCap, setSedeCap] = useState("");
-  const [sedeCitta, setSedeCitta] = useState("");
-  const [sedeProvincia, setSedeProvincia] = useState("");
-  const [sedeEmail, setSedeEmail] = useState("");
-  const [sedeTelefono, setSedeTelefono] = useState("");
 
   // Produttore
   const { data: produttore } = useQuery({
