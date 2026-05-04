@@ -1,11 +1,11 @@
 {
-  "name": "CBnet — Area Clienti",
+  "name": "CBnet",
   "short_name": "CBnet",
-  "description": "Portale assicurativo CBnet per la gestione delle tue polizze",
+  "description": "Gestionale CBnet",
   "theme_color": "#1a4a5c",
-  "background_color": "#fafafa",
-  "display": "standalone",
-  "start_url": "/cliente",
+  "background_color": "#0f172a",
+  "display": "browser",
+  "start_url": "/",
   "scope": "/",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
