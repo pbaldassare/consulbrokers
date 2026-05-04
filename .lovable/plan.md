@@ -1,68 +1,42 @@
-## Diagnosi: cosa fa "caricare pagine sbagliate"
+Ho verificato il progetto e il problema non è più nella voce di menu attuale: nel codice sorgente la sidebar nuova non contiene più `FATTURAPA` o `CONT. GENERALE`. Se però nel preview compaiono ancora, significa che il browser sta eseguendo un bundle vecchio o una preview salvata/cachata.
 
-Analizzati `App.tsx`, `AuthGuard`, `LoginPage`, `Dashboard`, `RoleGuard`, `ClienteGuard`, `ProspectGuard`, `AppSidebar` e tutte le `routes/*.tsx`. Il login Supabase ora funziona (token 200, profilo admin caricato), ma il routing dopo l'accesso ha 4 bug reali:
+Piano di correzione definitivo:
 
-### 1. Rotta `/prospect` registrata DUE VOLTE con guard diversi
-- `src/routes/archivi.tsx` riga 17: `<Route path="/prospect" element={<ProspectList />} />` dentro `AuthGuard` (gestionale interno)
-- `src/routes/prospect.tsx` riga 11: `<Route path="/prospect" element={<ProspectDashboard />} />` dentro `ProspectGuard` (portale prospect)
-- Anche la sidebar admin ha "Prospect → /prospect" (AppSidebar riga 102)
+1. Ripristinare un `AppVersionGuard` reale
+   - Attivare un controllo versione all’avvio dell’app.
+   - Confrontare la versione del bundle caricato con `/version.json` richiesto sempre con cache-busting.
+   - Se non coincidono, pulire cache/browser storage tecnico e ricaricare una sola volta con parametro anti-cache.
+   - Mostrare un messaggio di aggiornamento invece di lasciare l’utente su pagine vecchie.
 
-Risultato: cliccando "Prospect" da admin, React Router può matchare la rotta del portale prospect → `ProspectGuard` rifiuta admin → redirect a `/` → loop / pagina bianca. Bug confermato dal fatto che `ProspectGuard` ammette **solo** `ruolo === "prospect"`.
+2. Forzare controllo versione prima/durante login
+   - In `LoginPage`, prima del redirect post-login, verificare che la versione caricata sia quella servita dal server.
+   - Se il bundle è vecchio, non far entrare l’utente nella dashboard vecchia: pulire cache e ricaricare.
+   - Questo risolve il caso “alla login devo avere la stessa versione sempre”.
 
-### 2. `ProspectGuard` blocca admin e ufficio
-A differenza di `ClienteGuard` (che fa eccezione per admin/ufficio per anteprima portale), `ProspectGuard` butta fuori chiunque non sia prospect. Inconsistente e causa di redirect indesiderati.
+3. Rendere la pulizia cache più forte
+   - Estendere la pulizia attuale in `main.tsx` per eliminare service worker, Cache Storage e vecchi storage tecnici senza cancellare la sessione Supabase in modo distruttivo se non necessario.
+   - Eseguire la pulizia in modo controllato per evitare reload infiniti.
 
-### 3. `ClienteGuard` mostra schermata bianca durante il check
-Riga 24: `if (loading || checking) return null;` → flash di pagina vuota invece di spinner. Inoltre `checking` parte sempre `true` anche per admin che non ha bisogno della query su `clienti`.
+4. Eliminare ogni residuo navigabile delle voci obsolete
+   - Mantenere i redirect `/fatturapa` e `/cont-generale` verso `/contabilita`.
+   - Aggiungere una protezione lato codice per bloccare eventuali vecchi link salvati o menu renderizzati da bundle obsoleti.
+   - Nessuna voce `FATTURAPA`/`CONT. GENERALE` resterà raggiungibile come area autonoma.
 
-### 4. Doppio redirect su `/` per utenti senza permesso dashboard
-`AuthGuard` (righe 44-49) E `Dashboard` (righe 308-317) implementano entrambi la stessa logica "se non hai dashboard vai altrove". Si rincorrono: AuthGuard redirige, poi Dashboard si monta solo per un istante e re-redirige. Per ruoli con `permessi_json = null` (come admin) `getDefaultRoute` ritorna `/` e va bene; per altri profili può lampeggiare la pagina sbagliata prima di stabilizzarsi.
+5. Aggiungere identificazione versione visibile nei log
+   - Stampare in console la versione bundle e quella server, così si può capire subito se il browser sta usando una build vecchia.
+   - Utile per verificare definitivamente il problema in preview/pubblicato.
 
-### 5. `LoginPage` redirect prima che il profile sia caricato
-Righe 21-24: appena `user` è valorizzato (ma `profile` ancora `null` per un tick), `getDefaultRoute(null)` ritorna `"/login"` → fallback a `/`. Poi quando il profile arriva un `cliente`/`prospect` viene rimbalzato altrove. Visivamente sembra che "carichi la pagina sbagliata".
+6. Verifica finale
+   - Aprire preview alla root e a `/login`.
+   - Controllare che la sidebar caricata non mostri `FATTURAPA`/`CONT. GENERALE`.
+   - Controllare che una vecchia route tipo `/fatturapa` venga rediretta a `/contabilita`.
+   - Controllare console/network per confermare che `/version.json` venga richiesto con cache-busting.
 
----
+File previsti:
+- `src/components/AppVersionGuard.tsx`
+- `src/pages/LoginPage.tsx`
+- `src/main.tsx`
+- eventuale piccolo helper in `src/lib/` per centralizzare confronto versione/cache
+- eventualmente `public/version.json` o `vite.config.ts` solo se serve rendere la versione più robusta
 
-## Cosa farò (5 file, modifiche chirurgiche)
-
-### A. `src/routes/archivi.tsx`
-- **Rimuovere** la rotta `/prospect` (lista prospect interna) e spostarla su `/archivi/prospect`
-- Lasciare `/prospect/:id` su `/archivi/prospect/:id`
-- Aggiungere alias `<Route path="/prospect-list" ...>` per non rompere link interni se servono
-
-### B. `src/components/AppSidebar.tsx`
-- Cambiare il link sidebar admin da `/prospect` a `/archivi/prospect` (riga 102)
-- Aggiungere `hideForRoles: ["prospect","cliente"]` al gruppo Trattative per sicurezza
-
-### C. `src/components/ProspectGuard.tsx`
-- Aggiungere spinner invece di `return null` (coerente con `AuthGuard`)
-- Permettere preview admin/ufficio come fa `ClienteGuard`
-
-### D. `src/components/ClienteGuard.tsx`
-- Sostituire `return null` con spinner durante `loading || checking`
-- Saltare la query su `clienti` per admin/ufficio (subito `setChecking(false)`)
-
-### E. `src/components/AuthGuard.tsx` + `src/pages/Dashboard.tsx`
-- Mantenere la sola logica di redirect "no dashboard" in `AuthGuard` (già presente)
-- **Rimuovere** il `useEffect` duplicato in `Dashboard.tsx` (righe 307-317) per eliminare il doppio redirect
-
-### F. `src/pages/LoginPage.tsx`
-- Aspettare che `profile` sia caricato prima del redirect: condizione `!authLoading && user && profile` (oppure `!authLoading && user && profileResolved`)
-- Se `user` esiste ma profile ancora null e auth non è in loading, mostrare spinner per max 1-2 secondi prima di mandare a `/`
-
----
-
-## File esatti che toccherò
-
-```text
-src/routes/archivi.tsx          (sposta /prospect → /archivi/prospect)
-src/components/AppSidebar.tsx   (aggiorna link sidebar)
-src/components/ProspectGuard.tsx (spinner + admin preview)
-src/components/ClienteGuard.tsx (spinner + skip query per admin)
-src/pages/Dashboard.tsx         (rimuovi useEffect redirect duplicato)
-src/pages/LoginPage.tsx         (aspetta profile prima del Navigate)
-```
-
-Nessuna migration DB, nessun cambio a `AuthContext`, nessuna modifica a `getDefaultRoute`.
-
-Confermi e procedo?
+Non sono previste modifiche al database.
