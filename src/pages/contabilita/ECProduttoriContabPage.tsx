@@ -29,8 +29,18 @@ const defaultFilters: Filters = {
 };
 
 const ECProduttoriContabPage = () => {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
+
+  const goToPdf = (produttoreId: string) => {
+    const params = new URLSearchParams();
+    params.set("produttoreId", produttoreId);
+    if (filters.data_limite_incassi) params.set("periodoAl", format(filters.data_limite_incassi, "yyyy-MM-dd"));
+    if (filters.desc_periodo) params.set("periodo", filters.desc_periodo);
+    if (filters.data_ec) params.set("dataEC", format(filters.data_ec, "dd/MM/yyyy"));
+    navigate(`/contabilita/ec-produttore/pdf?${params.toString()}`);
+  };
 
   const { data: anagrafiche } = useQuery({
     queryKey: ["anagrafiche-produttori-ec"],
