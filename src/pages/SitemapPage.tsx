@@ -333,7 +333,7 @@ const permessiJson = [
   { chiave: "titoli", descrizione: "Gestione titoli e portafoglio polizze", sezioni: "Portafoglio, Titoli, Gestione Polizze" },
   { chiave: "sinistri", descrizione: "Accesso alla gestione sinistri", sezioni: "Sinistri (lista e dettaglio)" },
   { chiave: "contabilita", descrizione: "Operazioni contabili dell'ufficio", sezioni: "Contabilità Ufficio, Distinta, Quadratura, Chiusura, E/C" },
-  { chiave: "cfo_area", descrizione: "Area finanziaria e contabilità generale", sezioni: "Area CFO, Cont. Generale, Import Bancario" },
+  
   { chiave: "impostazioni", descrizione: "Configurazione sistema e gestione utenti", sezioni: "Sistema (tutte le sotto-pagine)" },
   { chiave: "provvigioni", descrizione: "Gestione provvigioni sede e pagamenti", sezioni: "Provvigioni Sede, Pagamenti Provvigioni" },
   { chiave: "rimessa_premi", descrizione: "Gestione rimessa premi alle compagnie", sezioni: "Rimessa Premi (lista e dettaglio)" },
