@@ -46,6 +46,7 @@ interface SpecialistRow {
   percentuale_ra: number | null;
   iban: string | null;
   intestatario_cc: string | null;
+  conto_bancario_id: string | null;
   percentuale_base: number | null;
   percentuale_consulenza: number | null;
   note: string | null;
