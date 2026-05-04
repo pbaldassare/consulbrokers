@@ -314,6 +314,7 @@ const ECClientePdfPage = () => {
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleAnteprima} disabled={busy}>Anteprima</Button>
           <Button variant="outline" onClick={handleStampa} disabled={busy}>Stampa</Button>
+          <Button variant="outline" onClick={handleScarica} disabled={busy}>Scarica</Button>
           <Button onClick={handleSalva} disabled={busy}>Salva PDF</Button>
         </div>
       </div>
