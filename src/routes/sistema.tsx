@@ -24,6 +24,7 @@ import PagamentiProvvigioniList from "@/pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "@/pages/PagamentoProvvigioneDetail";
 import SitemapPage from "@/pages/SitemapPage";
 import StoricoGarePage from "@/pages/StoricoGarePage";
+import AreaCFO from "@/pages/AreaCFO";
 
 export const sistemaRoutes = (
   <>
