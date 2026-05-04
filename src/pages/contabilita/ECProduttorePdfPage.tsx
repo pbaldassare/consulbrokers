@@ -31,6 +31,7 @@ const ECProduttorePdfPage = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   const parsePerc = (s: string) => {
@@ -50,6 +51,24 @@ const ECProduttorePdfPage = () => {
   const [sedeProvincia, setSedeProvincia] = useState("");
   const [sedeEmail, setSedeEmail] = useState("");
   const [sedeTelefono, setSedeTelefono] = useState("");
+
+  // Chiave cache anteprima: cambia solo se cambiano i parametri rilevanti
+  const cacheKey = useMemo(() => JSON.stringify({
+    produttoreId, periodoDal, periodoAl,
+    numeroRendiconto, dataRendiconto, periodoTesto, percRA, noteFinali,
+    sedeNome, sedeIndirizzo, sedeCap, sedeCitta, sedeProvincia, sedeEmail, sedeTelefono,
+  }), [produttoreId, periodoDal, periodoAl, numeroRendiconto, dataRendiconto, periodoTesto, percRA, noteFinali, sedeNome, sedeIndirizzo, sedeCap, sedeCitta, sedeProvincia, sedeEmail, sedeTelefono]);
+
+  // Helper download/print con revoca dell'objectURL e cleanup anche su errore
+  const withObjectUrl = (bytes: Uint8Array, fn: (url: string, blob: Blob) => void) => {
+    const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    try {
+      fn(url, blob);
+    } finally {
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 5000);
+    }
+  };
 
   // Produttore
   const { data: produttore } = useQuery({
@@ -176,14 +195,24 @@ const ECProduttorePdfPage = () => {
     return `EC_Produttore_${p}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   };
 
+  const ensureBytes = async (): Promise<Uint8Array> => {
+    if (previewBytes && previewKey === cacheKey) return previewBytes;
+    const bytes = await buildECProduttorePdf(buildData());
+    setPreviewBytes(bytes);
+    setPreviewKey(cacheKey);
+    return bytes;
+  };
+
   const handleAnteprima = async () => {
     setPreviewOpen(true);
+    if (previewBytes && previewKey === cacheKey) return; // riusa cache
     setPreviewLoading(true);
     setPreviewError(null);
     setPreviewBytes(null);
     try {
       const bytes = await buildECProduttorePdf(buildData());
       setPreviewBytes(bytes);
+      setPreviewKey(cacheKey);
     } catch (e: any) {
       const msg = e?.message || String(e);
       setPreviewError(msg);
@@ -195,28 +224,31 @@ const ECProduttorePdfPage = () => {
 
   const handleStampaPreview = () => {
     if (!previewBytes) return;
-    const blob = new Blob([previewBytes as BlobPart], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, "_blank");
-    if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+    try {
+      withObjectUrl(previewBytes, (url) => {
+        const w = window.open(url, "_blank");
+        if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+      });
+    } catch (e: any) { toast.error("Errore stampa: " + (e?.message || e)); }
   };
   const handleScaricaPreview = () => {
     if (!previewBytes) return;
-    const blob = new Blob([previewBytes as BlobPart], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = fileName();
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    try {
+      withObjectUrl(previewBytes, (url) => {
+        const a = document.createElement("a"); a.href = url; a.download = fileName();
+        document.body.appendChild(a); a.click(); a.remove();
+      });
+    } catch (e: any) { toast.error("Errore download: " + (e?.message || e)); }
   };
 
   const handleStampa = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECProduttorePdf(buildData());
-      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const w = window.open(url, "_blank");
-      if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+      const bytes = await ensureBytes();
+      withObjectUrl(bytes, (url) => {
+        const w = window.open(url, "_blank");
+        if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+      });
     } catch (e: any) { toast.error("Errore stampa: " + (e?.message || e)); }
     finally { setBusy(false); }
   };
@@ -224,12 +256,11 @@ const ECProduttorePdfPage = () => {
   const handleScarica = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECProduttorePdf(buildData());
-      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = fileName();
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      const bytes = await ensureBytes();
+      withObjectUrl(bytes, (url) => {
+        const a = document.createElement("a"); a.href = url; a.download = fileName();
+        document.body.appendChild(a); a.click(); a.remove();
+      });
     } catch (e: any) { toast.error("Errore download: " + (e?.message || e)); }
     finally { setBusy(false); }
   };
@@ -237,14 +268,14 @@ const ECProduttorePdfPage = () => {
   const handleSalva = async () => {
     try {
       setBusy(true);
-      const bytes = await buildECProduttorePdf(buildData());
+      const bytes = await ensureBytes();
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const name = fileName();
       // Download anche in locale
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      withObjectUrl(bytes, (url) => {
+        const a = document.createElement("a"); a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+      });
 
       if (produttoreId) {
         const path = `${produttoreId}/ec_produttore/${Date.now()}_${name}`;
