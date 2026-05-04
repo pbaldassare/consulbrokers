@@ -283,7 +283,26 @@ export default function ContiBancariPage() {
 
             <div>
               <Label>IBAN *</Label>
-              <Input value={form.iban || ""} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase().replace(/\s+/g, "") })} placeholder="IT70Q0306904214100000016469" className="font-mono" />
+              <Input
+                value={form.iban || ""}
+                onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase().replace(/\s+/g, "") })}
+                placeholder="IT70Q0306904214100000016469"
+                className={`font-mono ${form.iban && !ibanValidation.valid ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                aria-invalid={!!form.iban && !ibanValidation.valid}
+              />
+              {form.iban ? (
+                ibanValidation.valid ? (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> IBAN valido ({form.iban.slice(0, 2)})
+                  </p>
+                ) : (
+                  <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {ibanValidation.error}
+                  </p>
+                )
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Inserisci un IBAN valido (es. IT + 25 caratteri)</p>
+              )}
             </div>
 
             <div>
