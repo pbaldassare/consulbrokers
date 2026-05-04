@@ -612,6 +612,10 @@ const DocPrecontrattualePage = () => {
               )}
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="contraente-doc">Contraente (Nome / Ragione Sociale)</Label>
+              <Input id="contraente-doc" value={contraente} onChange={(e) => setContraente(e.target.value)} placeholder="Nome Cognome o Ragione Sociale" />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="indirizzo-doc">Indirizzo</Label>
               <AddressAutocomplete id="indirizzo-doc" value={indirizzo} onChange={setIndirizzo} onSelect={(c) => { setCap(c.cap); setCitta(c.citta); setProvincia(c.provincia); }} />
             </div>
