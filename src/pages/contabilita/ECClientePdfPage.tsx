@@ -187,6 +187,21 @@ const ECClientePdfPage = () => {
     finally { setBusy(false); }
   };
 
+  const handleScarica = async () => {
+    try {
+      setBusy(true);
+      const bytes = await buildECClientePdf(buildData());
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      const name = fileName();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (e: any) {
+      toast.error("Errore download: " + (e?.message || e));
+    } finally { setBusy(false); }
+  };
+
   const handleSalva = async () => {
     try {
       setBusy(true);
