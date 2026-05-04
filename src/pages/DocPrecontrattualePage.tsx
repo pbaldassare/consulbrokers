@@ -688,7 +688,28 @@ const DocPrecontrattualePage = () => {
               <select value={ramo} onChange={(e) => setRamo(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <option value="">— Seleziona —</option>
+                {ramo && <option value={ramo}>{ramo}</option>}
               </select>
+            </div>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="dec-doc">Decorrenza</Label>
+                <Input id="dec-doc" value={dataDecorrenza} onChange={(e) => setDataDecorrenza(e.target.value)} placeholder="gg/mm/aaaa" />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="scad-doc">Scadenza</Label>
+                <Input id="scad-doc" value={dataScadenza} onChange={(e) => setDataScadenza(e.target.value)} placeholder="gg/mm/aaaa" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="fraz-doc">Frazionamento</Label>
+                <Input id="fraz-doc" value={frazionamento} onChange={(e) => setFrazionamento(e.target.value)} placeholder="Annuale / Semestrale ..." />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="premio-doc">Premio Lordo (€)</Label>
+                <Input id="premio-doc" value={premioLordo} onChange={(e) => setPremioLordo(e.target.value)} placeholder="0,00" />
+              </div>
             </div>
           </div>
         </div>
