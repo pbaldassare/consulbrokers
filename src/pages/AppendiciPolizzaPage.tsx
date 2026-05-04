@@ -382,7 +382,7 @@ const AppendiciPolizzaPage = () => {
               </Button>
             </>
           )}
-          <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/gestione-polizze")}>
+          <Button variant="secondary" onClick={() => paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>
             Chiudi
           </Button>
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>

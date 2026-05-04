@@ -142,7 +142,7 @@ const ConfermaEmittendePage = () => {
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
-        <Button variant="secondary" onClick={() => navigate("/portafoglio/gestione-polizze")}>Chiudi</Button>
+        <Button variant="secondary" onClick={() => navigate("/portafoglio/attive")}>Chiudi</Button>
         <Button onClick={handleConferma}>Conferma</Button>
       </div>
     </div>

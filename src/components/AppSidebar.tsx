@@ -181,7 +181,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  /* FatturaPA — nascosto, pagine mantenute nel repo */
   {
     type: "group",
     group: {
@@ -199,7 +198,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  { type: "single", item: { label: "Area CFO", path: "/cfo", icon: BarChart3, permissionKey: "cfo_area" } },
   {
     type: "group",
     group: {

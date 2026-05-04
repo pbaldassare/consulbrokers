@@ -38,7 +38,7 @@ const NLP_MAPPINGS: { keywords: string[]; query: () => Promise<SearchResult[]> }
     keywords: ["provvigioni non pagate", "provvigioni da pagare"],
     query: async () => {
       const { data } = await supabase.from("provvigioni_generate").select("id, importo_provvigione, user_id, profiles:user_id(nome, cognome)").eq("pagata", false).limit(10);
-      return (data || []).map((p: any) => ({ id: p.id, titolo: `€${p.importo_provvigione?.toFixed(2)}`, sottotitolo: p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—", categoria: "movimenti", link: "/cfo" }));
+      return (data || []).map((p: any) => ({ id: p.id, titolo: `€${p.importo_provvigione?.toFixed(2)}`, sottotitolo: p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—", categoria: "movimenti", link: "/pagamenti-provvigioni" }));
     },
   },
   {
@@ -115,7 +115,7 @@ export default function GlobalSearch() {
     titoli.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `Titolo ${t.numero_titolo || "—"}`, sottotitolo: `${t.stato} · €${t.premio_lordo || 0}`, categoria: "titoli", link: `/titoli/${t.id}` }));
     sinistri.data?.forEach((s: any) => allResults.push({ id: s.id, titolo: `Sinistro ${s.numero_sinistro || "—"}`, sottotitolo: `${s.stato} · ${s.descrizione?.slice(0, 40) || ""}`, categoria: "sinistri", link: `/sinistri/${s.id}` }));
     compagnie.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: c.nome, sottotitolo: c.codice || "—", categoria: "compagnie", link: `/compagnie` }));
-    prodotti.data?.forEach((p: any) => allResults.push({ id: p.id, titolo: p.nome_prodotto, sottotitolo: p.codice_prodotto || "—", categoria: "prodotti", link: `/prodotti` }));
+    prodotti.data?.forEach((p: any) => allResults.push({ id: p.id, titolo: p.nome_prodotto, sottotitolo: p.codice_prodotto || "—", categoria: "prodotti", link: `/compagnie` }));
     trattative.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `${t.prodotto || "Trattativa"}`, sottotitolo: `${t.stato} · ${t.compagnia || ""}`, categoria: "trattative", link: `/trattative` }));
 
     setResults(allResults);
