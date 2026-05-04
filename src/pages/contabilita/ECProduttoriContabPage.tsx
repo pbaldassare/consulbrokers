@@ -160,23 +160,30 @@ const ECProduttoriContabPage = () => {
           <TableHeader><TableRow>
             <TableHead>Codice</TableHead><TableHead>Produttore</TableHead><TableHead>Località</TableHead><TableHead>Fax</TableHead><TableHead>Mail</TableHead>
             <TableHead className="text-right">Lordo</TableHead><TableHead className="text-right">Provvigioni</TableHead>
+            <TableHead className="text-right w-[140px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
-            ) : rows.map((r) => (
-              <TableRow key={r.id}>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nessun dato</TableCell></TableRow>
+            ) : rows.map((r, i) => (
+              <TableRow key={r.id} className={i % 2 === 0 ? "bg-muted/20" : ""}>
                 <TableCell>{r.codice}</TableCell><TableCell className="font-medium">{r.nome}</TableCell><TableCell>{r.citta}</TableCell>
                 <TableCell className="text-muted-foreground">{r.fax}</TableCell><TableCell className="text-muted-foreground">{r.email}</TableCell>
                 <TableCell className="text-right">{fmt(r.lordo)}</TableCell><TableCell className="text-right">{fmt(r.provvigioni)}</TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="outline" onClick={() => goToPdf(r.id)}>
+                    <FileText className="h-3.5 w-3.5 mr-1" /> E/C PDF
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
           {rows.length > 0 && <TableFooter><TableRow>
             <TableCell colSpan={5} className="font-bold">Totale</TableCell>
             <TableCell className="text-right font-bold">{fmt(totLordo)}</TableCell><TableCell className="text-right font-bold">{fmt(totProvv)}</TableCell>
+            <TableCell />
           </TableRow></TableFooter>}
         </Table>
       </div>
