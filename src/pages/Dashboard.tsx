@@ -295,7 +295,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const Dashboard = () => {
-  const { profile, hasPermission, isAdmin } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const ruolo = profile?.ruolo || "";
   const displayName = profile
