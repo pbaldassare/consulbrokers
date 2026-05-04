@@ -300,7 +300,7 @@ const DocPrecontrattualePage = () => {
   useEffect(() => {
     if (!titoloData) return;
     setPolizza(titoloData.numero_titolo || "");
-    setRiferimento(titoloData.riferimento || "");
+    setAppendice(titoloData.appendice || "");
     const ramoTxt = titoloData.rami
       ? `${titoloData.rami.codice || ""} ${titoloData.rami.descrizione || ""}`.trim()
       : "";
@@ -308,6 +308,31 @@ const DocPrecontrattualePage = () => {
     const cmp = titoloData.compagnie;
     if (cmp?.codice) setCodiceCompagnia(cmp.codice);
     else if (cmp?.nome) setCodiceCompagnia(cmp.nome);
+    if (cmp?.nome) setCompagniaNome(cmp.nome);
+
+    // Date: preferisci garanzia_da, fallback durata_da
+    const fmt = (d?: string | null) =>
+      d ? new Date(d).toLocaleDateString("it-IT") : "";
+    setDataDecorrenza(fmt(titoloData.garanzia_da || titoloData.durata_da));
+    setDataScadenza(fmt(titoloData.data_scadenza));
+
+    // Frazionamento da periodicita
+    const periodMap: Record<string, string> = {
+      A: "Annuale", S: "Semestrale", Q: "Quadrimestrale", T: "Trimestrale",
+      B: "Bimestrale", M: "Mensile", U: "Unica",
+      annuale: "Annuale", semestrale: "Semestrale", trimestrale: "Trimestrale",
+      mensile: "Mensile", unica: "Unica",
+    };
+    const per = (titoloData.periodicita || "").toString();
+    setFrazionamento(periodMap[per] || periodMap[per?.toUpperCase?.()] || per || "");
+
+    // Premio lordo formattato
+    if (titoloData.premio_lordo != null) {
+      const n = Number(titoloData.premio_lordo);
+      if (!Number.isNaN(n)) {
+        setPremioLordo(n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titoloData]);
 
