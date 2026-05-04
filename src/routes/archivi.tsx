@@ -14,7 +14,10 @@ import ContiBancariPage from "@/pages/anagrafiche/ContiBancariPage";
 
 export const archiviRoutes = (
   <>
-    <Route path="/prospect" element={<ProspectList />} />
+    {/* Lista prospect interna (gestionale) — spostata su /archivi/prospect per evitare collisione col portale prospect */}
+    <Route path="/archivi/prospect" element={<ProspectList />} />
+    <Route path="/archivi/prospect/:id" element={<ProspectDetail />} />
+    {/* Compatibilità: il dettaglio prospect interno restava /prospect/:id; manteniamo solo il dettaglio sotto il vecchio path */}
     <Route path="/prospect/:id" element={<ProspectDetail />} />
     <Route path="/archivi/clienti" element={<ClientiList />} />
     <Route path="/archivi/clienti/deduplica" element={<DeduplicaClientiPage />} />

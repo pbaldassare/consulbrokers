@@ -99,7 +99,7 @@ const sidebarEntries: SidebarEntry[] = [
       icon: ArrowRightLeft,
       permissionKey: "trattative",
       children: [
-        { label: "Prospect", path: "/prospect", icon: Users },
+        { label: "Prospect", path: "/archivi/prospect", icon: Users },
         { label: "Lista Trattative", path: "/trattative", icon: ArrowRightLeft },
         { label: "Calendario", path: "/trattative/calendario", icon: CalendarDays },
         { label: "Storico", path: "/trattative/storico", icon: Archive },
