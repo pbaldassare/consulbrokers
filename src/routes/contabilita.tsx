@@ -33,6 +33,8 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/ec-agenzia/storico" element={<ECAgenzieStoricoPage />} />
     <Route path="/contabilita/ec-cliente/storico" element={<ECClientiStoricoPage />} />
     <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
+    <Route path="/contabilita/ec-produttore/pdf" element={<ECProduttorePdfPage />} />
+    <Route path="/contabilita/ec-produttore/storico" element={<ECProduttoriStoricoPage />} />
     <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />
     <Route path="/contabilita/stampa-primanota" element={<PlaceholderPage title="Stampa Primanota" description="Stampa movimenti di primanota" icon={Printer} />} />
     <Route path="/contabilita/check-primanota" element={<PlaceholderPage title="Check Primanota" description="Verifica e quadratura primanota" icon={ListChecks} />} />
