@@ -28,7 +28,19 @@ const ECProduttorePdfPage = () => {
   const [noteFinali, setNoteFinali] = useState("");
   const [percRA, setPercRA] = useState<string>("11.50");
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const parsePerc = (s: string) => {
+    const n = parseFloat((s || "").toString().replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const normalizePerc = (s: string) => {
+    const n = parsePerc(s);
+    return n ? n.toString().replace(".", ",") : "";
+  };
 
   // Sede mittente
   const [sedeNome, setSedeNome] = useState("");
