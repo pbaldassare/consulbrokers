@@ -41,7 +41,6 @@ interface RapportoForm {
   data_fine: string;
   attivo: boolean;
   percentuale_provvigione: string;
-  iban_dedicato: string;
   conto_bancario_id: string | null;
   referente_compagnia: string;
   email_referente: string;
@@ -58,7 +57,6 @@ const emptyForm: RapportoForm = {
   data_fine: "",
   attivo: true,
   percentuale_provvigione: "",
-  iban_dedicato: "",
   conto_bancario_id: null,
   referente_compagnia: "",
   email_referente: "",
@@ -117,7 +115,6 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         data_fine: form.data_fine || null,
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
-        iban_dedicato: form.iban_dedicato || null,
         conto_bancario_id: form.conto_bancario_id || null,
         referente_compagnia: form.referente_compagnia || null,
         email_referente: form.email_referente || null,
@@ -183,7 +180,6 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       data_fine: r.data_fine || "",
       attivo: r.attivo ?? true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
-      iban_dedicato: r.iban_dedicato || "",
       conto_bancario_id: r.conto_bancario_id || null,
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
