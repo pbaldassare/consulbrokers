@@ -1,40 +1,47 @@
-## Obiettivo
-Replicare il flusso "E/C Agenzia" anche per i Clienti: pagina con anteprima PDF, modifica campi intestazione, scarica e salva (storico). Output identico al PDF allegato `EC_MARZIA.pdf`.
+Ho verificato il codice: il menu non mostra più FatturaPA come voce reale, ma sono rimasti riferimenti legacy che possono far comparire pagine vecchie o link errati:
 
-## Dati DB (verifica completata)
-Tutti i campi del PDF sono coperti:
-- Cliente (intestatario): `clienti` (ragione_sociale / cognome+nome, indirizzo, cap, comune, provincia)
-- Sede mittente / footer: `uffici` (nome, indirizzo, città, telefono, email, **iban** per "per conto compagnie")
-- Righe tabella: `titoli` + join `polizze`, `compagnie`, `rami`
-  - polizza → `polizze.numero_polizza`
-  - ramo → `rami.descrizione`
-  - rischio → `polizze.prodotto_nome`
-  - Compagnia → `compagnie.nome`
-  - Effetto → `titoli.data_effetto`
-  - Premio → `titoli.premio_lordo`
-- Totale = somma premi
-- Footer legale (Esente IVA art.10 / Esente bollo art.34) costante
+- Sidebar: `Area CFO` è ancora una voce visibile per admin perché l'admin passa sempre tutti i permessi.
+- Route: `/cfo` è ancora registrata e quindi raggiungibile.
+- Sitemap/permessi/breadcrumb: contengono ancora testi come `FatturaPA`, `Contabilità Generale`, `Area CFO`, `cont-generale`.
+- Cruscotto contabilità: c'è un link a `/cont-generale/scadenziario`, pagina non più esposta.
+- Search globale: alcuni risultati puntano a `/cfo` e `/prodotti`, creando navigazioni vecchie/rotte.
+- Route contabilità: importa ancora pagine di contabilità generale non usate; non vengono renderizzate, ma vanno tolte per non lasciare ambiguità.
 
-## Cosa creare
+Piano di correzione:
 
-1. **`src/lib/ec-cliente-pdf.ts`** (nuovo)
-   - `buildECClientePdf(data: ECClienteData): Promise<Uint8Array>` con `pdf-lib`
-   - Layout fedele al PDF: logo cbdigital (riusa quello già in `ec-agenzia-pdf` se presente, altrimenti aggiungiamo asset), intestazione destinatario, oggetto, tabella (polizza, ramo, rischio, Compagnia, Effetto, Premio), totale, blocco IBAN per conto compagnie, footer legale con dati Consulbrokers Digital srl.
+1. Ripulire la sidebar
+   - Rimuovere completamente `Area CFO` da `AppSidebar`.
+   - Eliminare import/icona inutili collegati a quella voce.
+   - Lasciare visibili solo le sezioni attive: Home, Trattative, Bandi, Chat, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche.
 
-2. **`src/pages/contabilita/ECClientePdfPage.tsx`** (nuovo, copia adattata di `ECAgenziaPdfPage.tsx`)
-   - Query params: `clienteId`, `titoliIds` (CSV), opzionale `periodoDal/Al`
-   - Carica cliente, sede mittente (da `profile.ufficio_id`), titoli con join
-   - Form editabile: data documento, oggetto, modalità pagamento, IBAN, note
-   - Pulsanti: **Anteprima**, **Scarica PDF**, **Salva** (storage `documenti-clienti` + record in tabella storico, riusando lo stesso schema di salvataggio dell'E/C Agenzia)
-   - `PdfPreview` component identico
+2. Bloccare le route legacy
+   - Rimuovere la route `/cfo` da `src/routes/sistema.tsx`.
+   - Togliere l'import di `AreaCFO`.
+   - Aggiungere redirect sicuri dalle vecchie URL principali verso pagine attive, per evitare che un link salvato apra pagine vecchie:
+     - `/cfo` → `/contabilita/cruscotto`
+     - `/cont-generale/*` → `/contabilita`
+     - `/fatturapa/*` → `/contabilita`
+     - `/prodotti` e `/categorie` → `/compagnie` o tabelle corrette se già gestite lì.
 
-3. **Route** in `src/routes/contabilita.tsx`: `/contabilita/ec-cliente/pdf` → `ECClientePdfPage`
+3. Pulire Contabilità da import e link obsoleti
+   - Rimuovere da `src/routes/contabilita.tsx` gli import non usati di contabilità generale (`PrimanotaGeneralePage`, `ScadenziarioPage`, `ElabPeriodichePage`, `ClientiContabGeneralePage`, `DichiarativiCUPage`, `ElabAnnualiPage`, `FornitoriPage`, `BancaImport`, `PianoDeiContiPage`, icone inutili).
+   - Cambiare nel `CruscottoGiornaliero` il link `Vedi scadenziario` da `/cont-generale/scadenziario` a una pagina attiva o rimuovere il bottone se la sezione non deve esistere più.
 
-4. **Punto di ingresso**: aggiungere bottone "Genera E/C PDF" nella pagina `ECClientiPage` (riga cliente o azione bulk con selezione titoli) e/o nel dettaglio cliente. Conferma quale preferisci — di default lo metto sulla riga cliente in `ECClientiPage` (apre nuova tab con tutti i titoli del cliente nel periodo filtrato).
+4. Aggiornare ricerca globale
+   - Cambiare i risultati “provvigioni non pagate” che oggi puntano a `/cfo`, facendoli puntare a `/pagamenti-provvigioni` o `/provvigioni-maturate`.
+   - Cambiare i risultati prodotto da `/prodotti` a `/compagnie` oppure non renderli cliccabili verso route inesistenti.
 
-5. **Storico**: salvataggio analogo a E/C Agenzia (stessa tabella `documenti_generati` o equivalente già usata — verifico in fase di implementazione e riuso il pattern esatto).
+5. Pulire breadcrumb, sitemap e permessi visibili
+   - Rimuovere/aggiornare label legacy in `PageBreadcrumb`: `fatturapa`, `cont-generale`, `cfo`.
+   - Aggiornare `SitemapPage` eliminando `FatturaPA`, `Contabilità Generale`, `Area CFO` e riferimenti a fornitori/scadenziario se non fanno parte della visualizzazione attiva.
+   - Aggiornare `userLevels.ts` rinominando o togliendo `cfo_area` dalla visualizzazione dei permessi, così non appare più come area funzionale attiva.
 
-## Note
-- Nessuna modifica DB necessaria.
-- IBAN di default da `uffici.iban` della sede mittente; editabile in form.
-- Logo cbdigital: riuso lo stesso asset già caricato per E/C Agenzia.
+6. Correggere link rotti già esistenti
+   - I pulsanti “Chiudi” in varie pagine polizza puntano a `/portafoglio/gestione-polizze`, route non registrata: li aggiorno a `/portafoglio/attive` o alla pagina titolo quando disponibile.
+
+7. Verifica finale
+   - Ricerca testuale per confermare che non restino più riferimenti visibili a `FatturaPA`, `Contabilità Generale`, `Area CFO`, `/cfo`, `/cont-generale`, `/fatturapa`.
+   - Controllo che sidebar e route puntino solo a pagine attive.
+   - Se il browser è disponibile e l'utente è loggato, verifico la sidebar nella preview; se chiede login, segnalo che serve accedere in preview.
+
+Risultato atteso: spariscono definitivamente dalla visualizzazione e dai link navigabili le vecchie pagine come FatturaPA/Contabilità Generale/Area CFO, evitando anche che ricerche, breadcrumb o link interni le ripropongano.

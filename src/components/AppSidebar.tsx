@@ -181,7 +181,6 @@ const sidebarEntries: SidebarEntry[] = [
       ],
     },
   },
-  /* FatturaPA — nascosto, pagine mantenute nel repo */
   {
     type: "group",
     group: {
