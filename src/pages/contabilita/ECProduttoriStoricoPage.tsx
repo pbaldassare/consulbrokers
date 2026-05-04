@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Eye, FileText, Search } from "lucide-react";
+import { Download, Eye, FileText, Search, FilePlus2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
@@ -16,6 +17,7 @@ import PdfPreview from "@/components/PdfPreview";
 const PAGE_SIZE = 25;
 
 const ECProduttoriStoricoPage = () => {
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [produttoreId, setProduttoreId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
