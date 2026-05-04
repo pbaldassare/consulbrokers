@@ -14,7 +14,7 @@ import TemplatePage from "@/pages/TemplatePage";
 import PrivacyConsensi from "@/pages/PrivacyConsensi";
 import ComunicazioniPage from "@/pages/ComunicazioniPage";
 import ReportPage from "@/pages/ReportPage";
-import AreaCFO from "@/pages/AreaCFO";
+
 import SpedizioniList from "@/pages/SpedizioniList";
 import NoteRestituzioneList from "@/pages/NoteRestituzioneList";
 import NotaRestituzioneDetail from "@/pages/NotaRestituzioneDetail";
