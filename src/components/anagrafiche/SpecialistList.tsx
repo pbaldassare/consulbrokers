@@ -59,7 +59,7 @@ const emptyForm = {
   nome_rui: "", sezione_rui: "", numero_rui: "", data_iscrizione_rui: "",
   codice_contabile: "",
   percentuale_base: "", percentuale_consulenza: "", percentuale_ra: "",
-  iban: "", intestatario_cc: "",
+  iban: "", intestatario_cc: "", conto_bancario_id: "",
   note: "",
   attivo: true,
 };
