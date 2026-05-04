@@ -43,7 +43,16 @@ export const sistemaRoutes = (
     <Route path="/sitemap" element={<RoleGuard allowedRoles={["admin"]}><SitemapPage /></RoleGuard>} />
 
     {/* STANDALONE */}
-    <Route path="/cfo" element={<AreaCFO />} />
+    <Route path="/cfo" element={<Navigate to="/contabilita/cruscotto" replace />} />
+    <Route path="/cont-generale" element={<Navigate to="/contabilita" replace />} />
+    <Route path="/cont-generale/*" element={<Navigate to="/contabilita" replace />} />
+    <Route path="/fatturapa" element={<Navigate to="/contabilita" replace />} />
+    <Route path="/fatturapa/*" element={<Navigate to="/contabilita" replace />} />
+    <Route path="/prodotti" element={<Navigate to="/compagnie" replace />} />
+    <Route path="/categorie" element={<Navigate to="/compagnie" replace />} />
+    <Route path="/portafoglio/gestione-polizze" element={<Navigate to="/portafoglio/attive" replace />} />
+    <Route path="/banca-import" element={<Navigate to="/contabilita" replace />} />
+    <Route path="/fornitori" element={<Navigate to="/contabilita" replace />} />
     <Route path="/anomalie-ko" element={<AnomalieKO />} />
     <Route path="/note-restituzione" element={<NoteRestituzioneList />} />
     <Route path="/note-restituzione/:id" element={<NotaRestituzioneDetail />} />
