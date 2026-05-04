@@ -43,8 +43,8 @@ const PortafoglioCaricoPage = () => {
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
-  // Carico del mese X = polizze in scadenza nel mese X+12 (lavorazione preventiva del rinnovo)
-  const scadenzaDate = addMonths(caricoDate, 12);
+  // Carico del mese X = polizze con data_scadenza nel mese X stesso (mese corrente di navigazione)
+  const scadenzaDate = caricoDate;
   const caricoStart = format(startOfMonth(scadenzaDate), "yyyy-MM-dd");
   const caricoEnd = format(endOfMonth(scadenzaDate), "yyyy-MM-dd");
 

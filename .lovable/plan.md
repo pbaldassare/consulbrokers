@@ -1,53 +1,36 @@
-## Obiettivo
+## Modifica regola "Carico del Mese"
 
-1. Creare **GUARRACINO GAETANO** e **Gestione Milano** come veri profili Specialist (ruolo `backoffice`) con login.
-2. Rilegare i 16 titoli di aprile 2026 al profilo via `titoli.specialist` (UUID) e ripulire il testo libero.
-3. Mostrarti le polizze con **scadenza** in aprile 2026.
+### Comportamento attuale
+La pagina `/portafoglio/carico` mostra le polizze in scadenza nel mese **+12** rispetto al mese di lavorazione (lavorazione preventiva del rinnovo). Es.: Aprile 2026 → mostra scadenze Aprile 2027.
 
-## Step 1 — Creare SEDE MILANO
+### Nuovo comportamento richiesto
+Il "Carico del Mese X" deve mostrare le polizze con `data_scadenza` **nel mese X stesso** (mese corrente di navigazione).
 
-Attualmente in DB esistono solo: SEDE CATANIA, SEDE SAN DONA' DI PIAVE, Ufficio di Napoli. "Gestione Milano" è uno specialist Milano → serve la sede.
+Esempio: navigando ad Aprile 2026 → mostra le polizze in scadenza dal 1 al 30 Aprile 2026.
 
-Inserisco `uffici`:
-- **SEDE MILANO** (città Milano, provincia MI)
+### Movimento dopo Messa a Cassa
+Quando una polizza viene messa a cassa, deve "uscire" dal carico del mese corrente e ricomparire nel carico della **scadenza successiva**, calcolata in base al frazionamento (`rate`):
+- Annuale (rate=1) → +12 mesi
+- Semestrale (rate=2) → +6 mesi
+- Quadrimestrale (rate=3) → +4 mesi
+- Trimestrale (rate=4) → +3 mesi
+- Mensile (rate=12) → +1 mese
 
-Per **GUARRACINO GAETANO** assegno **SEDE CATANIA** (le sue polizze di aprile sono in area sud/Catania). Se preferisci altra sede dimmelo.
+Questo meccanismo è già gestito dal flusso esistente: la messa a cassa di una rata genera la **quietanza successiva** (movimento PQ) con la nuova `data_scadenza` (scadenza di quietanza), e il titolo principale conserva la `data_scadenza` di polizza. La distinzione **scadenza polizza vs scadenza quietanza** è già presente nei dati.
 
-## Step 2 — Provisioning utenti via edge function `create-user`
+### Implementazione (1 sola modifica)
 
-Email fake (dominio interno) + password `Leone123!`:
+File: `src/pages/PortafoglioCaricoPage.tsx`
 
-| Nome | Email | Sede | Ruolo |
-|------|-------|------|-------|
-| GUARRACINO GAETANO | `guarracino.gaetano@consulbrokers.local` | SEDE CATANIA | backoffice |
-| Gestione Milano | `gestione.milano@consulbrokers.local` | SEDE MILANO | backoffice |
+1. Riga 47: rimuovere `addMonths(caricoDate, 12)`:
+   ```ts
+   const scadenzaDate = caricoDate;
+   ```
+2. Aggiornare il sottotitolo (riga 302-304) rimuovendo "(12 mesi dopo il mese di lavorazione)" e mostrando solo: *"Polizze in scadenza a {mese}"*.
+3. Aggiornare il commento alla riga 46.
 
-La function crea `auth.users` + `profiles` con `ruolo='backoffice'` e `ufficio_id` corretto.
-
-## Step 3 — Rilegare i 16 titoli di aprile 2026
-
-La colonna è `titoli.specialist` (text con il nome). La sostituisco con l'**UUID del profilo** appena creato:
-
-```sql
-UPDATE titoli SET specialist = '<uuid-guarracino>'
- WHERE data_scadenza BETWEEN '2026-04-01' AND '2026-04-30'
-   AND specialist = 'GUARRACINO GAETANO';
-
-UPDATE titoli SET specialist = '<uuid-gestione-milano>'
- WHERE data_scadenza BETWEEN '2026-04-01' AND '2026-04-30'
-   AND specialist = 'Gestione Milano';
-```
-
-Nota: `titoli.specialist` è `text` ma l'app la legge come riferimento al profilo (convenzione attuale del progetto). Se vuoi, in un secondo momento, posso convertirla in colonna `uuid` con FK a `profiles`.
-
-## Step 4 — Polizze con scadenza aprile 2026
-
-Già verificato: **16 titoli**, totale premio lordo €89.951,50. Te le mostro nella vista **Portafoglio › Carico** (rotta corrente `/portafoglio/carico`) filtrando per `data_scadenza` in aprile 2026, oppure ti genero un report on-demand. Confermo che la lista coincide con quella appena importata.
-
-## Domande aperte (rispondi solo se non sei d'accordo)
-
-- Sede di **GUARRACINO** = SEDE CATANIA ✔ (default proposto)
-- Email fake `*.consulbrokers.local` ✔
-- Password `Leone123!` ✔
-
-Se OK approva e procedo.
+### Note
+- Filtro applicato su `data_scadenza` (scadenza di polizza/quietanza presente nella view `v_portafoglio_titoli`); non serve toccare la query, solo l'intervallo.
+- Conferma: per Aprile 2026 vedrai le 16 polizze già rebindate ai nuovi specialist (Guarracino / Gestione Milano), totale lordo ~€89.951,50.
+- Il banner "rinnovi in attesa" continua a riferirsi allo stesso mese (coerente).
+- Nessuna migrazione DB necessaria.
