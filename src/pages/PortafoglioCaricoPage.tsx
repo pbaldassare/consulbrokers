@@ -195,7 +195,11 @@ const PortafoglioCaricoPage = () => {
     }
   }, []);
 
-  const selectedAttive = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo"), [polizze, selectedIds]);
+  // Solo polizze attive E mai messe a cassa sono incassabili (evita doppio incasso)
+  const selectedAttive = useMemo(
+    () => polizze.filter(p => selectedIds.has(p.id) && p.stato === "attivo" && !p.data_messa_cassa),
+    [polizze, selectedIds]
+  );
   const selectedIncassate = useMemo(() => polizze.filter(p => selectedIds.has(p.id) && p.stato === "incassato"), [polizze, selectedIds]);
 
   const bulkMettiACassa = useCallback(async () => {
