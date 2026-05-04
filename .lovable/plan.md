@@ -1,28 +1,67 @@
-# Rimozione del legacy `iban_dedicato` da `RapportiCompagniaDialog`
+# Gestione IBAN: Specialist → Sede → Default Consulbrokers
 
-Il campo `iban_dedicato` è già stato sostituito a livello UI dal selettore master `ContoBancarioSelect` (che scrive su `conto_bancario_id`), ma il valore continua a vivere in:
+## Decisioni confermate
 
-- l'interfaccia TypeScript `RapportoForm` (riga 44)
-- il valore iniziale `emptyForm` (riga 61)
-- il payload inviato a `compagnia_rapporti` in INSERT/UPDATE (riga 120)
-- il caricamento del form in `openEdit` (riga 186)
+1. **Specialist = riga in `backoffice`** (anagrafica), non `profiles`. È la stessa tabella dove oggi gestiamo gli Specialist da Anagrafiche Interne.
+2. **Fallback silenzioso** sul conto di default Consulbrokers: se Specialist e Sede non hanno IBAN, il sistema usa sempre il default senza mostrare avvisi al cliente.
+3. **L'IBAN risolto resta sempre modificabile** in fase di stampa/invio: nel PDF E/C cliente e nei template email l'utente vedrà l'IBAN proposto ma potrà sostituirlo manualmente prima di confermare.
 
-## Modifiche a `src/components/compagnie/RapportiCompagniaDialog.tsx`
+## Catena di priorità
 
-1. Rimuovere il campo `iban_dedicato: string` dall'interfaccia `RapportoForm`.
-2. Rimuovere `iban_dedicato: ""` da `emptyForm`.
-3. Rimuovere `iban_dedicato: form.iban_dedicato || null` dal payload della mutation `saveMutation` (lasciando solo `conto_bancario_id`).
-4. Rimuovere `iban_dedicato: r.iban_dedicato || ""` dalla funzione `openEdit`.
+```text
+IBAN proposto al cliente =
+  1) backoffice.conto_bancario_id          (Specialist assegnato al cliente)
+  2) uffici.conto_bancario_id              (Sede del cliente)
+  3) conti_bancari.is_default = true       (default Consulbrokers, tipo='incasso_clienti')
 
-Nessun input visibile da rimuovere: il campo non era già più editabile da UI.
+→ override manuale possibile prima dell'invio
+```
 
-## Effetto
+## Modifiche DB (una migration)
 
-Da questo momento, salvando un rapporto:
-- il campo legacy `compagnia_rapporti.iban_dedicato` non viene più sovrascritto (resta a NULL per i nuovi inserimenti, mantiene il valore esistente per quelli vecchi finché non vengono modificati)
-- il valore esistente NON viene azzerato durante un update perché il campo è semplicemente omesso dal payload (Postgres lascia invariate le colonne non menzionate)
-- l'unica fonte di verità per il conto del rapporto è `conto_bancario_id` → `conti_bancari`
+1. `ALTER TABLE uffici ADD COLUMN conto_bancario_id uuid REFERENCES conti_bancari(id) ON DELETE SET NULL;`
+2. `ALTER TABLE backoffice ADD COLUMN conto_bancario_id uuid REFERENCES conti_bancari(id) ON DELETE SET NULL;`
+3. Funzione SQL `get_iban_cliente(p_cliente_id uuid) RETURNS TABLE(iban text, intestato_a text, banca text, bic text, fonte text)` che applica la catena. `fonte ∈ ('specialist','sede','default')`. Mai NULL: se non c'è nemmeno un default attivo restituisce stringhe vuote con `fonte='nessuno'` (il frontend mostrerà comunque il campo editabile vuoto).
+4. Seed: assicurarsi che in `conti_bancari` esista un record con `is_default=true`, `tipo='incasso_clienti'`, `attivo=true`. Se non esiste, la migration lo crea con placeholder Consulbrokers da completare poi dall'admin via UI.
+5. Vincolo soft: trigger che impedisce di avere più di un `is_default=true` per ogni `tipo`.
 
-## Fuori scope
+## Modifiche UI
 
-Drop della colonna `compagnia_rapporti.iban_dedicato`: la lascio in DB per back-compat, come da piano IBAN approvato. La rimuoveremo con una migration separata dopo aver verificato che nessuna lettura residua la usa.
+### `SediManager.tsx`
+Sostituire i 3 campi liberi IBAN/Intestato/Banca con `<ContoBancarioSelect tipi={["incasso_clienti","generico"]} />` legato a `conto_bancario_id`. Vecchi campi locali restano in DB (back-compat) ma non più editabili.
+
+### `SpecialistList.tsx`
+Aggiungere `<ContoBancarioSelect>` nel form Specialist. Etichetta: "IBAN personale per incassi (opzionale, sovrascrive quello della Sede)".
+
+### `ContiBancariPage.tsx`
+- Badge "Default" ben visibile sulla riga `is_default=true`.
+- Colonna "Usato da" con conteggio Sedi + Specialist che lo referenziano.
+
+### Nuovo helper `src/lib/resolveIbanCliente.ts`
+```ts
+export async function resolveIbanCliente(clienteId: string): Promise<{
+  iban: string; intestato_a: string; banca: string; bic: string;
+  fonte: 'specialist'|'sede'|'default'|'nessuno';
+}>
+```
+Chiama la RPC `get_iban_cliente`. Usato da PDF E/C cliente e dai template email.
+
+### `ECClientePdfPage.tsx`
+- Rimuovere fallback hardcoded.
+- Caricare l'IBAN tramite `resolveIbanCliente`.
+- Mostrare un campo IBAN **editabile** in alto (con valore preselezionato) prima del bottone "Genera PDF". L'utente può sovrascrivere prima della stampa.
+- Nessun avviso "IBAN non configurato": il default Consulbrokers entra in modo silenzioso.
+
+## Cosa NON tocco
+
+- `conti_incasso` (Tabelle di Base): resta, è classificatore primanota.
+- IBAN compagnie / rapporti compagnia: già migrati nel giro precedente.
+- Drop colonne legacy `uffici.iban / intestato_a / banca`: pulizia separata, dopo verifica.
+
+## Output finale
+
+Dopo questa modifica, generando un E/C per qualsiasi cliente:
+- chi ha Specialist con IBAN personale → vede quello
+- altrimenti chi ha Sede con IBAN dedicato → vede quello della Sede
+- tutti gli altri → vedono silenziosamente il default Consulbrokers
+- e in ogni caso l'utente può ancora modificarlo a mano prima di stampare/inviare

@@ -28,7 +28,7 @@ interface Ufficio {
   telefono: string | null;
   attivo: boolean;
   created_at: string;
-  conto_incasso_id?: string | null;
+  conto_bancario_id?: string | null;
 }
 
 interface SediManagerProps {
@@ -47,7 +47,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
-  const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_incasso_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_incasso_id: null });
+  const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
 
   const { data: uffici = [], isLoading } = useQuery({
     queryKey: ["uffici"],
@@ -94,7 +94,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_incasso_id: string | null }) => {
+    mutationFn: async (data: { id?: string; codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }) => {
       const payload = {
         codice_ufficio: data.codice_ufficio,
         nome_ufficio: data.nome_ufficio,
@@ -105,7 +105,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
         email: data.email || null,
         telefono: data.telefono || null,
         attivo: data.attivo,
-        conto_incasso_id: data.conto_incasso_id,
+        conto_bancario_id: data.conto_bancario_id,
       };
       if (data.id) {
         const { error } = await supabase.from("uffici" as any).update(payload).eq("id", data.id);
@@ -125,7 +125,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
 
   const openCreateDialog = () => {
     setEditingUfficio(null);
-    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_incasso_id: null });
+    setFormData({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
     setDialogOpen(true);
   };
 
@@ -141,7 +141,7 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
       email: u.email || "",
       telefono: u.telefono || "",
       attivo: u.attivo,
-      conto_incasso_id: u.conto_incasso_id || null,
+      conto_bancario_id: u.conto_bancario_id || null,
     });
     setDialogOpen(true);
   };
@@ -322,8 +322,8 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
               <Label className="flex items-center gap-1 font-semibold"><Banknote className="w-3 h-3" /> Conto incassi clienti</Label>
               <p className="text-xs text-muted-foreground">IBAN su cui i clienti di questa Sede pagano (compare nell'E/C cliente PDF). Se non impostato, viene usato il conto di default.</p>
               <ContoBancarioSelect
-                value={formData.conto_incasso_id}
-                onChange={(id) => setFormData({ ...formData, conto_incasso_id: id })}
+                value={formData.conto_bancario_id}
+                onChange={(id) => setFormData({ ...formData, conto_bancario_id: id })}
                 tipi={["incasso_clienti"]}
                 placeholder="Usa il default di sistema"
               />

@@ -21,6 +21,7 @@ import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { LEVELS } from "@/lib/userLevels";
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 interface SpecialistRow {
   id: string;
@@ -46,6 +47,7 @@ interface SpecialistRow {
   percentuale_ra: number | null;
   iban: string | null;
   intestatario_cc: string | null;
+  conto_bancario_id: string | null;
   percentuale_base: number | null;
   percentuale_consulenza: number | null;
   note: string | null;
@@ -58,7 +60,7 @@ const emptyForm = {
   nome_rui: "", sezione_rui: "", numero_rui: "", data_iscrizione_rui: "",
   codice_contabile: "",
   percentuale_base: "", percentuale_consulenza: "", percentuale_ra: "",
-  iban: "", intestatario_cc: "",
+  iban: "", intestatario_cc: "", conto_bancario_id: "",
   note: "",
   attivo: true,
 };
@@ -95,7 +97,7 @@ const DateField = ({ value, onChange }: { value: string; onChange: (v: string) =
 };
 
 const SELECT_FIELDS =
-  "id, nome, cognome, email, ruolo, ufficio_id, attivo, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, percentuale_base, percentuale_consulenza, note";
+  "id, nome, cognome, email, ruolo, ufficio_id, attivo, descrizione, indirizzo, cap, citta, provincia, telefono, fax, codice_fiscale, nome_rui, data_iscrizione_rui, numero_rui, sezione_rui, codice_contabile, percentuale_ra, iban, intestatario_cc, conto_bancario_id, percentuale_base, percentuale_consulenza, note";
 
 interface SpecialistListProps {
   editId?: string | null;
@@ -181,6 +183,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : null,
         iban: form.iban || null,
         intestatario_cc: form.intestatario_cc || null,
+        conto_bancario_id: form.conto_bancario_id || null,
         note: form.note || null,
         attivo: form.attivo,
         updated_at: new Date().toISOString(),
@@ -332,6 +335,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       percentuale_ra: item.percentuale_ra?.toString() || "",
       iban: item.iban || "",
       intestatario_cc: item.intestatario_cc || "",
+      conto_bancario_id: item.conto_bancario_id || "",
       note: item.note || "",
       attivo: item.attivo ?? true,
     });
@@ -545,9 +549,22 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               </TabsContent>
 
               <TabsContent value="banca" className="space-y-3 mt-3">
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <Label className="font-semibold">Conto incassi clienti collegato a questo Specialist</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Se valorizzato, l'IBAN qui indicato verrà proposto al cliente nei suoi E/C al posto di quello della Sede.
+                    Selezionare un conto già censito in <strong>Conti Bancari</strong>.
+                  </p>
+                  <ContoBancarioSelect
+                    value={form.conto_bancario_id || null}
+                    onChange={(id) => setForm({ ...form, conto_bancario_id: id || "" })}
+                    tipi={["incasso_clienti"]}
+                    placeholder="Usa l'IBAN della Sede / default"
+                  />
+                </div>
                 <div className="grid grid-cols-1 gap-3">
-                  <div><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} /></div>
-                  <div><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
+                  <div><Label>IBAN (campo libero — legacy)</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>Intestatario C/C (legacy)</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
                 </div>
               </TabsContent>
             </Tabs>

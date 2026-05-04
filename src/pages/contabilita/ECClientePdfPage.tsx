@@ -63,39 +63,27 @@ const ECClientePdfPage = () => {
     },
   });
 
-  // Sede mittente (con conto incassi collegato)
+  // Sede mittente (per intestazione: città, indirizzo, ecc.)
   const { data: sede } = useQuery({
     queryKey: ["ec-cli-pdf-sede", profile?.ufficio_id],
     enabled: !!profile?.ufficio_id,
     queryFn: async () => {
       const { data } = await supabase.from("uffici" as any)
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono, conto_incasso_id")
+        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
         .eq("id", profile!.ufficio_id!)
         .maybeSingle();
       return data as any;
     },
   });
 
-  // Conto bancario di incasso: prima quello della Sede, poi il default master
+  // Conto bancario di incasso: catena Specialist → Sede del cliente → default Consulbrokers
   const { data: conto } = useQuery({
-    queryKey: ["ec-cli-pdf-conto", sede?.conto_incasso_id],
+    queryKey: ["ec-cli-pdf-conto-resolved", clienteId],
+    enabled: !!clienteId,
     queryFn: async () => {
-      if (sede?.conto_incasso_id) {
-        const { data } = await supabase.from("conti_bancari" as any)
-          .select("iban, intestato_a, banca")
-          .eq("id", sede.conto_incasso_id)
-          .maybeSingle();
-        if (data) return data as any;
-      }
-      const { data } = await supabase.from("conti_bancari" as any)
-        .select("iban, intestato_a, banca")
-        .eq("tipo", "incasso_clienti")
-        .eq("is_default", true)
-        .eq("attivo", true)
-        .maybeSingle();
-      return data as any;
+      const { resolveIbanCliente } = await import("@/lib/resolveIbanCliente");
+      return await resolveIbanCliente(clienteId!);
     },
-    enabled: !!profile,
   });
 
   useEffect(() => {
@@ -328,6 +316,15 @@ const ECClientePdfPage = () => {
           <div className="space-y-1.5">
             <Label>IBAN</Label>
             <Input value={iban} onChange={(e) => setIban(e.target.value)} />
+            {conto?.fonte && conto.fonte !== "nessuno" && (
+              <p className="text-[11px] text-muted-foreground">
+                Fonte:{" "}
+                {conto.fonte === "specialist" && "Specialist assegnato al cliente"}
+                {conto.fonte === "sede" && "Sede del cliente"}
+                {conto.fonte === "default" && "Conto di default Consulbrokers"}
+                {" "}— modificabile prima della stampa.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <Label>Ragione sociale (firma)</Label>

@@ -4607,6 +4607,7 @@ export type Database = {
           codice_contabile: string | null
           codice_fiscale: string | null
           cognome: string | null
+          conto_bancario_id: string | null
           created_at: string | null
           data_iscrizione_rui: string | null
           descrizione: string | null
@@ -4640,6 +4641,7 @@ export type Database = {
           codice_contabile?: string | null
           codice_fiscale?: string | null
           cognome?: string | null
+          conto_bancario_id?: string | null
           created_at?: string | null
           data_iscrizione_rui?: string | null
           descrizione?: string | null
@@ -4673,6 +4675,7 @@ export type Database = {
           codice_contabile?: string | null
           codice_fiscale?: string | null
           cognome?: string | null
+          conto_bancario_id?: string | null
           created_at?: string | null
           data_iscrizione_rui?: string | null
           descrizione?: string | null
@@ -4699,6 +4702,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_conto_bancario_id_fkey"
+            columns: ["conto_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_ufficio_id_fkey"
             columns: ["ufficio_id"]
@@ -6664,6 +6674,7 @@ export type Database = {
           cap: string | null
           citta: string | null
           codice_ufficio: string | null
+          conto_bancario_id: string | null
           conto_incasso_id: string | null
           created_at: string | null
           email: string | null
@@ -6681,6 +6692,7 @@ export type Database = {
           cap?: string | null
           citta?: string | null
           codice_ufficio?: string | null
+          conto_bancario_id?: string | null
           conto_incasso_id?: string | null
           created_at?: string | null
           email?: string | null
@@ -6698,6 +6710,7 @@ export type Database = {
           cap?: string | null
           citta?: string | null
           codice_ufficio?: string | null
+          conto_bancario_id?: string | null
           conto_incasso_id?: string | null
           created_at?: string | null
           email?: string | null
@@ -6710,6 +6723,13 @@ export type Database = {
           telefono?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "uffici_conto_bancario_id_fkey"
+            columns: ["conto_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "uffici_conto_incasso_id_fkey"
             columns: ["conto_incasso_id"]
@@ -7327,6 +7347,16 @@ export type Database = {
         }[]
       }
       get_chat_unread_count: { Args: { _user_id: string }; Returns: number }
+      get_iban_cliente: {
+        Args: { p_cliente_id: string }
+        Returns: {
+          banca: string
+          bic: string
+          fonte: string
+          iban: string
+          intestato_a: string
+        }[]
+      }
       get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
       get_rapporti_counts_per_compagnia: {
