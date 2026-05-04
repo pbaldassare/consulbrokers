@@ -207,7 +207,7 @@ const FlussoCompagniaDetail = () => {
       <Tabs defaultValue="payload">
         <TabsList>
           <TabsTrigger value="payload"><FileCode className="w-4 h-4 mr-1" />Payload</TabsTrigger>
-          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Timeline</TabsTrigger>
+          <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>
         </TabsList>
         <TabsContent value="payload">
           <Card>
