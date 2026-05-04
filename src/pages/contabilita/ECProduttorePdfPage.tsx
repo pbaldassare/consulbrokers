@@ -31,6 +31,7 @@ const ECProduttorePdfPage = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   const parsePerc = (s: string) => {
@@ -40,6 +41,24 @@ const ECProduttorePdfPage = () => {
   const normalizePerc = (s: string) => {
     const n = parsePerc(s);
     return n ? n.toString().replace(".", ",") : "";
+  };
+
+  // Chiave cache anteprima: cambia solo se cambiano i parametri rilevanti
+  const cacheKey = useMemo(() => JSON.stringify({
+    produttoreId, periodoDal, periodoAl,
+    numeroRendiconto, dataRendiconto, periodoTesto, percRA, noteFinali,
+    sedeNome, sedeIndirizzo, sedeCap, sedeCitta, sedeProvincia, sedeEmail, sedeTelefono,
+  }), [produttoreId, periodoDal, periodoAl, numeroRendiconto, dataRendiconto, periodoTesto, percRA, noteFinali, sedeNome, sedeIndirizzo, sedeCap, sedeCitta, sedeProvincia, sedeEmail, sedeTelefono]);
+
+  // Helper download/print con revoca dell'objectURL e cleanup anche su errore
+  const withObjectUrl = (bytes: Uint8Array, fn: (url: string, blob: Blob) => void) => {
+    const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    try {
+      fn(url, blob);
+    } finally {
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 5000);
+    }
   };
 
   // Sede mittente
