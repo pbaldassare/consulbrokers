@@ -93,6 +93,7 @@ type SidebarEntry =
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Assistente IA", path: "/ai-assistant", icon: Sparkles, permissionKey: "dashboard" } },
+  { type: "single", item: { label: "Area CFO", path: "/area-cfo", icon: LineChart, permissionKey: "dashboard", hideForRoles: ["ufficio","contabilita","produttore","backoffice","corrispondente","responsabile_sede","account_executive","specialist","executive","cliente","prospect"] } },
   {
     type: "group",
     group: {
