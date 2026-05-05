@@ -98,6 +98,23 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   const [toDelete, setToDelete] = useState<Voce | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  // Draft state per editing live (controlled inputs); chiavi: voce.id → campi sovrascritti
+  const [draftVoci, setDraftVoci] = useState<Record<string, Partial<Voce>>>({});
+  const setDraft = (id: string, patch: Partial<Voce>) =>
+    setDraftVoci((d) => ({ ...d, [id]: { ...(d[id] || {}), ...patch } }));
+  const clearDraft = (id: string, keys: (keyof Voce)[]) =>
+    setDraftVoci((d) => {
+      const cur = { ...(d[id] || {}) };
+      keys.forEach((k) => delete (cur as any)[k]);
+      const next = { ...d };
+      if (Object.keys(cur).length === 0) delete next[id];
+      else next[id] = cur;
+      return next;
+    });
+  const getDraftNum = (id: string, key: keyof Voce, fallback: number) => {
+    const v = draftVoci[id]?.[key];
+    return v === undefined || v === null || v === "" ? fallback : Number(v);
+  };
 
   useEffect(() => {
     if (!provinciaCliente) return;
