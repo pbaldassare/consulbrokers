@@ -12,7 +12,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Car, Plus, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Lock } from "lucide-react";
+import { Car, Plus, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Lock, RefreshCw, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +34,12 @@ interface Voce {
   imposta_provinciale: number | null;
   ssn: number | null;
   ordine: number | null;
+  tipo_premio?: "firma" | "quietanza";
+  quietanza_personalizzata?: boolean;
+  voce_origine_id?: string | null;
 }
+
+type TipoPremio = "firma" | "quietanza";
 
 const RCA_LABEL = "RCA Auto";
 const RCA_CODE = "RCA";
@@ -56,15 +61,19 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0 };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
   onTotaliChange?: (t: { netto: number; tasse: number; lordo: number }) => void;
+  tipoPremio?: TipoPremio;
+  titolo?: string;
 }) {
   const qc = useQueryClient();
+  const isQuietanza = tipoPremio === "quietanza";
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   const [toDelete, setToDelete] = useState<Voce | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     if (!provinciaCliente) return;
@@ -76,12 +85,13 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   }, [provinciaCliente]);
 
   const { data: voci = [], isLoading } = useQuery({
-    queryKey: ["voci-rca", titoloId],
+    queryKey: ["voci-rca", titoloId, tipoPremio],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("premi_garanzia_polizza" as any)
         .select("*")
         .eq("titolo_id", titoloId)
+        .eq("tipo_premio", tipoPremio)
         .order("is_rca_principale", { ascending: false })
         .order("ordine", { ascending: true });
       if (error) throw error;
@@ -101,8 +111,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     },
   });
 
+  const invalidateBoth = () => {
+    qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "firma"] });
+    qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "quietanza"] });
+  };
+
   useEffect(() => {
     if (isLoading) return;
+    if (isQuietanza) return; // la riga RCA Quietanza viene creata dal trigger
     const hasRca = voci.some((v) => v.is_rca_principale);
     if (!hasRca) {
       supabase.from("premi_garanzia_polizza" as any).insert({
@@ -112,17 +128,23 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         is_rca_principale: true,
         firma: 0,
         ordine: 0,
-      }).then(() => qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] }));
+        tipo_premio: "firma",
+      }).then(() => invalidateBoth());
     }
-  }, [isLoading, voci, titoloId, qc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, voci, titoloId, isQuietanza]);
 
   const upsertMut = useMutation({
     mutationFn: async (v: Partial<Voce> & { id: string }) => {
       const { id, ...rest } = v;
+      // Se sto modificando una riga Quietanza, marcala come personalizzata
+      if (isQuietanza && (rest as any).quietanza_personalizzata === undefined) {
+        (rest as any).quietanza_personalizzata = true;
+      }
       const { error } = await supabase.from("premi_garanzia_polizza" as any).update(rest).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] }),
+    onSuccess: () => invalidateBoth(),
     onError: (e: any) => toast.error("Salvataggio fallito: " + e.message),
   });
 
@@ -132,7 +154,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] });
+      invalidateBoth();
       toast.success("Voce rimossa");
       setToDelete(null);
     },
@@ -149,13 +171,35 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         is_rca_principale: false,
         firma: 0,
         ordine: (voci.length || 0) + 1,
+        tipo_premio: tipoPremio,
+        quietanza_personalizzata: isQuietanza ? true : false,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] });
+      invalidateBoth();
       toast.success("Voce aggiunta");
     },
+  });
+
+  const resetQuietanzaMut = useMutation({
+    mutationFn: async () => {
+      // Reset all quietanza rows for this titolo to non-personalizzato, then run sync RPC
+      const { error: e1 } = await supabase
+        .from("premi_garanzia_polizza" as any)
+        .update({ quietanza_personalizzata: false })
+        .eq("titolo_id", titoloId)
+        .eq("tipo_premio", "quietanza");
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.rpc("sync_quietanza_da_firma" as any, { p_titolo_id: titoloId });
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      invalidateBoth();
+      toast.success("Quietanza riallineata alla Firma");
+      setConfirmReset(false);
+    },
+    onError: (e: any) => toast.error("Reset fallito: " + e.message),
   });
 
   const handleNettoBlur = (v: Voce, value: number) => {
@@ -222,14 +266,30 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
 
   return (
     <>
-      <Card className="border-l-4 border-l-teal-600 shadow-sm">
-        <CardHeader className="bg-teal-50/60 dark:bg-teal-950/20 border-b py-3">
+      <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
+        <CardHeader className={cn("border-b py-3", isQuietanza ? "bg-amber-50/60 dark:bg-amber-950/20" : "bg-teal-50/60 dark:bg-teal-950/20")}>
           <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
-            <CardTitle className="flex items-center gap-2 text-teal-900 dark:text-teal-100 text-base sm:text-lg">
+            <CardTitle className={cn("flex items-center gap-2 text-base sm:text-lg", isQuietanza ? "text-amber-900 dark:text-amber-100" : "text-teal-900 dark:text-teal-100")}>
               <Car className="h-5 w-5" />
-              Composizione Premio RCA Auto
+              {titolo ?? (isQuietanza ? "Composizione Premio RCA — Quietanza" : "Composizione Premio RCA — Firma")}
+              {isQuietanza && voci.some((v) => v.quietanza_personalizzata) && (
+                <Badge variant="outline" className="ml-1 text-[10px] gap-1 border-amber-400 text-amber-800">
+                  <PencilLine className="h-3 w-3" /> Personalizzata
+                </Badge>
+              )}
+              {isQuietanza && !voci.some((v) => v.quietanza_personalizzata) && (
+                <Badge variant="outline" className="ml-1 text-[10px] border-emerald-400 text-emerald-800">
+                  Sincronizzata
+                </Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2 text-xs sm:text-sm">
+              {isQuietanza && (
+                <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => setConfirmReset(true)}
+                  disabled={!voci.some((v) => v.quietanza_personalizzata)}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Risincronizza
+                </Button>
+              )}
               <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
               <span className="text-muted-foreground sm:hidden">IPT:</span>
               <Input
@@ -479,6 +539,21 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
               onClick={() => toDelete && deleteMut.mutate(toDelete.id)}>
               Rimuovi voce
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Risincronizzare la Quietanza dalla Firma?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tutte le voci della Quietanza personalizzate verranno sovrascritte con i valori correnti della Firma. L'operazione non è reversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetQuietanzaMut.mutate()}>Risincronizza</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

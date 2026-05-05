@@ -4382,10 +4382,13 @@ export type Database = {
           is_rca_principale: boolean
           lordo_calcolato: number | null
           ordine: number | null
+          quietanza_personalizzata: boolean
           rata: number | null
           ssn: number | null
           tasso: number | null
+          tipo_premio: string
           titolo_id: string
+          voce_origine_id: string | null
         }
         Insert: {
           aliquota_tasse_pct?: number | null
@@ -4400,10 +4403,13 @@ export type Database = {
           is_rca_principale?: boolean
           lordo_calcolato?: number | null
           ordine?: number | null
+          quietanza_personalizzata?: boolean
           rata?: number | null
           ssn?: number | null
           tasso?: number | null
+          tipo_premio?: string
           titolo_id: string
+          voce_origine_id?: string | null
         }
         Update: {
           aliquota_tasse_pct?: number | null
@@ -4418,10 +4424,13 @@ export type Database = {
           is_rca_principale?: boolean
           lordo_calcolato?: number | null
           ordine?: number | null
+          quietanza_personalizzata?: boolean
           rata?: number | null
           ssn?: number | null
           tasso?: number | null
+          tipo_premio?: string
           titolo_id?: string
+          voce_origine_id?: string | null
         }
         Relationships: [
           {
@@ -4436,6 +4445,13 @@ export type Database = {
             columns: ["titolo_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premi_garanzia_polizza_voce_origine_id_fkey"
+            columns: ["voce_origine_id"]
+            isOneToOne: false
+            referencedRelation: "premi_garanzia_polizza"
             referencedColumns: ["id"]
           },
         ]
@@ -7600,6 +7616,10 @@ export type Database = {
       }
       run_data_quality_checks: { Args: never; Returns: Json }
       segna_eventi_sinistri_scaduti: { Args: never; Returns: Json }
+      sync_quietanza_da_firma: {
+        Args: { p_titolo_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
