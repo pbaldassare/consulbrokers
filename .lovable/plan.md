@@ -1,57 +1,33 @@
-## Obiettivo
+## Modifiche a `src/pages/TitoloDetail.tsx` (sezione TitoloDetail)
 
-1. **Correggere** la formula errata del contributo SSN (oggi calcolato sull'imposta provinciale, deve essere sul **netto**).
-2. **Permettere override manuale** sulla riga RCA principale per:
-   - **SSN** (campo editabile, sostituisce il calcolo automatico)
-   - **Imposta provinciale** in valore € (oltre all'aliquota %)
+### 1. Sezione "Commerciale & Provvigioni" (linee ~2184-2261)
+- **Rimuovere** completamente il blocco "Totale Provvigioni (Firma + Quietanza)" (linee 2213-2256), incluso il riepilogo "Dovuto a {commName} / Quota Consulbrokers SPA" e la riga "Differenza Consulbrokers − Commerciale".
+- **Rimuovere** anche la griglia che renderizza `renderSplit("Provvigioni alla Firma", …)` e `renderSplit("Provvigioni Quietanza", …)` da questa sezione (linee 2208-2211): vengono spostate sotto le card di premio in "Importi".
+- Rimane in "Commerciale & Provvigioni" solo il banner del commerciale (avatar + nome + %), che identifica chi è il commerciale del titolo.
 
-## Formula corretta (normativa RCA)
+### 2. Sezione "Importi" — modalità view (linee ~2288-2313)
+Sotto la card "Premio alla firma odierno" (subito dopo `FieldRow Provvigioni`, linea 2299) inserire la card di split:
 
 ```
-IPT  = netto × aliquota_provinciale%
-SSN  = netto × 10,5%        ← oggi è imposta × 10,5% (BUG)
-Lordo = netto + IPT + SSN
+renderSplit("Provvigioni alla Firma", sF, "teal")
 ```
 
-Verifica con i tuoi numeri (Napoli, netto 668,85, ali. 16%):
-IPT 107,02 + SSN 70,23 = Lordo 846,10 € ✓
+Sotto la card "Premio prossima quietanza" (dopo linea 2309) inserire:
 
-## Modifiche file `src/components/polizze/VociRcaCard.tsx`
+```
+renderSplit("Provvigioni Quietanza", sQ, "amber")
+```
 
-### A. Fix calcolo (sempre attivo)
+Per farlo:
+- Estrarre la logica `splitFor` / `renderSplit` / `commName` / `percComm` / `commercialeIsAdmin` in una funzione/helper definita prima della sezione Importi (oppure calcolarli inline nella view di Importi, riusando le stesse formule attuali).
+- Mantenere identico lo stile delle card (border, barra teal/amber, righe con commerciale e Consulbrokers SPA).
+- Nascondere la card di split quando il relativo importo provvigione è `null`/`0`, così come avviene oggi.
 
-- **Riga 56**: `ssn = round2(imposta × SSN_PCT/100)` → `ssn = round2(netto × SSN_PCT/100)`
-- **Riga 266**: `factor = 1 + (aliq/100) × (1 + SSN%/100)` → `factor = 1 + aliq/100 + SSN%/100`
+### 3. Comportamento per RCA Auto
+Per le polizze RCA Auto la sezione "Importi" non mostra le card Premio firma/quietanza in view mode (linea 2290 condizionale): in quel caso le card di split provvigioni vengono mostrate comunque, raggruppate in una griglia 2 colonne subito sopra la sezione VociRcaCard, mantenendo coerenza visiva.
 
-### B. Override manuale SSN e Imposta sulla riga RCA
-
-Logica: la funzione `calcolaLordo` accetta `imposta_provinciale` e `ssn` opzionali; se la voce RCA ha valori salvati e diversi dal calcolo standard, li usa come "override" e ricalcola il lordo come `netto + imposta_override + ssn_override`.
-
-UI nelle due righe sub-RCA (desktop righe 482-494, mobile righe 573-578): trasformo i valori da semplice testo a `<Input>` editabile (numeric step 0.01), allineato a destra, con `onBlur` che salva il valore manuale e ricalcola il lordo. Aggiungo un piccolo bottone "↺" accanto a ciascun campo per ripristinare il calcolo automatico (cancella l'override → torna alla formula).
-
-Stato dell'override: per non aggiungere colonne, uso una **flag locale derivata**:
-- Se `imposta_provinciale` salvato differisce di > 0,01 € da `netto × aliq%` ⇒ override IPT attivo.
-- Se `ssn` salvato differisce di > 0,01 € da `netto × 10,5%` ⇒ override SSN attivo.
-
-Quando l'utente modifica `Netto` o `Aliquota %`, mostro un toast "Sovrascrittura SSN/IPT mantenuta" se gli override sono attivi e li lascio invariati; altrimenti li ricalcolo come oggi.
-
-Nuovi handler:
-- `handleImpostaOverrideBlur(v, value)` → upsert `imposta_provinciale = value`, `lordo_calcolato = netto + value + (ssn_corrente)`.
-- `handleSsnOverrideBlur(v, value)` → upsert `ssn = value`, `lordo_calcolato = netto + (imposta_corrente) + value`.
-- `handleResetOverride(v, campo)` → ricalcola con la formula standard e salva.
-
-Il calcolo Lordo→Netto inverso (riga 266) resta basato sulla formula standard: se l'utente edita il Lordo mentre ci sono override attivi, gli override vengono **azzerati** (toast informativo) e si rientra in modalità automatica. Questo evita ambiguità matematiche.
-
-### C. Quietanza
-
-Stessa identica logica vale per la card Quietanza (è lo stesso componente con `tipoPremio="quietanza"`). L'override marca automaticamente `quietanza_personalizzata=true` come già succede per gli altri edit.
-
-## Memoria
-
-Aggiorno `mem://insurance/rca-voci-composizione-premio`:
-- Cambio formula documentata: `ssn = netto × 10.5%`.
-- Aggiungo nota: "IPT e SSN della riga RCA sono editabili manualmente; se editati, restano fissi finché l'utente non clicca ↺ Ripristina, oppure modifica il Lordo (che azzera gli override)."
-
-## Nessuna modifica DB
-
-Le colonne `imposta_provinciale` e `ssn` esistono già su `premi_garanzia_polizza`. Nessuna migration necessaria.
+### 4. Nessuna modifica a:
+- Logica di calcolo provvigioni
+- Schema DB
+- Form di edit (modalità editing rimane invariata)
+- Sezione VociRcaCard

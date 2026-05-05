@@ -2203,60 +2203,8 @@ const TitoloDetail = () => {
                     </div>
                   </div>
 
-                  {(provvF != null || provvQ != null) ? (
-                    <>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        {renderSplit("Provvigioni alla Firma", sF, "teal")}
-                        {renderSplit("Provvigioni Quietanza", sQ, "amber")}
-                      </div>
-
-                      {/* Totale generale */}
-                      <div className="rounded-lg border-2 border-dashed bg-muted/40 p-3">
-                        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                          <span className="text-xs uppercase font-bold tracking-wide text-muted-foreground">Totale Provvigioni (Firma + Quietanza)</span>
-                          <span className="font-mono tabular-nums text-lg font-bold">{fmtEuro(totGen)}</span>
-                        </div>
-                        {totGen > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <UserIcon className="w-3 h-3 text-teal-700 flex-shrink-0" />
-                                <span className="text-teal-900 dark:text-teal-200 truncate">Dovuto a {commName}</span>
-                              </div>
-                              <span className="font-mono tabular-nums font-bold text-teal-900 dark:text-teal-200">{fmtEuro(totComm)}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Building2 className="w-3 h-3 text-amber-700 flex-shrink-0" />
-                                <span className="text-amber-900 dark:text-amber-200 truncate">Quota Consulbrokers SPA</span>
-                              </div>
-                              <span className="font-mono tabular-nums font-bold text-amber-900 dark:text-amber-200">{fmtEuro(totAgency)}</span>
-                            </div>
-                          </div>
-                        )}
-                        {(totComm > 0 || totAgency > 0) && (() => {
-                          const diff = totAgency - totComm;
-                          const positiva = diff >= 0;
-                          return (
-                            <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-card border text-xs">
-                              <span className="text-muted-foreground flex items-center gap-1.5">
-                                <ArrowRightLeft className="w-3 h-3" />
-                                Differenza Consulbrokers − Commerciale
-                              </span>
-                              <span className={cn(
-                                "font-mono tabular-nums font-bold px-2 py-0.5 rounded-full",
-                                positiva ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                         : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
-                              )}>
-                                {positiva ? "+" : ""}{fmtEuro(diff)}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata.</div>
+                  {(provvF == null && provvQ == null) && (
+                    <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata. Le card di split appariranno sotto i premi nella sezione "Importi".</div>
                   )}
                 </div>
               );
@@ -2269,6 +2217,55 @@ const TitoloDetail = () => {
       </SectionCollapsible>
 
       {/* IMPORTI */}
+      {(() => {
+        // Helper di split provvigioni riusato nella sezione Importi
+        const percComm = t.percentuale_commerciale ?? 100;
+        const anagComm: any = (t as any).anagrafica_commerciale;
+        const anagCommName = anagComm
+          ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
+          : null;
+        const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
+        const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
+        const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
+        const splitFor = (provv: number | null | undefined) => {
+          if (provv == null) return { comm: 0, agency: 0, total: 0 };
+          if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
+          const comm = provv * percComm / 100;
+          return { comm, agency: provv - comm, total: provv };
+        };
+        const renderSplitImporti = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
+          const provv = s.total;
+          const pctComm = commercialeIsAdmin ? 0 : percComm;
+          const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
+          if (provv == null || provv === 0) return null;
+          return (
+            <div className="rounded-lg border bg-card p-3 space-y-2 mt-3">
+              <div className="flex items-center justify-between">
+                <span className={cn("text-[11px] uppercase font-bold tracking-wide", accent === "teal" ? "text-teal-700 dark:text-teal-300" : "text-amber-700 dark:text-amber-300")}>{title}</span>
+                <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
+              </div>
+              <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
+                <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
+                <div className="bg-amber-500 flex-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                  <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
+                  <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                  <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
+                  <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        };
+        const sFirma = splitFor(t.provvigioni_firma);
+        const sQui = splitFor(t.provvigioni_quietanza);
+        return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingImporti ? (
@@ -2298,6 +2295,7 @@ const TitoloDetail = () => {
                     <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
                     <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
                   </div>
+                  {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio prossima quietanza</h4>
@@ -2308,9 +2306,15 @@ const TitoloDetail = () => {
                     <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
                     <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
                   </div>
+                  {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+                {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
               <FieldRow label="Valuta" value={fmt(t.valuta)} />
               <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
@@ -2544,6 +2548,8 @@ const TitoloDetail = () => {
           </div>
         )}
       </SectionCollapsible>
+        );
+      })()}
 
 
       {/* SOSTITUZIONI / STORNI */}
