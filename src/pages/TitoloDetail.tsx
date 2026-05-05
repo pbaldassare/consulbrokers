@@ -1245,6 +1245,15 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}`)}>
               <FileText className="w-4 h-4 mr-1" /> Precontrattuale
             </Button>
+            {isRamoAuto((t as any).ramo) && (
+              <ImportPolizzaAiButton
+                titoloId={t.id}
+                onImported={() => {
+                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
+                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
+                }}
+              />
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
@@ -2462,15 +2471,6 @@ const TitoloDetail = () => {
             <p className="text-xs text-muted-foreground">
               ℹ️ Per le polizze <strong>RCA Auto</strong> i premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
             </p>
-            <div className="flex justify-end">
-              <ImportPolizzaAiButton
-                titoloId={t.id}
-                onImported={() => {
-                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
-                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
-                }}
-              />
-            </div>
             <div className="space-y-4">
               <VociRcaCard
                 tipoPremio="firma"
