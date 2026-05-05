@@ -492,7 +492,7 @@ const TitoliList = () => {
                     </TableRow>
                   ))}
                   {titoli.length === 0 && (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessun risultato trovato</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun risultato trovato</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
