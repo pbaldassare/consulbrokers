@@ -635,6 +635,8 @@ const TitoloDetail = () => {
 
   // --- Importi edit state ---
   const [editingImporti, setEditingImporti] = useState(false);
+  const [vociRcaTotali, setVociRcaTotali] = useState<{ netto: number; tasse: number; lordo: number } | null>(null);
+  const vociRcaSyncTimer = useRef<any>(null);
   const [importiForm, setImportiForm] = useState({
     premio_netto: "" as string,
     addizionali: "" as string,
