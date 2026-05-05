@@ -548,9 +548,19 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       )}
                     </label>
                   </div>
-                  <div className="flex justify-between items-center pt-1 border-t">
+                  <div className="flex justify-between items-center pt-1 border-t gap-2">
                     <span className="text-[11px] text-muted-foreground uppercase">Lordo</span>
-                    <span className="font-mono font-semibold tabular-nums text-sm">{fmtEur(calc.lordo)}</span>
+                    <Input
+                      type="number" step="0.01" inputMode="decimal"
+                      key={`lordo-m-${v.id}-${calc.lordo}`}
+                      defaultValue={calc.lordo}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value || 0);
+                        if (Math.abs(val - calc.lordo) < 0.01) return;
+                        handleLordoBlur(v, val);
+                      }}
+                      className="h-8 w-32 text-right font-mono tabular-nums"
+                    />
                   </div>
                   {v.is_rca_principale && (
                     <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t">
