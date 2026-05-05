@@ -61,15 +61,19 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0 };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
   onTotaliChange?: (t: { netto: number; tasse: number; lordo: number }) => void;
+  tipoPremio?: TipoPremio;
+  titolo?: string;
 }) {
   const qc = useQueryClient();
+  const isQuietanza = tipoPremio === "quietanza";
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   const [toDelete, setToDelete] = useState<Voce | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     if (!provinciaCliente) return;
