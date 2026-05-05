@@ -2417,6 +2417,14 @@ const TitoloDetail = () => {
                     if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
                   }, 800);
                 }}
+                provvigioniValue={(t as any).provvigioni_firma}
+                onProvvigioniChange={async (v) => {
+                  const { error } = await supabase.from("titoli").update({ provvigioni_firma: v }).eq("id", t.id);
+                  if (!error) {
+                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                    toast.success("Provvigioni Firma aggiornate");
+                  } else toast.error("Errore aggiornamento provvigioni");
+                }}
               />
               <VociRcaCard
                 tipoPremio="quietanza"
