@@ -1,32 +1,39 @@
-## Obiettivo
+## Aggiungere "Area CFO" come pulsante nella sidebar
 
-Sincronizzare i campi **IPT** e **SSN** tra i due punti dove appaiono nella card (sub-righe della riga RCA principale + box "Totali"), così che modificare uno dei due aggiorni l'altro in tempo reale e produca un unico salvataggio coerente.
+Attualmente la pagina **Area CFO** esiste (`/area-cfo`, file `src/pages/AreaCFO.tsx`) ed è registrata in `src/routes/sistema.tsx` con accesso ai ruoli `admin` e `cfo`, ma non è raggiungibile dalla sidebar: si può arrivarci solo via Sitemap o URL diretto.
 
-## Problema attuale
+### Cosa fare
 
-In `src/components/polizze/VociRcaCard.tsx` IPT e SSN compaiono in 2 posti:
-1. Sotto la riga RCA principale (input `ipt-${id}` / `ssn-${id}`) → usano `draftVoci` (live).
-2. Nel riquadro "Totali Tasse" (input `tot-ipt-*` / `tot-ssn-*`) → ancora **uncontrolled** (`defaultValue` con `key` legato al valore salvato).
+In `src/components/AppSidebar.tsx`, aggiungere una nuova voce di tipo `single` nell'array `sidebarEntries`, posizionata subito sotto "Home" / "Assistente IA" (alta visibilità, coerente con un cruscotto direzionale).
 
-Conseguenza: digitando in uno dei due, l'altro non si aggiorna finché il refetch non arriva → percezione di disallineamento.
+Voce proposta:
 
-## Soluzione (1 file)
+```ts
+{
+  type: "single",
+  item: {
+    label: "Area CFO",
+    path: "/area-cfo",
+    icon: LineChart,            // import da lucide-react
+    permissionKey: "dashboard", // tutti hanno questa perm; filtriamo via hideForRoles
+    hideForRoles: [
+      "ufficio", "contabilita", "produttore", "backoffice",
+      "corrispondente", "responsabile_sede", "account_executive",
+      "specialist", "executive", "cliente", "prospect"
+    ],
+  },
+}
+```
 
-In `src/components/polizze/VociRcaCard.tsx`, riquadro "Totali" (linee ~969–999):
+In questo modo il pulsante è visibile **solo ad `admin` e `cfo`**, allineato al `RoleGuard` della rotta.
 
-- Recuperare la riga RCA principale e il suo merge con `draftVoci`.
-- Calcolare `iptLive` / `ssnLive` dal draft della riga RCA (fallback al `calcolaLordo` corrente).
-- Convertire i due Input "tot-ipt" / "tot-ssn" da uncontrolled a **controlled** (`value={iptLive}` / `value={ssnLive}`):
-  - `onChange` → `setDraft(rcaRow.id, { imposta_provinciale | ssn })` (stesso draft della riga RCA → entrambi i posti restano allineati istantaneamente).
-  - `onBlur` → `clearDraft` + `handleTotaleIptBlur` / `handleTotaleSsnBlur` (mutation DB invariata).
+### Dettagli tecnici
 
-Nessun cambio a `handleTotaleAccBlur` (Acc. accessorie distribuite, non ha controparte singola sulla riga).
+- Aggiungere `LineChart` (o `TrendingUp` già importato; preferibile `LineChart` per distinguerla da Provvigioni Maturate) tra gli import lucide in cima al file.
+- Nessuna modifica a routing, permessi DB o RoleGuard: la rotta esiste già.
+- Nessun impatto sugli altri utenti: la voce viene filtrata da `isVisible` tramite `hideForRoles`.
 
-## File toccati
+### Verifica
 
-- `src/components/polizze/VociRcaCard.tsx`
-
-## Note
-
-- Nessuna migration.
-- Le validazioni e il salvataggio DB rimangono invariati (sempre on-blur via handler esistenti).
+- Login come `admin` o `cfo`: la voce "Area CFO" appare in sidebar, click porta a `/area-cfo`.
+- Login con altri ruoli: la voce non compare.
