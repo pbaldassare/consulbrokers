@@ -631,7 +631,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         </TableCell>
                         <TableCell>
                           {v.is_rca_principale ? (
-                            <span title="RCA Auto non rimovibile" className="inline-flex">
+                            <span title={`${RCA_LABEL_EFFECTIVE} non rimovibile`} className="inline-flex">
                               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
                             </span>
                           ) : (
