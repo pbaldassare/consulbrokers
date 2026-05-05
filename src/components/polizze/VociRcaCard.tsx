@@ -432,6 +432,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             type="number" step="0.01" inputMode="decimal"
                             defaultValue={v.firma ?? 0}
                             onBlur={(e) => handleNettoBlur(v, Number(e.target.value || 0))}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                             className="h-8 text-right ml-auto w-32"
                           />
                         </TableCell>
@@ -443,6 +444,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                               type="number" step="0.01" inputMode="decimal"
                               defaultValue={v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT}
                               onBlur={(e) => handleAliquotaBlur(v, Number(e.target.value || 0))}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                               className="h-8 text-right ml-auto w-20"
                             />
                           )}
@@ -457,6 +459,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                               if (Math.abs(val - calc.lordo) < 0.01) return;
                               handleLordoBlur(v, val);
                             }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                             className="h-8 text-right ml-auto w-32 font-mono tabular-nums"
                           />
                         </TableCell>
