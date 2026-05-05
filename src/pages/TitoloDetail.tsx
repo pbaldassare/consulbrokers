@@ -18,7 +18,7 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
