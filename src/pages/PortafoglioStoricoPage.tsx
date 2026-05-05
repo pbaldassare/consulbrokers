@@ -181,6 +181,7 @@ const PortafoglioStoricoPage = () => {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
+                  <TableHead>Targa</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead>Fraz</TableHead>
                   <TableHead className="text-right">Lordo</TableHead>
