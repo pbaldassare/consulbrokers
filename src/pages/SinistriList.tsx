@@ -127,8 +127,8 @@ export default function SinistriList() {
         });
       }
 
-      if (polizzaSearch.compagnia) {
-        results = results.filter((t: any) => t.prodotti?.compagnie?.id === polizzaSearch.compagnia);
+      if (polizzaSearch.agenzia) {
+        results = results.filter((t: any) => t.prodotti?.compagnie?.id === polizzaSearch.agenzia);
       }
 
       setPolizzaResults(results);
@@ -241,8 +241,8 @@ export default function SinistriList() {
                     <div>
                       <Label className="text-xs">Agenzia</Label>
                       <Select
-                        value={polizzaSearch.compagnia || "all"}
-                        onValueChange={v => setPolizzaSearch({ ...polizzaSearch, compagnia: v === "all" ? "" : v })}
+                        value={polizzaSearch.agenzia || "all"}
+                        onValueChange={v => setPolizzaSearch({ ...polizzaSearch, agenzia: v === "all" ? "" : v })}
                       >
                         <SelectTrigger><SelectValue placeholder="Tutte" /></SelectTrigger>
                         <SelectContent>
