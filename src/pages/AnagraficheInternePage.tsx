@@ -251,7 +251,7 @@ const AnagraficheInternePage = () => {
       toast.success("Anagrafica creata con successo");
     },
     onError: (e: Error) => {
-      toast.error("Errore");
+      toast.error(e?.message || "Errore durante la creazione");
     },
   });
 
