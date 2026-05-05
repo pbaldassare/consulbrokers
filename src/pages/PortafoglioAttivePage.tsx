@@ -70,7 +70,7 @@ const PortafoglioAttivePage = () => {
         q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
       }
       if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
       if (filtroRamo) q = q.eq("ramo_id", filtroRamo);
       const { data } = await q;
