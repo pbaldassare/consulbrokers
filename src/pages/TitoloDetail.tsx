@@ -2153,7 +2153,7 @@ const TitoloDetail = () => {
                           <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
                           <div className="bg-amber-500 flex-1" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
                             <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
@@ -2195,19 +2195,19 @@ const TitoloDetail = () => {
 
                   {(provvF != null || provvQ != null) ? (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {renderSplit("Provvigioni alla Firma", sF, "teal")}
                         {renderSplit("Provvigioni Quietanza", sQ, "amber")}
                       </div>
 
                       {/* Totale generale */}
                       <div className="rounded-lg border-2 border-dashed bg-muted/40 p-3">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                           <span className="text-xs uppercase font-bold tracking-wide text-muted-foreground">Totale Provvigioni (Firma + Quietanza)</span>
                           <span className="font-mono tabular-nums text-lg font-bold">{fmtEuro(totGen)}</span>
                         </div>
                         {totGen > 0 && (
-                          <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                             <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <UserIcon className="w-3 h-3 text-teal-700 flex-shrink-0" />
@@ -2224,11 +2224,25 @@ const TitoloDetail = () => {
                             </div>
                           </div>
                         )}
-                        {totComm > 0 && totAgency > 0 && (
-                          <div className="mt-2 text-[11px] text-muted-foreground italic">
-                            Differenza Consulbrokers vs commerciale: <span className="font-mono tabular-nums font-semibold not-italic">{fmtEuro(totAgency - totComm)}</span>
-                          </div>
-                        )}
+                        {(totComm > 0 || totAgency > 0) && (() => {
+                          const diff = totAgency - totComm;
+                          const positiva = diff >= 0;
+                          return (
+                            <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-card border text-xs">
+                              <span className="text-muted-foreground flex items-center gap-1.5">
+                                <ArrowRightLeft className="w-3 h-3" />
+                                Differenza Consulbrokers − Commerciale
+                              </span>
+                              <span className={cn(
+                                "font-mono tabular-nums font-bold px-2 py-0.5 rounded-full",
+                                positiva ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                         : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
+                              )}>
+                                {positiva ? "+" : ""}{fmtEuro(diff)}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </>
                   ) : (
