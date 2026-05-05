@@ -2813,6 +2813,15 @@ const TitoloDetail = () => {
         <TabsContent value="garanzie">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Garanzie — in fase di sviluppo. Qui verranno mostrate le coperture e garanzie della polizza.</CardContent></Card>
         </TabsContent>
+        {isRamoAuto((t as any).ramo) && (
+          <TabsContent value="voci-rca">
+            <VociRcaCard
+              titoloId={t.id}
+              premioLordoTitolo={(t as any).premio_lordo}
+              provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+            />
+          </TabsContent>
+        )}
         <TabsContent value="familiari">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Familiari — in fase di sviluppo. Qui verranno mostrati assicurati e beneficiari collegati alla polizza.</CardContent></Card>
         </TabsContent>
