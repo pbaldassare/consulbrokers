@@ -50,7 +50,7 @@ const PortafoglioStoricoPage = () => {
       }
     }
     if (search) {
-      q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+      q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
     if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
