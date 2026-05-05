@@ -240,14 +240,48 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         .eq("tipo_premio", "quietanza");
       if (e1) throw e1;
       const { error: e2 } = await supabase.rpc("sync_quietanza_da_firma" as any, { p_titolo_id: titoloId });
-      if (e2) throw e2;
+      if (e2) {
+        // Fallback client-side: cancella le righe quietanza non personalizzate e re-inserisci da firma
+        const { error: eDel } = await supabase
+          .from("premi_garanzia_polizza" as any)
+          .delete()
+          .eq("titolo_id", titoloId)
+          .eq("tipo_premio", "quietanza")
+          .eq("quietanza_personalizzata", false);
+        if (eDel) throw eDel;
+        const { data: firmaRows, error: eSel } = await supabase
+          .from("premi_garanzia_polizza" as any)
+          .select("*")
+          .eq("titolo_id", titoloId)
+          .eq("tipo_premio", "firma");
+        if (eSel) throw eSel;
+        if (firmaRows && firmaRows.length) {
+          const inserts = (firmaRows as any[]).map((f) => ({
+            titolo_id: f.titolo_id,
+            garanzia: f.garanzia,
+            codice_garanzia: f.codice_garanzia,
+            firma: f.firma,
+            aliquota_tasse_pct: f.aliquota_tasse_pct,
+            is_rca_principale: f.is_rca_principale,
+            imposta_provinciale: f.imposta_provinciale,
+            ssn: f.ssn,
+            lordo_calcolato: f.lordo_calcolato,
+            ordine: f.ordine,
+            tipo_premio: "quietanza",
+            voce_origine_id: f.id,
+            quietanza_personalizzata: false,
+          }));
+          const { error: eIns } = await supabase.from("premi_garanzia_polizza" as any).insert(inserts);
+          if (eIns) throw eIns;
+        }
+      }
     },
     onSuccess: () => {
       invalidateBoth();
       toast.success("Quietanza riallineata alla Firma");
       setConfirmReset(false);
     },
-    onError: (e: any) => toast.error("Reset fallito: " + e.message),
+    onError: (e: any) => toast.error("Reset fallito: " + (e?.message || e)),
   });
 
   const handleNettoBlur = (v: Voce, value: number) => {
@@ -395,6 +429,36 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         ssn: calc.ssn,
       });
     }
+  };
+
+  // Handler totali editabili (riquadro Totali)
+  const handleTotaleIptBlur = (val: number) => {
+    const rca = voci.find((v) => v.is_rca_principale);
+    if (!rca) return;
+    handleImpostaOverrideBlur(rca, val);
+  };
+  const handleTotaleSsnBlur = (val: number) => {
+    const rca = voci.find((v) => v.is_rca_principale);
+    if (!rca) return;
+    handleSsnOverrideBlur(rca, val);
+  };
+  const handleTotaleAccBlur = (val: number) => {
+    if (isNaN(val) || val < 0) {
+      toast.error("Tasse accessorie devono essere ≥ 0");
+      return;
+    }
+    const accVoci = voci.filter((v) => !v.is_rca_principale);
+    const sommaNetto = accVoci.reduce((s, v) => s + Number(v.firma || 0), 0);
+    if (sommaNetto < 0.01) {
+      toast.error("Nessuna voce accessoria con netto > 0 su cui applicare le tasse");
+      return;
+    }
+    const nuovaAliq = round2((val / sommaNetto) * 100);
+    accVoci.forEach((v) => {
+      const calc = calcolaLordo({ ...v, aliquota_tasse_pct: nuovaAliq }, aliquotaProv);
+      upsertMut.mutate({ id: v.id, aliquota_tasse_pct: nuovaAliq, lordo_calcolato: calc.lordo });
+    });
+    toast.success(`Aliquota accessorie aggiornata a ${nuovaAliq}%`);
   };
 
   const totali = useMemo(() => {
@@ -831,12 +895,58 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Totale Netto</p>
               <p className="text-base sm:text-xl font-bold font-mono tabular-nums">{fmtEur(totali.netto)}</p>
             </div>
-            <div className="rounded-lg border bg-card p-2 sm:p-3">
-              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Totale Tasse</p>
-              <p className="text-base sm:text-xl font-bold font-mono tabular-nums">{fmtEur(totali.tasse)}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 hidden sm:block">
-                IPT {fmtEur(totali.imposta)} · SSN {fmtEur(totali.ssn)} · Acc. {fmtEur(totali.tasseAcc)}
+            <div className="rounded-lg border bg-card p-2 sm:p-3 col-span-2 md:col-span-1">
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                <span>Totale Tasse</span>
+                <span className="font-mono tabular-nums text-foreground">{fmtEur(totali.tasse)}</span>
               </p>
+              <div className="grid grid-cols-3 gap-1.5 mt-2">
+                <label className="text-[9px] uppercase text-muted-foreground">
+                  IPT
+                  <Input
+                    type="number" step="0.01" inputMode="decimal"
+                    key={`tot-ipt-${totali.imposta}`}
+                    defaultValue={totali.imposta}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (Math.abs(val - totali.imposta) < 0.01) return;
+                      handleTotaleIptBlur(val);
+                    }}
+                    className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
+                    disabled={!voci.some((v) => v.is_rca_principale)}
+                  />
+                </label>
+                <label className="text-[9px] uppercase text-muted-foreground">
+                  SSN
+                  <Input
+                    type="number" step="0.01" inputMode="decimal"
+                    key={`tot-ssn-${totali.ssn}`}
+                    defaultValue={totali.ssn}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (Math.abs(val - totali.ssn) < 0.01) return;
+                      handleTotaleSsnBlur(val);
+                    }}
+                    className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
+                    disabled={!voci.some((v) => v.is_rca_principale)}
+                  />
+                </label>
+                <label className="text-[9px] uppercase text-muted-foreground">
+                  Acc.
+                  <Input
+                    type="number" step="0.01" inputMode="decimal"
+                    key={`tot-acc-${totali.tasseAcc}`}
+                    defaultValue={totali.tasseAcc}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (Math.abs(val - totali.tasseAcc) < 0.01) return;
+                      handleTotaleAccBlur(val);
+                    }}
+                    className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
+                    disabled={!voci.some((v) => !v.is_rca_principale)}
+                  />
+                </label>
+              </div>
             </div>
             <div className={cn(
               "col-span-2 md:col-span-1 rounded-lg border-2 p-2 sm:p-3",
