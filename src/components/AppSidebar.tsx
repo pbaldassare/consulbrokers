@@ -55,6 +55,7 @@ import {
   TrendingUp,
   ShieldCheck,
   Sparkles,
+  LineChart,
   Scale,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
