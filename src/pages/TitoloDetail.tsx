@@ -2494,7 +2494,7 @@ const TitoloDetail = () => {
         {isRamoAuto((t as any).ramo) && (
           <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
             <p className="text-xs text-muted-foreground">
-              ℹ️ Per le polizze <strong>RCA Auto</strong> i premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
+              ℹ️ Per le polizze <strong>{isRamoNatante((t as any).ramo) ? "RC Natanti / Nautica" : "RCA Auto"}</strong> i premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
             </p>
             <div className="space-y-4">
               <VociRcaCard
