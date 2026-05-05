@@ -61,8 +61,8 @@ export const sistemaRoutes = (
     <Route path="/spedizioni" element={<SpedizioniList />} />
     <Route path="/notifiche" element={<NotifichePage />} />
     <Route path="/privacy" element={<PrivacyConsensi />} />
-    <Route path="/flussi-agenzie" element={<FlussiCompagnieList />} />
-    <Route path="/flussi-agenzie/:id" element={<FlussoCompagniaDetail />} />
+    <Route path="/flussi-compagnie" element={<FlussiCompagnieList />} />
+    <Route path="/flussi-compagnie/:id" element={<FlussoCompagniaDetail />} />
     <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
     <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
     <Route path="/report" element={<ReportPage />} />

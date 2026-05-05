@@ -51,7 +51,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
     <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
     <Route path="/portafoglio/estrazioni/per-cliente" element={<PortafoglioPerClientePage />} />
-    <Route path="/portafoglio/estrazioni/per-agenzia" element={<PortafoglioPerCompagniaPage />} />
+    <Route path="/portafoglio/estrazioni/per-compagnia" element={<PortafoglioPerCompagniaPage />} />
     <Route path="/portafoglio/estrazioni/premi-provvigioni" element={<PremiProvvigioniPage />} />
     <Route path="/portafoglio/estrazioni/premi-scoperti-garantiti" element={<PremiScopertiGarantitiPage />} />
     <Route path="/portafoglio/estrazioni/ec-clienti" element={<ECClientiPage />} />
