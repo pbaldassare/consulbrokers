@@ -38,11 +38,22 @@ const ALIQUOTA_DEFAULT = 13.5;
 
 export function ImportPolizzaAiButton({
   titoloId,
+  ramo,
   onImported,
 }: {
   titoloId: string;
+  ramo?: { codice?: string | null; descrizione?: string | null } | null;
   onImported?: () => void;
 }) {
+  const isNatante = (() => {
+    const cod = String(ramo?.codice || "").toUpperCase();
+    const desc = String(ramo?.descrizione || "").toUpperCase();
+    if (["QN", "QT", "QNA", "DD", "DN", "DNA", "RV10", "RV11"].includes(cod)) return true;
+    return /\bNATANT|\bNAUTIC|\bIMBARC|\bCORPI NAVI/.test(desc);
+  })();
+  const mainLabel = isNatante
+    ? (["DD", "DN", "DNA"].includes(String(ramo?.codice || "").toUpperCase()) ? "Corpi Nautica" : "RC Natanti")
+    : "RCA Auto";
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [parsing, setParsing] = useState(false);
@@ -162,7 +173,7 @@ export function ImportPolizzaAiButton({
           } else {
             await supabase.from("premi_garanzia_polizza" as any).insert({
               titolo_id: titoloId,
-              garanzia: "RCA Auto",
+              garanzia: mainLabel,
               codice_garanzia: "RCA",
               is_rca_principale: true,
               firma: r.netto,
@@ -330,7 +341,7 @@ export function ImportPolizzaAiButton({
                               <SelectItem value="__none">— Da mappare —</SelectItem>
                               <SelectItem value="RCA">
                                 <span className="flex items-center gap-2">
-                                  <CheckCircle2 className="h-3 w-3 text-teal-600" /> RCA Auto (principale)
+                                  <CheckCircle2 className="h-3 w-3 text-teal-600" /> {mainLabel} (principale)
                                 </span>
                               </SelectItem>
                               {catalogo.map((c) => (

@@ -81,7 +81,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -90,7 +90,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   titolo?: string;
   provvigioniValue?: number | null;
   onProvvigioniChange?: (v: number) => void;
+  mainLabel?: string;
 }) {
+  const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
   const qc = useQueryClient();
   const isQuietanza = tipoPremio === "quietanza";
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
@@ -171,7 +173,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     if (!hasRca) {
       supabase.from("premi_garanzia_polizza" as any).insert({
         titolo_id: titoloId,
-        garanzia: RCA_LABEL,
+        garanzia: RCA_LABEL_EFFECTIVE,
         codice_garanzia: RCA_CODE,
         is_rca_principale: true,
         firma: 0,
@@ -629,7 +631,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         </TableCell>
                         <TableCell>
                           {v.is_rca_principale ? (
-                            <span title="RCA Auto non rimovibile" className="inline-flex">
+                            <span title={`${RCA_LABEL_EFFECTIVE} non rimovibile`} className="inline-flex">
                               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
                             </span>
                           ) : (
@@ -1001,7 +1003,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           <AlertDialogHeader>
             <AlertDialogTitle>Rimuovere la voce «{toDelete?.garanzia}»?</AlertDialogTitle>
             <AlertDialogDescription>
-              Questa operazione elimina la voce dal calcolo del premio. La riga RCA Auto non è mai eliminabile.
+              Questa operazione elimina la voce dal calcolo del premio. La riga {RCA_LABEL_EFFECTIVE} non è mai eliminabile.
               {toDelete && Number(toDelete.firma || 0) > 0 && (
                 <span className="block mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-amber-900 text-xs">
                   ⚠ La voce ha un premio netto di <b>{fmtEur(toDelete.firma)}</b>: rimuovendola il totale lordo si ridurrà di circa{" "}

@@ -4,7 +4,9 @@ description: Due card gemelle in TitoloDetail (Firma e Quietanza) con mirroring 
 type: feature
 ---
 
-Polizze su rami Auto (`isRamoAuto`) mostrano nella sezione **Importi** due card `VociRcaCard` affiancate (`tipoPremio="firma"` e `tipoPremio="quietanza"`).
+Polizze su rami Auto **e Natanti/Nautica** (`isRamoAuto` esteso) mostrano nella sezione **Importi** due card `VociRcaCard` affiancate (`tipoPremio="firma"` e `tipoPremio="quietanza"`) e il pulsante **Importa con AI** (`ImportPolizzaAiButton`).
+
+Rami coperti: auto (`PI, QA, QAC, QC, QF, QG, QR, QU, DAB, PJ, RV*`) + natanti/nautica (`QN, QT, QNA, DD, DN, DNA, RV10, RV11`). La label della riga principale è dinamica: `RCA Auto` per auto, `RC Natanti` per QN/QT/QNA/RV10/RV11, `Corpi Nautica` per DD/DN/DNA. Il prop `mainLabel` di `VociRcaCard` e `ramo` di `ImportPolizzaAiButton` calcolano l'etichetta in base al ramo.
 
 ## Schema `premi_garanzia_polizza`
 - `tipo_premio` text NOT NULL DEFAULT 'firma' — check `('firma','quietanza')`.
