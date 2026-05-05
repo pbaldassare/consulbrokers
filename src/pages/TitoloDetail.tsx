@@ -2217,6 +2217,55 @@ const TitoloDetail = () => {
       </SectionCollapsible>
 
       {/* IMPORTI */}
+      {(() => {
+        // Helper di split provvigioni riusato nella sezione Importi
+        const percComm = t.percentuale_commerciale ?? 100;
+        const anagComm: any = (t as any).anagrafica_commerciale;
+        const anagCommName = anagComm
+          ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
+          : null;
+        const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
+        const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
+        const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
+        const splitFor = (provv: number | null | undefined) => {
+          if (provv == null) return { comm: 0, agency: 0, total: 0 };
+          if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
+          const comm = provv * percComm / 100;
+          return { comm, agency: provv - comm, total: provv };
+        };
+        const renderSplitImporti = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
+          const provv = s.total;
+          const pctComm = commercialeIsAdmin ? 0 : percComm;
+          const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
+          if (provv == null || provv === 0) return null;
+          return (
+            <div className="rounded-lg border bg-card p-3 space-y-2 mt-3">
+              <div className="flex items-center justify-between">
+                <span className={cn("text-[11px] uppercase font-bold tracking-wide", accent === "teal" ? "text-teal-700 dark:text-teal-300" : "text-amber-700 dark:text-amber-300")}>{title}</span>
+                <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
+              </div>
+              <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
+                <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
+                <div className="bg-amber-500 flex-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                  <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
+                  <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                  <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
+                  <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        };
+        const sFirma = splitFor(t.provvigioni_firma);
+        const sQui = splitFor(t.provvigioni_quietanza);
+        return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingImporti ? (
