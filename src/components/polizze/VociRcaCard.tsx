@@ -1030,6 +1030,8 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   />
                 </label>
               </div>
+                );
+              })()}
             </div>
             <div className={cn(
               "col-span-2 md:col-span-1 rounded-lg border-2 p-2 sm:p-3",
