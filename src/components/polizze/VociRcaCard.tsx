@@ -560,6 +560,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
               {premioLordoTitolo != null && !quadra && (
                 <p className="text-[11px] text-amber-700 mt-1">Δ vs polizza: {fmtEur(delta)}</p>
               )}
+              {!quadraInterno && (
+                <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Netto + Tasse ≠ Lordo (errore di arrotondamento)
+                </p>
+              )}
             </div>
           </div>
         </CardContent>
