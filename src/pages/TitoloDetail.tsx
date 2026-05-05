@@ -2114,6 +2114,7 @@ const TitoloDetail = () => {
           <>
             {(() => {
               const percComm = t.percentuale_commerciale ?? 100;
+              const provvF = t.provvigioni_firma;
               const provvQ = t.provvigioni_quietanza;
               const anagComm: any = (t as any).anagrafica_commerciale;
               const anagCommName = anagComm
@@ -2122,8 +2123,53 @@ const TitoloDetail = () => {
               const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
               const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
               const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
-              const importoComm = provvQ != null ? provvQ * percComm / 100 : 0;
-              const importoAdmin = provvQ != null ? provvQ * (100 - percComm) / 100 : 0;
+
+              const splitFor = (provv: number | null | undefined) => {
+                if (provv == null) return { comm: 0, agency: 0, total: 0 };
+                if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
+                const comm = provv * percComm / 100;
+                return { comm, agency: provv - comm, total: provv };
+              };
+              const sF = splitFor(provvF);
+              const sQ = splitFor(provvQ);
+              const totComm = sF.comm + sQ.comm;
+              const totAgency = sF.agency + sQ.agency;
+              const totGen = sF.total + sQ.total;
+
+              const renderSplit = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
+                const provv = s.total;
+                const pctComm = commercialeIsAdmin ? 0 : percComm;
+                const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
+                return (
+                  <div className="rounded-lg border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={cn("text-[11px] uppercase font-bold tracking-wide", accent === "teal" ? "text-teal-700 dark:text-teal-300" : "text-amber-700 dark:text-amber-300")}>{title}</span>
+                      <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
+                    </div>
+                    {provv > 0 && (
+                      <>
+                        <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
+                          <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
+                          <div className="bg-amber-500 flex-1" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                            <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
+                            <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                            <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
+                            <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              };
+
               return (
                 <div className="space-y-3">
                   {commercialeIsAdmin && (
@@ -2131,52 +2177,61 @@ const TitoloDetail = () => {
                       Commerciale = Consulbrokers SPA (admin) → split <strong>solo statistico</strong>: l'intera quota va a Consulbrokers SPA.
                     </div>
                   )}
-                  {provvQ != null && provvQ > 0 ? (
-                    <>
-                      {/* Split bar */}
-                      <div className="flex h-2 rounded-full overflow-hidden bg-muted">
-                        <div className="bg-teal-600" style={{ width: `${commercialeIsAdmin ? 0 : percComm}%` }} />
-                        <div className="bg-amber-500 flex-1" />
+
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-amber-50 dark:from-teal-950/30 dark:to-amber-950/30 border">
+                    <div className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
+                      <UserIcon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs uppercase font-semibold text-muted-foreground">Commerciale</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{percComm}%</span>
+                        {commercialeIsAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>}
                       </div>
+                      <div className="text-sm font-semibold truncate">{commName}</div>
+                    </div>
+                  </div>
+
+                  {(provvF != null || provvQ != null) ? (
+                    <>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Card Commerciale */}
-                        <div className="rounded-lg border-l-4 border-l-teal-600 bg-teal-50/50 dark:bg-teal-950/20 p-3 flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
-                            <UserIcon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs uppercase font-semibold text-muted-foreground">Commerciale</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{percComm}%</span>
-                              {commercialeIsAdmin && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>
-                              )}
-                            </div>
-                            <div className="text-sm font-medium truncate">{commName}</div>
-                            <div className="font-mono tabular-nums text-xl text-teal-900 dark:text-teal-200 mt-1">{fmtEuro(importoComm)}</div>
-                          </div>
+                        {renderSplit("Provvigioni alla Firma", sF, "teal")}
+                        {renderSplit("Provvigioni Quietanza", sQ, "amber")}
+                      </div>
+
+                      {/* Totale generale */}
+                      <div className="rounded-lg border-2 border-dashed bg-muted/40 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs uppercase font-bold tracking-wide text-muted-foreground">Totale Provvigioni (Firma + Quietanza)</span>
+                          <span className="font-mono tabular-nums text-lg font-bold">{fmtEuro(totGen)}</span>
                         </div>
-                        {/* Card Consulbrokers */}
-                        <div className="rounded-lg border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20 p-3 flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs uppercase font-semibold text-muted-foreground">Quota</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-mono">{commercialeIsAdmin ? 100 : (100 - percComm)}%</span>
+                        {totGen > 0 && (
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <UserIcon className="w-3 h-3 text-teal-700 flex-shrink-0" />
+                                <span className="text-teal-900 dark:text-teal-200 truncate">Dovuto a {commName}</span>
+                              </div>
+                              <span className="font-mono tabular-nums font-bold text-teal-900 dark:text-teal-200">{fmtEuro(totComm)}</span>
                             </div>
-                            <div className="text-sm font-medium truncate">Consulbrokers SPA</div>
-                            <div className="font-mono tabular-nums text-xl text-amber-900 dark:text-amber-200 mt-1">{fmtEuro(commercialeIsAdmin ? provvQ : importoAdmin)}</div>
+                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Building2 className="w-3 h-3 text-amber-700 flex-shrink-0" />
+                                <span className="text-amber-900 dark:text-amber-200 truncate">Quota Consulbrokers SPA</span>
+                              </div>
+                              <span className="font-mono tabular-nums font-bold text-amber-900 dark:text-amber-200">{fmtEuro(totAgency)}</span>
+                            </div>
                           </div>
-                        </div>
+                        )}
+                        {totComm > 0 && totAgency > 0 && (
+                          <div className="mt-2 text-[11px] text-muted-foreground italic">
+                            Differenza Consulbrokers vs commerciale: <span className="font-mono tabular-nums font-semibold not-italic">{fmtEuro(totAgency - totComm)}</span>
+                          </div>
+                        )}
                       </div>
                     </>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                      <FieldRow label="Commerciale" value={commName} />
-                      <FieldRow label="% Commerciale" value={`${percComm}%`} />
-                    </div>
+                    <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata.</div>
                   )}
                 </div>
               );
