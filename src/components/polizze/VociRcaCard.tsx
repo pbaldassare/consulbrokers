@@ -85,12 +85,13 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   }, [provinciaCliente]);
 
   const { data: voci = [], isLoading } = useQuery({
-    queryKey: ["voci-rca", titoloId],
+    queryKey: ["voci-rca", titoloId, tipoPremio],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("premi_garanzia_polizza" as any)
         .select("*")
         .eq("titolo_id", titoloId)
+        .eq("tipo_premio", tipoPremio)
         .order("is_rca_principale", { ascending: false })
         .order("ordine", { ascending: true });
       if (error) throw error;
@@ -110,8 +111,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     },
   });
 
+  const invalidateBoth = () => {
+    qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "firma"] });
+    qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "quietanza"] });
+  };
+
   useEffect(() => {
     if (isLoading) return;
+    if (isQuietanza) return; // la riga RCA Quietanza viene creata dal trigger
     const hasRca = voci.some((v) => v.is_rca_principale);
     if (!hasRca) {
       supabase.from("premi_garanzia_polizza" as any).insert({
@@ -121,17 +128,23 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         is_rca_principale: true,
         firma: 0,
         ordine: 0,
-      }).then(() => qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] }));
+        tipo_premio: "firma",
+      }).then(() => invalidateBoth());
     }
-  }, [isLoading, voci, titoloId, qc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, voci, titoloId, isQuietanza]);
 
   const upsertMut = useMutation({
     mutationFn: async (v: Partial<Voce> & { id: string }) => {
       const { id, ...rest } = v;
+      // Se sto modificando una riga Quietanza, marcala come personalizzata
+      if (isQuietanza && (rest as any).quietanza_personalizzata === undefined) {
+        (rest as any).quietanza_personalizzata = true;
+      }
       const { error } = await supabase.from("premi_garanzia_polizza" as any).update(rest).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] }),
+    onSuccess: () => invalidateBoth(),
     onError: (e: any) => toast.error("Salvataggio fallito: " + e.message),
   });
 
@@ -141,7 +154,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] });
+      invalidateBoth();
       toast.success("Voce rimossa");
       setToDelete(null);
     },
@@ -158,13 +171,35 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         is_rca_principale: false,
         firma: 0,
         ordine: (voci.length || 0) + 1,
+        tipo_premio: tipoPremio,
+        quietanza_personalizzata: isQuietanza ? true : false,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["voci-rca", titoloId] });
+      invalidateBoth();
       toast.success("Voce aggiunta");
     },
+  });
+
+  const resetQuietanzaMut = useMutation({
+    mutationFn: async () => {
+      // Reset all quietanza rows for this titolo to non-personalizzato, then run sync RPC
+      const { error: e1 } = await supabase
+        .from("premi_garanzia_polizza" as any)
+        .update({ quietanza_personalizzata: false })
+        .eq("titolo_id", titoloId)
+        .eq("tipo_premio", "quietanza");
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.rpc("sync_quietanza_da_firma" as any, { p_titolo_id: titoloId });
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      invalidateBoth();
+      toast.success("Quietanza riallineata alla Firma");
+      setConfirmReset(false);
+    },
+    onError: (e: any) => toast.error("Reset fallito: " + e.message),
   });
 
   const handleNettoBlur = (v: Voce, value: number) => {
