@@ -2197,7 +2197,6 @@ const TitoloDetail = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
               <FieldRow label="Valuta" value={fmt(t.valuta)} />
-              
               <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
               <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
               <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
