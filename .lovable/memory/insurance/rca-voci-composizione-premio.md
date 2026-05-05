@@ -14,13 +14,15 @@ Polizze su rami Auto (`isRamoAuto`) mostrano nella sezione **Importi** due card 
 
 ## Mirroring DB
 - Funzione `sync_quietanza_da_firma(p_titolo_id uuid)` SECURITY DEFINER + trigger `premi_garanzia_sync_quietanza` AFTER INSERT/UPDATE/DELETE su righe `tipo_premio='firma'`.
-- RPC `sync_quietanza_da_firma` invocata su click "Risincronizza" (resetta `quietanza_personalizzata=false`).
+- **GRANT EXECUTE TO authenticated** è obbligatorio per la chiamata RPC dal client (pulsante "Risincronizza"). Senza grant l'RPC fallisce con 404.
+- RPC `sync_quietanza_da_firma` invocata su click "Risincronizza" (resetta `quietanza_personalizzata=false`). Fallback client-side: DELETE righe quietanza non personalizzate + reinsert da firma.
 
 ## UI
 - Firma → card teal, alimenta `titoli.premio_netto / tasse / premio_lordo` via debounced UPDATE 800ms.
 - Quietanza → card amber, alimenta `titoli.premio_netto_quietanza / tasse_quietanza`.
 - Edit/INSERT/DELETE su card Quietanza marcano `quietanza_personalizzata=true`.
 - Riga **RCA Auto** sempre presente, non rimovibile.
+- Provvigioni Firma/Quietanza editate dalla card → DB UPDATE su `titoli.provvigioni_*` + `refetchQueries(["titolo", id])` (sincrono, garantisce refresh split commerciale/agenzia).
 
 ## Calcolo
 - Voci accessorie: `lordo = netto × (1 + aliquota%/100)`, default `13.5%`.
@@ -29,11 +31,13 @@ Polizze su rami Auto (`isRamoAuto`) mostrano nella sezione **Importi** due card 
   - `ssn = netto × 10.5%` (SSN si calcola sul **netto**, non sull'imposta)
   - `lordo = netto + imposta + ssn`
   - Inverso lordo→netto: `factor = 1 + aliquota_provinciale% + 10.5%` ⇒ `netto = lordo/factor`
-- Aliquota provinciale precompilata da `cliente.provincia_residenza` via `aliquote_provinciali_rca`, default 16%, eccezioni 9% AO/BZ/TN.
 
-## Override manuale IPT/SSN (riga RCA)
-- Le sub-righe "Imposta provinciale" e "Contributo SSN" sono **Input editabili** sia desktop che mobile.
-- Override rilevato confrontando il valore salvato con quello calcolato (tolleranza 0,01 €): badge "manuale" (amber) + bottone ↺ per ripristinare.
-- Edit del **Lordo** azzera gli override (toast informativo) e rientra in modalità automatica.
-- Edit del **Netto** o dell'**aliquota provinciale** mantiene gli override già impostati (toast "Sovrascrittura IPT/SSN mantenuta").
-- L'override lavora sulla colonna `imposta_provinciale` e `ssn` di `premi_garanzia_polizza`, nessuna nuova colonna richiesta.
+## Override manuale IPT/SSN
+- Sub-righe RCA editabili (desktop ≥1024px e mobile/tablet <1024px). Override rilevato con tolleranza 0,01 €.
+- Edit Lordo azzera override; edit Netto/aliquota mantiene override.
+- Pulsante "Ricalcola IPT/SSN" nell'header per ripristino al volo.
+
+## Totali editabili
+Riquadro "Totali" → blocco "Totale Tasse" contiene 3 input affiancati: **IPT**, **SSN**, **Tasse accessorie**.
+- IPT/SSN → `handleImpostaOverrideBlur`/`handleSsnOverrideBlur` sulla riga RCA principale.
+- Tasse accessorie → ricalcola `aliquota_tasse_pct = (val / Σ netto accessorie) × 100` applicata a tutte le voci non-RCA.
