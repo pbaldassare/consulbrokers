@@ -2548,6 +2548,8 @@ const TitoloDetail = () => {
           </div>
         )}
       </SectionCollapsible>
+        );
+      })()}
 
 
       {/* SOSTITUZIONI / STORNI */}
