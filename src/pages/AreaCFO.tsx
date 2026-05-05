@@ -19,8 +19,10 @@ import {
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell, LineChart, Line, Treemap,
 } from "recharts";
+import CfoAiChat from "@/components/cfo/CfoAiChat";
+import { Sparkles } from "lucide-react";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
@@ -204,6 +206,41 @@ const AreaCFO = () => {
       return (data as any) || [];
     },
   });
+
+  // ===== NUOVE INTERSEZIONI =====
+  const useRpc = (name: string, params: any, key: any[]) =>
+    useQuery({
+      queryKey: [name, ...key],
+      queryFn: async () => {
+        const { data, error } = await supabase.rpc(name as any, params as any);
+        if (error) throw error;
+        return (data as any) || [];
+      },
+      staleTime: 60_000,
+    });
+
+  const { data: trendMensile = [] } = useRpc("cfo_trend_mensile", filterParams, [filterParams]);
+  const { data: yoyMensile = [] } = useRpc("cfo_yoy_mensile", { _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams._ufficio_id, filterParams._compagnia_id]);
+  const { data: topClienti = [] } = useRpc("cfo_top_clienti", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id, _limit: 20 }, [filterParams]);
+  const { data: distrFascia = [] } = useRpc("cfo_distribuzione_clienti_fascia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: premioMedioRamo = [] } = useRpc("cfo_premio_medio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams]);
+  const { data: premioMedioComp = [] } = useRpc("cfo_premio_medio_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id }, [filterParams._data_da, filterParams._data_a, filterParams._ufficio_id]);
+  const { data: distrStati = [] } = useRpc("cfo_distribuzione_stati", { _ufficio_id: filterParams._ufficio_id }, [filterParams._ufficio_id]);
+  const { data: matriceSedeComp = [] } = useRpc("cfo_matrice_sede_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: matriceProdRamo = [] } = useRpc("cfo_matrice_produttore_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: lossRatio = [] } = useRpc("cfo_loss_ratio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: etaSinistri = [] } = useRpc("cfo_eta_sinistri_aperti", {}, []);
+  const { data: sinistriCompagnia = [] } = useRpc("cfo_sinistri_per_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+
+  const treemapData = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (matriceProdRamo as any[]).forEach((r) => {
+      if (!map[r.ramo]) map[r.ramo] = [];
+      map[r.ramo].push({ name: r.produttore || "—", size: Number(r.totale) || 0 });
+    });
+    return Object.entries(map).map(([name, children]) => ({ name, children }));
+  }, [matriceProdRamo]);
+
 
   // Report
   const [reportData, setReportData] = useState<any[] | null>(null);
@@ -408,8 +445,10 @@ const AreaCFO = () => {
       </div>
 
       <Tabs defaultValue="grafici">
-        <TabsList className="bg-muted/80">
-          <TabsTrigger value="grafici"><BarChart3 className="w-4 h-4 mr-1.5" />Grafici</TabsTrigger>
+        <TabsList className="bg-muted/80 flex-wrap h-auto">
+          <TabsTrigger value="grafici"><BarChart3 className="w-4 h-4 mr-1.5" />Grafici Base</TabsTrigger>
+          <TabsTrigger value="avanzate"><TrendingUp className="w-4 h-4 mr-1.5" />Analisi Avanzate</TabsTrigger>
+          <TabsTrigger value="ai"><Sparkles className="w-4 h-4 mr-1.5" />AI Analista</TabsTrigger>
           <TabsTrigger value="report"><FileText className="w-4 h-4 mr-1.5" />Report</TabsTrigger>
           <TabsTrigger value="pagamenti"><CreditCard className="w-4 h-4 mr-1.5" />Pagamenti Provvigioni</TabsTrigger>
         </TabsList>
@@ -550,6 +589,258 @@ const AreaCFO = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ANALISI AVANZATE */}
+        <TabsContent value="avanzate" className="space-y-6 mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Trend Premi/Provv/Margine */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Trend Mensile: Premi vs Provvigioni vs Margine</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {trendMensile.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <LineChart data={trendMensile}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="mese" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Legend />
+                      <Line type="monotone" dataKey="premi" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="provvigioni" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="margine" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* YoY */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Confronto Anno Corrente vs Precedente</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {yoyMensile.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={yoyMensile}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="mese" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Legend />
+                      <Bar dataKey="anno_corrente" fill="hsl(var(--primary))" name="Anno corrente" radius={[4,4,0,0]} />
+                      <Bar dataKey="anno_precedente" fill="hsl(var(--chart-4))" name="Anno precedente" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Distribuzione stati */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Distribuzione Polizze per Stato</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {distrStati.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={distrStati} dataKey="num" nameKey="stato" cx="50%" cy="50%" outerRadius={100} label={({ stato, percent }) => `${stato} ${(percent*100).toFixed(0)}%`}>
+                        {distrStati.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Top clienti */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Top 20 Clienti per Premi Incassati</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {topClienti.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={500}>
+                    <BarChart data={topClienti} layout="vertical" margin={{ left: 180 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="cliente" type="category" className="text-xs" width={170} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Legend />
+                      <Bar dataKey="premi" fill="hsl(var(--primary))" name="Premi" radius={[0,4,4,0]} />
+                      <Bar dataKey="margine" fill="hsl(var(--chart-2))" name="Margine" radius={[0,4,4,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Distribuzione clienti per fascia */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Clienti per Fascia di Premio</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {distrFascia.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={distrFascia}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="fascia" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <Tooltip />
+                      <Bar dataKey="clienti" fill="hsl(var(--chart-3))" name="N. Clienti" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Premio medio ramo */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Premio Medio per Ramo</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {premioMedioRamo.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={premioMedioRamo} layout="vertical" margin={{ left: 130 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="ramo" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Bar dataKey="premio_medio" fill="hsl(var(--chart-4))" name="Premio medio" radius={[0,4,4,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Premio medio compagnia */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Premio Medio per Compagnia</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {premioMedioComp.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={premioMedioComp} layout="vertical" margin={{ left: 130 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="compagnia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={tooltipFormatter} />
+                      <Bar dataKey="premio_medio" fill="hsl(var(--chart-5))" name="Premio medio" radius={[0,4,4,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Treemap mix produttore × ramo */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Mix Ramo × Produttore (Treemap)</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {treemapData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={400}>
+                    <Treemap data={treemapData} dataKey="size" stroke="hsl(var(--background))" fill="hsl(var(--primary))" />
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Loss ratio */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Loss Ratio per Ramo (%)</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {lossRatio.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={lossRatio} layout="vertical" margin={{ left: 130 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="ramo" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v: number) => `${v}%`} />
+                      <Bar dataKey="loss_ratio_pct" fill="hsl(var(--destructive))" name="Loss Ratio %" radius={[0,4,4,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Età sinistri aperti */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Età Sinistri Aperti</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {etaSinistri.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={etaSinistri} dataKey="num" nameKey="fascia" cx="50%" cy="50%" outerRadius={100} label={({ fascia, num }) => `${fascia}: ${num}`}>
+                        {etaSinistri.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Sinistri per compagnia */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Sinistri per Compagnia</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-4">
+                {sinistriCompagnia.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={sinistriCompagnia}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="compagnia" className="text-xs" />
+                      <YAxis yAxisId="left" className="text-xs" />
+                      <YAxis yAxisId="right" orientation="right" className="text-xs" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="num_sinistri" fill="hsl(var(--chart-3))" name="N. Sinistri" radius={[4,4,0,0]} />
+                      <Bar yAxisId="right" dataKey="liquidato" fill="hsl(var(--destructive))" name="Liquidato €" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
+              </CardContent>
+            </Card>
+
+            {/* Matrice sede × compagnia */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Top Combinazioni Sede × Compagnia</CardTitle></CardHeader>
+              <Separator />
+              <CardContent className="pt-0">
+                <div className="max-h-[400px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Sede</TableHead>
+                        <TableHead>Compagnia</TableHead>
+                        <TableHead className="text-right">Premi €</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {matriceSedeComp.slice(0, 30).map((r: any, i: number) => (
+                        <TableRow key={i} className={i % 2 ? "bg-muted/20" : ""}>
+                          <TableCell className="font-medium">{r.sede}</TableCell>
+                          <TableCell>{r.compagnia}</TableCell>
+                          <TableCell className="text-right font-mono">{fmt(r.totale)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {matriceSedeComp.length === 0 && (
+                        <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">Nessun dato</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* AI ANALISTA */}
+        <TabsContent value="ai" className="mt-4">
+          <CfoAiChat filters={filterParams} />
         </TabsContent>
 
         {/* REPORT */}

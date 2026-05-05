@@ -7263,10 +7263,16 @@ export type Database = {
       }
       ai_exec_select: { Args: { query_text: string }; Returns: Json }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
+      cfo_distribuzione_clienti_fascia: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
+      cfo_distribuzione_stati: { Args: { _ufficio_id?: string }; Returns: Json }
       cfo_entrate_uscite_mensili: {
         Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
         Returns: Json
       }
+      cfo_eta_sinistri_aperti: { Args: never; Returns: Json }
       cfo_kpi:
         | {
             Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
@@ -7282,6 +7288,18 @@ export type Database = {
             }
             Returns: Json
           }
+      cfo_loss_ratio_ramo: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
+      cfo_matrice_produttore_ramo: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
+      cfo_matrice_sede_compagnia: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
       cfo_premi_per_compagnia:
         | { Args: { _data_a?: string; _data_da?: string }; Returns: Json }
         | {
@@ -7309,6 +7327,19 @@ export type Database = {
           _data_a?: string
           _data_da?: string
           _produttore_nome?: string
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
+      cfo_premio_medio_compagnia: {
+        Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
+        Returns: Json
+      }
+      cfo_premio_medio_ramo: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
           _ufficio_id?: string
         }
         Returns: Json
@@ -7343,6 +7374,34 @@ export type Database = {
             }
             Returns: Json
           }
+      cfo_sinistri_per_compagnia: {
+        Args: { _data_a?: string; _data_da?: string }
+        Returns: Json
+      }
+      cfo_top_clienti: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _limit?: number
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
+      cfo_trend_mensile: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _produttore_nome?: string
+          _ufficio_id?: string
+        }
+        Returns: Json
+      }
+      cfo_yoy_mensile: {
+        Args: { _compagnia_id?: string; _ufficio_id?: string }
+        Returns: Json
+      }
       check_consenso_marketing: {
         Args: { _cliente_id: string }
         Returns: boolean
