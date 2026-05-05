@@ -2343,39 +2343,66 @@ const TitoloDetail = () => {
           </div>
         )}
 
-        {/* Composizione voci RCA Auto - integrata nella sezione Importi */}
+        {/* Composizione voci RCA Auto - Firma + Quietanza, integrate nella sezione Importi */}
         {isRamoAuto((t as any).ramo) && (
-          <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900">
-            <p className="text-xs text-muted-foreground mb-3">
-              ℹ️ Per le polizze <strong>RCA Auto</strong> il Premio Lordo è calcolato come somma delle singole garanzie. Modificando le voci sotto, gli importi del titolo vengono aggiornati automaticamente.
+          <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
+            <p className="text-xs text-muted-foreground">
+              ℹ️ Per le polizze <strong>RCA Auto</strong> i premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
             </p>
-            <VociRcaCard
-              titoloId={t.id}
-              premioLordoTitolo={(t as any).premio_lordo}
-              provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
-              onTotaliChange={(tot) => {
-                setVociRcaTotali(tot);
-                if (editingImporti) return; // non sovrascrivere durante edit manuale
-                if (vociRcaSyncTimer.current) clearTimeout(vociRcaSyncTimer.current);
-                vociRcaSyncTimer.current = setTimeout(async () => {
-                  const curNetto = Number((titolo as any)?.premio_netto ?? 0);
-                  const curTasse = Number((titolo as any)?.tasse ?? 0);
-                  const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
-                  if (
-                    Math.abs(curNetto - tot.netto) < 0.01 &&
-                    Math.abs(curTasse - tot.tasse) < 0.01 &&
-                    Math.abs(curLordo - tot.lordo) < 0.01
-                  ) return;
-                  const { error } = await supabase
-                    .from("titoli")
-                    .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: tot.lordo })
-                    .eq("id", t.id);
-                  if (!error) {
-                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
-                  }
-                }, 800);
-              }}
-            />
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <VociRcaCard
+                tipoPremio="firma"
+                titoloId={t.id}
+                premioLordoTitolo={(t as any).premio_lordo}
+                provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+                onTotaliChange={(tot) => {
+                  setVociRcaTotali(tot);
+                  if (editingImporti) return;
+                  if (vociRcaSyncTimer.current) clearTimeout(vociRcaSyncTimer.current);
+                  vociRcaSyncTimer.current = setTimeout(async () => {
+                    const curNetto = Number((titolo as any)?.premio_netto ?? 0);
+                    const curTasse = Number((titolo as any)?.tasse ?? 0);
+                    const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
+                    if (
+                      Math.abs(curNetto - tot.netto) < 0.01 &&
+                      Math.abs(curTasse - tot.tasse) < 0.01 &&
+                      Math.abs(curLordo - tot.lordo) < 0.01
+                    ) return;
+                    const { error } = await supabase
+                      .from("titoli")
+                      .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: tot.lordo })
+                      .eq("id", t.id);
+                    if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                  }, 800);
+                }}
+              />
+              <VociRcaCard
+                tipoPremio="quietanza"
+                titoloId={t.id}
+                provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+                onTotaliChange={(tot) => {
+                  if (editingImporti) return;
+                  if (vociRcaQuietanzaTimer.current) clearTimeout(vociRcaQuietanzaTimer.current);
+                  vociRcaQuietanzaTimer.current = setTimeout(async () => {
+                    const curNetto = Number((titolo as any)?.premio_netto_quietanza ?? 0);
+                    const curTasse = Number((titolo as any)?.tasse_quietanza ?? 0);
+                    if (
+                      Math.abs(curNetto - tot.netto) < 0.01 &&
+                      Math.abs(curTasse - tot.tasse) < 0.01
+                    ) return;
+                    const { error } = await supabase
+                      .from("titoli")
+                      .update({
+                        premio_netto_quietanza: tot.netto,
+                        tasse_quietanza: tot.tasse,
+                        addizionali_quietanza: 0,
+                      })
+                      .eq("id", t.id);
+                    if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                  }, 800);
+                }}
+              />
+            </div>
           </div>
         )}
       </SectionCollapsible>
