@@ -1268,6 +1268,7 @@ const TitoloDetail = () => {
             {isRamoAuto((t as any).ramo) && (
               <ImportPolizzaAiButton
                 titoloId={t.id}
+                ramo={(t as any).ramo}
                 onImported={() => {
                   queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
                   queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
