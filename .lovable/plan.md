@@ -1,28 +1,19 @@
-## Obiettivo
-Quando una polizza ha `targa_telaio` valorizzata (tipico per RCA Auto e rami simili), mostrarla nelle liste portafoglio e renderla cercabile dal motore di ricerca.
+## Risposta alla domanda
+Sì, abbiamo già in DB la struttura per le voci RCA Auto:
 
-## Modifiche
+- **`rca_garanzie`** — tabella di lookup con il catalogo delle garanzie (17 voci attive: `01 Cristalli`, `05 Incendio`, `08 Garanzie accessorie RCA`, `11 Furto`, `12 Assistenza`, `13 Tutela giudiziaria`, `14 Infortuni`, `15 Casko/Collisione`, `02-07 ARD`, `90 Diritti`, `91 Canone Black Box`, ecc.). Campi: `codice`, `descrizione`, `aliquota_tasse`, `attivo`.
+- **`premi_garanzia_polizza`** — riga per riga le voci di una specifica polizza. Campi: `titolo_id`, `garanzia` (text), `capitale`, `tasso`, `firma`, `rata`, `annuo`, `ordine`.
 
-### 1. Visualizzazione Targa
-Le pagine già selezionano `targa_telaio` dal DB, va solo renderizzata.
+Quindi sì: la somma dei vari `firma` / `rata` di `premi_garanzia_polizza` filtrati per `titolo_id` rappresenta la composizione del totale RCA.
 
-- **`src/pages/PortafoglioCaricoPage.tsx`**: aggiungere colonna sortable "Targa" dopo "Ramo" (header + cella). Mostra `p.targa_telaio || "—"`.
-- **`src/pages/PortafoglioAttivePage.tsx`**: stessa colonna "Targa".
-- **`src/pages/PortafoglioStoricoPage.tsx`**: stessa colonna "Targa".
-- **`src/pages/TitoliList.tsx`**: aggiungere `<TableHead>Targa</TableHead>` (il filtro Targa esiste già).
+## Cosa faccio in questo step (solo etichette)
 
-Per non appesantire le righe non-auto, la cella mostra "—" quando vuota; la colonna resta sempre visibile (alternativa: nasconderla se nessuna riga della pagina ha targa — più complesso, non scelto).
+### 1. Sezione "Importi" in `TitoloDetail.tsx`
+Rinomina le due colonne:
+- `FIRMA` → **`PREMIO ALLA FIRMA ODIERNO`**
+- `QUIETANZA` → **`PREMIO PROSSIMA QUIETANZA`**
 
-### 2. Ricerca per Targa
-Estendere le query `.or(...)` includendo `targa_telaio.ilike.%search%`:
+Nessun'altra modifica logica/calcolo in questo passaggio.
 
-- `PortafoglioCaricoPage.tsx` (righe 83 e 104)
-- `PortafoglioAttivePage.tsx` (righe 50 e 73)
-- `PortafoglioStoricoPage.tsx` (riga 53)
-
-Aggiornare anche il placeholder dell'input di ricerca da "Cerca per n° polizza, cliente, cod…" a "Cerca per n° polizza, cliente, codice, targa…".
-
-### 3. Note
-- DB invariato (campo `titoli.targa_telaio` già esistente).
-- Nessuna modifica a TitoliList per la ricerca: ha già il filtro dedicato `filtroTargaTelaio`.
-- Nessuna distinzione condizionale sul ramo: se la targa è presente la mostriamo; coerente col fatto che alcune polizze non-RCA potrebbero avere targa (rimorchi, trasporti, ecc.).
+## Prossimi step (non in questo task — confermare dopo)
+Quando approvi, nel passaggio successivo per i titoli del **Ramo RCA Auto** (e affini) aggiungeremo nella card Importi un blocco aggiuntivo con il **dettaglio voci** letto da `premi_garanzia_polizza` (Cristalli / Incendio / Furto / Casko / Assistenza / Tutela / Infortuni / ARD / Diritti …) con colonne `Capitale`, `Tasso`, `Firma`, `Rata`, `Annuo` e totale di quadratura verso `premio_lordo`. Da definire poi: editing inline, regole di calcolo tasse per voce (`rca_garanzie.aliquota_tasse`).

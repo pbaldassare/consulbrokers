@@ -2174,7 +2174,7 @@ const TitoloDetail = () => {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio alla firma odierno</h4>
                 <div className="space-y-0">
                   <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
                   <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
@@ -2184,7 +2184,7 @@ const TitoloDetail = () => {
                 </div>
               </div>
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio prossima quietanza</h4>
                 <div className="space-y-0">
                   <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto_quietanza)} />
                   <FieldRow label="Addizionali" value={fmtEuro(t.addizionali_quietanza)} />
@@ -2209,7 +2209,7 @@ const TitoloDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* FIRMA */}
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio alla firma odierno</h4>
                 <div className="space-y-2">
                   <div>
                     <Label className="text-xs">Premio Netto (€)</Label>
@@ -2279,7 +2279,7 @@ const TitoloDetail = () => {
 
               {/* QUIETANZA */}
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Quietanza</h4>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio prossima quietanza</h4>
                 <div className="space-y-2">
                   <div>
                     <Label className="text-xs">Premio Netto (€)</Label>
