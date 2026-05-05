@@ -122,9 +122,9 @@ const ECCompagniaContabPage = () => {
   };
 
   const { data: compagnie } = useQuery({
-    queryKey: ["compagnie-ec"],
+    queryKey: ["agenzie-ec"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice, comune, mail, iban").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome, codice, comune, mail, iban").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -144,7 +144,7 @@ const ECCompagniaContabPage = () => {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["ec-compagnia-contab", filters],
+    queryKey: ["ec-agenzia-contab", filters],
     queryFn: async () => {
       // Fetch titoli already in rimessa_dettaglio to exclude them
       const { data: rimessiRaw } = await supabase
@@ -238,7 +238,7 @@ const ECCompagniaContabPage = () => {
       return data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["ec-compagnia-contab"] });
+      queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
       setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
       setPagaDialog((prev) => ({ ...prev, open: false }));

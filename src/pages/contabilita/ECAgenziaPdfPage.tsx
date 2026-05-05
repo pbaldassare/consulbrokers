@@ -60,7 +60,7 @@ const ECAgenziaPdfPage = () => {
     enabled: !!compagniaId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnie")
+        .from("agenzie")
         .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, mail_ec, mail, conto_bancario_id")
         .eq("id", compagniaId)
         .maybeSingle();
@@ -68,7 +68,7 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Conto bancario master della compagnia: prima quello collegato, poi default per tipo 'compagnia'
+  // Conto bancario master della compagnia: prima quello collegato, poi default per tipo 'agenzia'
   const { data: contoCompagnia } = useQuery({
     queryKey: ["ec-pdf-agenzia-conto", compagnia?.conto_bancario_id, compagniaId],
     enabled: !!compagniaId,
@@ -82,7 +82,7 @@ const ECAgenziaPdfPage = () => {
       }
       const { data } = await supabase.from("conti_bancari" as any)
         .select("iban, intestato_a, banca")
-        .eq("tipo", "compagnia")
+        .eq("tipo", "agenzia")
         .eq("is_default", true)
         .eq("attivo", true)
         .maybeSingle();
@@ -234,7 +234,7 @@ const ECAgenziaPdfPage = () => {
   };
 
   const fileName = () => {
-    const ag = (compagnia?.codice || compagnia?.nome || "compagnia").replace(/\s+/g, "_");
+    const ag = (compagnia?.codice || compagnia?.nome || "agenzia").replace(/\s+/g, "_");
     return `EC_Agenzia_${ag}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   };
 
@@ -287,7 +287,7 @@ const ECAgenziaPdfPage = () => {
           nome_file: name,
           path_storage: path,
           bucket_name: "documenti_generali",
-          entita_tipo: "compagnia",
+          entita_tipo: "agenzia",
           entita_id: compagniaId,
           categoria: "EC Agenzia",
           visibile_al_cliente: false,
@@ -297,7 +297,7 @@ const ECAgenziaPdfPage = () => {
 
         await logAttivita({
           azione: "stampa_ec_agenzia",
-          entita_tipo: "compagnia",
+          entita_tipo: "agenzia",
           entita_id: compagniaId,
           dettagli_json: { titoli: titoli?.length || 0, riferimento, periodo: periodoTesto },
         });

@@ -139,7 +139,7 @@ const FlussoCompagniaDetail = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `flusso_${flusso.periodo}_${(flusso.compagnie as any)?.nome || "compagnia"}.${ext}`;
+    a.download = `flusso_${flusso.periodo}_${(flusso.compagnie as any)?.nome || "agenzia"}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   };

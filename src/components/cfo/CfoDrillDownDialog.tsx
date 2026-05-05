@@ -99,7 +99,7 @@ export default function CfoDrillDownDialog({ state, onClose, baseFilters }: Prop
     baseFilters._data_da && `Da: ${baseFilters._data_da}`,
     baseFilters._data_a && `A: ${baseFilters._data_a}`,
     baseFilters._ufficio_id && `Sede attiva`,
-    baseFilters._compagnia_id && `Compagnia attiva`,
+    baseFilters._compagnia_id && `Agenzia attiva`,
     baseFilters._produttore_nome && `Produttore: ${baseFilters._produttore_nome}`,
     state.extra._mese && `Mese: ${state.extra._mese}`,
     state.extra._ramo && `Ramo: ${state.extra._ramo}`,

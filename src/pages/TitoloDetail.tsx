@@ -391,10 +391,10 @@ const TitoloDetail = () => {
   });
 
   const { data: compagnieOpts = [] } = useQuery({
-    queryKey: ["compagnie-attive-titolo"],
+    queryKey: ["agenzie-attive-titolo"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnie")
+        .from("agenzie")
         .select("id, nome, codice, gruppo_compagnia")
         .eq("attiva", true)
         .order("nome");

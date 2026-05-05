@@ -32,13 +32,13 @@ const REPORT_CONFIGS: ReportConfig[] = [
       { key: "_data_da", label: "Data Da", type: "date" },
       { key: "_data_a", label: "Data A", type: "date" },
       { key: "_ufficio_id", label: "Sede", type: "select" },
-      { key: "_compagnia_id", label: "Compagnia", type: "select" },
+      { key: "_compagnia_id", label: "Agenzia", type: "select" },
     ],
     colonne: [
       { key: "numero_titolo", label: "N. Titolo" },
       { key: "cliente", label: "Cliente" },
       { key: "prodotto", label: "Prodotto" },
-      { key: "compagnia", label: "Agenzia" },
+      { key: "agenzia", label: "Agenzia" },
       { key: "ufficio", label: "Sede" },
       { key: "premio_lordo", label: "Premio Lordo", align: "right", format: "euro" },
       { key: "importo_incassato", label: "Incassato", align: "right", format: "euro" },
@@ -100,7 +100,7 @@ const REPORT_CONFIGS: ReportConfig[] = [
       { key: "numero_sinistro", label: "N. Sinistro" },
       { key: "stato", label: "Stato" },
       { key: "cliente", label: "Cliente" },
-      { key: "compagnia", label: "Agenzia" },
+      { key: "agenzia", label: "Agenzia" },
       { key: "responsabile", label: "Responsabile" },
       { key: "data_apertura", label: "Apertura", format: "date" },
       { key: "data_chiusura", label: "Chiusura", format: "date" },
@@ -151,7 +151,7 @@ const ReportPage = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_report"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
   });

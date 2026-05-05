@@ -860,7 +860,7 @@ const RcaGaranzieTab = () => {
 const TIPO_DOC_FLAGS = [
   { key: "visibile", label: "Vis" },
   { key: "clienti", label: "Cli" },
-  { key: "compagnie", label: "Comp" },
+  { key: "agenzie", label: "Comp" },
   { key: "polizze", label: "Pol" },
   { key: "trattative", label: "Tratt" },
   { key: "contrattuali", label: "Contr" },

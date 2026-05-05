@@ -101,8 +101,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!compagniaId) throw new Error("Compagnia non valida");
-      if (!form.gruppo_compagnia_id) throw new Error("Seleziona la compagnia");
+      if (!compagniaId) throw new Error("Agenzia non valida");
+      if (!form.gruppo_compagnia_id) throw new Error("Seleziona la agenzia");
       const payload: any = {
         compagnia_id: compagniaId,
         gruppo_compagnia_id: form.gruppo_compagnia_id,
@@ -316,7 +316,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 options={gruppiOptions}
                 value={form.gruppo_compagnia_id}
                 onValueChange={(v) => setForm((p) => ({ ...p, gruppo_compagnia_id: v }))}
-                placeholder="Seleziona compagnia..."
+                placeholder="Seleziona agenzia..."
               />
             </div>
 
@@ -386,7 +386,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               <ContoBancarioSelect
                 value={form.conto_bancario_id}
                 onChange={(id) => setForm((p) => ({ ...p, conto_bancario_id: id }))}
-                tipi={["compagnia", "generico"]}
+                tipi={["agenzia", "generico"]}
                 placeholder="Usa il conto della agenzia"
               />
               <p className="text-[11px] text-muted-foreground mt-1">

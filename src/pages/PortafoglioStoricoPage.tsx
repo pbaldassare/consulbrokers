@@ -25,9 +25,9 @@ const PortafoglioStoricoPage = () => {
   const today = format(new Date(), "yyyy-MM-dd");
 
   const { data: compagnie } = useQuery({
-    queryKey: ["compagnie-lookup"],
+    queryKey: ["agenzie-lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
   });

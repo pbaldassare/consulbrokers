@@ -103,7 +103,7 @@ const ProspectDetail = () => {
   const { data: compagnieOptions = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });
@@ -390,7 +390,7 @@ const ProspectDetail = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label>Agenzia</Label>
-                      <SearchableSelect options={compagnieOptions} value={trattativaForm.compagnia_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, compagnia_id: v })} placeholder="Seleziona compagnia..." />
+                      <SearchableSelect options={compagnieOptions} value={trattativaForm.compagnia_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, compagnia_id: v })} placeholder="Seleziona agenzia..." />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Premio Previsto (€)</Label>

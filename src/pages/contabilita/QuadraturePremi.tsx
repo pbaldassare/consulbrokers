@@ -324,7 +324,7 @@ const QuadraturePremi = () => {
       <div className="flex gap-3 items-center flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Cerca titolo, prodotto, compagnia..." value={searchText} onChange={(e) => setSearchText(e.target.value)} className="pl-9" />
+          <Input placeholder="Cerca titolo, prodotto, agenzia..." value={searchText} onChange={(e) => setSearchText(e.target.value)} className="pl-9" />
         </div>
         <Select value={filtroStato} onValueChange={setFiltroStato}>
           <SelectTrigger className="w-48">
