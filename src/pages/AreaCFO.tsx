@@ -49,7 +49,7 @@ const KpiCard = ({ label, value, icon, iconBg }: KpiCardProps) => (
         </div>
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted-foreground truncate">{label}</p>
-          <p className="text-xl font-bold font-mono mt-0.5 truncate">{value}</p>
+          <p className="text-xl mt-0.5 truncate font-sans font-normal">{value}</p>
         </div>
       </div>
     </CardContent>
