@@ -22,6 +22,8 @@ import {
   PieChart, Pie, Cell, LineChart, Line, Treemap,
 } from "recharts";
 import CfoAiChat from "@/components/cfo/CfoAiChat";
+import CfoChartCard from "@/components/cfo/CfoChartCard";
+import CfoDrillDownDialog, { type DrillState } from "@/components/cfo/CfoDrillDownDialog";
 import { Sparkles } from "lucide-react";
 
 const COLORS = [
