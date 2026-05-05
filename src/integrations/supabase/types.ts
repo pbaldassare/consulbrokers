@@ -7268,6 +7268,57 @@ export type Database = {
         Returns: Json
       }
       cfo_distribuzione_stati: { Args: { _ufficio_id?: string }; Returns: Json }
+      cfo_drill_sinistri: {
+        Args: {
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _ramo?: string
+          _stato?: string
+          _ufficio_id?: string
+        }
+        Returns: {
+          cliente: string
+          compagnia: string
+          data_apertura: string
+          data_evento: string
+          id: string
+          importo_liquidato: number
+          importo_riserva: number
+          numero_sinistro: string
+          ramo: string
+          sede: string
+          stato: string
+        }[]
+      }
+      cfo_drill_titoli: {
+        Args: {
+          _cliente_id?: string
+          _compagnia_id?: string
+          _data_a?: string
+          _data_da?: string
+          _mese?: string
+          _produttore_nome?: string
+          _ramo?: string
+          _stato?: string
+          _ufficio_id?: string
+        }
+        Returns: {
+          cliente: string
+          cliente_id: string
+          compagnia: string
+          data_incasso: string
+          id: string
+          importo_incassato: number
+          numero_titolo: string
+          premio_lordo: number
+          produttore: string
+          provvigioni: number
+          ramo: string
+          sede: string
+          stato: string
+        }[]
+      }
       cfo_entrate_uscite_mensili: {
         Args: { _data_a?: string; _data_da?: string; _ufficio_id?: string }
         Returns: Json
