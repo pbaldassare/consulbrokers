@@ -76,6 +76,27 @@ export type Database = {
           },
         ]
       }
+      aliquote_provinciali_rca: {
+        Row: {
+          aggiornato_il: string
+          aliquota_pct: number
+          note: string | null
+          provincia: string
+        }
+        Insert: {
+          aggiornato_il?: string
+          aliquota_pct?: number
+          note?: string | null
+          provincia: string
+        }
+        Update: {
+          aggiornato_il?: string
+          aliquota_pct?: number
+          note?: string | null
+          provincia?: string
+        }
+        Relationships: []
+      }
       anagrafiche_professionali: {
         Row: {
           abi: string | null
@@ -4349,38 +4370,56 @@ export type Database = {
       }
       premi_garanzia_polizza: {
         Row: {
+          aliquota_tasse_pct: number | null
           annuo: number | null
           capitale: number | null
+          codice_garanzia: string | null
           created_at: string | null
           firma: number | null
           garanzia: string
           id: string
+          imposta_provinciale: number | null
+          is_rca_principale: boolean
+          lordo_calcolato: number | null
           ordine: number | null
           rata: number | null
+          ssn: number | null
           tasso: number | null
           titolo_id: string
         }
         Insert: {
+          aliquota_tasse_pct?: number | null
           annuo?: number | null
           capitale?: number | null
+          codice_garanzia?: string | null
           created_at?: string | null
           firma?: number | null
           garanzia: string
           id?: string
+          imposta_provinciale?: number | null
+          is_rca_principale?: boolean
+          lordo_calcolato?: number | null
           ordine?: number | null
           rata?: number | null
+          ssn?: number | null
           tasso?: number | null
           titolo_id: string
         }
         Update: {
+          aliquota_tasse_pct?: number | null
           annuo?: number | null
           capitale?: number | null
+          codice_garanzia?: string | null
           created_at?: string | null
           firma?: number | null
           garanzia?: string
           id?: string
+          imposta_provinciale?: number | null
+          is_rca_principale?: boolean
+          lordo_calcolato?: number | null
           ordine?: number | null
           rata?: number | null
+          ssn?: number | null
           tasso?: number | null
           titolo_id?: string
         }
