@@ -207,6 +207,41 @@ const AreaCFO = () => {
     },
   });
 
+  // ===== NUOVE INTERSEZIONI =====
+  const useRpc = (name: string, params: any, key: any[]) =>
+    useQuery({
+      queryKey: [name, ...key],
+      queryFn: async () => {
+        const { data, error } = await supabase.rpc(name as any, params as any);
+        if (error) throw error;
+        return (data as any) || [];
+      },
+      staleTime: 60_000,
+    });
+
+  const { data: trendMensile = [] } = useRpc("cfo_trend_mensile", filterParams, [filterParams]);
+  const { data: yoyMensile = [] } = useRpc("cfo_yoy_mensile", { _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams._ufficio_id, filterParams._compagnia_id]);
+  const { data: topClienti = [] } = useRpc("cfo_top_clienti", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id, _limit: 20 }, [filterParams]);
+  const { data: distrFascia = [] } = useRpc("cfo_distribuzione_clienti_fascia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: premioMedioRamo = [] } = useRpc("cfo_premio_medio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams]);
+  const { data: premioMedioComp = [] } = useRpc("cfo_premio_medio_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id }, [filterParams._data_da, filterParams._data_a, filterParams._ufficio_id]);
+  const { data: distrStati = [] } = useRpc("cfo_distribuzione_stati", { _ufficio_id: filterParams._ufficio_id }, [filterParams._ufficio_id]);
+  const { data: matriceSedeComp = [] } = useRpc("cfo_matrice_sede_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: matriceProdRamo = [] } = useRpc("cfo_matrice_produttore_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: lossRatio = [] } = useRpc("cfo_loss_ratio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const { data: etaSinistri = [] } = useRpc("cfo_eta_sinistri_aperti", {}, []);
+  const { data: sinistriCompagnia = [] } = useRpc("cfo_sinistri_per_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+
+  const treemapData = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (matriceProdRamo as any[]).forEach((r) => {
+      if (!map[r.ramo]) map[r.ramo] = [];
+      map[r.ramo].push({ name: r.produttore || "—", size: Number(r.totale) || 0 });
+    });
+    return Object.entries(map).map(([name, children]) => ({ name, children }));
+  }, [matriceProdRamo]);
+
+
   // Report
   const [reportData, setReportData] = useState<any[] | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
