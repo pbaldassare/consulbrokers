@@ -2217,6 +2217,12 @@ const TitoloDetail = () => {
           </>
         ) : (
           <div className="space-y-4">
+            {isRamoAuto((t as any).ramo) && (
+              <div className="text-xs px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200">
+                ℹ️ Per le polizze <strong>RCA Auto</strong> i premi (Netto/Tasse/Lordo) sono calcolati automaticamente dalle voci di garanzia. Qui modifichi solo le provvigioni e i flag.
+              </div>
+            )}
+            {!isRamoAuto((t as any).ramo) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* FIRMA */}
               <div>
