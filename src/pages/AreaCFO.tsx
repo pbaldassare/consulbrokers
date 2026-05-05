@@ -445,8 +445,10 @@ const AreaCFO = () => {
       </div>
 
       <Tabs defaultValue="grafici">
-        <TabsList className="bg-muted/80">
-          <TabsTrigger value="grafici"><BarChart3 className="w-4 h-4 mr-1.5" />Grafici</TabsTrigger>
+        <TabsList className="bg-muted/80 flex-wrap h-auto">
+          <TabsTrigger value="grafici"><BarChart3 className="w-4 h-4 mr-1.5" />Grafici Base</TabsTrigger>
+          <TabsTrigger value="avanzate"><TrendingUp className="w-4 h-4 mr-1.5" />Analisi Avanzate</TabsTrigger>
+          <TabsTrigger value="ai"><Sparkles className="w-4 h-4 mr-1.5" />AI Analista</TabsTrigger>
           <TabsTrigger value="report"><FileText className="w-4 h-4 mr-1.5" />Report</TabsTrigger>
           <TabsTrigger value="pagamenti"><CreditCard className="w-4 h-4 mr-1.5" />Pagamenti Provvigioni</TabsTrigger>
         </TabsList>
