@@ -47,7 +47,7 @@ const PortafoglioAttivePage = () => {
       }
 
       if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
       if (filtroRamo) q = q.eq("ramo_id", filtroRamo);
 
