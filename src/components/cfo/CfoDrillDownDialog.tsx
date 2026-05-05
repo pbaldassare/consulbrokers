@@ -200,7 +200,7 @@ export default function CfoDrillDownDialog({ state, onClose, baseFilters }: Prop
                     </TableCell>
                     <TableCell>
                       <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0">
-                        <Link to={`/portafoglio/titolo/${r.id}`} title="Apri titolo">
+                        <Link to={`/titoli/${r.id}`} title="Apri titolo">
                           <ExternalLink className="w-3.5 h-3.5" />
                         </Link>
                       </Button>
