@@ -319,6 +319,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 <Badge variant="outline" className="ml-1 text-[10px] border-emerald-400 text-emerald-800">
                   Sincronizzata
                 </Badge>
+              )}
               {disallineamentoVoci > 0 && (
                 <Badge
                   variant="outline"
