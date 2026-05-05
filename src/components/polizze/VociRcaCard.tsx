@@ -292,6 +292,16 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   const delta = premioLordoTitolo == null ? 0 : round2(totali.lordo - Number(premioLordoTitolo));
   const quadra = premioLordoTitolo == null || Math.abs(delta) < 0.01;
 
+  // Verifica quadratura interna (netto + tasse = lordo)
+  const quadraInterno = Math.abs(round2(totali.netto + totali.tasse) - totali.lordo) < 0.01;
+
+  // Differenze di composizione tra Firma e Quietanza
+  const codiciSet = new Set(voci.map((v) => (v.codice_garanzia || "").toUpperCase()));
+  const codiciAltro = new Set((vociAltroLato as any[]).map((v) => (v.codice_garanzia || "").toUpperCase()));
+  const mancanti = [...codiciAltro].filter((c) => !codiciSet.has(c));
+  const inEccesso = [...codiciSet].filter((c) => !codiciAltro.has(c));
+  const disallineamentoVoci = mancanti.length + inEccesso.length;
+
   return (
     <>
       <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
