@@ -2697,6 +2697,9 @@ const TitoloDetail = () => {
           <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
           <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
           <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
+          {isRamoAuto((t as any).ramo) && (
+            <TabsTrigger value="voci-rca"><Car className="w-4 h-4 mr-1" />Voci RCA</TabsTrigger>
+          )}
           <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
           <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
           <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
