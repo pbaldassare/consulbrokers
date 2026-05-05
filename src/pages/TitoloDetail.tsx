@@ -2203,60 +2203,8 @@ const TitoloDetail = () => {
                     </div>
                   </div>
 
-                  {(provvF != null || provvQ != null) ? (
-                    <>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        {renderSplit("Provvigioni alla Firma", sF, "teal")}
-                        {renderSplit("Provvigioni Quietanza", sQ, "amber")}
-                      </div>
-
-                      {/* Totale generale */}
-                      <div className="rounded-lg border-2 border-dashed bg-muted/40 p-3">
-                        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                          <span className="text-xs uppercase font-bold tracking-wide text-muted-foreground">Totale Provvigioni (Firma + Quietanza)</span>
-                          <span className="font-mono tabular-nums text-lg font-bold">{fmtEuro(totGen)}</span>
-                        </div>
-                        {totGen > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <UserIcon className="w-3 h-3 text-teal-700 flex-shrink-0" />
-                                <span className="text-teal-900 dark:text-teal-200 truncate">Dovuto a {commName}</span>
-                              </div>
-                              <span className="font-mono tabular-nums font-bold text-teal-900 dark:text-teal-200">{fmtEuro(totComm)}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Building2 className="w-3 h-3 text-amber-700 flex-shrink-0" />
-                                <span className="text-amber-900 dark:text-amber-200 truncate">Quota Consulbrokers SPA</span>
-                              </div>
-                              <span className="font-mono tabular-nums font-bold text-amber-900 dark:text-amber-200">{fmtEuro(totAgency)}</span>
-                            </div>
-                          </div>
-                        )}
-                        {(totComm > 0 || totAgency > 0) && (() => {
-                          const diff = totAgency - totComm;
-                          const positiva = diff >= 0;
-                          return (
-                            <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-card border text-xs">
-                              <span className="text-muted-foreground flex items-center gap-1.5">
-                                <ArrowRightLeft className="w-3 h-3" />
-                                Differenza Consulbrokers − Commerciale
-                              </span>
-                              <span className={cn(
-                                "font-mono tabular-nums font-bold px-2 py-0.5 rounded-full",
-                                positiva ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                         : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
-                              )}>
-                                {positiva ? "+" : ""}{fmtEuro(diff)}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata.</div>
+                  {(provvF == null && provvQ == null) && (
+                    <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata. Le card di split appariranno sotto i premi nella sezione "Importi".</div>
                   )}
                 </div>
               );
