@@ -46,7 +46,7 @@ export default function SinistriList() {
 
   // Wizard state
   const [step, setStep] = useState<1 | 2>(1);
-  const [polizzaSearch, setPolizzaSearch] = useState({ cliente: "", numero: "", compagnia: "" });
+  const [polizzaSearch, setPolizzaSearch] = useState({ cliente: "", numero: "", agenzia: "" });
   const [polizzaResults, setPolizzaResults] = useState<any[]>([]);
   const [polizzaLoading, setPolizzaLoading] = useState(false);
   const [selectedPolizza, setSelectedPolizza] = useState<any>(null);
@@ -76,9 +76,9 @@ export default function SinistriList() {
   const totalCount = sinistriResult?.count || 0;
 
   const { data: compagnie } = useQuery({
-    queryKey: ["compagnie"],
+    queryKey: ["agenzie"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -176,7 +176,7 @@ export default function SinistriList() {
   const resetDialog = () => {
     setDialogOpen(false);
     setStep(1);
-    setPolizzaSearch({ cliente: "", numero: "", compagnia: "" });
+    setPolizzaSearch({ cliente: "", numero: "", agenzia: "" });
     setPolizzaResults([]);
     setSelectedPolizza(null);
     setForm({ numero_sinistro: "", descrizione: "", tipo_sinistro: "", luogo_sinistro: "", data_evento: "" });

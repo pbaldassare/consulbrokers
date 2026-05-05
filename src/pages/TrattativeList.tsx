@@ -134,7 +134,7 @@ const TrattativeList = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });
@@ -319,7 +319,7 @@ const TrattativeList = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Agenzia</Label>
-                  <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Compagnia..." />
+                  <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Agenzia..." />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -361,7 +361,7 @@ const TrattativeList = () => {
       <div className="flex flex-wrap gap-3 items-end">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9 w-56" placeholder="Cerca soggetto, compagnia, bando..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
+          <Input className="pl-9 w-56" placeholder="Cerca soggetto, agenzia, bando..." value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} />
         </div>
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>

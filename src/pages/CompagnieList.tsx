@@ -552,7 +552,7 @@ function CompagniaFormDialog({
                   const found = gruppiCompagnia.find((g: any) => g.value === v);
                   setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
                 }}
-                placeholder="Seleziona compagnia..."
+                placeholder="Seleziona agenzia..."
               />
               {!form.gruppo_compagnia_id && (
                 <p className="text-xs text-destructive">Campo obbligatorio</p>
@@ -586,7 +586,7 @@ function CompagniaFormDialog({
             <ContoBancarioSelect
               value={form.conto_bancario_id}
               onChange={(id) => setField("conto_bancario_id", id)}
-              tipi={["compagnia", "generico"]}
+              tipi={["agenzia", "generico"]}
               placeholder="Seleziona dal registro Conti Bancari…"
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -686,7 +686,7 @@ function AgenzieCollegateDialog({
     queryFn: async () => {
       if (!gruppoId) return [];
       const { data, error } = await supabase
-        .from("compagnie")
+        .from("agenzie")
         .select("id, codice, nome, nome_sede, comune, provincia, stato, attiva")
         .eq("gruppo_compagnia_id", gruppoId)
         .order("nome");
@@ -798,7 +798,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
   const [agenzieDialog, setAgenzieDialog] = useState<{ gruppoId: string; gruppoDescrizione: string } | null>(null);
 
   const { data: gruppi = [], isLoading } = useQuery({
-    queryKey: ["compagnie-madri-list"],
+    queryKey: ["agenzie-madri-list"],
     queryFn: async () => {
       const { data: gruppiData, error } = await supabase
         .from("gruppi_compagnia" as any)
@@ -808,7 +808,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
       // Count agenzie per gruppo
       const { data: countsData } = await supabase
-        .from("compagnie")
+        .from("agenzie")
         .select("gruppo_compagnia_id")
         .not("gruppo_compagnia_id", "is", null);
 
@@ -851,7 +851,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setCreateOpen(false);
       setForm(emptyGruppo);
@@ -879,7 +879,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setEditOpen(false);
       setEditId(null);
@@ -895,7 +895,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setDeleteTarget(null);
       toast.success("Agenzia eliminata");
@@ -951,7 +951,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
               <Label className="text-xs text-muted-foreground">Cerca per descrizione o codice</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Cerca compagnia..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                <Input placeholder="Cerca agenzia..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
               </div>
             </div>
             <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
@@ -1113,13 +1113,13 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
-  const [activeTab, setActiveTab] = useState("compagnie");
+  const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: compagnie = [], isLoading } = useQuery({
-    queryKey: ["compagnie"],
+    queryKey: ["agenzie"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("compagnie").select("*").order("nome");
+      const { data, error } = await supabase.from("agenzie").select("*").order("nome");
       if (error) throw error;
       return data;
     },
@@ -1158,11 +1158,11 @@ const CompagnieList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("compagnie").insert(formToPayload(form) as any);
+      const { error } = await supabase.from("agenzie").insert(formToPayload(form) as any);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["compagnie"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie"] });
       setCreateOpen(false);
       setForm(emptyForm);
       toast.success("Agenzia creata con successo");
@@ -1173,11 +1173,11 @@ const CompagnieList = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editId) return;
-      const { error } = await supabase.from("compagnie").update(formToPayload(form) as any).eq("id", editId);
+      const { error } = await supabase.from("agenzie").update(formToPayload(form) as any).eq("id", editId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["compagnie"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie"] });
       setEditOpen(false);
       setEditId(null);
       toast.success("Agenzia aggiornata");
@@ -1187,10 +1187,10 @@ const CompagnieList = () => {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attiva }: { id: string; attiva: boolean }) => {
-      const { error } = await supabase.from("compagnie").update({ attiva }).eq("id", id);
+      const { error } = await supabase.from("agenzie").update({ attiva }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["compagnie"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenzie"] }),
   });
 
   const openEdit = (c: any) => {
@@ -1261,7 +1261,7 @@ const CompagnieList = () => {
       {/* Main page tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
-          <TabsTrigger value="compagnie" className="gap-2">
+          <TabsTrigger value="agenzie" className="gap-2">
             <Layers className="w-4 h-4" />Agenzie
           </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
@@ -1276,7 +1276,7 @@ const CompagnieList = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="compagnie" className="mt-4">
+        <TabsContent value="agenzie" className="mt-4">
           <CompagnieMadriTab onOpenAgenzia={handleOpenAgenziaById} />
         </TabsContent>
 

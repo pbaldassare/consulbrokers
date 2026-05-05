@@ -17,7 +17,7 @@ interface FolderCardProps {
 }
 
 const typeLabels: Record<string, string> = {
-  compagnia: "Compagnia",
+  compagnia: "Agenzia",
   prodotto: "Prodotto",
   sottoprodotto: "Categoria",
   generale: "Generale",

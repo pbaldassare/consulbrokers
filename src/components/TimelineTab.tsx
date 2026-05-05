@@ -23,7 +23,7 @@ const ENTITA_LABEL: Record<string, string> = {
   titolo: "Polizza",
   sinistro: "Sinistro",
   trattativa: "Trattativa",
-  compagnia: "Compagnia",
+  compagnia: "Agenzia",
   prospect: "Prospect",
 };
 

@@ -46,7 +46,7 @@ const ClientePolizzaDetail = () => {
   if (!titolo) return <p className="text-muted-foreground">Polizza non trovata.</p>;
 
   const rows = [
-    { label: "Compagnia", value: (titolo.compagnie as any)?.nome, icon: Building2 },
+    { label: "Agenzia", value: (titolo.compagnie as any)?.nome, icon: Building2 },
     { label: "Ramo", value: (titolo.rami as any)?.descrizione, icon: Shield },
     { label: "Decorrenza", value: fmtDate(titolo.durata_da), icon: Calendar },
     { label: "Scadenza", value: fmtDate(titolo.data_scadenza), icon: Calendar },

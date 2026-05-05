@@ -21,7 +21,7 @@ const PortafoglioPerCompagniaPage = () => {
   const [filters, setFilters] = useState<EstrazioniFiltersState>({ ...defaultFilters });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["portafoglio-per-compagnia", filters],
+    queryKey: ["portafoglio-per-agenzia", filters],
     queryFn: async () => {
       let query = supabase
         .from("titoli")

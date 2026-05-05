@@ -60,7 +60,7 @@ const ContabilitaUfficio = () => {
       const map: Record<string, GruppoCompagnia> = {};
       for (const t of (data || []) as any[]) {
         const cId = t.compagnia_id || "sconosciuta";
-        const cNome = t.compagnie?.nome || "Senza compagnia";
+        const cNome = t.compagnie?.nome || "Senza agenzia";
         if (!map[cId]) map[cId] = { nome: cNome, count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0, compagnia_id: cId, titoli: [] };
         const lordo = t.premio_lordo || 0;
         const provv = (t.provvigioni_firma || 0) + (t.provvigioni_quietanza || 0);
@@ -157,7 +157,7 @@ const ContabilitaUfficio = () => {
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Cerca compagnia..."
+              placeholder="Cerca agenzia..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 h-9"

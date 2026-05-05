@@ -41,11 +41,11 @@ const RinnoviPolizzaPage = () => {
   });
 
   const { data: compagniaData } = useQuery({
-    queryKey: ["compagnia-lookup-rinn", codiceCompagnia],
+    queryKey: ["agenzia-lookup-rinn", codiceCompagnia],
     queryFn: async () => {
       if (!codiceCompagnia || codiceCompagnia.length < 2) return null;
       const { data } = await supabase
-        .from("compagnie")
+        .from("agenzie")
         .select("id, nome, codice")
         .or(`codice.ilike.%${codiceCompagnia}%,nome.ilike.%${codiceCompagnia}%`)
         .limit(1)

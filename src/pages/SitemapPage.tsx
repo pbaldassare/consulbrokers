@@ -17,7 +17,7 @@ const ruoli = [
     icon: Shield,
     color: "border-red-500 bg-red-50 dark:bg-red-950/30",
     badgeColor: "bg-red-500 text-white",
-    descrizione: "Accesso totale al sistema. Gestisce utenti, sedi, compagnie, tabelle base, backup, manutenzione, template e impostazioni. Tutti i permessi sono implicitamente attivi.",
+    descrizione: "Accesso totale al sistema. Gestisce utenti, sedi, agenzie, tabelle base, backup, manutenzione, template e impostazioni. Tutti i permessi sono implicitamente attivi.",
     mansioni: [
       "Creazione e gestione utenti interni",
       "Configurazione sedi e agenzie",
@@ -34,7 +34,7 @@ const ruoli = [
     icon: BarChart3,
     color: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
     badgeColor: "bg-amber-500 text-white",
-    descrizione: "Area finanziaria e contabilità generale. Supervisione economico-finanziaria dell'compagnia.",
+    descrizione: "Area finanziaria e contabilità generale. Supervisione economico-finanziaria dell'agenzia.",
     mansioni: [
       "Piano dei conti e primanota generale",
       "Scadenziario e gestione fornitori",

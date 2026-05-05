@@ -44,9 +44,9 @@ const ImportProvvigioniTab = () => {
   const [righe, setRighe] = useState<RigaConAzione[]>([]);
 
   const { data: compagnie = [] } = useQuery({
-    queryKey: ["compagnie-select"],
+    queryKey: ["agenzie-select"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").order("nome");
       return data || [];
     },
   });
@@ -201,7 +201,7 @@ const ImportProvvigioniTab = () => {
                 options={compagniaOptions}
                 value={selectedCompagnia}
                 onValueChange={setSelectedCompagnia}
-                placeholder="Seleziona compagnia..."
+                placeholder="Seleziona agenzia..."
               />
             </div>
             <div className="space-y-2">

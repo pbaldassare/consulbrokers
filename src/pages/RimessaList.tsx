@@ -127,7 +127,7 @@ const RimessaList = () => {
                           className="h-7 text-xs text-destructive hover:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Annullare la rimessa per ${r.compagnie?.nome || "questa compagnia"}? I titoli torneranno nel riepilogo.`)) {
+                            if (window.confirm(`Annullare la rimessa per ${r.compagnie?.nome || "questa agenzia"}? I titoli torneranno nel riepilogo.`)) {
                               revertMutation.mutate(r.id);
                             }
                           }}

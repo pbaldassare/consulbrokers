@@ -37,7 +37,7 @@ interface ContoBancario {
 
 const TIPI = [
   { value: "incasso_clienti", label: "Incasso clienti" },
-  { value: "compagnia", label: "Agenzia" },
+  { value: "agenzia", label: "Agenzia" },
   { value: "provvigioni", label: "Provvigioni" },
   { value: "generico", label: "Generico" },
 ];

@@ -18,7 +18,7 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; label: string }
   prospect: { icon: User, label: "Prospect" },
   titoli: { icon: FileText, label: "Titoli" },
   sinistri: { icon: AlertTriangle, label: "Sinistri" },
-  compagnie: { icon: Building2, label: "Compagnie" },
+  compagnie: { icon: Building2, label: "Agenzie" },
   prodotti: { icon: Package, label: "Prodotti" },
   trattative: { icon: Banknote, label: "Trattative" },
   rimesse: { icon: FileText, label: "Rimesse" },
@@ -105,16 +105,16 @@ export default function GlobalSearch() {
       useFts
         ? supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
         : supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").or(`numero_sinistro.ilike.${like},descrizione.ilike.${like}`).limit(5),
-      supabase.from("compagnie").select("id, nome, codice").or(`nome.ilike.${like},codice.ilike.${like}`).limit(5),
+      supabase.from("agenzie").select("id, nome, codice").or(`nome.ilike.${like},codice.ilike.${like}`).limit(5),
       supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto").or(`nome_prodotto.ilike.${like},codice_prodotto.ilike.${like}`).limit(5),
-      supabase.from("trattative").select("id, prodotto, compagnia, stato").or(`prodotto.ilike.${like},compagnia.ilike.${like}`).limit(5),
+      supabase.from("trattative").select("id, prodotto, agenzia, stato").or(`prodotto.ilike.${like},compagnia.ilike.${like}`).limit(5),
     ]);
 
     clienti.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: `${c.nome || ""} ${c.cognome || ""}`.trim(), sottotitolo: `${c.email || ""} · ${c.ruolo || ""}`, categoria: "clienti", link: `/prospect/${c.id}` }));
     prospect.data?.forEach((p: any) => allResults.push({ id: p.id, titolo: `${p.nome || ""} ${p.cognome || ""}`.trim(), sottotitolo: `${p.stato} · ${p.email || ""}`, categoria: "prospect", link: `/prospect/${p.id}` }));
     titoli.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `Titolo ${t.numero_titolo || "—"}`, sottotitolo: `${t.stato} · €${t.premio_lordo || 0}`, categoria: "titoli", link: `/titoli/${t.id}` }));
     sinistri.data?.forEach((s: any) => allResults.push({ id: s.id, titolo: `Sinistro ${s.numero_sinistro || "—"}`, sottotitolo: `${s.stato} · ${s.descrizione?.slice(0, 40) || ""}`, categoria: "sinistri", link: `/sinistri/${s.id}` }));
-    compagnie.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: c.nome, sottotitolo: c.codice || "—", categoria: "compagnie", link: `/compagnie` }));
+    compagnie.data?.forEach((c: any) => allResults.push({ id: c.id, titolo: c.nome, sottotitolo: c.codice || "—", categoria: "agenzie", link: `/compagnie` }));
     prodotti.data?.forEach((p: any) => allResults.push({ id: p.id, titolo: p.nome_prodotto, sottotitolo: p.codice_prodotto || "—", categoria: "prodotti", link: `/compagnie` }));
     trattative.data?.forEach((t: any) => allResults.push({ id: t.id, titolo: `${t.prodotto || "Trattativa"}`, sottotitolo: `${t.stato} · ${t.compagnia || ""}`, categoria: "trattative", link: `/trattative` }));
 
@@ -152,7 +152,7 @@ export default function GlobalSearch() {
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => query.length >= 2 && setOpen(true)}
-          placeholder="Cerca cliente, titolo, sinistro, compagnia..."
+          placeholder="Cerca cliente, titolo, sinistro, agenzia..."
           className="pl-9 pr-8 h-9 bg-muted/50 border-transparent focus:border-border"
         />
         {query && (

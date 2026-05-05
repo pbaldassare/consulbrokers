@@ -168,7 +168,7 @@ const RimessaDetail = () => {
 
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Compagnia</p><p className="text-lg font-bold">{r.compagnie?.nome}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Agenzia</p><p className="text-lg font-bold">{r.compagnie?.nome}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Totale Importi</p><p className="text-lg font-bold font-mono">€ {r.totale_importi?.toFixed(2)}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Titoli Inclusi</p><p className="text-lg font-bold">{dettagli.length}</p></CardContent></Card>
       </div>

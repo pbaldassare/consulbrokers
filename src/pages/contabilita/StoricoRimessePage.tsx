@@ -34,9 +34,9 @@ const StoricoRimessePage = () => {
   const queryClient = useQueryClient();
 
   const { data: compagnie } = useQuery({
-    queryKey: ["compagnie-storico-rimesse"],
+    queryKey: ["agenzie-storico-rimesse"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -145,7 +145,7 @@ const StoricoRimessePage = () => {
           {hasFilters && <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => setFilters({ ...defaultFilters })}><RotateCcw className="h-3 w-3 mr-1" /> Azzera</Button>}
         </div>
         <div className="flex flex-wrap gap-3 items-end">
-          <FilterSearchableSelect value={filters.compagnia_id} onValueChange={(v) => set({ compagnia_id: v })} options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))} placeholder="Compagnia" allLabel="Tutte le compagnie" className="w-[240px]" />
+          <FilterSearchableSelect value={filters.compagnia_id} onValueChange={(v) => set({ compagnia_id: v })} options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))} placeholder="Agenzia" allLabel="Tutte le agenzie" className="w-[240px]" />
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
         </div>
