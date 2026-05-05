@@ -206,6 +206,12 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     return { netto, lordo, tasse: round2(lordo - netto), imposta, ssn, tasseAcc };
   }, [voci, aliquotaProv]);
 
+  useEffect(() => {
+    if (isLoading) return;
+    onTotaliChange?.({ netto: totali.netto, tasse: totali.tasse, lordo: totali.lordo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totali.netto, totali.tasse, totali.lordo, isLoading]);
+
   const codiciPresenti = new Set(voci.map((v) => (v.codice_garanzia || "").toUpperCase()));
   const catalogoDisponibile = (catalogo as any[]).filter(
     (g) => !codiciPresenti.has(String(g.codice).toUpperCase()) && String(g.codice).toUpperCase() !== RCA_CODE,
