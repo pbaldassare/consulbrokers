@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Briefcase, Users, UserCog, Building2, CalendarIcon } from "lucide-react";
+import { Plus, Search, Briefcase, Users, UserCog, Building2, CalendarIcon, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -146,6 +147,7 @@ const AnagraficheInternePage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingEditId, setPendingEditId] = useState<string | null>(searchParams.get("edit"));
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const isAnagraficaTab = (TIPI as readonly { value: string }[]).some(t => t.value === activeTab);
   const tipoAnagrafica = isAnagraficaTab ? (activeTab as TipoAnagrafica) : "account_executive";
@@ -249,7 +251,7 @@ const AnagraficheInternePage = () => {
       toast.success("Anagrafica creata con successo");
     },
     onError: (e: Error) => {
-      toast.error("Errore");
+      toast.error(e?.message || "Errore durante la creazione");
     },
   });
 
@@ -317,7 +319,7 @@ const AnagraficheInternePage = () => {
       toast.success("Anagrafica aggiornata con successo");
     },
     onError: (e: Error) => {
-      toast.error("Errore durante l'aggiornamento");
+      toast.error(e?.message || "Errore durante l'aggiornamento");
     },
   });
 
@@ -391,7 +393,51 @@ const AnagraficheInternePage = () => {
       const { error } = await supabase.from("anagrafiche_professionali").update({ attivo }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      toast.success(vars.attivo ? "Anagrafica attivata" : "Anagrafica disattivata");
+    },
+    onError: (e: Error) => toast.error(e?.message || "Errore aggiornamento stato"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Pre-check: titoli collegati come produttore
+      const { count, error: countErr } = await supabase
+        .from("titoli")
+        .select("id", { count: "exact", head: true })
+        .eq("produttore_id", id);
+      if (countErr) throw countErr;
+      if ((count ?? 0) > 0) {
+        const err: any = new Error(
+          `Impossibile eliminare: l'anagrafica è collegata a ${count} polizze/titoli. Disattivala invece di eliminarla.`
+        );
+        err.linkedCount = count;
+        throw err;
+      }
+      const { error } = await supabase.from("anagrafiche_professionali").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      setConfirmDeleteOpen(false);
+      setDialogOpen(false);
+      setEditingId(null);
+      setForm(emptyForm);
+      toast.success("Anagrafica eliminata");
+    },
+    onError: (e: any) => {
+      setConfirmDeleteOpen(false);
+      if (e?.linkedCount && editingId) {
+        const id = editingId;
+        toast.error(e.message, {
+          action: { label: "Disattiva ora", onClick: () => toggleMutation.mutate({ id, attivo: false }) },
+          duration: 8000,
+        });
+      } else {
+        toast.error(e?.message || "Errore durante l'eliminazione");
+      }
+    },
   });
 
   const filtered = items.filter((item) => {
@@ -515,7 +561,7 @@ const AnagraficheInternePage = () => {
       ].filter(Boolean);
       const bancaParts = [item.banca_riga1, item.banca_riga2, item.banca_riga3].filter(Boolean);
       return (
-         <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
+         <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : item.attivo === false ? "opacity-60" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">{item.ragione_sociale || item.cognome || item.nome || "—"}</TableCell>
           <TableCell>{item.sigla || "—"}</TableCell>
@@ -530,8 +576,11 @@ const AnagraficheInternePage = () => {
           <TableCell className="text-sm">
             {bancaParts.length > 0 ? bancaParts.map((p, i) => <div key={i} className="text-xs">{p}</div>) : "—"}
           </TableCell>
-          <TableCell className="text-center">
-            {item.annullato ? <Badge variant="destructive" className="text-xs">A</Badge> : <Badge variant="secondary" className="text-xs">—</Badge>}
+          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center gap-2">
+              <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+              {item.annullato && <Badge variant="destructive" className="text-xs">A</Badge>}
+            </div>
           </TableCell>
         </TableRow>
       );
@@ -539,7 +588,7 @@ const AnagraficheInternePage = () => {
 
     if (isCorr || isNewCommercial) {
       return (
-        <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
+        <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : item.attivo === false ? "opacity-60" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">
             {item.cognome || item.ragione_sociale || "—"}
@@ -559,8 +608,8 @@ const AnagraficheInternePage = () => {
             {!item.telefono && !item.email && "—"}
           </TableCell>
           <TableCell className="text-sm text-xs">{item.iban || "—"}</TableCell>
-          <TableCell className="text-center">
-            {item.annullato ? <Badge variant="destructive" className="text-xs">Ann.</Badge> : <Badge variant="secondary" className="text-xs">Attivo</Badge>}
+          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
           </TableCell>
         </TableRow>
       );
@@ -928,15 +977,45 @@ const AnagraficheInternePage = () => {
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
             {renderFormFields()}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
-              </Button>
+            <DialogFooter className="sm:justify-between gap-2">
+              <div>
+                {editingId && (
+                  <Button type="button" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={deleteMutation.isPending}>
+                    <Trash2 className="w-4 h-4 mr-2" />Elimina
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questa anagrafica?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L'azione è irreversibile. Se l'anagrafica è collegata a polizze esistenti l'eliminazione verrà bloccata: in quel caso usa la disattivazione.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (editingId) deleteMutation.mutate(editingId); }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Eliminazione..." : "Elimina definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
