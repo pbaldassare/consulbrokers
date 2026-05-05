@@ -759,11 +759,21 @@ const AnagraficheInternePage = () => {
               </div>
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
             </TabsContent>
-            <TabsContent value="provvigioni" className="space-y-3 mt-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
-                <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
-                <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+            <TabsContent value="provvigioni" className="space-y-4 mt-3">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Default Produttore (fallback)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                  <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
+                  <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Provvigioni per Ramo</p>
+                <ProduttoreProvvigioniRamoTab
+                  anagraficaId={editingId}
+                  defaults={{ base: form.percentuale_base, consulenza: form.percentuale_consulenza, ra: form.percentuale_ra }}
+                />
               </div>
             </TabsContent>
             <TabsContent value="banca" className="space-y-3 mt-3">
