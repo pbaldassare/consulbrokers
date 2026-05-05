@@ -319,7 +319,7 @@ const AnagraficheInternePage = () => {
       toast.success("Anagrafica aggiornata con successo");
     },
     onError: (e: Error) => {
-      toast.error("Errore durante l'aggiornamento");
+      toast.error(e?.message || "Errore durante l'aggiornamento");
     },
   });
 
