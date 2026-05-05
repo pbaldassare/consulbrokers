@@ -567,15 +567,81 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       {v.is_rca_principale && (
                         <>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
-                            <TableCell className="pl-10">↳ Imposta provinciale ({aliquotaProv}%)</TableCell>
+                            <TableCell className="pl-10">
+                              <span className="inline-flex items-center gap-1.5">
+                                ↳ Imposta provinciale ({aliquotaProv}%)
+                                {calc.overrideImposta && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5 border-amber-400 text-amber-800">
+                                    <PencilLine className="h-2.5 w-2.5" /> manuale
+                                  </Badge>
+                                )}
+                              </span>
+                            </TableCell>
                             <TableCell colSpan={2}></TableCell>
-                            <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.imposta)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number" step="0.01" inputMode="decimal"
+                                  key={`ipt-${v.id}-${calc.imposta}`}
+                                  defaultValue={calc.imposta}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value || 0);
+                                    if (Math.abs(val - calc.imposta) < 0.01) return;
+                                    handleImpostaOverrideBlur(v, val);
+                                  }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                  className="h-7 text-right w-24 font-mono tabular-nums"
+                                />
+                                {calc.overrideImposta && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-6 w-6"
+                                    title="Ripristina calcolo automatico"
+                                    onClick={() => handleResetOverride(v, "imposta")}
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
-                            <TableCell className="pl-10">↳ Contributo SSN 10,5%</TableCell>
+                            <TableCell className="pl-10">
+                              <span className="inline-flex items-center gap-1.5">
+                                ↳ Contributo SSN 10,5%
+                                {calc.overrideSsn && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5 border-amber-400 text-amber-800">
+                                    <PencilLine className="h-2.5 w-2.5" /> manuale
+                                  </Badge>
+                                )}
+                              </span>
+                            </TableCell>
                             <TableCell colSpan={2}></TableCell>
-                            <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.ssn)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number" step="0.01" inputMode="decimal"
+                                  key={`ssn-${v.id}-${calc.ssn}`}
+                                  defaultValue={calc.ssn}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value || 0);
+                                    if (Math.abs(val - calc.ssn) < 0.01) return;
+                                    handleSsnOverrideBlur(v, val);
+                                  }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                  className="h-7 text-right w-24 font-mono tabular-nums"
+                                />
+                                {calc.overrideSsn && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-6 w-6"
+                                    title="Ripristina calcolo automatico"
+                                    onClick={() => handleResetOverride(v, "ssn")}
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
                         </>
