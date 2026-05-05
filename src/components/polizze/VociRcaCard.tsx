@@ -111,6 +111,18 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     },
   });
 
+  // Carico anche l'altro lato (Firma↔Quietanza) per evidenziare disallineamenti di voci
+  const { data: vociAltroLato = [] } = useQuery({
+    queryKey: ["voci-rca", titoloId, isQuietanza ? "firma" : "quietanza"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("premi_garanzia_polizza" as any)
+        .select("codice_garanzia, firma, is_rca_principale")
+        .eq("titolo_id", titoloId)
+        .eq("tipo_premio", isQuietanza ? "firma" : "quietanza");
+      return (data as any[]) || [];
+    },
+  });
   const invalidateBoth = () => {
     qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "firma"] });
     qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "quietanza"] });
@@ -203,6 +215,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   });
 
   const handleNettoBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Il premio netto deve essere ≥ 0");
+      return;
+    }
+    if (value > 1_000_000) {
+      toast.error("Premio netto fuori scala (max 1.000.000 €)");
+      return;
+    }
     const netto = round2(value);
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
     upsertMut.mutate({
@@ -215,6 +235,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   };
 
   const handleAliquotaBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0 || value > 100) {
+      toast.error("Aliquota tasse deve essere tra 0 e 100%");
+      return;
+    }
     const calc = calcolaLordo({ ...v, aliquota_tasse_pct: value }, aliquotaProv);
     upsertMut.mutate({
       id: v.id,
@@ -224,6 +248,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   };
 
   const handleAliquotaProvChange = (val: number) => {
+    if (isNaN(val) || val < 0 || val > 50) {
+      toast.error("Imposta provinciale deve essere tra 0 e 50%");
+      return;
+    }
     setAliquotaProv(val);
     const rca = voci.find((v) => v.is_rca_principale);
     if (rca) {
@@ -264,6 +292,16 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   const delta = premioLordoTitolo == null ? 0 : round2(totali.lordo - Number(premioLordoTitolo));
   const quadra = premioLordoTitolo == null || Math.abs(delta) < 0.01;
 
+  // Verifica quadratura interna (netto + tasse = lordo)
+  const quadraInterno = Math.abs(round2(totali.netto + totali.tasse) - totali.lordo) < 0.01;
+
+  // Differenze di composizione tra Firma e Quietanza
+  const codiciSet = new Set(voci.map((v) => (v.codice_garanzia || "").toUpperCase()));
+  const codiciAltro = new Set((vociAltroLato as any[]).map((v) => (v.codice_garanzia || "").toUpperCase()));
+  const mancanti = [...codiciAltro].filter((c) => !codiciSet.has(c));
+  const inEccesso = [...codiciSet].filter((c) => !codiciAltro.has(c));
+  const disallineamentoVoci = mancanti.length + inEccesso.length;
+
   return (
     <>
       <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
@@ -280,6 +318,15 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
               {isQuietanza && !voci.some((v) => v.quietanza_personalizzata) && (
                 <Badge variant="outline" className="ml-1 text-[10px] border-emerald-400 text-emerald-800">
                   Sincronizzata
+                </Badge>
+              )}
+              {disallineamentoVoci > 0 && (
+                <Badge
+                  variant="outline"
+                  className="ml-1 text-[10px] gap-1 border-orange-400 text-orange-800 bg-orange-50"
+                  title={`Voci diverse rispetto a ${isQuietanza ? "Firma" : "Quietanza"}: ${[...mancanti, ...inEccesso].join(", ")}`}
+                >
+                  <AlertCircle className="h-3 w-3" /> {disallineamentoVoci} voce{disallineamentoVoci > 1 ? "i" : ""} disallineata
                 </Badge>
               )}
             </CardTitle>
@@ -512,6 +559,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
               <p className="text-base sm:text-xl font-bold font-mono tabular-nums text-teal-900">{fmtEur(totali.lordo)}</p>
               {premioLordoTitolo != null && !quadra && (
                 <p className="text-[11px] text-amber-700 mt-1">Δ vs polizza: {fmtEur(delta)}</p>
+              )}
+              {!quadraInterno && (
+                <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Netto + Tasse ≠ Lordo (errore di arrotondamento)
+                </p>
               )}
             </div>
           </div>
