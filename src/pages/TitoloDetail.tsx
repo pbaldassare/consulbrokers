@@ -2313,21 +2313,15 @@ const TitoloDetail = () => {
             </div>
 
             {/* VALUTA & FLAGS */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t">
               <div>
                 <Label className="text-xs">Valuta</Label>
                 <SearchableSelect
                   options={valutaOpts}
                   value={importiForm.valuta}
-                  onValueChange={(v) => setImportiForm({ ...importiForm, valuta: v, cambio: v === "EUR" ? "1" : importiForm.cambio })}
+                  onValueChange={(v) => setImportiForm({ ...importiForm, valuta: v, cambio: "1" })}
                   placeholder="Valuta"
                 />
-              </div>
-              <div>
-                <Label className="text-xs">Cambio</Label>
-                <Input type="number" step="0.0001" value={importiForm.cambio}
-                  disabled={importiForm.valuta === "EUR"}
-                  onChange={(e) => setImportiForm({ ...importiForm, cambio: e.target.value })} />
               </div>
               <div className="flex items-center gap-2 pt-5">
                 <Switch checked={importiForm.indicizzata}
