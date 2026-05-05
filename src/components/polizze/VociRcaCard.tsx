@@ -319,6 +319,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 <Badge variant="outline" className="ml-1 text-[10px] border-emerald-400 text-emerald-800">
                   Sincronizzata
                 </Badge>
+              {disallineamentoVoci > 0 && (
+                <Badge
+                  variant="outline"
+                  className="ml-1 text-[10px] gap-1 border-orange-400 text-orange-800 bg-orange-50"
+                  title={`Voci diverse rispetto a ${isQuietanza ? "Firma" : "Quietanza"}: ${[...mancanti, ...inEccesso].join(", ")}`}
+                >
+                  <AlertCircle className="h-3 w-3" /> {disallineamentoVoci} voce{disallineamentoVoci > 1 ? "i" : ""} disallineata
+                </Badge>
               )}
             </CardTitle>
             <div className="flex items-center gap-2 text-xs sm:text-sm">
