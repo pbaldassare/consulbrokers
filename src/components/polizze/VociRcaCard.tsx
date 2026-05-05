@@ -480,9 +480,15 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     toast.success(`Aliquota accessorie aggiornata a ${nuovaAliq}%`);
   };
 
+  // Merge draft (editing live) sui dati salvati per ricalcolare totali in tempo reale
+  const vociMerged = useMemo(
+    () => voci.map((v) => ({ ...v, ...(draftVoci[v.id] || {}) })),
+    [voci, draftVoci],
+  );
+
   const totali = useMemo(() => {
     let netto = 0, lordo = 0, imposta = 0, ssn = 0, tasseAcc = 0;
-    voci.forEach((v) => {
+    vociMerged.forEach((v) => {
       const c = calcolaLordo(v, aliquotaProv);
       netto = round2(netto + c.netto);
       lordo = round2(lordo + c.lordo);
@@ -491,7 +497,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       if (!v.is_rca_principale) tasseAcc = round2(tasseAcc + (c.lordo - c.netto));
     });
     return { netto, lordo, tasse: round2(lordo - netto), imposta, ssn, tasseAcc };
-  }, [voci, aliquotaProv]);
+  }, [vociMerged, aliquotaProv]);
 
   useEffect(() => {
     if (isLoading) return;
