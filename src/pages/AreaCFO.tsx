@@ -843,7 +843,8 @@ const AreaCFO = () => {
           <CfoAiChat filters={filterParams} />
         </TabsContent>
 
-
+        {/* REPORT */}
+        <TabsContent value="report" className="space-y-4 mt-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">Genera Report Titoli</CardTitle>
