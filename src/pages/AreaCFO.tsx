@@ -1074,6 +1074,8 @@ const AreaCFO = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CfoDrillDownDialog state={drill} onClose={closeDrill} baseFilters={filterParams} />
     </div>
   );
 };
