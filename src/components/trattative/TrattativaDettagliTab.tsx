@@ -65,7 +65,7 @@ export const TrattativaDettagliTab = ({ trattativa, onSaved, onEvento }: Props) 
     },
   });
 
-  const { data: compagnie = [] } = useQuery({
+  const { data: agenzie = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -168,7 +168,7 @@ export const TrattativaDettagliTab = ({ trattativa, onSaved, onEvento }: Props) 
           <SearchableSelect options={rami} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona ramo..." />
         </div>
         <div className="space-y-1.5">
-          <Label>Compagnia</Label>
+          <Label>Agenzia</Label>
           <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Seleziona compagnia..." />
         </div>
         <div className="space-y-1.5">

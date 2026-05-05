@@ -842,7 +842,7 @@ function TrattativeClienteSection({ clienteId }: { clienteId: string }) {
                 <SearchableSelect options={ramiOpts} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona ramo..." />
               </div>
               <div className="space-y-1.5">
-                <Label>Compagnia</Label>
+                <Label>Agenzia</Label>
                 <SearchableSelect options={compagnieOpts} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Seleziona compagnia..." />
               </div>
               <div className="space-y-1.5">
@@ -1237,7 +1237,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, compagnie(nome))")
+        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, agenzie(nome))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -1593,7 +1593,7 @@ export default function ClienteDetail() {
                     <TableRow>
                       <TableHead>N. Polizza</TableHead>
                       <TableHead>Prodotto</TableHead>
-                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Agenzia</TableHead>
                       <TableHead>Premio €</TableHead>
                       <TableHead>Incassato €</TableHead>
                       <TableHead>Stato</TableHead>

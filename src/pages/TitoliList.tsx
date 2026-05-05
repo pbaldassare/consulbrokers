@@ -69,7 +69,7 @@ const TitoliList = () => {
     },
   });
 
-  const { data: compagnie = [] } = useQuery({
+  const { data: agenzie = [] } = useQuery({
     queryKey: ["compagnie_select"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_statistico").eq("attiva", true).order("nome");
@@ -231,7 +231,7 @@ const TitoliList = () => {
     }
   };
 
-  // Gruppi statistici unici dalle compagnie
+  // Gruppi statistici unici dalle agenzie
   const gruppiStatistici = [...new Set(compagnie.map(c => c.gruppo_statistico).filter(Boolean))].sort();
 
   return (
@@ -390,11 +390,11 @@ const TitoliList = () => {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="w-28 text-right text-sm shrink-0">Compagnia</Label>
+              <Label className="w-28 text-right text-sm shrink-0">Agenzia</Label>
               <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
                 <SelectTrigger className="flex-1"><SelectValue placeholder="Tutte" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tutte le compagnie</SelectItem>
+                  <SelectItem value="all">Tutte le agenzie</SelectItem>
                   {compagnie.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.codice ? `${c.codice} - ` : ""}{c.nome}</SelectItem>
                   ))}
@@ -463,7 +463,7 @@ const TitoliList = () => {
                   <TableRow>
                     <TableHead>N. Polizza</TableHead>
                     <TableHead>Prodotto</TableHead>
-                    <TableHead>Compagnia</TableHead>
+                    <TableHead>Agenzia</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Produttore</TableHead>
                     <TableHead>Premio €</TableHead>

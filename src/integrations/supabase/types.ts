@@ -229,7 +229,7 @@ export type Database = {
             foreignKeyName: "anagrafiche_professionali_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -1486,7 +1486,7 @@ export type Database = {
             foreignKeyName: "compagnia_rapporti_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -2180,7 +2180,7 @@ export type Database = {
             foreignKeyName: "dettaglio_riparto_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -2371,7 +2371,7 @@ export type Database = {
             foreignKeyName: "document_folders_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -2779,7 +2779,7 @@ export type Database = {
             foreignKeyName: "flussi_compagnia_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -3456,7 +3456,7 @@ export type Database = {
           clausole_particolari?: string | null
           clienti?: boolean | null
           codice: string
-          compagnie?: boolean | null
+          agenzie?: boolean | null
           contrattuali?: boolean | null
           created_at?: string | null
           descrizione: string
@@ -3479,7 +3479,7 @@ export type Database = {
           clausole_particolari?: string | null
           clienti?: boolean | null
           codice?: string
-          compagnie?: boolean | null
+          agenzie?: boolean | null
           contrattuali?: boolean | null
           created_at?: string | null
           descrizione?: string
@@ -4620,7 +4620,7 @@ export type Database = {
             foreignKeyName: "prodotti_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
         ]
@@ -5020,7 +5020,7 @@ export type Database = {
             foreignKeyName: "provvigioni_compagnia_ramo_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
         ]
@@ -5351,7 +5351,7 @@ export type Database = {
             foreignKeyName: "rimessa_premi_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -5622,7 +5622,7 @@ export type Database = {
             foreignKeyName: "sinistri_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -6353,7 +6353,7 @@ export type Database = {
             foreignKeyName: "titoli_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -6661,7 +6661,7 @@ export type Database = {
             foreignKeyName: "trattative_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {
@@ -7159,7 +7159,7 @@ export type Database = {
             foreignKeyName: "titoli_compagnia_id_fkey"
             columns: ["compagnia_id"]
             isOneToOne: false
-            referencedRelation: "compagnie"
+            referencedRelation: "agenzie"
             referencedColumns: ["id"]
           },
           {

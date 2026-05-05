@@ -43,7 +43,7 @@ const ImportProvvigioniTab = () => {
   const [saving, setSaving] = useState(false);
   const [righe, setRighe] = useState<RigaConAzione[]>([]);
 
-  const { data: compagnie = [] } = useQuery({
+  const { data: agenzie = [] } = useQuery({
     queryKey: ["compagnie-select"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
@@ -80,7 +80,7 @@ const ImportProvvigioniTab = () => {
     });
 
   const handleAnalyze = async () => {
-    if (!selectedCompagnia) return toast.error("Seleziona una compagnia");
+    if (!selectedCompagnia) return toast.error("Seleziona una agenzia");
     if (!pdfFile) return toast.error("Carica un PDF");
 
     setAnalyzing(true);
@@ -196,7 +196,7 @@ const ImportProvvigioniTab = () => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Compagnia</Label>
+              <Label>Agenzia</Label>
               <SearchableSelect
                 options={compagniaOptions}
                 value={selectedCompagnia}

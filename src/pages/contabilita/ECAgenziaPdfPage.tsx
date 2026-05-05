@@ -82,7 +82,7 @@ const ECAgenziaPdfPage = () => {
       }
       const { data } = await supabase.from("conti_bancari" as any)
         .select("iban, intestato_a, banca")
-        .eq("tipo", "compagnia")
+        .eq("tipo", "agenzia")
         .eq("is_default", true)
         .eq("attivo", true)
         .maybeSingle();
@@ -275,7 +275,7 @@ const ECAgenziaPdfPage = () => {
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-      // Salva in Archivio (entità: compagnia / agenzia)
+      // Salva in Archivio (entità: agenzia / agenzia)
       if (compagniaId) {
         const path = `${compagniaId}/ec_agenzia/${Date.now()}_${name}`;
         const { error: upErr } = await supabase.storage
@@ -287,7 +287,7 @@ const ECAgenziaPdfPage = () => {
           nome_file: name,
           path_storage: path,
           bucket_name: "documenti_generali",
-          entita_tipo: "compagnia",
+          entita_tipo: "agenzia",
           entita_id: compagniaId,
           categoria: "EC Agenzia",
           visibile_al_cliente: false,
@@ -297,7 +297,7 @@ const ECAgenziaPdfPage = () => {
 
         await logAttivita({
           azione: "stampa_ec_agenzia",
-          entita_tipo: "compagnia",
+          entita_tipo: "agenzia",
           entita_id: compagniaId,
           dettagli_json: { titoli: titoli?.length || 0, riferimento, periodo: periodoTesto },
         });

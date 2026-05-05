@@ -24,7 +24,7 @@ const PortafoglioStoricoPage = () => {
 
   const today = format(new Date(), "yyyy-MM-dd");
 
-  const { data: compagnie } = useQuery({
+  const { data: agenzie } = useQuery({
     queryKey: ["compagnie-lookup"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -145,11 +145,11 @@ const PortafoglioStoricoPage = () => {
         </Select>
         <Select value={filtroCompagnia} onValueChange={(v) => { setFiltroCompagnia(v); setPage(0); }}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Compagnia" />
+            <SelectValue placeholder="Agenzia" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutte">Tutte le compagnie</SelectItem>
-            {compagnie?.map((c) => (
+            <SelectItem value="tutte">Tutte le agenzie</SelectItem>
+            {agenzie?.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
             ))}
           </SelectContent>
@@ -179,7 +179,7 @@ const PortafoglioStoricoPage = () => {
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead>Fraz</TableHead>

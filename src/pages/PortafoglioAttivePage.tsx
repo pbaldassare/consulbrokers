@@ -157,7 +157,7 @@ const PortafoglioAttivePage = () => {
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead>Fraz</TableHead>

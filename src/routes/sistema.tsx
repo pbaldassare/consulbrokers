@@ -37,7 +37,7 @@ export const sistemaRoutes = (
     <Route path="/manutenzione" element={<RoleGuard allowedRoles={["admin"]}><ManutenzionePage /></RoleGuard>} />
     <Route path="/tabelle-base" element={<RoleGuard allowedRoles={["admin"]}><TabelleBasePage /></RoleGuard>} />
     <Route path="/compagnie" element={<RoleGuard allowedRoles={["admin"]}><CompagnieList /></RoleGuard>} />
-    {/* Categorie e Prodotti rimossi dal menu — gestiti nella tab Compagnie */}
+    {/* Categorie e Prodotti rimossi dal menu — gestiti nella tab Agenzie */}
     <Route path="/gestione-uffici" element={<RoleGuard allowedRoles={["admin"]}><GestioneUfficiPage /></RoleGuard>} />
     <Route path="/template" element={<RoleGuard allowedRoles={["admin", "ufficio"]}><TemplatePage /></RoleGuard>} />
     <Route path="/anomalie-sistema" element={<RoleGuard allowedRoles={["admin", "cfo", "ufficio"]}><AnomalieList /></RoleGuard>} />
@@ -61,8 +61,8 @@ export const sistemaRoutes = (
     <Route path="/spedizioni" element={<SpedizioniList />} />
     <Route path="/notifiche" element={<NotifichePage />} />
     <Route path="/privacy" element={<PrivacyConsensi />} />
-    <Route path="/flussi-compagnie" element={<FlussiCompagnieList />} />
-    <Route path="/flussi-compagnie/:id" element={<FlussoCompagniaDetail />} />
+    <Route path="/flussi-agenzie" element={<FlussiCompagnieList />} />
+    <Route path="/flussi-agenzie/:id" element={<FlussoCompagniaDetail />} />
     <Route path="/pagamenti-provvigioni" element={<PagamentiProvvigioniList />} />
     <Route path="/pagamenti-provvigioni/:id" element={<PagamentoProvvigioneDetail />} />
     <Route path="/report" element={<ReportPage />} />

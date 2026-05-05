@@ -207,7 +207,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Network className="w-5 h-5 text-primary" />
-              Rapporti con compagnie — <span className="text-primary">{compagniaNome}</span>
+              Rapporti con agenzie — <span className="text-primary">{compagniaNome}</span>
               <Badge variant="secondary" className="ml-2">{rapporti.length}</Badge>
             </DialogTitle>
           </DialogHeader>
@@ -231,7 +231,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Compagnia</TableHead>
+                        <TableHead>Agenzia</TableHead>
                         <TableHead>Codice</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Rami</TableHead>
@@ -311,7 +311,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Compagnia *</Label>
+              <Label className="text-xs text-muted-foreground">Agenzia *</Label>
               <SearchableSelect
                 options={gruppiOptions}
                 value={form.gruppo_compagnia_id}
@@ -387,15 +387,15 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 value={form.conto_bancario_id}
                 onChange={(id) => setForm((p) => ({ ...p, conto_bancario_id: id }))}
                 tipi={["compagnia", "generico"]}
-                placeholder="Usa il conto della compagnia"
+                placeholder="Usa il conto della agenzia"
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Se valorizzato, sostituisce l'IBAN della compagnia per questo specifico rapporto. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
+                Se valorizzato, sostituisce l'IBAN della agenzia per questo specifico rapporto. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
               </p>
             </div>
 
             <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Referente in Compagnia</Label>
+              <Label className="text-sm font-medium">Referente in Agenzia</Label>
               <div className="grid grid-cols-3 gap-3">
                 <Input
                   placeholder="Nome referente"

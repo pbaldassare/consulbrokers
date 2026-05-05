@@ -20,7 +20,7 @@ const ClienteScadenze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, compagnie(nome), rami(descrizione)")
+        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, agenzie(nome), rami(descrizione)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .eq("stato", "attivo")
         .not("data_scadenza", "is", null)

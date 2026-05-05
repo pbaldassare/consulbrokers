@@ -166,7 +166,7 @@ const AnagraficheInternePage = () => {
     },
   });
 
-  const { data: compagnie = [] } = useQuery({
+  const { data: agenzie = [] } = useQuery({
     queryKey: ["compagnie_select"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -506,7 +506,7 @@ const AnagraficheInternePage = () => {
         <TableHead>Indirizzo</TableHead>
         <TableHead>Contatti</TableHead>
         <TableHead>Attenzione di / Mail</TableHead>
-        <TableHead>Compagnia</TableHead>
+        <TableHead>Agenzia</TableHead>
         <TableHead className="text-center">Attivo</TableHead>
       </TableRow>
     );
@@ -846,7 +846,7 @@ const AnagraficheInternePage = () => {
             <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
             <div><Label>Studio / Ufficio</Label><Input value={form.studio_ufficio} onChange={(e) => setForm({ ...form, studio_ufficio: e.target.value })} /></div>
             <div>
-              <Label>Compagnia</Label>
+              <Label>Agenzia</Label>
               <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
                 <SelectContent>

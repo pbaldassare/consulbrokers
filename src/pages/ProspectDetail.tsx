@@ -389,7 +389,7 @@ const ProspectDetail = () => {
                       <SearchableSelect options={ramiOptions} value={trattativaForm.ramo_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, ramo_id: v })} placeholder="Seleziona ramo..." />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Compagnia</Label>
+                      <Label>Agenzia</Label>
                       <SearchableSelect options={compagnieOptions} value={trattativaForm.compagnia_id} onValueChange={(v) => setTrattativaForm({ ...trattativaForm, compagnia_id: v })} placeholder="Seleziona compagnia..." />
                     </div>
                     <div className="space-y-1.5">

@@ -22,7 +22,7 @@ export const archiviRoutes = (
     <Route path="/archivi/clienti" element={<ClientiList />} />
     <Route path="/archivi/clienti/deduplica" element={<DeduplicaClientiPage />} />
     <Route path="/archivi/clienti/:id" element={<ClienteDetail />} />
-    <Route path="/archivi/anagrafiche-compagnie" element={<AnagraficheCompagniePage />} />
+    <Route path="/archivi/anagrafiche-agenzie" element={<AnagraficheCompagniePage />} />
     <Route path="/archivi/anagrafiche-amministrative" element={<AnagraficheInternePage />} />
     <Route path="/archivi/anagrafiche-interne" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />
     <Route path="/archivi/anagrafiche" element={<Navigate to="/archivi/anagrafiche-amministrative" replace />} />

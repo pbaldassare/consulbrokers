@@ -33,7 +33,7 @@ const StoricoRimessePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: compagnie } = useQuery({
+  const { data: agenzie } = useQuery({
     queryKey: ["compagnie-storico-rimesse"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -46,7 +46,7 @@ const StoricoRimessePage = () => {
     queryFn: async () => {
       let query = supabase
         .from("rimessa_premi")
-        .select("*, compagnie(nome, codice)", { count: "exact" })
+        .select("*, agenzie(nome, codice)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -119,8 +119,8 @@ const StoricoRimessePage = () => {
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Send className="w-5 h-5 text-primary" /></div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Storico Rimesse Compagnie</h1>
-          <p className="text-sm text-muted-foreground">Elenco di tutti i pagamenti alle compagnie</p>
+          <h1 className="text-2xl font-bold text-foreground">Storico Rimesse Agenzie</h1>
+          <p className="text-sm text-muted-foreground">Elenco di tutti i pagamenti alle agenzie</p>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ const StoricoRimessePage = () => {
         <Table>
           <TableHeader><TableRow>
             <TableHead className="w-[40px]"></TableHead>
-            <TableHead>Compagnia</TableHead>
+            <TableHead>Agenzia</TableHead>
             <TableHead>Data Pagamento</TableHead>
             <TableHead>IBAN</TableHead>
             <TableHead className="text-right">Totale</TableHead>

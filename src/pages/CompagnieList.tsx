@@ -35,7 +35,7 @@ const STATI_COMPAGNIA = ["Attivo", "Sospeso", "Non Operativo"];
 
 const TIPI_MANDATARIO = [
   "Direzione", "Gerenza", "Agenzia Generale", "Agente Monomandatario",
-  "Agente Multimandatario", "Broker", "Sub-Agente", "Compagnia Estera",
+  "Agente Multimandatario", "Broker", "Sub-Agente", "Agenzia Estera",
   "Agente Estero", "Broker Estero", "Lloyd's Coverholder", "Lloyd's Broker",
   "Lloyd's Service Company", "Altro",
 ];
@@ -279,7 +279,7 @@ function ProvvigioniTabContent({ compagniaId }: { compagniaId: string | null }) 
       setNewProvv({ categoria_id: "", percentuale: "" });
       toast.success("Provvigione per ramo creata");
     },
-    onError: (err: any) => toast.error(err.message?.includes("duplicate") ? "Ramo già configurato per questa compagnia" : "Errore nella creazione"),
+    onError: (err: any) => toast.error(err.message?.includes("duplicate") ? "Ramo già configurato per questa agenzia" : "Errore nella creazione"),
   });
 
   const updateMutation = useMutation({
@@ -542,7 +542,7 @@ function CompagniaFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
-                Compagnia di appartenenza <span className="text-destructive">*</span>
+                Agenzia di appartenenza <span className="text-destructive">*</span>
               </Label>
               <SearchableSelect
                 options={gruppiCompagnia}
@@ -582,7 +582,7 @@ function CompagniaFormDialog({
             <Label className="text-sm font-medium text-foreground">Conto Bancario</Label>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Conto bancario della compagnia</Label>
+            <Label className="text-xs text-muted-foreground">Conto bancario della agenzia</Label>
             <ContoBancarioSelect
               value={form.conto_bancario_id}
               onChange={(id) => setField("conto_bancario_id", id)}
@@ -655,7 +655,7 @@ function CompagniaFormDialog({
   );
 }
 
-// ── Tab Compagnie (Gruppi Compagnia nel DB) ──
+// ── Tab Agenzie (Gruppi Agenzia nel DB) ──
 
 interface GruppoForm {
   codice: string;
@@ -665,7 +665,7 @@ interface GruppoForm {
 
 const emptyGruppo: GruppoForm = { codice: "", descrizione: "", attivo: true };
 
-// ── Dialog: Agenzie collegate a una compagnia madre ──
+// ── Dialog: Agenzie collegate a una agenzia madre ──
 function AgenzieCollegateDialog({
   gruppoId,
   gruppoDescrizione,
@@ -843,7 +843,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => (g.descrizione || "").trim().toUpperCase() === norm)) {
-        throw new Error("Esiste già una compagnia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+        throw new Error("Esiste già una agenzia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
@@ -855,7 +855,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setCreateOpen(false);
       setForm(emptyGruppo);
-      toast.success("Compagnia creata");
+      toast.success("Agenzia creata");
     },
     onError: (e: any) => toast.error(e.message || "Errore creazione"),
   });
@@ -870,7 +870,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => g.id !== editId && (g.descrizione || "").trim().toUpperCase() === norm)) {
-        throw new Error("Esiste già una compagnia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+        throw new Error("Esiste già una agenzia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
@@ -884,7 +884,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       setEditOpen(false);
       setEditId(null);
       setForm(emptyGruppo);
-      toast.success("Compagnia aggiornata");
+      toast.success("Agenzia aggiornata");
     },
     onError: (e: any) => toast.error(e.message || "Errore aggiornamento"),
   });
@@ -898,14 +898,14 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       queryClient.invalidateQueries({ queryKey: ["compagnie-madri-list"] });
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setDeleteTarget(null);
-      toast.success("Compagnia eliminata");
+      toast.success("Agenzia eliminata");
     },
     onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
   });
 
   const openEdit = (g: any) => {
     if (g.is_pluri) {
-      toast.info("Compagnia di sistema (PLURIMANDATARIO): non modificabile.");
+      toast.info("Agenzia di sistema (PLURIMANDATARIO): non modificabile.");
       return;
     }
     setForm({ codice: g.codice || "", descrizione: g.descrizione || "", attivo: g.attivo ?? true });
@@ -915,7 +915,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
   const handleDeleteClick = (g: any) => {
     if (g.is_pluri) {
-      toast.error("Compagnia di sistema (PLURIMANDATARIO): non eliminabile.");
+      toast.error("Agenzia di sistema (PLURIMANDATARIO): non eliminabile.");
       return;
     }
     setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count });
@@ -957,13 +957,13 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
             <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
             <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyGruppo); }}>
               <DialogTrigger asChild>
-                <Button><Plus className="w-4 h-4 mr-2" />Nuova Compagnia</Button>
+                <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nuova Compagnia</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Nuova Agenzia</DialogTitle></DialogHeader>
                 {renderForm()}
                 <Button onClick={() => createMutation.mutate()} disabled={!form.descrizione || createMutation.isPending} className="w-full">
-                  {createMutation.isPending ? "Salvataggio..." : "Crea Compagnia"}
+                  {createMutation.isPending ? "Salvataggio..." : "Crea Agenzia"}
                 </Button>
               </DialogContent>
             </Dialog>
@@ -974,7 +974,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Layers className="w-5 h-5" />Compagnie ({filtered.length})
+            <Layers className="w-5 h-5" />Agenzie ({filtered.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1032,7 +1032,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-30"
                         disabled={g.is_pluri}
-                        title={g.is_pluri ? "Compagnia di sistema, non eliminabile" : "Elimina"}
+                        title={g.is_pluri ? "Agenzia di sistema, non eliminabile" : "Elimina"}
                         onClick={() => handleDeleteClick(g)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1041,7 +1041,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                   </TableRow>
                 ))}
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna compagnia trovata</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -1052,7 +1052,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) { setEditId(null); setForm(emptyGruppo); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Modifica Compagnia</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Modifica Agenzia</DialogTitle></DialogHeader>
           {renderForm()}
           <Button onClick={() => updateMutation.mutate()} disabled={!form.descrizione || updateMutation.isPending} className="w-full">
             {updateMutation.isPending ? "Salvataggio..." : "Salva Modifiche"}
@@ -1068,8 +1068,8 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
             <AlertDialogDescription>
               {deleteTarget && deleteTarget.count > 0 ? (
                 <>
-                  La compagnia <b>{deleteTarget.descrizione}</b> ha <b>{deleteTarget.count}</b> agenzie collegate.
-                  Riassegnale a un'altra compagnia prima di procedere all'eliminazione.
+                  La agenzia <b>{deleteTarget.descrizione}</b> ha <b>{deleteTarget.count}</b> agenzie collegate.
+                  Riassegnale a un'altra agenzia prima di procedere all'eliminazione.
                 </>
               ) : (
                 <>Stai per eliminare <b>{deleteTarget?.descrizione}</b>. L'operazione è irreversibile.</>
@@ -1113,10 +1113,10 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
-  const [activeTab, setActiveTab] = useState("compagnie");
+  const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
 
-  const { data: compagnie = [], isLoading } = useQuery({
+  const { data: agenzie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
     queryFn: async () => {
       const { data, error } = await supabase.from("compagnie").select("*").order("nome");
@@ -1165,7 +1165,7 @@ const CompagnieList = () => {
       queryClient.invalidateQueries({ queryKey: ["compagnie"] });
       setCreateOpen(false);
       setForm(emptyForm);
-      toast.success("Compagnia creata con successo");
+      toast.success("Agenzia creata con successo");
     },
     onError: () => toast.error("Errore nella creazione"),
   });
@@ -1180,7 +1180,7 @@ const CompagnieList = () => {
       queryClient.invalidateQueries({ queryKey: ["compagnie"] });
       setEditOpen(false);
       setEditId(null);
-      toast.success("Compagnia aggiornata");
+      toast.success("Agenzia aggiornata");
     },
     onError: () => toast.error("Errore nell'aggiornamento"),
   });
@@ -1221,9 +1221,9 @@ const CompagnieList = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Compagnie / Agenzie</h1>
+          <h1 className="text-2xl font-bold text-foreground">Agenzie / Agenzie</h1>
           <p className="text-muted-foreground">
-            Gestione compagnie (gruppi madre), agenzie e provvigioni —{" "}
+            Gestione agenzie (gruppi madre), agenzie e provvigioni —{" "}
             <span className="font-semibold">{compagnie.length}</span> agenzie totali
           </p>
         </div>
@@ -1261,8 +1261,8 @@ const CompagnieList = () => {
       {/* Main page tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
-          <TabsTrigger value="compagnie" className="gap-2">
-            <Layers className="w-4 h-4" />Compagnie
+          <TabsTrigger value="agenzie" className="gap-2">
+            <Layers className="w-4 h-4" />Agenzie
           </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
             <Building2 className="w-4 h-4" />Agenzie
@@ -1276,7 +1276,7 @@ const CompagnieList = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="compagnie" className="mt-4">
+        <TabsContent value="agenzie" className="mt-4">
           <CompagnieMadriTab onOpenAgenzia={handleOpenAgenziaById} />
         </TabsContent>
 
@@ -1328,7 +1328,7 @@ const CompagnieList = () => {
                       <TableHead>Codice</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Sede</TableHead>
-                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Agenzia</TableHead>
                       <TableHead>Comune</TableHead>
                       <TableHead>Prov</TableHead>
                       <TableHead>Stato</TableHead>
@@ -1372,7 +1372,7 @@ const CompagnieList = () => {
                               size="sm"
                               className="gap-1 h-7"
                               onClick={() => setRapportiTarget({ id: c.id, nome: c.nome })}
-                              title="Gestisci rapporti con compagnie"
+                              title="Gestisci rapporti con agenzie"
                             >
                               <Network className="w-3.5 h-3.5" />
                               {rc.attivi}{rc.tot > rc.attivi ? `/${rc.tot}` : ""}
@@ -1400,7 +1400,7 @@ const CompagnieList = () => {
 
       </Tabs>
 
-      {/* Dialog gestione rapporti N:N agenzia ↔ compagnia */}
+      {/* Dialog gestione rapporti N:N agenzia ↔ agenzia */}
       <RapportiCompagniaDialog
         open={!!rapportiTarget}
         onOpenChange={(v) => !v && setRapportiTarget(null)}

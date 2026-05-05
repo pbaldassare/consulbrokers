@@ -29,7 +29,7 @@ const FlussoCompagniaDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("flussi_compagnia" as any)
-        .select("*, compagnie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
+        .select("*, agenzie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -150,7 +150,7 @@ const FlussoCompagniaDetail = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/flussi-compagnie")}><ArrowLeft className="w-5 h-5" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/flussi-agenzie")}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">
             Flusso {flusso.tipo_flusso?.replace("_", " ")} — {(flusso.compagnie as any)?.nome}
@@ -164,7 +164,7 @@ const FlussoCompagniaDetail = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="pt-6">
-          <p className="text-xs text-muted-foreground">Compagnia</p>
+          <p className="text-xs text-muted-foreground">Agenzia</p>
           <p className="text-lg font-semibold">{(flusso.compagnie as any)?.nome || "-"}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6">

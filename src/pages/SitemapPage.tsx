@@ -20,7 +20,7 @@ const ruoli = [
     descrizione: "Accesso totale al sistema. Gestisce utenti, sedi, compagnie, tabelle base, backup, manutenzione, template e impostazioni. Tutti i permessi sono implicitamente attivi.",
     mansioni: [
       "Creazione e gestione utenti interni",
-      "Configurazione sedi e compagnie",
+      "Configurazione sedi e agenzie",
       "Gestione tabelle di base e parametri",
       "Backup, export dati e manutenzione",
       "Template email e comunicazioni",
@@ -72,7 +72,7 @@ const ruoli = [
     mansioni: [
       "Distinta giornaliera e cruscotto",
       "Quadratura premi e chiusura contabile",
-      "E/C clienti, compagnie e produttori",
+      "E/C clienti, agenzie e produttori",
       "Contabilità ufficio completa",
       
     ],
@@ -207,14 +207,14 @@ const sezioni = [
       { nome: "Duplicazione Polizza", desc: "Copia polizza esistente come base per nuova emissione", ruoli: ["admin", "ufficio"] },
       { nome: "Conferma Emittende", desc: "Conferma emissione polizze in attesa di validazione", ruoli: ["admin", "ufficio"] },
       { nome: "Titoli", desc: "Gestione titoli di incasso (quietanze, ricevute) collegati alle polizze", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "Rimessa Premi", desc: "Gestione rimesse premi alle compagnie con scadenze e saldi", ruoli: ["admin", "ufficio"] },
+      { nome: "Rimessa Premi", desc: "Gestione rimesse premi alle agenzie con scadenze e saldi", ruoli: ["admin", "ufficio"] },
     ],
   },
   {
     area: "Provvigioni",
     icon: Receipt,
     pagine: [
-      { nome: "Provvigioni Consul", desc: "Gestione provvigioni per sede con dettaglio per compagnia e ramo", ruoli: ["admin", "ufficio"] },
+      { nome: "Provvigioni Consul", desc: "Gestione provvigioni per sede con dettaglio per agenzia e ramo", ruoli: ["admin", "ufficio"] },
       { nome: "Pagamenti Provvigioni", desc: "Registrazione e monitoraggio pagamenti provvigioni ai produttori", ruoli: ["admin", "ufficio"] },
     ],
   },
@@ -222,7 +222,7 @@ const sezioni = [
     area: "Sinistri",
     icon: AlertTriangle,
     pagine: [
-      { nome: "Lista Sinistri", desc: "Elenco sinistri con filtri per stato, data, compagnia e tipo", ruoli: ["admin", "ufficio", "backoffice"] },
+      { nome: "Lista Sinistri", desc: "Elenco sinistri con filtri per stato, data, agenzia e tipo", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Dettaglio Sinistro", desc: "Scheda sinistro con cronologia, perizie, documenti e liquidazioni", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Doc Precontrattuale", desc: "Generazione documentazione precontrattuale obbligatoria", ruoli: ["admin", "ufficio"] },
     ],
@@ -239,7 +239,7 @@ const sezioni = [
       { nome: "E/C Clienti", desc: "Estratto conto per singolo cliente con saldo e movimenti", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Agenzie", desc: "Estratto conto verso agenzie/plurimandatarie con premi e provvigioni da rimettere", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Produttori", desc: "Estratto conto produttore con provvigioni maturate e liquidate", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "Import Provvigioni", desc: "Importazione file provvigioni da compagnie (PDF/Excel)", ruoli: ["admin", "ufficio"] },
+      { nome: "Import Provvigioni", desc: "Importazione file provvigioni da agenzie (PDF/Excel)", ruoli: ["admin", "ufficio"] },
       { nome: "Diff. Provvigioni", desc: "Analisi differenze tra provvigioni attese e ricevute", ruoli: ["admin", "ufficio"] },
       { nome: "Report IVA", desc: "Report IVA periodico per adempimenti fiscali", ruoli: ["admin", "ufficio", "contabilita"] },
     ],
@@ -265,8 +265,8 @@ const sezioni = [
     pagine: [
       { nome: "Estrazioni e Stampe", desc: "Hub centrale per report e stampe personalizzate", ruoli: ["admin", "ufficio"] },
       { nome: "Portafoglio per Cliente", desc: "Estrazione portafoglio raggruppato per cliente", ruoli: ["admin", "ufficio"] },
-      { nome: "Portafoglio per Compagnia", desc: "Estrazione portafoglio raggruppato per compagnia", ruoli: ["admin", "ufficio"] },
-      { nome: "Premi e Provvigioni", desc: "Report premi e provvigioni con filtri temporali e per compagnia", ruoli: ["admin", "ufficio"] },
+      { nome: "Portafoglio per Agenzia", desc: "Estrazione portafoglio raggruppato per agenzia", ruoli: ["admin", "ufficio"] },
+      { nome: "Premi e Provvigioni", desc: "Report premi e provvigioni con filtri temporali e per agenzia", ruoli: ["admin", "ufficio"] },
       { nome: "Premi Scoperti/Garantiti", desc: "Analisi premi scoperti vs garantiti per valutazione rischio", ruoli: ["admin", "ufficio"] },
       { nome: "E/C Clienti (Estrazioni)", desc: "Estratti conto clienti in formato esportabile", ruoli: ["admin", "ufficio"] },
     ],
@@ -278,7 +278,7 @@ const sezioni = [
       { nome: "Anomalie Sistema", desc: "Monitoraggio anomalie, errori e incongruenze nei dati", ruoli: ["admin", "cfo", "ufficio"] },
       { nome: "Backup & Export", desc: "Esportazione dati e backup del database", ruoli: ["admin"] },
       { nome: "Tabelle di Base", desc: "Gestione tabelle di lookup (rami, zone, indotti, settori, ecc.)", ruoli: ["admin"] },
-      { nome: "Compagnie", desc: "Anagrafica compagnie assicurative con categorie e prodotti", ruoli: ["admin"] },
+      { nome: "Agenzie", desc: "Anagrafica agenzie assicurative con categorie e prodotti", ruoli: ["admin"] },
       { nome: "Template Email", desc: "Modelli email personalizzabili per comunicazioni automatiche", ruoli: ["admin", "ufficio"] },
       { nome: "Sitemap", desc: "Questa pagina — organigramma ruoli e mappa funzionale", ruoli: ["admin"] },
     ],
@@ -289,10 +289,10 @@ const sezioni = [
     pagine: [
       { nome: "Area CFO", desc: "Cruscotto finanziario con indicatori economici aggregati", ruoli: ["admin", "cfo"] },
       { nome: "Notifiche", desc: "Centro notifiche con avvisi di sistema, scadenze e comunicazioni", ruoli: ["admin", "ufficio", "contabilita", "produttore", "backoffice", "corrispondente"] },
-      { nome: "Comunicazioni", desc: "Invio e gestione comunicazioni email/PEC a clienti e compagnie", ruoli: ["admin", "ufficio", "backoffice"] },
+      { nome: "Comunicazioni", desc: "Invio e gestione comunicazioni email/PEC a clienti e agenzie", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Spedizioni", desc: "Tracciamento spedizioni documenti e corrispondenza", ruoli: ["admin", "ufficio", "backoffice"] },
-      { nome: "Note Restituzione", desc: "Gestione note di credito e restituzioni da compagnie", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "Flussi Compagnie", desc: "Importazione e gestione flussi dati dalle compagnie", ruoli: ["admin", "ufficio"] },
+      { nome: "Note Restituzione", desc: "Gestione note di credito e restituzioni da agenzie", ruoli: ["admin", "ufficio", "contabilita"] },
+      { nome: "Flussi Agenzie", desc: "Importazione e gestione flussi dati dalle agenzie", ruoli: ["admin", "ufficio"] },
       { nome: "Privacy & Consensi", desc: "Gestione consensi GDPR e documentazione privacy clienti", ruoli: ["admin", "ufficio"] },
       { nome: "Report", desc: "Report statistici e analitici personalizzabili", ruoli: ["admin", "ufficio", "cfo"] },
       { nome: "Documentale", desc: "Archivio documentale con cartelle e upload file", ruoli: ["admin", "ufficio"] },
@@ -320,7 +320,7 @@ const sezioni = [
     icon: ClipboardList,
     pagine: [
       { nome: "Dashboard Prospect", desc: "Riepilogo personale con KPI trattative e documenti", ruoli: ["prospect"] },
-      { nome: "Le mie Trattative", desc: "Lista trattative in corso con stato, compagnia e premio previsto", ruoli: ["prospect"] },
+      { nome: "Le mie Trattative", desc: "Lista trattative in corso con stato, agenzia e premio previsto", ruoli: ["prospect"] },
       { nome: "Documenti", desc: "Documenti relativi alle proprie trattative, scaricabili", ruoli: ["prospect"] },
       { nome: "Upload Documenti", desc: "Caricamento documenti richiesti dall'agenzia", ruoli: ["prospect"] },
     ],
@@ -336,7 +336,7 @@ const permessiJson = [
   
   { chiave: "impostazioni", descrizione: "Configurazione sistema e gestione utenti", sezioni: "Sistema (tutte le sotto-pagine)" },
   { chiave: "provvigioni", descrizione: "Gestione provvigioni sede e pagamenti", sezioni: "Provvigioni Sede, Pagamenti Provvigioni" },
-  { chiave: "rimessa_premi", descrizione: "Gestione rimessa premi alle compagnie", sezioni: "Rimessa Premi (lista e dettaglio)" },
+  { chiave: "rimessa_premi", descrizione: "Gestione rimessa premi alle agenzie", sezioni: "Rimessa Premi (lista e dettaglio)" },
 ];
 
 const roleBadgeColor: Record<string, string> = {

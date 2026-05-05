@@ -155,7 +155,7 @@ const EstrazioniFilters = ({
     enabled: showProduttore,
   });
 
-  const { data: compagnie } = useQuery({
+  const { data: agenzie } = useQuery({
     queryKey: ["compagnie-filter"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -265,14 +265,14 @@ const EstrazioniFilters = ({
           />
         )}
 
-        {/* Compagnia */}
+        {/* Agenzia */}
         {showCompagnia && (
           <SearchableSelect
             value={filters.compagnia_id}
             onValueChange={(v) => onChange({ ...filters, compagnia_id: v })}
             options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))}
-            placeholder="Compagnia"
-            allLabel="Tutte le compagnie"
+            placeholder="Agenzia"
+            allLabel="Tutte le agenzie"
             className="w-[220px]"
           />
         )}

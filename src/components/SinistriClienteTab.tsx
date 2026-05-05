@@ -32,7 +32,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sinistri")
-        .select("*, compagnie(nome), titoli(numero_titolo)")
+        .select("*, agenzie(nome), titoli(numero_titolo)")
         .eq("cliente_anagrafica_id", clienteId)
         .order("data_apertura", { ascending: false });
       if (error) throw error;
@@ -64,7 +64,7 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
                   <TableHead>N. Sinistro</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Polizza</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Costo Prev. €</TableHead>
                   <TableHead>Costo Eff. €</TableHead>

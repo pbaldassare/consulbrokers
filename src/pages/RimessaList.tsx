@@ -49,7 +49,7 @@ const RimessaList = () => {
     queryFn: async () => {
       let q = supabase
         .from("rimessa_premi")
-        .select("*, compagnie(nome), uffici(nome_ufficio), profiles(nome, cognome)", { count: "exact" });
+        .select("*, agenzie(nome), uffici(nome_ufficio), profiles(nome, cognome)", { count: "exact" });
 
       if (filtroStato !== "all") q = q.eq("stato", filtroStato);
 
@@ -77,7 +77,7 @@ const RimessaList = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Rimessa Premi</h1>
-        <p className="text-muted-foreground">Storico rimesse alle compagnie</p>
+        <p className="text-muted-foreground">Storico rimesse alle agenzie</p>
       </div>
 
       <div className="flex items-center gap-4 flex-wrap">
@@ -98,7 +98,7 @@ const RimessaList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Compagnia</TableHead>
+                    <TableHead>Agenzia</TableHead>
                     <TableHead>Sede</TableHead>
                     <TableHead className="text-right">Importo €</TableHead>
                     <TableHead>IBAN</TableHead>

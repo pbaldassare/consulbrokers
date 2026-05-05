@@ -6,7 +6,7 @@ interface Props {
   value: string | null | undefined;
   onChange: (id: string | null) => void;
   /** Filtra per tipo. Se omesso, mostra tutti. */
-  tipi?: Array<"incasso_clienti" | "compagnia" | "provvigioni" | "generico">;
+  tipi?: Array<"incasso_clienti" | "agenzia" | "provvigioni" | "generico">;
   placeholder?: string;
   disabled?: boolean;
   /** Mostra anteprima testuale del conto selezionato */

@@ -83,7 +83,7 @@ const AreaCFO = () => {
     },
   });
 
-  const { data: compagnie = [] } = useQuery({
+  const { data: agenzie = [] } = useQuery({
     queryKey: ["compagnie_attive"],
     queryFn: async () => {
       const { data, error } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -110,7 +110,7 @@ const AreaCFO = () => {
 
   const compagniaOptions = useMemo(() =>
     compagnie.map((c) => ({ value: c.id, label: c.nome })),
-    [compagnie]
+    [agenzie]
   );
 
   // KPI
@@ -403,7 +403,7 @@ const AreaCFO = () => {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Compagnia</Label>
+              <Label className="text-xs font-medium">Agenzia</Label>
               <SearchableSelect
                 options={compagniaOptions}
                 value={compagniaId}
@@ -516,7 +516,7 @@ const AreaCFO = () => {
             </CfoChartCard>
 
             <CfoChartCard
-              title="Premi per Compagnia"
+              title="Premi per Agenzia"
               isLoading={premiCompagniaQ.isLoading}
               isError={premiCompagniaQ.isError}
               error={premiCompagniaQ.error}
@@ -528,7 +528,7 @@ const AreaCFO = () => {
                   <Pie
                     data={premiCompagnia}
                     dataKey="totale"
-                    nameKey="compagnia"
+                    nameKey="agenzia"
                     cx="50%"
                     cy="50%"
                     outerRadius={110}
@@ -807,7 +807,7 @@ const AreaCFO = () => {
             </CfoChartCard>
 
             <CfoChartCard
-              title="Premio Medio per Compagnia"
+              title="Premio Medio per Agenzia"
               isLoading={premioMedioCompQ.isLoading}
               isError={premioMedioCompQ.isError}
               error={premioMedioCompQ.error}
@@ -819,7 +819,7 @@ const AreaCFO = () => {
                 <BarChart data={premioMedioComp} layout="vertical" margin={{ left: 130 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis type="number" className="text-xs" />
-                  <YAxis dataKey="compagnia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="agenzia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={tooltipFormatter} />
                   <Bar dataKey="premio_medio" fill="hsl(var(--chart-5))" name="Premio medio" radius={[0,4,4,0]} />
                 </BarChart>
@@ -891,7 +891,7 @@ const AreaCFO = () => {
 
             <CfoChartCard
               className="lg:col-span-2"
-              title="Sinistri per Compagnia"
+              title="Sinistri per Agenzia"
               isLoading={sinistriCompagniaQ.isLoading}
               isError={sinistriCompagniaQ.isError}
               error={sinistriCompagniaQ.error}
@@ -902,7 +902,7 @@ const AreaCFO = () => {
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={sinistriCompagnia}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="compagnia" className="text-xs" />
+                  <XAxis dataKey="agenzia" className="text-xs" />
                   <YAxis yAxisId="left" className="text-xs" />
                   <YAxis yAxisId="right" orientation="right" className="text-xs" />
                   <Tooltip />
@@ -915,7 +915,7 @@ const AreaCFO = () => {
 
             <CfoChartCard
               className="lg:col-span-2"
-              title="Top Combinazioni Sede × Compagnia"
+              title="Top Combinazioni Sede × Agenzia"
               subtitle="Clicca una riga per vedere i titoli"
               isLoading={matriceSedeCompQ.isLoading}
               isError={matriceSedeCompQ.isError}
@@ -929,7 +929,7 @@ const AreaCFO = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>Sede</TableHead>
-                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Agenzia</TableHead>
                       <TableHead className="text-right">Premi €</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -986,7 +986,7 @@ const AreaCFO = () => {
                       <TableRow className="bg-muted/50">
                         <TableHead>N. Titolo</TableHead>
                         <TableHead>Stato</TableHead>
-                        <TableHead>Compagnia</TableHead>
+                        <TableHead>Agenzia</TableHead>
                         <TableHead>Ramo</TableHead>
                         <TableHead>Sede</TableHead>
                         <TableHead>Produttore</TableHead>

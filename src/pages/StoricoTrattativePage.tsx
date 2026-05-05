@@ -81,7 +81,7 @@ const StoricoTrattativePage = () => {
 
   const exportCSV = () => {
     if (!filtered?.length) return;
-    const header = "Tipo;Soggetto;Ramo;Compagnia;Ufficio;Premio;Stato;Fonte;Data";
+    const header = "Tipo;Soggetto;Ramo;Agenzia;Ufficio;Premio;Stato;Fonte;Data";
     const rows = filtered.map((t) => [
       t.cliente_id ? "Cliente" : "Prospect",
       getSoggettoName(t),
@@ -194,7 +194,7 @@ const StoricoTrattativePage = () => {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
                 <TableHead>Ramo</TableHead>
-                <TableHead>Compagnia</TableHead>
+                <TableHead>Agenzia</TableHead>
                 <TableHead>Ufficio</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>

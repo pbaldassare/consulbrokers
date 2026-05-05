@@ -28,7 +28,7 @@ const RimessaDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("rimessa_premi")
-        .select("*, compagnie(nome, codice), uffici(nome_ufficio), profiles(nome, cognome)")
+        .select("*, agenzie(nome, codice), uffici(nome_ufficio), profiles(nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;

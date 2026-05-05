@@ -172,7 +172,7 @@ export default function CfoDrillDownDialog({ state, onClose, baseFilters }: Prop
                   <TableHead>N. Titolo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Ramo</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Sede</TableHead>
                   <TableHead>Produttore</TableHead>
                   <TableHead className="text-right">Premio</TableHead>
@@ -217,7 +217,7 @@ export default function CfoDrillDownDialog({ state, onClose, baseFilters }: Prop
                   <TableHead>N. Sinistro</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Ramo</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Sede</TableHead>
                   <TableHead className="text-right">Liquidato</TableHead>
                   <TableHead className="text-right">Riserva</TableHead>
