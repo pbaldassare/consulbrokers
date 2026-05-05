@@ -65,7 +65,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "notifiche": "Notifiche",
   "privacy": "Privacy e Consensi",
   "report-iva": "Report IVA",
-  "flussi-agenzie": "Flussi Agenzie",
+  "flussi-compagnie": "Flussi Agenzie",
   "pagamenti-provvigioni": "Pagamenti Provvigioni",
   "report": "Report",
   "comunicazioni": "Comunicazioni",
