@@ -147,6 +147,7 @@ const AnagraficheInternePage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingEditId, setPendingEditId] = useState<string | null>(searchParams.get("edit"));
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const isAnagraficaTab = (TIPI as readonly { value: string }[]).some(t => t.value === activeTab);
   const tipoAnagrafica = isAnagraficaTab ? (activeTab as TipoAnagrafica) : "account_executive";
