@@ -561,7 +561,7 @@ const AnagraficheInternePage = () => {
       ].filter(Boolean);
       const bancaParts = [item.banca_riga1, item.banca_riga2, item.banca_riga3].filter(Boolean);
       return (
-         <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
+         <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : item.attivo === false ? "opacity-60" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">{item.ragione_sociale || item.cognome || item.nome || "—"}</TableCell>
           <TableCell>{item.sigla || "—"}</TableCell>
@@ -576,8 +576,11 @@ const AnagraficheInternePage = () => {
           <TableCell className="text-sm">
             {bancaParts.length > 0 ? bancaParts.map((p, i) => <div key={i} className="text-xs">{p}</div>) : "—"}
           </TableCell>
-          <TableCell className="text-center">
-            {item.annullato ? <Badge variant="destructive" className="text-xs">A</Badge> : <Badge variant="secondary" className="text-xs">—</Badge>}
+          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center gap-2">
+              <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+              {item.annullato && <Badge variant="destructive" className="text-xs">A</Badge>}
+            </div>
           </TableCell>
         </TableRow>
       );
@@ -585,7 +588,7 @@ const AnagraficheInternePage = () => {
 
     if (isCorr || isNewCommercial) {
       return (
-        <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : ""}`} onClick={() => openEdit(item)}>
+        <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${item.annullato ? "opacity-50" : item.attivo === false ? "opacity-60" : ""}`} onClick={() => openEdit(item)}>
           <TableCell className="font-medium">{item.codice || "—"}</TableCell>
           <TableCell className="font-medium">
             {item.cognome || item.ragione_sociale || "—"}
@@ -605,8 +608,8 @@ const AnagraficheInternePage = () => {
             {!item.telefono && !item.email && "—"}
           </TableCell>
           <TableCell className="text-sm text-xs">{item.iban || "—"}</TableCell>
-          <TableCell className="text-center">
-            {item.annullato ? <Badge variant="destructive" className="text-xs">Ann.</Badge> : <Badge variant="secondary" className="text-xs">Attivo</Badge>}
+          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
           </TableCell>
         </TableRow>
       );
