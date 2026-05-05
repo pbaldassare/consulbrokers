@@ -173,7 +173,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     if (!hasRca) {
       supabase.from("premi_garanzia_polizza" as any).insert({
         titolo_id: titoloId,
-        garanzia: RCA_LABEL,
+        garanzia: RCA_LABEL_EFFECTIVE,
         codice_garanzia: RCA_CODE,
         is_rca_principale: true,
         firma: 0,
