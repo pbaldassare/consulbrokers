@@ -1003,7 +1003,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           <AlertDialogHeader>
             <AlertDialogTitle>Rimuovere la voce «{toDelete?.garanzia}»?</AlertDialogTitle>
             <AlertDialogDescription>
-              Questa operazione elimina la voce dal calcolo del premio. La riga RCA Auto non è mai eliminabile.
+              Questa operazione elimina la voce dal calcolo del premio. La riga {RCA_LABEL_EFFECTIVE} non è mai eliminabile.
               {toDelete && Number(toDelete.firma || 0) > 0 && (
                 <span className="block mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-amber-900 text-xs">
                   ⚠ La voce ha un premio netto di <b>{fmtEur(toDelete.firma)}</b>: rimuovendola il totale lordo si ridurrà di circa{" "}
