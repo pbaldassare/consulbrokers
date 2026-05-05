@@ -966,35 +966,52 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 <span>Totale Tasse</span>
                 <span className="font-mono tabular-nums text-foreground">{fmtEur(totali.tasse)}</span>
               </p>
+              {(() => {
+                const rcaRow = voci.find((v) => v.is_rca_principale);
+                const rcaMerged = rcaRow ? { ...rcaRow, ...(draftVoci[rcaRow.id] || {}) } : null;
+                const rcaCalc = rcaMerged ? calcolaLordo(rcaMerged, aliquotaProv) : null;
+                const iptLive = rcaRow
+                  ? (draftVoci[rcaRow.id]?.imposta_provinciale !== undefined
+                      ? Number(draftVoci[rcaRow.id]!.imposta_provinciale)
+                      : (rcaCalc?.imposta ?? totali.imposta))
+                  : totali.imposta;
+                const ssnLive = rcaRow
+                  ? (draftVoci[rcaRow.id]?.ssn !== undefined
+                      ? Number(draftVoci[rcaRow.id]!.ssn)
+                      : (rcaCalc?.ssn ?? totali.ssn))
+                  : totali.ssn;
+                return (
               <div className="grid grid-cols-3 gap-1.5 mt-2">
                 <label className="text-[9px] uppercase text-muted-foreground">
                   IPT
                   <Input
                     type="number" step="0.01" inputMode="decimal"
-                    key={`tot-ipt-${totali.imposta}`}
-                    defaultValue={totali.imposta}
+                    value={iptLive}
+                    onChange={(e) => rcaRow && setDraft(rcaRow.id, { imposta_provinciale: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                     onBlur={(e) => {
                       const val = Number(e.target.value || 0);
-                      if (Math.abs(val - totali.imposta) < 0.01) return;
+                      if (rcaRow) clearDraft(rcaRow.id, ["imposta_provinciale"]);
+                      if (Math.abs(val - (rcaCalc?.imposta ?? totali.imposta)) < 0.01) return;
                       handleTotaleIptBlur(val);
                     }}
                     className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
-                    disabled={!voci.some((v) => v.is_rca_principale)}
+                    disabled={!rcaRow}
                   />
                 </label>
                 <label className="text-[9px] uppercase text-muted-foreground">
                   SSN
                   <Input
                     type="number" step="0.01" inputMode="decimal"
-                    key={`tot-ssn-${totali.ssn}`}
-                    defaultValue={totali.ssn}
+                    value={ssnLive}
+                    onChange={(e) => rcaRow && setDraft(rcaRow.id, { ssn: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                     onBlur={(e) => {
                       const val = Number(e.target.value || 0);
-                      if (Math.abs(val - totali.ssn) < 0.01) return;
+                      if (rcaRow) clearDraft(rcaRow.id, ["ssn"]);
+                      if (Math.abs(val - (rcaCalc?.ssn ?? totali.ssn)) < 0.01) return;
                       handleTotaleSsnBlur(val);
                     }}
                     className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
-                    disabled={!voci.some((v) => v.is_rca_principale)}
+                    disabled={!rcaRow}
                   />
                 </label>
                 <label className="text-[9px] uppercase text-muted-foreground">
