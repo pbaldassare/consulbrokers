@@ -260,7 +260,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       return;
     }
     const netto = round2(value);
+    // Mantengo eventuali override IPT/SSN già impostati dall'utente
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
+    if (v.is_rca_principale && (calc.overrideImposta || calc.overrideSsn)) {
+      toast.info("Sovrascrittura IPT/SSN mantenuta");
+    }
     upsertMut.mutate({
       id: v.id,
       firma: netto,
@@ -282,20 +286,34 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     const lordo = round2(value);
     let netto: number;
     if (v.is_rca_principale) {
-      // lordo = netto * (1 + aliqProv/100 * (1 + SSN%/100))
-      const factor = 1 + (aliquotaProv / 100) * (1 + SSN_PCT / 100);
+      // Edit del lordo ⇒ azzera eventuali override e usa formula standard:
+      // lordo = netto × (1 + aliqProv/100 + SSN%/100)
+      const factor = 1 + aliquotaProv / 100 + SSN_PCT / 100;
       netto = round2(lordo / factor);
-    } else {
-      const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
-      netto = round2(lordo / (1 + aliq / 100));
+      const cleanV = { ...v, firma: netto, imposta_provinciale: null, ssn: null };
+      const calc = calcolaLordo(cleanV, aliquotaProv);
+      const eraOverride =
+        (v.imposta_provinciale != null && Math.abs(Number(v.imposta_provinciale) - round2(netto * (aliquotaProv / 100))) > 0.01) ||
+        (v.ssn != null && Math.abs(Number(v.ssn) - round2(netto * (SSN_PCT / 100))) > 0.01);
+      if (eraOverride) toast.info("Override IPT/SSN azzerati (calcolo automatico ripristinato)");
+      upsertMut.mutate({
+        id: v.id,
+        firma: netto,
+        lordo_calcolato: calc.lordo,
+        imposta_provinciale: calc.imposta,
+        ssn: calc.ssn,
+      });
+      return;
     }
+    const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
+    netto = round2(lordo / (1 + aliq / 100));
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
     upsertMut.mutate({
       id: v.id,
       firma: netto,
       lordo_calcolato: calc.lordo,
-      imposta_provinciale: v.is_rca_principale ? calc.imposta : null,
-      ssn: v.is_rca_principale ? calc.ssn : null,
+      imposta_provinciale: null,
+      ssn: null,
     });
   };
 
@@ -310,6 +328,55 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       aliquota_tasse_pct: value,
       lordo_calcolato: calc.lordo,
     });
+  };
+
+  const handleImpostaOverrideBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Imposta provinciale deve essere ≥ 0");
+      return;
+    }
+    const newImposta = round2(value);
+    const calc = calcolaLordo({ ...v, imposta_provinciale: newImposta }, aliquotaProv);
+    upsertMut.mutate({
+      id: v.id,
+      imposta_provinciale: newImposta,
+      ssn: calc.ssn,
+      lordo_calcolato: calc.lordo,
+    });
+  };
+
+  const handleSsnOverrideBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Contributo SSN deve essere ≥ 0");
+      return;
+    }
+    const newSsn = round2(value);
+    const calc = calcolaLordo({ ...v, ssn: newSsn }, aliquotaProv);
+    upsertMut.mutate({
+      id: v.id,
+      ssn: newSsn,
+      imposta_provinciale: calc.imposta,
+      lordo_calcolato: calc.lordo,
+    });
+  };
+
+  const handleResetOverride = (v: Voce, campo: "imposta" | "ssn" | "both") => {
+    const netto = round2(Number(v.firma || 0));
+    const impostaAuto = round2(netto * (aliquotaProv / 100));
+    const ssnAuto = round2(netto * (SSN_PCT / 100));
+    const newImposta = campo === "ssn" ? Number(v.imposta_provinciale ?? impostaAuto) : impostaAuto;
+    const newSsn = campo === "imposta" ? Number(v.ssn ?? ssnAuto) : ssnAuto;
+    const calc = calcolaLordo(
+      { ...v, imposta_provinciale: newImposta, ssn: newSsn },
+      aliquotaProv,
+    );
+    upsertMut.mutate({
+      id: v.id,
+      imposta_provinciale: calc.imposta,
+      ssn: calc.ssn,
+      lordo_calcolato: calc.lordo,
+    });
+    toast.success("Calcolo automatico ripristinato");
   };
 
   const handleAliquotaProvChange = (val: number) => {
