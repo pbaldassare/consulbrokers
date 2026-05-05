@@ -75,7 +75,7 @@ export default function SinistriList() {
   const sinistri = sinistriResult?.data || [];
   const totalCount = sinistriResult?.count || 0;
 
-  const { data: agenzie } = useQuery({
+  const { data: compagnie } = useQuery({
     queryKey: ["compagnie"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");

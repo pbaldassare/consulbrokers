@@ -155,7 +155,7 @@ const EstrazioniFilters = ({
     enabled: showProduttore,
   });
 
-  const { data: agenzie } = useQuery({
+  const { data: compagnie } = useQuery({
     queryKey: ["compagnie-filter"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");

@@ -33,7 +33,7 @@ const StoricoRimessePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: agenzie } = useQuery({
+  const { data: compagnie } = useQuery({
     queryKey: ["compagnie-storico-rimesse"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
