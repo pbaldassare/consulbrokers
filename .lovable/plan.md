@@ -1,34 +1,49 @@
-## Problema
+## Problemi rilevati
 
-Sul viewport corrente (805px) la tabella desktop di `VociRcaCard` viene renderizzata ma le righe di override IPT/SSN finiscono in overflow orizzontale, quindi i campi editabili per SSN/IPT non sono raggiungibili. Le funzioni di override (`handleSsnOverrideBlur`, `handleImpostaOverrideBlur`, `handleResetOverride`) e gli input sono già implementati, ma visivamente nascosti.
+1. **Card di split (Commerciale/Consul) non si aggiornano** quando cambio le provvigioni dalla card RCA. Causa: `TitoloDetail` legge `t.provvigioni_firma/quietanza` dallo snapshot iniziale; `onProvvigioniChange` aggiorna il DB e fa `invalidateQueries(["titolo", id])`, ma se la query key effettiva è diversa (es. `["titolo-detail", id]`) l'invalidate non rifresca e lo split mostra il vecchio valore.
 
-Inoltre il valore SSN salvato a DB (`12.08`) è stato calcolato con la vecchia formula errata (su IPT invece che su netto), per questo viene mostrato come "manuale" anche se l'utente non lo ha mai toccato.
+2. **Card Quietanza non auto-popolata**: la riga RCA Quietanza dovrebbe essere creata dal trigger DB `premi_garanzia_sync_quietanza`. Sul titolo corrente sospetto che le righe Firma esistano da prima della migration o che il trigger non scatti se la riga RCA Firma esiste già senza modifiche successive (il backfill nella migration esegue solo `sync_quietanza_da_firma` su titoli con righe `firma`, ma se in seguito si aggiunge la prima riga RCA Firma di un titolo nuovo il trigger gira correttamente — il problema è sui titoli storici dove il backfill non ha trovato la riga oppure è stato eseguito prima dell'INSERT dell'RCA principale).
 
-## Modifiche a `src/components/polizze/VociRcaCard.tsx`
+3. **Pulsante "Risincronizza" non funziona**: la mutation chiama `supabase.rpc("sync_quietanza_da_firma", {p_titolo_id})`; se la funzione non è esposta via PostgREST manca `GRANT EXECUTE ... TO authenticated` (la migration non lo include), quindi la chiamata fallisce silenziosamente con 404 RPC.
 
-### 1. Breakpoint layout (linee 489 e 657)
-Sostituire la breakpoint `md` con `lg` così che sotto 1024px (incluso 805px) venga renderizzato il layout mobile a card, dove gli input SSN/IPT sono ben visibili in colonna:
-- Linea 489: `className="hidden md:block overflow-x-auto"` → `"hidden lg:block overflow-x-auto"`
-- Linea 657: `className="md:hidden divide-y"` → `"lg:hidden divide-y"`
+4. **Totali Tasse non scorporabili/modificabili**: oggi nel riquadro "Totali" la card "Totale Tasse" è un singolo numero. L'utente vuole 3 input editabili (IPT, SSN, Tasse accessorie) che si propaghino sulla riga RCA principale (IPT/SSN) e ridistribuiscano la quota accessorie sulle voci non-RCA in proporzione (oppure aggiornino l'aliquota effettiva).
 
-### 2. Auto-correzione SSN salvato in modo errato (linee 49-82, `calcolaLordo`)
-Quando il valore SSN salvato è suggestivamente errato (= IPT × 10,5%, vecchia formula bug), trattarlo come "non override" e ricalcolarlo automaticamente. Concretamente:
-- Calcolare `ssnLegacyBug = round2(impostaAuto * 0.105)` (vecchia formula)
-- Se `ssnSaved` è entro 0,01€ da `ssnLegacyBug` E differisce da `ssnAuto`, considerarlo NON override (ssnAuto vince) e contestualmente schedulare un upsert per riportare il DB al valore corretto (passare attraverso `useEffect` o inline al primo render utile, oppure lasciare che venga corretto al primo blur dell'utente).
+---
 
-Approccio scelto: solo flag `overrideSsn = false` se il valore salvato corrisponde al bug legacy, così sparisce il badge "manuale" e il bottone reset. Il prossimo evento di edit (Netto, Lordo, IPT) sovrascrive comunque il valore in DB con quello corretto.
+## Modifiche
 
-### 3. Pulsante "Reset SSN" sempre disponibile per RCA principale
-Anche se `overrideSsn` è false, mostrare un piccolo bottone reset accanto all'input SSN che forza il valore al calcolo `netto × 10,5%` e lo persiste — utile per pulire valori storici sbagliati senza dover toccare Netto o Lordo.
+### A. `supabase/migrations/<new>.sql` — fix RPC e trigger
+- `GRANT EXECUTE ON FUNCTION public.sync_quietanza_da_firma(uuid) TO authenticated, service_role;`
+- Backfill aggressivo: per ogni titolo con righe `tipo_premio='firma'` ma senza riga RCA Quietanza, eseguire `sync_quietanza_da_firma`.
+- Aggiungere trigger anche sull'INSERT della **prima** riga Firma per garantire la creazione dello specchio Quietanza (già coperto dal trigger `AFTER INSERT OR UPDATE OR DELETE` esistente — verificare non ci sia condizione `WHEN` che lo blocchi).
 
-In alternativa più semplice: aggiungere un pulsante "Ricalcola IPT/SSN" nell'header della card che riapplica `calcolaLordo` con `imposta_provinciale: null, ssn: null` e salva i valori auto-calcolati per la riga RCA principale.
+### B. `src/components/polizze/VociRcaCard.tsx`
+1. **Risincronizza più robusto**: gestire l'errore RPC mostrando il messaggio reale e, in fallback, eseguire il reset lato client (DELETE righe quietanza non-personalizzate + reinsert da firma) se l'RPC restituisce 404/permission denied.
+2. **Card Totali → 3 input editabili**:
+   - Sostituire blocco singolo "Totale Tasse" con 3 input mini-card affiancati: **IPT**, **SSN**, **Tasse accessorie**.
+   - Default = `totali.imposta`, `totali.ssn`, `totali.tasseAcc`.
+   - onBlur IPT / SSN → `handleImpostaOverrideBlur` / `handleSsnOverrideBlur` sulla riga RCA principale (riusa logica esistente).
+   - onBlur Tasse accessorie → calcola nuova `aliquota_tasse_pct` media: `nuovaAliq = (nuoveTasseAcc / sommaNettoNonRca) * 100` e applica via `handleAliquotaBlur` su tutte le voci non-RCA (oppure su un'unica voce "wrapper" se ne esiste solo una). Se non ci sono voci accessorie, disabilita l'input.
+   - Mantenere il "Totale Tasse" complessivo come label sopra i 3 campi (read-only).
 
-## Approccio consigliato (più semplice e robusto)
+### C. `src/pages/TitoloDetail.tsx`
+1. **Reattività split**: in `onProvvigioniChange` di entrambe le `<VociRcaCard>` aggiungere:
+   - `await supabase.from("titoli").update(...)` (già fatto)
+   - **invalidare TUTTE le query del titolo**: usare predicate `qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0]?.toString().startsWith("titolo") && q.queryKey.includes(t.id) })`
+   - oppure più semplicemente aggiungere a `setT` locale (se `t` è uno state) il nuovo valore: `setTitolo(prev => ({ ...prev, provvigioni_firma: v }))` per refresh immediato dello split senza attesa del refetch.
+2. Verificare la query key reale del titolo (linea attorno a 2501 usa `["titolo", t.id]`) — controllare che la `useQuery` principale del titolo usi la stessa.
 
-Implementare solo:
-- **(1)** breakpoint `lg`
-- **(3 alternativo)** un pulsante "Ricalcola IPT/SSN" nell'header della VociRcaCard, accanto al campo Imposta provinciale, che azzera `imposta_provinciale` e `ssn` sulla riga RCA principale e li riscrive ai valori auto-calcolati.
+---
 
-Questo permette all'utente di:
-- vedere e modificare SSN/IPT su qualsiasi viewport ≥ 320px
-- ripulire con un click eventuali valori SSN errati salvati con la vecchia formula bug
+## Punti tecnici
+
+- La logica split provvigioni in sé è corretta (commerciale = `provv × %/100`, agenzia = resto, caso admin = 100% agenzia statistico). Il bug è di **reattività React Query**, non di formula.
+- Per il caso Quietanza non visibile: se il problema persiste anche dopo il GRANT, valuteremo un INSERT esplicito al primo render della VociRcaCard quietanza quando esiste una RCA Firma ma manca la RCA Quietanza (fallback client-side dello stesso comportamento del trigger).
+
+---
+
+## Aggiornamento memoria
+
+Aggiornare `mem://insurance/rca-voci-composizione-premio` con:
+- nota su GRANT EXECUTE su `sync_quietanza_da_firma`
+- nota sui 3 input editabili IPT/SSN/Tasse accessorie nel riquadro Totali
