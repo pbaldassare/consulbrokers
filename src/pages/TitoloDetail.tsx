@@ -2539,7 +2539,7 @@ const TitoloDetail = () => {
                 onProvvigioniChange={async (v) => {
                   const { error } = await supabase.from("titoli").update({ provvigioni_quietanza: v }).eq("id", t.id);
                   if (!error) {
-                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                    await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
                     toast.success("Provvigioni Quietanza aggiornate");
                   } else toast.error("Errore aggiornamento provvigioni");
                 }}
