@@ -125,7 +125,7 @@ const AreaCFO = () => {
   });
 
   // Charts
-  const { data: entrateUscite = [] } = useQuery({
+  const entrateUsciteQ = useQuery({
     queryKey: ["cfo_entrate_uscite", filterParams],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("cfo_entrate_uscite_mensili", {
@@ -138,8 +138,9 @@ const AreaCFO = () => {
     },
     staleTime: 60_000,
   });
+  const entrateUscite = entrateUsciteQ.data || [];
 
-  const { data: premiCompagnia = [] } = useQuery({
+  const premiCompagniaQ = useQuery({
     queryKey: ["cfo_premi_compagnia", filterParams],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("cfo_premi_per_compagnia", filterParams as any);
@@ -148,8 +149,9 @@ const AreaCFO = () => {
     },
     staleTime: 60_000,
   });
+  const premiCompagnia = premiCompagniaQ.data || [];
 
-  const { data: premiRamo = [] } = useQuery({
+  const premiRamoQ = useQuery({
     queryKey: ["cfo_premi_ramo", filterParams],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("cfo_premi_per_ramo" as any, filterParams as any);
@@ -158,8 +160,9 @@ const AreaCFO = () => {
     },
     staleTime: 60_000,
   });
+  const premiRamo = premiRamoQ.data || [];
 
-  const { data: premiProduttore = [] } = useQuery({
+  const premiProduttoreQ = useQuery({
     queryKey: ["cfo_premi_produttore", filterParams],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("cfo_premi_per_produttore" as any, {
@@ -173,8 +176,9 @@ const AreaCFO = () => {
     },
     staleTime: 60_000,
   });
+  const premiProduttore = premiProduttoreQ.data || [];
 
-  const { data: redditUfficio = [] } = useQuery({
+  const redditUfficioQ = useQuery({
     queryKey: ["cfo_redditivita", dataDa, dataA],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("cfo_redditivita_ufficio", {
@@ -185,8 +189,9 @@ const AreaCFO = () => {
       return (data as any) || [];
     },
   });
+  const redditUfficio = redditUfficioQ.data || [];
 
-  const { data: provvMensili = [] } = useQuery({
+  const provvMensiliQ = useQuery({
     queryKey: ["cfo_provvigioni_mensili", filterParams],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("cfo_provvigioni_mensili", {
@@ -198,6 +203,7 @@ const AreaCFO = () => {
       return (data as any) || [];
     },
   });
+  const provvMensili = provvMensiliQ.data || [];
 
   // Provvigioni non pagate
   const { data: provvNonPagate = [] } = useQuery({
@@ -221,18 +227,41 @@ const AreaCFO = () => {
       staleTime: 60_000,
     });
 
-  const { data: trendMensile = [] } = useRpc("cfo_trend_mensile", filterParams, [filterParams]);
-  const { data: yoyMensile = [] } = useRpc("cfo_yoy_mensile", { _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams._ufficio_id, filterParams._compagnia_id]);
-  const { data: topClienti = [] } = useRpc("cfo_top_clienti", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id, _limit: 20 }, [filterParams]);
-  const { data: distrFascia = [] } = useRpc("cfo_distribuzione_clienti_fascia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
-  const { data: premioMedioRamo = [] } = useRpc("cfo_premio_medio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams]);
-  const { data: premioMedioComp = [] } = useRpc("cfo_premio_medio_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id }, [filterParams._data_da, filterParams._data_a, filterParams._ufficio_id]);
-  const { data: distrStati = [] } = useRpc("cfo_distribuzione_stati", { _ufficio_id: filterParams._ufficio_id }, [filterParams._ufficio_id]);
-  const { data: matriceSedeComp = [] } = useRpc("cfo_matrice_sede_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
-  const { data: matriceProdRamo = [] } = useRpc("cfo_matrice_produttore_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
-  const { data: lossRatio = [] } = useRpc("cfo_loss_ratio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
-  const { data: etaSinistri = [] } = useRpc("cfo_eta_sinistri_aperti", {}, []);
-  const { data: sinistriCompagnia = [] } = useRpc("cfo_sinistri_per_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const trendMensileQ = useRpc("cfo_trend_mensile", filterParams, [filterParams]);
+  const yoyMensileQ = useRpc("cfo_yoy_mensile", { _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams._ufficio_id, filterParams._compagnia_id]);
+  const topClientiQ = useRpc("cfo_top_clienti", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id, _limit: 20 }, [filterParams]);
+  const distrFasciaQ = useRpc("cfo_distribuzione_clienti_fascia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const premioMedioRamoQ = useRpc("cfo_premio_medio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id, _compagnia_id: filterParams._compagnia_id }, [filterParams]);
+  const premioMedioCompQ = useRpc("cfo_premio_medio_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a, _ufficio_id: filterParams._ufficio_id }, [filterParams._data_da, filterParams._data_a, filterParams._ufficio_id]);
+  const distrStatiQ = useRpc("cfo_distribuzione_stati", { _ufficio_id: filterParams._ufficio_id }, [filterParams._ufficio_id]);
+  const matriceSedeCompQ = useRpc("cfo_matrice_sede_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const matriceProdRamoQ = useRpc("cfo_matrice_produttore_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const lossRatioQ = useRpc("cfo_loss_ratio_ramo", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+  const etaSinistriQ = useRpc("cfo_eta_sinistri_aperti", {}, []);
+  const sinistriCompagniaQ = useRpc("cfo_sinistri_per_compagnia", { _data_da: filterParams._data_da, _data_a: filterParams._data_a }, [filterParams._data_da, filterParams._data_a]);
+
+  const trendMensile = trendMensileQ.data || [];
+  const yoyMensile = yoyMensileQ.data || [];
+  const topClienti = topClientiQ.data || [];
+  const distrFascia = distrFasciaQ.data || [];
+  const premioMedioRamo = premioMedioRamoQ.data || [];
+  const premioMedioComp = premioMedioCompQ.data || [];
+  const distrStati = distrStatiQ.data || [];
+  const matriceSedeComp = matriceSedeCompQ.data || [];
+  const matriceProdRamo = matriceProdRamoQ.data || [];
+  const lossRatio = lossRatioQ.data || [];
+  const etaSinistri = etaSinistriQ.data || [];
+  const sinistriCompagnia = sinistriCompagniaQ.data || [];
+
+  // Drill-down state
+  const [drill, setDrill] = useState<DrillState>({
+    open: false,
+    domain: "titoli",
+    title: "",
+    extra: {},
+  });
+  const openDrill = (s: Omit<DrillState, "open">) => setDrill({ ...s, open: true });
+  const closeDrill = () => setDrill((p) => ({ ...p, open: false }));
 
   const treemapData = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -242,6 +271,7 @@ const AreaCFO = () => {
     });
     return Object.entries(map).map(([name, children]) => ({ name, children }));
   }, [matriceProdRamo]);
+
 
 
   // Report
