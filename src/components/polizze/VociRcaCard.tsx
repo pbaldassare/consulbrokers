@@ -742,9 +742,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 font-medium text-sm min-w-0">
+                    <div className="flex items-center gap-1.5 font-medium text-sm min-w-0 flex-1">
                       {v.is_rca_principale && <ShieldCheck className="h-4 w-4 text-teal-700 shrink-0" />}
-                      <span className="truncate">{v.garanzia}</span>
+                      <span className="truncate flex-1">{v.garanzia}</span>
                     </div>
                     {v.is_rca_principale ? (
                       <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
