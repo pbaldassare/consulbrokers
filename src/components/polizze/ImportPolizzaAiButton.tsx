@@ -173,7 +173,7 @@ export function ImportPolizzaAiButton({
           } else {
             await supabase.from("premi_garanzia_polizza" as any).insert({
               titolo_id: titoloId,
-              garanzia: "RCA Auto",
+              garanzia: mainLabel,
               codice_garanzia: "RCA",
               is_rca_principale: true,
               firma: r.netto,
