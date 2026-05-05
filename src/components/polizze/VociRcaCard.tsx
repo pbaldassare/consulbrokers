@@ -895,12 +895,58 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Totale Netto</p>
               <p className="text-base sm:text-xl font-bold font-mono tabular-nums">{fmtEur(totali.netto)}</p>
             </div>
-            <div className="rounded-lg border bg-card p-2 sm:p-3">
-              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Totale Tasse</p>
-              <p className="text-base sm:text-xl font-bold font-mono tabular-nums">{fmtEur(totali.tasse)}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 hidden sm:block">
-                IPT {fmtEur(totali.imposta)} · SSN {fmtEur(totali.ssn)} · Acc. {fmtEur(totali.tasseAcc)}
+            <div className="rounded-lg border bg-card p-2 sm:p-3 col-span-2 md:col-span-1">
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                <span>Totale Tasse</span>
+                <span className="font-mono tabular-nums text-foreground">{fmtEur(totali.tasse)}</span>
               </p>
+              <div className="grid grid-cols-3 gap-1.5 mt-2">
+                <label className="text-[9px] uppercase text-muted-foreground">
+                  IPT
+                  <Input
+                    type="number" step="0.01" inputMode="decimal"
+                    key={`tot-ipt-${totali.imposta}`}
+                    defaultValue={totali.imposta}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (Math.abs(val - totali.imposta) < 0.01) return;
+                      handleTotaleIptBlur(val);
+                    }}
+                    className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
+                    disabled={!voci.some((v) => v.is_rca_principale)}
+                  />
+                </label>
+                <label className="text-[9px] uppercase text-muted-foreground">
+                  SSN
+                  <Input
+                    type="number" step="0.01" inputMode="decimal"
+                    key={`tot-ssn-${totali.ssn}`}
+                    defaultValue={totali.ssn}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (Math.abs(val - totali.ssn) < 0.01) return;
+                      handleTotaleSsnBlur(val);
+                    }}
+                    className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
+                    disabled={!voci.some((v) => v.is_rca_principale)}
+                  />
+                </label>
+                <label className="text-[9px] uppercase text-muted-foreground">
+                  Acc.
+                  <Input
+                    type="number" step="0.01" inputMode="decimal"
+                    key={`tot-acc-${totali.tasseAcc}`}
+                    defaultValue={totali.tasseAcc}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value || 0);
+                      if (Math.abs(val - totali.tasseAcc) < 0.01) return;
+                      handleTotaleAccBlur(val);
+                    }}
+                    className="h-7 text-right font-mono tabular-nums text-xs mt-0.5 px-1.5"
+                    disabled={!voci.some((v) => !v.is_rca_principale)}
+                  />
+                </label>
+              </div>
             </div>
             <div className={cn(
               "col-span-2 md:col-span-1 rounded-lg border-2 p-2 sm:p-3",
