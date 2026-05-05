@@ -28,6 +28,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/distinta-giornaliera" element={<DistintaGiornaliera />} />
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
+    <Route path="/contabilita/ec-agenzia" element={<ECCompagniaContabPage />} />
     <Route path="/contabilita/ec-agenzia/pdf" element={<ECAgenziaPdfPage />} />
     <Route path="/contabilita/ec-cliente/pdf" element={<ECClientePdfPage />} />
     <Route path="/contabilita/ec-agenzia/storico" element={<ECAgenzieStoricoPage />} />
