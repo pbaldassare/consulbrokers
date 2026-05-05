@@ -34,7 +34,12 @@ interface Voce {
   imposta_provinciale: number | null;
   ssn: number | null;
   ordine: number | null;
+  tipo_premio?: "firma" | "quietanza";
+  quietanza_personalizzata?: boolean;
+  voce_origine_id?: string | null;
 }
+
+type TipoPremio = "firma" | "quietanza";
 
 const RCA_LABEL = "RCA Auto";
 const RCA_CODE = "RCA";
