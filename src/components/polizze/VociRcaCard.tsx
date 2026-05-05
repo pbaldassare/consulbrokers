@@ -567,7 +567,31 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   <AlertCircle className="h-3 w-3" /> Netto + Tasse ≠ Lordo (errore di arrotondamento)
                 </p>
               )}
+          </div>
+
+          {/* Provvigioni */}
+          <div className={cn(
+            "flex items-center justify-between gap-3 px-3 sm:px-4 py-3 border-t",
+            isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/40 dark:bg-teal-950/10",
+          )}>
+            <div className="flex flex-col">
+              <span className={cn("text-xs uppercase tracking-wide font-semibold", isQuietanza ? "text-amber-900 dark:text-amber-200" : "text-teal-900 dark:text-teal-200")}>
+                Provvigioni {isQuietanza ? "Quietanza" : "Firma"}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Importo dovuto al commerciale (€)</span>
             </div>
+            <Input
+              type="number"
+              step="0.01"
+              className="w-32 sm:w-40 text-right font-mono tabular-nums"
+              defaultValue={provvigioniValue ?? ""}
+              key={`prov-${tipoPremio}-${provvigioniValue ?? ""}`}
+              onBlur={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!isNaN(v)) onProvvigioniChange?.(v);
+              }}
+            />
+          </div>
           </div>
         </CardContent>
       </Card>
