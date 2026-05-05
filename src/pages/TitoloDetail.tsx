@@ -2451,6 +2451,14 @@ const TitoloDetail = () => {
                     if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
                   }, 800);
                 }}
+                provvigioniValue={(t as any).provvigioni_quietanza}
+                onProvvigioniChange={async (v) => {
+                  const { error } = await supabase.from("titoli").update({ provvigioni_quietanza: v }).eq("id", t.id);
+                  if (!error) {
+                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                    toast.success("Provvigioni Quietanza aggiornate");
+                  } else toast.error("Errore aggiornamento provvigioni");
+                }}
               />
             </div>
           </div>
