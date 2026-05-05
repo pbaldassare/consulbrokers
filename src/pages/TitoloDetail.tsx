@@ -2677,6 +2677,7 @@ const TitoloDetail = () => {
       </SectionCollapsible>
       )}
 
+      {!isRamoAuto((t as any).ramo) && (
       <SectionCollapsible title="Premi per Garanzia" icon={ShieldCheck}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingPremi ? (
