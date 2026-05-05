@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
+import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 
 
 const fmt = (v: any) => v ?? "—";
