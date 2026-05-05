@@ -260,9 +260,11 @@ const AnagraficheInternePage = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessun record selezionato");
-      const resolvedUfficioId = isProduttore
-        ? (form.ufficio_id || profile?.ufficio_id || null)
-        : (profile?.ufficio_id || null);
+      const resolvedUfficioId = isCorr
+        ? (form.ufficio_id || null)
+        : isProduttore
+          ? (form.ufficio_id || profile?.ufficio_id || null)
+          : (profile?.ufficio_id || null);
       if (isProduttore && !isCorr && !resolvedUfficioId) {
         throw new Error("Sede obbligatoria: assegna una Sede prima di salvare");
       }
