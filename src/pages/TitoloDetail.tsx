@@ -39,17 +39,37 @@ const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { lo
 const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
 const fmtBool = (v: boolean | null) => v ? "Sì" : "No";
 
-// Determina se il ramo della polizza è di tipo Auto/Veicoli (RCA, ARD, statistici RV*).
-// In questo caso vanno mostrati i campi tecnici del veicolo.
-const RAMI_AUTO_CODICI = new Set(["PI", "QA", "QAC", "QC", "QF", "QG", "QR", "QU", "DAB", "PJ"]);
+// Determina se il ramo è Auto/Veicoli o Natanti/Nautica (mostra dati tecnici + card voci).
+const RAMI_VEICOLO_NATANTE = new Set([
+  "PI", "QA", "QAC", "QC", "QF", "QG", "QR", "QU", "DAB", "PJ",   // auto
+  "QN", "QT", "QNA", "DD", "DN", "DNA",                            // natanti / nautica
+]);
+const RAMI_NATANTE_CODICI = new Set(["QN", "QT", "QNA", "DD", "DN", "DNA", "RV10", "RV11"]);
+const isRamoNatante = (ramo: any) => {
+  if (!ramo) return false;
+  const cod = String(ramo.codice || "").toUpperCase().trim();
+  const desc = String(ramo.descrizione || "").toUpperCase();
+  if (RAMI_NATANTE_CODICI.has(cod)) return true;
+  if (/\bNATANT|\bNAUTIC|\bIMBARC|\bCORPI NAVI/.test(desc)) return true;
+  return false;
+};
 const isRamoAuto = (ramo: any) => {
   if (!ramo) return false;
   const cod = String(ramo.codice || "").toUpperCase().trim();
   const desc = String(ramo.descrizione || "").toUpperCase();
-  if (RAMI_AUTO_CODICI.has(cod)) return true;
+  if (RAMI_VEICOLO_NATANTE.has(cod)) return true;
   if (cod.startsWith("RV")) return true;
-  if (/\bAUTO\b|\bAUTOVEIC|\bAUTOCARR|\bVEICOL/.test(desc)) return true;
+  if (/\bAUTO\b|\bAUTOVEIC|\bAUTOCARR|\bVEICOL|\bNATANT|\bNAUTIC|\bIMBARC|\bCORPI NAVI/.test(desc)) return true;
   return false;
+};
+// Etichetta dinamica per la riga "principale" delle card voci (RCA Auto vs RC Natanti)
+const getMainVoceLabel = (ramo: any): string => {
+  if (isRamoNatante(ramo)) {
+    const cod = String(ramo?.codice || "").toUpperCase();
+    if (cod === "DD" || cod === "DN" || cod === "DNA") return "Corpi Nautica";
+    return "RC Natanti";
+  }
+  return "RCA Auto";
 };
 
 // Sotto-titolo per i blocchi interni alla sezione Veicolo
