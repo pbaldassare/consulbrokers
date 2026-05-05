@@ -467,6 +467,7 @@ const TitoliList = () => {
                     <TableHead>N. Polizza</TableHead>
                     <TableHead>Prodotto</TableHead>
                     <TableHead>Agenzia</TableHead>
+                    <TableHead>Targa</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Produttore</TableHead>
                     <TableHead>Premio €</TableHead>
