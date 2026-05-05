@@ -98,6 +98,23 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   const [toDelete, setToDelete] = useState<Voce | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  // Draft state per editing live (controlled inputs); chiavi: voce.id → campi sovrascritti
+  const [draftVoci, setDraftVoci] = useState<Record<string, Partial<Voce>>>({});
+  const setDraft = (id: string, patch: Partial<Voce>) =>
+    setDraftVoci((d) => ({ ...d, [id]: { ...(d[id] || {}), ...patch } }));
+  const clearDraft = (id: string, keys: (keyof Voce)[]) =>
+    setDraftVoci((d) => {
+      const cur = { ...(d[id] || {}) };
+      keys.forEach((k) => delete (cur as any)[k]);
+      const next = { ...d };
+      if (Object.keys(cur).length === 0) delete next[id];
+      else next[id] = cur;
+      return next;
+    });
+  const getDraftNum = (id: string, key: keyof Voce, fallback: number) => {
+    const v = draftVoci[id]?.[key];
+    return v === undefined || v === null || v === "" ? fallback : Number(v);
+  };
 
   useEffect(() => {
     if (!provinciaCliente) return;
@@ -463,9 +480,15 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     toast.success(`Aliquota accessorie aggiornata a ${nuovaAliq}%`);
   };
 
+  // Merge draft (editing live) sui dati salvati per ricalcolare totali in tempo reale
+  const vociMerged = useMemo(
+    () => voci.map((v) => ({ ...v, ...(draftVoci[v.id] || {}) })),
+    [voci, draftVoci],
+  );
+
   const totali = useMemo(() => {
     let netto = 0, lordo = 0, imposta = 0, ssn = 0, tasseAcc = 0;
-    voci.forEach((v) => {
+    vociMerged.forEach((v) => {
       const c = calcolaLordo(v, aliquotaProv);
       netto = round2(netto + c.netto);
       lordo = round2(lordo + c.lordo);
@@ -474,7 +497,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       if (!v.is_rca_principale) tasseAcc = round2(tasseAcc + (c.lordo - c.netto));
     });
     return { netto, lordo, tasse: round2(lordo - netto), imposta, ssn, tasseAcc };
-  }, [voci, aliquotaProv]);
+  }, [vociMerged, aliquotaProv]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -576,8 +599,19 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {voci.map((v, idx) => {
+                {vociMerged.map((v, idx) => {
                   const calc = calcolaLordo(v, aliquotaProv);
+                  const nettoVal = getDraftNum(v.id, "firma", Number(v.firma ?? 0));
+                  const aliqVal = getDraftNum(v.id, "aliquota_tasse_pct", Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT));
+                  const lordoVal = draftVoci[v.id]?.lordo_calcolato !== undefined
+                    ? Number(draftVoci[v.id]!.lordo_calcolato)
+                    : calc.lordo;
+                  const iptVal = draftVoci[v.id]?.imposta_provinciale !== undefined
+                    ? Number(draftVoci[v.id]!.imposta_provinciale)
+                    : calc.imposta;
+                  const ssnVal = draftVoci[v.id]?.ssn !== undefined
+                    ? Number(draftVoci[v.id]!.ssn)
+                    : calc.ssn;
                   return (
                     <>
                       <TableRow
@@ -595,21 +629,33 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         <TableCell className="text-right">
                           <Input
                             type="number" step="0.01" inputMode="decimal"
-                            key={`netto-${v.id}-${v.firma}`}
-                            defaultValue={v.firma ?? 0}
-                            onBlur={(e) => handleNettoBlur(v, Number(e.target.value || 0))}
+                            value={nettoVal}
+                            onChange={(e) => setDraft(v.id, { firma: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
+                            onBlur={(e) => { clearDraft(v.id, ["firma"]); handleNettoBlur(v, Number(e.target.value || 0)); }}
                             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                             className="h-8 text-right ml-auto w-32"
                           />
                         </TableCell>
                         <TableCell className="text-right">
                           {v.is_rca_principale ? (
-                            <span className="text-xs text-muted-foreground">{aliquotaProv}% + SSN</span>
+                            <div className="flex items-center justify-end gap-1">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                value={aliquotaProv}
+                                onChange={(e) => setAliquotaProv(Number(e.target.value || 0))}
+                                onBlur={(e) => handleAliquotaProvChange(Number(e.target.value || 0))}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right w-16"
+                                title="Imposta provinciale (modifica live)"
+                              />
+                              <span className="text-[10px] text-muted-foreground">% +SSN</span>
+                            </div>
                           ) : (
                             <Input
                               type="number" step="0.01" inputMode="decimal"
-                              defaultValue={v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT}
-                              onBlur={(e) => handleAliquotaBlur(v, Number(e.target.value || 0))}
+                              value={aliqVal}
+                              onChange={(e) => setDraft(v.id, { aliquota_tasse_pct: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
+                              onBlur={(e) => { clearDraft(v.id, ["aliquota_tasse_pct"]); handleAliquotaBlur(v, Number(e.target.value || 0)); }}
                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                               className="h-8 text-right ml-auto w-20"
                             />
@@ -618,10 +664,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         <TableCell className="text-right">
                           <Input
                             type="number" step="0.01" inputMode="decimal"
-                            key={`lordo-${v.id}-${calc.lordo}`}
-                            defaultValue={calc.lordo}
+                            value={lordoVal}
+                            onChange={(e) => setDraft(v.id, { lordo_calcolato: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                             onBlur={(e) => {
                               const val = Number(e.target.value || 0);
+                              clearDraft(v.id, ["lordo_calcolato"]);
                               if (Math.abs(val - calc.lordo) < 0.01) return;
                               handleLordoBlur(v, val);
                             }}
@@ -660,10 +707,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                               <div className="flex items-center justify-end gap-1">
                                 <Input
                                   type="number" step="0.01" inputMode="decimal"
-                                  key={`ipt-${v.id}-${calc.imposta}`}
-                                  defaultValue={calc.imposta}
+                                  value={iptVal}
+                                  onChange={(e) => setDraft(v.id, { imposta_provinciale: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                                   onBlur={(e) => {
                                     const val = Number(e.target.value || 0);
+                                    clearDraft(v.id, ["imposta_provinciale"]);
                                     if (Math.abs(val - calc.imposta) < 0.01) return;
                                     handleImpostaOverrideBlur(v, val);
                                   }}
@@ -699,10 +747,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                               <div className="flex items-center justify-end gap-1">
                                 <Input
                                   type="number" step="0.01" inputMode="decimal"
-                                  key={`ssn-${v.id}-${calc.ssn}`}
-                                  defaultValue={calc.ssn}
+                                  value={ssnVal}
+                                  onChange={(e) => setDraft(v.id, { ssn: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                                   onBlur={(e) => {
                                     const val = Number(e.target.value || 0);
+                                    clearDraft(v.id, ["ssn"]);
                                     if (Math.abs(val - calc.ssn) < 0.01) return;
                                     handleSsnOverrideBlur(v, val);
                                   }}
@@ -733,8 +782,13 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
 
           {/* Mobile cards */}
           <div className="lg:hidden divide-y">
-            {voci.map((v) => {
+            {vociMerged.map((v) => {
               const calc = calcolaLordo(v, aliquotaProv);
+              const nettoVal = getDraftNum(v.id, "firma", Number(v.firma ?? 0));
+              const aliqVal = getDraftNum(v.id, "aliquota_tasse_pct", Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT));
+              const lordoVal = draftVoci[v.id]?.lordo_calcolato !== undefined ? Number(draftVoci[v.id]!.lordo_calcolato) : calc.lordo;
+              const iptVal = draftVoci[v.id]?.imposta_provinciale !== undefined ? Number(draftVoci[v.id]!.imposta_provinciale) : calc.imposta;
+              const ssnVal = draftVoci[v.id]?.ssn !== undefined ? Number(draftVoci[v.id]!.ssn) : calc.ssn;
               return (
                 <div
                   key={v.id}
@@ -762,9 +816,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       Premio Netto
                       <Input
                         type="number" step="0.01" inputMode="decimal"
-                        key={`netto-m-${v.id}-${v.firma}`}
-                        defaultValue={v.firma ?? 0}
-                        onBlur={(e) => handleNettoBlur(v, Number(e.target.value || 0))}
+                        value={nettoVal}
+                        onChange={(e) => setDraft(v.id, { firma: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
+                        onBlur={(e) => { clearDraft(v.id, ["firma"]); handleNettoBlur(v, Number(e.target.value || 0)); }}
                         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                         className="h-8 text-right mt-0.5"
                       />
@@ -772,14 +826,21 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                     <label className="text-[11px] text-muted-foreground">
                       Aliquota %
                       {v.is_rca_principale ? (
-                        <div className="h-8 mt-0.5 flex items-center justify-end text-xs text-muted-foreground">
-                          {aliquotaProv}% + SSN
-                        </div>
+                        <Input
+                          type="number" step="0.01" inputMode="decimal"
+                          value={aliquotaProv}
+                          onChange={(e) => setAliquotaProv(Number(e.target.value || 0))}
+                          onBlur={(e) => handleAliquotaProvChange(Number(e.target.value || 0))}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          className="h-8 text-right mt-0.5"
+                          title="Imposta provinciale"
+                        />
                       ) : (
                         <Input
                           type="number" step="0.01" inputMode="decimal"
-                          defaultValue={v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT}
-                          onBlur={(e) => handleAliquotaBlur(v, Number(e.target.value || 0))}
+                          value={aliqVal}
+                          onChange={(e) => setDraft(v.id, { aliquota_tasse_pct: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
+                          onBlur={(e) => { clearDraft(v.id, ["aliquota_tasse_pct"]); handleAliquotaBlur(v, Number(e.target.value || 0)); }}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                           className="h-8 text-right mt-0.5"
                         />
@@ -790,10 +851,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                     <span className="text-[11px] text-muted-foreground uppercase">Lordo</span>
                     <Input
                       type="number" step="0.01" inputMode="decimal"
-                      key={`lordo-m-${v.id}-${calc.lordo}`}
-                      defaultValue={calc.lordo}
+                      value={lordoVal}
+                      onChange={(e) => setDraft(v.id, { lordo_calcolato: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                       onBlur={(e) => {
                         const val = Number(e.target.value || 0);
+                        clearDraft(v.id, ["lordo_calcolato"]);
                         if (Math.abs(val - calc.lordo) < 0.01) return;
                         handleLordoBlur(v, val);
                       }}
@@ -813,10 +875,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         <div className="flex items-center gap-1">
                           <Input
                             type="number" step="0.01" inputMode="decimal"
-                            key={`ipt-m-${v.id}-${calc.imposta}`}
-                            defaultValue={calc.imposta}
+                            value={iptVal}
+                            onChange={(e) => setDraft(v.id, { imposta_provinciale: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                             onBlur={(e) => {
                               const val = Number(e.target.value || 0);
+                              clearDraft(v.id, ["imposta_provinciale"]);
                               if (Math.abs(val - calc.imposta) < 0.01) return;
                               handleImpostaOverrideBlur(v, val);
                             }}
@@ -840,10 +903,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         <div className="flex items-center gap-1">
                           <Input
                             type="number" step="0.01" inputMode="decimal"
-                            key={`ssn-m-${v.id}-${calc.ssn}`}
-                            defaultValue={calc.ssn}
+                            value={ssnVal}
+                            onChange={(e) => setDraft(v.id, { ssn: e.target.value === "" ? 0 : Number(e.target.value) } as any)}
                             onBlur={(e) => {
                               const val = Number(e.target.value || 0);
+                              clearDraft(v.id, ["ssn"]);
                               if (Math.abs(val - calc.ssn) < 0.01) return;
                               handleSsnOverrideBlur(v, val);
                             }}
