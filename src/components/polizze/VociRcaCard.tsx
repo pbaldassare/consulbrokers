@@ -81,7 +81,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -90,7 +90,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   titolo?: string;
   provvigioniValue?: number | null;
   onProvvigioniChange?: (v: number) => void;
+  mainLabel?: string;
 }) {
+  const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
   const qc = useQueryClient();
   const isQuietanza = tipoPremio === "quietanza";
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
