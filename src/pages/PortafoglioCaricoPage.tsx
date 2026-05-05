@@ -80,7 +80,7 @@ const PortafoglioCaricoPage = () => {
       ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
       if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
@@ -101,7 +101,7 @@ const PortafoglioCaricoPage = () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
         .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
       
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
@@ -435,7 +435,7 @@ const PortafoglioCaricoPage = () => {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Cerca per n° polizza, cliente, codice..."
+            placeholder="Cerca per n° polizza, cliente, codice, targa..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
@@ -473,6 +473,7 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
+                  <SortableHeader field="targa_telaio">Targa</SortableHeader>
                   <SortableHeader field="data_scadenza">Scadenza</SortableHeader>
                   <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">Lordo</SortableHeader>
@@ -502,6 +503,7 @@ const PortafoglioCaricoPage = () => {
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
                       <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
                       <TableCell>{frazLabel(p.rate)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>

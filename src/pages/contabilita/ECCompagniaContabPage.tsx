@@ -124,7 +124,7 @@ const ECCompagniaContabPage = () => {
   const { data: compagnie } = useQuery({
     queryKey: ["agenzie-ec"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome, codice, comune, mail, iban").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, comune, mail, iban").eq("attiva", true).order("nome");
       return data || [];
     },
   });

@@ -105,7 +105,7 @@ export default function GlobalSearch() {
       useFts
         ? supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").textSearch("search_vector", tsQuery, { type: "plain" }).limit(5)
         : supabase.from("sinistri").select("id, numero_sinistro, stato, descrizione").or(`numero_sinistro.ilike.${like},descrizione.ilike.${like}`).limit(5),
-      supabase.from("agenzie").select("id, nome, codice").or(`nome.ilike.${like},codice.ilike.${like}`).limit(5),
+      supabase.from("compagnie").select("id, nome, codice").or(`nome.ilike.${like},codice.ilike.${like}`).limit(5),
       supabase.from("prodotti").select("id, nome_prodotto, codice_prodotto").or(`nome_prodotto.ilike.${like},codice_prodotto.ilike.${like}`).limit(5),
       supabase.from("trattative").select("id, prodotto, agenzia, stato").or(`prodotto.ilike.${like},compagnia.ilike.${like}`).limit(5),
     ]);

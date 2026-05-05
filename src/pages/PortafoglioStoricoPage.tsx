@@ -27,7 +27,7 @@ const PortafoglioStoricoPage = () => {
   const { data: compagnie } = useQuery({
     queryKey: ["agenzie-lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -50,7 +50,7 @@ const PortafoglioStoricoPage = () => {
       }
     }
     if (search) {
-      q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%`);
+      q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
     if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
@@ -126,7 +126,7 @@ const PortafoglioStoricoPage = () => {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Cerca per n° polizza, cliente, codice..."
+            placeholder="Cerca per n° polizza, cliente, codice, targa..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
@@ -181,6 +181,7 @@ const PortafoglioStoricoPage = () => {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
+                  <TableHead>Targa</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead>Fraz</TableHead>
                   <TableHead className="text-right">Lordo</TableHead>
@@ -204,6 +205,7 @@ const PortafoglioStoricoPage = () => {
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{p.targa_telaio || "—"}</TableCell>
                     <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
                     <TableCell>{frazLabel(p.rate)}</TableCell>
                     <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>

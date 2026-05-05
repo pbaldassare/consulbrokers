@@ -30,7 +30,7 @@ const ECAgenzieStoricoPage = () => {
   const { data: agenzieOpts = [] } = useQuery({
     queryKey: ["ec-agenzie-storico-agenzie"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome").order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
       return (data || []).map((c: any) => ({ value: c.id, label: c.nome }));
     },
   });
@@ -57,7 +57,7 @@ const ECAgenzieStoricoPage = () => {
       const compIds = Array.from(new Set((docs || []).map((d: any) => d.entita_id).filter(Boolean)));
       const compMap: Record<string, string> = {};
       if (compIds.length) {
-        const { data: comps } = await supabase.from("agenzie").select("id, nome").in("id", compIds);
+        const { data: comps } = await supabase.from("compagnie").select("id, nome").in("id", compIds);
         (comps || []).forEach((c: any) => { compMap[c.id] = c.nome; });
       }
       return {

@@ -86,7 +86,7 @@ const AreaCFO = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_attive"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
+      const { data, error } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
       if (error) throw error;
       return data;
     },

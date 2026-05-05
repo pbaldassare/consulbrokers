@@ -46,7 +46,7 @@ const ImportProvvigioniTab = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["agenzie-select"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome").order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
       return data || [];
     },
   });

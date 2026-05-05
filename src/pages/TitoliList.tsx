@@ -72,7 +72,7 @@ const TitoliList = () => {
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_select"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome, codice, gruppo_statistico").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_statistico").eq("attiva", true).order("nome");
       return data || [];
     },
   });
@@ -148,6 +148,9 @@ const TitoliList = () => {
       }
       if (appliedFilters.produttore && appliedFilters.produttore !== "all") {
         q = q.eq("produttore_id", appliedFilters.produttore);
+      }
+      if (appliedFilters.targaTelaio) {
+        q = q.ilike("targa_telaio", `%${appliedFilters.targaTelaio}%`);
       }
 
       const { data, error, count } = await q
@@ -464,6 +467,7 @@ const TitoliList = () => {
                     <TableHead>N. Polizza</TableHead>
                     <TableHead>Prodotto</TableHead>
                     <TableHead>Agenzia</TableHead>
+                    <TableHead>Targa</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Produttore</TableHead>
                     <TableHead>Premio €</TableHead>
@@ -478,6 +482,7 @@ const TitoliList = () => {
                       <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
                       <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
                       <TableCell className="text-sm">{t.prodotti?.compagnie?.nome || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{t.targa_telaio || "—"}</TableCell>
                       <TableCell>{t.cliente ? `${t.cliente.cognome || ""} ${t.cliente.nome || ""}`.trim() : "—"}</TableCell>
                       <TableCell>{t.produttore ? `${t.produttore.cognome || ""} ${t.produttore.nome || ""}`.trim() : "—"}</TableCell>
                       <TableCell className="font-mono">{t.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
@@ -487,7 +492,7 @@ const TitoliList = () => {
                     </TableRow>
                   ))}
                   {titoli.length === 0 && (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nessun risultato trovato</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun risultato trovato</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
