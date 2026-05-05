@@ -2163,7 +2163,7 @@ const TitoloDetail = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs uppercase font-semibold text-muted-foreground">Quota Agenzia</span>
+                              <span className="text-xs uppercase font-semibold text-muted-foreground">Quota</span>
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-mono">{commercialeIsAdmin ? 100 : (100 - percComm)}%</span>
                             </div>
                             <div className="text-sm font-medium truncate">Consulbrokers SPA</div>
