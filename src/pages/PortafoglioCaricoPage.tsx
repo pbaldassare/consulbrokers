@@ -473,6 +473,7 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
+                  <SortableHeader field="targa_telaio">Targa</SortableHeader>
                   <SortableHeader field="data_scadenza">Scadenza</SortableHeader>
                   <SortableHeader field="rate">Fraz</SortableHeader>
                   <SortableHeader field="premio_lordo" className="text-right">Lordo</SortableHeader>
