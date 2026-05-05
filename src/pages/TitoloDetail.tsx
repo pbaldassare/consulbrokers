@@ -2534,6 +2534,7 @@ const TitoloDetail = () => {
               />
               <VociRcaCard
                 tipoPremio="quietanza"
+                mainLabel={getMainVoceLabel((t as any).ramo)}
                 titoloId={t.id}
                 provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
                 onTotaliChange={(tot) => {
