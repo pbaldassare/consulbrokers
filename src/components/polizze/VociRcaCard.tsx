@@ -111,6 +111,18 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     },
   });
 
+  // Carico anche l'altro lato (Firma↔Quietanza) per evidenziare disallineamenti di voci
+  const { data: vociAltroLato = [] } = useQuery({
+    queryKey: ["voci-rca", titoloId, isQuietanza ? "firma" : "quietanza"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("premi_garanzia_polizza" as any)
+        .select("codice_garanzia, firma, is_rca_principale")
+        .eq("titolo_id", titoloId)
+        .eq("tipo_premio", isQuietanza ? "firma" : "quietanza");
+      return (data as any[]) || [];
+    },
+  });
   const invalidateBoth = () => {
     qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "firma"] });
     qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "quietanza"] });
