@@ -482,7 +482,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             <TableCell></TableCell>
                           </TableRow>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
-                            <TableCell className="pl-10">↳ Contributo SSN ({SSN_PCT}% sull'imposta)</TableCell>
+                            <TableCell className="pl-10">↳ Contributo SSN 10,5%</TableCell>
                             <TableCell colSpan={2}></TableCell>
                             <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.ssn)}</TableCell>
                             <TableCell></TableCell>
