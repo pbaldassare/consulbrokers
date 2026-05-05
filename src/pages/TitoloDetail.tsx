@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
+import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 
 
 const fmt = (v: any) => v ?? "—";
@@ -2696,6 +2697,9 @@ const TitoloDetail = () => {
           <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
           <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
           <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
+          {isRamoAuto((t as any).ramo) && (
+            <TabsTrigger value="voci-rca"><Car className="w-4 h-4 mr-1" />Voci RCA</TabsTrigger>
+          )}
           <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
           <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
           <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
@@ -2809,6 +2813,15 @@ const TitoloDetail = () => {
         <TabsContent value="garanzie">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Garanzie — in fase di sviluppo. Qui verranno mostrate le coperture e garanzie della polizza.</CardContent></Card>
         </TabsContent>
+        {isRamoAuto((t as any).ramo) && (
+          <TabsContent value="voci-rca">
+            <VociRcaCard
+              titoloId={t.id}
+              premioLordoTitolo={(t as any).premio_lordo}
+              provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+            />
+          </TabsContent>
+        )}
         <TabsContent value="familiari">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Familiari — in fase di sviluppo. Qui verranno mostrati assicurati e beneficiari collegati alla polizza.</CardContent></Card>
         </TabsContent>
