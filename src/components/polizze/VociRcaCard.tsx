@@ -130,6 +130,20 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "quietanza"] });
   };
 
+  // Realtime: ascolta cambi sulle voci di questo titolo (anche da trigger DB)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`voci-rca-${titoloId}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "premi_garanzia_polizza", filter: `titolo_id=eq.${titoloId}` },
+        () => invalidateBoth(),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titoloId]);
+
   useEffect(() => {
     if (isLoading) return;
     if (isQuietanza) return; // la riga RCA Quietanza viene creata dal trigger
@@ -226,6 +240,35 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       return;
     }
     const netto = round2(value);
+    const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
+    upsertMut.mutate({
+      id: v.id,
+      firma: netto,
+      lordo_calcolato: calc.lordo,
+      imposta_provinciale: v.is_rca_principale ? calc.imposta : null,
+      ssn: v.is_rca_principale ? calc.ssn : null,
+    });
+  };
+
+  const handleLordoBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Il premio lordo deve essere ≥ 0");
+      return;
+    }
+    if (value > 1_000_000) {
+      toast.error("Premio lordo fuori scala (max 1.000.000 €)");
+      return;
+    }
+    const lordo = round2(value);
+    let netto: number;
+    if (v.is_rca_principale) {
+      // lordo = netto * (1 + aliqProv/100 * (1 + SSN%/100))
+      const factor = 1 + (aliquotaProv / 100) * (1 + SSN_PCT / 100);
+      netto = round2(lordo / factor);
+    } else {
+      const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
+      netto = round2(lordo / (1 + aliq / 100));
+    }
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
     upsertMut.mutate({
       id: v.id,
@@ -404,7 +447,19 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             />
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.lordo)}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" step="0.01" inputMode="decimal"
+                            key={`lordo-${v.id}-${calc.lordo}`}
+                            defaultValue={calc.lordo}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value || 0);
+                              if (Math.abs(val - calc.lordo) < 0.01) return;
+                              handleLordoBlur(v, val);
+                            }}
+                            className="h-8 text-right ml-auto w-32 font-mono tabular-nums"
+                          />
+                        </TableCell>
                         <TableCell>
                           {v.is_rca_principale ? (
                             <span title="RCA Auto non rimovibile" className="inline-flex">
@@ -427,7 +482,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             <TableCell></TableCell>
                           </TableRow>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
-                            <TableCell className="pl-10">↳ Contributo SSN ({SSN_PCT}% sull'imposta)</TableCell>
+                            <TableCell className="pl-10">↳ Contributo SSN 10,5%</TableCell>
                             <TableCell colSpan={2}></TableCell>
                             <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.ssn)}</TableCell>
                             <TableCell></TableCell>
@@ -493,14 +548,24 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       )}
                     </label>
                   </div>
-                  <div className="flex justify-between items-center pt-1 border-t">
+                  <div className="flex justify-between items-center pt-1 border-t gap-2">
                     <span className="text-[11px] text-muted-foreground uppercase">Lordo</span>
-                    <span className="font-mono font-semibold tabular-nums text-sm">{fmtEur(calc.lordo)}</span>
+                    <Input
+                      type="number" step="0.01" inputMode="decimal"
+                      key={`lordo-m-${v.id}-${calc.lordo}`}
+                      defaultValue={calc.lordo}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value || 0);
+                        if (Math.abs(val - calc.lordo) < 0.01) return;
+                        handleLordoBlur(v, val);
+                      }}
+                      className="h-8 w-32 text-right font-mono tabular-nums"
+                    />
                   </div>
                   {v.is_rca_principale && (
                     <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t">
                       <div className="flex justify-between"><span>↳ Imposta {aliquotaProv}%</span><span className="font-mono">{fmtEur(calc.imposta)}</span></div>
-                      <div className="flex justify-between"><span>↳ SSN {SSN_PCT}%</span><span className="font-mono">{fmtEur(calc.ssn)}</span></div>
+                      <div className="flex justify-between"><span>↳ SSN 10,5%</span><span className="font-mono">{fmtEur(calc.ssn)}</span></div>
                     </div>
                   )}
                 </div>
@@ -511,7 +576,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           <div className="p-3 border-t">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto" disabled={catalogoDisponibile.length === 0}>
+                <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
                   <Plus className="h-4 w-4" /> Aggiungi voce
                 </Button>
               </PopoverTrigger>
