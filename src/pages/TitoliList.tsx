@@ -149,6 +149,9 @@ const TitoliList = () => {
       if (appliedFilters.produttore && appliedFilters.produttore !== "all") {
         q = q.eq("produttore_id", appliedFilters.produttore);
       }
+      if (appliedFilters.targaTelaio) {
+        q = q.ilike("targa_telaio", `%${appliedFilters.targaTelaio}%`);
+      }
 
       const { data, error, count } = await q
         .order("created_at", { ascending: false })
