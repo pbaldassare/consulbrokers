@@ -542,6 +542,21 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Risincronizzare la Quietanza dalla Firma?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tutte le voci della Quietanza personalizzate verranno sovrascritte con i valori correnti della Firma. L'operazione non è reversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetQuietanzaMut.mutate()}>Risincronizza</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
