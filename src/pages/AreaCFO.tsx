@@ -488,387 +488,470 @@ const AreaCFO = () => {
         {/* GRAFICI */}
         <TabsContent value="grafici" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Entrate vs Uscite */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Entrate vs Uscite (Mensile)</CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {entrateUscite.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={entrateUscite}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="mese" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Legend />
-                      <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Entrate vs Uscite (Mensile)"
+              isLoading={entrateUsciteQ.isLoading}
+              isError={entrateUsciteQ.isError}
+              error={entrateUsciteQ.error}
+              isEmpty={entrateUscite.length === 0}
+              onRetry={() => entrateUsciteQ.refetch()}
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart
+                  data={entrateUscite}
+                  onClick={(e: any) => {
+                    const m = e?.activeLabel;
+                    if (m) openDrill({ domain: "titoli", title: `Movimenti — ${m}`, extra: { _mese: m } });
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="mese" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Legend />
+                  <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" radius={[4, 4, 0, 0]} cursor="pointer" />
+                  <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" radius={[4, 4, 0, 0]} cursor="pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Premi per Compagnia */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Premi per Compagnia</CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {premiCompagnia.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={320}>
-                    <PieChart>
-                      <Pie data={premiCompagnia} dataKey="totale" nameKey="compagnia" cx="50%" cy="50%" outerRadius={110} label={({ compagnia, percent }) => `${compagnia} ${(percent * 100).toFixed(0)}%`}>
-                        {premiCompagnia.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip formatter={tooltipFormatter} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Premi per Compagnia"
+              isLoading={premiCompagniaQ.isLoading}
+              isError={premiCompagniaQ.isError}
+              error={premiCompagniaQ.error}
+              isEmpty={premiCompagnia.length === 0}
+              onRetry={() => premiCompagniaQ.refetch()}
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <PieChart>
+                  <Pie
+                    data={premiCompagnia}
+                    dataKey="totale"
+                    nameKey="compagnia"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={110}
+                    label={({ compagnia, percent }) => `${compagnia} ${(percent * 100).toFixed(0)}%`}
+                    onClick={(d: any) => openDrill({ domain: "titoli", title: `Compagnia — ${d.compagnia}`, extra: {} })}
+                    cursor="pointer"
+                  >
+                    {premiCompagnia.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={tooltipFormatter} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Premi per Ramo - NEW */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Premi per Ramo (Top 15)</CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {premiRamo.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={premiRamo} layout="vertical" margin={{ left: 120 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis dataKey="ramo" type="category" className="text-xs" width={110} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Bar dataKey="totale" fill="hsl(var(--chart-2))" name="Premi Incassati" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Premi per Ramo (Top 15)"
+              isLoading={premiRamoQ.isLoading}
+              isError={premiRamoQ.isError}
+              error={premiRamoQ.error}
+              isEmpty={premiRamo.length === 0}
+              onRetry={() => premiRamoQ.refetch()}
+              height={400}
+            >
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart
+                  data={premiRamo}
+                  layout="vertical"
+                  margin={{ left: 120 }}
+                  onClick={(e: any) => {
+                    const r = e?.activeLabel;
+                    if (r) openDrill({ domain: "titoli", title: `Ramo — ${r}`, extra: { _ramo: r } });
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis type="number" className="text-xs" />
+                  <YAxis dataKey="ramo" type="category" className="text-xs" width={110} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Bar dataKey="totale" fill="hsl(var(--chart-2))" name="Premi Incassati" radius={[0, 4, 4, 0]} cursor="pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Premi per Produttore - NEW */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Premi per Produttore (Top 15)</CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {premiProduttore.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={premiProduttore} layout="vertical" margin={{ left: 130 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis dataKey="produttore" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Bar dataKey="totale" fill="hsl(var(--chart-3))" name="Premi Incassati" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Premi per Produttore (Top 15)"
+              isLoading={premiProduttoreQ.isLoading}
+              isError={premiProduttoreQ.isError}
+              error={premiProduttoreQ.error}
+              isEmpty={premiProduttore.length === 0}
+              onRetry={() => premiProduttoreQ.refetch()}
+              height={400}
+            >
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={premiProduttore} layout="vertical" margin={{ left: 130 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis type="number" className="text-xs" />
+                  <YAxis dataKey="produttore" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Bar dataKey="totale" fill="hsl(var(--chart-3))" name="Premi Incassati" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Redditività per Ufficio */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Redditività per Ufficio</CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {redditUfficio.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={redditUfficio}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="ufficio" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Legend />
-                      <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="margine" fill="hsl(var(--chart-3))" name="Margine" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Redditività per Ufficio"
+              isLoading={redditUfficioQ.isLoading}
+              isError={redditUfficioQ.isError}
+              error={redditUfficioQ.error}
+              isEmpty={redditUfficio.length === 0}
+              onRetry={() => redditUfficioQ.refetch()}
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={redditUfficio}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="ufficio" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Legend />
+                  <Bar dataKey="entrate" fill="hsl(var(--primary))" name="Entrate" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="uscite" fill="hsl(var(--destructive))" name="Uscite" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="margine" fill="hsl(var(--chart-3))" name="Margine" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Andamento Provvigioni */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Andamento Provvigioni (Mensile)</CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {provvMensili.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={320}>
-                    <LineChart data={provvMensili}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="mese" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Legend />
-                      <Line type="monotone" dataKey="totale" stroke="hsl(var(--primary))" name="Totale" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="pagate" stroke="hsl(var(--chart-3))" name="Pagate" dot={false} />
-                      <Line type="monotone" dataKey="non_pagate" stroke="hsl(var(--destructive))" name="Non Pagate" dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato disponibile</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Andamento Provvigioni (Mensile)"
+              isLoading={provvMensiliQ.isLoading}
+              isError={provvMensiliQ.isError}
+              error={provvMensiliQ.error}
+              isEmpty={provvMensili.length === 0}
+              onRetry={() => provvMensiliQ.refetch()}
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={provvMensili}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="mese" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Legend />
+                  <Line type="monotone" dataKey="totale" stroke="hsl(var(--primary))" name="Totale" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="pagate" stroke="hsl(var(--chart-3))" name="Pagate" dot={false} />
+                  <Line type="monotone" dataKey="non_pagate" stroke="hsl(var(--destructive))" name="Non Pagate" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
           </div>
         </TabsContent>
 
         {/* ANALISI AVANZATE */}
         <TabsContent value="avanzate" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Trend Premi/Provv/Margine */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Trend Mensile: Premi vs Provvigioni vs Margine</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {trendMensile.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={320}>
-                    <LineChart data={trendMensile}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="mese" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Legend />
-                      <Line type="monotone" dataKey="premi" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="provvigioni" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="margine" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              className="lg:col-span-2"
+              title="Trend Mensile: Premi vs Provvigioni vs Margine"
+              subtitle="Clicca su un punto per vedere i titoli del mese"
+              isLoading={trendMensileQ.isLoading}
+              isError={trendMensileQ.isError}
+              error={trendMensileQ.error}
+              isEmpty={trendMensile.length === 0}
+              onRetry={() => trendMensileQ.refetch()}
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart
+                  data={trendMensile}
+                  onClick={(e: any) => {
+                    const m = e?.activeLabel;
+                    if (m) openDrill({ domain: "titoli", title: `Titoli — ${m}`, extra: { _mese: m } });
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="mese" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Legend />
+                  <Line type="monotone" dataKey="premi" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3, cursor: "pointer" }} />
+                  <Line type="monotone" dataKey="provvigioni" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="margine" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* YoY */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Confronto Anno Corrente vs Precedente</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {yoyMensile.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={yoyMensile}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="mese" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Legend />
-                      <Bar dataKey="anno_corrente" fill="hsl(var(--primary))" name="Anno corrente" radius={[4,4,0,0]} />
-                      <Bar dataKey="anno_precedente" fill="hsl(var(--chart-4))" name="Anno precedente" radius={[4,4,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Confronto Anno Corrente vs Precedente"
+              isLoading={yoyMensileQ.isLoading}
+              isError={yoyMensileQ.isError}
+              error={yoyMensileQ.error}
+              isEmpty={yoyMensile.length === 0}
+              onRetry={() => yoyMensileQ.refetch()}
+              height={300}
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={yoyMensile}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="mese" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Legend />
+                  <Bar dataKey="anno_corrente" fill="hsl(var(--primary))" name="Anno corrente" radius={[4,4,0,0]} />
+                  <Bar dataKey="anno_precedente" fill="hsl(var(--chart-4))" name="Anno precedente" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Distribuzione stati */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Distribuzione Polizze per Stato</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {distrStati.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={distrStati} dataKey="num" nameKey="stato" cx="50%" cy="50%" outerRadius={100} label={({ stato, percent }) => `${stato} ${(percent*100).toFixed(0)}%`}>
-                        {distrStati.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Distribuzione Polizze per Stato"
+              subtitle="Clicca uno spicchio per dettaglio"
+              isLoading={distrStatiQ.isLoading}
+              isError={distrStatiQ.isError}
+              error={distrStatiQ.error}
+              isEmpty={distrStati.length === 0}
+              onRetry={() => distrStatiQ.refetch()}
+              height={300}
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={distrStati}
+                    dataKey="num"
+                    nameKey="stato"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label={({ stato, percent }) => `${stato} ${(percent*100).toFixed(0)}%`}
+                    onClick={(d: any) => openDrill({ domain: "titoli", title: `Stato — ${d.stato}`, extra: { _stato: d.stato } })}
+                    cursor="pointer"
+                  >
+                    {distrStati.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Top clienti */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Top 20 Clienti per Premi Incassati</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {topClienti.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={500}>
-                    <BarChart data={topClienti} layout="vertical" margin={{ left: 180 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis dataKey="cliente" type="category" className="text-xs" width={170} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Legend />
-                      <Bar dataKey="premi" fill="hsl(var(--primary))" name="Premi" radius={[0,4,4,0]} />
-                      <Bar dataKey="margine" fill="hsl(var(--chart-2))" name="Margine" radius={[0,4,4,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              className="lg:col-span-2"
+              title="Top 20 Clienti per Premi Incassati"
+              subtitle="Clicca su una barra per vedere i titoli del cliente"
+              isLoading={topClientiQ.isLoading}
+              isError={topClientiQ.isError}
+              error={topClientiQ.error}
+              isEmpty={topClienti.length === 0}
+              onRetry={() => topClientiQ.refetch()}
+              height={500}
+            >
+              <ResponsiveContainer width="100%" height={500}>
+                <BarChart
+                  data={topClienti}
+                  layout="vertical"
+                  margin={{ left: 180 }}
+                  onClick={(e: any) => {
+                    const idx = e?.activeTooltipIndex;
+                    const row = idx != null ? topClienti[idx] : null;
+                    if (row?.cliente_id) {
+                      openDrill({ domain: "titoli", title: `Cliente — ${row.cliente}`, extra: { _cliente_id: row.cliente_id } });
+                    }
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis type="number" className="text-xs" />
+                  <YAxis dataKey="cliente" type="category" className="text-xs" width={170} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Legend />
+                  <Bar dataKey="premi" fill="hsl(var(--primary))" name="Premi" radius={[0,4,4,0]} cursor="pointer" />
+                  <Bar dataKey="margine" fill="hsl(var(--chart-2))" name="Margine" radius={[0,4,4,0]} cursor="pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Distribuzione clienti per fascia */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Clienti per Fascia di Premio</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {distrFascia.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={distrFascia}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="fascia" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <Tooltip />
-                      <Bar dataKey="clienti" fill="hsl(var(--chart-3))" name="N. Clienti" radius={[4,4,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Clienti per Fascia di Premio"
+              isLoading={distrFasciaQ.isLoading}
+              isError={distrFasciaQ.isError}
+              error={distrFasciaQ.error}
+              isEmpty={distrFascia.length === 0}
+              onRetry={() => distrFasciaQ.refetch()}
+              height={300}
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={distrFascia}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="fascia" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip />
+                  <Bar dataKey="clienti" fill="hsl(var(--chart-3))" name="N. Clienti" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Premio medio ramo */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Premio Medio per Ramo</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {premioMedioRamo.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={premioMedioRamo} layout="vertical" margin={{ left: 130 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis dataKey="ramo" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Bar dataKey="premio_medio" fill="hsl(var(--chart-4))" name="Premio medio" radius={[0,4,4,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Premio Medio per Ramo"
+              subtitle="Clicca per dettaglio ramo"
+              isLoading={premioMedioRamoQ.isLoading}
+              isError={premioMedioRamoQ.isError}
+              error={premioMedioRamoQ.error}
+              isEmpty={premioMedioRamo.length === 0}
+              onRetry={() => premioMedioRamoQ.refetch()}
+              height={350}
+            >
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={premioMedioRamo}
+                  layout="vertical"
+                  margin={{ left: 130 }}
+                  onClick={(e: any) => {
+                    const r = e?.activeLabel;
+                    if (r) openDrill({ domain: "titoli", title: `Ramo — ${r}`, extra: { _ramo: r } });
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis type="number" className="text-xs" />
+                  <YAxis dataKey="ramo" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Bar dataKey="premio_medio" fill="hsl(var(--chart-4))" name="Premio medio" radius={[0,4,4,0]} cursor="pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Premio medio compagnia */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Premio Medio per Compagnia</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {premioMedioComp.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={premioMedioComp} layout="vertical" margin={{ left: 130 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis dataKey="compagnia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={tooltipFormatter} />
-                      <Bar dataKey="premio_medio" fill="hsl(var(--chart-5))" name="Premio medio" radius={[0,4,4,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Premio Medio per Compagnia"
+              isLoading={premioMedioCompQ.isLoading}
+              isError={premioMedioCompQ.isError}
+              error={premioMedioCompQ.error}
+              isEmpty={premioMedioComp.length === 0}
+              onRetry={() => premioMedioCompQ.refetch()}
+              height={350}
+            >
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={premioMedioComp} layout="vertical" margin={{ left: 130 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis type="number" className="text-xs" />
+                  <YAxis dataKey="compagnia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={tooltipFormatter} />
+                  <Bar dataKey="premio_medio" fill="hsl(var(--chart-5))" name="Premio medio" radius={[0,4,4,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Treemap mix produttore × ramo */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Mix Ramo × Produttore (Treemap)</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {treemapData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <Treemap data={treemapData} dataKey="size" stroke="hsl(var(--background))" fill="hsl(var(--primary))" />
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              className="lg:col-span-2"
+              title="Mix Ramo × Produttore (Treemap)"
+              isLoading={matriceProdRamoQ.isLoading}
+              isError={matriceProdRamoQ.isError}
+              error={matriceProdRamoQ.error}
+              isEmpty={treemapData.length === 0}
+              onRetry={() => matriceProdRamoQ.refetch()}
+              height={400}
+            >
+              <ResponsiveContainer width="100%" height={400}>
+                <Treemap data={treemapData} dataKey="size" stroke="hsl(var(--background))" fill="hsl(var(--primary))" />
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Loss ratio */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Loss Ratio per Ramo (%)</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {lossRatio.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={lossRatio} layout="vertical" margin={{ left: 130 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis dataKey="ramo" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v: number) => `${v}%`} />
-                      <Bar dataKey="loss_ratio_pct" fill="hsl(var(--destructive))" name="Loss Ratio %" radius={[0,4,4,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Loss Ratio per Ramo (%)"
+              subtitle="Clicca per dettaglio sinistri"
+              isLoading={lossRatioQ.isLoading}
+              isError={lossRatioQ.isError}
+              error={lossRatioQ.error}
+              isEmpty={lossRatio.length === 0}
+              onRetry={() => lossRatioQ.refetch()}
+              height={350}
+            >
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={lossRatio}
+                  layout="vertical"
+                  margin={{ left: 130 }}
+                  onClick={(e: any) => {
+                    const r = e?.activeLabel;
+                    if (r) openDrill({ domain: "sinistri", title: `Sinistri — Ramo ${r}`, extra: { _ramo: r } });
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis type="number" className="text-xs" />
+                  <YAxis dataKey="ramo" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Bar dataKey="loss_ratio_pct" fill="hsl(var(--destructive))" name="Loss Ratio %" radius={[0,4,4,0]} cursor="pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Età sinistri aperti */}
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Età Sinistri Aperti</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {etaSinistri.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={etaSinistri} dataKey="num" nameKey="fascia" cx="50%" cy="50%" outerRadius={100} label={({ fascia, num }) => `${fascia}: ${num}`}>
-                        {etaSinistri.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              title="Età Sinistri Aperti"
+              isLoading={etaSinistriQ.isLoading}
+              isError={etaSinistriQ.isError}
+              error={etaSinistriQ.error}
+              isEmpty={etaSinistri.length === 0}
+              onRetry={() => etaSinistriQ.refetch()}
+              height={300}
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={etaSinistri} dataKey="num" nameKey="fascia" cx="50%" cy="50%" outerRadius={100} label={({ fascia, num }) => `${fascia}: ${num}`}>
+                    {etaSinistri.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Sinistri per compagnia */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Sinistri per Compagnia</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                {sinistriCompagnia.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={sinistriCompagnia}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="compagnia" className="text-xs" />
-                      <YAxis yAxisId="left" className="text-xs" />
-                      <YAxis yAxisId="right" orientation="right" className="text-xs" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar yAxisId="left" dataKey="num_sinistri" fill="hsl(var(--chart-3))" name="N. Sinistri" radius={[4,4,0,0]} />
-                      <Bar yAxisId="right" dataKey="liquidato" fill="hsl(var(--destructive))" name="Liquidato €" radius={[4,4,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-center text-muted-foreground py-12">Nessun dato</p>}
-              </CardContent>
-            </Card>
+            <CfoChartCard
+              className="lg:col-span-2"
+              title="Sinistri per Compagnia"
+              isLoading={sinistriCompagniaQ.isLoading}
+              isError={sinistriCompagniaQ.isError}
+              error={sinistriCompagniaQ.error}
+              isEmpty={sinistriCompagnia.length === 0}
+              onRetry={() => sinistriCompagniaQ.refetch()}
+              height={350}
+            >
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={sinistriCompagnia}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="compagnia" className="text-xs" />
+                  <YAxis yAxisId="left" className="text-xs" />
+                  <YAxis yAxisId="right" orientation="right" className="text-xs" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="num_sinistri" fill="hsl(var(--chart-3))" name="N. Sinistri" radius={[4,4,0,0]} />
+                  <Bar yAxisId="right" dataKey="liquidato" fill="hsl(var(--destructive))" name="Liquidato €" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CfoChartCard>
 
-            {/* Matrice sede × compagnia */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Top Combinazioni Sede × Compagnia</CardTitle></CardHeader>
-              <Separator />
-              <CardContent className="pt-0">
-                <div className="max-h-[400px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead>Sede</TableHead>
-                        <TableHead>Compagnia</TableHead>
-                        <TableHead className="text-right">Premi €</TableHead>
+            <CfoChartCard
+              className="lg:col-span-2"
+              title="Top Combinazioni Sede × Compagnia"
+              subtitle="Clicca una riga per vedere i titoli"
+              isLoading={matriceSedeCompQ.isLoading}
+              isError={matriceSedeCompQ.isError}
+              error={matriceSedeCompQ.error}
+              isEmpty={matriceSedeComp.length === 0}
+              onRetry={() => matriceSedeCompQ.refetch()}
+              height={400}
+            >
+              <div className="max-h-[400px] overflow-y-auto -mx-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>Sede</TableHead>
+                      <TableHead>Compagnia</TableHead>
+                      <TableHead className="text-right">Premi €</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {matriceSedeComp.slice(0, 30).map((r: any, i: number) => (
+                      <TableRow
+                        key={i}
+                        className={`cursor-pointer ${i % 2 ? "bg-muted/20" : ""}`}
+                        onClick={() => openDrill({ domain: "titoli", title: `${r.sede} × ${r.compagnia}`, extra: {} })}
+                      >
+                        <TableCell className="font-medium">{r.sede}</TableCell>
+                        <TableCell>{r.compagnia}</TableCell>
+                        <TableCell className="text-right font-mono">{fmt(r.totale)}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {matriceSedeComp.slice(0, 30).map((r: any, i: number) => (
-                        <TableRow key={i} className={i % 2 ? "bg-muted/20" : ""}>
-                          <TableCell className="font-medium">{r.sede}</TableCell>
-                          <TableCell>{r.compagnia}</TableCell>
-                          <TableCell className="text-right font-mono">{fmt(r.totale)}</TableCell>
-                        </TableRow>
-                      ))}
-                      {matriceSedeComp.length === 0 && (
-                        <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">Nessun dato</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CfoChartCard>
           </div>
         </TabsContent>
+
 
         {/* AI ANALISTA */}
         <TabsContent value="ai" className="mt-4">
