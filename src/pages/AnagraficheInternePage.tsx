@@ -643,16 +643,20 @@ const AnagraficheInternePage = () => {
   const renderUfficioSelect = () => {
     if (!isProduttore) return null;
     const isAdminUser = profile?.ruolo === "admin";
+    const isOptional = isCorr;
     return (
       <div className="mb-4">
-        <Label>Sede <span className="text-destructive">*</span></Label>
+        <Label>
+          Sede {isOptional ? <span className="text-muted-foreground text-xs">(opzionale)</span> : <span className="text-destructive">*</span>}
+        </Label>
         <Select
-          value={form.ufficio_id || (profile?.ufficio_id ?? "")}
-          onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
+          value={form.ufficio_id || (isOptional ? "__none__" : (profile?.ufficio_id ?? ""))}
+          onValueChange={(v) => setForm({ ...form, ufficio_id: v === "__none__" ? "" : v })}
           disabled={!isAdminUser}
         >
           <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
           <SelectContent>
+            {isOptional && <SelectItem value="__none__">— Nessuna —</SelectItem>}
             {ufficiList.map((u) => (
               <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
             ))}
