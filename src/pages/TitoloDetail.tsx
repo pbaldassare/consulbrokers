@@ -2295,6 +2295,7 @@ const TitoloDetail = () => {
                     <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
                     <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
                   </div>
+                  {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio prossima quietanza</h4>
@@ -2305,9 +2306,15 @@ const TitoloDetail = () => {
                     <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
                     <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
                   </div>
+                  {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+                {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
               <FieldRow label="Valuta" value={fmt(t.valuta)} />
               <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
