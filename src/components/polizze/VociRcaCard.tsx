@@ -47,18 +47,38 @@ const SSN_PCT = 10.5;
 const ALIQUOTA_ACCESSORIE_DEFAULT = 13.5; // tasse accessorie auto (non-RCA)
 
 function calcolaLordo(
-  v: { firma: number | null; aliquota_tasse_pct: number | null; is_rca_principale: boolean },
+  v: {
+    firma: number | null;
+    aliquota_tasse_pct: number | null;
+    is_rca_principale: boolean;
+    imposta_provinciale?: number | null;
+    ssn?: number | null;
+  },
   aliquotaProv: number,
 ) {
   const netto = round2(Number(v.firma || 0));
   if (v.is_rca_principale) {
-    const imposta = round2(netto * (aliquotaProv / 100));
-    const ssn = round2(imposta * (SSN_PCT / 100));
-    return { netto, lordo: round2(netto + imposta + ssn), imposta, ssn };
+    const impostaAuto = round2(netto * (aliquotaProv / 100));
+    const ssnAuto = round2(netto * (SSN_PCT / 100));
+    // Override manuale se i valori salvati differiscono dal calcolo automatico
+    const impostaSaved = v.imposta_provinciale == null ? null : round2(Number(v.imposta_provinciale));
+    const ssnSaved = v.ssn == null ? null : round2(Number(v.ssn));
+    const overrideImposta = impostaSaved != null && Math.abs(impostaSaved - impostaAuto) > 0.01;
+    const overrideSsn = ssnSaved != null && Math.abs(ssnSaved - ssnAuto) > 0.01;
+    const imposta = overrideImposta ? (impostaSaved as number) : impostaAuto;
+    const ssn = overrideSsn ? (ssnSaved as number) : ssnAuto;
+    return {
+      netto,
+      lordo: round2(netto + imposta + ssn),
+      imposta,
+      ssn,
+      overrideImposta,
+      overrideSsn,
+    };
   }
   const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
   const tasse = round2(netto * (aliq / 100));
-  return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0 };
+  return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
 export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange }: {
@@ -240,7 +260,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       return;
     }
     const netto = round2(value);
+    // Mantengo eventuali override IPT/SSN già impostati dall'utente
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
+    if (v.is_rca_principale && (calc.overrideImposta || calc.overrideSsn)) {
+      toast.info("Sovrascrittura IPT/SSN mantenuta");
+    }
     upsertMut.mutate({
       id: v.id,
       firma: netto,
@@ -262,20 +286,34 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     const lordo = round2(value);
     let netto: number;
     if (v.is_rca_principale) {
-      // lordo = netto * (1 + aliqProv/100 * (1 + SSN%/100))
-      const factor = 1 + (aliquotaProv / 100) * (1 + SSN_PCT / 100);
+      // Edit del lordo ⇒ azzera eventuali override e usa formula standard:
+      // lordo = netto × (1 + aliqProv/100 + SSN%/100)
+      const factor = 1 + aliquotaProv / 100 + SSN_PCT / 100;
       netto = round2(lordo / factor);
-    } else {
-      const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
-      netto = round2(lordo / (1 + aliq / 100));
+      const cleanV = { ...v, firma: netto, imposta_provinciale: null, ssn: null };
+      const calc = calcolaLordo(cleanV, aliquotaProv);
+      const eraOverride =
+        (v.imposta_provinciale != null && Math.abs(Number(v.imposta_provinciale) - round2(netto * (aliquotaProv / 100))) > 0.01) ||
+        (v.ssn != null && Math.abs(Number(v.ssn) - round2(netto * (SSN_PCT / 100))) > 0.01);
+      if (eraOverride) toast.info("Override IPT/SSN azzerati (calcolo automatico ripristinato)");
+      upsertMut.mutate({
+        id: v.id,
+        firma: netto,
+        lordo_calcolato: calc.lordo,
+        imposta_provinciale: calc.imposta,
+        ssn: calc.ssn,
+      });
+      return;
     }
+    const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
+    netto = round2(lordo / (1 + aliq / 100));
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
     upsertMut.mutate({
       id: v.id,
       firma: netto,
       lordo_calcolato: calc.lordo,
-      imposta_provinciale: v.is_rca_principale ? calc.imposta : null,
-      ssn: v.is_rca_principale ? calc.ssn : null,
+      imposta_provinciale: null,
+      ssn: null,
     });
   };
 
@@ -290,6 +328,55 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       aliquota_tasse_pct: value,
       lordo_calcolato: calc.lordo,
     });
+  };
+
+  const handleImpostaOverrideBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Imposta provinciale deve essere ≥ 0");
+      return;
+    }
+    const newImposta = round2(value);
+    const calc = calcolaLordo({ ...v, imposta_provinciale: newImposta }, aliquotaProv);
+    upsertMut.mutate({
+      id: v.id,
+      imposta_provinciale: newImposta,
+      ssn: calc.ssn,
+      lordo_calcolato: calc.lordo,
+    });
+  };
+
+  const handleSsnOverrideBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Contributo SSN deve essere ≥ 0");
+      return;
+    }
+    const newSsn = round2(value);
+    const calc = calcolaLordo({ ...v, ssn: newSsn }, aliquotaProv);
+    upsertMut.mutate({
+      id: v.id,
+      ssn: newSsn,
+      imposta_provinciale: calc.imposta,
+      lordo_calcolato: calc.lordo,
+    });
+  };
+
+  const handleResetOverride = (v: Voce, campo: "imposta" | "ssn" | "both") => {
+    const netto = round2(Number(v.firma || 0));
+    const impostaAuto = round2(netto * (aliquotaProv / 100));
+    const ssnAuto = round2(netto * (SSN_PCT / 100));
+    const newImposta = campo === "ssn" ? Number(v.imposta_provinciale ?? impostaAuto) : impostaAuto;
+    const newSsn = campo === "imposta" ? Number(v.ssn ?? ssnAuto) : ssnAuto;
+    const calc = calcolaLordo(
+      { ...v, imposta_provinciale: newImposta, ssn: newSsn },
+      aliquotaProv,
+    );
+    upsertMut.mutate({
+      id: v.id,
+      imposta_provinciale: calc.imposta,
+      ssn: calc.ssn,
+      lordo_calcolato: calc.lordo,
+    });
+    toast.success("Calcolo automatico ripristinato");
   };
 
   const handleAliquotaProvChange = (val: number) => {
@@ -480,15 +567,81 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       {v.is_rca_principale && (
                         <>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
-                            <TableCell className="pl-10">↳ Imposta provinciale ({aliquotaProv}%)</TableCell>
+                            <TableCell className="pl-10">
+                              <span className="inline-flex items-center gap-1.5">
+                                ↳ Imposta provinciale ({aliquotaProv}%)
+                                {calc.overrideImposta && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5 border-amber-400 text-amber-800">
+                                    <PencilLine className="h-2.5 w-2.5" /> manuale
+                                  </Badge>
+                                )}
+                              </span>
+                            </TableCell>
                             <TableCell colSpan={2}></TableCell>
-                            <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.imposta)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number" step="0.01" inputMode="decimal"
+                                  key={`ipt-${v.id}-${calc.imposta}`}
+                                  defaultValue={calc.imposta}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value || 0);
+                                    if (Math.abs(val - calc.imposta) < 0.01) return;
+                                    handleImpostaOverrideBlur(v, val);
+                                  }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                  className="h-7 text-right w-24 font-mono tabular-nums"
+                                />
+                                {calc.overrideImposta && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-6 w-6"
+                                    title="Ripristina calcolo automatico"
+                                    onClick={() => handleResetOverride(v, "imposta")}
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
-                            <TableCell className="pl-10">↳ Contributo SSN 10,5%</TableCell>
+                            <TableCell className="pl-10">
+                              <span className="inline-flex items-center gap-1.5">
+                                ↳ Contributo SSN 10,5%
+                                {calc.overrideSsn && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5 border-amber-400 text-amber-800">
+                                    <PencilLine className="h-2.5 w-2.5" /> manuale
+                                  </Badge>
+                                )}
+                              </span>
+                            </TableCell>
                             <TableCell colSpan={2}></TableCell>
-                            <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.ssn)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number" step="0.01" inputMode="decimal"
+                                  key={`ssn-${v.id}-${calc.ssn}`}
+                                  defaultValue={calc.ssn}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value || 0);
+                                    if (Math.abs(val - calc.ssn) < 0.01) return;
+                                    handleSsnOverrideBlur(v, val);
+                                  }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                  className="h-7 text-right w-24 font-mono tabular-nums"
+                                />
+                                {calc.overrideSsn && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-6 w-6"
+                                    title="Ripristina calcolo automatico"
+                                    onClick={() => handleResetOverride(v, "ssn")}
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
                         </>
@@ -571,9 +724,61 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                     />
                   </div>
                   {v.is_rca_principale && (
-                    <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t">
-                      <div className="flex justify-between"><span>↳ Imposta {aliquotaProv}%</span><span className="font-mono">{fmtEur(calc.imposta)}</span></div>
-                      <div className="flex justify-between"><span>↳ SSN 10,5%</span><span className="font-mono">{fmtEur(calc.ssn)}</span></div>
+                    <div className="text-[11px] text-muted-foreground space-y-1 pt-1 border-t">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          ↳ Imposta {aliquotaProv}%
+                          {calc.overrideImposta && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] border-amber-400 text-amber-800">M</Badge>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" step="0.01" inputMode="decimal"
+                            key={`ipt-m-${v.id}-${calc.imposta}`}
+                            defaultValue={calc.imposta}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value || 0);
+                              if (Math.abs(val - calc.imposta) < 0.01) return;
+                              handleImpostaOverrideBlur(v, val);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            className="h-7 w-24 text-right font-mono tabular-nums"
+                          />
+                          {calc.overrideImposta && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleResetOverride(v, "imposta")}>
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          ↳ SSN 10,5%
+                          {calc.overrideSsn && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] border-amber-400 text-amber-800">M</Badge>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" step="0.01" inputMode="decimal"
+                            key={`ssn-m-${v.id}-${calc.ssn}`}
+                            defaultValue={calc.ssn}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value || 0);
+                              if (Math.abs(val - calc.ssn) < 0.01) return;
+                              handleSsnOverrideBlur(v, val);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            className="h-7 w-24 text-right font-mono tabular-nums"
+                          />
+                          {calc.overrideSsn && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleResetOverride(v, "ssn")}>
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
