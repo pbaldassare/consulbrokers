@@ -2360,20 +2360,6 @@ const TitoloDetail = () => {
             </div>
             )}
 
-            {isRamoAuto((t as any).ramo) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Provvigioni Firma (€)</Label>
-                  <Input type="number" step="0.01" value={importiForm.provvigioni_firma}
-                    onChange={(e) => setImportiForm({ ...importiForm, provvigioni_firma: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs">Provvigioni Quietanza (€)</Label>
-                  <Input type="number" step="0.01" value={importiForm.provvigioni_quietanza}
-                    onChange={(e) => setImportiForm({ ...importiForm, provvigioni_quietanza: e.target.value })} />
-                </div>
-              </div>
-            )}
 
             {/* VALUTA & FLAGS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t">
