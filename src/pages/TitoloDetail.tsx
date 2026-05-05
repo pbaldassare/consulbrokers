@@ -2675,7 +2675,7 @@ const TitoloDetail = () => {
           Visibile solo se il ramo della polizza è di tipo Auto/Veicoli,
           oppure (caso legacy) se esiste già un record veicoli_polizza collegato. */}
       {(isRamoAuto((t as any).ramo) || veicolo) && (
-      <SectionCollapsible title="Dati Veicolo (RCA Auto)" icon={Car}>
+      <SectionCollapsible title={isRamoNatante((t as any).ramo) ? "Dati Natante / Imbarcazione" : "Dati Veicolo (RCA Auto)"} icon={Car}>
         <div className="flex justify-between items-center mb-2 gap-2">
           <div>
             {!isRamoAuto((t as any).ramo) && veicolo && (
