@@ -2174,7 +2174,7 @@ const TitoloDetail = () => {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio alla firma odierno</h4>
                 <div className="space-y-0">
                   <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
                   <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
