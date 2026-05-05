@@ -2153,7 +2153,7 @@ const TitoloDetail = () => {
                           <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
                           <div className="bg-amber-500 flex-1" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
                             <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
