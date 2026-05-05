@@ -47,18 +47,38 @@ const SSN_PCT = 10.5;
 const ALIQUOTA_ACCESSORIE_DEFAULT = 13.5; // tasse accessorie auto (non-RCA)
 
 function calcolaLordo(
-  v: { firma: number | null; aliquota_tasse_pct: number | null; is_rca_principale: boolean },
+  v: {
+    firma: number | null;
+    aliquota_tasse_pct: number | null;
+    is_rca_principale: boolean;
+    imposta_provinciale?: number | null;
+    ssn?: number | null;
+  },
   aliquotaProv: number,
 ) {
   const netto = round2(Number(v.firma || 0));
   if (v.is_rca_principale) {
-    const imposta = round2(netto * (aliquotaProv / 100));
-    const ssn = round2(imposta * (SSN_PCT / 100));
-    return { netto, lordo: round2(netto + imposta + ssn), imposta, ssn };
+    const impostaAuto = round2(netto * (aliquotaProv / 100));
+    const ssnAuto = round2(netto * (SSN_PCT / 100));
+    // Override manuale se i valori salvati differiscono dal calcolo automatico
+    const impostaSaved = v.imposta_provinciale == null ? null : round2(Number(v.imposta_provinciale));
+    const ssnSaved = v.ssn == null ? null : round2(Number(v.ssn));
+    const overrideImposta = impostaSaved != null && Math.abs(impostaSaved - impostaAuto) > 0.01;
+    const overrideSsn = ssnSaved != null && Math.abs(ssnSaved - ssnAuto) > 0.01;
+    const imposta = overrideImposta ? (impostaSaved as number) : impostaAuto;
+    const ssn = overrideSsn ? (ssnSaved as number) : ssnAuto;
+    return {
+      netto,
+      lordo: round2(netto + imposta + ssn),
+      imposta,
+      ssn,
+      overrideImposta,
+      overrideSsn,
+    };
   }
   const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
   const tasse = round2(netto * (aliq / 100));
-  return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0 };
+  return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
 export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange }: {
