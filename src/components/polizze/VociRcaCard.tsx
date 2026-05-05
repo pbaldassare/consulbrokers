@@ -12,7 +12,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Car, Plus, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Lock } from "lucide-react";
+import { Car, Plus, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Lock, RefreshCw, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
