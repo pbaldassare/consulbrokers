@@ -469,6 +469,18 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   <RefreshCw className="h-3.5 w-3.5" /> Risincronizza
                 </Button>
               )}
+              {voci.some((v) => v.is_rca_principale) && (() => {
+                const rca = voci.find((v) => v.is_rca_principale)!;
+                const c = calcolaLordo(rca, aliquotaProv);
+                if (!c.overrideImposta && !c.overrideSsn) return null;
+                return (
+                  <Button variant="outline" size="sm" className="h-8 gap-1"
+                    title="Ripristina IPT e SSN al calcolo automatico (netto × aliquote)"
+                    onClick={() => handleResetOverride(rca, "both")}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Ricalcola IPT/SSN
+                  </Button>
+                );
+              })()}
               <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
               <span className="text-muted-foreground sm:hidden">IPT:</span>
               <Input
@@ -486,7 +498,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         </CardHeader>
         <CardContent className="p-0">
           {/* Desktop / tablet table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -654,7 +666,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden divide-y">
+          <div className="lg:hidden divide-y">
             {voci.map((v) => {
               const calc = calcolaLordo(v, aliquotaProv);
               return (
