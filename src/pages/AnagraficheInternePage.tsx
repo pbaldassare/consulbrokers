@@ -393,7 +393,51 @@ const AnagraficheInternePage = () => {
       const { error } = await supabase.from("anagrafiche_professionali").update({ attivo }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      toast.success(vars.attivo ? "Anagrafica attivata" : "Anagrafica disattivata");
+    },
+    onError: (e: Error) => toast.error(e?.message || "Errore aggiornamento stato"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Pre-check: titoli collegati come produttore
+      const { count, error: countErr } = await supabase
+        .from("titoli")
+        .select("id", { count: "exact", head: true })
+        .eq("produttore_id", id);
+      if (countErr) throw countErr;
+      if ((count ?? 0) > 0) {
+        const err: any = new Error(
+          `Impossibile eliminare: l'anagrafica è collegata a ${count} polizze/titoli. Disattivala invece di eliminarla.`
+        );
+        err.linkedCount = count;
+        throw err;
+      }
+      const { error } = await supabase.from("anagrafiche_professionali").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      setConfirmDeleteOpen(false);
+      setDialogOpen(false);
+      setEditingId(null);
+      setForm(emptyForm);
+      toast.success("Anagrafica eliminata");
+    },
+    onError: (e: any) => {
+      setConfirmDeleteOpen(false);
+      if (e?.linkedCount && editingId) {
+        const id = editingId;
+        toast.error(e.message, {
+          action: { label: "Disattiva ora", onClick: () => toggleMutation.mutate({ id, attivo: false }) },
+          duration: 8000,
+        });
+      } else {
+        toast.error(e?.message || "Errore durante l'eliminazione");
+      }
+    },
   });
 
   const filtered = items.filter((item) => {
