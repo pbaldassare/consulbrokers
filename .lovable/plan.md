@@ -1,69 +1,59 @@
-# Sdoppiare la composizione RCA in due card: Firma e Quietanza
+# Pulizia sezione Importi + due card RCA in colonna + restyle Provvigioni
 
-Vogliamo che dentro la sezione **Importi**, sotto le card "Premio firma odierna" e "Premio prossima quietanza", compaiano **due card gemelle** di composizione RCA:
+Tre interventi mirati:
 
-- **Composizione Premio RCA — Firma** → alimenta `premio_netto / tasse / premio_lordo`.
-- **Composizione Premio RCA — Quietanza** → alimenta `premio_netto_quietanza / tasse_quietanza / addizionali_quietanza`.
+## 1. Rimuovere i campi "doppione" nella sezione Importi (solo per polizze RCA Auto)
 
-La **Quietanza** parte come copia identica della **Firma** (stesse garanzie, stessi netti, stesse aliquote, stessa imposta provinciale), e ogni volta che si aggiunge/rimuove una voce o si cambia un netto sulla Firma, la Quietanza viene **risincronizzata in automatico** se non è stata toccata a mano. Resta comunque **editabile**: l'utente può modificare i valori della Quietanza (es. nuovo netto al rinnovo) e da quel momento quella voce viene marcata come "personalizzata" e non viene più sovrascritta.
+Quando `isRamoAuto((t as any).ramo)` è vero:
 
-## 1. DB — distinguere Firma vs Quietanza
+- **Modalità lettura**: nascondere completamente i due blocchi "Premio alla firma odierno" e "Premio prossima quietanza" (Netto / Addizionali / Tasse / Lordo / Totale). Restano visibili solo:
+  - `Provvigioni Firma` e `Provvigioni Quietanza` (in una riga compatta a 2 colonne)
+  - Il blocco flags (Valuta, Indicizzata, Rimborso, Pag. Diretto Comp., Formato Elettronico, Incassato, Data Incasso)
+- **Modalità modifica**: rimuovere i 4 input × 2 colonne (Netto/Addiz/Tasse/Lordo per Firma e Quietanza). Restano editabili solo `Provvigioni Firma`, `Provvigioni Quietanza` e i flag (Valuta/Indicizzata/Rimborso). Aggiungere banner blu: "Per le polizze RCA Auto i premi sono calcolati dalle voci di garanzia sotto."
+- Per le polizze **non-RCA** la sezione resta identica a oggi (nessun cambio).
 
-Migrazione su `premi_garanzia_polizza`:
+## 2. Card RCA Firma e Quietanza in colonna (una sotto l'altra)
 
-- Aggiungere colonna `tipo_premio text not null default 'firma'` con check `in ('firma','quietanza')`.
-- Aggiungere colonna `quietanza_personalizzata boolean not null default false` (true = non risincronizzare più questa riga dalla Firma).
-- Aggiungere colonna `voce_origine_id uuid references premi_garanzia_polizza(id) on delete set null` (link riga Quietanza → riga Firma corrispondente, per la sincronizzazione e per gestire add/remove).
-- Aggiornare l'unique index esistente su `is_rca_principale` per includere `tipo_premio`: una riga RCA principale per `(titolo_id, tipo_premio)`.
-- Backfill: tutte le righe esistenti restano `tipo_premio='firma'`.
-- Trigger / funzione `sync_quietanza_da_firma(titolo_id)`:
-  - Per ogni riga Firma senza gemella Quietanza, crea la gemella copiando `garanzia, codice_garanzia, firma, aliquota_tasse_pct, is_rca_principale, imposta_provinciale, ssn, lordo_calcolato, ordine`, settando `tipo_premio='quietanza'` e `voce_origine_id` = id riga firma.
-  - Per ogni gemella Quietanza con `quietanza_personalizzata=false`, riallinea i campi alla riga Firma origine.
-  - Rimuove le righe Quietanza orfane (quando la Firma è stata cancellata).
-- Trigger `AFTER INSERT/UPDATE/DELETE` su `premi_garanzia_polizza WHERE tipo_premio='firma'` che chiama `sync_quietanza_da_firma`.
+In `TitoloDetail.tsx` cambiare la griglia che le contiene:
 
-## 2. Componente — `VociRcaCard` parametrizzato
+```tsx
+<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+```
 
-In `src/components/polizze/VociRcaCard.tsx` aggiungere prop:
+→
 
-- `tipoPremio: 'firma' | 'quietanza'` (default `'firma'`).
-- `titolo: string` per intestazione (es. "Composizione Premio RCA — Firma").
-- Filtrare la query `premi_garanzia_polizza` per `eq('tipo_premio', tipoPremio)`.
-- Su INSERT/UPDATE/DELETE includere sempre `tipo_premio`.
-- In modalità `quietanza`:
-  - Mostrare badge "Sincronizzato dalla Firma" quando `quietanza_personalizzata=false`, "Personalizzato" quando true.
-  - All'edit di un valore (netto/aliquota) o all'aggiunta/rimozione manuale di una voce: settare `quietanza_personalizzata=true` su quella riga.
-  - Aggiungere bottone **"Risincronizza dalla Firma"** in header che resetta `quietanza_personalizzata=false` su tutte le righe e invoca `sync_quietanza_da_firma(titolo_id)` via RPC.
-- Esporre `onTotaliChange` come già fatto.
+```tsx
+<div className="space-y-4">
+```
 
-## 3. `TitoloDetail.tsx` — montare le due card
+Le due card occuperanno l'intera larghezza, una sopra l'altra, più ordinato e leggibile sul viewport ~800px.
 
-Nella `SectionCollapsible` "Importi", quando `isRamoAuto`:
+## 3. Eliminare la card "Premi per Garanzia" (doppione)
 
-- Sotto la card "Premio firma odierna" → `<VociRcaCard tipoPremio="firma" onTotaliChange={...} />` che aggiorna `titoli.premio_netto / tasse / premio_lordo` (logica già presente).
-- Sotto la card "Premio prossima quietanza" → `<VociRcaCard tipoPremio="quietanza" onTotaliChange={...} />` che aggiorna `titoli.premio_netto_quietanza`, `tasse_quietanza`, `addizionali_quietanza` (mappare lordo - netto sulle tasse; SSN+IPT entrano nelle tasse). Stesso debounce 800ms.
-- Rimuovere il blocco singolo `VociRcaCard` attuale aggiunto in fondo alla sezione.
-- Aggiornare il banner informativo: "Per le polizze RCA Auto le voci della Firma alimentano gli importi alla firma; la Quietanza viene rispecchiata in automatico ed è modificabile per ogni rinnovo."
+Nella vista titolo c'è una `SectionCollapsible title="Premi per Garanzia"` (intorno a riga 2651) che gestisce un'altra tabella di garanzie con capitale/tasso/firma/rata/annuo: per le polizze RCA Auto è completamente sovrapposta alle nuove card RCA. Per coerenza la **rimuoviamo dall'UI** (la tabella `premi_garanzia_polizza` continua a esistere e il blocco di codice per l'edit resta inutilizzato — lo possiamo rimuovere in un secondo passaggio insieme a `editingPremi/premiRows/savePremiMutation` se vuoi una pulizia totale; per ora togliamo solo il render). Se la card serve per polizze NON-RCA con elenco garanzie (vita/aziende), la rendiamo condizionale: visibile solo se `!isRamoAuto`.
 
-## 4. UX comportamentale
+Soluzione adottata: **mantengo la card solo per i rami non-RCA**, nascosta per RCA Auto (dove c'è già la composizione dedicata).
 
-- Aggiungo voce sulla **Firma** → trigger DB crea automaticamente la gemella sulla **Quietanza** e l'utente la vede comparire (refetch della query Quietanza tramite invalidate condiviso `["voci-rca", titoloId, *]`).
-- Cambio netto sulla **Firma** → la Quietanza non personalizzata si aggiorna; quelle personalizzate restano.
-- Rimuovo voce sulla **Firma** → la gemella sulla Quietanza viene rimossa (a meno che sia personalizzata: in tal caso lasciamo la riga ma senza link, con badge "Orfana").
-- Cambio netto sulla **Quietanza** → quella riga diventa personalizzata, con piccolo indicatore visivo (puntino arancione + tooltip).
-- Bottone "Reset Quietanza" in header card Quietanza → conferma via `AlertDialog` e ripristina mirroring totale.
+## 4. Restyle "Commerciale & Provvigioni" — Consul + Produttore collegato
+
+Trasformare il blocco di lettura corrente (riga 2127-2152) in una mini-dashboard:
+
+- Header con avatar/iniziali del commerciale e badge ruolo (Consul / Sede / Admin).
+- Due card affiancate (`grid grid-cols-1 md:grid-cols-2 gap-3`):
+  - **Card Commerciale** (border-l teal): nome, ruolo, % e importo provvigione (con icona `User` e formatazione monetaria grande).
+  - **Card Consulbrokers SPA** (border-l amber): "Quota agenzia", % residua e importo (icona `Building2`).
+- Quando commerciale = admin, una sola card centrata con badge "Statistico" e label esplicativa.
+- Aggiungere progress bar visiva che mostra lo split percentuale (es. 70% Commerciale / 30% Consulbrokers).
+- Tipografia: importi in `font-mono tabular-nums text-2xl text-teal-900`, percentuali in pill.
+
+Non cambia la logica di salvataggio né la struttura DB — solo il render in modalità lettura.
 
 ## File toccati
 
-- `supabase/migrations/<timestamp>_rca_quietanza_split.sql` — nuova migrazione (colonne, indice, funzione, trigger, backfill).
-- `src/components/polizze/VociRcaCard.tsx` — prop `tipoPremio`, filtro query, gestione `quietanza_personalizzata`, bottone reset.
-- `src/pages/TitoloDetail.tsx` — montare 2 card distinte sotto Firma/Quietanza, secondo handler `onTotaliChange` per i campi quietanza, rimuovere il singolo blocco esistente.
-- `src/integrations/supabase/types.ts` — rigenerato dalla migrazione.
-- `.lovable/memory/insurance/rca-voci-composizione-premio.md` — aggiornare la memoria con la struttura Firma/Quietanza e la logica di mirroring.
+- `src/pages/TitoloDetail.tsx`
+  - Sezione Importi: branching `isRamoAuto` per nascondere blocchi premio in lettura/modifica.
+  - Container delle due `<VociRcaCard />`: da `grid xl:grid-cols-2` a `space-y-4`.
+  - `SectionCollapsible "Premi per Garanzia"`: avvolta in `{!isRamoAuto((t as any).ramo) && (...)}`.
+  - Blocco di lettura `Commerciale & Provvigioni`: nuovo layout a card con avatar + progress bar.
 
-## Note tecniche
-
-- Manteniamo i campi `titoli.*_quietanza` come fonte di verità contabile per le scadenze future.
-- Il mirroring via trigger DB garantisce coerenza anche per modifiche fatte da altre UI/import.
-- L'unique index aggiornato impedisce duplicati di RCA principale per tipo.
-- Audit trail già attivo continua a tracciare entrambe le tipologie.
+Nessuna migrazione DB.
