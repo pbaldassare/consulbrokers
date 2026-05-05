@@ -2163,7 +2163,7 @@ const TitoloDetail = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs uppercase font-semibold text-muted-foreground">Quota Agenzia</span>
+                              <span className="text-xs uppercase font-semibold text-muted-foreground">Quota</span>
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-mono">{commercialeIsAdmin ? 100 : (100 - percComm)}%</span>
                             </div>
                             <div className="text-sm font-medium truncate">Consulbrokers SPA</div>
@@ -2230,12 +2230,7 @@ const TitoloDetail = () => {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-1">
-                <FieldRow label="Provvigioni Firma" value={fmtEuro(t.provvigioni_firma)} />
-                <FieldRow label="Provvigioni Quietanza" value={fmtEuro(t.provvigioni_quietanza)} />
-              </div>
-            )}
+            ) : null}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
               <FieldRow label="Valuta" value={fmt(t.valuta)} />
               <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
@@ -2360,20 +2355,6 @@ const TitoloDetail = () => {
             </div>
             )}
 
-            {isRamoAuto((t as any).ramo) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Provvigioni Firma (€)</Label>
-                  <Input type="number" step="0.01" value={importiForm.provvigioni_firma}
-                    onChange={(e) => setImportiForm({ ...importiForm, provvigioni_firma: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs">Provvigioni Quietanza (€)</Label>
-                  <Input type="number" step="0.01" value={importiForm.provvigioni_quietanza}
-                    onChange={(e) => setImportiForm({ ...importiForm, provvigioni_quietanza: e.target.value })} />
-                </div>
-              </div>
-            )}
 
             {/* VALUTA & FLAGS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t">
@@ -2436,6 +2417,14 @@ const TitoloDetail = () => {
                     if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
                   }, 800);
                 }}
+                provvigioniValue={(t as any).provvigioni_firma}
+                onProvvigioniChange={async (v) => {
+                  const { error } = await supabase.from("titoli").update({ provvigioni_firma: v }).eq("id", t.id);
+                  if (!error) {
+                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                    toast.success("Provvigioni Firma aggiornate");
+                  } else toast.error("Errore aggiornamento provvigioni");
+                }}
               />
               <VociRcaCard
                 tipoPremio="quietanza"
@@ -2461,6 +2450,14 @@ const TitoloDetail = () => {
                       .eq("id", t.id);
                     if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
                   }, 800);
+                }}
+                provvigioniValue={(t as any).provvigioni_quietanza}
+                onProvvigioniChange={async (v) => {
+                  const { error } = await supabase.from("titoli").update({ provvigioni_quietanza: v }).eq("id", t.id);
+                  if (!error) {
+                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                    toast.success("Provvigioni Quietanza aggiornate");
+                  } else toast.error("Errore aggiornamento provvigioni");
                 }}
               />
             </div>
