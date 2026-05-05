@@ -130,6 +130,20 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     qc.invalidateQueries({ queryKey: ["voci-rca", titoloId, "quietanza"] });
   };
 
+  // Realtime: ascolta cambi sulle voci di questo titolo (anche da trigger DB)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`voci-rca-${titoloId}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "premi_garanzia_polizza", filter: `titolo_id=eq.${titoloId}` },
+        () => invalidateBoth(),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titoloId]);
+
   useEffect(() => {
     if (isLoading) return;
     if (isQuietanza) return; // la riga RCA Quietanza viene creata dal trigger
