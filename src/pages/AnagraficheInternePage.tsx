@@ -190,9 +190,11 @@ const AnagraficheInternePage = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const resolvedUfficioId = isProduttore
-        ? (form.ufficio_id || profile?.ufficio_id || null)
-        : (profile?.ufficio_id || null);
+      const resolvedUfficioId = isCorr
+        ? (form.ufficio_id || null)
+        : isProduttore
+          ? (form.ufficio_id || profile?.ufficio_id || null)
+          : (profile?.ufficio_id || null);
 
       if (isProduttore && !isCorr && !resolvedUfficioId) {
         throw new Error("Selezionare un ufficio per il produttore");
