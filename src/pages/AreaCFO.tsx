@@ -19,8 +19,10 @@ import {
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell, LineChart, Line, Treemap,
 } from "recharts";
+import CfoAiChat from "@/components/cfo/CfoAiChat";
+import { Sparkles } from "lucide-react";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
