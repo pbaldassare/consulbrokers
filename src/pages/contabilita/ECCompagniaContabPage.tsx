@@ -550,7 +550,7 @@ const ECCompagniaContabPage = () => {
                 placeholder="Inserisci IBAN"
               />
                 {!pagaDialog.iban && (
-                <p className="text-xs text-amber-600">IBAN non trovato per questa agenzia. Inserirlo manualmente.</p>
+                <p className="text-xs text-amber-600">IBAN non trovato per questa compagnia. Inserirlo manualmente.</p>
               )}
             </div>
             <div className="space-y-2">

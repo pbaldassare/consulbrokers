@@ -49,7 +49,7 @@ const EXAMPLE_DATA: Record<string, string> = {
   "{{compagnia_nome}}": "Allianz",
   "{{sede_nome}}": "Sede di Milano",
   "{{sede_indirizzo}}": "Via Roma 10, 20121 Milano",
-  "{{sede_email}}": "sede.milano@agenzia.it",
+  "{{sede_email}}": "sede.milano@compagnia.it",
   "{{sede_telefono}}": "02 1234567",
   "{{sede_codice}}": "MI-001",
   "{{data_oggi}}": new Date().toLocaleDateString("it-IT"),

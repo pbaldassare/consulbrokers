@@ -149,7 +149,7 @@ const PortafoglioStoricoPage = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="tutte">Tutte le agenzie</SelectItem>
-            {agenzie?.map((c) => (
+            {compagnie?.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
             ))}
           </SelectContent>

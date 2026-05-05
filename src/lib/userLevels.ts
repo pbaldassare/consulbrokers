@@ -57,7 +57,7 @@ export const PERMISSION_GROUPS = [
     items: [
       { key: "anagrafiche", label: "Anagrafiche utenti" },
       { key: "tabelle_base", label: "Tabelle di base" },
-      { key: "agenzie", label: "Agenzie & Prodotti" },
+      { key: "compagnie", label: "Agenzie & Prodotti" },
       { key: "uffici", label: "Gestione Sedi" },
       { key: "manutenzione", label: "Manutenzione sistema" },
     ],

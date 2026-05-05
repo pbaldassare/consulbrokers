@@ -247,7 +247,7 @@ export default function SinistriList() {
                         <SelectTrigger><SelectValue placeholder="Tutte" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Tutte</SelectItem>
-                          {agenzie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                          {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -377,7 +377,7 @@ export default function SinistriList() {
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="tutti">Tutte le agenzie</SelectItem>
-            {agenzie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+            {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

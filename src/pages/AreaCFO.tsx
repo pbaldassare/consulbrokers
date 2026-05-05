@@ -83,7 +83,7 @@ const AreaCFO = () => {
     },
   });
 
-  const { data: agenzie = [] } = useQuery({
+  const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_attive"],
     queryFn: async () => {
       const { data, error } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -110,7 +110,7 @@ const AreaCFO = () => {
 
   const compagniaOptions = useMemo(() =>
     compagnie.map((c) => ({ value: c.id, label: c.nome })),
-    [agenzie]
+    [compagnie]
   );
 
   // KPI
@@ -528,7 +528,7 @@ const AreaCFO = () => {
                   <Pie
                     data={premiCompagnia}
                     dataKey="totale"
-                    nameKey="agenzia"
+                    nameKey="compagnia"
                     cx="50%"
                     cy="50%"
                     outerRadius={110}
@@ -819,7 +819,7 @@ const AreaCFO = () => {
                 <BarChart data={premioMedioComp} layout="vertical" margin={{ left: 130 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis type="number" className="text-xs" />
-                  <YAxis dataKey="agenzia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="compagnia" type="category" className="text-xs" width={120} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={tooltipFormatter} />
                   <Bar dataKey="premio_medio" fill="hsl(var(--chart-5))" name="Premio medio" radius={[0,4,4,0]} />
                 </BarChart>
@@ -902,7 +902,7 @@ const AreaCFO = () => {
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={sinistriCompagnia}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="agenzia" className="text-xs" />
+                  <XAxis dataKey="compagnia" className="text-xs" />
                   <YAxis yAxisId="left" className="text-xs" />
                   <YAxis yAxisId="right" orientation="right" className="text-xs" />
                   <Tooltip />

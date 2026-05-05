@@ -166,7 +166,7 @@ const AnagraficheInternePage = () => {
     },
   });
 
-  const { data: agenzie = [] } = useQuery({
+  const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_select"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
@@ -901,7 +901,7 @@ const AnagraficheInternePage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche Amministrative</h1>
-          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
+          <p className="text-sm text-muted-foreground">Figure interne all'compagnia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
         </div>
         {isAnagraficaTab && (
           <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>

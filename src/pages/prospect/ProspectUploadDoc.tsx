@@ -67,7 +67,7 @@ const ProspectUploadDoc = () => {
         <h1 className="text-xl font-bold text-foreground">Carica Documenti</h1>
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">Profilo prospect non collegato. Contatta l'agenzia.</p>
+            <p className="text-muted-foreground">Profilo prospect non collegato. Contatta l'compagnia.</p>
           </CardContent>
         </Card>
       </div>
@@ -78,7 +78,7 @@ const ProspectUploadDoc = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-foreground">Carica Documenti</h1>
-        <p className="text-sm text-muted-foreground mt-1">Carica qui i documenti richiesti dall'agenzia.</p>
+        <p className="text-sm text-muted-foreground mt-1">Carica qui i documenti richiesti dall'compagnia.</p>
       </div>
 
       <Card className="max-w-lg">

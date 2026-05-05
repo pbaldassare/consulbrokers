@@ -43,7 +43,7 @@ const ImportProvvigioniTab = () => {
   const [saving, setSaving] = useState(false);
   const [righe, setRighe] = useState<RigaConAzione[]>([]);
 
-  const { data: agenzie = [] } = useQuery({
+  const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie-select"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").order("nome");

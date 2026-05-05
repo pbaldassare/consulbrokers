@@ -69,7 +69,7 @@ const TitoliList = () => {
     },
   });
 
-  const { data: agenzie = [] } = useQuery({
+  const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_select"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_statistico").eq("attiva", true).order("nome");

@@ -681,7 +681,7 @@ function AgenzieCollegateDialog({
 }) {
   const [search, setSearch] = useState("");
 
-  const { data: agenzie = [], isLoading } = useQuery({
+  const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie-collegate", gruppoId],
     queryFn: async () => {
       if (!gruppoId) return [];
@@ -696,7 +696,7 @@ function AgenzieCollegateDialog({
     enabled: !!gruppoId && open,
   });
 
-  const filtered = agenzie.filter((a: any) => {
+  const filtered = compagnie.filter((a: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -714,7 +714,7 @@ function AgenzieCollegateDialog({
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="w-5 h-5" />
             Agenzie collegate a <span className="text-primary">{gruppoDescrizione}</span>
-            <Badge variant="secondary" className="ml-2">{agenzie.length}</Badge>
+            <Badge variant="secondary" className="ml-2">{compagnie.length}</Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -774,7 +774,7 @@ function AgenzieCollegateDialog({
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
-                      {agenzie.length === 0 ? "Nessuna agenzia collegata" : "Nessun risultato per la ricerca"}
+                      {compagnie.length === 0 ? "Nessuna agenzia collegata" : "Nessun risultato per la ricerca"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -1113,10 +1113,10 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
-  const [activeTab, setActiveTab] = useState("agenzie");
+  const [activeTab, setActiveTab] = useState("compagnie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
 
-  const { data: agenzie = [], isLoading } = useQuery({
+  const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["compagnie"],
     queryFn: async () => {
       const { data, error } = await supabase.from("compagnie").select("*").order("nome");
@@ -1261,7 +1261,7 @@ const CompagnieList = () => {
       {/* Main page tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
-          <TabsTrigger value="agenzie" className="gap-2">
+          <TabsTrigger value="compagnie" className="gap-2">
             <Layers className="w-4 h-4" />Agenzie
           </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
@@ -1276,7 +1276,7 @@ const CompagnieList = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="agenzie" className="mt-4">
+        <TabsContent value="compagnie" className="mt-4">
           <CompagnieMadriTab onOpenAgenzia={handleOpenAgenziaById} />
         </TabsContent>
 

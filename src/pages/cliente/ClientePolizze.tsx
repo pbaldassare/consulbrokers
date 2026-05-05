@@ -106,7 +106,7 @@ const ClientePolizze = () => {
                       </TableCell>
                       <TableCell className="py-2.5">
                         <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <p className="font-semibold text-sm text-foreground">{agenzia}</p>
+                          <p className="font-semibold text-sm text-foreground">{compagnia}</p>
                           {t.produttore_nome && (
                             <p className="text-xs text-muted-foreground">{t.produttore_nome}</p>
                           )}

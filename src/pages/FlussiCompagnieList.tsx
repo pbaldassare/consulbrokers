@@ -112,7 +112,7 @@ const FlussiCompagnieList = () => {
                 <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Seleziona agenzia" /></SelectTrigger>
                   <SelectContent>
-                    {agenzie?.map((c) => (
+                    {compagnie?.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                     ))}
                   </SelectContent>

@@ -34,7 +34,7 @@ const ruoli = [
     icon: BarChart3,
     color: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
     badgeColor: "bg-amber-500 text-white",
-    descrizione: "Area finanziaria e contabilità generale. Supervisione economico-finanziaria dell'agenzia.",
+    descrizione: "Area finanziaria e contabilità generale. Supervisione economico-finanziaria dell'compagnia.",
     mansioni: [
       "Piano dei conti e primanota generale",
       "Scadenziario e gestione fornitori",

@@ -27,7 +27,7 @@ export interface PrecontrattualeData {
   specialistEmail: string;
   specialistTelefono: string;
   specialistIndirizzo: string;
-  // Sede operativa (ufficio dell'agenzia)
+  // Sede operativa (ufficio dell'compagnia)
   sedeNome?: string;
   sedeIndirizzoCompleto?: string;
   sedeEmail?: string;
