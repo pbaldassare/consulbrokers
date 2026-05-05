@@ -482,6 +482,7 @@ const TitoliList = () => {
                       <TableCell className="font-medium">{t.numero_titolo || "—"}</TableCell>
                       <TableCell>{t.prodotti?.nome_prodotto || "—"}</TableCell>
                       <TableCell className="text-sm">{t.prodotti?.compagnie?.nome || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{t.targa_telaio || "—"}</TableCell>
                       <TableCell>{t.cliente ? `${t.cliente.cognome || ""} ${t.cliente.nome || ""}`.trim() : "—"}</TableCell>
                       <TableCell>{t.produttore ? `${t.produttore.cognome || ""} ${t.produttore.nome || ""}`.trim() : "—"}</TableCell>
                       <TableCell className="font-mono">{t.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
