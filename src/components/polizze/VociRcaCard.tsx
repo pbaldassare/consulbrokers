@@ -203,6 +203,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   });
 
   const handleNettoBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Il premio netto deve essere ≥ 0");
+      return;
+    }
+    if (value > 1_000_000) {
+      toast.error("Premio netto fuori scala (max 1.000.000 €)");
+      return;
+    }
     const netto = round2(value);
     const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
     upsertMut.mutate({
@@ -215,6 +223,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   };
 
   const handleAliquotaBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0 || value > 100) {
+      toast.error("Aliquota tasse deve essere tra 0 e 100%");
+      return;
+    }
     const calc = calcolaLordo({ ...v, aliquota_tasse_pct: value }, aliquotaProv);
     upsertMut.mutate({
       id: v.id,
@@ -224,6 +236,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   };
 
   const handleAliquotaProvChange = (val: number) => {
+    if (isNaN(val) || val < 0 || val > 50) {
+      toast.error("Imposta provinciale deve essere tra 0 e 50%");
+      return;
+    }
     setAliquotaProv(val);
     const rca = voci.find((v) => v.is_rca_principale);
     if (rca) {
