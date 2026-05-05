@@ -2350,7 +2350,7 @@ const TitoloDetail = () => {
             <p className="text-xs text-muted-foreground">
               ℹ️ Per le polizze <strong>RCA Auto</strong> i premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
             </p>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <VociRcaCard
                 tipoPremio="firma"
                 titoloId={t.id}
