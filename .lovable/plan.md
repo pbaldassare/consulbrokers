@@ -1,111 +1,93 @@
-## Espansione Area CFO: Grafici Avanzati + AI Analista
+## Obiettivo
 
-L'Area CFO esistente ha già 6 grafici base (Entrate/Uscite, Premi per Compagnia/Ramo/Produttore, Redditività Sede, Provvigioni mensili) + Report Titoli + Pagamenti. Estendiamo con **nuove intersezioni** richieste (per periodo / cliente / polizza / ramo / media) e una **tab "AI Analista CFO"** per chat in linguaggio naturale.
+Rendere l'Area CFO più robusta e interattiva:
+1. **Stati visivi uniformi** (loading, empty, errore) per ogni grafico e per il chat AI Analista.
+2. **Drill-down al click**: cliccando su una barra/fetta/cella di un grafico si apre un dialog con la tabella dei record dettagliati che compongono quel valore, rispettando i filtri applicati.
 
-### 1. Nuovi grafici / KPI (tab "Grafici" estesa con sotto-sezioni)
+---
 
-Sotto-tab dentro "Grafici":
+## 1. Componente wrapper unificato `CfoChartCard`
 
-**a) Periodo & Trend**
-- Trend annuale Premi vs Provvigioni vs Margine (LineChart 36 mesi mobili)
-- YoY: confronto anno corrente vs precedente per mese (BarChart raggruppato)
-- Heatmap mese × ramo (premi incassati) — ScatterChart con cella colorata
-- Premio medio mensile (LineChart)
+Nuovo file `src/components/cfo/CfoChartCard.tsx` che incapsula ogni grafico con la stessa UX:
 
-**b) Clienti**
-- Top 20 clienti per premi incassati (BarChart orizzontale)
-- Top 20 clienti per margine (premi − provvigioni) 
-- Distribuzione clienti per fascia premio (PieChart: <500€, 500-2k, 2k-10k, >10k)
-- Numero polizze per cliente (istogramma)
-- Clienti nuovi vs ricorrenti per mese (StackedBar)
+- **Loading**: `Skeleton` a tutta altezza + spinner centrale (sostituisce gli attuali `Loader2` sparsi).
+- **Empty**: icona + messaggio "Nessun dato per i filtri selezionati" + suggerimento a ridurre i filtri.
+- **Errore**: card rossa con messaggio dell'errore + bottone "Riprova" che invalida la query.
+- **Header standard**: titolo, sottotitolo opzionale, badge conteggio righe, bottone "Espandi" (apre drill-down completo) e "Esporta CSV".
+- Props: `title`, `query` (oggetto `useQuery` già istanziato), `isEmpty`, children grafico, `onDrillDown(payload)` opzionale.
 
-**c) Polizza / Ramo**
-- Premio medio per ramo (BarChart)
-- Premio medio per compagnia (BarChart)
-- Mix prodotti: Treemap ramo → compagnia
-- Tasso di rinnovo per ramo (% rinnovate / scadute) — BarChart
-- Durata media polizze per ramo
-- Distribuzione stato polizze (attivo/sospeso/scaduto/incassato) — PieChart
+Tutti i grafici esistenti in `AreaCFO.tsx` (Trend mensile, YoY, Top clienti, Loss ratio, Distribuzione stati, Premio medio ramo, Treemap, Età sinistri, Matrice Sede×Compagnia, Matrice Produttore×Ramo) vengono avvolti in questo wrapper.
 
-**d) Produttori / Sedi (intersezioni)**
-- Matrice Sede × Compagnia (heatmap premi)
-- Matrice Produttore × Ramo (heatmap premi)
-- Provvigione % media per produttore (BarChart)
-- Conversion rate trattative → polizze per produttore
+---
 
-**e) Sinistri & Rischio**
-- Loss ratio per ramo (sinistri pagati / premi)
-- Sinistri aperti per età (0-30, 30-90, 90+ giorni)
-- Sinistri per compagnia (BarChart)
+## 2. Drill-down: dialog + RPC dedicate
 
-Tutti i grafici rispettano i **filtri globali esistenti** (data, sede, compagnia, produttore) e hanno tooltip con valuta formattata.
+### Componente `CfoDrillDownDialog`
+Nuovo file `src/components/cfo/CfoDrillDownDialog.tsx`:
+- `Dialog` largo (`max-w-6xl`) con titolo dinamico ("Dettaglio: Ramo RCA — Gennaio 2026").
+- Mostra **chip dei filtri applicati** (periodo, sede, compagnia, produttore + chiave del drill).
+- Tabella zebra paginata client-side (25 righe), colonne: data effetto, cliente, polizza, ramo, compagnia, sede, produttore, premio, provvigione, stato.
+- Bottoni: "Esporta CSV", "Apri polizza" (link a `/titoli/:id`), "Chiudi".
+- Skeleton durante il fetch, empty state se 0 risultati.
 
-### 2. Tab "AI Analista" (nuova)
+### Logica di click sui grafici
+Ogni grafico riceve un handler `onClick` di recharts:
+- BarChart trend mensile → drill su `mese` (es. `2026-03`).
+- BarChart YoY → drill su `mese` + `anno`.
+- BarChart top clienti → drill su `cliente_id`.
+- PieChart distribuzione stati → drill su `stato`.
+- BarChart loss ratio / premio medio ramo → drill su `ramo`.
+- Treemap ramo → drill su `ramo`.
+- Celle matrici (Sede×Compagnia, Produttore×Ramo) → drill su coppia chiavi.
 
-Nuova tab dentro `AreaCFO.tsx` con chat conversazionale:
-- Input testuale + storico messaggi (markdown rendering con `react-markdown`)
-- L'utente fa domande tipo:
-  - "Qual è stato il margine sul ramo RC Auto a marzo 2026?"
-  - "Mostrami i 10 clienti che hanno reso di più nell'ultimo trimestre"
-  - "Quale produttore ha la migliore redditività sul ramo Vita?"
-  - "Confronta premi 2026 vs 2025 per compagnia X"
-- Risposte dell'AI: testo + tabella + (opzionale) grafico generato dinamicamente dai dati restituiti
-- Suggerimenti rapidi (chips) con domande predefinite
+Il payload del click viene tradotto in un set di filtri aggiuntivi e passato al dialog.
 
-### 3. Implementazione tecnica
+### Nuove RPC drill-down (una migration)
+Tutte `SECURITY DEFINER`, ritornano max 500 righe, accettano i filtri globali + chiave drill:
 
-**Frontend**
-- Estendere `src/pages/AreaCFO.tsx`: aggiungere sotto-tabs in "Grafici" + nuova tab "AI Analista"
-- Nuovo componente `src/components/cfo/CfoAiChat.tsx` (chat UI riutilizzabile)
-- Nuovo componente `src/components/cfo/CfoChartCard.tsx` per uniformare card grafico
+- `cfo_drill_titoli(_data_da, _data_a, _ufficio_id, _compagnia_id, _produttore_nome, _mese text, _ramo text, _cliente_id uuid, _stato text, _sede_id uuid)` — RPC unica generica che applica i filtri non-null e ritorna le righe titoli con join cliente/compagnia/sede/ramo.
+- `cfo_drill_sinistri(...)` — analoga per i grafici sinistri (loss ratio, età sinistri).
 
-**Backend (Supabase)**
-- **Migrazione SQL**: nuove RPC (SECURITY DEFINER, `SET search_path=public`) — tutte filtrabili per `_data_da/_data_a/_ufficio_id/_compagnia_id/_produttore_nome`:
-  - `cfo_trend_yoy()` — premi/provv/margine per mese ultimi 24 mesi + flag anno
-  - `cfo_heatmap_mese_ramo()` — totali premi pivot mese × ramo
-  - `cfo_top_clienti(_metric, _limit)` — top N clienti per metrica (premi/margine/polizze)
-  - `cfo_distribuzione_clienti_fascia()` — count clienti per fascia premio
-  - `cfo_premio_medio_per_ramo()` / `cfo_premio_medio_per_compagnia()`
-  - `cfo_mix_ramo_compagnia()` — per Treemap
-  - `cfo_tasso_rinnovo_per_ramo()`
-  - `cfo_durata_media_polizze_ramo()`
-  - `cfo_distribuzione_stati_polizze()`
-  - `cfo_matrice_sede_compagnia()` / `cfo_matrice_produttore_ramo()`
-  - `cfo_provv_pct_media_produttore()`
-  - `cfo_conversion_trattative_produttore()`
-  - `cfo_loss_ratio_per_ramo()`
-  - `cfo_eta_sinistri_aperti()`
-  - `cfo_sinistri_per_compagnia()`
-- Tutte rispettano la regola "NO dati simulati" (memory `real-data-preference`).
+Una singola RPC generica per dominio mantiene il backend semplice e copre tutti i drill-down dei grafici esistenti.
 
-**Edge Function: `cfo-ai-analyst`**
-- Nuova edge function che riceve `{ messages, filters }`
-- Costruisce system prompt con: schema DB rilevante (tabelle `titoli`, `clienti`, `compagnie`, `sinistri`, `provvigioni_generate`, viste portafoglio) + lista RPC CFO disponibili + filtri attivi correnti
-- Tool calling Lovable AI Gateway (`google/gemini-3-flash-preview`) con tool `query_cfo_data` che mappa a una RPC sicura whitelisted (mai SQL libero)
-- Streaming SSE delle risposte
-- L'AI può chiamare 1+ RPC, riceve i risultati e li sintetizza in risposta testuale + (opzionalmente) restituisce blocco JSON per renderizzare grafico inline
-- Solo whitelisted RPC eseguibili — nessun SQL arbitrario (rispetta vincoli sicurezza)
-- `verify_jwt = true` (richiede sessione admin/cfo)
+---
 
-**Sicurezza**
-- Pagina già protetta da `RoleGuard allowedRoles={["admin", "cfo"]}`
-- Tutte le RPC `SECURITY DEFINER` filtrano implicitamente solo dati del workspace
-- Edge function valida JWT e ruolo (admin/cfo) prima di rispondere
+## 3. AI Analista — robustezza
 
-### 4. UX
+In `src/components/cfo/CfoAiChat.tsx`:
+- **Loading**: già presente, ma aggiungiamo "ETA stimata" + possibilità di **annullare** la richiesta (AbortController).
+- **Empty state**: già presente, lasciato com'è.
+- **Errore**: messaggio inline rosso con bottone "Riprova ultima domanda" (riinvia l'ultimo messaggio user senza doverlo riscrivere).
+- **Errori specifici** dall'edge function (rate limit 429, payment 402, schema sconosciuto) → toast con messaggio human-friendly invece di stringa raw.
+- **Timeout client-side** a 60s con messaggio chiaro se la function non risponde.
+- Aggiunto bottone "Cancella conversazione" in alto a destra del chat.
 
+---
+
+## 4. Dettagli tecnici
+
+### File toccati
+- **Nuovo**: `src/components/cfo/CfoChartCard.tsx`
+- **Nuovo**: `src/components/cfo/CfoDrillDownDialog.tsx`
+- **Modificato**: `src/pages/AreaCFO.tsx` — wrap di ogni grafico con `CfoChartCard`, aggiunta logica click + state per drill-down attivo.
+- **Modificato**: `src/components/cfo/CfoAiChat.tsx` — abort, retry, toast errori, clear conversation.
+- **Nuova migration**: `supabase/migrations/<ts>_cfo_drilldown_rpcs.sql` con `cfo_drill_titoli` e `cfo_drill_sinistri`.
+
+### Pattern stati
 ```text
-Area CFO
-├── Filtri globali (esistenti)
-├── KPI cards (esistenti)
-└── Tabs
-    ├── Grafici  ← sotto-tabs: Periodo | Clienti | Polizze | Produttori | Sinistri
-    ├── Report   (esistente)
-    ├── Pagamenti Provvigioni (esistente)
-    └── AI Analista ← NUOVO (chat + suggested prompts)
+query.isLoading → <Skeleton />
+query.isError    → <ErrorState onRetry={query.refetch} />
+data.length===0  → <EmptyState />
+default          → <Chart />
 ```
 
-### 5. Out of scope (rinviabile)
-- Generazione PDF dei report grafici
-- Salvataggio storico conversazioni AI
-- Export Excel multi-sheet (solo CSV come oggi)
+### Esportazione CSV
+Riutilizzo del pattern già usato in `EstrazioniStampePage` (Blob + download anchor), nessuna libreria nuova.
+
+---
+
+## Fuori scope
+- Salvataggio storico drill-down / preferiti.
+- Drill-down ricorsivo (drill nel drill).
+- Streaming SSE per AI chat (resta JSON one-shot).
+- Persistenza conversazioni AI lato DB.
