@@ -236,6 +236,35 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     });
   };
 
+  const handleLordoBlur = (v: Voce, value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast.error("Il premio lordo deve essere ≥ 0");
+      return;
+    }
+    if (value > 1_000_000) {
+      toast.error("Premio lordo fuori scala (max 1.000.000 €)");
+      return;
+    }
+    const lordo = round2(value);
+    let netto: number;
+    if (v.is_rca_principale) {
+      // lordo = netto * (1 + aliqProv/100 * (1 + SSN%/100))
+      const factor = 1 + (aliquotaProv / 100) * (1 + SSN_PCT / 100);
+      netto = round2(lordo / factor);
+    } else {
+      const aliq = Number(v.aliquota_tasse_pct ?? ALIQUOTA_ACCESSORIE_DEFAULT);
+      netto = round2(lordo / (1 + aliq / 100));
+    }
+    const calc = calcolaLordo({ ...v, firma: netto }, aliquotaProv);
+    upsertMut.mutate({
+      id: v.id,
+      firma: netto,
+      lordo_calcolato: calc.lordo,
+      imposta_provinciale: v.is_rca_principale ? calc.imposta : null,
+      ssn: v.is_rca_principale ? calc.ssn : null,
+    });
+  };
+
   const handleAliquotaBlur = (v: Voce, value: number) => {
     if (isNaN(value) || value < 0 || value > 100) {
       toast.error("Aliquota tasse deve essere tra 0 e 100%");
