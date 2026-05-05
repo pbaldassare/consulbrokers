@@ -60,7 +60,7 @@ const ECAgenziaPdfPage = () => {
     enabled: !!compagniaId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("agenzie")
+        .from("compagnie")
         .select("id, nome, codice, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, iban, intestato_a, percentuale_ra, mail_ec, mail, conto_bancario_id")
         .eq("id", compagniaId)
         .maybeSingle();

@@ -322,7 +322,7 @@ const ImmissionePolizzaPage = () => {
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id").eq("attiva", true).order("nome");
       return data || [];
     },
   });

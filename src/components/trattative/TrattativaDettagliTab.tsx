@@ -68,7 +68,7 @@ export const TrattativaDettagliTab = ({ trattativa, onSaved, onEvento }: Props) 
   const { data: compagnie = [] } = useQuery({
     queryKey: ["compagnie_lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("agenzie").select("id, nome").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome").eq("attiva", true).order("nome");
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });

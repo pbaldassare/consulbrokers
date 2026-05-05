@@ -686,7 +686,7 @@ function AgenzieCollegateDialog({
     queryFn: async () => {
       if (!gruppoId) return [];
       const { data, error } = await supabase
-        .from("agenzie")
+        .from("compagnie")
         .select("id, codice, nome, nome_sede, comune, provincia, stato, attiva")
         .eq("gruppo_compagnia_id", gruppoId)
         .order("nome");
@@ -808,7 +808,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
       // Count agenzie per gruppo
       const { data: countsData } = await supabase
-        .from("agenzie")
+        .from("compagnie")
         .select("gruppo_compagnia_id")
         .not("gruppo_compagnia_id", "is", null);
 
@@ -1119,7 +1119,7 @@ const CompagnieList = () => {
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("agenzie").select("*").order("nome");
+      const { data, error } = await supabase.from("compagnie").select("*").order("nome");
       if (error) throw error;
       return data;
     },
@@ -1158,7 +1158,7 @@ const CompagnieList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("agenzie").insert(formToPayload(form) as any);
+      const { error } = await supabase.from("compagnie").insert(formToPayload(form) as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1173,7 +1173,7 @@ const CompagnieList = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editId) return;
-      const { error } = await supabase.from("agenzie").update(formToPayload(form) as any).eq("id", editId);
+      const { error } = await supabase.from("compagnie").update(formToPayload(form) as any).eq("id", editId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1187,7 +1187,7 @@ const CompagnieList = () => {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attiva }: { id: string; attiva: boolean }) => {
-      const { error } = await supabase.from("agenzie").update({ attiva }).eq("id", id);
+      const { error } = await supabase.from("compagnie").update({ attiva }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenzie"] }),

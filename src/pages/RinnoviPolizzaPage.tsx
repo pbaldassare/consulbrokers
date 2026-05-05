@@ -45,7 +45,7 @@ const RinnoviPolizzaPage = () => {
     queryFn: async () => {
       if (!codiceCompagnia || codiceCompagnia.length < 2) return null;
       const { data } = await supabase
-        .from("agenzie")
+        .from("compagnie")
         .select("id, nome, codice")
         .or(`codice.ilike.%${codiceCompagnia}%,nome.ilike.%${codiceCompagnia}%`)
         .limit(1)

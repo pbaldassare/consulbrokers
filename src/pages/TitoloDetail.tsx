@@ -394,7 +394,7 @@ const TitoloDetail = () => {
     queryKey: ["agenzie-attive-titolo"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("agenzie")
+        .from("compagnie")
         .select("id, nome, codice, gruppo_compagnia")
         .eq("attiva", true)
         .order("nome");
