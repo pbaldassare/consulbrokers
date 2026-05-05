@@ -266,14 +266,30 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
 
   return (
     <>
-      <Card className="border-l-4 border-l-teal-600 shadow-sm">
-        <CardHeader className="bg-teal-50/60 dark:bg-teal-950/20 border-b py-3">
+      <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
+        <CardHeader className={cn("border-b py-3", isQuietanza ? "bg-amber-50/60 dark:bg-amber-950/20" : "bg-teal-50/60 dark:bg-teal-950/20")}>
           <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
-            <CardTitle className="flex items-center gap-2 text-teal-900 dark:text-teal-100 text-base sm:text-lg">
+            <CardTitle className={cn("flex items-center gap-2 text-base sm:text-lg", isQuietanza ? "text-amber-900 dark:text-amber-100" : "text-teal-900 dark:text-teal-100")}>
               <Car className="h-5 w-5" />
-              Composizione Premio RCA Auto
+              {titolo ?? (isQuietanza ? "Composizione Premio RCA — Quietanza" : "Composizione Premio RCA — Firma")}
+              {isQuietanza && voci.some((v) => v.quietanza_personalizzata) && (
+                <Badge variant="outline" className="ml-1 text-[10px] gap-1 border-amber-400 text-amber-800">
+                  <PencilLine className="h-3 w-3" /> Personalizzata
+                </Badge>
+              )}
+              {isQuietanza && !voci.some((v) => v.quietanza_personalizzata) && (
+                <Badge variant="outline" className="ml-1 text-[10px] border-emerald-400 text-emerald-800">
+                  Sincronizzata
+                </Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2 text-xs sm:text-sm">
+              {isQuietanza && (
+                <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => setConfirmReset(true)}
+                  disabled={!voci.some((v) => v.quietanza_personalizzata)}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Risincronizza
+                </Button>
+              )}
               <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
               <span className="text-muted-foreground sm:hidden">IPT:</span>
               <Input
