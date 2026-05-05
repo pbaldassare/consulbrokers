@@ -724,10 +724,9 @@ const TitoloDetail = () => {
           else if (n < 0 && f !== "cambio") errs.push(`${f}: deve essere ≥ 0`);
         }
       });
-      if (importiForm.valuta && importiForm.valuta !== "EUR") {
-        const c = Number(importiForm.cambio);
-        if (!importiForm.cambio || isNaN(c) || c <= 0) errs.push("Cambio > 0 obbligatorio se valuta ≠ EUR");
-      }
+      // Cambio rimosso dalla UI: forziamo sempre 1
+      importiForm.cambio = "1";
+
       if (errs.length) throw new Error(errs.join(" • "));
 
       // Warnings (non-blocking)
