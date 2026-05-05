@@ -2209,7 +2209,7 @@ const TitoloDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* FIRMA */}
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Firma</h4>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio alla firma odierno</h4>
                 <div className="space-y-2">
                   <div>
                     <Label className="text-xs">Premio Netto (€)</Label>
