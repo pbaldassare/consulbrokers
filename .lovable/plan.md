@@ -1,43 +1,28 @@
 ## Obiettivo
+Quando una polizza ha `targa_telaio` valorizzata (tipico per RCA Auto e rami simili), mostrarla nelle liste portafoglio e renderla cercabile dal motore di ricerca.
 
-Sostituire ovunque nelle UI la label "Compagnia/Compagnie" con "Agenzia/Agenzie" (riferita ai record della tabella `compagnie`, che in realtà sono mandatarie/agenzie tipo ASSISUD). Nessuna modifica al DB e nessuna modifica al gruppo finanziario "Compagnie" (es. HDI, Generali) che resta tale.
+## Modifiche
 
-## Convenzione
+### 1. Visualizzazione Targa
+Le pagine già selezionano `targa_telaio` dal DB, va solo renderizzata.
 
-- "Compagnia" → "Agenzia"
-- "Compagnie" → "Agenzie"
-- "compagnia" / "compagnie" (minuscolo) idem
-- `Gruppo Compagnia` resta invariato (è il gruppo della reale compagnia assicurativa, es. HDI).
+- **`src/pages/PortafoglioCaricoPage.tsx`**: aggiungere colonna sortable "Targa" dopo "Ramo" (header + cella). Mostra `p.targa_telaio || "—"`.
+- **`src/pages/PortafoglioAttivePage.tsx`**: stessa colonna "Targa".
+- **`src/pages/PortafoglioStoricoPage.tsx`**: stessa colonna "Targa".
+- **`src/pages/TitoliList.tsx`**: aggiungere `<TableHead>Targa</TableHead>` (il filtro Targa esiste già).
 
-## Aree da aggiornare (solo testo visibile)
+Per non appesantire le righe non-auto, la cella mostra "—" quando vuota; la colonna resta sempre visibile (alternativa: nasconderla se nessuna riga della pagina ha targa — più complesso, non scelto).
 
-- **Sidebar / menu** (`src/components/AppSidebar.tsx`, `src/routes/*`): voce "Compagnie" → "Agenzie".
-- **Pagine elenco/dettaglio**:
-  - `src/pages/CompagnieList.tsx`, `AnagraficheCompagniePage.tsx`, `FlussiCompagnieList.tsx`, `FlussoCompagniaDetail.tsx`
-  - Header/title, breadcrumb, placeholder ricerca, bottoni "Nuova Compagnia" → "Nuova Agenzia"
-- **Colonne tabelle e label form**: Portafoglio (Attive/Carico/Storico), Titoli, Sinistri, Trattative, Estrazioni, Provvigioni, Rimesse, Contabilità, Report, Dashboard, CFO drill-down, ClienteDetail, ProspectDetail, TitoloDetail, ImmissionePolizza, RinnoviPolizza, DocPrecontrattuale, EmailTemplate, ECAgenzia/Compagnia/Cliente PDF.
-- **Toast e messaggi**: messaggi tipo "Seleziona compagnia" → "Seleziona agenzia".
-- **PDF generati** (`ec-cliente-pdf.ts`, `ec-produttore-pdf.ts`, `precontrattuale-pdf.ts`, `genera-distinta-pdf`): intestazioni colonne.
+### 2. Ricerca per Targa
+Estendere le query `.or(...)` includendo `targa_telaio.ilike.%search%`:
 
-## Cosa NON cambia
+- `PortafoglioCaricoPage.tsx` (righe 83 e 104)
+- `PortafoglioAttivePage.tsx` (righe 50 e 73)
+- `PortafoglioStoricoPage.tsx` (riga 53)
 
-- Nomi tabelle/colonne DB (`compagnie`, `gruppo_compagnia_id`, `gruppi_finanziari` etc.).
-- Tipi TypeScript generati da Supabase.
-- Chiavi React Query (`["compagnie", ...]`).
-- Rotte URL (`/compagnie`, `/anagrafiche/compagnie`) — restano per non rompere bookmark.
-- Variabili, props, nomi file.
-- Memorie progetto e commenti tecnici.
-- Etichetta "Gruppo Compagnia" (riferita al vero ente assicurativo).
+Aggiornare anche il placeholder dell'input di ricerca da "Cerca per n° polizza, cliente, cod…" a "Cerca per n° polizza, cliente, codice, targa…".
 
-## Approccio
-
-1. Estrazione di tutte le occorrenze user-facing con `rg` filtrato su stringhe dentro JSX/`title`/`label`/`placeholder`/`toast`.
-2. Sostituzione manuale file-per-file rispettando maiuscole/minuscole e singolare/plurale.
-3. Verifica visiva su: Sidebar, `/compagnie`, `/portafoglio/carico`, TitoloDetail, Dashboard, AreaCFO, EstrazioniStampe.
-4. Aggiornamento memoria `mem://insurance/company-management` per riflettere nuova label UI ("Agenzia") mantenendo mapping DB → `compagnie`.
-
-## Out of scope
-
-- Modifiche al modello dati o al campo `tipo_mandatario`.
-- Rinomina rotte, chiavi, variabili, tabelle.
-- Cambio della label "Compagnia" nei contesti che si riferiscono al **gruppo assicurativo** vero (es. dropdown "Gruppo Compagnia / Gruppo Finanziario").
+### 3. Note
+- DB invariato (campo `titoli.targa_telaio` già esistente).
+- Nessuna modifica a TitoliList per la ricerca: ha già il filtro dedicato `filtroTargaTelaio`.
+- Nessuna distinzione condizionale sul ramo: se la targa è presente la mostriamo; coerente col fatto che alcune polizze non-RCA potrebbero avere targa (rimorchi, trasporti, ecc.).
