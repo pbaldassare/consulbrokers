@@ -977,15 +977,45 @@ const AnagraficheInternePage = () => {
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); editingId ? updateMutation.mutate() : createMutation.mutate(); }} className="space-y-4">
             {renderFormFields()}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
-              </Button>
+            <DialogFooter className="sm:justify-between gap-2">
+              <div>
+                {editingId && (
+                  <Button type="button" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={deleteMutation.isPending}>
+                    <Trash2 className="w-4 h-4 mr-2" />Elimina
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {(createMutation.isPending || updateMutation.isPending) ? "Salvataggio..." : "Salva"}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questa anagrafica?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L'azione è irreversibile. Se l'anagrafica è collegata a polizze esistenti l'eliminazione verrà bloccata: in quel caso usa la disattivazione.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (editingId) deleteMutation.mutate(editingId); }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Eliminazione..." : "Elimina definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
