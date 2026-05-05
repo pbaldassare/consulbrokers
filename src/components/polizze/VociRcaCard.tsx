@@ -56,10 +56,11 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0 };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
+  onTotaliChange?: (t: { netto: number; tasse: number; lordo: number }) => void;
 }) {
   const qc = useQueryClient();
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
