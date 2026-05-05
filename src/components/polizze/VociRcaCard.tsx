@@ -486,7 +486,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         </CardHeader>
         <CardContent className="p-0">
           {/* Desktop / tablet table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -654,7 +654,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden divide-y">
+          <div className="lg:hidden divide-y">
             {voci.map((v) => {
               const calc = calcolaLordo(v, aliquotaProv);
               return (
