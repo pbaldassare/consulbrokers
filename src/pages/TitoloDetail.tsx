@@ -2499,6 +2499,7 @@ const TitoloDetail = () => {
             <div className="space-y-4">
               <VociRcaCard
                 tipoPremio="firma"
+                mainLabel={getMainVoceLabel((t as any).ramo)}
                 titoloId={t.id}
                 premioLordoTitolo={(t as any).premio_lordo}
                 provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
