@@ -430,6 +430,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                         <TableCell className="text-right">
                           <Input
                             type="number" step="0.01" inputMode="decimal"
+                            key={`netto-${v.id}-${v.firma}`}
                             defaultValue={v.firma ?? 0}
                             onBlur={(e) => handleNettoBlur(v, Number(e.target.value || 0))}
                             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
