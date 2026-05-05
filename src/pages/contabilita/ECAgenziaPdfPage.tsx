@@ -55,7 +55,7 @@ const ECAgenziaPdfPage = () => {
   const [sedeTelefono, setSedeTelefono] = useState("");
 
   // Agenzia
-  const { data: agenzia } = useQuery({
+  const { data: compagnia } = useQuery({
     queryKey: ["ec-pdf-agenzia", compagniaId],
     enabled: !!compagniaId,
     queryFn: async () => {
