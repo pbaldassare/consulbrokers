@@ -56,10 +56,11 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0 };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
+  onTotaliChange?: (t: { netto: number; tasse: number; lordo: number }) => void;
 }) {
   const qc = useQueryClient();
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
@@ -204,6 +205,12 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente }: {
     });
     return { netto, lordo, tasse: round2(lordo - netto), imposta, ssn, tasseAcc };
   }, [voci, aliquotaProv]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    onTotaliChange?.({ netto: totali.netto, tasse: totali.tasse, lordo: totali.lordo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totali.netto, totali.tasse, totali.lordo, isLoading]);
 
   const codiciPresenti = new Set(voci.map((v) => (v.codice_garanzia || "").toUpperCase()));
   const catalogoDisponibile = (catalogo as any[]).filter(

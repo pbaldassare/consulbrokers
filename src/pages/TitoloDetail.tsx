@@ -18,7 +18,7 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -635,6 +635,8 @@ const TitoloDetail = () => {
 
   // --- Importi edit state ---
   const [editingImporti, setEditingImporti] = useState(false);
+  const [vociRcaTotali, setVociRcaTotali] = useState<{ netto: number; tasse: number; lordo: number } | null>(null);
+  const vociRcaSyncTimer = useRef<any>(null);
   const [importiForm, setImportiForm] = useState({
     premio_netto: "" as string,
     addizionali: "" as string,
@@ -2340,6 +2342,42 @@ const TitoloDetail = () => {
             </div>
           </div>
         )}
+
+        {/* Composizione voci RCA Auto - integrata nella sezione Importi */}
+        {isRamoAuto((t as any).ramo) && (
+          <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900">
+            <p className="text-xs text-muted-foreground mb-3">
+              ℹ️ Per le polizze <strong>RCA Auto</strong> il Premio Lordo è calcolato come somma delle singole garanzie. Modificando le voci sotto, gli importi del titolo vengono aggiornati automaticamente.
+            </p>
+            <VociRcaCard
+              titoloId={t.id}
+              premioLordoTitolo={(t as any).premio_lordo}
+              provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+              onTotaliChange={(tot) => {
+                setVociRcaTotali(tot);
+                if (editingImporti) return; // non sovrascrivere durante edit manuale
+                if (vociRcaSyncTimer.current) clearTimeout(vociRcaSyncTimer.current);
+                vociRcaSyncTimer.current = setTimeout(async () => {
+                  const curNetto = Number((titolo as any)?.premio_netto ?? 0);
+                  const curTasse = Number((titolo as any)?.tasse ?? 0);
+                  const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
+                  if (
+                    Math.abs(curNetto - tot.netto) < 0.01 &&
+                    Math.abs(curTasse - tot.tasse) < 0.01 &&
+                    Math.abs(curLordo - tot.lordo) < 0.01
+                  ) return;
+                  const { error } = await supabase
+                    .from("titoli")
+                    .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: tot.lordo })
+                    .eq("id", t.id);
+                  if (!error) {
+                    queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                  }
+                }, 800);
+              }}
+            />
+          </div>
+        )}
       </SectionCollapsible>
 
 
@@ -2697,9 +2735,7 @@ const TitoloDetail = () => {
           <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
           <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
           <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
-          {isRamoAuto((t as any).ramo) && (
-            <TabsTrigger value="voci-rca"><Car className="w-4 h-4 mr-1" />Voci RCA</TabsTrigger>
-          )}
+          {/* Voci RCA spostate dentro la sezione Importi */}
           <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
           <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
           <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
@@ -2813,15 +2849,7 @@ const TitoloDetail = () => {
         <TabsContent value="garanzie">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Garanzie — in fase di sviluppo. Qui verranno mostrate le coperture e garanzie della polizza.</CardContent></Card>
         </TabsContent>
-        {isRamoAuto((t as any).ramo) && (
-          <TabsContent value="voci-rca">
-            <VociRcaCard
-              titoloId={t.id}
-              premioLordoTitolo={(t as any).premio_lordo}
-              provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
-            />
-          </TabsContent>
-        )}
+        {/* Voci RCA: integrate dentro la sezione Importi sopra */}
         <TabsContent value="familiari">
           <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Familiari — in fase di sviluppo. Qui verranno mostrati assicurati e beneficiari collegati alla polizza.</CardContent></Card>
         </TabsContent>
