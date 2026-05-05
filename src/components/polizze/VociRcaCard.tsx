@@ -724,9 +724,61 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                     />
                   </div>
                   {v.is_rca_principale && (
-                    <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t">
-                      <div className="flex justify-between"><span>↳ Imposta {aliquotaProv}%</span><span className="font-mono">{fmtEur(calc.imposta)}</span></div>
-                      <div className="flex justify-between"><span>↳ SSN 10,5%</span><span className="font-mono">{fmtEur(calc.ssn)}</span></div>
+                    <div className="text-[11px] text-muted-foreground space-y-1 pt-1 border-t">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          ↳ Imposta {aliquotaProv}%
+                          {calc.overrideImposta && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] border-amber-400 text-amber-800">M</Badge>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" step="0.01" inputMode="decimal"
+                            key={`ipt-m-${v.id}-${calc.imposta}`}
+                            defaultValue={calc.imposta}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value || 0);
+                              if (Math.abs(val - calc.imposta) < 0.01) return;
+                              handleImpostaOverrideBlur(v, val);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            className="h-7 w-24 text-right font-mono tabular-nums"
+                          />
+                          {calc.overrideImposta && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleResetOverride(v, "imposta")}>
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          ↳ SSN 10,5%
+                          {calc.overrideSsn && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] border-amber-400 text-amber-800">M</Badge>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" step="0.01" inputMode="decimal"
+                            key={`ssn-m-${v.id}-${calc.ssn}`}
+                            defaultValue={calc.ssn}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value || 0);
+                              if (Math.abs(val - calc.ssn) < 0.01) return;
+                              handleSsnOverrideBlur(v, val);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            className="h-7 w-24 text-right font-mono tabular-nums"
+                          />
+                          {calc.overrideSsn && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleResetOverride(v, "ssn")}>
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
