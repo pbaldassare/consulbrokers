@@ -447,7 +447,19 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             />
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">{fmtEur(calc.lordo)}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" step="0.01" inputMode="decimal"
+                            key={`lordo-${v.id}-${calc.lordo}`}
+                            defaultValue={calc.lordo}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value || 0);
+                              if (Math.abs(val - calc.lordo) < 0.01) return;
+                              handleLordoBlur(v, val);
+                            }}
+                            className="h-8 text-right ml-auto w-32 font-mono tabular-nums"
+                          />
+                        </TableCell>
                         <TableCell>
                           {v.is_rca_principale ? (
                             <span title="RCA Auto non rimovibile" className="inline-flex">
