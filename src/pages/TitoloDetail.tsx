@@ -2759,6 +2759,7 @@ const TitoloDetail = () => {
           </Table>
         )}
       </SectionCollapsible>
+      )}
 
       {(conducente as any) && (
         <SectionCollapsible title="Dati Conducente" icon={UserCheck}>
