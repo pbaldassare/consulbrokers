@@ -565,7 +565,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   {v.is_rca_principale && (
                     <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t">
                       <div className="flex justify-between"><span>↳ Imposta {aliquotaProv}%</span><span className="font-mono">{fmtEur(calc.imposta)}</span></div>
-                      <div className="flex justify-between"><span>↳ SSN {SSN_PCT}%</span><span className="font-mono">{fmtEur(calc.ssn)}</span></div>
+                      <div className="flex justify-between"><span>↳ SSN 10,5%</span><span className="font-mono">{fmtEur(calc.ssn)}</span></div>
                     </div>
                   )}
                 </div>
