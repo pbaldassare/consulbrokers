@@ -240,14 +240,48 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         .eq("tipo_premio", "quietanza");
       if (e1) throw e1;
       const { error: e2 } = await supabase.rpc("sync_quietanza_da_firma" as any, { p_titolo_id: titoloId });
-      if (e2) throw e2;
+      if (e2) {
+        // Fallback client-side: cancella le righe quietanza non personalizzate e re-inserisci da firma
+        const { error: eDel } = await supabase
+          .from("premi_garanzia_polizza" as any)
+          .delete()
+          .eq("titolo_id", titoloId)
+          .eq("tipo_premio", "quietanza")
+          .eq("quietanza_personalizzata", false);
+        if (eDel) throw eDel;
+        const { data: firmaRows, error: eSel } = await supabase
+          .from("premi_garanzia_polizza" as any)
+          .select("*")
+          .eq("titolo_id", titoloId)
+          .eq("tipo_premio", "firma");
+        if (eSel) throw eSel;
+        if (firmaRows && firmaRows.length) {
+          const inserts = (firmaRows as any[]).map((f) => ({
+            titolo_id: f.titolo_id,
+            garanzia: f.garanzia,
+            codice_garanzia: f.codice_garanzia,
+            firma: f.firma,
+            aliquota_tasse_pct: f.aliquota_tasse_pct,
+            is_rca_principale: f.is_rca_principale,
+            imposta_provinciale: f.imposta_provinciale,
+            ssn: f.ssn,
+            lordo_calcolato: f.lordo_calcolato,
+            ordine: f.ordine,
+            tipo_premio: "quietanza",
+            voce_origine_id: f.id,
+            quietanza_personalizzata: false,
+          }));
+          const { error: eIns } = await supabase.from("premi_garanzia_polizza" as any).insert(inserts);
+          if (eIns) throw eIns;
+        }
+      }
     },
     onSuccess: () => {
       invalidateBoth();
       toast.success("Quietanza riallineata alla Firma");
       setConfirmReset(false);
     },
-    onError: (e: any) => toast.error("Reset fallito: " + e.message),
+    onError: (e: any) => toast.error("Reset fallito: " + (e?.message || e)),
   });
 
   const handleNettoBlur = (v: Voce, value: number) => {
