@@ -431,6 +431,36 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     }
   };
 
+  // Handler totali editabili (riquadro Totali)
+  const handleTotaleIptBlur = (val: number) => {
+    const rca = voci.find((v) => v.is_rca_principale);
+    if (!rca) return;
+    handleImpostaOverrideBlur(rca, val);
+  };
+  const handleTotaleSsnBlur = (val: number) => {
+    const rca = voci.find((v) => v.is_rca_principale);
+    if (!rca) return;
+    handleSsnOverrideBlur(rca, val);
+  };
+  const handleTotaleAccBlur = (val: number) => {
+    if (isNaN(val) || val < 0) {
+      toast.error("Tasse accessorie devono essere ≥ 0");
+      return;
+    }
+    const accVoci = voci.filter((v) => !v.is_rca_principale);
+    const sommaNetto = accVoci.reduce((s, v) => s + Number(v.firma || 0), 0);
+    if (sommaNetto < 0.01) {
+      toast.error("Nessuna voce accessoria con netto > 0 su cui applicare le tasse");
+      return;
+    }
+    const nuovaAliq = round2((val / sommaNetto) * 100);
+    accVoci.forEach((v) => {
+      const calc = calcolaLordo({ ...v, aliquota_tasse_pct: nuovaAliq }, aliquotaProv);
+      upsertMut.mutate({ id: v.id, aliquota_tasse_pct: nuovaAliq, lordo_calcolato: calc.lordo });
+    });
+    toast.success(`Aliquota accessorie aggiornata a ${nuovaAliq}%`);
+  };
+
   const totali = useMemo(() => {
     let netto = 0, lordo = 0, imposta = 0, ssn = 0, tasseAcc = 0;
     voci.forEach((v) => {
