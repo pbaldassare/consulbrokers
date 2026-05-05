@@ -341,7 +341,7 @@ export function ImportPolizzaAiButton({
                               <SelectItem value="__none">— Da mappare —</SelectItem>
                               <SelectItem value="RCA">
                                 <span className="flex items-center gap-2">
-                                  <CheckCircle2 className="h-3 w-3 text-teal-600" /> RCA Auto (principale)
+                                  <CheckCircle2 className="h-3 w-3 text-teal-600" /> {mainLabel} (principale)
                                 </span>
                               </SelectItem>
                               {catalogo.map((c) => (
