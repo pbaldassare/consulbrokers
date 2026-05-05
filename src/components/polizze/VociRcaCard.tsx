@@ -576,7 +576,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           <div className="p-3 border-t">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto" disabled={catalogoDisponibile.length === 0}>
+                <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
                   <Plus className="h-4 w-4" /> Aggiungi voce
                 </Button>
               </PopoverTrigger>
