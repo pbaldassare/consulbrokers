@@ -4680,6 +4680,61 @@ export type Database = {
           },
         ]
       }
+      produttori_provvigioni_ramo: {
+        Row: {
+          anagrafica_id: string
+          created_at: string
+          id: string
+          percentuale_consulenza: number | null
+          percentuale_provvigione: number | null
+          percentuale_ra: number | null
+          ramo_codice: string
+          updated_at: string
+        }
+        Insert: {
+          anagrafica_id: string
+          created_at?: string
+          id?: string
+          percentuale_consulenza?: number | null
+          percentuale_provvigione?: number | null
+          percentuale_ra?: number | null
+          ramo_codice: string
+          updated_at?: string
+        }
+        Update: {
+          anagrafica_id?: string
+          created_at?: string
+          id?: string
+          percentuale_consulenza?: number | null
+          percentuale_provvigione?: number | null
+          percentuale_ra?: number | null
+          ramo_codice?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produttori_provvigioni_ramo_anagrafica_id_fkey"
+            columns: ["anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produttori_provvigioni_ramo_ramo_codice_fkey"
+            columns: ["ramo_codice"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["codice"]
+          },
+          {
+            foreignKeyName: "produttori_provvigioni_ramo_ramo_codice_fkey"
+            columns: ["ramo_codice"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["ramo_codice"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           attivo: boolean | null

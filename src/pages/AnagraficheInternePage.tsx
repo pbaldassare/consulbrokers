@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
+import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
 
 /** Date picker inline (shadcn) — value is ISO yyyy-MM-dd or "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
@@ -190,11 +191,13 @@ const AnagraficheInternePage = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const resolvedUfficioId = isProduttore
-        ? (form.ufficio_id || profile?.ufficio_id || null)
-        : (profile?.ufficio_id || null);
+      const resolvedUfficioId = isCorr
+        ? (form.ufficio_id || null)
+        : isProduttore
+          ? (form.ufficio_id || profile?.ufficio_id || null)
+          : (profile?.ufficio_id || null);
 
-      if (isProduttore && !resolvedUfficioId) {
+      if (isProduttore && !isCorr && !resolvedUfficioId) {
         throw new Error("Selezionare un ufficio per il produttore");
       }
 
@@ -258,10 +261,12 @@ const AnagraficheInternePage = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessun record selezionato");
-      const resolvedUfficioId = isProduttore
-        ? (form.ufficio_id || profile?.ufficio_id || null)
-        : (profile?.ufficio_id || null);
-      if (isProduttore && !resolvedUfficioId) {
+      const resolvedUfficioId = isCorr
+        ? (form.ufficio_id || null)
+        : isProduttore
+          ? (form.ufficio_id || profile?.ufficio_id || null)
+          : (profile?.ufficio_id || null);
+      if (isProduttore && !isCorr && !resolvedUfficioId) {
         throw new Error("Sede obbligatoria: assegna una Sede prima di salvare");
       }
 
@@ -643,16 +648,20 @@ const AnagraficheInternePage = () => {
   const renderUfficioSelect = () => {
     if (!isProduttore) return null;
     const isAdminUser = profile?.ruolo === "admin";
+    const isOptional = isCorr;
     return (
       <div className="mb-4">
-        <Label>Sede <span className="text-destructive">*</span></Label>
+        <Label>
+          Sede {isOptional ? <span className="text-muted-foreground text-xs">(opzionale)</span> : <span className="text-destructive">*</span>}
+        </Label>
         <Select
-          value={form.ufficio_id || (profile?.ufficio_id ?? "")}
-          onValueChange={(v) => setForm({ ...form, ufficio_id: v })}
+          value={form.ufficio_id || (isOptional ? "__none__" : (profile?.ufficio_id ?? ""))}
+          onValueChange={(v) => setForm({ ...form, ufficio_id: v === "__none__" ? "" : v })}
           disabled={!isAdminUser}
         >
           <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
           <SelectContent>
+            {isOptional && <SelectItem value="__none__">— Nessuna —</SelectItem>}
             {ufficiList.map((u) => (
               <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
             ))}
@@ -750,11 +759,21 @@ const AnagraficheInternePage = () => {
               </div>
               <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
             </TabsContent>
-            <TabsContent value="provvigioni" className="space-y-3 mt-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
-                <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
-                <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+            <TabsContent value="provvigioni" className="space-y-4 mt-3">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Default Produttore (fallback)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div><Label>% Provvigione</Label><Input type="number" step="0.01" value={form.percentuale_base} onChange={(e) => setForm({ ...form, percentuale_base: e.target.value })} /></div>
+                  <div><Label>% Provv. Consulenza</Label><Input type="number" step="0.01" value={form.percentuale_consulenza} onChange={(e) => setForm({ ...form, percentuale_consulenza: e.target.value })} /></div>
+                  <div><Label>% RA (Ritenuta Acconto)</Label><Input type="number" step="0.01" value={form.percentuale_ra} onChange={(e) => setForm({ ...form, percentuale_ra: e.target.value })} /></div>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Provvigioni per Ramo</p>
+                <ProduttoreProvvigioniRamoTab
+                  anagraficaId={editingId}
+                  defaults={{ base: form.percentuale_base, consulenza: form.percentuale_consulenza, ra: form.percentuale_ra }}
+                />
               </div>
             </TabsContent>
             <TabsContent value="banca" className="space-y-3 mt-3">
