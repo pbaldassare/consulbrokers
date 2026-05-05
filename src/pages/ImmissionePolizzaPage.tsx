@@ -954,17 +954,13 @@ const ImmissionePolizzaPage = () => {
         </div>
 
         {/* Additional fields */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
           <div className="space-y-1.5">
             <Label className="text-xs">Fax Incasso</Label>
             <RadioGroup value={faxIncasso} onValueChange={setFaxIncasso} className="flex gap-3 h-8 items-center">
               <div className="flex items-center gap-1"><RadioGroupItem value="si" id="fax-si" /><Label htmlFor="fax-si" className="text-xs font-normal cursor-pointer">Sì</Label></div>
               <div className="flex items-center gap-1"><RadioGroupItem value="no" id="fax-no" /><Label htmlFor="fax-no" className="text-xs font-normal cursor-pointer">No</Label></div>
             </RadioGroup>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Cambio</Label>
-            <Input type="number" step="0.0001" value={cambio} onChange={(e) => setCambio(e.target.value)} className="h-8 text-xs font-mono" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Valuta</Label>

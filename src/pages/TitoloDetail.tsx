@@ -724,10 +724,9 @@ const TitoloDetail = () => {
           else if (n < 0 && f !== "cambio") errs.push(`${f}: deve essere ≥ 0`);
         }
       });
-      if (importiForm.valuta && importiForm.valuta !== "EUR") {
-        const c = Number(importiForm.cambio);
-        if (!importiForm.cambio || isNaN(c) || c <= 0) errs.push("Cambio > 0 obbligatorio se valuta ≠ EUR");
-      }
+      // Cambio rimosso dalla UI: forziamo sempre 1
+      importiForm.cambio = "1";
+
       if (errs.length) throw new Error(errs.join(" • "));
 
       // Warnings (non-blocking)
@@ -2197,7 +2196,6 @@ const TitoloDetail = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
               <FieldRow label="Valuta" value={fmt(t.valuta)} />
-              
               <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
               <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
               <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
@@ -2314,21 +2312,15 @@ const TitoloDetail = () => {
             </div>
 
             {/* VALUTA & FLAGS */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t">
               <div>
                 <Label className="text-xs">Valuta</Label>
                 <SearchableSelect
                   options={valutaOpts}
                   value={importiForm.valuta}
-                  onValueChange={(v) => setImportiForm({ ...importiForm, valuta: v, cambio: v === "EUR" ? "1" : importiForm.cambio })}
+                  onValueChange={(v) => setImportiForm({ ...importiForm, valuta: v, cambio: "1" })}
                   placeholder="Valuta"
                 />
-              </div>
-              <div>
-                <Label className="text-xs">Cambio</Label>
-                <Input type="number" step="0.0001" value={importiForm.cambio}
-                  disabled={importiForm.valuta === "EUR"}
-                  onChange={(e) => setImportiForm({ ...importiForm, cambio: e.target.value })} />
               </div>
               <div className="flex items-center gap-2 pt-5">
                 <Switch checked={importiForm.indicizzata}
