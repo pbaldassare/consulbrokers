@@ -2131,22 +2131,53 @@ const TitoloDetail = () => {
                       Commerciale = Consulbrokers SPA (admin) → split <strong>solo statistico</strong>: l'intera quota va a Consulbrokers SPA.
                     </div>
                   )}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                    <FieldRow label="Commerciale" value={commName} />
-                    <FieldRow label="% Commerciale" value={`${percComm}%`} />
-                    {provvQ != null && provvQ > 0 && (
-                      <>
-                        <FieldRow
-                          label={commercialeIsAdmin ? "Provv. Commerciale (statistica)" : "Provv. Commerciale"}
-                          value={fmtEuro(importoComm)}
-                        />
-                        <FieldRow
-                          label="Provv. Consulbrokers SPA"
-                          value={fmtEuro(commercialeIsAdmin ? provvQ : importoAdmin)}
-                        />
-                      </>
-                    )}
-                  </div>
+                  {provvQ != null && provvQ > 0 ? (
+                    <>
+                      {/* Split bar */}
+                      <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+                        <div className="bg-teal-600" style={{ width: `${commercialeIsAdmin ? 0 : percComm}%` }} />
+                        <div className="bg-amber-500 flex-1" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Card Commerciale */}
+                        <div className="rounded-lg border-l-4 border-l-teal-600 bg-teal-50/50 dark:bg-teal-950/20 p-3 flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
+                            <UserIcon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs uppercase font-semibold text-muted-foreground">Commerciale</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{percComm}%</span>
+                              {commercialeIsAdmin && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>
+                              )}
+                            </div>
+                            <div className="text-sm font-medium truncate">{commName}</div>
+                            <div className="font-mono tabular-nums text-xl text-teal-900 dark:text-teal-200 mt-1">{fmtEuro(importoComm)}</div>
+                          </div>
+                        </div>
+                        {/* Card Consulbrokers */}
+                        <div className="rounded-lg border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20 p-3 flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs uppercase font-semibold text-muted-foreground">Quota Agenzia</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-mono">{commercialeIsAdmin ? 100 : (100 - percComm)}%</span>
+                            </div>
+                            <div className="text-sm font-medium truncate">Consulbrokers SPA</div>
+                            <div className="font-mono tabular-nums text-xl text-amber-900 dark:text-amber-200 mt-1">{fmtEuro(commercialeIsAdmin ? provvQ : importoAdmin)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+                      <FieldRow label="Commerciale" value={commName} />
+                      <FieldRow label="% Commerciale" value={`${percComm}%`} />
+                    </div>
+                  )}
                 </div>
               );
             })()}
