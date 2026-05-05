@@ -210,7 +210,7 @@ const QuadraturePremi = () => {
   // Export CSV
   const exportCSV = () => {
     const BOM = "\uFEFF";
-    const header = "Titolo;Prodotto;Compagnia;Premio Atteso;Scadenza;Gg Ritardo;Match Importo;Match Data;Score\n";
+    const header = "Titolo;Prodotto;Agenzia;Premio Atteso;Scadenza;Gg Ritardo;Match Importo;Match Data;Score\n";
     const rows = matchResults
       .map((r) => {
         const prod = (r.titolo.prodotti as any)?.nome_prodotto || "";
@@ -367,7 +367,7 @@ const QuadraturePremi = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Titolo</TableHead>
-                      <TableHead>Prodotto / Compagnia</TableHead>
+                      <TableHead>Prodotto / Agenzia</TableHead>
                       <TableHead>Scadenza</TableHead>
                       <TableHead className="text-right">Premio Atteso</TableHead>
                       <TableHead>Ritardo</TableHead>

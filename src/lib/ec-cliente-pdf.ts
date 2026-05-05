@@ -149,7 +149,7 @@ function drawTabella(ctx: Ctx, d: ECClienteData) {
     { key: "polizza",   title: "polizza",    w: 75,  align: "left" as const },
     { key: "ramo",      title: "ramo",       w: 95,  align: "left" as const },
     { key: "rischio",   title: "rischio",    w: 130, align: "left" as const },
-    { key: "compagnia", title: "Compagnia",  w: 100, align: "left" as const },
+    { key: "compagnia", title: "Agenzia",  w: 100, align: "left" as const },
     { key: "effetto",   title: "Effetto",    w: 70,  align: "center" as const },
     { key: "premio",    title: "Premio",     w: 65,  align: "right" as const },
   ];

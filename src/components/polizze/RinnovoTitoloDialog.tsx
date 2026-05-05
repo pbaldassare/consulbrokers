@@ -164,7 +164,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         }
       }
 
-      // Anti-duplicato: verifica che non esista già un rinnovo per stesso numero+compagnia+scadenza
+      // Anti-duplicato: verifica che non esista già un rinnovo per stesso numero+agenzia+scadenza
       const { data: esistente, error: dupErr } = await supabase
         .from("titoli")
         .select("id, numero_titolo, riga, data_scadenza, stato, data_messa_cassa")
@@ -501,7 +501,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Compagnia</span>
+            <span className="text-muted-foreground">Agenzia</span>
             <span>{t.compagnia_diretta?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
           </div>
           <div className="flex justify-between">

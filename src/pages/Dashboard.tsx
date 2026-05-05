@@ -211,7 +211,7 @@ const UfficioDashboard = ({ loading, data }: { loading: boolean; data: ReturnTyp
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <BarChartCard title="Incassi Mensili (ultimi 6 mesi)" data={d?.incassiMensili ?? []} loading={loading} />
-        <BarChartCard title="Scadenze prossimi 30gg per Compagnia" data={d?.scadenzePerCompagnia ?? []} loading={loading} />
+        <BarChartCard title="Scadenze prossimi 30gg per Agenzia" data={d?.scadenzePerCompagnia ?? []} loading={loading} />
       </div>
     </>
   );

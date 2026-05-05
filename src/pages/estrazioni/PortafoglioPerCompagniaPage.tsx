@@ -56,7 +56,7 @@ const PortafoglioPerCompagniaPage = () => {
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const exportCSV = () => {
-    const header = "Compagnia,N. Polizze,Totale Premi,Totale Incassato\n";
+    const header = "Agenzia,N. Polizze,Totale Premi,Totale Incassato\n";
     const csv = rows.map((c) => `"${c.compagnia}",${c.num_polizze},${c.totale_premi.toFixed(2)},${c.totale_incassato.toFixed(2)}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -65,7 +65,7 @@ const PortafoglioPerCompagniaPage = () => {
   };
 
   const kpiCards = [
-    { label: "N. Compagnie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
+    { label: "N. Agenzie", value: rows.length.toString(), icon: Building2, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400" },
     { label: "N. Polizze", value: totPolizze.toString(), icon: FileText, color: "text-teal-600 bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400" },
     { label: "Totale Premi", value: fmt(totPremi), icon: TrendingUp, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400" },
     { label: "Totale Incassato", value: fmt(totIncassato), icon: Wallet, color: "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" },
@@ -82,8 +82,8 @@ const PortafoglioPerCompagniaPage = () => {
             <Building2 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Portafoglio per Compagnia</h1>
-            <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per compagnia</p>
+            <h1 className="text-2xl font-bold text-foreground">Portafoglio per Agenzia</h1>
+            <p className="text-sm text-muted-foreground">Estrazione portafoglio raggruppato per agenzia</p>
           </div>
         </div>
         <Button variant="outline" onClick={exportCSV} disabled={!rows.length}>
@@ -113,7 +113,7 @@ const PortafoglioPerCompagniaPage = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Compagnia</TableHead>
+              <TableHead>Agenzia</TableHead>
               <TableHead className="text-right">N. Polizze</TableHead>
               <TableHead className="text-right">Totale Premi</TableHead>
               <TableHead className="text-right">Totale Incassato</TableHead>

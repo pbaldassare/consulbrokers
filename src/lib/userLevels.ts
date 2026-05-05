@@ -39,7 +39,7 @@ export const PERMISSION_GROUPS = [
     label: "Contabilità",
     items: [
       { key: "contabilita", label: "Prima Nota / Incassi" },
-      { key: "rimesse", label: "Rimesse a compagnie" },
+      { key: "rimesse", label: "Rimesse a agenzie" },
       { key: "ec_clienti", label: "Estratti Conto Clienti" },
       { key: "chiusure", label: "Chiusure contabili" },
     ],
@@ -57,7 +57,7 @@ export const PERMISSION_GROUPS = [
     items: [
       { key: "anagrafiche", label: "Anagrafiche utenti" },
       { key: "tabelle_base", label: "Tabelle di base" },
-      { key: "compagnie", label: "Compagnie & Prodotti" },
+      { key: "compagnie", label: "Agenzie & Prodotti" },
       { key: "uffici", label: "Gestione Sedi" },
       { key: "manutenzione", label: "Manutenzione sistema" },
     ],

@@ -19,11 +19,11 @@ interface ActionCard {
 
 const actions: ActionCard[] = [
   { label: "Portafoglio per Cliente", description: "Estrazione portafoglio raggruppato per cliente", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
-  { label: "Portafoglio per Compagnia", description: "Estrazione portafoglio raggruppato per compagnia", icon: Building2, path: "/portafoglio/estrazioni/per-compagnia" },
+  { label: "Portafoglio per Agenzia", description: "Estrazione portafoglio raggruppato per agenzia", icon: Building2, path: "/portafoglio/estrazioni/per-agenzia" },
   { label: "Premi e Provvigioni", description: "Stampa riepilogo premi e provvigioni", icon: DollarSign, path: "/portafoglio/estrazioni/premi-provvigioni" },
   { label: "Premi Scoperti e Garantiti", description: "Report premi scoperti e garantiti", icon: ShieldCheck, path: "/portafoglio/estrazioni/premi-scoperti-garantiti" },
   { label: "E/C Clienti", description: "Estratto conto clienti", icon: FileSpreadsheet, path: "/portafoglio/estrazioni/ec-clienti" },
-  { label: "E/C Agenzie", description: "Estratto conto verso agenzie con anteprima, stampa e archivio", icon: FileText, path: "/contabilita/ec-compagnia" },
+  { label: "E/C Agenzie", description: "Estratto conto verso agenzie con anteprima, stampa e archivio", icon: FileText, path: "/contabilita/ec-agenzia" },
   { label: "Storico E/C Agenzie", description: "PDF E/C Agenzie archiviati: ricerca, filtri e anteprima", icon: Archive, path: "/contabilita/ec-agenzia/storico" },
   { label: "Storico E/C Clienti", description: "PDF E/C Clienti archiviati: ricerca per cliente, periodo e download", icon: Archive, path: "/contabilita/ec-cliente/storico" },
 ];

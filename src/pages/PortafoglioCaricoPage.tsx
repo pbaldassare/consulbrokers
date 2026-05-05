@@ -399,7 +399,7 @@ const PortafoglioCaricoPage = () => {
                 <TableRow>
                   <TableHead>Polizza nuova</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead className="text-right">Premio</TableHead>
                   <TableHead>Origina da</TableHead>

@@ -214,7 +214,7 @@ const ECClientiContabPage = () => {
             </RadioGroup>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Pag. diretto Compagnia</Label>
+            <Label className="text-xs text-muted-foreground">Pag. diretto Agenzia</Label>
             <RadioGroup value={filters.pag_diretto} onValueChange={(v) => set({ pag_diretto: v as any })} className="flex gap-4">
               <div className="flex items-center gap-1.5"><RadioGroupItem value="tutti" id="pd-tutti" /><Label htmlFor="pd-tutti" className="text-sm">Tutti</Label></div>
               <div className="flex items-center gap-1.5"><RadioGroupItem value="si" id="pd-si" /><Label htmlFor="pd-si" className="text-sm">Sì</Label></div>

@@ -57,7 +57,7 @@ const ProspectTrattative = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-foreground">Le mie Trattative</h1>
-        <p className="text-sm text-muted-foreground mt-1">Stato delle tue trattative in corso con l'agenzia.</p>
+        <p className="text-sm text-muted-foreground mt-1">Stato delle tue trattative in corso con l'compagnia.</p>
       </div>
 
       {loading ? (

@@ -37,7 +37,7 @@ interface ContoBancario {
 
 const TIPI = [
   { value: "incasso_clienti", label: "Incasso clienti" },
-  { value: "compagnia", label: "Compagnia" },
+  { value: "compagnia", label: "Agenzia" },
   { value: "provvigioni", label: "Provvigioni" },
   { value: "generico", label: "Generico" },
 ];
@@ -375,7 +375,7 @@ export default function ContiBancariPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare il conto?</AlertDialogTitle>
             <AlertDialogDescription>
-              L'operazione non è reversibile. Se il conto è referenziato da Sedi, Compagnie o Rapporti, l'eliminazione fallirà — disattivalo invece.
+              L'operazione non è reversibile. Se il conto è referenziato da Sedi, Agenzie o Rapporti, l'eliminazione fallirà — disattivalo invece.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

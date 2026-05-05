@@ -40,7 +40,7 @@ export default function CreateFolderDialog({ open, onOpenChange, onSubmit, loadi
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="generale">Generale</SelectItem>
-                <SelectItem value="compagnia">Compagnia</SelectItem>
+                <SelectItem value="compagnia">Agenzia</SelectItem>
                 <SelectItem value="prodotto">Prodotto</SelectItem>
                 <SelectItem value="sottoprodotto">Sottocategoria</SelectItem>
               </SelectContent>

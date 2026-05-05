@@ -140,7 +140,7 @@ const RinnoviPolizzaPage = () => {
           {/* Right column */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Label className="w-24 text-right shrink-0">Compagnia</Label>
+              <Label className="w-24 text-right shrink-0">Agenzia</Label>
               <div className="relative max-w-[140px]">
                 <Input value={codiceCompagnia} onChange={(e) => setCodiceCompagnia(e.target.value)} />
                 <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />

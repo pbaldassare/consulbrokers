@@ -92,7 +92,7 @@ const ClienteUploadDoc = () => {
           </Button>
           {!clienteId && (
             <p className="text-xs text-muted-foreground">
-              Il tuo profilo cliente non è ancora collegato. Contatta l'agenzia.
+              Il tuo profilo cliente non è ancora collegato. Contatta l'compagnia.
             </p>
           )}
         </CardContent>

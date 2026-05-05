@@ -27,7 +27,7 @@ export interface PrecontrattualeData {
   specialistEmail: string;
   specialistTelefono: string;
   specialistIndirizzo: string;
-  // Sede operativa (ufficio dell'agenzia)
+  // Sede operativa (ufficio dell'compagnia)
   sedeNome?: string;
   sedeIndirizzoCompleto?: string;
   sedeEmail?: string;
@@ -288,7 +288,7 @@ function renderPrivacy(ctx: Ctx) {
   spacer(ctx, 4);
 
   drawText(ctx, "4. Destinatari dei dati", { bold: true, size: 9.5 });
-  drawText(ctx, "Nell'ambito delle finalità indicate sopra, i dati del Cliente potranno essere comunicati: a) ad Autorità ed organi di vigilanza e controllo; b) a Compagnie di assicurazione; c) a Periti e liquidatori; d) a Studi legali; e) ad altri intermediari assicurativi professionali; f) alle Aziende del Gruppo; g) a società ed operatori professionali che forniscono servizi di elaborazione elettronica dei dati e di consulenza informatica; h) a società per servizi di rilevazione statistica e/o ricerche di mercato; i) ad agenzie professionali di pubblicità, marketing e mailing.");
+  drawText(ctx, "Nell'ambito delle finalità indicate sopra, i dati del Cliente potranno essere comunicati: a) ad Autorità ed organi di vigilanza e controllo; b) a Agenzie di assicurazione; c) a Periti e liquidatori; d) a Studi legali; e) ad altri intermediari assicurativi professionali; f) alle Aziende del Gruppo; g) a società ed operatori professionali che forniscono servizi di elaborazione elettronica dei dati e di consulenza informatica; h) a società per servizi di rilevazione statistica e/o ricerche di mercato; i) ad agenzie professionali di pubblicità, marketing e mailing.");
   spacer(ctx, 4);
 
   drawText(ctx, "5. Soggetti autorizzati al trattamento", { bold: true, size: 9.5 });
@@ -380,7 +380,7 @@ function renderMUP(ctx: Ctx, d: PrecontrattualeData) {
     d.clienteCF ? `CF: ${d.clienteCF}` : "",
     d.clientePIVA ? `P.IVA: ${d.clientePIVA}` : "",
   ].filter(Boolean).join("   ") || "-";
-  drawHeaderRow(cfPiva, `Compagnia: ${d.polizzaCompagniaTesto || "-"}`);
+  drawHeaderRow(cfPiva, `Agenzia: ${d.polizzaCompagniaTesto || "-"}`);
 
   const cliInd = [d.clienteIndirizzo, d.clienteCap, d.clienteCitta, d.clienteProvincia ? `(${d.clienteProvincia})` : ""].filter(Boolean).join(" ");
   const decScad = `Decorr: ${d.polizzaDataDecorrenza || "-"}   Scad: ${d.polizzaDataScadenza || "-"}`;

@@ -226,7 +226,7 @@ export function useDashboardData(ruolo: string) {
       supabase.from("v_portafoglio_titoli").select("premio_lordo, data_messa_cassa")
         .gte("data_messa_cassa", new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().substring(0, 10))
         .limit(10000),
-      // Scadenze prossimi 30gg con compagnia
+      // Scadenze prossimi 30gg con agenzia
       supabase.from("v_portafoglio_titoli").select("premio_lordo, compagnia_nome")
         .gte("data_scadenza", oggi).lte("data_scadenza", in30gg)
         .in("stato", ["attivo", "incassato"]).limit(10000),
@@ -256,7 +256,7 @@ export function useDashboardData(ruolo: string) {
       return { mese: monthNames[parseInt(m) - 1], importo: v };
     });
 
-    // Scadenze prossimi 30gg per compagnia (top 8)
+    // Scadenze prossimi 30gg per agenzia (top 8)
     const compMap: Record<string, number> = {};
     (scadenze30 || []).forEach((t: any) => {
       const c = t.compagnia_nome || "N/D";

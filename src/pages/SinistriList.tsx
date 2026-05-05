@@ -58,7 +58,7 @@ export default function SinistriList() {
     queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
-        `*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
+        `*, agenzie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
          titoli(numero_titolo)`,
         { count: "exact" }
@@ -101,7 +101,7 @@ export default function SinistriList() {
     try {
       let q = supabase.from("titoli").select(`
         id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
-        prodotti(nome_prodotto, compagnie(id, nome)),
+        prodotti(nome_prodotto, agenzie(id, nome)),
         profiles!titoli_cliente_id_fkey(nome, cognome),
         clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
       `).eq("stato", "attivo").limit(50);
@@ -239,7 +239,7 @@ export default function SinistriList() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Compagnia</Label>
+                      <Label className="text-xs">Agenzia</Label>
                       <Select
                         value={polizzaSearch.compagnia || "all"}
                         onValueChange={v => setPolizzaSearch({ ...polizzaSearch, compagnia: v === "all" ? "" : v })}
@@ -265,7 +265,7 @@ export default function SinistriList() {
                             <TableHead>N° Polizza</TableHead>
                             <TableHead>Cliente</TableHead>
                             <TableHead>Prodotto</TableHead>
-                            <TableHead>Compagnia</TableHead>
+                            <TableHead>Agenzia</TableHead>
                             <TableHead>Premio</TableHead>
                             <TableHead></TableHead>
                           </TableRow>
@@ -313,7 +313,7 @@ export default function SinistriList() {
                         <span>{getPolizzaClienteName(selectedPolizza)}</span>
                         <span className="text-muted-foreground">Prodotto:</span>
                         <span>{selectedPolizza.prodotti?.nome_prodotto || "—"}</span>
-                        <span className="text-muted-foreground">Compagnia:</span>
+                        <span className="text-muted-foreground">Agenzia:</span>
                         <span>{selectedPolizza.prodotti?.compagnie?.nome || "—"}</span>
                       </div>
                       <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => setStep(1)}>
@@ -376,7 +376,7 @@ export default function SinistriList() {
         <Select value={filtroCompagnia} onValueChange={handleFilterChange(setFiltroCompagnia)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Tutte le compagnie</SelectItem>
+            <SelectItem value="tutti">Tutte le agenzie</SelectItem>
             {compagnie?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -391,7 +391,7 @@ export default function SinistriList() {
               <TableHead>Polizza</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Stato</TableHead>
-              <TableHead>Compagnia</TableHead>
+              <TableHead>Agenzia</TableHead>
               <TableHead>Data Apertura</TableHead>
               <TableHead>Descrizione</TableHead>
             </TableRow>

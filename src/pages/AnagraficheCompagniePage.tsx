@@ -384,7 +384,7 @@ const AnagraficheCompagniePage = () => {
         <TableHead>Indirizzo</TableHead>
         <TableHead>Contatti</TableHead>
         <TableHead>Attenzione di / Mail</TableHead>
-        <TableHead>Compagnia</TableHead>
+        <TableHead>Agenzia</TableHead>
         <TableHead className="text-center">Attivo</TableHead>
       </TableRow>
     );
@@ -715,7 +715,7 @@ const AnagraficheCompagniePage = () => {
             <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
             <div><Label>Studio / Ufficio</Label><Input value={form.studio_ufficio} onChange={(e) => setForm({ ...form, studio_ufficio: e.target.value })} /></div>
             <div>
-              <Label>Compagnia</Label>
+              <Label>Agenzia</Label>
               <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
                 <SelectContent>
@@ -769,7 +769,7 @@ const AnagraficheCompagniePage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Compagnie</h1>
+          <h1 className="text-2xl font-bold text-foreground">Anagrafiche Agenzie</h1>
           <p className="text-sm text-muted-foreground">Figure esterne nominate dalle compagnie: Liquidatori, Periti, Legali</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>

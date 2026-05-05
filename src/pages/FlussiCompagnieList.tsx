@@ -51,7 +51,7 @@ const FlussiCompagnieList = () => {
     queryFn: async () => {
       let q = supabase
         .from("flussi_compagnia" as any)
-        .select("*, compagnie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
+        .select("*, agenzie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
         .order("created_at", { ascending: false });
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       const { data, error } = await q;
@@ -81,7 +81,7 @@ const FlussiCompagnieList = () => {
       queryClient.invalidateQueries({ queryKey: ["flussi_compagnia"] });
       setDialogOpen(false);
       toast.success("Flusso creato");
-      navigate(`/flussi-compagnie/${data.id}`);
+      navigate(`/flussi-agenzie/${data.id}`);
     },
     onError: () => toast.error("Errore", { description: "Impossibile creare il flusso" }),
   });
@@ -97,20 +97,20 @@ const FlussiCompagnieList = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Flussi Compagnie</h1>
-          <p className="text-muted-foreground">Invio reportistica e foglio cassa alle compagnie</p>
+          <h1 className="text-2xl font-bold text-foreground">Flussi Agenzie</h1>
+          <p className="text-muted-foreground">Invio reportistica e foglio cassa alle agenzie</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Nuovo Flusso</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nuovo Flusso Compagnia</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Nuovo Flusso Agenzia</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Compagnia</Label>
+                <Label>Agenzia</Label>
                 <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleziona compagnia" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleziona agenzia" /></SelectTrigger>
                   <SelectContent>
                     {compagnie?.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
@@ -195,7 +195,7 @@ const FlussiCompagnieList = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Compagnia</TableHead>
+                <TableHead>Agenzia</TableHead>
                 <TableHead>Sede</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Periodo</TableHead>
@@ -210,7 +210,7 @@ const FlussiCompagnieList = () => {
               ) : !flussi?.length ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun flusso trovato</TableCell></TableRow>
               ) : flussi.map((f: any) => (
-                <TableRow key={f.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/flussi-compagnie/${f.id}`)}>
+                <TableRow key={f.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/flussi-agenzie/${f.id}`)}>
                   <TableCell className="font-medium">{(f.compagnie as any)?.nome || "-"}</TableCell>
                   <TableCell>{(f.uffici as any)?.nome_ufficio || "-"}</TableCell>
                   <TableCell className="capitalize">{f.tipo_flusso?.replace("_", " ")}</TableCell>

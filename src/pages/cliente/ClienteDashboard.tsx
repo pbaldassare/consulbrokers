@@ -162,10 +162,10 @@ const ClienteDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Bar Chart - Premi per Compagnia */}
+          {/* Bar Chart - Premi per Agenzia */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Premi per Compagnia</CardTitle>
+              <CardTitle className="text-base">Premi per Agenzia</CardTitle>
             </CardHeader>
             <CardContent>
               {premiPerCompagnia.length > 0 ? (

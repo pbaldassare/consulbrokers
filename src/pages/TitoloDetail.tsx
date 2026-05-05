@@ -190,7 +190,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dettaglio_riparto")
-        .select("*, compagnie(nome, codice)")
+        .select("*, agenzie(nome, codice)")
         .eq("titolo_id", id!);
       if (error) throw error;
       return data;
@@ -1572,7 +1572,7 @@ const TitoloDetail = () => {
                 <li>Coperture fino ad euro <strong>10.000,00</strong>: occorre l'autorizzazione di due Amministratori Delegati</li>
                 <li>Coperture oltre euro <strong>10.000,00</strong>: occorre l'autorizzazione del CDA</li>
               </ul>
-              <p>Tutto quanto non regolarizzato alla data di chiusura del mese non verrà rimesso alle compagnie entro il giorno 10 del mese successivo.</p>
+              <p>Tutto quanto non regolarizzato alla data di chiusura del mese non verrà rimesso alle agenzie entro il giorno 10 del mese successivo.</p>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="conferimento-accettato" checked={conferimentoAccettato} onCheckedChange={(v) => setConferimentoAccettato(!!v)} />
@@ -1677,7 +1677,7 @@ const TitoloDetail = () => {
 
         {!editingContratto ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-            <FieldRow label="Compagnia / Agenzia di rif." value={
+            <FieldRow label="Agenzia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
             <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
@@ -1714,12 +1714,12 @@ const TitoloDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {/* Read-only fields */}
             <div className="space-y-1">
-              <Label className="text-xs">Compagnia / Agenzia di rif.</Label>
+              <Label className="text-xs">Agenzia / Agenzia di rif.</Label>
               <SearchableSelect
                 options={compagnieOpts}
                 value={contrattoForm.compagnia_id || ""}
                 onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
-                placeholder="— Seleziona compagnia / agenzia —"
+                placeholder="— Seleziona agenzia / agenzia —"
               />
             </div>
             <div className="space-y-1">
@@ -2335,7 +2335,7 @@ const TitoloDetail = () => {
             </div>
 
             <div className="text-xs text-muted-foreground pt-2 border-t">
-              <strong>Read-only:</strong> Pag. Diretto Compagnia, Formato Elettronico, Incassato, Data Incasso (gestiti da Messa a Cassa / configurazione prodotto)
+              <strong>Read-only:</strong> Pag. Diretto Agenzia, Formato Elettronico, Incassato, Data Incasso (gestiti da Messa a Cassa / configurazione prodotto)
             </div>
           </div>
         )}
@@ -2361,7 +2361,7 @@ const TitoloDetail = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Compagnia</TableHead>
+              <TableHead>Agenzia</TableHead>
               <TableHead className="text-right">Quota %</TableHead>
               <TableHead className="text-right">Netto</TableHead>
               <TableHead className="text-right">Add.</TableHead>

@@ -107,7 +107,7 @@ const ProvvigioniSedePage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Polizza</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
                   <TableHead className="text-right">Premio</TableHead>
                   <TableHead className="text-right">Provv. Agenzia</TableHead>

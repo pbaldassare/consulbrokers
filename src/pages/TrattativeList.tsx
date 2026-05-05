@@ -318,7 +318,7 @@ const TrattativeList = () => {
                   <SearchableSelect options={rami} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Ramo..." />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Compagnia</Label>
+                  <Label>Agenzia</Label>
                   <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Compagnia..." />
                 </div>
               </div>
@@ -381,7 +381,7 @@ const TrattativeList = () => {
         <Select value={filtroCompagnia} onValueChange={setFiltroCompagnia}>
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Tutte le compagnie</SelectItem>
+            <SelectItem value="tutti">Tutte le agenzie</SelectItem>
             {compagnie.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -432,7 +432,7 @@ const TrattativeList = () => {
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Soggetto</TableHead>
-                <TableHead>Compagnia</TableHead>
+                <TableHead>Agenzia</TableHead>
                 <TableHead>Ufficio</TableHead>
                 <TableHead>Premio</TableHead>
                 <TableHead>Stato</TableHead>

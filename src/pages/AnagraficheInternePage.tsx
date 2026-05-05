@@ -506,7 +506,7 @@ const AnagraficheInternePage = () => {
         <TableHead>Indirizzo</TableHead>
         <TableHead>Contatti</TableHead>
         <TableHead>Attenzione di / Mail</TableHead>
-        <TableHead>Compagnia</TableHead>
+        <TableHead>Agenzia</TableHead>
         <TableHead className="text-center">Attivo</TableHead>
       </TableRow>
     );
@@ -846,7 +846,7 @@ const AnagraficheInternePage = () => {
             <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
             <div><Label>Studio / Ufficio</Label><Input value={form.studio_ufficio} onChange={(e) => setForm({ ...form, studio_ufficio: e.target.value })} /></div>
             <div>
-              <Label>Compagnia</Label>
+              <Label>Agenzia</Label>
               <Select value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
                 <SelectContent>
@@ -901,7 +901,7 @@ const AnagraficheInternePage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Anagrafiche Amministrative</h1>
-          <p className="text-sm text-muted-foreground">Figure interne all'agenzia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
+          <p className="text-sm text-muted-foreground">Figure interne all'compagnia: Account Executive, Produttori, Resp. Sede, Specialist e Sedi</p>
         </div>
         {isAnagraficaTab && (
           <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>

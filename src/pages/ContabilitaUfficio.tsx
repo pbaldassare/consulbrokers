@@ -175,7 +175,7 @@ const ContabilitaUfficio = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8"></TableHead>
-                    <TableHead>Compagnia</TableHead>
+                    <TableHead>Agenzia</TableHead>
                     <TableHead className="text-right">Titoli</TableHead>
                     <TableHead className="text-right">Premio Lordo</TableHead>
                     <TableHead className="text-right">Provvigioni</TableHead>

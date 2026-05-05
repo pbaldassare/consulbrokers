@@ -660,12 +660,12 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">Compagnia / Agenzia di rif.</Label>
+            <Label className="text-xs">Agenzia / Agenzia di rif.</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
               onValueChange={setSelectedCompagnia}
-              placeholder="— Seleziona compagnia / agenzia —"
+              placeholder="— Seleziona agenzia / agenzia —"
               options={(compagnieList || []).map((c: any) => {
                 const gruppo = (c.gruppo_compagnia || "").trim();
                 const nome = c.nome || "";
@@ -942,7 +942,7 @@ const ImmissionePolizzaPage = () => {
             { id: "rimborso", label: "Rimborso", checked: rimborso, onChange: setRimborso },
             { id: "indicizzata", label: "Indicizzata", checked: indicizzata, onChange: setIndicizzata },
             { id: "noCalcoloTasse", label: "No Calcolo Tasse", checked: noCalcoloTasse, onChange: setNoCalcoloTasse },
-            { id: "pagDiretto", label: "Pag. Diretto Compagnia", checked: pagDirettoCompagnia, onChange: setPagDirettoCompagnia },
+            { id: "pagDiretto", label: "Pag. Diretto Agenzia", checked: pagDirettoCompagnia, onChange: setPagDirettoCompagnia },
             { id: "emissioneFee", label: "Emissione Fee", checked: emissioneFee, onChange: setEmissioneFee },
             { id: "formatoElett", label: "Formato Elettronico", checked: formatoElettronico, onChange: setFormatoElettronico },
           ].map((flag) => (
@@ -997,14 +997,14 @@ const ImmissionePolizzaPage = () => {
               type="number" step="0.01" min="0" max="100"
               value={percentualeProvvigione}
               onChange={(e) => setPercentualeProvvigione(e.target.value)}
-              placeholder={selectedCompagnia ? "Inserisci %" : "Seleziona compagnia"}
+              placeholder={selectedCompagnia ? "Inserisci %" : "Seleziona agenzia"}
               disabled={!selectedCompagnia}
               className="h-8 text-xs font-mono"
             />
           </div>
           <div className="flex items-center gap-2 pb-1">
             {!selectedCompagnia && (
-              <span className="text-[10px] text-muted-foreground">Seleziona una compagnia</span>
+              <span className="text-[10px] text-muted-foreground">Seleziona una agenzia</span>
             )}
           </div>
           {premioNetto && percentualeProvvigione && (

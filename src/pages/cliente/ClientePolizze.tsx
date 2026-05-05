@@ -31,7 +31,7 @@ const ClientePolizze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
+        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, agenzie(nome), rami(descrizione)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .order("created_at", { ascending: false });
       setTitoli(data ?? []);
@@ -76,7 +76,7 @@ const ClientePolizze = () => {
               <TableHeader>
                 <TableRow className="bg-teal-700 hover:bg-teal-700">
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Stato</TableHead>
-                  <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Mandato / Compagnia</TableHead>
+                  <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Mandato / Agenzia</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Prodotto</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">N° Polizza / Targa</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Data Scadenza</TableHead>

@@ -61,7 +61,7 @@ const PremiScopertiGarantitiPage = () => {
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
   const exportCSV = () => {
-    const header = "N. Polizza,Cliente,Compagnia,Premio Lordo,Stato,Classificazione\n";
+    const header = "N. Polizza,Cliente,Agenzia,Premio Lordo,Stato,Classificazione\n";
     const csv = filtered.map((t: any) => `"${t.numero_titolo}","${t.cliente}","${t.compagnia}",${t.premio_lordo},${t.stato},${t.classificazione}`).join("\n");
     const blob = new Blob([header + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -133,7 +133,7 @@ const PremiScopertiGarantitiPage = () => {
             <TableRow>
               <TableHead>N. Polizza</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Compagnia</TableHead>
+              <TableHead>Agenzia</TableHead>
               <TableHead className="text-right">Premio Lordo</TableHead>
               <TableHead>Stato</TableHead>
               <TableHead>Classificazione</TableHead>

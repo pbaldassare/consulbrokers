@@ -265,14 +265,14 @@ const EstrazioniFilters = ({
           />
         )}
 
-        {/* Compagnia */}
+        {/* Agenzia */}
         {showCompagnia && (
           <SearchableSelect
             value={filters.compagnia_id}
             onValueChange={(v) => onChange({ ...filters, compagnia_id: v })}
             options={(compagnie || []).map((c) => ({ value: c.id, label: c.nome }))}
-            placeholder="Compagnia"
-            allLabel="Tutte le compagnie"
+            placeholder="Agenzia"
+            allLabel="Tutte le agenzie"
             className="w-[220px]"
           />
         )}

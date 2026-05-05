@@ -145,10 +145,10 @@ const PortafoglioStoricoPage = () => {
         </Select>
         <Select value={filtroCompagnia} onValueChange={(v) => { setFiltroCompagnia(v); setPage(0); }}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Compagnia" />
+            <SelectValue placeholder="Agenzia" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutte">Tutte le compagnie</SelectItem>
+            <SelectItem value="tutte">Tutte le agenzie</SelectItem>
             {compagnie?.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
             ))}
@@ -179,7 +179,7 @@ const PortafoglioStoricoPage = () => {
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Compagnia</TableHead>
+                  <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
                   <TableHead>Scadenza</TableHead>
                   <TableHead>Fraz</TableHead>

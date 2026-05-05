@@ -140,7 +140,7 @@ const sidebarEntries: SidebarEntry[] = [
       hideForRoles: ["ufficio"],
       children: [
         { label: "Centro Utenti & Privilegi", path: "/utenti-privilegi", icon: ShieldCheck },
-        { label: "Anagrafiche Compagnie", path: "/archivi/anagrafiche-compagnie", icon: Scale },
+        { label: "Anagrafiche Agenzie", path: "/archivi/anagrafiche-agenzie", icon: Scale },
         { label: "Anagrafiche Amministrative", path: "/archivi/anagrafiche-amministrative", icon: Briefcase },
         { label: "Conti Bancari", path: "/archivi/conti-bancari", icon: Banknote },
       ],
@@ -172,7 +172,7 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
         { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare, hideForRoles: ["ufficio"] },
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
-        { label: "E/C Agenzie", path: "/contabilita/ec-compagnia", icon: Building2, hideForRoles: ["ufficio"] },
+        { label: "E/C Agenzie", path: "/contabilita/ec-agenzia", icon: Building2, hideForRoles: ["ufficio"] },
         { label: "Storico E/C Agenzie", path: "/contabilita/ec-agenzia/storico", icon: Archive, hideForRoles: ["ufficio"] },
         { label: "Storico E/C Clienti", path: "/contabilita/ec-cliente/storico", icon: Archive },
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },

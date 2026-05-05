@@ -55,7 +55,7 @@ const ECAgenziaPdfPage = () => {
   const [sedeTelefono, setSedeTelefono] = useState("");
 
   // Agenzia
-  const { data: agenzia } = useQuery({
+  const { data: compagnia } = useQuery({
     queryKey: ["ec-pdf-agenzia", compagniaId],
     enabled: !!compagniaId,
     queryFn: async () => {
@@ -70,13 +70,13 @@ const ECAgenziaPdfPage = () => {
 
   // Conto bancario master della compagnia: prima quello collegato, poi default per tipo 'compagnia'
   const { data: contoCompagnia } = useQuery({
-    queryKey: ["ec-pdf-agenzia-conto", agenzia?.conto_bancario_id, compagniaId],
+    queryKey: ["ec-pdf-agenzia-conto", compagnia?.conto_bancario_id, compagniaId],
     enabled: !!compagniaId,
     queryFn: async () => {
-      if (agenzia?.conto_bancario_id) {
+      if (compagnia?.conto_bancario_id) {
         const { data } = await supabase.from("conti_bancari" as any)
           .select("iban, intestato_a, banca")
-          .eq("id", agenzia.conto_bancario_id)
+          .eq("id", compagnia.conto_bancario_id)
           .maybeSingle();
         if (data) return data as any;
       }
@@ -169,10 +169,10 @@ const ECAgenziaPdfPage = () => {
   }, [titoli]); // eslint-disable-line
 
   useEffect(() => {
-    if (agenzia?.codice && !riferimento) {
-      setRiferimento(`${agenzia.codice}/${format(new Date(), "yyMMdd")}`);
+    if (compagnia?.codice && !riferimento) {
+      setRiferimento(`${compagnia.codice}/${format(new Date(), "yyMMdd")}`);
     }
-  }, [agenzia]); // eslint-disable-line
+  }, [compagnia]); // eslint-disable-line
 
   const buildData = (): ECAgenziaData => {
     const rows: ECAgenziaTitolo[] = (titoli || []).map((t: any) => {
@@ -202,7 +202,7 @@ const ECAgenziaPdfPage = () => {
     });
     const totalePremio = rows.reduce((s, r) => s + r.premio, 0);
     const totaleProvvigioni = rows.reduce((s, r) => s + r.provvigioni, 0);
-    const ra = (Number(agenzia?.percentuale_ra) || 0) * totaleProvvigioni / 100;
+    const ra = (Number(compagnia?.percentuale_ra) || 0) * totaleProvvigioni / 100;
 
     return {
       sedeNome,
@@ -216,15 +216,15 @@ const ECAgenziaPdfPage = () => {
       dataDocumento,
       periodoTesto,
       modalitaPagamento,
-      agenziaNome: agenzia?.nome || "",
-      agenziaIndirizzo: agenzia?.indirizzo || "",
-      agenziaCap: agenzia?.cap || "",
-      agenziaCitta: agenzia?.comune || "",
-      agenziaProvincia: agenzia?.provincia || "",
-      agenziaCF: agenzia?.codice_fiscale || "",
-      agenziaPIVA: agenzia?.partita_iva || "",
-      iban: contoCompagnia?.iban || agenzia?.iban || "",
-      intestatoA: contoCompagnia?.intestato_a || agenzia?.intestato_a || agenzia?.nome || "",
+      agenziaNome: compagnia?.nome || "",
+      agenziaIndirizzo: compagnia?.indirizzo || "",
+      agenziaCap: compagnia?.cap || "",
+      agenziaCitta: compagnia?.comune || "",
+      agenziaProvincia: compagnia?.provincia || "",
+      agenziaCF: compagnia?.codice_fiscale || "",
+      agenziaPIVA: compagnia?.partita_iva || "",
+      iban: contoCompagnia?.iban || compagnia?.iban || "",
+      intestatoA: contoCompagnia?.intestato_a || compagnia?.intestato_a || compagnia?.nome || "",
       titoli: rows,
       totalePremio,
       totaleProvvigioni,
@@ -234,7 +234,7 @@ const ECAgenziaPdfPage = () => {
   };
 
   const fileName = () => {
-    const ag = (agenzia?.codice || agenzia?.nome || "agenzia").replace(/\s+/g, "_");
+    const ag = (compagnia?.codice || compagnia?.nome || "compagnia").replace(/\s+/g, "_");
     return `EC_Agenzia_${ag}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
   };
 
@@ -275,7 +275,7 @@ const ECAgenziaPdfPage = () => {
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-      // Salva in Archivio (entità: compagnia / agenzia)
+      // Salva in Archivio (entità: agenzia / compagnia)
       if (compagniaId) {
         const path = `${compagniaId}/ec_agenzia/${Date.now()}_${name}`;
         const { error: upErr } = await supabase.storage
@@ -324,7 +324,7 @@ const ECAgenziaPdfPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Agenzia destinataria</Label>
-            <Input value={agenzia?.nome || ""} disabled />
+            <Input value={compagnia?.nome || ""} disabled />
           </div>
           <div className="space-y-1.5">
             <Label>Titoli inclusi</Label>

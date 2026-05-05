@@ -403,7 +403,7 @@ const AreaCFO = () => {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Compagnia</Label>
+              <Label className="text-xs font-medium">Agenzia</Label>
               <SearchableSelect
                 options={compagniaOptions}
                 value={compagniaId}
@@ -516,7 +516,7 @@ const AreaCFO = () => {
             </CfoChartCard>
 
             <CfoChartCard
-              title="Premi per Compagnia"
+              title="Premi per Agenzia"
               isLoading={premiCompagniaQ.isLoading}
               isError={premiCompagniaQ.isError}
               error={premiCompagniaQ.error}
@@ -807,7 +807,7 @@ const AreaCFO = () => {
             </CfoChartCard>
 
             <CfoChartCard
-              title="Premio Medio per Compagnia"
+              title="Premio Medio per Agenzia"
               isLoading={premioMedioCompQ.isLoading}
               isError={premioMedioCompQ.isError}
               error={premioMedioCompQ.error}
@@ -891,7 +891,7 @@ const AreaCFO = () => {
 
             <CfoChartCard
               className="lg:col-span-2"
-              title="Sinistri per Compagnia"
+              title="Sinistri per Agenzia"
               isLoading={sinistriCompagniaQ.isLoading}
               isError={sinistriCompagniaQ.isError}
               error={sinistriCompagniaQ.error}
@@ -915,7 +915,7 @@ const AreaCFO = () => {
 
             <CfoChartCard
               className="lg:col-span-2"
-              title="Top Combinazioni Sede × Compagnia"
+              title="Top Combinazioni Sede × Agenzia"
               subtitle="Clicca una riga per vedere i titoli"
               isLoading={matriceSedeCompQ.isLoading}
               isError={matriceSedeCompQ.isError}
@@ -929,7 +929,7 @@ const AreaCFO = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>Sede</TableHead>
-                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Agenzia</TableHead>
                       <TableHead className="text-right">Premi €</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -986,7 +986,7 @@ const AreaCFO = () => {
                       <TableRow className="bg-muted/50">
                         <TableHead>N. Titolo</TableHead>
                         <TableHead>Stato</TableHead>
-                        <TableHead>Compagnia</TableHead>
+                        <TableHead>Agenzia</TableHead>
                         <TableHead>Ramo</TableHead>
                         <TableHead>Sede</TableHead>
                         <TableHead>Produttore</TableHead>
