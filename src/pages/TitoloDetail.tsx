@@ -507,7 +507,7 @@ const TitoloDetail = () => {
       const { error } = await supabase
         .from("titoli")
         .update({
-          tipo_portafoglio: contrattoForm.tipo_portafoglio || null,
+          
           cig_rif: contrattoForm.cig_rif || null,
           vincolo: contrattoForm.vincolo || null,
           targa_telaio: contrattoForm.targa_telaio || null,
