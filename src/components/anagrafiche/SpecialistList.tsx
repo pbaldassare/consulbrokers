@@ -17,11 +17,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound, Copy } from "lucide-react";
+import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound, Copy, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { LEVELS } from "@/lib/userLevels";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 
 interface SpecialistRow {
   id: string;
