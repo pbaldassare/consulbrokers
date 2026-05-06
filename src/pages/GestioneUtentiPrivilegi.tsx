@@ -9,11 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info } from "lucide-react";
+import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Trash2 } from "lucide-react";
 import { LEVELS, getLevelByRole, ROLE_LABELS, UserLevel } from "@/lib/userLevels";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
 import CreateUserWizard from "@/components/utenti/CreateUserWizard";
 import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
 
 const GestioneUtentiPrivilegi = () => {
