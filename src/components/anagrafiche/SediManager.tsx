@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin, Banknote } from "lucide-react";
+import { Building2, Plus, Users, Briefcase, Pencil, UserCheck, Mail, Phone, MapPin, Banknote, Trash2 } from "lucide-react";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,8 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
+  const [deleteUfficio, setDeleteUfficio] = useState<Ufficio | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
 
   const { data: uffici = [], isLoading } = useQuery({
@@ -231,10 +234,15 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
                         {u.attivo ? "Attiva" : "Disattiva"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditDialog(u); }}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(u)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteUfficio(u)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -341,6 +349,41 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={!!deleteUfficio}
+        onOpenChange={(o) => { if (!o) setDeleteUfficio(null); }}
+        entityId={deleteUfficio?.id}
+        entityType="sede"
+        entityName={deleteUfficio ? `${deleteUfficio.codice_ufficio} — ${deleteUfficio.nome_ufficio}` : "—"}
+        checks={[
+          { table: "clienti", column: "ufficio_id", label: "Clienti" },
+          { table: "titoli", column: "ufficio_id", label: "Polizze" },
+          { table: "sinistri", column: "ufficio_id", label: "Sinistri" },
+          { table: "profiles", column: "ufficio_id", label: "Utenti" },
+          { table: "anagrafiche_professionali", column: "ufficio_id", label: "Anagrafiche professionali" },
+          { table: "movimenti_contabili", column: "ufficio_id", label: "Movimenti contabili" },
+          { table: "distinte_giornaliere", column: "ufficio_id", label: "Distinte giornaliere" },
+        ]}
+        onConfirmDelete={async () => {
+          if (!deleteUfficio) return;
+          setDeleting(true);
+          const { error } = await supabase.from("uffici" as any).delete().eq("id", deleteUfficio.id);
+          setDeleting(false);
+          if (error) { toast.error(error.message); return; }
+          toast.success("Sede eliminata");
+          setDeleteUfficio(null);
+          queryClient.invalidateQueries({ queryKey: ["uffici"] });
+        }}
+        onDeactivateInstead={async () => {
+          if (!deleteUfficio) return;
+          const { error } = await supabase.from("uffici" as any).update({ attivo: false }).eq("id", deleteUfficio.id);
+          if (error) { toast.error(error.message); return; }
+          toast.success("Sede disattivata");
+          queryClient.invalidateQueries({ queryKey: ["uffici"] });
+        }}
+        isDeleting={deleting}
+      />
     </div>
   );
 };

@@ -9,11 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info } from "lucide-react";
+import { ShieldCheck, UserPlus, Search, RefreshCw, Settings2, Info, Trash2 } from "lucide-react";
 import { LEVELS, getLevelByRole, ROLE_LABELS, UserLevel } from "@/lib/userLevels";
 import UserLevelCard from "@/components/utenti/UserLevelCard";
 import CreateUserWizard from "@/components/utenti/CreateUserWizard";
 import UserPermissionsSheet from "@/components/utenti/UserPermissionsSheet";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
 
 const GestioneUtentiPrivilegi = () => {
@@ -24,6 +25,8 @@ const GestioneUtentiPrivilegi = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [sheetUser, setSheetUser] = useState<any | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteUser, setDeleteUser] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("wizard") === "open") {
@@ -93,6 +96,20 @@ const GestioneUtentiPrivilegi = () => {
       toast.success(value ? "Utente attivato" : "Utente sospeso");
       refetch();
     }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteUser) return;
+    setDeleting(true);
+    const { error } = await supabase.from("profiles").delete().eq("id", deleteUser.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(error.message || "Errore eliminazione");
+      return;
+    }
+    toast.success("Utente eliminato");
+    setDeleteUser(null);
+    refetch();
   };
 
   const initials = (u: any) => `${(u.cognome?.[0] || "").toUpperCase()}${(u.nome?.[0] || "").toUpperCase()}` || "?";
@@ -224,6 +241,9 @@ const GestioneUtentiPrivilegi = () => {
                         <Button size="sm" variant="outline" onClick={() => { setSheetUser(u); setSheetOpen(true); }}>
                           <Settings2 className="w-3.5 h-3.5 mr-1" /> Permessi
                         </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteUser(u)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -236,6 +256,33 @@ const GestioneUtentiPrivilegi = () => {
 
       <CreateUserWizard open={createOpen} onOpenChange={setCreateOpen} onCreated={refetch} />
       <UserPermissionsSheet user={sheetUser} open={sheetOpen} onOpenChange={setSheetOpen} onSaved={refetch} />
+
+      <DeleteWithImpactDialog
+        open={!!deleteUser}
+        onOpenChange={(o) => { if (!o) setDeleteUser(null); }}
+        entityId={deleteUser?.id}
+        entityType="utente"
+        entityName={deleteUser ? `${deleteUser.cognome || ""} ${deleteUser.nome || ""} (${deleteUser.email || "—"})`.trim() : "—"}
+        checks={[
+          { table: "titoli", column: "commerciale_id", label: "Polizze (commerciale)" },
+          { table: "titoli", column: "produttore_id", label: "Polizze (produttore)" },
+          { table: "titoli", column: "backoffice_id", label: "Polizze (backoffice)" },
+          { table: "clienti", column: "commerciale_id", label: "Clienti (commerciale)" },
+          { table: "clienti", column: "backoffice_id", label: "Clienti (backoffice)" },
+          { table: "clienti", column: "user_id", label: "Account cliente collegato" },
+          { table: "sinistri", column: "assegnato_a", label: "Sinistri assegnati" },
+          { table: "trattative", column: "assegnato_a", label: "Trattative assegnate" },
+        ]}
+        onConfirmDelete={confirmDelete}
+        onDeactivateInstead={() => deleteUser && toggleAttivo(deleteUser, false)}
+        isDeleting={deleting}
+        extraNotes={
+          <div>
+            <span className="font-semibold">Nota:</span> elimina solo il profilo. L'account auth.users
+            associato resta e va rimosso a parte.
+          </div>
+        }
+      />
     </div>
   );
 };

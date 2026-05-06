@@ -25,6 +25,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
 import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 
 /** Date picker inline (shadcn) — value is ISO yyyy-MM-dd or "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
@@ -407,19 +408,6 @@ const AnagraficheInternePage = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Pre-check: titoli collegati come produttore
-      const { count, error: countErr } = await supabase
-        .from("titoli")
-        .select("id", { count: "exact", head: true })
-        .eq("produttore_id", id);
-      if (countErr) throw countErr;
-      if ((count ?? 0) > 0) {
-        const err: any = new Error(
-          `Impossibile eliminare: l'anagrafica è collegata a ${count} polizze/titoli. Disattivala invece di eliminarla.`
-        );
-        err.linkedCount = count;
-        throw err;
-      }
       const { error } = await supabase.from("anagrafiche_professionali").delete().eq("id", id);
       if (error) throw error;
     },
@@ -432,16 +420,7 @@ const AnagraficheInternePage = () => {
       toast.success("Anagrafica eliminata");
     },
     onError: (e: any) => {
-      setConfirmDeleteOpen(false);
-      if (e?.linkedCount && editingId) {
-        const id = editingId;
-        toast.error(e.message, {
-          action: { label: "Disattiva ora", onClick: () => toggleMutation.mutate({ id, attivo: false }) },
-          duration: 8000,
-        });
-      } else {
-        toast.error(e?.message || "Errore durante l'eliminazione");
-      }
+      toast.error(e?.message || "Errore durante l'eliminazione");
     },
   });
 
@@ -1015,26 +994,33 @@ const AnagraficheInternePage = () => {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare questa anagrafica?</AlertDialogTitle>
-            <AlertDialogDescription>
-              L'azione è irreversibile. Se l'anagrafica è collegata a polizze esistenti l'eliminazione verrà bloccata: in quel caso usa la disattivazione.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); if (editingId) deleteMutation.mutate(editingId); }}
-              disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending ? "Eliminazione..." : "Elimina definitivamente"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteWithImpactDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        entityId={editingId}
+        entityType="anagrafica professionale"
+        entityName={(() => {
+          const it = items.find((i) => i.id === editingId);
+          if (!it) return "—";
+          return it.ragione_sociale || `${it.cognome || ""} ${it.nome || ""}`.trim() || it.codice || "—";
+        })()}
+        checks={[
+          { table: "titoli", column: "anagrafica_commerciale_id", label: "Polizze (commerciale)" },
+          { table: "titoli", column: "produttore_id", label: "Polizze (produttore legacy)" },
+          { table: "clienti", column: "anagrafica_commerciale_id", label: "Clienti collegati" },
+          { table: "sinistri", column: "liquidatore_id", label: "Sinistri (liquidatore)" },
+          { table: "sinistri", column: "perito_id", label: "Sinistri (perito)" },
+          { table: "sinistri", column: "legale_id", label: "Sinistri (legale)" },
+          { table: "produttori_provvigioni_ramo", column: "anagrafica_id", label: "Provvigioni per ramo", blocking: false },
+        ]}
+        onConfirmDelete={() => editingId && deleteMutation.mutate(editingId)}
+        onDeactivateInstead={
+          editingId
+            ? () => toggleMutation.mutate({ id: editingId, attivo: false })
+            : undefined
+        }
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 };
