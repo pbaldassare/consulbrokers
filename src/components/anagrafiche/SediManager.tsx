@@ -349,6 +349,41 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={!!deleteUfficio}
+        onOpenChange={(o) => { if (!o) setDeleteUfficio(null); }}
+        entityId={deleteUfficio?.id}
+        entityType="sede"
+        entityName={deleteUfficio ? `${deleteUfficio.codice_ufficio} — ${deleteUfficio.nome_ufficio}` : "—"}
+        checks={[
+          { table: "clienti", column: "ufficio_id", label: "Clienti" },
+          { table: "titoli", column: "ufficio_id", label: "Polizze" },
+          { table: "sinistri", column: "ufficio_id", label: "Sinistri" },
+          { table: "profiles", column: "ufficio_id", label: "Utenti" },
+          { table: "anagrafiche_professionali", column: "ufficio_id", label: "Anagrafiche professionali" },
+          { table: "movimenti_contabili", column: "ufficio_id", label: "Movimenti contabili" },
+          { table: "distinte_giornaliere", column: "ufficio_id", label: "Distinte giornaliere" },
+        ]}
+        onConfirmDelete={async () => {
+          if (!deleteUfficio) return;
+          setDeleting(true);
+          const { error } = await supabase.from("uffici" as any).delete().eq("id", deleteUfficio.id);
+          setDeleting(false);
+          if (error) { toast.error(error.message); return; }
+          toast.success("Sede eliminata");
+          setDeleteUfficio(null);
+          queryClient.invalidateQueries({ queryKey: ["uffici"] });
+        }}
+        onDeactivateInstead={async () => {
+          if (!deleteUfficio) return;
+          const { error } = await supabase.from("uffici" as any).update({ attivo: false }).eq("id", deleteUfficio.id);
+          if (error) { toast.error(error.message); return; }
+          toast.success("Sede disattivata");
+          queryClient.invalidateQueries({ queryKey: ["uffici"] });
+        }}
+        isDeleting={deleting}
+      />
     </div>
   );
 };
