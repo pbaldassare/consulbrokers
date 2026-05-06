@@ -376,7 +376,6 @@ const TitoloDetail = () => {
   // --- Contratto edit state ---
   const [editingContratto, setEditingContratto] = useState(false);
   const [contrattoForm, setContrattoForm] = useState({
-    tipo_portafoglio: "",
     cig_rif: "",
     vincolo: "",
     targa_telaio: "",
@@ -388,13 +387,6 @@ const TitoloDetail = () => {
     compagnia_id: "" as string | null,
     ramo_id: "" as string | null,
   });
-
-  const tipoPortafoglioOpts = [
-    { value: "NUOVA EMISSIONE", label: "NUOVA EMISSIONE" },
-    { value: "PORTAFOGLIO PREESISTENTE", label: "PORTAFOGLIO PREESISTENTE" },
-    { value: "POLIZZE FAMIGLIA FIORE", label: "POLIZZE FAMIGLIA FIORE" },
-    { value: "gestione", label: "Gestione" },
-  ];
 
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-anagrafiche"],
