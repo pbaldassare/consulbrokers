@@ -472,7 +472,7 @@ const TitoloDetail = () => {
   const startEditContratto = () => {
     if (titolo) {
       setContrattoForm({
-        tipo_portafoglio: (titolo as any).tipo_portafoglio ?? "",
+        
         cig_rif: (titolo as any).cig_rif ?? "",
         vincolo: (titolo as any).vincolo ?? "",
         targa_telaio: (titolo as any).targa_telaio ?? "",
