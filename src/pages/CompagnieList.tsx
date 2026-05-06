@@ -1181,6 +1181,19 @@ const CompagnieList = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenzie"] }),
   });
 
+  const deleteCompagniaMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("compagnie").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agenzie"] });
+      setDeleteCompagnia(null);
+      toast.success("Agenzia eliminata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
+  });
+
   const openEdit = (c: any) => {
     setForm(dbToForm(c));
     setEditId(c.id);
