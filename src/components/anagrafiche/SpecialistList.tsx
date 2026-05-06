@@ -213,6 +213,19 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("profiles").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
+      setDeleteTarget(null);
+      toast.success("Specialist eliminato");
+    },
+    onError: (e: Error) => toast.error(e.message || "Errore eliminazione"),
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!newUser.cognome || !newUser.email) throw new Error("Cognome ed email sono obbligatori");
