@@ -736,6 +736,36 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType="Specialist"
+        entityName={deleteTarget ? `${deleteTarget.cognome || ""} ${deleteTarget.nome || ""} (${deleteTarget.email || "—"})`.trim() : "—"}
+        checks={[
+          { table: "titoli", column: "backoffice_id", label: "Polizze (backoffice)" },
+          { table: "titoli", column: "commerciale_id", label: "Polizze (commerciale)" },
+          { table: "titoli", column: "produttore_id", label: "Polizze (produttore)" },
+          { table: "clienti", column: "backoffice_id", label: "Clienti (backoffice)" },
+          { table: "clienti", column: "commerciale_id", label: "Clienti (commerciale)" },
+          { table: "sinistri", column: "assegnato_a", label: "Sinistri assegnati" },
+          { table: "trattative", column: "assegnato_a", label: "Trattative assegnate" },
+        ]}
+        onConfirmDelete={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onDeactivateInstead={
+          deleteTarget?.attivo
+            ? () => deleteTarget && toggleMutation.mutate({ id: deleteTarget.id, attivo: false })
+            : undefined
+        }
+        isDeleting={deleteMutation.isPending}
+        extraNotes={
+          <div>
+            <span className="font-semibold">Nota:</span> elimina solo il profilo; l'account auth.users
+            associato resta e va rimosso a parte.
+          </div>
+        }
+      />
     </div>
   );
 };
