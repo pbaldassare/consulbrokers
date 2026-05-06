@@ -715,12 +715,7 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           {/* Campo Specialist hardcoded rimosso: lo Specialist è ora unico (sezione Sede), salvato come nome leggibile in titoli.specialist */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tipo Portafoglio</Label>
-            <SearchableSelect className="h-8 text-xs" value={tipoPortafoglio} onValueChange={setTipoPortafoglio} placeholder="—"
-              options={[{ value: "diretto", label: "Diretto" }, { value: "indiretto", label: "Indiretto" }, { value: "ri", label: "Riassicurazione" }]}
-            />
-          </div>
+
         </div>
 
         <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
