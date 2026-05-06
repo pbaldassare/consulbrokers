@@ -69,7 +69,7 @@ export default function ContiBancariPage() {
   const [soloAttivi, setSoloAttivi] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<Partial<ContoBancario>>(emptyForm);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ContoBancario | null>(null);
 
   const { data: conti = [], isLoading } = useQuery({
     queryKey: ["conti_bancari_admin", filtroTipo, soloAttivi],
