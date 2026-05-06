@@ -17,11 +17,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound, Copy } from "lucide-react";
+import { Search, Pencil, UserCog, ExternalLink, CalendarIcon, UserPlus, KeyRound, Copy, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { LEVELS } from "@/lib/userLevels";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 
 interface SpecialistRow {
   id: string;
@@ -129,6 +130,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const [resetOpen, setResetOpen] = useState(false);
   const [resetPwd, setResetPwd] = useState("Leone123!");
 
+  // --- Delete with impact ---
+  const [deleteTarget, setDeleteTarget] = useState<SpecialistRow | null>(null);
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["specialist-profiles"],
     queryFn: async () => {
@@ -207,6 +211,19 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("profiles").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
+      setDeleteTarget(null);
+      toast.success("Specialist eliminato");
+    },
+    onError: (e: Error) => toast.error(e.message || "Errore eliminazione"),
   });
 
   const createMutation = useMutation({
@@ -469,6 +486,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="Modifica anagrafica">
                         <Pencil className="w-4 h-4" />
                       </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(p)} title="Elimina">
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -716,6 +736,36 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType="Specialist"
+        entityName={deleteTarget ? `${deleteTarget.cognome || ""} ${deleteTarget.nome || ""} (${deleteTarget.email || "—"})`.trim() : "—"}
+        checks={[
+          { table: "titoli", column: "backoffice_id", label: "Polizze (backoffice)" },
+          { table: "titoli", column: "commerciale_id", label: "Polizze (commerciale)" },
+          { table: "titoli", column: "produttore_id", label: "Polizze (produttore)" },
+          { table: "clienti", column: "backoffice_id", label: "Clienti (backoffice)" },
+          { table: "clienti", column: "commerciale_id", label: "Clienti (commerciale)" },
+          { table: "sinistri", column: "assegnato_a", label: "Sinistri assegnati" },
+          { table: "trattative", column: "assegnato_a", label: "Trattative assegnate" },
+        ]}
+        onConfirmDelete={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onDeactivateInstead={
+          deleteTarget?.attivo
+            ? () => deleteTarget && toggleMutation.mutate({ id: deleteTarget.id, attivo: false })
+            : undefined
+        }
+        isDeleting={deleteMutation.isPending}
+        extraNotes={
+          <div>
+            <span className="font-semibold">Nota:</span> elimina solo il profilo; l'account auth.users
+            associato resta e va rimosso a parte.
+          </div>
+        }
+      />
     </div>
   );
 };

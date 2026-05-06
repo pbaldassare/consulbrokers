@@ -20,6 +20,7 @@ const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
@@ -1061,33 +1062,19 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       </Dialog>
 
       {/* Delete confirm */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare la compagnia?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteTarget && deleteTarget.count > 0 ? (
-                <>
-                  La agenzia <b>{deleteTarget.descrizione}</b> ha <b>{deleteTarget.count}</b> agenzie collegate.
-                  Riassegnale a un'altra agenzia prima di procedere all'eliminazione.
-                </>
-              ) : (
-                <>Stai per eliminare <b>{deleteTarget?.descrizione}</b>. L'operazione è irreversibile.</>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!!deleteTarget && deleteTarget.count > 0}
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Elimina
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType="agenzia"
+        entityName={deleteTarget?.descrizione || "—"}
+        checks={[
+          { table: "compagnie", column: "gruppo_compagnia_id", label: "Compagnie collegate" },
+          { table: "compagnia_rapporti", column: "gruppo_compagnia_id", label: "Rapporti agenzia-compagnia" },
+        ]}
+        onConfirmDelete={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        isDeleting={deleteMutation.isPending}
+      />
 
       <AgenzieCollegateDialog
         gruppoId={agenzieDialog?.gruppoId ?? null}
@@ -1115,6 +1102,7 @@ const CompagnieList = () => {
   const [onlyPluri, setOnlyPluri] = useState(false);
   const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
+  const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
 
   const { data: compagnie = [], isLoading } = useQuery({
     queryKey: ["agenzie"],
@@ -1191,6 +1179,19 @@ const CompagnieList = () => {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenzie"] }),
+  });
+
+  const deleteCompagniaMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("compagnie").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agenzie"] });
+      setDeleteCompagnia(null);
+      toast.success("Agenzia eliminata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
   });
 
   const openEdit = (c: any) => {
@@ -1334,6 +1335,7 @@ const CompagnieList = () => {
                       <TableHead>Stato</TableHead>
                       <TableHead className="text-center">Rapporti</TableHead>
                       <TableHead>Attiva</TableHead>
+                      <TableHead className="w-12 text-right">Az.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1381,11 +1383,22 @@ const CompagnieList = () => {
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
                           </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="Elimina agenzia"
+                              onClick={() => setDeleteCompagnia({ id: c.id, nome: c.nome, attiva: c.attiva ?? true })}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -1406,6 +1419,33 @@ const CompagnieList = () => {
         onOpenChange={(v) => !v && setRapportiTarget(null)}
         compagniaId={rapportiTarget?.id || null}
         compagniaNome={rapportiTarget?.nome || ""}
+      />
+
+      <DeleteWithImpactDialog
+        open={!!deleteCompagnia}
+        onOpenChange={(o) => !o && setDeleteCompagnia(null)}
+        entityId={deleteCompagnia?.id}
+        entityType="compagnia"
+        entityName={deleteCompagnia?.nome || "—"}
+        checks={[
+          { table: "titoli", column: "compagnia_id", label: "Polizze emesse" },
+          { table: "prodotti", column: "compagnia_id", label: "Prodotti collegati" },
+          { table: "sinistri", column: "compagnia_id", label: "Sinistri" },
+          { table: "compagnia_rapporti", column: "compagnia_id", label: "Rapporti agenzia-compagnia" },
+          { table: "provvigioni_compagnia_ramo", column: "compagnia_id", label: "Provvigioni per ramo" },
+          { table: "flussi_compagnia", column: "compagnia_id", label: "Flussi/import" },
+          { table: "rimessa_premi", column: "compagnia_id", label: "Rimesse premi" },
+          { table: "trattative", column: "compagnia_id", label: "Trattative" },
+          { table: "anagrafiche_professionali", column: "compagnia_id", label: "Liquidatori/periti collegati", blocking: false },
+          { table: "document_folders", column: "compagnia_id", label: "Cartelle documentali", blocking: false },
+        ]}
+        onConfirmDelete={() => deleteCompagnia && deleteCompagniaMutation.mutate(deleteCompagnia.id)}
+        onDeactivateInstead={
+          deleteCompagnia?.attiva
+            ? () => deleteCompagnia && toggleMutation.mutate({ id: deleteCompagnia.id, attiva: false })
+            : undefined
+        }
+        isDeleting={deleteCompagniaMutation.isPending}
       />
     </div>
   );

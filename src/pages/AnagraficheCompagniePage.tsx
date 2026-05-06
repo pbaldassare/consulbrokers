@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, UserCheck, Scale, Eye } from "lucide-react";
+import { Plus, Search, UserCheck, Scale, Eye, Trash2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
@@ -95,6 +96,7 @@ const AnagraficheCompagniePage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Anagrafica | null>(null);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["anagrafiche_professionali", activeTab],
@@ -318,6 +320,19 @@ const AnagraficheCompagniePage = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("anagrafiche_professionali").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      setDeleteTarget(null);
+      toast.success("Anagrafica eliminata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
+  });
+
   const filtered = items.filter((item) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -423,8 +438,13 @@ const AnagraficheCompagniePage = () => {
             {!addressParts.length && !item.email && "—"}
           </TableCell>
           <TableCell className="text-sm">{phoneParts.length > 0 ? phoneParts.map((p, i) => <div key={i}>{p}</div>) : "—"}</TableCell>
-          <TableCell className="text-center">
-             <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
+          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center gap-1">
+              <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Elimina" onClick={() => setDeleteTarget(item)}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </TableCell>
         </TableRow>
       );
@@ -508,8 +528,13 @@ const AnagraficheCompagniePage = () => {
           {!item.referente_nome && !item.referente_email && "—"}
         </TableCell>
         <TableCell className="text-sm">{compName || "—"}</TableCell>
-        <TableCell className="text-center">
-          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
+        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-center gap-1">
+            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Elimina" onClick={() => setDeleteTarget(item)}>
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </TableCell>
       </TableRow>
     );
@@ -830,6 +855,28 @@ const AnagraficheCompagniePage = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType={tipoLabel.slice(0, -1).toLowerCase() || "anagrafica"}
+        entityName={deleteTarget ? (deleteTarget.ragione_sociale || [deleteTarget.cognome, deleteTarget.nome].filter(Boolean).join(" ") || deleteTarget.codice || "—") : "—"}
+        checks={[
+          { table: "sinistri", column: "liquidatore_id", label: "Sinistri (liquidatore)" },
+          { table: "sinistri", column: "perito_id", label: "Sinistri (perito)" },
+          { table: "titoli", column: "anagrafica_commerciale_id", label: "Polizze (commerciale)" },
+          { table: "produttori_provvigioni_ramo", column: "anagrafica_id", label: "Provvigioni per ramo" },
+          { table: "fornitori", column: "anagrafica_professionale_id", label: "Fornitori collegati", blocking: false },
+        ]}
+        onConfirmDelete={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onDeactivateInstead={
+          deleteTarget?.attivo
+            ? () => deleteTarget && toggleMutation.mutate({ id: deleteTarget.id, attivo: false })
+            : undefined
+        }
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 };
