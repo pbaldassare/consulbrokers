@@ -1335,6 +1335,7 @@ const CompagnieList = () => {
                       <TableHead>Stato</TableHead>
                       <TableHead className="text-center">Rapporti</TableHead>
                       <TableHead>Attiva</TableHead>
+                      <TableHead className="w-12 text-right">Az.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
