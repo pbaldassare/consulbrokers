@@ -1383,11 +1383,22 @@ const CompagnieList = () => {
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Switch checked={c.attiva ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, attiva: v })} />
                           </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="Elimina agenzia"
+                              onClick={() => setDeleteCompagnia({ id: c.id, nome: c.nome, attiva: c.attiva ?? true })}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
