@@ -241,6 +241,9 @@ const GestioneUtentiPrivilegi = () => {
                         <Button size="sm" variant="outline" onClick={() => { setSheetUser(u); setSheetOpen(true); }}>
                           <Settings2 className="w-3.5 h-3.5 mr-1" /> Permessi
                         </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteUser(u)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
