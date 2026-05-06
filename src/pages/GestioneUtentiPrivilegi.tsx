@@ -256,6 +256,33 @@ const GestioneUtentiPrivilegi = () => {
 
       <CreateUserWizard open={createOpen} onOpenChange={setCreateOpen} onCreated={refetch} />
       <UserPermissionsSheet user={sheetUser} open={sheetOpen} onOpenChange={setSheetOpen} onSaved={refetch} />
+
+      <DeleteWithImpactDialog
+        open={!!deleteUser}
+        onOpenChange={(o) => { if (!o) setDeleteUser(null); }}
+        entityId={deleteUser?.id}
+        entityType="utente"
+        entityName={deleteUser ? `${deleteUser.cognome || ""} ${deleteUser.nome || ""} (${deleteUser.email || "—"})`.trim() : "—"}
+        checks={[
+          { table: "titoli", column: "commerciale_id", label: "Polizze (commerciale)" },
+          { table: "titoli", column: "produttore_id", label: "Polizze (produttore)" },
+          { table: "titoli", column: "backoffice_id", label: "Polizze (backoffice)" },
+          { table: "clienti", column: "commerciale_id", label: "Clienti (commerciale)" },
+          { table: "clienti", column: "backoffice_id", label: "Clienti (backoffice)" },
+          { table: "clienti", column: "user_id", label: "Account cliente collegato" },
+          { table: "sinistri", column: "assegnato_a", label: "Sinistri assegnati" },
+          { table: "trattative", column: "assegnato_a", label: "Trattative assegnate" },
+        ]}
+        onConfirmDelete={confirmDelete}
+        onDeactivateInstead={() => deleteUser && toggleAttivo(deleteUser, false)}
+        isDeleting={deleting}
+        extraNotes={
+          <div>
+            <span className="font-semibold">Nota:</span> elimina solo il profilo. L'account auth.users
+            associato resta e va rimosso a parte.
+          </div>
+        }
+      />
     </div>
   );
 };
