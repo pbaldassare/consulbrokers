@@ -486,6 +486,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="Modifica anagrafica">
                         <Pencil className="w-4 h-4" />
                       </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(p)} title="Elimina">
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
