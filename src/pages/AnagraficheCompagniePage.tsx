@@ -320,6 +320,19 @@ const AnagraficheCompagniePage = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("anagrafiche_professionali").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["anagrafiche_professionali"] });
+      setDeleteTarget(null);
+      toast.success("Anagrafica eliminata");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
+  });
+
   const filtered = items.filter((item) => {
     if (!search) return true;
     const s = search.toLowerCase();
