@@ -587,7 +587,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         </CardHeader>
         <CardContent className="p-0">
           {/* Desktop / tablet table */}
-          <div className="hidden lg:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -781,7 +781,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           </div>
 
           {/* Mobile cards */}
-          <div className="lg:hidden divide-y">
+          <div className="md:hidden divide-y">
             {vociMerged.map((v) => {
               const calc = calcolaLordo(v, aliquotaProv);
               const nettoVal = getDraftNum(v.id, "firma", Number(v.firma ?? 0));
@@ -797,13 +797,13 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                     v.is_rca_principale && "bg-teal-50/80 dark:bg-teal-950/30 border-l-4 border-l-teal-600",
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 font-medium text-sm min-w-0 flex-1">
-                      {v.is_rca_principale && <ShieldCheck className="h-4 w-4 text-teal-700 shrink-0" />}
-                      <span className="truncate flex-1">{v.garanzia}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-1.5 font-medium text-sm flex-1 min-w-0">
+                      {v.is_rca_principale && <ShieldCheck className="h-4 w-4 text-teal-700 shrink-0 mt-0.5" />}
+                      <span className="break-words flex-1">{v.garanzia || v.codice_garanzia || "Voce senza nome"}</span>
                     </div>
                     {v.is_rca_principale ? (
-                      <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Lock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     ) : (
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
                         onClick={() => setToDelete(v)}>
