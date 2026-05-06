@@ -1791,15 +1791,6 @@ const TitoloDetail = () => {
             </div>
 
             {/* Editable fields */}
-            <div className="space-y-1">
-              <Label className="text-xs">Tipo Portafoglio</Label>
-              <SearchableSelect
-                options={tipoPortafoglioOpts}
-                value={contrattoForm.tipo_portafoglio}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, tipo_portafoglio: v }))}
-                placeholder="Seleziona tipo portafoglio"
-              />
-            </div>
 
             <div className="space-y-1">
               <Label className="text-xs">Prodotto</Label>
