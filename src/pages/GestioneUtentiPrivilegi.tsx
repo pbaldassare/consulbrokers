@@ -98,6 +98,20 @@ const GestioneUtentiPrivilegi = () => {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteUser) return;
+    setDeleting(true);
+    const { error } = await supabase.from("profiles").delete().eq("id", deleteUser.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(error.message || "Errore eliminazione");
+      return;
+    }
+    toast.success("Utente eliminato");
+    setDeleteUser(null);
+    refetch();
+  };
+
   const initials = (u: any) => `${(u.cognome?.[0] || "").toUpperCase()}${(u.nome?.[0] || "").toUpperCase()}` || "?";
 
   return (
