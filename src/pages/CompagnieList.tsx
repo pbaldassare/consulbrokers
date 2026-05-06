@@ -1062,33 +1062,19 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       </Dialog>
 
       {/* Delete confirm */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare la compagnia?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteTarget && deleteTarget.count > 0 ? (
-                <>
-                  La agenzia <b>{deleteTarget.descrizione}</b> ha <b>{deleteTarget.count}</b> agenzie collegate.
-                  Riassegnale a un'altra agenzia prima di procedere all'eliminazione.
-                </>
-              ) : (
-                <>Stai per eliminare <b>{deleteTarget?.descrizione}</b>. L'operazione è irreversibile.</>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!!deleteTarget && deleteTarget.count > 0}
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Elimina
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType="agenzia"
+        entityName={deleteTarget?.descrizione || "—"}
+        checks={[
+          { table: "compagnie", column: "gruppo_compagnia_id", label: "Compagnie collegate" },
+          { table: "compagnia_rapporti", column: "gruppo_compagnia_id", label: "Rapporti agenzia-compagnia" },
+        ]}
+        onConfirmDelete={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        isDeleting={deleteMutation.isPending}
+      />
 
       <AgenzieCollegateDialog
         gruppoId={agenzieDialog?.gruppoId ?? null}
