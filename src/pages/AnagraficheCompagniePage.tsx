@@ -855,6 +855,28 @@ const AnagraficheCompagniePage = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType={tipoLabel.slice(0, -1).toLowerCase() || "anagrafica"}
+        entityName={deleteTarget ? (deleteTarget.ragione_sociale || [deleteTarget.cognome, deleteTarget.nome].filter(Boolean).join(" ") || deleteTarget.codice || "—") : "—"}
+        checks={[
+          { table: "sinistri", column: "liquidatore_id", label: "Sinistri (liquidatore)" },
+          { table: "sinistri", column: "perito_id", label: "Sinistri (perito)" },
+          { table: "titoli", column: "anagrafica_commerciale_id", label: "Polizze (commerciale)" },
+          { table: "produttori_provvigioni_ramo", column: "anagrafica_id", label: "Provvigioni per ramo" },
+          { table: "fornitori", column: "anagrafica_professionale_id", label: "Fornitori collegati", blocking: false },
+        ]}
+        onConfirmDelete={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onDeactivateInstead={
+          deleteTarget?.attivo
+            ? () => deleteTarget && toggleMutation.mutate({ id: deleteTarget.id, attivo: false })
+            : undefined
+        }
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 };
