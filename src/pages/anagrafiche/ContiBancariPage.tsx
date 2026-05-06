@@ -139,7 +139,7 @@ export default function ContiBancariPage() {
       qc.invalidateQueries({ queryKey: ["conti_bancari_admin"] });
       qc.invalidateQueries({ queryKey: ["conti_bancari"] });
       toast.success("Conto eliminato");
-      setDeleteId(null);
+      setDeleteTarget(null);
     },
     onError: (e: any) => toast.error(e.message || "Impossibile eliminare (potrebbe essere referenziato)"),
   });
