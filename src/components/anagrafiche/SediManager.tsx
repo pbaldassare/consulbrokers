@@ -48,6 +48,8 @@ const SediManager = ({ showHeader = true }: SediManagerProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUfficio, setEditingUfficio] = useState<Ufficio | null>(null);
   const [selectedUfficio, setSelectedUfficio] = useState<Ufficio | null>(null);
+  const [deleteUfficio, setDeleteUfficio] = useState<Ufficio | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState<{ codice_ufficio: string; nome_ufficio: string; indirizzo: string; cap: string; citta: string; provincia: string; email: string; telefono: string; attivo: boolean; conto_bancario_id: string | null }>({ codice_ufficio: "", nome_ufficio: "", indirizzo: "", cap: "", citta: "", provincia: "", email: "", telefono: "", attivo: true, conto_bancario_id: null });
 
   const { data: uffici = [], isLoading } = useQuery({
