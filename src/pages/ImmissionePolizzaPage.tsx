@@ -53,7 +53,7 @@ const ImmissionePolizzaPage = () => {
   const [selectedRamo, setSelectedRamo] = useState("");
   const [prodottoNome, setProdottoNome] = useState("");
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
-  const [tipoPortafoglio, setTipoPortafoglio] = useState("diretto");
+  
   const [cigRif, setCigRif] = useState("");
   const [vincolo, setVincolo] = useState("");
   const [targaTelaio, setTargaTelaio] = useState("");
