@@ -130,6 +130,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const [resetOpen, setResetOpen] = useState(false);
   const [resetPwd, setResetPwd] = useState("Leone123!");
 
+  // --- Delete with impact ---
+  const [deleteTarget, setDeleteTarget] = useState<SpecialistRow | null>(null);
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["specialist-profiles"],
     queryFn: async () => {
