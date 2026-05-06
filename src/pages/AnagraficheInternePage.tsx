@@ -407,19 +407,6 @@ const AnagraficheInternePage = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Pre-check: titoli collegati come produttore
-      const { count, error: countErr } = await supabase
-        .from("titoli")
-        .select("id", { count: "exact", head: true })
-        .eq("produttore_id", id);
-      if (countErr) throw countErr;
-      if ((count ?? 0) > 0) {
-        const err: any = new Error(
-          `Impossibile eliminare: l'anagrafica è collegata a ${count} polizze/titoli. Disattivala invece di eliminarla.`
-        );
-        err.linkedCount = count;
-        throw err;
-      }
       const { error } = await supabase.from("anagrafiche_professionali").delete().eq("id", id);
       if (error) throw error;
     },
@@ -432,16 +419,7 @@ const AnagraficheInternePage = () => {
       toast.success("Anagrafica eliminata");
     },
     onError: (e: any) => {
-      setConfirmDeleteOpen(false);
-      if (e?.linkedCount && editingId) {
-        const id = editingId;
-        toast.error(e.message, {
-          action: { label: "Disattiva ora", onClick: () => toggleMutation.mutate({ id, attivo: false }) },
-          duration: 8000,
-        });
-      } else {
-        toast.error(e?.message || "Errore durante l'eliminazione");
-      }
+      toast.error(e?.message || "Errore durante l'eliminazione");
     },
   });
 
