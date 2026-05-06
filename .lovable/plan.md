@@ -1,27 +1,32 @@
-## Obiettivo
-Rimuovere il campo **Tipo Portafoglio** dall'UI delle pagine titolo (mantenendolo in DB per compatibilità con dati esistenti).
+## Fix: nomi delle garanzie accessorie mancanti nella card "Composizione Premio RCA"
 
-## Modifiche
+### Problema
 
-### `src/pages/TitoloDetail.tsx`
-- Rimuovere `FieldRow "Tipo Portafoglio"` (riga 1722) dalla vista contratto.
-- Rimuovere il blocco `<Label>` + `SearchableSelect` per `tipo_portafoglio` in modalità edit (righe ~1795-1801).
-- Rimuovere `tipoPortafoglioOpts` (riga 392) e il campo dal `contrattoForm` initial state (riga 379), dal reset (riga 483), dall'array dei campi salvati (riga 505) e dal payload mutation (riga 518).
+Nella card *Composizione Premio RCA* (sia Firma che Quietanza), per le voci accessorie (ARD Incendio, ARD Furto, PAS Assistenza, Spese recupero, ARD Eventi socio-politici, ecc.) compaiono Premio Netto, Aliquota e Lordo ma **manca il nome del prodotto/garanzia**. Solo la riga RCA principale mostra l'etichetta.
 
-### `src/pages/ImmissionePolizzaPage.tsx`
-- Rimuovere lo state `tipoPortafoglio` (riga 56).
-- Rimuovere il campo dal payload di insert (riga 402) — il default DB resta `null`/legacy.
-- Rimuovere il blocco UI `<Label>Tipo Portafoglio</Label> + SearchableSelect` (righe 719-720+).
+### Causa
 
-### `src/components/polizze/RinnovoTitoloDialog.tsx`
-- Rimuovere `tipo_portafoglio: "rinnovo"` (riga 245) dal payload — lasciare il campo a `null`.
+Il viewport del preview è 978px, quindi sotto la breakpoint `lg:` (1024px). Il componente `VociRcaCard.tsx` mostra:
+- `hidden lg:block` → tabella desktop (con colonna "Voce" che funziona) → **nascosta**
+- `lg:hidden` → cards mobile dove il titolo della voce viene renderizzato in un wrapper `flex-1 min-w-0` ma viene visivamente schiacciato dalla `truncate` interna combinata con il bottone azione, finendo per non mostrare il nome per le voci accessorie.
 
-## Non toccato
-- Schema DB: la colonna `titoli.tipo_portafoglio` resta (no migration), per non rompere dati storici e altre query.
-- `types.ts`: rigenerato automaticamente.
+Inoltre la breakpoint `lg` è troppo alta: a 978px (laptop standard) andrebbe già usata la tabella completa.
 
-## Verifica
-- Aprire un titolo: nessuna riga "Tipo Portafoglio" visibile.
-- In modifica contratto: campo assente.
-- Immissione polizza: form senza il select.
-- Rinnovo titolo: funziona normalmente.
+### Fix proposto
+
+In `src/components/polizze/VociRcaCard.tsx`:
+
+1. **Abbassare la breakpoint** della tabella desktop da `lg:` (1024px) a `md:` (768px). Tabella più adatta a laptop/preview ≥768px.
+   - Cambia `hidden lg:block` → `hidden md:block`
+   - Cambia `lg:hidden` → `md:hidden`
+
+2. **Sistemare il layout della card mobile** per garantire la visibilità del nome:
+   - Spostare il nome della garanzia su una riga dedicata sopra la griglia campi, non più in flex con il bottone delete.
+   - Bottone delete in alto a destra, posizionato in absolute o in flex separato.
+   - Rimuovere `truncate` o usarlo con `break-words` per nomi lunghi tipo "ARD Eventi socio politici".
+
+### File toccati
+
+- `src/components/polizze/VociRcaCard.tsx` (solo presentazione, nessuna logica)
+
+Nessuna modifica DB.
