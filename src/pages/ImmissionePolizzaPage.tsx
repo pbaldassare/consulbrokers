@@ -399,7 +399,7 @@ const ImmissionePolizzaPage = () => {
         ramo_id: selectedRamo || null,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
-        tipo_portafoglio: tipoPortafoglio,
+        
         cig_rif: cigRif || null,
         vincolo: vincolo || null,
         targa_telaio: targaTelaio || null,
