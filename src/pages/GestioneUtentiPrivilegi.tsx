@@ -25,6 +25,8 @@ const GestioneUtentiPrivilegi = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [sheetUser, setSheetUser] = useState<any | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteUser, setDeleteUser] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("wizard") === "open") {
