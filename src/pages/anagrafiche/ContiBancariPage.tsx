@@ -370,20 +370,27 @@ export default function ContiBancariPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare il conto?</AlertDialogTitle>
-            <AlertDialogDescription>
-              L'operazione non è reversibile. Se il conto è referenziato da Sedi, Agenzie o Rapporti, l'eliminazione fallirà — disattivalo invece.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteId && del.mutate(deleteId)}>Elimina</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteWithImpactDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        entityId={deleteTarget?.id}
+        entityType="conto bancario"
+        entityName={deleteTarget ? `${deleteTarget.etichetta} (${deleteTarget.iban?.slice(0, 4)}…${deleteTarget.iban?.slice(-4)})` : "—"}
+        checks={[
+          { table: "uffici", column: "conto_bancario_id", label: "Sedi (IBAN incassi)" },
+          { table: "uffici", column: "conto_incasso_id", label: "Sedi (IBAN secondario)" },
+          { table: "compagnie", column: "conto_bancario_id", label: "Agenzie collegate" },
+          { table: "compagnia_rapporti", column: "conto_bancario_id", label: "Rapporti agenzia-compagnia" },
+          { table: "profiles", column: "conto_bancario_id", label: "Specialist collegati" },
+        ]}
+        onConfirmDelete={() => deleteTarget && del.mutate(deleteTarget.id)}
+        onDeactivateInstead={
+          deleteTarget?.attivo
+            ? () => deleteTarget && upsert.mutate({ ...deleteTarget, attivo: false })
+            : undefined
+        }
+        isDeleting={del.isPending}
+      />
     </div>
   );
 }
