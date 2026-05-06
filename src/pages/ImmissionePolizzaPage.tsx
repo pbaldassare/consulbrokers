@@ -53,7 +53,7 @@ const ImmissionePolizzaPage = () => {
   const [selectedRamo, setSelectedRamo] = useState("");
   const [prodottoNome, setProdottoNome] = useState("");
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
-  const [tipoPortafoglio, setTipoPortafoglio] = useState("diretto");
+  
   const [cigRif, setCigRif] = useState("");
   const [vincolo, setVincolo] = useState("");
   const [targaTelaio, setTargaTelaio] = useState("");
@@ -399,7 +399,7 @@ const ImmissionePolizzaPage = () => {
         ramo_id: selectedRamo || null,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
-        tipo_portafoglio: tipoPortafoglio,
+        
         cig_rif: cigRif || null,
         vincolo: vincolo || null,
         targa_telaio: targaTelaio || null,
@@ -715,12 +715,7 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           {/* Campo Specialist hardcoded rimosso: lo Specialist è ora unico (sezione Sede), salvato come nome leggibile in titoli.specialist */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tipo Portafoglio</Label>
-            <SearchableSelect className="h-8 text-xs" value={tipoPortafoglio} onValueChange={setTipoPortafoglio} placeholder="—"
-              options={[{ value: "diretto", label: "Diretto" }, { value: "indiretto", label: "Indiretto" }, { value: "ri", label: "Riassicurazione" }]}
-            />
-          </div>
+
         </div>
 
         <div className="grid grid-cols-3 md:grid-cols-5 gap-3">

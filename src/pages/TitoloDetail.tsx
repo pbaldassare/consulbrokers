@@ -376,7 +376,6 @@ const TitoloDetail = () => {
   // --- Contratto edit state ---
   const [editingContratto, setEditingContratto] = useState(false);
   const [contrattoForm, setContrattoForm] = useState({
-    tipo_portafoglio: "",
     cig_rif: "",
     vincolo: "",
     targa_telaio: "",
@@ -388,13 +387,6 @@ const TitoloDetail = () => {
     compagnia_id: "" as string | null,
     ramo_id: "" as string | null,
   });
-
-  const tipoPortafoglioOpts = [
-    { value: "NUOVA EMISSIONE", label: "NUOVA EMISSIONE" },
-    { value: "PORTAFOGLIO PREESISTENTE", label: "PORTAFOGLIO PREESISTENTE" },
-    { value: "POLIZZE FAMIGLIA FIORE", label: "POLIZZE FAMIGLIA FIORE" },
-    { value: "gestione", label: "Gestione" },
-  ];
 
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-anagrafiche"],
@@ -480,7 +472,7 @@ const TitoloDetail = () => {
   const startEditContratto = () => {
     if (titolo) {
       setContrattoForm({
-        tipo_portafoglio: (titolo as any).tipo_portafoglio ?? "",
+        
         cig_rif: (titolo as any).cig_rif ?? "",
         vincolo: (titolo as any).vincolo ?? "",
         targa_telaio: (titolo as any).targa_telaio ?? "",
@@ -502,7 +494,7 @@ const TitoloDetail = () => {
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
       const fields: (keyof typeof contrattoForm)[] = [
-        "tipo_portafoglio", "cig_rif", "vincolo", "targa_telaio",
+        "cig_rif", "vincolo", "targa_telaio",
         "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
         "ufficio_id", "compagnia_id", "ramo_id",
       ];
@@ -515,7 +507,7 @@ const TitoloDetail = () => {
       const { error } = await supabase
         .from("titoli")
         .update({
-          tipo_portafoglio: contrattoForm.tipo_portafoglio || null,
+          
           cig_rif: contrattoForm.cig_rif || null,
           vincolo: contrattoForm.vincolo || null,
           targa_telaio: contrattoForm.targa_telaio || null,
@@ -1719,7 +1711,7 @@ const TitoloDetail = () => {
             <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
-            <FieldRow label="Tipo Portafoglio" value={fmt(t.tipo_portafoglio)} />
+            
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
             <FieldRow label="Riga" value={fmt(t.riga)} />
             <FieldRow label="Appendice" value={fmt(t.appendice)} />
@@ -1791,15 +1783,6 @@ const TitoloDetail = () => {
             </div>
 
             {/* Editable fields */}
-            <div className="space-y-1">
-              <Label className="text-xs">Tipo Portafoglio</Label>
-              <SearchableSelect
-                options={tipoPortafoglioOpts}
-                value={contrattoForm.tipo_portafoglio}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, tipo_portafoglio: v }))}
-                placeholder="Seleziona tipo portafoglio"
-              />
-            </div>
 
             <div className="space-y-1">
               <Label className="text-xs">Prodotto</Label>

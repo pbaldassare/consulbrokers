@@ -242,7 +242,7 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         stato: "in_attesa_rinnovo",
         data_incasso: null,
         importo_incassato: null,
-        tipo_portafoglio: "rinnovo",
+        
         // Riferimento al precedente (usato dal trigger di attivazione automatica)
         sostituisce_polizza: t.numero_titolo,
         sostituisce_riga: t.riga,
