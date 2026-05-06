@@ -25,6 +25,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
 import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 
 /** Date picker inline (shadcn) — value is ISO yyyy-MM-dd or "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
