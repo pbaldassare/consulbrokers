@@ -1420,6 +1420,33 @@ const CompagnieList = () => {
         compagniaId={rapportiTarget?.id || null}
         compagniaNome={rapportiTarget?.nome || ""}
       />
+
+      <DeleteWithImpactDialog
+        open={!!deleteCompagnia}
+        onOpenChange={(o) => !o && setDeleteCompagnia(null)}
+        entityId={deleteCompagnia?.id}
+        entityType="compagnia"
+        entityName={deleteCompagnia?.nome || "—"}
+        checks={[
+          { table: "titoli", column: "compagnia_id", label: "Polizze emesse" },
+          { table: "prodotti", column: "compagnia_id", label: "Prodotti collegati" },
+          { table: "sinistri", column: "compagnia_id", label: "Sinistri" },
+          { table: "compagnia_rapporti", column: "compagnia_id", label: "Rapporti agenzia-compagnia" },
+          { table: "provvigioni_compagnia_ramo", column: "compagnia_id", label: "Provvigioni per ramo" },
+          { table: "flussi_compagnia", column: "compagnia_id", label: "Flussi/import" },
+          { table: "rimessa_premi", column: "compagnia_id", label: "Rimesse premi" },
+          { table: "trattative", column: "compagnia_id", label: "Trattative" },
+          { table: "anagrafiche_professionali", column: "compagnia_id", label: "Liquidatori/periti collegati", blocking: false },
+          { table: "document_folders", column: "compagnia_id", label: "Cartelle documentali", blocking: false },
+        ]}
+        onConfirmDelete={() => deleteCompagnia && deleteCompagniaMutation.mutate(deleteCompagnia.id)}
+        onDeactivateInstead={
+          deleteCompagnia?.attiva
+            ? () => deleteCompagnia && toggleMutation.mutate({ id: deleteCompagnia.id, attiva: false })
+            : undefined
+        }
+        isDeleting={deleteCompagniaMutation.isPending}
+      />
     </div>
   );
 };
