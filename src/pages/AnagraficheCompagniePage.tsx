@@ -96,6 +96,7 @@ const AnagraficheCompagniePage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Anagrafica | null>(null);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["anagrafiche_professionali", activeTab],
