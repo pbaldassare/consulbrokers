@@ -528,8 +528,13 @@ const AnagraficheCompagniePage = () => {
           {!item.referente_nome && !item.referente_email && "—"}
         </TableCell>
         <TableCell className="text-sm">{compName || "—"}</TableCell>
-        <TableCell className="text-center">
-          <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} onClick={(e) => e.stopPropagation()} />
+        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-center gap-1">
+            <Switch checked={item.attivo ?? true} onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, attivo: v })} />
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Elimina" onClick={() => setDeleteTarget(item)}>
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </TableCell>
       </TableRow>
     );
