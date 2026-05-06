@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, UserCheck, Scale, Eye } from "lucide-react";
+import { Plus, Search, UserCheck, Scale, Eye, Trash2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
