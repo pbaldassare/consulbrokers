@@ -1719,7 +1719,7 @@ const TitoloDetail = () => {
             <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
-            <FieldRow label="Tipo Portafoglio" value={fmt(t.tipo_portafoglio)} />
+            
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
             <FieldRow label="Riga" value={fmt(t.riga)} />
             <FieldRow label="Appendice" value={fmt(t.appendice)} />
