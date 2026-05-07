@@ -2172,73 +2172,91 @@ const TitoloDetail = () => {
       {/* COMMERCIALE & SPLIT */}
       <SectionCollapsible title="Commerciale & Provvigioni" icon={Percent}>
         {editingComm ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs">Commerciale</Label>
-                <SearchableSelect
-                  options={[{ value: "__none__", label: "— Nessuno (Sede) —" }, ...anagraficheComm]}
-                  value={commForm.anagrafica_commerciale_id || "__none__"}
-                  onValueChange={(v) => {
-                    const sel = anagraficheComm.find((a: any) => a.value === v);
-                    setCommForm({
-                      anagrafica_commerciale_id: v === "__none__" ? null : v,
-                      percentuale_commerciale: sel ? sel.percentuale_base || 100 : 100,
-                    });
-                  }}
-                  placeholder="Seleziona commerciale..."
-                />
-              </div>
-              <div>
-                <Label className="text-xs">% Commerciale</Label>
-                <Input
-                  type="number" min={0} max={100}
-                  value={commForm.percentuale_commerciale}
-                  onChange={(e) => setCommForm({ ...commForm, percentuale_commerciale: Number(e.target.value) })}
-                />
-                {(() => {
-                  const sel = anagraficheComm.find((a: any) => a.value === commForm.anagrafica_commerciale_id);
-                  const def = sel?.percentuale_base;
-                  const cur = Number(commForm.percentuale_commerciale);
-                  const invalid = !Number.isFinite(cur) || cur < 0 || cur > 100;
-                  const agency = Math.max(0, 100 - (Number.isFinite(cur) ? cur : 0));
-                  return (
-                    <div className="mt-1 space-y-1">
-                      <p className="text-[11px] text-muted-foreground">
-                        Split risultante: <strong>{Number.isFinite(cur) ? cur : 0}%</strong> commerciale + <strong>{agency}%</strong> Consulbrokers SPA = 100%.
-                      </p>
-                      {invalid && (
-                        <p className="text-[11px] text-red-600">⚠ Valore non valido: deve essere tra 0 e 100.</p>
-                      )}
-                      {def != null && (
-                        Number(def) === cur ? (
-                          <p className="text-[11px] text-muted-foreground">Default anagrafica: {def}% ✓</p>
-                        ) : (
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                            ⚠ Override: default anagrafica <strong>{def}%</strong>.{" "}
-                            <button type="button" className="text-teal-700 underline hover:no-underline"
-                              onClick={() => {
-                                if (window.confirm(`Reimpostare la % commerciale al default dell'anagrafica (${def}%)?`)) {
-                                  setCommForm({ ...commForm, percentuale_commerciale: Number(def) });
-                                }
-                              }}>
-                              Ripristina default
-                            </button>
-                          </p>
-                        )
-                      )}
+          (() => {
+            const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
+            const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+            const overflow = sumPerc > 100.001;
+            const dupIds = (() => {
+              const seen = new Map<string, number>();
+              splitsForm.forEach(s => { if (s.anagrafica_commerciale_id) seen.set(s.anagrafica_commerciale_id, (seen.get(s.anagrafica_commerciale_id) || 0) + 1); });
+              return new Set([...seen.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+            })();
+            return (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  {splitsForm.length === 0 && (
+                    <div className="text-xs text-muted-foreground italic px-3 py-2 border rounded-md bg-muted/30">
+                      Nessun produttore — l'intera quota va a Consulbrokers SPA.
                     </div>
-                  );
-                })()}
+                  )}
+                  {splitsForm.map((row, idx) => {
+                    const sel = (anagraficheComm as any[]).find(a => a.value === row.anagrafica_commerciale_id);
+                    const def = sel?.percentuale_base;
+                    const isDup = row.anagrafica_commerciale_id && dupIds.has(row.anagrafica_commerciale_id);
+                    return (
+                      <div key={idx} className={cn("grid grid-cols-12 gap-2 items-end p-2 border rounded-md", isDup && "border-red-400 bg-red-50 dark:bg-red-950/20")}>
+                        <div className="col-span-12 md:col-span-7">
+                          <Label className="text-[11px]">Produttore</Label>
+                          <SearchableSelect
+                            options={anagraficheComm}
+                            value={row.anagrafica_commerciale_id || ""}
+                            onValueChange={(v) => {
+                              const a = (anagraficheComm as any[]).find(x => x.value === v);
+                              setSplitsForm(prev => prev.map((r, i) => i === idx ? {
+                                ...r,
+                                anagrafica_commerciale_id: v,
+                                percentuale: r.percentuale > 0 ? r.percentuale : (a?.percentuale_base || 0),
+                              } : r));
+                            }}
+                            placeholder="Seleziona produttore..."
+                          />
+                          {isDup && <p className="text-[10px] text-red-600 mt-0.5">Produttore duplicato</p>}
+                        </div>
+                        <div className="col-span-8 md:col-span-3">
+                          <Label className="text-[11px]">% Provvigione</Label>
+                          <Input
+                            type="number" min={0} max={100} step={0.01}
+                            value={row.percentuale}
+                            onChange={(e) => setSplitsForm(prev => prev.map((r, i) => i === idx ? { ...r, percentuale: Number(e.target.value) } : r))}
+                          />
+                          {def != null && Number(def) !== Number(row.percentuale) && (
+                            <button type="button" className="text-[10px] text-teal-700 underline hover:no-underline mt-0.5"
+                              onClick={() => setSplitsForm(prev => prev.map((r, i) => i === idx ? { ...r, percentuale: Number(def) } : r))}>
+                              Usa default ({def}%)
+                            </button>
+                          )}
+                        </div>
+                        <div className="col-span-4 md:col-span-2 flex justify-end">
+                          <Button size="sm" variant="ghost" type="button"
+                            onClick={() => setSplitsForm(prev => prev.filter((_, i) => i !== idx))}>
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Button size="sm" variant="outline" type="button"
+                  onClick={() => setSplitsForm(prev => [...prev, { anagrafica_commerciale_id: null, commerciale_user_id: null, percentuale: 0 }])}>
+                  + Aggiungi produttore
+                </Button>
+
+                <div className={cn("p-3 rounded-md border text-sm", overflow ? "border-red-400 bg-red-50 dark:bg-red-950/20 text-red-800" : "bg-muted/40")}>
+                  <div className="flex justify-between"><span>Totale produttori:</span> <strong className="font-mono tabular-nums">{sumPerc.toFixed(2)}%</strong></div>
+                  <div className="flex justify-between"><span>Consulbrokers SPA (residuo):</span> <strong className="font-mono tabular-nums">{consulPerc.toFixed(2)}%</strong></div>
+                  {overflow && <div className="text-xs mt-1">⚠ La somma supera 100% — riduci le percentuali per salvare.</div>}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => saveCommMutation.mutate()}
+                    disabled={saveCommMutation.isPending || overflow || dupIds.size > 0}>
+                    {saveCommMutation.isPending ? "Salvataggio..." : "Salva"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingComm(false)}>Annulla</Button>
+                </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => saveCommMutation.mutate()} disabled={saveCommMutation.isPending}>
-                {saveCommMutation.isPending ? "Salvataggio..." : "Salva"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setEditingComm(false)}>Annulla</Button>
-            </div>
-          </div>
+            );
+          })()
         ) : (
           <>
             {(() => {
