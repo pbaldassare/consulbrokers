@@ -2117,6 +2117,23 @@ const TitoloDetail = () => {
                   value={commForm.percentuale_commerciale}
                   onChange={(e) => setCommForm({ ...commForm, percentuale_commerciale: Number(e.target.value) })}
                 />
+                {(() => {
+                  const sel = anagraficheComm.find((a: any) => a.value === commForm.anagrafica_commerciale_id);
+                  const def = sel?.percentuale_base;
+                  if (def == null) return null;
+                  if (Number(def) === Number(commForm.percentuale_commerciale)) {
+                    return <p className="text-[11px] text-muted-foreground mt-1">Default anagrafica: {def}%</p>;
+                  }
+                  return (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Default anagrafica: <strong>{def}%</strong>{" "}
+                      <button type="button" className="text-teal-700 underline hover:no-underline"
+                        onClick={() => setCommForm({ ...commForm, percentuale_commerciale: Number(def) })}>
+                        Reset
+                      </button>
+                    </p>
+                  );
+                })()}
               </div>
             </div>
             <div className="flex gap-2">
@@ -2314,12 +2331,7 @@ const TitoloDetail = () => {
                   {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
-                {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
-              </div>
-            )}
+            ) : null}
           </>
         ) : (
           <div className="space-y-4">
@@ -2507,6 +2519,7 @@ const TitoloDetail = () => {
                   } else toast.error("Errore aggiornamento provvigioni");
                 }}
               />
+              {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
               <VociRcaCard
                 tipoPremio="quietanza"
                 mainLabel={getMainVoceLabel((t as any).ramo)}
@@ -2542,6 +2555,7 @@ const TitoloDetail = () => {
                   } else toast.error("Errore aggiornamento provvigioni");
                 }}
               />
+              {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
             </div>
           </div>
         )}
