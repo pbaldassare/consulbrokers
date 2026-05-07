@@ -1,39 +1,44 @@
-# Sinistri/Polizze/Scadenze vuoti su /cliente — diagnosi e fix
+## Obiettivo
+Spostare i campi tecnici/flag attualmente in fondo alla sezione **Importi** dentro la sezione **Periodo**, per alleggerire la card Importi (che già contiene Premi, Provvigioni e composizione RCA) e raggruppare nella sezione Periodo tutti gli attributi "anagrafici" della polizza.
 
-## Causa più probabile
+## Campi da spostare
+Da **Importi** → **Periodo**:
+- Valuta
+- Indicizzata
+- Rimborso
+- Pag. Diretto Comp.
+- Formato Elettronico
+- Incassato (importo)
+- Data Incasso
 
-I dati esistono in DB, l'RLS è corretto, le query frontend sono corrette. La RPC `get_my_cliente_ids()` ritorna però array vuoto, il che significa che l'utente attualmente loggato nella preview **non è** `protocollo@comune.it`.
+## Modifiche (solo UI, file `src/pages/TitoloDetail.tsx`)
 
-Possibili scenari:
-1. Sei loggata con un altro utente (es. admin) e poi hai aperto `/cliente/...` direttamente — `ClienteGuard` non blocca admin/cliente in modo distinto.
-2. La sessione `protocollo@comune.it` è scaduta o stantia (salvata prima dell'assegnazione `user_id` al cliente).
-3. Le migration di seed hanno assegnato il `cliente.user_id` corretto, ma la JWT in `localStorage` è di un altro utente.
+### 1. Sezione Periodo (view mode, righe ~1889-1903)
+Estendere la griglia esistente `grid-cols-2 md:grid-cols-4` aggiungendo i 7 nuovi `FieldRow` dopo `Disdetta (mesi)`:
+- Valuta · Indicizzata · Rimborso · Pag. Diretto Comp.
+- Formato Elettronico · Incassato · Data Incasso
 
-## Plan operativo
+Mantengono lo stesso stile `FieldRow` (allineamento, font, spaziatura) già usato nelle altre righe — nessun cambio grafico, solo riposizionamento.
 
-### Step 1 — Verifica utente loggato (1 secondo)
-Aggiungo nel `ClienteDashboard` un piccolo banner debug visibile solo se `clienteIds.length === 0`, che mostra:
-- email dell'utente loggato (`user.email`)
-- esito RPC `get_my_cliente_ids()`
-- bottone "Esci e accedi come Comune di Varese"
+### 2. Sezione Periodo (edit mode, righe ~1904+)
+Aggiungere in fondo al form di edit Periodo un blocco "Valuta & Flag" con:
+- `SearchableSelect` Valuta
+- `Switch` Indicizzata
+- `Switch` Rimborso
 
-Così capiamo subito se è davvero un problema di sessione.
+Spostando esattamente il blocco già presente alle righe 2453-2473 di Importi (stessa logica `importiForm` → da rinominare/spostare in `periodoForm` oppure mantenere `importiForm` ma renderizzarlo nel form Periodo). Per minimizzare rischi backend, **mantengo lo stato `importiForm` invariato** e sposto solo il JSX: il salvataggio Valuta/Flag continua a passare per `saveImportiMutation` (richiamata anche dal pulsante Salva di Periodo se attivo, oppure si lascia editabile solo in Importi e nella Periodo si mostrano sempre read-only).
 
-### Step 2 — Hard re-login
-Forzo `supabase.auth.signOut()` + redirect a `/login` con email pre-compilata `protocollo@comune.it`.
+**Decisione consigliata**: campi mostrati read-only in Periodo, edit rimane in Importi. Questo evita di toccare le mutation e mantiene le logiche backend intatte.
 
-### Step 3 — (Opzionale) Provisioning safety net
-Edge function `reset-demo-password` già esistente: confermo che la password sia `Leone123!` per `protocollo@comune.it` e che `clienti.user_id` punti al suo `auth.users.id` (verificato: ✅ già allineato).
+### 3. Sezione Importi
+Rimuovere il blocco righe 2327-2335 (la griglia Valuta/Indicizzata/…/Data Incasso in view mode).
+Lasciare invariato il blocco edit (righe 2452-2477) — l'utente continuerà a modificare Valuta/Indicizzata/Rimborso da Importi → Modifica.
 
-## File da toccare
-- `src/pages/cliente/ClienteDashboard.tsx` — banner debug condizionale
-- `src/pages/cliente/ClienteSinistri.tsx` / `ClientePolizze.tsx` / `ClienteScadenze.tsx` — stesso banner ridotto
-- (no migration: il DB è già a posto)
+## Risultato visivo
+- **Periodo**: griglia compatta con tutte le date + i 7 nuovi campi (3 righe da 4 colonne su desktop).
+- **Importi**: solo Premi / Provvigioni / Composizione RCA, più snella.
 
-## Cosa NON serve
-- Nessuna nuova policy RLS
-- Nessun nuovo seed dati
-- Nessuna modifica alla RPC
-
-## Azione che ti consiglio prima ancora di implementare
-Apri la preview, fai logout e login con `protocollo@comune.it` / `Leone123!`. Se i dati appaiono, non serve neanche il banner. Fammi sapere cosa vedi e procedo di conseguenza.
+## Vincoli rispettati
+- Nessuna modifica a database, query, mutation o tipi.
+- Stile identico (FieldRow, fmt, fmtBool, fmtEuro, fmtDate già esistenti).
+- Responsive invariato (grid-cols-2 md:grid-cols-4).
