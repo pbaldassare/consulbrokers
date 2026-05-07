@@ -2951,7 +2951,7 @@ const TitoloDetail = () => {
                     <TableRow key={p.id}>
                       <TableCell>{p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—"}</TableCell>
                       <TableCell className="font-mono">{p.percentuale}%</TableCell>
-                      <TableCell className="font-mono">€ {p.importo_provvigione?.toFixed(2)}</TableCell>
+                      <TableCell className="font-mono">{fmtEuro(p.importo_provvigione)}</TableCell>
                       <TableCell>{p.calcolata_il ? format(new Date(p.calcolata_il), "dd/MM/yyyy HH:mm", { locale: it }) : "—"}</TableCell>
                       <TableCell><Badge variant={p.pagata ? "default" : "secondary"}>{p.pagata ? "Sì" : "No"}</Badge></TableCell>
                     </TableRow>
