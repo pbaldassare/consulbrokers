@@ -512,8 +512,7 @@ const TitoloDetail = () => {
         .update({
           
           cig_rif: contrattoForm.cig_rif || null,
-          vincolo: contrattoForm.vincolo || null,
-          targa_telaio: contrattoForm.targa_telaio || null,
+          vincolo_attivo: !!contrattoForm.vincolo_attivo,
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
           specialist: contrattoForm.specialist || null,
