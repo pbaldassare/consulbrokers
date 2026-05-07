@@ -382,8 +382,7 @@ const TitoloDetail = () => {
   const [editingContratto, setEditingContratto] = useState(false);
   const [contrattoForm, setContrattoForm] = useState({
     cig_rif: "",
-    vincolo: "",
-    targa_telaio: "",
+    vincolo_attivo: false,
     descrizione_polizza: "",
     prodotto_nome: "",
     specialist: "",
@@ -479,8 +478,7 @@ const TitoloDetail = () => {
       setContrattoForm({
         
         cig_rif: (titolo as any).cig_rif ?? "",
-        vincolo: (titolo as any).vincolo ?? "",
-        targa_telaio: (titolo as any).targa_telaio ?? "",
+        vincolo_attivo: !!(titolo as any).vincolo_attivo,
         descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
         prodotto_nome: (titolo as any).prodotto_nome ?? "",
         specialist: (titolo as any).specialist ?? "",
@@ -499,7 +497,7 @@ const TitoloDetail = () => {
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
       const fields: (keyof typeof contrattoForm)[] = [
-        "cig_rif", "vincolo", "targa_telaio",
+        "cig_rif", "vincolo_attivo",
         "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
         "ufficio_id", "compagnia_id", "ramo_id",
       ];
@@ -514,8 +512,7 @@ const TitoloDetail = () => {
         .update({
           
           cig_rif: contrattoForm.cig_rif || null,
-          vincolo: contrattoForm.vincolo || null,
-          targa_telaio: contrattoForm.targa_telaio || null,
+          vincolo_attivo: !!contrattoForm.vincolo_attivo,
           descrizione_polizza: contrattoForm.descrizione_polizza || null,
           prodotto_nome: contrattoForm.prodotto_nome || null,
           specialist: contrattoForm.specialist || null,
@@ -1739,8 +1736,7 @@ const TitoloDetail = () => {
             <FieldRow label="Produttore" value={fmt((t as any).produttore_nome || (t.produttore ? `${(t.produttore as any).nome || ""} ${(t.produttore as any).cognome || ""}`.trim() : ""))} />
             <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
             <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
-            <FieldRow label="Vincolo" value={fmt(t.vincolo)} />
-            <FieldRow label="Targa/Telaio" value={fmt(t.targa_telaio)} />
+            <FieldRow label="Vincolo" value={(t as any).vincolo_attivo ? "Sì" : "No"} />
             {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
           </div>
         ) : (
@@ -1840,20 +1836,13 @@ const TitoloDetail = () => {
 
             <div className="space-y-1">
               <Label className="text-xs">Vincolo</Label>
-              <Input
-                value={contrattoForm.vincolo}
-                onChange={(e) => setContrattoForm(p => ({ ...p, vincolo: e.target.value }))}
-                maxLength={200}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Targa/Telaio</Label>
-              <Input
-                value={contrattoForm.targa_telaio}
-                onChange={(e) => setContrattoForm(p => ({ ...p, targa_telaio: e.target.value.toUpperCase() }))}
-                maxLength={50}
-              />
+              <div className="flex items-center gap-2 h-9">
+                <Switch
+                  checked={!!contrattoForm.vincolo_attivo}
+                  onCheckedChange={(v) => setContrattoForm(p => ({ ...p, vincolo_attivo: v }))}
+                />
+                <span className="text-sm">{contrattoForm.vincolo_attivo ? "Sì" : "No"}</span>
+              </div>
             </div>
 
             <div className="col-span-full space-y-1">
