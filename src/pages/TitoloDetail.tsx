@@ -1837,20 +1837,13 @@ const TitoloDetail = () => {
 
             <div className="space-y-1">
               <Label className="text-xs">Vincolo</Label>
-              <Input
-                value={contrattoForm.vincolo}
-                onChange={(e) => setContrattoForm(p => ({ ...p, vincolo: e.target.value }))}
-                maxLength={200}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Targa/Telaio</Label>
-              <Input
-                value={contrattoForm.targa_telaio}
-                onChange={(e) => setContrattoForm(p => ({ ...p, targa_telaio: e.target.value.toUpperCase() }))}
-                maxLength={50}
-              />
+              <div className="flex items-center gap-2 h-9">
+                <Switch
+                  checked={!!contrattoForm.vincolo_attivo}
+                  onCheckedChange={(v) => setContrattoForm(p => ({ ...p, vincolo_attivo: v }))}
+                />
+                <span className="text-sm">{contrattoForm.vincolo_attivo ? "Sì" : "No"}</span>
+              </div>
             </div>
 
             <div className="col-span-full space-y-1">
