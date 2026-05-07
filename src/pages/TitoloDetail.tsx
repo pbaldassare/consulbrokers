@@ -36,7 +36,10 @@ import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButto
 
 const fmt = (v: any) => v ?? "—";
 const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { locale: it }) : "—";
-const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
+const fmtEuro = (v: number | null | undefined) =>
+  v == null || isNaN(Number(v))
+    ? "—"
+    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
 const fmtBool = (v: boolean | null) => v ? "Sì" : "No";
 
 // Determina se il ramo è Auto/Veicoli o Natanti/Nautica (mostra dati tecnici + card voci).
@@ -91,18 +94,20 @@ const SectionCollapsible = ({ title, icon: Icon, children, defaultOpen = true }:
   const [open, setOpen] = useState(defaultOpen);
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <button className="w-full flex items-center gap-2 px-4 py-2.5 bg-primary/5 border border-border rounded-t-lg hover:bg-primary/10 transition-colors">
-          <Icon className="w-4 h-4 text-primary" />
-          <span className="text-sm font-bold uppercase text-primary">{title}</span>
-          <ChevronDown className={`w-4 h-4 ml-auto text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="border border-t-0 border-border rounded-b-lg p-4">
-          {children}
-        </div>
-      </CollapsibleContent>
+      <div className="rounded-lg border border-border border-l-4 border-l-teal-600 bg-card shadow-sm overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <button className="w-full flex items-center gap-2 px-4 py-3 bg-teal-50/60 dark:bg-teal-950/20 border-b border-border hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-colors">
+            <Icon className="w-4 h-4 text-teal-700 dark:text-teal-300" />
+            <span className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100">{title}</span>
+            <ChevronDown className={`w-4 h-4 ml-auto text-teal-700/70 dark:text-teal-300/70 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="p-4">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </div>
     </Collapsible>
   );
 };
