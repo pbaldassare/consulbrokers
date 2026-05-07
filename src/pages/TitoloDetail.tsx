@@ -478,8 +478,7 @@ const TitoloDetail = () => {
       setContrattoForm({
         
         cig_rif: (titolo as any).cig_rif ?? "",
-        vincolo: (titolo as any).vincolo ?? "",
-        targa_telaio: (titolo as any).targa_telaio ?? "",
+        vincolo_attivo: !!(titolo as any).vincolo_attivo,
         descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
         prodotto_nome: (titolo as any).prodotto_nome ?? "",
         specialist: (titolo as any).specialist ?? "",
