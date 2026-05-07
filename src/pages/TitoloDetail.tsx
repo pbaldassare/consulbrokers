@@ -1736,8 +1736,7 @@ const TitoloDetail = () => {
             <FieldRow label="Produttore" value={fmt((t as any).produttore_nome || (t.produttore ? `${(t.produttore as any).nome || ""} ${(t.produttore as any).cognome || ""}`.trim() : ""))} />
             <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
             <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
-            <FieldRow label="Vincolo" value={fmt(t.vincolo)} />
-            <FieldRow label="Targa/Telaio" value={fmt(t.targa_telaio)} />
+            <FieldRow label="Vincolo" value={(t as any).vincolo_attivo ? "Sì" : "No"} />
             {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
           </div>
         ) : (
