@@ -31,7 +31,7 @@ const ClientePolizze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, agenzie(nome), rami(descrizione)")
+        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .order("created_at", { ascending: false });
       setTitoli(data ?? []);
