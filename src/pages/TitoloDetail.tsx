@@ -1394,9 +1394,9 @@ const TitoloDetail = () => {
 
       {/* MESSA A CASSA — nascosta se già incassata, salvo polizze poliennali attive (rate residue) */}
       {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
-        <Card className={t.stato === "incassato" ? "border-yellow-400 bg-yellow-50" : ""}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
+        <Card className={`border-l-4 shadow-sm ${t.stato === "incassato" ? "border-l-amber-500" : "border-l-teal-600"}`}>
+          <CardHeader className={`pb-3 border-b ${t.stato === "incassato" ? "bg-amber-50/60 dark:bg-amber-950/20" : "bg-teal-50/60 dark:bg-teal-950/20"}`}>
+            <CardTitle className={`text-sm sm:text-base font-semibold flex items-center gap-2 ${t.stato === "incassato" ? "text-amber-900 dark:text-amber-100" : "text-teal-900 dark:text-teal-100"}`}>
               <DollarSign className="w-4 h-4" /> Messa a Cassa
             </CardTitle>
           </CardHeader>
