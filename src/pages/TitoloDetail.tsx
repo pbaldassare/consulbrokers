@@ -1900,6 +1900,13 @@ const TitoloDetail = () => {
             <FieldRow label="GG Mora" value={fmt(t.mora_giorni)} />
             <FieldRow label="Tacito Rinnovo" value={t.tacito_rinnovo ? "Sì" : "No"} />
             <FieldRow label="Disdetta (mesi)" value={fmt(t.disdetta_mesi)} />
+            <FieldRow label="Valuta" value={fmt(t.valuta)} />
+            <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
+            <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
+            <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
+            <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
+            <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
+            <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
@@ -2324,15 +2331,6 @@ const TitoloDetail = () => {
                 {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
               </div>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 pt-3 border-t">
-              <FieldRow label="Valuta" value={fmt(t.valuta)} />
-              <FieldRow label="Indicizzata" value={fmtBool(t.indicizzata)} />
-              <FieldRow label="Rimborso" value={fmtBool(t.rimborso)} />
-              <FieldRow label="Pag. Diretto Comp." value={fmtBool(t.pag_diretto_compagnia)} />
-              <FieldRow label="Formato Elettronico" value={fmtBool(t.formato_elettronico)} />
-              <FieldRow label="Incassato" value={fmtEuro(t.importo_incassato)} />
-              <FieldRow label="Data Incasso" value={fmtDate(t.data_incasso)} />
-            </div>
           </>
         ) : (
           <div className="space-y-4">
