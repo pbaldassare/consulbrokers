@@ -2260,82 +2260,71 @@ const TitoloDetail = () => {
         ) : (
           <>
             {(() => {
-              const percComm = t.percentuale_commerciale ?? 100;
               const provvF = t.provvigioni_firma;
               const provvQ = t.provvigioni_quietanza;
-              const anagComm: any = (t as any).anagrafica_commerciale;
-              const anagCommName = anagComm
-                ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
-                : null;
-              const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
-              const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
-              const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
+              // Costruisci lista effettiva produttori (DB splits con fallback legacy)
+              type EffSplit = { id?: string; anagrafica_commerciale_id: string | null; name: string; perc: number; isAdmin: boolean };
+              const effective: EffSplit[] = (titoloSplits && titoloSplits.length > 0)
+                ? titoloSplits.map((s: any) => {
+                    const a = s.anagrafica;
+                    const name = a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : "—";
+                    return {
+                      id: s.id,
+                      anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+                      name,
+                      perc: Number(s.percentuale) || 0,
+                      isAdmin: !!adminAnagraficaId && s.anagrafica_commerciale_id === adminAnagraficaId,
+                    };
+                  })
+                : ((t as any).anagrafica_commerciale_id ? [{
+                    anagrafica_commerciale_id: (t as any).anagrafica_commerciale_id,
+                    name: (() => {
+                      const a: any = (t as any).anagrafica_commerciale;
+                      return a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : (t.produttore_nome || "—");
+                    })(),
+                    perc: t.percentuale_commerciale ?? 100,
+                    isAdmin: !!adminAnagraficaId && (t as any).anagrafica_commerciale_id === adminAnagraficaId,
+                  }] : []);
 
-              const splitFor = (provv: number | null | undefined) => {
-                if (provv == null) return { comm: 0, agency: 0, total: 0 };
-                if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
-                const comm = provv * percComm / 100;
-                return { comm, agency: provv - comm, total: provv };
-              };
-              const sF = splitFor(provvF);
-              const sQ = splitFor(provvQ);
-              const totComm = sF.comm + sQ.comm;
-              const totAgency = sF.agency + sQ.agency;
-              const totGen = sF.total + sQ.total;
-
-              const renderSplit = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
-                const provv = s.total;
-                const pctComm = commercialeIsAdmin ? 0 : percComm;
-                const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
-                return (
-                  <div className="rounded-lg border bg-card p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className={cn("text-[11px] uppercase font-bold tracking-wide", accent === "teal" ? "text-teal-700 dark:text-teal-300" : "text-amber-700 dark:text-amber-300")}>{title}</span>
-                      <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
-                    </div>
-                    {provv > 0 && (
-                      <>
-                        <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                          <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
-                          <div className="bg-amber-500 flex-1" />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
-                            <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
-                            <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                            <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
-                            <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              };
+              const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
+              const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+              const hasAdminInList = effective.some(e => e.isAdmin);
 
               return (
                 <div className="space-y-3">
-                  {commercialeIsAdmin && (
+                  {hasAdminInList && (
                     <div className="text-xs px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900">
-                      Commerciale = Consulbrokers SPA (admin) → split <strong>solo statistico</strong>: l'intera quota va a Consulbrokers SPA.
+                      Uno dei produttori è Consulbrokers SPA (admin) → la sua quota è <strong>solo statistica</strong> e va sommata al residuo agenzia.
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-amber-50 dark:from-teal-950/30 dark:to-amber-950/30 border">
-                    <div className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
-                      <UserIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs uppercase font-semibold text-muted-foreground">Commerciale</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{percComm}%</span>
-                        {commercialeIsAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>}
+                  <div className="space-y-2">
+                    {effective.map((e, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-transparent dark:from-teal-950/20 border">
+                        <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
+                          <UserIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] uppercase font-semibold text-muted-foreground">Produttore {i + 1}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{e.perc}%</span>
+                            {e.isAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>}
+                          </div>
+                          <div className="text-sm font-semibold truncate">{e.name}</div>
+                        </div>
                       </div>
-                      <div className="text-sm font-semibold truncate">{commName}</div>
+                    ))}
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-950/20 border border-amber-200">
+                      <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] uppercase font-semibold text-muted-foreground">Quota Agenzia (residuo)</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-mono">{consulPerc}%</span>
+                        </div>
+                        <div className="text-sm font-semibold truncate">Consulbrokers SPA</div>
+                      </div>
                     </div>
                   </div>
 
@@ -2354,26 +2343,41 @@ const TitoloDetail = () => {
 
       {/* IMPORTI */}
       {(() => {
-        // Helper di split provvigioni riusato nella sezione Importi
-        const percComm = t.percentuale_commerciale ?? 100;
-        const anagComm: any = (t as any).anagrafica_commerciale;
-        const anagCommName = anagComm
-          ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
-          : null;
-        const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
-        const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
-        const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
-        const splitFor = (provv: number | null | undefined) => {
-          if (provv == null) return { comm: 0, agency: 0, total: 0 };
-          if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
-          const comm = provv * percComm / 100;
-          return { comm, agency: provv - comm, total: provv };
-        };
-        const renderSplitImporti = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
-          const provv = s.total;
-          const pctComm = commercialeIsAdmin ? 0 : percComm;
-          const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
+        // Helper di split provvigioni multi-produttore riusato nella sezione Importi
+        type EffSplit = { name: string; perc: number; isAdmin: boolean };
+        const effective: EffSplit[] = (titoloSplits && titoloSplits.length > 0)
+          ? titoloSplits.map((s: any) => {
+              const a = s.anagrafica;
+              const name = a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : "—";
+              return {
+                name,
+                perc: Number(s.percentuale) || 0,
+                isAdmin: !!adminAnagraficaId && s.anagrafica_commerciale_id === adminAnagraficaId,
+              };
+            })
+          : ((t as any).anagrafica_commerciale_id ? [{
+              name: (() => {
+                const a: any = (t as any).anagrafica_commerciale;
+                return a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : (t.produttore_nome || "—");
+              })(),
+              perc: t.percentuale_commerciale ?? 100,
+              isAdmin: !!adminAnagraficaId && (t as any).anagrafica_commerciale_id === adminAnagraficaId,
+            }] : []);
+        const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
+        const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+
+        const renderSplitImporti = (title: string, provv: number | null | undefined, accent: "teal" | "amber") => {
           if (provv == null || provv === 0) return null;
+          // Importi per produttore + residuo agenzia
+          const rows = effective.map(e => ({
+            name: e.name,
+            pct: e.perc,
+            importo: Math.round((provv * e.perc) / 100 * 100) / 100,
+            isAdmin: e.isAdmin,
+          }));
+          const importoConsulResiduo = Math.round((provv * consulPerc) / 100 * 100) / 100;
+          // Quota economica admin = residuo + somme delle righe isAdmin (statistiche)
+          const adminEcon = importoConsulResiduo + rows.filter(r => r.isAdmin).reduce((a, r) => a + r.importo, 0);
           return (
             <div className="rounded-lg border bg-card p-3 space-y-2 mt-3">
               <div className="flex items-center justify-between">
@@ -2381,26 +2385,33 @@ const TitoloDetail = () => {
                 <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
               </div>
               <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
+                {rows.map((r, i) => (
+                  <div key={i} className="bg-teal-600" style={{ width: `${r.pct}%`, opacity: 1 - i * 0.15 }} />
+                ))}
                 <div className="bg-amber-500 flex-1" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
-                  <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
-                  <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 min-w-0">
+              <div className="grid grid-cols-1 gap-1 text-xs">
+                {rows.map((r, i) => (
+                  <div key={i} className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                    <span className="text-muted-foreground truncate">
+                      {r.name} <span className="opacity-60">({r.pct}%)</span>
+                      {r.isAdmin && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-800">stat</span>}
+                    </span>
+                    <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(r.importo)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5 min-w-0 pt-1 border-t mt-1">
                   <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                  <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
-                  <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
+                  <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({consulPerc}%)</span></span>
+                  <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(adminEcon)}</span>
                 </div>
               </div>
             </div>
           );
         };
-        const sFirma = splitFor(t.provvigioni_firma);
-        const sQui = splitFor(t.provvigioni_quietanza);
+        const sFirma = t.provvigioni_firma;
+        const sQui = t.provvigioni_quietanza;
         return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
