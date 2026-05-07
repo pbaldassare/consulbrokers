@@ -382,8 +382,7 @@ const TitoloDetail = () => {
   const [editingContratto, setEditingContratto] = useState(false);
   const [contrattoForm, setContrattoForm] = useState({
     cig_rif: "",
-    vincolo: "",
-    targa_telaio: "",
+    vincolo_attivo: false,
     descrizione_polizza: "",
     prodotto_nome: "",
     specialist: "",
