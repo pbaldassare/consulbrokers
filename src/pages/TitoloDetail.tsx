@@ -2538,6 +2538,7 @@ const TitoloDetail = () => {
                   } else toast.error("Errore aggiornamento provvigioni");
                 }}
               />
+              {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
             </div>
           </div>
         )}
