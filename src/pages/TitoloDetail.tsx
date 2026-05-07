@@ -258,9 +258,15 @@ const TitoloDetail = () => {
     giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
   });
 
-  // --- Commerciale edit state ---
+  // --- Commerciale split state (multi-produttore) ---
+  type SplitRow = {
+    id?: string;
+    anagrafica_commerciale_id: string | null;
+    commerciale_user_id: string | null;
+    percentuale: number;
+  };
   const [editingComm, setEditingComm] = useState(false);
-  const [commForm, setCommForm] = useState({ anagrafica_commerciale_id: "" as string | null, percentuale_commerciale: 100 });
+  const [splitsForm, setSplitsForm] = useState<SplitRow[]>([]);
 
   const { data: anagraficheComm = [] } = useQuery({
     queryKey: ["anagrafiche-commerciali"],
@@ -280,46 +286,119 @@ const TitoloDetail = () => {
     enabled: editingComm,
   });
 
+  // Carica split correnti del titolo
+  const { data: titoloSplits = [] } = useQuery({
+    queryKey: ["titolo-splits", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("titoli_split_commerciali" as any)
+        .select("id, anagrafica_commerciale_id, commerciale_user_id, percentuale, ordine, anagrafica:anagrafiche_professionali!titoli_split_commerciali_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome, percentuale_base)")
+        .eq("titolo_id", id!)
+        .order("ordine", { ascending: true });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!id,
+  });
+
   const startEditComm = () => {
-    if (titolo) {
-      setCommForm({
-        anagrafica_commerciale_id: (titolo as any).anagrafica_commerciale_id ?? null,
-        percentuale_commerciale: titolo.percentuale_commerciale ?? 100,
-      });
+    if (titoloSplits && titoloSplits.length > 0) {
+      setSplitsForm(titoloSplits.map((s: any) => ({
+        id: s.id,
+        anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+        commerciale_user_id: s.commerciale_user_id,
+        percentuale: Number(s.percentuale) || 0,
+      })));
+    } else if (titolo && (titolo as any).anagrafica_commerciale_id) {
+      setSplitsForm([{
+        anagrafica_commerciale_id: (titolo as any).anagrafica_commerciale_id,
+        commerciale_user_id: (titolo as any).commerciale_id ?? null,
+        percentuale: titolo.percentuale_commerciale ?? 100,
+      }]);
+    } else {
+      setSplitsForm([]);
     }
     setEditingComm(true);
   };
 
   const saveCommMutation = useMutation({
     mutationFn: async () => {
-      // Determina il nome leggibile da scrivere su produttore_nome (campo testo legacy usato in molte viste)
+      const cleaned = splitsForm.filter(s => s.anagrafica_commerciale_id && s.percentuale > 0);
+      const sum = cleaned.reduce((acc, s) => acc + Number(s.percentuale || 0), 0);
+      if (sum > 100.001) throw new Error(`Somma percentuali (${sum}%) supera 100.`);
+      const ids = new Set(cleaned.map(s => s.anagrafica_commerciale_id));
+      if (ids.size !== cleaned.length) throw new Error("Produttori duplicati nello split.");
+
+      const currentById = new Map<string, any>(titoloSplits.map((s: any) => [s.id, s]));
+      const formIds = new Set(cleaned.filter(s => s.id).map(s => s.id!));
+
+      const toDelete = titoloSplits.filter((s: any) => !formIds.has(s.id));
+      for (const s of toDelete) {
+        const { error } = await supabase.from("titoli_split_commerciali" as any).delete().eq("id", s.id);
+        if (error) throw error;
+      }
+
+      for (let i = 0; i < cleaned.length; i++) {
+        const s = cleaned[i];
+        if (s.id) {
+          const cur = currentById.get(s.id);
+          if (!cur) continue;
+          if (Number(cur.percentuale) !== Number(s.percentuale)
+              || cur.anagrafica_commerciale_id !== s.anagrafica_commerciale_id
+              || cur.commerciale_user_id !== s.commerciale_user_id
+              || cur.ordine !== i) {
+            const { error } = await supabase
+              .from("titoli_split_commerciali" as any)
+              .update({
+                anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+                commerciale_user_id: s.commerciale_user_id,
+                percentuale: s.percentuale,
+                ordine: i,
+              } as any)
+              .eq("id", s.id);
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await supabase
+            .from("titoli_split_commerciali" as any)
+            .insert({
+              titolo_id: id!,
+              anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+              commerciale_user_id: s.commerciale_user_id,
+              percentuale: s.percentuale,
+              ordine: i,
+            } as any);
+          if (error) throw error;
+        }
+      }
+
+      // Sync legacy fields su titoli (primo split = principale)
+      const primary = cleaned[0];
       let nomeLeggibile: string | null = null;
-      if (commForm.anagrafica_commerciale_id) {
-        const sel = (anagraficheComm as any[]).find((a: any) => a.value === commForm.anagrafica_commerciale_id);
+      if (primary?.anagrafica_commerciale_id) {
+        const sel = (anagraficheComm as any[]).find((a: any) => a.value === primary.anagrafica_commerciale_id);
         nomeLeggibile = sel?.label || null;
       }
-      const { data, error } = await supabase
+      const { error: tErr } = await supabase
         .from("titoli")
         .update({
-          anagrafica_commerciale_id: commForm.anagrafica_commerciale_id || null,
-          percentuale_commerciale: commForm.percentuale_commerciale,
+          anagrafica_commerciale_id: primary?.anagrafica_commerciale_id ?? null,
+          commerciale_id: primary?.commerciale_user_id ?? null,
+          percentuale_commerciale: primary?.percentuale ?? null,
           produttore_nome: nomeLeggibile,
         } as any)
-        .eq("id", id!)
-        .select("id");
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error("Nessuna riga aggiornata: verifica i permessi (RLS).");
-      }
-      // Ricalcola provvigioni se incassato
+        .eq("id", id!);
+      if (tErr) throw tErr;
+
       if (titolo?.stato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["titolo-splits", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
-      toast.success("Commerciale aggiornato");
+      toast.success("Split commerciali aggiornati");
       setEditingComm(false);
     },
     onError: (e: any) => toast.error(e.message),
