@@ -2120,18 +2120,35 @@ const TitoloDetail = () => {
                 {(() => {
                   const sel = anagraficheComm.find((a: any) => a.value === commForm.anagrafica_commerciale_id);
                   const def = sel?.percentuale_base;
-                  if (def == null) return null;
-                  if (Number(def) === Number(commForm.percentuale_commerciale)) {
-                    return <p className="text-[11px] text-muted-foreground mt-1">Default anagrafica: {def}%</p>;
-                  }
+                  const cur = Number(commForm.percentuale_commerciale);
+                  const invalid = !Number.isFinite(cur) || cur < 0 || cur > 100;
+                  const agency = Math.max(0, 100 - (Number.isFinite(cur) ? cur : 0));
                   return (
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Default anagrafica: <strong>{def}%</strong>{" "}
-                      <button type="button" className="text-teal-700 underline hover:no-underline"
-                        onClick={() => setCommForm({ ...commForm, percentuale_commerciale: Number(def) })}>
-                        Reset
-                      </button>
-                    </p>
+                    <div className="mt-1 space-y-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        Split risultante: <strong>{Number.isFinite(cur) ? cur : 0}%</strong> commerciale + <strong>{agency}%</strong> Consulbrokers SPA = 100%.
+                      </p>
+                      {invalid && (
+                        <p className="text-[11px] text-red-600">⚠ Valore non valido: deve essere tra 0 e 100.</p>
+                      )}
+                      {def != null && (
+                        Number(def) === cur ? (
+                          <p className="text-[11px] text-muted-foreground">Default anagrafica: {def}% ✓</p>
+                        ) : (
+                          <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                            ⚠ Override: default anagrafica <strong>{def}%</strong>.{" "}
+                            <button type="button" className="text-teal-700 underline hover:no-underline"
+                              onClick={() => {
+                                if (window.confirm(`Reimpostare la % commerciale al default dell'anagrafica (${def}%)?`)) {
+                                  setCommForm({ ...commForm, percentuale_commerciale: Number(def) });
+                                }
+                              }}>
+                              Ripristina default
+                            </button>
+                          </p>
+                        )
+                      )}
+                    </div>
                   );
                 })()}
               </div>
