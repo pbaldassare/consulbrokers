@@ -6237,6 +6237,7 @@ export type Database = {
           updated_at: string | null
           valuta: string | null
           vincolo: string | null
+          vincolo_attivo: boolean
         }
         Insert: {
           addizionali?: number | null
@@ -6333,6 +6334,7 @@ export type Database = {
           updated_at?: string | null
           valuta?: string | null
           vincolo?: string | null
+          vincolo_attivo?: boolean
         }
         Update: {
           addizionali?: number | null
@@ -6429,6 +6431,7 @@ export type Database = {
           updated_at?: string | null
           valuta?: string | null
           vincolo?: string | null
+          vincolo_attivo?: boolean
         }
         Relationships: [
           {
