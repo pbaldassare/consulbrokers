@@ -2314,12 +2314,7 @@ const TitoloDetail = () => {
                   {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
-                {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
-              </div>
-            )}
+            ) : null}
           </>
         ) : (
           <div className="space-y-4">
