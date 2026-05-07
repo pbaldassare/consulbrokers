@@ -2435,7 +2435,7 @@ const TitoloDetail = () => {
                   <div>
                     <Label className="text-xs">Totale (calcolato)</Label>
                     <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted text-sm font-mono">
-                      {suggestedLordoQuietanza != null ? `€ ${suggestedLordoQuietanza.toFixed(2)}` : "—"}
+                      {fmtEuro(suggestedLordoQuietanza)}
                     </div>
                   </div>
                   <div>
