@@ -2401,7 +2401,7 @@ const TitoloDetail = () => {
                           setLordoFirmaTouched(false);
                           setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) });
                         }}>
-                        ⚠ Valore manuale ≠ calcolato (€ {suggestedLordoFirma.toFixed(2)}) — clicca per riallineare
+                        ⚠ Valore manuale ≠ calcolato ({fmtEuro(suggestedLordoFirma)}) — clicca per riallineare
                       </button>
                     ) : null}
                   </div>
