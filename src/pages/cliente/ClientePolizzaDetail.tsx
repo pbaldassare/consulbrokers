@@ -28,7 +28,7 @@ const ClientePolizzaDetail = () => {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      supabase.from("titoli").select("*, agenzie(nome), rami(descrizione)").eq("id", id).maybeSingle(),
+      supabase.from("titoli").select("*, compagnie(nome), rami(descrizione)").eq("id", id).maybeSingle(),
       supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id),
     ]).then(([tRes, dRes]) => {
       setTitolo(tRes.data);
