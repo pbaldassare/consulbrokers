@@ -2401,7 +2401,7 @@ const TitoloDetail = () => {
                           setLordoFirmaTouched(false);
                           setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) });
                         }}>
-                        ⚠ Valore manuale ≠ calcolato (€ {suggestedLordoFirma.toFixed(2)}) — clicca per riallineare
+                        ⚠ Valore manuale ≠ calcolato ({fmtEuro(suggestedLordoFirma)}) — clicca per riallineare
                       </button>
                     ) : null}
                   </div>
@@ -2435,7 +2435,7 @@ const TitoloDetail = () => {
                   <div>
                     <Label className="text-xs">Totale (calcolato)</Label>
                     <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted text-sm font-mono">
-                      {suggestedLordoQuietanza != null ? `€ ${suggestedLordoQuietanza.toFixed(2)}` : "—"}
+                      {fmtEuro(suggestedLordoQuietanza)}
                     </div>
                   </div>
                   <div>
@@ -2951,7 +2951,7 @@ const TitoloDetail = () => {
                     <TableRow key={p.id}>
                       <TableCell>{p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—"}</TableCell>
                       <TableCell className="font-mono">{p.percentuale}%</TableCell>
-                      <TableCell className="font-mono">€ {p.importo_provvigione?.toFixed(2)}</TableCell>
+                      <TableCell className="font-mono">{fmtEuro(p.importo_provvigione)}</TableCell>
                       <TableCell>{p.calcolata_il ? format(new Date(p.calcolata_il), "dd/MM/yyyy HH:mm", { locale: it }) : "—"}</TableCell>
                       <TableCell><Badge variant={p.pagata ? "default" : "secondary"}>{p.pagata ? "Sì" : "No"}</Badge></TableCell>
                     </TableRow>
