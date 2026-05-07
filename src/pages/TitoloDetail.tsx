@@ -1299,18 +1299,18 @@ const TitoloDetail = () => {
 
       {/* Dove sono salvati i dati — sezione informativa sulla persistenza delle operazioni ciclo vita */}
       <Collapsible>
-        <Card>
+        <Card className="border-l-4 border-l-teal-600 shadow-sm">
           <CollapsibleTrigger asChild>
-            <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardTitle className="text-sm flex items-center justify-between">
+            <CardHeader className="pb-3 cursor-pointer bg-teal-50/60 dark:bg-teal-950/20 border-b hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-colors">
+              <CardTitle className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100 flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <Database className="w-4 h-4 text-muted-foreground" />
+                  <Database className="w-4 h-4 text-teal-700 dark:text-teal-300" />
                   Dove sono salvati i dati
                   <span className="text-xs font-normal text-muted-foreground">
                     (reference tabelle aggiornate per ogni operazione)
                   </span>
                 </span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-teal-700/70 dark:text-teal-300/70 transition-transform data-[state=open]:rotate-180" />
               </CardTitle>
             </CardHeader>
           </CollapsibleTrigger>
