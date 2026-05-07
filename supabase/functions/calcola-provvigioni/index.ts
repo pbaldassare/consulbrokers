@@ -55,65 +55,71 @@ Deno.serve(async (req) => {
 
     const provvQuietanza = titolo.provvigioni_quietanza;
 
-    // === PRIMARY PATH: use provvigioni_quietanza from titolo ===
+    // === PRIMARY PATH: use provvigioni_quietanza from titolo + multi-split ===
     if (provvQuietanza != null && provvQuietanza > 0) {
-      const percComm = titolo.percentuale_commerciale ?? 100;
-      const hasCommerciale = titolo.anagrafica_commerciale_id != null || titolo.commerciale_id != null;
-      const isAdminOnly = !hasCommerciale || percComm >= 100;
-
-      // Special case: commerciale IS the admin (Consulbrokers SPA) → split is statistical only
-      const commercialeIsAdmin =
-        adminAnagraficaId != null &&
-        titolo.anagrafica_commerciale_id != null &&
-        titolo.anagrafica_commerciale_id === adminAnagraficaId;
-
-      const commercialeUserId = titolo.commerciale_id;
-      const rows: any[] = [];
       const totale = Math.round(provvQuietanza * 100) / 100;
+      const rows: any[] = [];
 
-      if (!isAdminOnly && percComm > 0) {
-        const importoComm = Math.round((provvQuietanza * percComm) / 100 * 100) / 100;
-        const importoAdmin = Math.round((provvQuietanza - importoComm) * 100) / 100;
+      // Carica split multipli; fallback al singolo commerciale legacy
+      const { data: splits } = await supabaseAdmin
+        .from("titoli_split_commerciali")
+        .select("anagrafica_commerciale_id, commerciale_user_id, percentuale")
+        .eq("titolo_id", titolo_id)
+        .order("ordine", { ascending: true });
 
-        // Commerciale row — solo_statistico=true if commerciale == admin (would double-count)
+      let effectiveSplits: Array<{ anagrafica_commerciale_id: string | null; commerciale_user_id: string | null; percentuale: number }> = [];
+      if (splits && splits.length > 0) {
+        effectiveSplits = splits.map((s: any) => ({
+          anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+          commerciale_user_id: s.commerciale_user_id,
+          percentuale: Number(s.percentuale) || 0,
+        }));
+      } else if (titolo.anagrafica_commerciale_id || titolo.commerciale_id) {
+        const pc = Number(titolo.percentuale_commerciale ?? 100);
+        if (pc > 0) {
+          effectiveSplits = [{
+            anagrafica_commerciale_id: titolo.anagrafica_commerciale_id ?? null,
+            commerciale_user_id: titolo.commerciale_id ?? null,
+            percentuale: Math.min(pc, 100),
+          }];
+        }
+      }
+
+      const sumPerc = effectiveSplits.reduce((acc, s) => acc + s.percentuale, 0);
+      const percAdmin = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+
+      // Righe commerciali
+      for (const s of effectiveSplits) {
+        const importo = Math.round((totale * s.percentuale) / 100 * 100) / 100;
+        const isAdmin = adminAnagraficaId != null && s.anagrafica_commerciale_id === adminAnagraficaId;
         rows.push({
           titolo_id,
-          user_id: commercialeUserId || null,
-          percentuale: percComm,
-          importo_provvigione: importoComm,
+          user_id: s.commerciale_user_id || null,
+          percentuale: s.percentuale,
+          importo_provvigione: importo,
           tipo_destinatario: "commerciale",
-          solo_statistico: commercialeIsAdmin,
+          solo_statistico: isAdmin, // se commerciale == admin, la quota economica va sulla riga admin sotto
         });
+      }
 
-        // Admin (Consulbrokers SPA) row — gets the residual quota.
-        // If commerciale == admin, this row carries the FULL economic value (totale)
-        // and the commerciale row above is only statistical.
-        if (commercialeIsAdmin) {
-          rows.push({
-            titolo_id,
-            user_id: null,
-            percentuale: 100,
-            importo_provvigione: totale,
-            tipo_destinatario: "admin",
-            solo_statistico: false,
-          });
-        } else if (importoAdmin > 0) {
-          rows.push({
-            titolo_id,
-            user_id: null,
-            percentuale: 100 - percComm,
-            importo_provvigione: importoAdmin,
-            tipo_destinatario: "admin",
-            solo_statistico: false,
-          });
-        }
-      } else {
-        // No commerciale or 100% to admin — everything goes to admin
+      // Riga admin = residuo + (somma quote dei commerciali == admin, già contate come statistiche sopra)
+      let importoAdmin = Math.round((totale * percAdmin) / 100 * 100) / 100;
+      const adminCommercialeRows = effectiveSplits.filter(
+        (s) => adminAnagraficaId != null && s.anagrafica_commerciale_id === adminAnagraficaId
+      );
+      const adminCommercialeImporto = adminCommercialeRows.reduce(
+        (acc, s) => acc + Math.round((totale * s.percentuale) / 100 * 100) / 100,
+        0
+      );
+      const importoAdminTotale = Math.round((importoAdmin + adminCommercialeImporto) * 100) / 100;
+      const percAdminTotale = Math.round((percAdmin + adminCommercialeRows.reduce((a, s) => a + s.percentuale, 0)) * 100) / 100;
+
+      if (importoAdminTotale > 0 || effectiveSplits.length === 0) {
         rows.push({
           titolo_id,
           user_id: null,
-          percentuale: 100,
-          importo_provvigione: totale,
+          percentuale: effectiveSplits.length === 0 ? 100 : percAdminTotale,
+          importo_provvigione: effectiveSplits.length === 0 ? totale : importoAdminTotale,
           tipo_destinatario: "admin",
           solo_statistico: false,
         });

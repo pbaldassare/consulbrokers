@@ -258,9 +258,15 @@ const TitoloDetail = () => {
     giorni_presentazione: 0, tipo_lettera_regolazione: "", libro_matricola: "",
   });
 
-  // --- Commerciale edit state ---
+  // --- Commerciale split state (multi-produttore) ---
+  type SplitRow = {
+    id?: string;
+    anagrafica_commerciale_id: string | null;
+    commerciale_user_id: string | null;
+    percentuale: number;
+  };
   const [editingComm, setEditingComm] = useState(false);
-  const [commForm, setCommForm] = useState({ anagrafica_commerciale_id: "" as string | null, percentuale_commerciale: 100 });
+  const [splitsForm, setSplitsForm] = useState<SplitRow[]>([]);
 
   const { data: anagraficheComm = [] } = useQuery({
     queryKey: ["anagrafiche-commerciali"],
@@ -280,46 +286,119 @@ const TitoloDetail = () => {
     enabled: editingComm,
   });
 
+  // Carica split correnti del titolo
+  const { data: titoloSplits = [] } = useQuery({
+    queryKey: ["titolo-splits", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("titoli_split_commerciali" as any)
+        .select("id, anagrafica_commerciale_id, commerciale_user_id, percentuale, ordine, anagrafica:anagrafiche_professionali!titoli_split_commerciali_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome, percentuale_base)")
+        .eq("titolo_id", id!)
+        .order("ordine", { ascending: true });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!id,
+  });
+
   const startEditComm = () => {
-    if (titolo) {
-      setCommForm({
-        anagrafica_commerciale_id: (titolo as any).anagrafica_commerciale_id ?? null,
-        percentuale_commerciale: titolo.percentuale_commerciale ?? 100,
-      });
+    if (titoloSplits && titoloSplits.length > 0) {
+      setSplitsForm(titoloSplits.map((s: any) => ({
+        id: s.id,
+        anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+        commerciale_user_id: s.commerciale_user_id,
+        percentuale: Number(s.percentuale) || 0,
+      })));
+    } else if (titolo && (titolo as any).anagrafica_commerciale_id) {
+      setSplitsForm([{
+        anagrafica_commerciale_id: (titolo as any).anagrafica_commerciale_id,
+        commerciale_user_id: (titolo as any).commerciale_id ?? null,
+        percentuale: titolo.percentuale_commerciale ?? 100,
+      }]);
+    } else {
+      setSplitsForm([]);
     }
     setEditingComm(true);
   };
 
   const saveCommMutation = useMutation({
     mutationFn: async () => {
-      // Determina il nome leggibile da scrivere su produttore_nome (campo testo legacy usato in molte viste)
+      const cleaned = splitsForm.filter(s => s.anagrafica_commerciale_id && s.percentuale > 0);
+      const sum = cleaned.reduce((acc, s) => acc + Number(s.percentuale || 0), 0);
+      if (sum > 100.001) throw new Error(`Somma percentuali (${sum}%) supera 100.`);
+      const ids = new Set(cleaned.map(s => s.anagrafica_commerciale_id));
+      if (ids.size !== cleaned.length) throw new Error("Produttori duplicati nello split.");
+
+      const currentById = new Map<string, any>(titoloSplits.map((s: any) => [s.id, s]));
+      const formIds = new Set(cleaned.filter(s => s.id).map(s => s.id!));
+
+      const toDelete = titoloSplits.filter((s: any) => !formIds.has(s.id));
+      for (const s of toDelete) {
+        const { error } = await supabase.from("titoli_split_commerciali" as any).delete().eq("id", s.id);
+        if (error) throw error;
+      }
+
+      for (let i = 0; i < cleaned.length; i++) {
+        const s = cleaned[i];
+        if (s.id) {
+          const cur = currentById.get(s.id);
+          if (!cur) continue;
+          if (Number(cur.percentuale) !== Number(s.percentuale)
+              || cur.anagrafica_commerciale_id !== s.anagrafica_commerciale_id
+              || cur.commerciale_user_id !== s.commerciale_user_id
+              || cur.ordine !== i) {
+            const { error } = await supabase
+              .from("titoli_split_commerciali" as any)
+              .update({
+                anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+                commerciale_user_id: s.commerciale_user_id,
+                percentuale: s.percentuale,
+                ordine: i,
+              } as any)
+              .eq("id", s.id);
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await supabase
+            .from("titoli_split_commerciali" as any)
+            .insert({
+              titolo_id: id!,
+              anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+              commerciale_user_id: s.commerciale_user_id,
+              percentuale: s.percentuale,
+              ordine: i,
+            } as any);
+          if (error) throw error;
+        }
+      }
+
+      // Sync legacy fields su titoli (primo split = principale)
+      const primary = cleaned[0];
       let nomeLeggibile: string | null = null;
-      if (commForm.anagrafica_commerciale_id) {
-        const sel = (anagraficheComm as any[]).find((a: any) => a.value === commForm.anagrafica_commerciale_id);
+      if (primary?.anagrafica_commerciale_id) {
+        const sel = (anagraficheComm as any[]).find((a: any) => a.value === primary.anagrafica_commerciale_id);
         nomeLeggibile = sel?.label || null;
       }
-      const { data, error } = await supabase
+      const { error: tErr } = await supabase
         .from("titoli")
         .update({
-          anagrafica_commerciale_id: commForm.anagrafica_commerciale_id || null,
-          percentuale_commerciale: commForm.percentuale_commerciale,
+          anagrafica_commerciale_id: primary?.anagrafica_commerciale_id ?? null,
+          commerciale_id: primary?.commerciale_user_id ?? null,
+          percentuale_commerciale: primary?.percentuale ?? null,
           produttore_nome: nomeLeggibile,
         } as any)
-        .eq("id", id!)
-        .select("id");
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error("Nessuna riga aggiornata: verifica i permessi (RLS).");
-      }
-      // Ricalcola provvigioni se incassato
+        .eq("id", id!);
+      if (tErr) throw tErr;
+
       if (titolo?.stato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
+      queryClient.invalidateQueries({ queryKey: ["titolo-splits", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
-      toast.success("Commerciale aggiornato");
+      toast.success("Split commerciali aggiornati");
       setEditingComm(false);
     },
     onError: (e: any) => toast.error(e.message),
@@ -2093,152 +2172,159 @@ const TitoloDetail = () => {
       {/* COMMERCIALE & SPLIT */}
       <SectionCollapsible title="Commerciale & Provvigioni" icon={Percent}>
         {editingComm ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs">Commerciale</Label>
-                <SearchableSelect
-                  options={[{ value: "__none__", label: "— Nessuno (Sede) —" }, ...anagraficheComm]}
-                  value={commForm.anagrafica_commerciale_id || "__none__"}
-                  onValueChange={(v) => {
-                    const sel = anagraficheComm.find((a: any) => a.value === v);
-                    setCommForm({
-                      anagrafica_commerciale_id: v === "__none__" ? null : v,
-                      percentuale_commerciale: sel ? sel.percentuale_base || 100 : 100,
-                    });
-                  }}
-                  placeholder="Seleziona commerciale..."
-                />
-              </div>
-              <div>
-                <Label className="text-xs">% Commerciale</Label>
-                <Input
-                  type="number" min={0} max={100}
-                  value={commForm.percentuale_commerciale}
-                  onChange={(e) => setCommForm({ ...commForm, percentuale_commerciale: Number(e.target.value) })}
-                />
-                {(() => {
-                  const sel = anagraficheComm.find((a: any) => a.value === commForm.anagrafica_commerciale_id);
-                  const def = sel?.percentuale_base;
-                  const cur = Number(commForm.percentuale_commerciale);
-                  const invalid = !Number.isFinite(cur) || cur < 0 || cur > 100;
-                  const agency = Math.max(0, 100 - (Number.isFinite(cur) ? cur : 0));
-                  return (
-                    <div className="mt-1 space-y-1">
-                      <p className="text-[11px] text-muted-foreground">
-                        Split risultante: <strong>{Number.isFinite(cur) ? cur : 0}%</strong> commerciale + <strong>{agency}%</strong> Consulbrokers SPA = 100%.
-                      </p>
-                      {invalid && (
-                        <p className="text-[11px] text-red-600">⚠ Valore non valido: deve essere tra 0 e 100.</p>
-                      )}
-                      {def != null && (
-                        Number(def) === cur ? (
-                          <p className="text-[11px] text-muted-foreground">Default anagrafica: {def}% ✓</p>
-                        ) : (
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                            ⚠ Override: default anagrafica <strong>{def}%</strong>.{" "}
-                            <button type="button" className="text-teal-700 underline hover:no-underline"
-                              onClick={() => {
-                                if (window.confirm(`Reimpostare la % commerciale al default dell'anagrafica (${def}%)?`)) {
-                                  setCommForm({ ...commForm, percentuale_commerciale: Number(def) });
-                                }
-                              }}>
-                              Ripristina default
-                            </button>
-                          </p>
-                        )
-                      )}
+          (() => {
+            const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
+            const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+            const overflow = sumPerc > 100.001;
+            const dupIds = (() => {
+              const seen = new Map<string, number>();
+              splitsForm.forEach(s => { if (s.anagrafica_commerciale_id) seen.set(s.anagrafica_commerciale_id, (seen.get(s.anagrafica_commerciale_id) || 0) + 1); });
+              return new Set([...seen.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+            })();
+            return (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  {splitsForm.length === 0 && (
+                    <div className="text-xs text-muted-foreground italic px-3 py-2 border rounded-md bg-muted/30">
+                      Nessun produttore — l'intera quota va a Consulbrokers SPA.
                     </div>
-                  );
-                })()}
+                  )}
+                  {splitsForm.map((row, idx) => {
+                    const sel = (anagraficheComm as any[]).find(a => a.value === row.anagrafica_commerciale_id);
+                    const def = sel?.percentuale_base;
+                    const isDup = row.anagrafica_commerciale_id && dupIds.has(row.anagrafica_commerciale_id);
+                    return (
+                      <div key={idx} className={cn("grid grid-cols-12 gap-2 items-end p-2 border rounded-md", isDup && "border-red-400 bg-red-50 dark:bg-red-950/20")}>
+                        <div className="col-span-12 md:col-span-7">
+                          <Label className="text-[11px]">Produttore</Label>
+                          <SearchableSelect
+                            options={anagraficheComm}
+                            value={row.anagrafica_commerciale_id || ""}
+                            onValueChange={(v) => {
+                              const a = (anagraficheComm as any[]).find(x => x.value === v);
+                              setSplitsForm(prev => prev.map((r, i) => i === idx ? {
+                                ...r,
+                                anagrafica_commerciale_id: v,
+                                percentuale: r.percentuale > 0 ? r.percentuale : (a?.percentuale_base || 0),
+                              } : r));
+                            }}
+                            placeholder="Seleziona produttore..."
+                          />
+                          {isDup && <p className="text-[10px] text-red-600 mt-0.5">Produttore duplicato</p>}
+                        </div>
+                        <div className="col-span-8 md:col-span-3">
+                          <Label className="text-[11px]">% Provvigione</Label>
+                          <Input
+                            type="number" min={0} max={100} step={0.01}
+                            value={row.percentuale}
+                            onChange={(e) => setSplitsForm(prev => prev.map((r, i) => i === idx ? { ...r, percentuale: Number(e.target.value) } : r))}
+                          />
+                          {def != null && Number(def) !== Number(row.percentuale) && (
+                            <button type="button" className="text-[10px] text-teal-700 underline hover:no-underline mt-0.5"
+                              onClick={() => setSplitsForm(prev => prev.map((r, i) => i === idx ? { ...r, percentuale: Number(def) } : r))}>
+                              Usa default ({def}%)
+                            </button>
+                          )}
+                        </div>
+                        <div className="col-span-4 md:col-span-2 flex justify-end">
+                          <Button size="sm" variant="ghost" type="button"
+                            onClick={() => setSplitsForm(prev => prev.filter((_, i) => i !== idx))}>
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Button size="sm" variant="outline" type="button"
+                  onClick={() => setSplitsForm(prev => [...prev, { anagrafica_commerciale_id: null, commerciale_user_id: null, percentuale: 0 }])}>
+                  + Aggiungi produttore
+                </Button>
+
+                <div className={cn("p-3 rounded-md border text-sm", overflow ? "border-red-400 bg-red-50 dark:bg-red-950/20 text-red-800" : "bg-muted/40")}>
+                  <div className="flex justify-between"><span>Totale produttori:</span> <strong className="font-mono tabular-nums">{sumPerc.toFixed(2)}%</strong></div>
+                  <div className="flex justify-between"><span>Consulbrokers SPA (residuo):</span> <strong className="font-mono tabular-nums">{consulPerc.toFixed(2)}%</strong></div>
+                  {overflow && <div className="text-xs mt-1">⚠ La somma supera 100% — riduci le percentuali per salvare.</div>}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => saveCommMutation.mutate()}
+                    disabled={saveCommMutation.isPending || overflow || dupIds.size > 0}>
+                    {saveCommMutation.isPending ? "Salvataggio..." : "Salva"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingComm(false)}>Annulla</Button>
+                </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => saveCommMutation.mutate()} disabled={saveCommMutation.isPending}>
-                {saveCommMutation.isPending ? "Salvataggio..." : "Salva"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setEditingComm(false)}>Annulla</Button>
-            </div>
-          </div>
+            );
+          })()
         ) : (
           <>
             {(() => {
-              const percComm = t.percentuale_commerciale ?? 100;
               const provvF = t.provvigioni_firma;
               const provvQ = t.provvigioni_quietanza;
-              const anagComm: any = (t as any).anagrafica_commerciale;
-              const anagCommName = anagComm
-                ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
-                : null;
-              const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
-              const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
-              const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
+              // Costruisci lista effettiva produttori (DB splits con fallback legacy)
+              type EffSplit = { id?: string; anagrafica_commerciale_id: string | null; name: string; perc: number; isAdmin: boolean };
+              const effective: EffSplit[] = (titoloSplits && titoloSplits.length > 0)
+                ? titoloSplits.map((s: any) => {
+                    const a = s.anagrafica;
+                    const name = a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : "—";
+                    return {
+                      id: s.id,
+                      anagrafica_commerciale_id: s.anagrafica_commerciale_id,
+                      name,
+                      perc: Number(s.percentuale) || 0,
+                      isAdmin: !!adminAnagraficaId && s.anagrafica_commerciale_id === adminAnagraficaId,
+                    };
+                  })
+                : ((t as any).anagrafica_commerciale_id ? [{
+                    anagrafica_commerciale_id: (t as any).anagrafica_commerciale_id,
+                    name: (() => {
+                      const a: any = (t as any).anagrafica_commerciale;
+                      return a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : (t.produttore_nome || "—");
+                    })(),
+                    perc: t.percentuale_commerciale ?? 100,
+                    isAdmin: !!adminAnagraficaId && (t as any).anagrafica_commerciale_id === adminAnagraficaId,
+                  }] : []);
 
-              const splitFor = (provv: number | null | undefined) => {
-                if (provv == null) return { comm: 0, agency: 0, total: 0 };
-                if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
-                const comm = provv * percComm / 100;
-                return { comm, agency: provv - comm, total: provv };
-              };
-              const sF = splitFor(provvF);
-              const sQ = splitFor(provvQ);
-              const totComm = sF.comm + sQ.comm;
-              const totAgency = sF.agency + sQ.agency;
-              const totGen = sF.total + sQ.total;
-
-              const renderSplit = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
-                const provv = s.total;
-                const pctComm = commercialeIsAdmin ? 0 : percComm;
-                const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
-                return (
-                  <div className="rounded-lg border bg-card p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className={cn("text-[11px] uppercase font-bold tracking-wide", accent === "teal" ? "text-teal-700 dark:text-teal-300" : "text-amber-700 dark:text-amber-300")}>{title}</span>
-                      <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
-                    </div>
-                    {provv > 0 && (
-                      <>
-                        <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                          <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
-                          <div className="bg-amber-500 flex-1" />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
-                            <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
-                            <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                            <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
-                            <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              };
+              const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
+              const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+              const hasAdminInList = effective.some(e => e.isAdmin);
 
               return (
                 <div className="space-y-3">
-                  {commercialeIsAdmin && (
+                  {hasAdminInList && (
                     <div className="text-xs px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900">
-                      Commerciale = Consulbrokers SPA (admin) → split <strong>solo statistico</strong>: l'intera quota va a Consulbrokers SPA.
+                      Uno dei produttori è Consulbrokers SPA (admin) → la sua quota è <strong>solo statistica</strong> e va sommata al residuo agenzia.
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-amber-50 dark:from-teal-950/30 dark:to-amber-950/30 border">
-                    <div className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
-                      <UserIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs uppercase font-semibold text-muted-foreground">Commerciale</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{percComm}%</span>
-                        {commercialeIsAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>}
+                  <div className="space-y-2">
+                    {effective.map((e, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-transparent dark:from-teal-950/20 border">
+                        <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0">
+                          <UserIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] uppercase font-semibold text-muted-foreground">Produttore {i + 1}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white font-mono">{e.perc}%</span>
+                            {e.isAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">statistico</span>}
+                          </div>
+                          <div className="text-sm font-semibold truncate">{e.name}</div>
+                        </div>
                       </div>
-                      <div className="text-sm font-semibold truncate">{commName}</div>
+                    ))}
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-950/20 border border-amber-200">
+                      <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] uppercase font-semibold text-muted-foreground">Quota Agenzia (residuo)</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-mono">{consulPerc}%</span>
+                        </div>
+                        <div className="text-sm font-semibold truncate">Consulbrokers SPA</div>
+                      </div>
                     </div>
                   </div>
 
@@ -2257,26 +2343,41 @@ const TitoloDetail = () => {
 
       {/* IMPORTI */}
       {(() => {
-        // Helper di split provvigioni riusato nella sezione Importi
-        const percComm = t.percentuale_commerciale ?? 100;
-        const anagComm: any = (t as any).anagrafica_commerciale;
-        const anagCommName = anagComm
-          ? (anagComm.ragione_sociale || `${anagComm.cognome || ""} ${anagComm.nome || ""}`.trim())
-          : null;
-        const commName = anagCommName || t.produttore_nome || (t.commerciale ? `${(t.commerciale as any).nome} ${(t.commerciale as any).cognome}` : "Sede");
-        const anagCommId = (t as any).anagrafica_commerciale_id as string | null;
-        const commercialeIsAdmin = !!adminAnagraficaId && !!anagCommId && anagCommId === adminAnagraficaId;
-        const splitFor = (provv: number | null | undefined) => {
-          if (provv == null) return { comm: 0, agency: 0, total: 0 };
-          if (commercialeIsAdmin) return { comm: 0, agency: provv, total: provv };
-          const comm = provv * percComm / 100;
-          return { comm, agency: provv - comm, total: provv };
-        };
-        const renderSplitImporti = (title: string, s: { comm: number; agency: number; total: number }, accent: "teal" | "amber") => {
-          const provv = s.total;
-          const pctComm = commercialeIsAdmin ? 0 : percComm;
-          const pctAgency = commercialeIsAdmin ? 100 : (100 - percComm);
+        // Helper di split provvigioni multi-produttore riusato nella sezione Importi
+        type EffSplit = { name: string; perc: number; isAdmin: boolean };
+        const effective: EffSplit[] = (titoloSplits && titoloSplits.length > 0)
+          ? titoloSplits.map((s: any) => {
+              const a = s.anagrafica;
+              const name = a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : "—";
+              return {
+                name,
+                perc: Number(s.percentuale) || 0,
+                isAdmin: !!adminAnagraficaId && s.anagrafica_commerciale_id === adminAnagraficaId,
+              };
+            })
+          : ((t as any).anagrafica_commerciale_id ? [{
+              name: (() => {
+                const a: any = (t as any).anagrafica_commerciale;
+                return a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : (t.produttore_nome || "—");
+              })(),
+              perc: t.percentuale_commerciale ?? 100,
+              isAdmin: !!adminAnagraficaId && (t as any).anagrafica_commerciale_id === adminAnagraficaId,
+            }] : []);
+        const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
+        const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+
+        const renderSplitImporti = (title: string, provv: number | null | undefined, accent: "teal" | "amber") => {
           if (provv == null || provv === 0) return null;
+          // Importi per produttore + residuo agenzia
+          const rows = effective.map(e => ({
+            name: e.name,
+            pct: e.perc,
+            importo: Math.round((provv * e.perc) / 100 * 100) / 100,
+            isAdmin: e.isAdmin,
+          }));
+          const importoConsulResiduo = Math.round((provv * consulPerc) / 100 * 100) / 100;
+          // Quota economica admin = residuo + somme delle righe isAdmin (statistiche)
+          const adminEcon = importoConsulResiduo + rows.filter(r => r.isAdmin).reduce((a, r) => a + r.importo, 0);
           return (
             <div className="rounded-lg border bg-card p-3 space-y-2 mt-3">
               <div className="flex items-center justify-between">
@@ -2284,26 +2385,33 @@ const TitoloDetail = () => {
                 <span className="font-mono tabular-nums text-sm font-semibold">{fmtEuro(provv)}</span>
               </div>
               <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                <div className="bg-teal-600" style={{ width: `${pctComm}%` }} />
+                {rows.map((r, i) => (
+                  <div key={i} className="bg-teal-600" style={{ width: `${r.pct}%`, opacity: 1 - i * 0.15 }} />
+                ))}
                 <div className="bg-amber-500 flex-1" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
-                  <span className="text-muted-foreground truncate">{commName} <span className="opacity-60">({pctComm}%)</span></span>
-                  <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(s.comm)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 min-w-0">
+              <div className="grid grid-cols-1 gap-1 text-xs">
+                {rows.map((r, i) => (
+                  <div key={i} className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                    <span className="text-muted-foreground truncate">
+                      {r.name} <span className="opacity-60">({r.pct}%)</span>
+                      {r.isAdmin && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-800">stat</span>}
+                    </span>
+                    <span className="ml-auto font-mono tabular-nums text-teal-900 dark:text-teal-200 font-semibold">{fmtEuro(r.importo)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5 min-w-0 pt-1 border-t mt-1">
                   <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                  <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({pctAgency}%)</span></span>
-                  <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(s.agency)}</span>
+                  <span className="text-muted-foreground truncate">Consulbrokers SPA <span className="opacity-60">({consulPerc}%)</span></span>
+                  <span className="ml-auto font-mono tabular-nums text-amber-900 dark:text-amber-200 font-semibold">{fmtEuro(adminEcon)}</span>
                 </div>
               </div>
             </div>
           );
         };
-        const sFirma = splitFor(t.provvigioni_firma);
-        const sQui = splitFor(t.provvigioni_quietanza);
+        const sFirma = t.provvigioni_firma;
+        const sQui = t.provvigioni_quietanza;
         return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">

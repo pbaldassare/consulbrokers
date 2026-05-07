@@ -1,55 +1,68 @@
 ## Obiettivo
 
-In `TitoloDetail` (sezione **Importi** del titolo RCA):
+Permettere a un titolo di avere **N produttori commerciali** che si dividono le provvigioni (Firma e Quietanza). Consulbrokers SPA prende sempre la quota residua (`100 - somma %`).
 
-1. **Spostare le due card di split provvigioni** ("Provvigioni alla Firma" / "Provvigioni Quietanza") **sotto le card di Composizione Premio** (`VociRcaCard` Firma e Quietanza), invece che in alto vicino al riepilogo Premi.
-2. **Correggere la percentuale di split**: oggi il titolo ha `percentuale_commerciale = 100` mentre l'anagrafica INTERFIDI SRL ha `percentuale_base = 40`. Allineare il dato e impedire che si rompa di nuovo.
+Esempio: INTERFIDI 30% + Studio X 20% → Consulbrokers 50%.
 
-Nessun cambio a logiche backend di calcolo provvigioni (`calcola-provvigioni`): si tocca solo la UI di TitoloDetail e si fa un piccolo fix dati.
+## 1. Database
 
-## Modifiche UI — `src/pages/TitoloDetail.tsx`
+Nuova tabella `titoli_split_commerciali` (1..N righe per titolo):
 
-### A. Riposizionare le card di split sotto le Composizioni RCA
+| campo | tipo | note |
+|---|---|---|
+| `titolo_id` | uuid FK titoli ON DELETE CASCADE | |
+| `anagrafica_commerciale_id` | uuid FK anagrafiche_professionali | obbligatorio |
+| `commerciale_user_id` | uuid FK profiles | opzionale (per produttori interni) |
+| `percentuale` | numeric(5,2) | 0 < x ≤ 100 |
+| `ordine` | int | per stabilità UI |
+| `note` | text | opzionale |
 
-Sezione "Importi", ramo Auto (righe ~2468–2547):
+**Vincoli:**
+- UNIQUE `(titolo_id, anagrafica_commerciale_id)` — niente duplicati
+- Trigger di validazione: somma percentuali per titolo_id ≤ 100 (blocco INSERT/UPDATE/DELETE se supera)
+- RLS: stessi permessi della tabella `titoli` (chi vede/modifica il titolo, vede/modifica gli split)
 
-- Mantenere invariate le due `VociRcaCard` (Firma + Quietanza).
-- **Subito dopo** ciascuna `VociRcaCard`, renderizzare la rispettiva card di split:
-  - Sotto `VociRcaCard tipoPremio="firma"` → `renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")`
-  - Sotto `VociRcaCard tipoPremio="quietanza"` → `renderSplitImporti("Provvigioni Quietanza", sQui, "amber")`
-- **Rimuovere** il blocco attuale che, per ramo Auto, mostra le due card di split affiancate in cima alla sezione Importi (righe ~2317–2322, ramo `isRamoAuto` view-mode).
-- Per i rami **non-Auto** lasciare tutto invariato (split mostrati accanto ai riepiloghi Firma/Quietanza, righe ~2293–2316).
-- Lo split in **"Commerciale & Provvigioni"** (sezione precedente) resta come oggi: hint testuale che le card di dettaglio sono in "Importi" sotto i premi.
+**Migrazione dati esistenti:**
+Per ogni titolo con `anagrafica_commerciale_id IS NOT NULL`, INSERT 1 riga split copiando `anagrafica_commerciale_id`, `commerciale_id`, `percentuale_commerciale`. I campi singoli su `titoli` rimangono come legacy (non rimossi, ma non più letti).
 
-### B. % Commerciale corretta
+## 2. Edge function `calcola-provvigioni`
 
-Sul titolo `076a48d8-…` il valore è `100` ma l'anagrafica ha `percentuale_base = 40`. Due interventi:
+Riscrittura della "PRIMARY PATH":
+1. Leggi `titoli_split_commerciali` per il titolo
+2. Per ogni riga: crea `provvigioni_generate` con `tipo_destinatario='commerciale'`, importo = `provvQuietanza * %/100`
+3. Calcola `percAdmin = 100 - somma(%)`. Se > 0, crea riga admin (Consulbrokers) con quel residuo
+4. Mantieni la regola `solo_statistico` se uno degli split = anagrafica admin
+5. Fallback: se nessuno split, usa il vecchio comportamento basato su `anagrafica_commerciale_id` legacy (per titoli non migrati)
 
-1. **Fix dato del titolo corrente** via migrazione SQL puntuale:
-   ```sql
-   UPDATE public.titoli t
-      SET percentuale_commerciale = ap.percentuale_base
-     FROM public.anagrafiche_professionali ap
-    WHERE t.anagrafica_commerciale_id = ap.id
-      AND t.id = '076a48d8-f31f-4911-8faf-0f680ff02672'
-      AND ap.percentuale_base IS NOT NULL;
-   ```
-   Non viene eseguito un update di massa per non alterare titoli già negoziati con override volontario.
+## 3. UI `TitoloDetail.tsx`
 
-2. **Hardening UI in edit "Commerciale & Provvigioni"** (righe ~2095–2128):
-   - Quando si seleziona un commerciale, se l'anagrafica espone `percentuale_base`, prefillare `percentuale_commerciale` con quel valore (già fatto). Aggiungere una **pill informativa** sotto l'input `% Commerciale` del tipo `Default anagrafica: 40% — Reset` con un piccolo bottone link che reimposta il valore al `percentuale_base` corrente. Nessun salvataggio automatico.
+**Sezione "Commerciale & Provvigioni" (edit mode):**
+- Sostituisco l'attuale singola riga (anagrafica + %) con un **elenco righe** dinamico
+- Per ogni riga: SearchableSelect anagrafica + input % + bottone rimuovi
+- Pulsante "+ Aggiungi produttore"
+- Riepilogo sotto: `Totale produttori: X% — Consulbrokers SPA: Y% (residuo)`
+- Validazione live: somma > 100 → riga rossa, salvataggio bloccato
+- Per ogni anagrafica selezionata mostro hint `Default: 40%` con bottone "Usa default"
 
-Nessun trigger DB nuovo: la `% Commerciale` resta editabile (override consapevole) ma l'utente vede chiaramente il default dell'anagrafica.
+**View mode + cards split (sotto VociRcaCard Firma/Quietanza):**
+- `renderSplitImporti()` ora itera su tutte le righe split + aggiunge la riga Consulbrokers residua
+- Layout: una riga per produttore con nome, %, importo €; ultima riga Consulbrokers in evidenza
 
-## Risultato atteso
+**Persistenza:**
+- Su salvataggio titolo: diff sulla lista split → INSERT/UPDATE/DELETE su `titoli_split_commerciali`
+- Trigger DB blocca eventuali somme > 100 lato server
 
-- In sezione **Importi** del titolo RCA visualizzato:
-  - Card "Composizione Premio RCA — Firma" → subito sotto, card teal "Provvigioni alla Firma" con split **40% INTERFIDI SRL / 60% Consulbrokers SPA**.
-  - Card "Composizione Premio RCA — Quietanza" → subito sotto, card amber "Provvigioni Quietanza" con stesso split.
-- Sezione "Commerciale & Provvigioni" mostra `40%` sul badge accanto al nome commerciale.
-- Tutti gli importi continuano a usare `fmtEuro` (formato italiano con € e separatori).
+## 4. Aree collegate da verificare (read-only, niente modifiche logica)
 
-## File toccati
+- `cfo_*` RPC: usano `produttore_nome` su `titoli`, non toccati
+- Report provvigioni: già leggono `provvigioni_generate` riga per riga → funziona automaticamente con N righe
+- Estratti conto produttore: idem, già per-riga
 
-- `src/pages/TitoloDetail.tsx` (UI riordino + reset pill)
-- 1 migrazione SQL puntuale per fix `percentuale_commerciale` del titolo corrente
+## 5. Memoria
+
+Aggiorno `mem://insurance/policy-commission-split` per documentare il nuovo modello multi-produttore con tabella `titoli_split_commerciali` come unica verità.
+
+## Out-of-scope
+
+- Non rimuovo le colonne legacy `anagrafica_commerciale_id` / `percentuale_commerciale` / `commerciale_id` da `titoli` (resto di compatibilità)
+- Niente cambi alla matrice provvigioni o al fallback legacy

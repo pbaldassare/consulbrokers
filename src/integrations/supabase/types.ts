@@ -6532,6 +6532,77 @@ export type Database = {
         }
         Relationships: []
       }
+      titoli_split_commerciali: {
+        Row: {
+          anagrafica_commerciale_id: string
+          commerciale_user_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          ordine: number
+          percentuale: number
+          titolo_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          anagrafica_commerciale_id: string
+          commerciale_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          ordine?: number
+          percentuale: number
+          titolo_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          anagrafica_commerciale_id?: string
+          commerciale_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          ordine?: number
+          percentuale?: number
+          titolo_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_split_commerciali_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_split_commerciali_commerciale_user_id_fkey"
+            columns: ["commerciale_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_split_commerciali_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_split_commerciali_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trattativa_documenti: {
         Row: {
           created_at: string | null
