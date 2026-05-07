@@ -16,6 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { matchGaranzia, RCA_PRINCIPALE_CODE, type CatalogoVoce } from "@/lib/mapGaranzieRca";
 import { cn } from "@/lib/utils";
 
+const fmtEur = (n: number | null | undefined) =>
+  n == null || isNaN(Number(n))
+    ? "—"
+    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
+
 type AiVoce = {
   descrizione: string;
   codice_polizza?: string;
@@ -372,7 +377,7 @@ export function ImportPolizzaAiButton({
                           />
                         </td>
                         <td className="p-2 text-right tabular-nums">
-                          {isRca ? "—" : lordoRiga(r).toFixed(2)}
+                          {isRca ? "—" : fmtEur(lordoRiga(r))}
                         </td>
                       </tr>
                     );
@@ -381,9 +386,9 @@ export function ImportPolizzaAiButton({
                 <tfoot className="bg-muted/40 font-medium">
                   <tr className="border-t">
                     <td colSpan={3} className="p-2 text-right">Totali (selezionate):</td>
-                    <td className="p-2 tabular-nums">{totNetto.toFixed(2)}</td>
+                    <td className="p-2 tabular-nums">{fmtEur(totNetto)}</td>
                     <td></td>
-                    <td className="p-2 text-right tabular-nums">{totLordo.toFixed(2)}</td>
+                    <td className="p-2 text-right tabular-nums">{fmtEur(totLordo)}</td>
                   </tr>
                 </tfoot>
               </table>
