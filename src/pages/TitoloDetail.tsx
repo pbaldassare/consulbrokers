@@ -36,7 +36,10 @@ import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButto
 
 const fmt = (v: any) => v ?? "—";
 const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { locale: it }) : "—";
-const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
+const fmtEuro = (v: number | null | undefined) =>
+  v == null || isNaN(Number(v))
+    ? "—"
+    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
 const fmtBool = (v: boolean | null) => v ? "Sì" : "No";
 
 // Determina se il ramo è Auto/Veicoli o Natanti/Nautica (mostra dati tecnici + card voci).
