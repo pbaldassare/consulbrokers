@@ -497,7 +497,7 @@ const TitoloDetail = () => {
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
       const fields: (keyof typeof contrattoForm)[] = [
-        "cig_rif", "vincolo", "targa_telaio",
+        "cig_rif", "vincolo_attivo",
         "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
         "ufficio_id", "compagnia_id", "ramo_id",
       ];
