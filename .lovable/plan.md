@@ -1,68 +1,51 @@
 ## Obiettivo
+Unificare la card **Messa a Cassa** dentro la card **Operazioni** in `src/pages/TitoloDetail.tsx`, mantenendo i tre campi data e i pulsanti Incassa/Garantito/Annulla ben organizzati visivamente, senza modifiche a logica/business.
 
-Permettere a un titolo di avere **N produttori commerciali** che si dividono le provvigioni (Firma e Quietanza). Consulbrokers SPA prende sempre la quota residua (`100 - somma %`).
+## Layout proposto (single card "Operazioni")
 
-Esempio: INTERFIDI 30% + Studio X 20% → Consulbrokers 50%.
+```text
+┌─ Operazioni ────────────────────────────────────────────────┐
+│  [Sospensione][Riattivazione][Duplicazione][Rinnovo]        │
+│  [Appendici][Storno][Regolazione][Precontrattuale][Annull.] │
+│ ─────────────────────────────────────────────────────────── │
+│  💲 Messa a Cassa                          [stato badge]    │
+│  ┌─ Date ───────────────────────────────────────────────┐   │
+│  │ Data Messa a Cassa │ Data Pagamento │ Data Decorr.  │   │
+│  │     [____]         │     [____]     │    [____]     │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  Tipo Pag.: bonifico · Banca: XYZ                           │
+│  [Badge: Garantito] [Fondi Ricevuti / In Attesa Fondi]      │
+│  ⓘ banner anti-doppio-incasso (se applicabile)              │
+│  [✓ Incassa] [🛡 Garantito] [✗ Annulla Incasso]              │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## 1. Database
+- Sotto-sezione **Messa a Cassa** introdotta da un `Separator` + intestazione interna con icona `DollarSign` e badge stato (`attivo` / `incassato` / `poliennale`).
+- Le 3 date in `grid-cols-3` (responsive `sm:grid-cols-3`, mobile stack), con label uniformi e input compatti (`h-9`).
+- Riga inline `Tipo Pagamento · Banca` (mostrata solo se `incassato`).
+- Riga separata per i badge Garantito/Fondi e relativi mini-pulsanti.
+- I tre pulsanti azione (Incassa, Garantito, Annulla) raggruppati in una toolbar a destra/sotto, separata visivamente dalla toolbar operazioni superiore.
 
-Nuova tabella `titoli_split_commerciali` (1..N righe per titolo):
+## Modifiche a `src/pages/TitoloDetail.tsx`
 
-| campo | tipo | note |
-|---|---|---|
-| `titolo_id` | uuid FK titoli ON DELETE CASCADE | |
-| `anagrafica_commerciale_id` | uuid FK anagrafiche_professionali | obbligatorio |
-| `commerciale_user_id` | uuid FK profiles | opzionale (per produttori interni) |
-| `percentuale` | numeric(5,2) | 0 < x ≤ 100 |
-| `ordine` | int | per stabilità UI |
-| `note` | text | opzionale |
+1. **Rimuovere** la `<Card>` autonoma "Messa a Cassa" (righe ~1471–1603).
+2. **Estendere** la card "Operazioni" (righe ~1309–1374): dopo la toolbar dei pulsanti operazione, aggiungere un blocco condizionale `{(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (…)}` con:
+   - `<Separator className="my-3" />`
+   - Header interno (`<div className="flex items-center justify-between"><h4>...DollarSign + Messa a Cassa</h4><Badge>...</Badge></div>`)
+   - Grid date (logica identica a oggi: input editabili se `incassato`, FieldRow "—" altrimenti)
+   - Riga Tipo Pag./Banca
+   - Badges Garantito/Fondi (logica invariata)
+   - Banner info doppio-incasso (invariato)
+   - Toolbar pulsanti Incassa/Garantito/Annulla (invariata)
+3. Per il caso `t.stato === "sospeso"`: la sezione Messa a Cassa non è visibile (lo è già oggi, perché in quel ramo si renderizza solo la card "Polizza Sospesa"). Nessuna modifica.
+4. Per `t.stato === "scaduto"`: già nascosta sia Operazioni sia Messa a Cassa. Nessuna modifica.
+5. Nessuna modifica a:
+   - dialog (Conferma Messa a Cassa, Garantito, Annulla password)
+   - mutation (`changeStatoMutation`, `updateDateMutation`, `segnaFondiRicevutiMutation`, `annullaFondiMutation`)
+   - logica `showMessaACassa`, `isPoliennale`, `isAdmin`
+   - business rules (anti-doppio-incasso, poliennali, ecc.)
 
-**Vincoli:**
-- UNIQUE `(titolo_id, anagrafica_commerciale_id)` — niente duplicati
-- Trigger di validazione: somma percentuali per titolo_id ≤ 100 (blocco INSERT/UPDATE/DELETE se supera)
-- RLS: stessi permessi della tabella `titoli` (chi vede/modifica il titolo, vede/modifica gli split)
-
-**Migrazione dati esistenti:**
-Per ogni titolo con `anagrafica_commerciale_id IS NOT NULL`, INSERT 1 riga split copiando `anagrafica_commerciale_id`, `commerciale_id`, `percentuale_commerciale`. I campi singoli su `titoli` rimangono come legacy (non rimossi, ma non più letti).
-
-## 2. Edge function `calcola-provvigioni`
-
-Riscrittura della "PRIMARY PATH":
-1. Leggi `titoli_split_commerciali` per il titolo
-2. Per ogni riga: crea `provvigioni_generate` con `tipo_destinatario='commerciale'`, importo = `provvQuietanza * %/100`
-3. Calcola `percAdmin = 100 - somma(%)`. Se > 0, crea riga admin (Consulbrokers) con quel residuo
-4. Mantieni la regola `solo_statistico` se uno degli split = anagrafica admin
-5. Fallback: se nessuno split, usa il vecchio comportamento basato su `anagrafica_commerciale_id` legacy (per titoli non migrati)
-
-## 3. UI `TitoloDetail.tsx`
-
-**Sezione "Commerciale & Provvigioni" (edit mode):**
-- Sostituisco l'attuale singola riga (anagrafica + %) con un **elenco righe** dinamico
-- Per ogni riga: SearchableSelect anagrafica + input % + bottone rimuovi
-- Pulsante "+ Aggiungi produttore"
-- Riepilogo sotto: `Totale produttori: X% — Consulbrokers SPA: Y% (residuo)`
-- Validazione live: somma > 100 → riga rossa, salvataggio bloccato
-- Per ogni anagrafica selezionata mostro hint `Default: 40%` con bottone "Usa default"
-
-**View mode + cards split (sotto VociRcaCard Firma/Quietanza):**
-- `renderSplitImporti()` ora itera su tutte le righe split + aggiunge la riga Consulbrokers residua
-- Layout: una riga per produttore con nome, %, importo €; ultima riga Consulbrokers in evidenza
-
-**Persistenza:**
-- Su salvataggio titolo: diff sulla lista split → INSERT/UPDATE/DELETE su `titoli_split_commerciali`
-- Trigger DB blocca eventuali somme > 100 lato server
-
-## 4. Aree collegate da verificare (read-only, niente modifiche logica)
-
-- `cfo_*` RPC: usano `produttore_nome` su `titoli`, non toccati
-- Report provvigioni: già leggono `provvigioni_generate` riga per riga → funziona automaticamente con N righe
-- Estratti conto produttore: idem, già per-riga
-
-## 5. Memoria
-
-Aggiorno `mem://insurance/policy-commission-split` per documentare il nuovo modello multi-produttore con tabella `titoli_split_commerciali` come unica verità.
-
-## Out-of-scope
-
-- Non rimuovo le colonne legacy `anagrafica_commerciale_id` / `percentuale_commerciale` / `commerciale_id` da `titoli` (resto di compatibilità)
-- Niente cambi alla matrice provvigioni o al fallback legacy
+## Out of scope
+- Nessuna modifica a edge functions, migrations, calcoli provvigioni, RLS.
+- Nessuna modifica al wording delle label esistenti.
+- Nessun cambio comportamentale: solo riorganizzazione visiva/layout.
