@@ -1234,18 +1234,38 @@ const TitoloDetail = () => {
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/carico")}><ArrowLeft className="w-5 h-5" /></Button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
           <p className="text-muted-foreground text-sm">{(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Cliente:</span>
+              <span className="font-medium text-foreground">
+                {t.cliente_anagrafica
+                  ? ((t.cliente_anagrafica as any).tipo_cliente === "privato"
+                    ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim() || "—"
+                    : (t.cliente_anagrafica as any).ragione_sociale || "—")
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Sede:</span>
+              <span className="font-medium text-foreground">{(t as any).uffici?.nome_ufficio || "—"}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Importo Firma:</span>
+              <span className="font-semibold text-teal-700 tabular-nums">{fmtEuro((t as any).premio_lordo)}</span>
+            </div>
+          </div>
         </div>
         {t.stato === "in_attesa_rinnovo" ? (
-          <Badge className="ml-auto text-sm bg-orange-500 hover:bg-orange-600 text-white" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
+          <Badge className="text-sm bg-orange-500 hover:bg-orange-600 text-white shrink-0" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
             In attesa rinnovo
           </Badge>
         ) : (
-          <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="ml-auto text-sm">
+          <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="text-sm shrink-0">
             {t.stato}
           </Badge>
         )}
