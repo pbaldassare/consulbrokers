@@ -1385,28 +1385,34 @@ const TitoloDetail = () => {
                   </div>
                 </div>
 
-                {/* Date */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Date — griglia responsive con label uppercase + input/valore allineato */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   {t.stato === "incassato" ? (
                     <>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Data Messa a Cassa</label>
-                        <Input type="date" className="mt-1 h-9" value={t.data_messa_cassa || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_messa_cassa", value: e.target.value })} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Data Pagamento</label>
-                        <Input type="date" className="mt-1 h-9" value={t.data_pagamento || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_pagamento", value: e.target.value })} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Data Decorrenza Rinnovo</label>
-                        <Input type="date" className="mt-1 h-9" value={t.data_decorrenza_rinnovo || ""} onChange={(e) => updateDateMutation.mutate({ field: "data_decorrenza_rinnovo", value: e.target.value })} />
-                      </div>
+                      {[
+                        { label: "Data Messa a Cassa", field: "data_messa_cassa" as const, value: t.data_messa_cassa },
+                        { label: "Data Pagamento", field: "data_pagamento" as const, value: t.data_pagamento },
+                        { label: "Data Decorrenza Rinnovo", field: "data_decorrenza_rinnovo" as const, value: t.data_decorrenza_rinnovo },
+                      ].map((d) => (
+                        <div key={d.field} className="rounded-md border bg-card/40 px-3 py-2">
+                          <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{d.label}</label>
+                          <Input
+                            type="date"
+                            className="mt-1 h-9 text-sm font-medium tabular-nums"
+                            value={d.value || ""}
+                            onChange={(e) => updateDateMutation.mutate({ field: d.field, value: e.target.value })}
+                          />
+                        </div>
+                      ))}
                     </>
                   ) : (
                     <>
-                      <FieldRow label="Data Messa a Cassa" value="—" />
-                      <FieldRow label="Data Pagamento" value="—" />
-                      <FieldRow label="Data Decorrenza Rinnovo" value="—" />
+                      {["Data Messa a Cassa", "Data Pagamento", "Data Decorrenza Rinnovo"].map((label) => (
+                        <div key={label} className="rounded-md border border-dashed bg-muted/20 px-3 py-2">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+                          <div className="mt-1 h-9 flex items-center text-sm text-muted-foreground tabular-nums">—</div>
+                        </div>
+                      ))}
                     </>
                   )}
                 </div>
@@ -1471,16 +1477,52 @@ const TitoloDetail = () => {
                   </div>
                 )}
 
-                {/* Banner anti-doppio-incasso */}
+                {/* Banner anti-doppio-incasso — cliccabile per dettagli */}
                 {t.data_messa_cassa && !isPoliennale && (
-                  <div className="mt-3 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <strong>Polizza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
-                      Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili: una polizza non può essere incassata due volte.
-                      {isAdmin && " Per registrare un nuovo incasso, annulla prima la messa a cassa precedente."}
-                    </div>
-                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="mt-3 w-full text-left flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 hover:bg-blue-100 transition-colors cursor-pointer"
+                      >
+                        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <strong>Polizza già messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}.</strong>{" "}
+                          Le azioni <em>Incassa</em> e <em>Garantito</em> non sono disponibili.
+                          <span className="ml-1 underline decoration-dotted">Maggiori dettagli</span>
+                        </div>
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <Info className="w-5 h-5 text-blue-600" /> Polizza già incassata
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-2 text-sm">
+                            <p>
+                              Questa polizza è stata <strong>messa a cassa il {new Date(t.data_messa_cassa).toLocaleDateString("it-IT")}</strong> e non può essere incassata una seconda volta: il sistema applica una protezione anti-doppio-incasso a livello di database.
+                            </p>
+                            <p className="text-muted-foreground">
+                              Le azioni <em>Incassa</em> e <em>Garantito</em> tornano disponibili solo dopo l'annullamento della messa a cassa precedente.
+                            </p>
+                            {isAdmin ? (
+                              <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900">
+                                In quanto <strong>Amministratore</strong> puoi usare il pulsante <em>Annulla Incasso / Messa a Cassa</em> qui sotto per sbloccare la polizza, quindi procedere con un nuovo incasso.
+                              </p>
+                            ) : (
+                              <p className="rounded-md bg-muted px-3 py-2 text-muted-foreground">
+                                Per sbloccare la polizza è necessario contattare un Amministratore.
+                              </p>
+                            )}
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogAction>Ho capito</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
 
                 {/* Azioni */}
