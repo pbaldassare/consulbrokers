@@ -1,77 +1,111 @@
 ## Obiettivo
 
-Estendere il **linguaggio grafico moderno** già adottato per RCA Auto su `TitoloDetail` (header polizza con Cliente · Sede · Importo Firma, card Importi con voci Firma/Quietanza, scansione AI, card Operazioni e Messa a Cassa riordinate) a **tutti i rami** e a **tutte le pagine del ciclo polizza**, senza eliminare alcun dato esistente.
+Sostituire la legacy "Premi per Garanzia" (capitale/tasso/firma/rata/annuo) usata oggi nei rami non-auto con la stessa UI a card teal usata per RCA (Firma + Quietanza affiancate, zebra, edit inline, AI scan, totali sincronizzati al titolo). Nessun dato viene perso: la stessa tabella DB `premi_garanzia_polizza` viene continuata ad usare, e i campi `capitale`, `tasso`, `rata`, `annuo` vengono mantenuti come colonne opzionali nella nuova UI.
 
-## Stato attuale (cosa c'è già)
+## Scope
 
-- `TitoloDetail.tsx` — pagina dettaglio con il nuovo look, MA limita le due card `VociRcaCard` (Firma/Quietanza) e il pulsante `ImportPolizzaAiButton` ai soli rami auto/nautica (`isRamoAuto`).
-- `VociRcaCard` (1129 righe) e `ImportPolizzaAiButton` (420 righe) sono usati **solo** in `TitoloDetail`.
-- Le altre pagine ciclo polizza usano layout legacy:
-  - `ImmissionePolizzaPage` (1276 righe) — nuova emissione
-  - `RinnoviPolizzaPage`, `AppendiciPolizzaPage`, `DuplicazionePolizzaPage`
-  - `SospensionePolizzaPage`, `RiattivazionePolizzaPage`, `StornoPolizzaPage`
-  - List view: `PortafoglioCaricoPage`, `PortafoglioAttivePage` (header card delle polizze)
+**File toccati**
+- `src/components/polizze/VociRcaCard.tsx` — estensione (no breaking changes per RCA)
+- `src/pages/TitoloDetail.tsx` — sostituzione blocco `!isRamoAuto → SectionCollapsible "Premi per Garanzia"` con coppia `<VociRcaCard useAutoTaxFormula={false} />` (Firma + Quietanza)
 
-## Piano di lavoro (in fasi, ognuna verificabile)
+**Fuori scope (questo turno)**
+- Pagine Immissione/Rinnovi/Appendici/Duplicazione (le voci si gestiscono dopo la creazione, dal dettaglio)
+- Modifiche schema DB
+- Logica RCA esistente (resta invariata, default `useAutoTaxFormula=true`)
 
-### Fase 1 — Componenti condivisi riutilizzabili
-Estraggo da `TitoloDetail` tre blocchi in nuovi componenti per riuso pulito:
+## Modifiche a VociRcaCard
 
-1. `src/components/polizze/PolizzaHeaderCard.tsx`
-   Header uniforme: numero polizza, Cliente · Sede · Importo Firma, compagnia/prodotto secondari, badge stato. Props: `titolo` o `formData`.
-2. `src/components/polizze/PolizzaImportiCard.tsx`
-   Wrapper della sezione Importi che monta `VociRcaCard` Firma + Quietanza affiancate, scansione AI integrata, totali editabili. Funziona per **tutti i rami**, non solo auto.
-3. `src/components/polizze/PolizzaOperazioniCard.tsx`
-   Card unificata Operazioni + Messa a Cassa (3 date, badge fondi, banner anti-doppio-incasso) già rifinita per RCA, riusabile.
+### Nuove props (tutte opzionali, default = comportamento RCA attuale)
+- `useAutoTaxFormula?: boolean = true` — già presente, controlla creazione riga RCA principale e visibilità sotto-righe IPT/SSN.
+- `aliquotaDefault?: number` — aliquota tasse di default per nuove voci (per non-auto: `aliquota_tasse_ramo` letto da `rami` via prop). Sostituisce il fisso `13.5`.
+- `mostraCampiCapitaleRata?: boolean = false` — quando `true` mostra le colonne **Capitale**, **Tasso ‰**, **Rata**, **Annuo** dopo "Premio Lordo".
 
-### Fase 2 — Estendere VociRcaCard a tutti i rami
-- Rimuovere il gating `isRamoAuto` per la riga "principale": per i rami non-auto la voce principale prende il **nome del ramo** (es. "Premio Incendio", "Premio RCT") al posto di "RCA Auto".
-- Mantenere il calcolo IPT/SSN normativo per auto/nautica; per gli altri rami usare la formula accessoria `lordo = netto × (1+aliquota%)` con aliquota dal ramo (`aliquota_tasse_ramo`).
-- Garanzie aggiuntive: come oggi, già funzionano cross-ramo.
-- `mainLabel` calcolata in base al ramo; nessuna riga obbligatoria non rimovibile per i rami non-auto.
+### UI nuovo layout (rami non-auto)
+Tabella con colonne:
 
-### Fase 3 — Estendere ImportPolizzaAiButton a tutti i rami
-- Aggiornare il prompt Gemini per supportare anche rami danni/vita/sanitari (oggi è tarato su RCA).
-- Mostrare il pulsante in tutte le pagine polizza, non solo nei rami auto.
+```
+Garanzia | Premio Netto | Aliquota % | Premio Lordo | Capitale | Tasso ‰ | Rata | Annuo | ⌫
+```
 
-### Fase 4 — Adottare i nuovi componenti nelle altre pagine
-Sostituire i blocchi legacy con i componenti condivisi, mantenendo intatti i campi/dati salvati:
+- Niente sotto-righe IPT/SSN (gating `useAutoTaxFormula`).
+- Niente input "Imposta provinciale" globale (gating `useAutoTaxFormula`).
+- Stessi pattern: zebra, draft inline, blur-to-save, ⌫ trash con conferma, badge Quietanza personalizzata, "Riallinea Quietanza alla Firma".
+- Header card resta teal coerente con RCA, ma il titolo cambia in **"Premi per Garanzia — Firma"** / **"... Quietanza"** (vs "Voci RCA Auto").
 
-- `ImmissionePolizzaPage` — header + Importi card + scansione AI (utile per popolare il form da un PDF)
-- `RinnoviPolizzaPage` — header + Importi card + scansione AI
-- `AppendiciPolizzaPage` — header + Importi card per appendici tariffarie
-- `DuplicazionePolizzaPage` — header preview e Importi pre-compilati
-- `SospensionePolizzaPage`, `RiattivazionePolizzaPage`, `StornoPolizzaPage` — solo header uniforme + readonly delle Operazioni
-- `PortafoglioAttivePage` / `PortafoglioCaricoPage` — uniformare le card di lista al medesimo stile (badge, palette teal, tipografia tabular-nums)
+### Calcolo lordo (ramo non-auto)
+- Solo formula semplice: `lordo = round2(netto × (1 + aliquota/100))`.
+- `aliquota` di default = `aliquotaDefault` (passato dal parent) o `13.5` come fallback finale.
+- `imposta_provinciale` e `ssn` restano `null` in DB (nessun cambiamento sui valori esistenti se la riga ce li avesse).
 
-### Fase 5 — Verifica
-- Aprire una polizza di ciascun ramo principale (RCA, Incendio, Infortuni, Sanitaria, Vita, RCT) e confermare che header + Importi + Operazioni siano coerenti.
-- Verificare che nessun campo esistente in DB venga perso: i nuovi componenti scrivono sulle stesse colonne di oggi.
-- Confermare che la scansione AI parta da Immissione/Rinnovi e popoli i form.
+### Mutazione upsert
+- Estesa per accettare `capitale`, `tasso`, `rata`, `annuo` quando `mostraCampiCapitaleRata=true`.
+- Per RCA (default false) questi campi non vengono toccati: nessun rischio per voci esistenti.
 
-## File coinvolti
+## Modifiche a TitoloDetail
 
-Nuovi:
-- `src/components/polizze/PolizzaHeaderCard.tsx`
-- `src/components/polizze/PolizzaImportiCard.tsx`
-- `src/components/polizze/PolizzaOperazioniCard.tsx`
+### Sostituzione del blocco "Premi per Garanzia" (linee ~3003-3085)
 
-Modificati:
-- `src/components/polizze/VociRcaCard.tsx` (generalizzazione cross-ramo)
-- `src/components/polizze/ImportPolizzaAiButton.tsx` (prompt cross-ramo)
-- `src/pages/TitoloDetail.tsx` (sostituisce blocchi inline con i nuovi componenti, rimuove gating `isRamoAuto`)
-- `src/pages/ImmissionePolizzaPage.tsx`
-- `src/pages/RinnoviPolizzaPage.tsx`
-- `src/pages/AppendiciPolizzaPage.tsx`
-- `src/pages/DuplicazionePolizzaPage.tsx`
-- `src/pages/SospensionePolizzaPage.tsx`
-- `src/pages/RiattivazionePolizzaPage.tsx`
-- `src/pages/StornoPolizzaPage.tsx`
-- `src/pages/PortafoglioAttivePage.tsx`
-- `src/pages/PortafoglioCaricoPage.tsx`
+Sostituire l'intero `SectionCollapsible "Premi per Garanzia"` con:
 
-## Note importanti
+```tsx
+{!isRamoAuto((t as any).ramo) && (
+  <SectionCollapsible title="Premi per Garanzia" icon={ShieldCheck}>
+    <div className="space-y-4">
+      <VociRcaCard
+        tipoPremio="firma"
+        useAutoTaxFormula={false}
+        mostraCampiCapitaleRata
+        mainLabel={(t as any).ramo?.descrizione || "Premio"}
+        aliquotaDefault={(t as any).ramo?.aliquota_tasse_ramo ?? 22.25}
+        titoloId={t.id}
+        premioLordoTitolo={(t as any).premio_lordo}
+        onTotaliChange={(tot) => {
+          // stesso pattern usato per RCA: sync su titoli.premio_netto / tasse / premio_lordo
+        }}
+        provvigioniValue={(t as any).provvigioni_firma}
+        onProvvigioniChange={async (v) => { ... }}
+      />
+      {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+      <VociRcaCard
+        tipoPremio="quietanza"
+        useAutoTaxFormula={false}
+        mostraCampiCapitaleRata
+        mainLabel={(t as any).ramo?.descrizione || "Premio"}
+        aliquotaDefault={(t as any).ramo?.aliquota_tasse_ramo ?? 22.25}
+        titoloId={t.id}
+        onTotaliChange={(tot) => { /* sync premio_netto_quietanza / tasse_quietanza */ }}
+      />
+    </div>
+  </SectionCollapsible>
+)}
+```
 
-- **Nessuna migration DB**: lavoriamo solo su frontend/presentazione. I componenti scrivono sugli stessi campi `premi_garanzia_polizza`, `titoli`, `titoli_movimenti` di oggi.
-- **Nessun dato eliminato**: la generalizzazione di `VociRcaCard` riusa il sync esistente Firma↔Quietanza che già protegge le voci personalizzate.
-- Lavoro grosso (≈8.000 righe coinvolte). Lo affronto in fasi separate, ognuna pronta per verifica nel preview prima di procedere alla successiva — così se qualcosa non ti torna fermiamo subito senza toccare il resto.
+### Codice legacy da rimuovere (solo presentation)
+- `premiRows`, `editingPremi`, `startEditPremi`, `addPremiRow`, `removePremiRow`, `updatePremiRow`, `savePremiMutation` → diventano dead code, possiamo rimuoverli (sono solo wrapper UI sulla stessa tabella).
+- La query `premiGaranzia` resta (può servire per AI button invalidation), oppure si rimuove anche quella e si invalida solo `voci-rca`.
+
+### Cosa NON cambia
+- Tabella DB `premi_garanzia_polizza`: identica.
+- Trigger di sync Quietanza ↔ Firma: identici (già attivi anche su voci non-RCA).
+- Sezione RCA Auto (linee 2678-2865): inalterata.
+- Logica AI scan: invariata, il bottone già funziona per tutti i rami.
+
+## Aliquota tasse default per ramo
+
+Da memory `aliquota_tasse_ramo` esiste sulla tabella `rami`. Verifico in fase di build che il campo sia incluso nella query del titolo (`rami!titoli_ramo_id_fkey(*)` o simile). Se non lo è, aggiungo la select del campo.
+
+## Rischi e mitigazioni
+
+| Rischio | Mitigazione |
+|---|---|
+| Polizze esistenti non-auto con righe in `premi_garanzia_polizza` non hanno `aliquota_tasse_pct` | Fallback: `v.aliquota_tasse_pct ?? aliquotaDefault ?? 13.5` |
+| Trigger sync Firma→Quietanza potrebbe non gestire le nuove righe non-RCA | Verifico in build leggendo lo schema; se serve, fallback client-side già presente in `resetQuietanzaMut` |
+| Perdita visiva di capitale/tasso/rata/annuo | Mantenuti come colonne nella nuova UI (`mostraCampiCapitaleRata`) |
+| Regressione sulle polizze RCA | Tutte le nuove props sono opzionali con default = comportamento attuale |
+
+## Verifica post-build
+
+1. Aprire un titolo RCA esistente: layout RCA invariato (IPT/SSN visibili).
+2. Aprire un titolo non-auto (Incendio / Vita / RCT): nuovo layout teal con Firma+Quietanza, capitale/tasso/rata/annuo visibili e modificabili, niente IPT/SSN.
+3. Verificare che l'AI scan inserisca voci correttamente in entrambi i casi.
+4. Verificare totali sincronizzati su `titoli.premio_netto/tasse/premio_lordo` e `premio_netto_quietanza/tasse_quietanza`.
