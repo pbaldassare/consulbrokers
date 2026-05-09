@@ -16,7 +16,7 @@ const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroRamo, escludiMeseCorrente]);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");

@@ -9,7 +9,7 @@ import { Users, Search } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 const ClientiContabPage = () => {
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search]);
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({

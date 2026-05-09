@@ -31,7 +31,7 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, caricoStart, caricoEnd, sortField, sortDirection]);
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());

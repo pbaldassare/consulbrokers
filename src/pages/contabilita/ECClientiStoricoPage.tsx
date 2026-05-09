@@ -18,7 +18,7 @@ const ECClientiStoricoPage = () => {
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [q, numeroPolizza, clienteId, dateFrom, dateTo, clientiConPolizza]);
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 

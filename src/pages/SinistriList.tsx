@@ -40,7 +40,7 @@ export default function SinistriList() {
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroCompagnia, search]);
 
   // Wizard state
   const [step, setStep] = useState<1 | 2>(1);

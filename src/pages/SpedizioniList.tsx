@@ -20,7 +20,7 @@ const statiSpedizione = ["preparata", "spedita", "consegnata", "problema"];
 const SpedizioniList = () => {
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [newStato, setNewStato] = useState("");
