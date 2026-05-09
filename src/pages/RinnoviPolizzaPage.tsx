@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Search } from "lucide-react";
+import { Search, RefreshCw, FileSpreadsheet, FileText, ListChecks, Filter } from "lucide-react";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const RinnoviPolizzaPage = () => {
   const navigate = useNavigate();
@@ -71,16 +72,18 @@ const RinnoviPolizzaPage = () => {
   const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Elenco Polizze in Quietanzamento</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gestione rinnovi polizze</p>
+    <div className="space-y-5">
+      <div className="flex items-start gap-4">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <RefreshCw className="w-6 h-6 text-teal-600" />
+            Polizze in Quietanzamento
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Gestione rinnovi polizze — selezione, generazione, lettera, export</p>
+        </div>
       </div>
 
-      {/* PARAMETRI RICERCA */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Parametri Ricerca</legend>
-
+      <PolizzaSection title="Parametri Ricerca" icon={Filter} defaultOpen>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
           {/* Left column */}
           <div className="space-y-3">
@@ -196,30 +199,32 @@ const RinnoviPolizzaPage = () => {
             </div>
 
             <div className="flex justify-end pt-1">
-              <Button onClick={() => setSearched(true)}>Cerca</Button>
+              <Button onClick={() => setSearched(true)} className="gap-2">
+                <Search className="w-4 h-4" /> Cerca
+              </Button>
             </div>
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* DETTAGLIO */}
-      <fieldset className="border border-border rounded-lg p-5 min-h-[120px]">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Dettaglio</legend>
-        {!searched && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Imposta i parametri di ricerca e clicca "Cerca"
-          </p>
-        )}
-      </fieldset>
+      <PolizzaSection title="Dettaglio" icon={ListChecks} defaultOpen>
+        <div className="min-h-[120px]">
+          {!searched && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Imposta i parametri di ricerca e clicca "Cerca"
+            </p>
+          )}
+        </div>
+      </PolizzaSection>
 
       {/* ACTIONS */}
       <div className="flex items-center gap-3 flex-wrap pt-2">
         <Button variant="secondary" onClick={() => navigate("/portafoglio/attive")}>Chiudi</Button>
         <div className="flex-1" />
-        <Button variant="outline">Lista</Button>
-        <Button variant="outline">Excel</Button>
-        <Button variant="outline">Lettera</Button>
-        <Button>Rinnova (Tutti)</Button>
+        <Button variant="outline" className="gap-2"><ListChecks className="w-4 h-4" /> Lista</Button>
+        <Button variant="outline" className="gap-2"><FileSpreadsheet className="w-4 h-4" /> Excel</Button>
+        <Button variant="outline" className="gap-2"><FileText className="w-4 h-4" /> Lettera</Button>
+        <Button className="gap-2"><RefreshCw className="w-4 h-4" /> Rinnova (Tutti)</Button>
       </div>
     </div>
   );
