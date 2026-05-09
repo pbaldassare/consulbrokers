@@ -21,6 +21,17 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Evita di passare variabili a hook (es. useServerPagination resetDeps)
+      // prima della loro dichiarazione → causerebbe TS2448 e bug runtime.
+      "no-use-before-define": "off",
+      "@typescript-eslint/no-use-before-define": ["error", {
+        functions: false,
+        classes: false,
+        variables: true,
+        enums: true,
+        typedefs: false,
+        ignoreTypeReferences: true,
+      }],
     },
   },
 );

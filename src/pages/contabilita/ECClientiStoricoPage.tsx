@@ -19,15 +19,10 @@ const ECClientiStoricoPage = () => {
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const { page, setPage, pageSize, range } = useServerPagination();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
-  useEffect(() => { setPage(0); }, [q, numeroPolizza, clienteId, dateFrom, dateTo]);
 
-  // Reset paginazione quando cambiano filtri/search
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(0); }, [q, numeroPolizza, clienteId, dateFrom, dateTo, clientiConPolizza]);
 
   const { data: clientiOpts = [] } = useQuery({
     queryKey: ["ec-clienti-storico-clienti"],
@@ -58,6 +53,8 @@ const ECClientiStoricoPage = () => {
       return Array.from(new Set((data || []).map((r: any) => r.cliente_anagrafica_id).filter(Boolean)));
     },
   });
+
+  const { page, setPage, pageSize, range } = useServerPagination(25, [q, numeroPolizza, clienteId, dateFrom, dateTo, clientiConPolizza]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["ec-clienti-storico", q, numeroPolizza, clienteId, dateFrom, dateTo, page, clientiConPolizza],
