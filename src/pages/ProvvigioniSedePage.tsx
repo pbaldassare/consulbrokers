@@ -227,7 +227,7 @@ const ProvvigioniSedePage = () => {
                 {byRamo.map((r, i) => (
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{r.name}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold text-primary">{fmtEuro(r.value)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(r.value)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? r.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
