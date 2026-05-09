@@ -14,7 +14,6 @@ import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard"
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 25;
