@@ -85,7 +85,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true, aliquotaDefault, mostraCampiCapitaleRata = false }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -98,7 +98,12 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   /** Quando false (rami non-auto), NON viene auto-creata la riga principale RCA con formula IPT+SSN.
    *  Tutte le voci usano la formula semplice: lordo = netto × (1 + aliquota/100). */
   useAutoTaxFormula?: boolean;
+  /** Aliquota tasse default per nuove voci (es. aliquota_tasse_ramo). Sovrascrive il fallback 13.5. */
+  aliquotaDefault?: number;
+  /** Mostra colonne Capitale / Tasso ‰ / Rata / Annuo (rami non-auto). */
+  mostraCampiCapitaleRata?: boolean;
 }) {
+  const ALIQ_DEFAULT = aliquotaDefault ?? ALIQUOTA_ACCESSORIE_DEFAULT;
   const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
   const qc = useQueryClient();
   const isQuietanza = tipoPremio === "quietanza";
