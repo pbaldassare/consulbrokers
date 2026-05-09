@@ -28,8 +28,9 @@ const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", c
 export default function ClienteSinistri() {
   const { user } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openNuovo, setOpenNuovo] = useState(false);
 
-  const { data: sinistri = [] } = useQuery({
+  const { data: sinistri = [], refetch } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
     queryFn: async () => {
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
