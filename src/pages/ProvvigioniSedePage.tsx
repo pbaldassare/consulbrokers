@@ -250,7 +250,7 @@ const ProvvigioniSedePage = () => {
                 {byProduttore.map((p, i) => (
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{p.name}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold text-primary">{fmtEuro(p.value)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(p.value)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? p.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
