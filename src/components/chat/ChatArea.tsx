@@ -14,9 +14,11 @@ import { logAttivita } from "@/lib/logAttivita";
 
 interface ChatAreaProps {
   canaleId: string | null;
+  headerSlot?: React.ReactNode;
+  highlightTerm?: string;
 }
 
-export default function ChatArea({ canaleId }: ChatAreaProps) {
+export default function ChatArea({ canaleId, headerSlot, highlightTerm }: ChatAreaProps) {
   const { profile, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [msg, setMsg] = useState("");
@@ -152,6 +154,7 @@ export default function ChatArea({ canaleId }: ChatAreaProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full">
+      {headerSlot}
       {/* Channel members header */}
       {membri && membri.length > 0 && (
         <div className="border-b border-border bg-muted/30 px-4 py-2 flex items-center gap-2 flex-wrap">
