@@ -1,60 +1,52 @@
-# Tour guidato Area Clienti — stile Cibarius
+# Chat lato Cliente — Conversazioni contestuali, ricerca e header arricchito
 
-Replichiamo il pattern di Cibarius HACCP (spotlight + tooltip + auto-advance) e lo adattiamo al contesto assicurativo CBnet, attraversando tutte le sezioni del portale cliente.
+Estendere `src/pages/cliente/ClienteComunicazioni.tsx` per consentire al cliente di:
+1. Avviare una **nuova conversazione** scegliendo il contesto (Argomento libero / Polizza / Sinistro).
+2. **Cercare** all'interno delle conversazioni (titolo + contenuto messaggi).
+3. Vedere in evidenza, quando il canale è su una **polizza**, il numero polizza e la targa/telaio (se presenti).
 
-## Componenti nuovi
+## 1. Nuova conversazione lato cliente
 
-1. **`src/components/tour/AppTourContext.tsx`** — Provider con stato globale del tour:
-   - `isActive`, `currentStep`, `steps`, `startTour()`, `stopTour()`, `nextStep()`, `prevStep()`
-   - Tipi `TourStep` con `selector`, `title`, `description`, `page`, `action` (`navigate` | `scroll` | `wait`)
-   - Una sola lista `CLIENTE_TOUR_STEPS` (~22 step) che copre Dashboard → Polizze → Scadenziario → Sinistri → Chat → Documentazione Ente → Notifiche → Dati Ente → Info e Contatti
-   - Persistenza in `localStorage` (`cbnet_cliente_tour_done`) per auto-start al primo accesso
+Nuovo componente `src/components/cliente/NuovaChatClienteDialog.tsx` (ispirato a `NuovaConversazioneDialog` ma semplificato per il cliente):
 
-2. **`src/components/tour/AppTour.tsx`** — Overlay visivo (porting da Cibarius):
-   - SVG mask con foro su `getBoundingClientRect()` del target → spotlight scuro (`bg-black/65`)
-   - Bordo animato `border-primary` con glow `box-shadow: 0 0 24px hsl(var(--primary)/0.25)`
-   - Cursore freccia che si muove sul target prima di mostrare il tooltip
-   - Tooltip card con: contatore `n/totale`, titolo, descrizione, **barra progresso countdown**, pulsante Pausa/Play, X per chiudere, link "Salta tour"
-   - Auto-advance: `max(3500ms, descrizione.length * 35ms)`
-   - Click sul tooltip = pausa/riprendi; ricalcolo posizione su `resize`
-   - Posizionamento intelligente top/bottom in base allo spazio disponibile
-   - Tutto via token semantici (`hsl(var(--primary))`, `bg-card`, `border-border`)
+- 3 tab: **Argomento libero** / **Polizza** / **Sinistro**.
+- Argomento libero: input "Oggetto della richiesta" obbligatorio (es. "Richiesta preventivo casa").
+- Polizza: lista delle polizze del cliente loggato (query su `titoli` filtrata da `get_my_cliente_ids()`), mostra `numero_titolo`, compagnia, ramo, `targa_telaio` se presente.
+- Sinistro: lista dei sinistri del cliente (query su `sinistri`), mostra `numero_sinistro`, data e tipo.
+- All'avvio della conversazione:
+  - Inserisce in `chat_canali` con `ambito='contestuale'`, `entita_tipo` ∈ `argomento|titolo|sinistro`, `entita_id`, `visibile_cliente=true`, `creato_da=user.id`, `nome` autogenerato (`Polizza 12345 — RCA Auto`, `Sinistro S-2024-001`, oppure l'oggetto libero).
+  - Chiama `findAllRelatedUsers(entita_tipo, entita_id)` per popolare `chat_canali_membri` con il cliente + Specialist + Consul + Sede collegati (riusa la libreria esistente).
+  - Per "argomento libero" aggiunge automaticamente i referenti commerciali del cliente (Specialist, Consul, Sede del cliente).
+- Pulsante "Nuova conversazione" in alto nella sidebar canali del cliente.
 
-3. **`src/components/tour/TourLauncher.tsx`** — Pulsante flottante in basso a destra (`fixed bottom-4 right-4`) con icona `Sparkles` + tooltip "Tour guidato", visibile solo nelle pagine `/cliente/*`. All'avvio chiama `startTour()`.
+## 2. Ricerca conversazioni
 
-## Modifiche
+Nella sidebar canali di `ClienteComunicazioni`:
+- Input search con debounce 300 ms.
+- Filtra lato client su `nome` canale + `entita_tipo`.
+- In più, query separata su `chat_messaggi_interni` (filtrata via RLS sui canali del cliente) con `messaggio.ilike.%q%` → evidenzia i canali che contengono match e mostra uno snippet sotto il nome canale.
+- Highlight del termine nella preview.
 
-- **`src/App.tsx`** — Avvolgere le route `/cliente/*` con `<TourProvider>` e renderizzare `<AppTour />` + `<TourLauncher />` dentro `ClienteLayout`.
-- **`src/components/ClienteLayout.tsx`** — Aggiungere `data-tour="..."` sugli elementi chiave: `cl-logo`, `cl-nav-dashboard`, `cl-nav-polizze`, `cl-nav-scadenziario`, `cl-nav-sinistri`, `cl-nav-chat`, `cl-nav-documenti`, `cl-nav-notifiche`, `cl-nav-dati`, `cl-nav-contatti`, `cl-topbar-bell`, `cl-topbar-user`, `cl-topbar-logout`. Auto-start del tour al primo login (se `localStorage` vuoto).
-- **Pagine cliente** — Aggiungere attributi `data-tour` sui blocchi principali (header, KPI, tabella, filtri, pulsante upload):
-  - `ClienteDashboard.tsx`: `cl-dash-header`, `cl-dash-kpi`, `cl-dash-prossime`
-  - `ClientePolizze.tsx`: `cl-pol-header`, `cl-pol-filtri`, `cl-pol-tabella`
-  - `ClienteScadenze.tsx`: `cl-scad-header`, `cl-scad-list`
-  - `ClienteSinistri.tsx`: `cl-sin-header`, `cl-sin-nuova`, `cl-sin-list`
-  - `ClienteComunicazioni.tsx`: `cl-chat-header`, `cl-chat-canali`, `cl-chat-area`
-  - `ClienteDocumenti.tsx`: `cl-doc-header`, `cl-doc-filtri`, `cl-doc-upload`, `cl-doc-list`
-  - `ClienteNotifiche.tsx`: `cl-notif-header`, `cl-notif-list`
-  - `ClienteAnagrafica.tsx`: `cl-anag-header`, `cl-anag-form`
-  - `ClienteUfficio.tsx`: `cl-uff-header`, `cl-uff-contatti`
+## 3. Header arricchito per Polizza/Sinistro
 
-## Esempio di step (tono assicurativo, friendly)
+Estendere `ChatArea` (oppure wrappare in un nuovo `CanaleHeader` lato cliente) per mostrare, quando `chat_canali.entita_tipo='titolo'`:
+- Badge `Polizza N° {numero_titolo}` + `Targa {targa_telaio}` se presente, compagnia e ramo.
+- Quando `entita_tipo='sinistro'`: badge `Sinistro N° {numero_sinistro}` + tipo + data accadimento + polizza collegata (se valorizzata).
+- Query: nuovo hook `useCanaleContextInfo(canale)` che, in base a `entita_tipo/id`, fa una select mirata su `titoli` o `sinistri`.
+- Il header si aggiunge SOPRA la lista membri esistente, senza modificare la chat lato staff (componente nuovo solo lato cliente, oppure prop `showContextHeader` su `ChatArea`).
 
-```
-{ selector: "cl-dash-kpi", title: "Le tue polizze a colpo d'occhio 📊",
-  description: "KPI in tempo reale: polizze attive, premio annuo e prossime scadenze. Tutto sincronizzato con la tua agenzia.",
-  page: "/cliente" }
+## File coinvolti
 
-{ selector: "cl-nav-sinistri", title: "Apri un sinistro in 2 minuti 🚨",
-  description: "Da qui denunci un nuovo sinistro, alleghi foto e documenti e segui ogni aggiornamento dal tuo perito.",
-  page: "/cliente", action: { type: "navigate", target: "/cliente/sinistri", delay: 500 } }
+- **Nuovi**:
+  - `src/components/cliente/NuovaChatClienteDialog.tsx`
+  - `src/components/cliente/CanaleContextHeader.tsx` (badge polizza/sinistro)
+- **Modificati**:
+  - `src/pages/cliente/ClienteComunicazioni.tsx` (pulsante "Nuova", search input, integrazione header)
+  - eventualmente `src/components/chat/ChatArea.tsx` per accettare un prop `headerSlot` opzionale (non rompe lo staff).
 
-{ selector: "cl-doc-upload", title: "Carica documenti in sicurezza 🔐",
-  description: "Trascina qui PDF e immagini: vengono archiviati nel bucket privato del tuo ente e visti solo da te e dall'agenzia.",
-  page: "/cliente/documenti" }
-```
+## Note tecniche
 
-## Non incluso (out of scope)
-
-- Backend / migrazioni DB (la "vista" del tour è solo client-side, persistenza in `localStorage`)
-- Tour separato per ruoli admin / specialist (estendibile in futuro)
-- Traduzioni multi-lingua
+- Riuso di `findAllRelatedUsers` da `src/lib/findRelatedUsers.ts` per popolare i membri (memoria "chat-contestuale-sync-membri").
+- `targa_telaio` esiste già su `titoli` (verificato).
+- Nessuna modifica DB/RLS: le policy esistenti su `chat_canali`/`chat_canali_membri` permettono già al cliente di creare canali contestuali con `visibile_cliente=true` (il pattern è già usato lato staff).
+- Tutti i tag `data-tour` esistenti restano invariati; aggiungeremo `cl-chat-new` e `cl-chat-search` per estendere il tour in futuro.
