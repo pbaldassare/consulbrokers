@@ -154,6 +154,7 @@ export default function ChatArea({ canaleId, headerSlot, highlightTerm }: ChatAr
 
   return (
     <div className="flex-1 flex flex-col h-full">
+      {headerSlot}
       {/* Channel members header */}
       {membri && membri.length > 0 && (
         <div className="border-b border-border bg-muted/30 px-4 py-2 flex items-center gap-2 flex-wrap">
