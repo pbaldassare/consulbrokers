@@ -51,8 +51,9 @@ const ECClientiStoricoPage = () => {
         .not("cliente_anagrafica_id", "is", null)
         .limit(1000);
       return Array.from(new Set((data || []).map((r: any) => r.cliente_anagrafica_id).filter(Boolean)));
-    },
   });
+
+  const { page, setPage, pageSize, range } = useServerPagination(25, [q, numeroPolizza, clienteId, dateFrom, dateTo, clientiConPolizza]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["ec-clienti-storico", q, numeroPolizza, clienteId, dateFrom, dateTo, page, clientiConPolizza],
