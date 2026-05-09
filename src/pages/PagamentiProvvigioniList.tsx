@@ -287,7 +287,7 @@ const PagamentiProvvigioniList = () => {
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
                 <Button onClick={() => createDistinta.mutate()} disabled={selectedProvvigioni.length === 0 || createDistinta.isPending}>
-                  {createDistinta.isPending ? "Creazione..." : `Crea Distinta (€${totaleSelezionato.toFixed(2)})`}
+                  {createDistinta.isPending ? "Creazione..." : `Crea Distinta (${fmtEuro(totaleSelezionato)})`}
                 </Button>
               </div>
             </div>
