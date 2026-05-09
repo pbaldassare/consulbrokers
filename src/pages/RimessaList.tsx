@@ -13,15 +13,13 @@ import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-
-const PAGE_SIZE = 25;
 const statiRimessa = ["bozza", "pronta", "inviata", "errore"];
 
 const RimessaList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   const revertMutation = useMutation({
     mutationFn: async (rimessaId: string) => {
@@ -55,7 +53,7 @@ const RimessaList = () => {
 
       const { data, error, count } = await q
         .order("data_creazione", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -141,7 +139,7 @@ const RimessaList = () => {
                   {rimesse.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna rimessa archiviata</TableCell></TableRow>}
                 </TableBody>
               </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+              <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
             </>
           )}
         </CardContent>

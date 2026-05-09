@@ -14,8 +14,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "chiuso", "respinto"];
 const tipiSinistro = [
   "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
@@ -42,7 +40,7 @@ export default function SinistriList() {
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   // Wizard state
   const [step, setStep] = useState<1 | 2>(1);
@@ -66,7 +64,7 @@ export default function SinistriList() {
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
       if (search) q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
-      const { data, error, count } = await q.order("created_at", { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data, error, count } = await q.order("created_at", { ascending: false }).range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -417,7 +415,7 @@ export default function SinistriList() {
           </TableBody>
         </Table>
         <div className="p-4">
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </div>
       </div>
     </div>

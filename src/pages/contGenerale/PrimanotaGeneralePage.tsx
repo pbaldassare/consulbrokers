@@ -17,9 +17,6 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 import { format, addDays } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-const PAGE_SIZE = 25;
-
 const getDefaultForm = () => ({
   numero_pn: "", data_pn: new Date().toISOString().slice(0, 10), numero_protocollo: "", data_protocollo: "",
   numero_documento: "", data_documento: "", fornitore_id: "", causale_id: "", tipo: "EE",
@@ -29,7 +26,7 @@ const getDefaultForm = () => ({
 const PrimanotaGeneralePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<any>(getDefaultForm());
@@ -49,7 +46,7 @@ const PrimanotaGeneralePage = () => {
     queryFn: async () => {
       let q = supabase.from("primanota_generale").select("*, fornitori(nome), causali_contabili(descrizione)", { count: "exact" });
       if (search) q = q.or(`numero_pn.ilike.%${search}%,descrizione.ilike.%${search}%,numero_documento.ilike.%${search}%`);
-      q = q.order("data_pn", { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.order("data_pn", { ascending: false }).range(range.from, range.to);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
@@ -222,7 +219,7 @@ const PrimanotaGeneralePage = () => {
               ))}
             </TableBody>
           </Table>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>
 

@@ -14,12 +14,9 @@ import ServerPagination from "@/components/ServerPagination";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
-
-const PAGE_SIZE = 25;
-
 const DichiarativiCUPage = () => {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [annoFilter, setAnnoFilter] = useState(new Date().getFullYear().toString());
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -30,7 +27,7 @@ const DichiarativiCUPage = () => {
       let q = supabase.from("certificazioni_cu").select("*, fornitori(nome)", { count: "exact" });
       if (annoFilter) q = q.eq("anno_fiscale", parseInt(annoFilter));
       if (search) q = q.or(`codice_fornitore.ilike.%${search}%,nome_fornitore.ilike.%${search}%,numero_primanota.ilike.%${search}%`);
-      q = q.order("codice_fornitore").order("data_primanota").range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.order("codice_fornitore").order("data_primanota").range(range.from, range.to);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
@@ -195,7 +192,7 @@ const DichiarativiCUPage = () => {
               ))}
             </TableBody>
           </Table>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>
 

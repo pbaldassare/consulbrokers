@@ -9,11 +9,8 @@ import { CalendarCheck } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 import { format, differenceInDays } from "date-fns";
-
-const PAGE_SIZE = 25;
-
 const ScadenziarioPage = () => {
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [statoFilter, setStatoFilter] = useState("tutte");
 
   const { data, isLoading } = useQuery({
@@ -21,7 +18,7 @@ const ScadenziarioPage = () => {
     queryFn: async () => {
       let q = supabase.from("scadenziario").select("*, fornitori(nome), primanota_generale(numero_pn)", { count: "exact" });
       if (statoFilter !== "tutte") q = q.eq("stato", statoFilter);
-      q = q.order("data_scadenza", { ascending: true }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.order("data_scadenza", { ascending: true }).range(range.from, range.to);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
@@ -102,7 +99,7 @@ const ScadenziarioPage = () => {
               ))}
             </TableBody>
           </Table>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>
     </div>

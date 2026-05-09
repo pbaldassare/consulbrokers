@@ -12,14 +12,11 @@ import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
-
-const PAGE_SIZE = 25;
-
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -53,7 +50,7 @@ const PortafoglioAttivePage = () => {
 
       const { data, count } = await q
         .order("garanzia_a", { ascending: true })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
   });
@@ -191,7 +188,7 @@ const PortafoglioAttivePage = () => {
               </TableBody>
             </Table>
           </div>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
     </div>

@@ -17,8 +17,6 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiNota = ["bozza", "pronta", "spedita", "chiusa"];
 
 const NoteRestituzioneList = () => {
@@ -31,7 +29,7 @@ const NoteRestituzioneList = () => {
   const [noteText, setNoteText] = useState("");
   const [filtroStato, setFiltroStato] = useState("all");
   const [filtroUfficio, setFiltroUfficio] = useState("all");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici"],
@@ -63,7 +61,7 @@ const NoteRestituzioneList = () => {
 
       const { data, error, count } = await q
         .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -191,7 +189,7 @@ const NoteRestituzioneList = () => {
                   {note.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna nota</TableCell></TableRow>}
                 </TableBody>
               </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+              <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
             </>
           )}
         </CardContent>

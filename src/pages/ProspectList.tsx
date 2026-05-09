@@ -25,9 +25,6 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
-
-const PAGE_SIZE = 25;
-
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
   { value: "in_trattativa", label: "In Trattativa", color: "bg-kpi-yellow-bg text-kpi-yellow-text border-kpi-yellow-border" },
@@ -62,7 +59,7 @@ const ProspectList = () => {
   const [open, setOpen] = useState(false);
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [form, setForm] = useState(initialForm);
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
 
@@ -112,7 +109,7 @@ const ProspectList = () => {
 
       const { data, error, count } = await q
         .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -574,7 +571,7 @@ const ProspectList = () => {
             </TableBody>
           </Table>
           <div className="p-4">
-            <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
           </div>
         </Card>
       )}

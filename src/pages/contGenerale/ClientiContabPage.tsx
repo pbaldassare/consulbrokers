@@ -8,11 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Search } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
-
 const ClientiContabPage = () => {
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -20,7 +17,7 @@ const ClientiContabPage = () => {
     queryFn: async () => {
       let q = supabase.from("clienti").select("*", { count: "exact" });
       if (search) q = q.or(`cognome.ilike.%${search}%,nome.ilike.%${search}%,ragione_sociale.ilike.%${search}%,codice_fiscale.ilike.%${search}%`);
-      q = q.order("cognome").range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.order("cognome").range(range.from, range.to);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
@@ -89,7 +86,7 @@ const ClientiContabPage = () => {
               ))}
             </TableBody>
           </Table>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>
     </div>

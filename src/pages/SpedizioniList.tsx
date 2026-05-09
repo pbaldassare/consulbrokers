@@ -15,14 +15,12 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiSpedizione = ["preparata", "spedita", "consegnata", "problema"];
 
 const SpedizioniList = () => {
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [newStato, setNewStato] = useState("");
@@ -39,7 +37,7 @@ const SpedizioniList = () => {
 
       const { data, error, count } = await q
         .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -126,7 +124,7 @@ const SpedizioniList = () => {
                   {spedizioni.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nessuna spedizione</TableCell></TableRow>}
                 </TableBody>
               </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+              <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
             </>
           )}
         </CardContent>

@@ -13,16 +13,13 @@ import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import PdfPreview from "@/components/PdfPreview";
-
-const PAGE_SIZE = 25;
-
 const ECProduttoriStoricoPage = () => {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [produttoreId, setProduttoreId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
@@ -56,8 +53,8 @@ const ECProduttoriStoricoPage = () => {
       if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
       if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
 
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const from = range.from;
+      const to = range.to;
       const { data: docs, count, error } = await query.range(from, to);
       if (error) throw error;
 
@@ -148,7 +145,7 @@ const ECProduttoriStoricoPage = () => {
         </Table>
       </div>
 
-      <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+      <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
 
       <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
         <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0">

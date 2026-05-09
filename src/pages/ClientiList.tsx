@@ -138,9 +138,7 @@ const ClientiList = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState<"denominazione" | "created_at">("denominazione");
-  const [page, setPage] = useState(0);
-  const PAGE_SIZE = 25;
-
+  const { page, setPage, pageSize, range } = useServerPagination();
   // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => {
@@ -302,8 +300,8 @@ const ClientiList = () => {
       }
 
       // Pagination
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const from = range.from;
+      const to = range.to;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -1166,7 +1164,7 @@ const ClientiList = () => {
                 )}
               </TableBody>
             </Table>
-            <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
             </>
           )}
         </CardContent>

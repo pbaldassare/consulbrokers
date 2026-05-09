@@ -16,9 +16,6 @@ import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
-
-const PAGE_SIZE = 25;
-
 const ESITI = [
   { value: "vinta", label: "Vinta", color: "bg-green-100 text-green-800" },
   { value: "persa", label: "Persa", color: "bg-red-100 text-red-800" },
@@ -58,7 +55,7 @@ export default function StoricoGarePage() {
   const isAdmin = profile?.ruolo === "admin" || profile?.ruolo === "responsabile_sede";
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(0); // 0-based
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [filtroProvincia, setFiltroProvincia] = useState("tutti");
@@ -129,7 +126,7 @@ export default function StoricoGarePage() {
       let q = supabase.from("v_storico_gare" as any).select("*", { count: "exact" });
       q = applyFilters(q);
       q = q.order("anno_riferimento", { ascending: false }).order("data_consegna", { ascending: false, nullsFirst: false });
-      q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.range(range.from, range.to);
       const { data, error, count } = await q;
       if (error) throw error;
       return { rows: (data as any[]) ?? [], total: count ?? 0 };
@@ -451,7 +448,7 @@ export default function StoricoGarePage() {
           </TableBody>
         </Table>
         <div className="p-3 border-t">
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
         </div>
       </Card>
 
