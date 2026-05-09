@@ -1,62 +1,79 @@
-# Chat lato Cliente — Hardening, performance e link dinamico polizze
+## Revisione completa modulo Provvigioni
 
-Migliorie all'esperienza chat in `/cliente/chat`:
+Obiettivo: rendere coerenti, filtrabili e visualmente uniformi le tre pagine del modulo (`Provvigioni Consul`, `Provvigioni Maturate`, `Pagamenti Provvigioni`) introducendo filtri multidimensionali, grafici e una formattazione numerica/KPI condivisa.
 
-## 1. Header contestuale con fallback
+---
 
-`src/components/cliente/CanaleContextHeader.tsx`:
-- Se la polizza non ha `numero_titolo`: badge "Polizza senza numero" in stile muted invece di "—".
-- Se manca `targa_telaio`: nascondere il badge targa (oggi mostra "—").
-- Se la query fallisce o l'entità non esiste: mostrare un alert compatto "Riferimento non più disponibile" senza far collassare l'header.
-- Skeleton sottile (h-9) durante il caricamento per evitare salti di layout.
-- Layout responsive: `min-h-[44px]` fisso, badge che vanno a capo con `flex-wrap` (già presente, da consolidare).
+### 1. Componenti condivisi (nuovi)
 
-## 2. Sidebar: ordinamento, paginazione, indicatori
+- `src/components/provvigioni/ProvvigioniKpiCard.tsx` — card KPI uniforme (icona, label, valore mono, delta opzionale, accent). Sostituisce le tre varianti attualmente diverse fra le pagine.
+- `src/components/provvigioni/ProvvigioniFiltersBar.tsx` — barra filtri condivisa con: periodo (range mese/anno), `Ramo` (multi), `Compagnia` (multi), `Produttore/Commerciale` (multi via `SearchableSelect`), `Cliente` (search asincrono), `Tipo destinatario` (Consul/Commerciale/Sede). Stato gestito tramite URL search params.
+- `src/components/provvigioni/ProvvigioniCharts.tsx` — set Recharts riutilizzabile:
+  - Bar per Ramo
+  - Bar per Produttore (top 10)
+  - Line per mese (trend ultimi 12 mesi)
+  - Pie split Consul vs Commerciali
+- `src/lib/formatCurrency.ts` — `fmtEuro(v)` con `Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })`. Sostituisce le 3 implementazioni locali (`€ 0.00` → `€ 1.234,56`).
 
-`src/pages/cliente/ClienteComunicazioni.tsx`:
+---
 
-**Ordinamento per ultimo messaggio**
-- Nuova RPC `get_canali_cliente_with_meta(_user_id uuid)` che ritorna per ogni canale visibile al cliente:
-  `id, nome, entita_tipo, entita_id, last_message_at, last_message_preview, unread_count`.
-- Calcolo: JOIN su `chat_messaggi_interni` con `MAX(created_at)` per `last_message_at` e LATERAL per la preview; `unread_count = COUNT(messaggi WHERE mittente_id <> user AND created_at > ultimo_letto_at)`.
-- Ordinamento DESC su `last_message_at` (NULLS LAST).
+### 2. Provvigioni Consul (`ProvvigioniSedePage.tsx`)
 
-**Paginazione progressiva**
-- React Query `useInfiniteQuery` con page size 20.
-- "Carica altre" alla fine della lista; auto-trigger via IntersectionObserver sul sentinel.
+Quota di Consulbrokers SPA su titoli incassati.
 
-**Indicatori non lette**
-- Badge numerico (cerchio teal) accanto al nome canale quando `unread_count > 0`.
-- Nome in `font-semibold` quando non letto, `font-normal` se letto.
-- Preview ultimo messaggio (truncate 1 riga) sotto il nome, con orario relativo (`formatDistanceToNow`).
-- Contatore globale: somma degli unread mostrato nel titolo "Chat (N)".
+- KPI uniformi (`ProvvigioniKpiCard`): Tot. Consul, Tot. Commerciali, Tot. Agenzia, N° polizze, Premio totale.
+- Sezione **Distribuzione**, 4 tab:
+  - **Per Ramo**: aggregazione `ramo` → tabella + bar chart, percentuale sul totale.
+  - **Per Produttore/Commerciale**: aggregazione `commerciale_id` (incluso "no commerciale = 100% Consul") → tabella + bar.
+  - **Per Cliente**: top clienti + search; click → detail cliente.
+  - **Per Periodo**: trend mensile ultimi 12 mesi (line).
+- Tabella dettaglio sotto i tab, filtrata dai `ProvvigioniFiltersBar`. Colonne attuali + `Cliente`.
+- Selettore mese sostituito da range completo nella filters bar.
+- Export CSV del dato filtrato.
 
-## 3. Link dinamico polizze in conversazione
+---
 
-Quando l'utente sta in una chat ad ambito `argomento` o `cliente`, mostrare sopra la lista messaggi un **selettore "Collega polizza"**:
+### 3. Provvigioni Maturate (`ProvvigioniMaturatePage.tsx`)
 
-- Nuovo componente `src/components/cliente/PolizzeLinkPicker.tsx`:
-  - Popover con lista delle polizze attive del cliente (`titoli` filtrate da `get_my_cliente_ids`).
-  - Click su una polizza → invia un messaggio strutturato `[POLIZZA:uuid]` nel canale (oppure inserisce un riferimento testuale "📎 Polizza N° XXX — Targa YYY").
-  - In `ChatArea`, parsing dei messaggi: se contengono pattern `[POLIZZA:uuid]`, sostituirli con un chip cliccabile (badge teal con N° polizza + targa) che apre `/cliente/polizze/:id` in nuova route.
+Vista del produttore/commerciale.
 
-Implementazione minima senza modifiche schema: il messaggio viene salvato come testo con marker, e il renderer lato client lo trasforma in chip arricchito (lookup batch su `titoli` per gli id citati nel canale corrente).
+- Header con `ProvvigioniFiltersBar` (default = mese corrente).
+- KPI uniformi: Totale Maturato, N° provvigioni, Destinatari unici, Premio incassato, Importo medio.
+- **Grafici**: bar per produttore, bar per ramo, pie tipo destinatario, line trend 12 mesi.
+- Tabella esistente (zebra preservata) con ordinamento colonne, paginazione 25, search testuale.
+- Stato vuoto chiaro con istruzioni filtri (oggi mostra "Nessuna" anche quando ci sono dati fuori filtro).
+- Bug fix: query attuale filtra `pagata=false` AND `solo_statistico=false` ma il join `titoli!inner` con `gte/lte` su `data_messa_cassa` può restituire 0 quando i titoli non hanno `data_messa_cassa` valorizzato — verificare e usare in alternativa `calcolata_il` come fallback.
 
-## 4. File coinvolti
+---
 
-- **Nuovi**:
-  - `src/components/cliente/PolizzeLinkPicker.tsx`
-  - `src/components/cliente/MessaggioConChip.tsx` (renderer messaggio con chip polizza)
-- **Modificati**:
-  - `src/components/cliente/CanaleContextHeader.tsx` (fallback, skeleton, alert)
-  - `src/pages/cliente/ClienteComunicazioni.tsx` (sidebar arricchita, infinite scroll, badge unread)
-  - `src/components/chat/ChatArea.tsx` (slot opzionale `aboveMessages` per il PolizzeLinkPicker, e renderer chip via prop `messageRenderer`)
-- **Nuova migrazione**:
-  - RPC `get_canali_cliente_with_meta(_user_id uuid)` SECURITY DEFINER con search_path public, restituisce SETOF della struttura sopra. Filtra su `chat_canali_membri.user_id = _user_id` AND `chat_canali.ambito='contestuale'` AND `visibile_cliente=true`.
+### 4. Pagamenti Provvigioni (`PagamentiProvvigioniList.tsx`)
 
-## 5. Note tecniche
+- KPI riallineati con `ProvvigioniKpiCard` e `fmtEuro` (oggi usa `€{x.toFixed(2)}` → grafica diversa).
+- Filtri: beneficiario, periodo, metodo, stato (pagata/da pagare).
+- Grafico: bar mensile pagamenti, pie per metodo.
+- Tabella zebra, importi formattati `it-IT`.
+- Dialog "Nuova Distinta": numeri formattati con `fmtEuro`, totale selezionato evidenziato.
 
-- Non si tocca lo schema delle tabelle, solo aggiunta RPC.
-- Riuso della RPC esistente `mark_canale_as_read` per azzerare `unread_count` all'apertura (già chiamata in `ChatArea`).
-- Lo staff side (`/comunicazioni`) non viene toccato: tutte le modifiche a `ChatArea` saranno opt-in via prop opzionali.
-- Realtime: l'auto-refetch ogni 10s già presente è sufficiente; in futuro si potrà passare a Supabase Realtime su `chat_messaggi_interni`.
+---
+
+### 5. Tecnico
+
+- Nessuna modifica schema. Tutti gli aggregati lato client su query già esistenti, con `limit(1000)` e where indicizzati (`data_messa_cassa`, `stato='incassato'`).
+- Per il trend 12 mesi su Consul: nuova query separata che raggruppa client-side (range 12 mesi).
+- React Query keys che includono tutti i filtri per cache corretta.
+- Tutti i colori dai token semantici (`--primary` teal, `--muted`, `--destructive`); nessun colore hex hardcoded nei chart (palette derivata da CSS vars).
+
+---
+
+### File toccati
+
+**Nuovi**
+- `src/components/provvigioni/ProvvigioniKpiCard.tsx`
+- `src/components/provvigioni/ProvvigioniFiltersBar.tsx`
+- `src/components/provvigioni/ProvvigioniCharts.tsx`
+- `src/lib/formatCurrency.ts`
+
+**Modificati**
+- `src/pages/ProvvigioniSedePage.tsx` (riscrittura layout, mantenuta logica calcolo)
+- `src/pages/ProvvigioniMaturatePage.tsx` (filtri + grafici + fix query)
+- `src/pages/PagamentiProvvigioniList.tsx` (uniformazione KPI + filtri + grafico)
