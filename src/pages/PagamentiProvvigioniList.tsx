@@ -272,7 +272,7 @@ const PagamentiProvvigioniList = () => {
                             <TableCell>{p.titolo?.prodotto?.nome_prodotto || "-"}</TableCell>
                             <TableCell>{p.calcolata_il ? format(new Date(p.calcolata_il), "dd/MM/yyyy") : "-"}</TableCell>
                             <TableCell className="text-right">{p.percentuale}%</TableCell>
-                            <TableCell className="text-right font-mono tabular-nums font-medium">{fmtEuro(p.importo_provvigione)}</TableCell>
+                            <TableCell className="text-right tabular-nums font-medium font-sans">{fmtEuro(p.importo_provvigione)}</TableCell>
                           </TableRow>
                         ))}
                         {provvigioniNonPagate.length === 0 && (
