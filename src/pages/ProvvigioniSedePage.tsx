@@ -16,6 +16,7 @@ import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/com
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
+import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
 
 // PAGE_SIZE gestita da usePagination (default 25)
 
@@ -73,13 +74,7 @@ const ProvvigioniSedePage = () => {
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });
-  const { data: produttori = [], isLoading: lkProd } = useQuery({
-    queryKey: ["lookup-produttori"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
-      return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
-    },
-  });
+  const { data: produttori = [], isLoading: lkProd } = useProduttoriLookup();
   
   
 
@@ -91,10 +86,11 @@ const ProvvigioniSedePage = () => {
         .from("titoli")
         .select(`
           id, numero_titolo, premio_lordo, provvigioni_firma, percentuale_commerciale, stato,
-          data_messa_cassa, ramo_id, compagnia_id, commerciale_id, cliente_id,
+          data_messa_cassa, ramo_id, compagnia_id, commerciale_id, anagrafica_commerciale_id, cliente_id, produttore_nome,
           compagnia_diretta:compagnie!titoli_compagnia_id_fkey(nome),
           ramo:rami!titoli_ramo_id_fkey(codice, descrizione),
           commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome),
+          anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, nome, cognome, ragione_sociale),
           clienti:clienti!titoli_cliente_id_fkey(id, nome, cognome, ragione_sociale)
         `)
         .eq("stato", "incassato")
@@ -103,7 +99,7 @@ const ProvvigioniSedePage = () => {
         .lte("data_messa_cassa", filters.a);
       if (filters.ramoId) q = q.eq("ramo_id", filters.ramoId);
       if (filters.compagniaId) q = q.eq("compagnia_id", filters.compagniaId);
-      if (filters.produttoreId) q = q.eq("commerciale_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("anagrafica_commerciale_id", filters.produttoreId);
       if (filters.clienteId) q = q.eq("cliente_id", filters.clienteId);
       const { data } = await q.order("data_messa_cassa", { ascending: false }).limit(1000);
       return data || [];
@@ -123,7 +119,7 @@ const ProvvigioniSedePage = () => {
         .gte("data_messa_cassa", da);
       if (filters.ramoId) q = q.eq("ramo_id", filters.ramoId);
       if (filters.compagniaId) q = q.eq("compagnia_id", filters.compagniaId);
-      if (filters.produttoreId) q = q.eq("commerciale_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("anagrafica_commerciale_id", filters.produttoreId);
       const { data } = await q.limit(5000);
       const buckets = new Map<string, number>();
       for (const t of data || []) {
@@ -168,8 +164,12 @@ const ProvvigioniSedePage = () => {
   ), [filteredTitoli]);
 
   const byProduttore = useMemo(() => aggregate(filteredTitoli,
-    (t) => t.commerciale_id || "__no_comm__",
-    (t) => t.commerciale ? `${t.commerciale.cognome} ${t.commerciale.nome}` : "Consul (no commerciale)",
+    (t) => t.anagrafica_commerciale_id || (t.produttore_nome ? `n:${t.produttore_nome}` : "__no_comm__"),
+    (t) => {
+      const a = t.anagrafica_commerciale;
+      const lbl = (a?.ragione_sociale && a.ragione_sociale.trim()) || `${a?.cognome || ""} ${a?.nome || ""}`.trim();
+      return lbl || t.produttore_nome || "Consul (no commerciale)";
+    },
     (t) => (t.provvigioni_firma || 0) * (100 - (t.percentuale_commerciale ?? 100)) / 100
   ), [filteredTitoli]);
 

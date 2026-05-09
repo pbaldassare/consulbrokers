@@ -15,6 +15,7 @@ import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard"
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
@@ -41,13 +42,7 @@ const ProvvigioniMaturatePage = () => {
       return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
     },
   });
-  const { data: produttori = [], isLoading: lkProd } = useQuery({
-    queryKey: ["lookup-produttori"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
-      return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
-    },
-  });
+  const { data: produttori = [], isLoading: lkProd } = useProduttoriLookup();
   
 
   const { data: provvigioni = [], isLoading } = useQuery({
@@ -58,10 +53,11 @@ const ProvvigioniMaturatePage = () => {
         .select(`
           id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario, solo_statistico, user_id,
           titoli!inner(
-            id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome, ramo_id, compagnia_id, cliente_id,
+            id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome, ramo_id, compagnia_id, cliente_id, anagrafica_commerciale_id,
             compagnie!titoli_compagnia_id_fkey(nome),
             rami!titoli_ramo_id_fkey(codice, descrizione),
-            clienti:clienti!titoli_cliente_id_fkey(id, nome, cognome, ragione_sociale)
+            clienti:clienti!titoli_cliente_id_fkey(id, nome, cognome, ragione_sociale),
+            anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, nome, cognome, ragione_sociale)
           ),
           profiles!provvigioni_generate_user_id_fkey(nome, cognome)
         `)
@@ -69,7 +65,7 @@ const ProvvigioniMaturatePage = () => {
         .gte("titoli.data_messa_cassa", filters.da)
         .lte("titoli.data_messa_cassa", filters.a);
       if (filters.ramoId) q = q.eq("titoli.ramo_id", filters.ramoId);
-      if (filters.produttoreId) q = q.eq("user_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("titoli.anagrafica_commerciale_id", filters.produttoreId);
       if (filters.tipoDestinatario) q = q.eq("tipo_destinatario", filters.tipoDestinatario);
       const { data } = await q.order("calcolata_il", { ascending: false }).limit(1000);
       return data || [];
@@ -83,11 +79,11 @@ const ProvvigioniMaturatePage = () => {
       const da = format(startOfMonth(subMonths(new Date(), 11)), "yyyy-MM-dd");
       let q = supabase
         .from("provvigioni_generate")
-        .select("importo_provvigione, titoli!inner(data_messa_cassa, ramo_id), tipo_destinatario, user_id")
+        .select("importo_provvigione, titoli!inner(data_messa_cassa, ramo_id, anagrafica_commerciale_id), tipo_destinatario, user_id")
         .eq("solo_statistico", false)
         .gte("titoli.data_messa_cassa", da);
       if (filters.ramoId) q = q.eq("titoli.ramo_id", filters.ramoId);
-      if (filters.produttoreId) q = q.eq("user_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("titoli.anagrafica_commerciale_id", filters.produttoreId);
       if (filters.tipoDestinatario) q = q.eq("tipo_destinatario", filters.tipoDestinatario);
       const { data } = await q.limit(5000);
       const buckets = new Map<string, number>();
@@ -136,9 +132,12 @@ const ProvvigioniMaturatePage = () => {
     return [...m.values()].sort((a, b) => b.value - a.value);
   };
 
+  const labelAnag = (a: any) =>
+    (a?.ragione_sociale && a.ragione_sociale.trim()) ||
+    `${a?.cognome || ""} ${a?.nome || ""}`.trim();
   const byProduttore = useMemo(() => aggBy(
-    (p) => p.user_id || (p.titoli?.produttore_nome ? `n:${p.titoli.produttore_nome}` : null),
-    (p) => p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—"),
+    (p) => p.titoli?.anagrafica_commerciale_id || (p.titoli?.produttore_nome ? `n:${p.titoli.produttore_nome}` : null),
+    (p) => labelAnag(p.titoli?.anagrafica_commerciale) || (p.titoli?.produttore_nome || "—"),
   ), [filtered]);
   const byRamo = useMemo(() => aggBy((p) => p.titoli?.ramo_id, (p) => p.titoli?.rami?.descrizione || "—"), [filtered]);
   const byTipo = useMemo(() => aggBy((p) => p.tipo_destinatario, (p) => {
