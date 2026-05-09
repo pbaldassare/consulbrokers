@@ -57,11 +57,11 @@ export function PolizzaHeaderCard({
       const { data } = await supabase
         .from("titoli")
         .select(
-          `id, numero_titolo, stato, premio_lordo, prodotto_nome,
-           cliente_anagrafica:clienti!cliente_anagrafica_id (id, nome, cognome, ragione_sociale, tipo_cliente),
-           uffici:ufficio_id (id, nome_ufficio),
-           prodotti:prodotto_id (nome_prodotto, compagnie:compagnia_id (nome)),
-           compagnia_diretta:compagnia_id (nome)` as any,
+          "id, numero_titolo, stato, premio_lordo, prodotto_nome, " +
+            "cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale), " +
+            "uffici(nome_ufficio), " +
+            "prodotti(nome_prodotto, compagnie(nome)), " +
+            "compagnia_diretta:compagnie!titoli_compagnia_id_fkey(nome)",
         )
         .eq("id", titoloId)
         .maybeSingle();
