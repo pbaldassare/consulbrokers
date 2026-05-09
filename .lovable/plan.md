@@ -1,79 +1,129 @@
-## Revisione completa modulo Provvigioni
+# Pulizia & ottimizzazione progetto — piano in 5 step
 
-Obiettivo: rendere coerenti, filtrabili e visualmente uniformi le tre pagine del modulo (`Provvigioni Consul`, `Provvigioni Maturate`, `Pagamenti Provvigioni`) introducendo filtri multidimensionali, grafici e una formattazione numerica/KPI condivisa.
-
----
-
-### 1. Componenti condivisi (nuovi)
-
-- `src/components/provvigioni/ProvvigioniKpiCard.tsx` — card KPI uniforme (icona, label, valore mono, delta opzionale, accent). Sostituisce le tre varianti attualmente diverse fra le pagine.
-- `src/components/provvigioni/ProvvigioniFiltersBar.tsx` — barra filtri condivisa con: periodo (range mese/anno), `Ramo` (multi), `Compagnia` (multi), `Produttore/Commerciale` (multi via `SearchableSelect`), `Cliente` (search asincrono), `Tipo destinatario` (Consul/Commerciale/Sede). Stato gestito tramite URL search params.
-- `src/components/provvigioni/ProvvigioniCharts.tsx` — set Recharts riutilizzabile:
-  - Bar per Ramo
-  - Bar per Produttore (top 10)
-  - Line per mese (trend ultimi 12 mesi)
-  - Pie split Consul vs Commerciali
-- `src/lib/formatCurrency.ts` — `fmtEuro(v)` con `Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })`. Sostituisce le 3 implementazioni locali (`€ 0.00` → `€ 1.234,56`).
+Lavoro **incrementale e sicuro**: nessun cambio di funzionalità, route, schema DB, ruoli/RLS o stile grafico. Ogni step è una PR logica separata, verificabile in preview prima di passare al successivo.
 
 ---
 
-### 2. Provvigioni Consul (`ProvvigioniSedePage.tsx`)
+## Step 1 — Analisi e report (no code change)
 
-Quota di Consulbrokers SPA su titoli incassati.
+Produco un documento `.lovable/audit-refactor.md` con:
 
-- KPI uniformi (`ProvvigioniKpiCard`): Tot. Consul, Tot. Commerciali, Tot. Agenzia, N° polizze, Premio totale.
-- Sezione **Distribuzione**, 4 tab:
-  - **Per Ramo**: aggregazione `ramo` → tabella + bar chart, percentuale sul totale.
-  - **Per Produttore/Commerciale**: aggregazione `commerciale_id` (incluso "no commerciale = 100% Consul") → tabella + bar.
-  - **Per Cliente**: top clienti + search; click → detail cliente.
-  - **Per Periodo**: trend mensile ultimi 12 mesi (line).
-- Tabella dettaglio sotto i tab, filtrata dai `ProvvigioniFiltersBar`. Colonne attuali + `Cliente`.
-- Selettore mese sostituito da range completo nella filters bar.
-- Export CSV del dato filtrato.
+**1.1 Pagine più pesanti (LOC)**
+```
+TitoloDetail.tsx              3285
+ClienteDetail.tsx             2034
+CompagnieList.tsx             1454
+ImmissionePolizzaPage.tsx     1267
+ClientiList.tsx               1178
+TabelleBasePage.tsx           1114
+AreaCFO.tsx                   1083
+BandiPubbliciPage.tsx         1031
+AnagraficheInternePage.tsx    1027
+DocPrecontrattualePage.tsx     914
+AnagraficheCompagniePage.tsx   883
+```
+
+**1.2 Componenti grossi**
+```
+polizze/VociRcaCard.tsx          1294
+clienti/NuovoClienteDialog.tsx    871
+anagrafiche/SpecialistList.tsx    773
+chat/NuovaConversazioneDialog    714
+polizze/RinnovoTitoloDialog.tsx   652
+AddressAutocomplete.tsx           587
+anagrafiche/SediManager.tsx       565
+compagnie/RapportiCompagniaDialog 460
+```
+
+**1.3 Pagine con troppi dati misti** (candidate a split in tab/sezioni)
+- `TitoloDetail` — anagrafica + tecnico + provvigioni + movimenti + appendici + log nello stesso file
+- `ClienteDetail` — anagrafica + polizze + sinistri + documenti + comunicazioni
+- `AreaCFO` — KPI + grafici + drill-down + AI chat
+- `CompagnieList` — lista + dialog rapporti + branch + tax in un solo file
+
+**1.4 Duplicazioni rilevate (da verificare in step 2)**
+- pattern `formatCurrency` / `Intl.NumberFormat('it-IT', currency:'EUR')` ripetuto in molti file → già esiste `src/lib/formatCurrency.ts`, va centralizzato l'uso
+- date format `it-IT` ripetuto → estrarre in `lib/formatDate.ts`
+- pattern paginazione client-side (`PAGE_SIZE`, `setPage(0)` su filtri) duplicato in pagine Provvigioni, Portafoglio, EC* → estrarre `usePagination` hook
+- pattern lookup tables (rami/compagnie/produttori/clienti) ripetuto → consolidare in `useLookupTables` (esiste già, ma non sempre usato)
+- skeleton/loading state duplicati → già parzialmente in `ProvvigioniSkeletons`, generalizzare in `components/ui/skeletons/`
+- query Supabase con stesso shape per "lista clienti", "lista compagnie" presenti in più pagine → custom hook
+
+**1.5 Stati React ridondanti (da analizzare puntualmente)**
+- pagine grandi con 15+ `useState` invece di `useReducer` o `react-hook-form`
+- filtri ricalcolati ad ogni render senza `useMemo`
+
+**1.6 Codice morto sospetto** (da confermare con doppio check, NON rimosso senza verifica)
+- `pages/GestioneUtenti.tsx` (sostituita da `GestioneUtentiPrivilegi`?)
+- `BancaImport.tsx`, `FornitoriPage.tsx` (rotte redirectano altrove in `routes/sistema.tsx`)
+- TODO marker in `DuplicazionePolizzaPage`, `DiffProvvigioniPage`, `ConfermaEmittendePage`, `StornoPolizzaPage`
+
+**1.7 Performance**
+- nessun `console.log` residuo (già pulito ✓)
+- mancano `React.memo`/`useMemo` su tabelle grandi (TitoliList, PortafoglioList, ClientiList)
+- alcune query non usano `select` puntuale e tirano colonne extra
+
+**Output Step 1 = solo il file `audit-refactor.md`**, niente modifiche.
 
 ---
 
-### 3. Provvigioni Maturate (`ProvvigioniMaturatePage.tsx`)
+## Step 2 — Pulizie sicure (basso rischio)
 
-Vista del produttore/commerciale.
+- `eslint --fix` su tutto `src/` (import order, unused vars segnalati)
+- Rimozione import inutilizzati e variabili dichiarate-mai-usate (uno per file, verifica build)
+- Rimozione codice commentato vecchio
+- Sostituzione `Intl.NumberFormat` ripetuti con `formatCurrency` da `src/lib/formatCurrency.ts`
+- Aggiunta `formatDate` helper + sostituzione formatter date sparsi
+- **Non** rimuovo file sospetti di essere morti: li elenco nel report con istruzioni di verifica manuale
 
-- Header con `ProvvigioniFiltersBar` (default = mese corrente).
-- KPI uniformi: Totale Maturato, N° provvigioni, Destinatari unici, Premio incassato, Importo medio.
-- **Grafici**: bar per produttore, bar per ramo, pie tipo destinatario, line trend 12 mesi.
-- Tabella esistente (zebra preservata) con ordinamento colonne, paginazione 25, search testuale.
-- Stato vuoto chiaro con istruzioni filtri (oggi mostra "Nessuna" anche quando ci sono dati fuori filtro).
-- Bug fix: query attuale filtra `pagata=false` AND `solo_statistico=false` ma il join `titoli!inner` con `gte/lte` su `data_messa_cassa` può restituire 0 quando i titoli non hanno `data_messa_cassa` valorizzato — verificare e usare in alternativa `calcolata_il` come fallback.
-
----
-
-### 4. Pagamenti Provvigioni (`PagamentiProvvigioniList.tsx`)
-
-- KPI riallineati con `ProvvigioniKpiCard` e `fmtEuro` (oggi usa `€{x.toFixed(2)}` → grafica diversa).
-- Filtri: beneficiario, periodo, metodo, stato (pagata/da pagare).
-- Grafico: bar mensile pagamenti, pie per metodo.
-- Tabella zebra, importi formattati `it-IT`.
-- Dialog "Nuova Distinta": numeri formattati con `fmtEuro`, totale selezionato evidenziato.
+Verifica: build pulita, preview identica.
 
 ---
 
-### 5. Tecnico
+## Step 3 — Refactor componenti grandi (top 5)
 
-- Nessuna modifica schema. Tutti gli aggregati lato client su query già esistenti, con `limit(1000)` e where indicizzati (`data_messa_cassa`, `stato='incassato'`).
-- Per il trend 12 mesi su Consul: nuova query separata che raggruppa client-side (range 12 mesi).
-- React Query keys che includono tutti i filtri per cache corretta.
-- Tutti i colori dai token semantici (`--primary` teal, `--muted`, `--destructive`); nessun colore hex hardcoded nei chart (palette derivata da CSS vars).
+Per ciascuno: split in sotto-componenti nella stessa cartella, **stessa UI, stessi props pubblici**.
+
+1. **TitoloDetail.tsx (3285 LOC)** → `titolo/` 
+   - `TitoloHeader`, `TitoloAnagraficaTab`, `TitoloTecnicoTab`, `TitoloProvvigioniTab`, `TitoloMovimentiTab`, `TitoloAppendiciTab`, `TitoloLogTab` + hook `useTitoloData`
+2. **ClienteDetail.tsx (2034)** → `cliente/detail/` con tab già esistenti come componenti
+3. **CompagnieList.tsx (1454)** → estrarre `CompagniaRow`, `CompagnieFilters`, `CompagnieTable`
+4. **VociRcaCard.tsx (1294)** → split per gruppo voci (RCA / ARD / Garanzie)
+5. **ImmissionePolizzaPage.tsx (1267)** → step già logici, separare in `immissione/StepX.tsx`
+
+Ogni refactor: 1 commit per file, verifica preview prima del successivo.
 
 ---
 
-### File toccati
+## Step 4 — Organizzazione dati nelle pagine dense
 
-**Nuovi**
-- `src/components/provvigioni/ProvvigioniKpiCard.tsx`
-- `src/components/provvigioni/ProvvigioniFiltersBar.tsx`
-- `src/components/provvigioni/ProvvigioniCharts.tsx`
-- `src/lib/formatCurrency.ts`
+- `AreaCFO`: dividere in sezioni con titoli (KPI / Andamento / Drill-down / AI), già parziale
+- `ClientiList` / `ProspectList`: raggruppare colonne con header secondari, ridurre densità
+- `TabelleBasePage`: separare le tab in file dedicati
+- Migliorare spaziatura/typography seguendo i token esistenti (no nuovi colori)
 
-**Modificati**
-- `src/pages/ProvvigioniSedePage.tsx` (riscrittura layout, mantenuta logica calcolo)
-- `src/pages/ProvvigioniMaturatePage.tsx` (filtri + grafici + fix query)
-- `src/pages/PagamentiProvvigioniList.tsx` (uniformazione KPI + filtri + grafico)
+---
+
+## Step 5 — Verifica finale
+
+- Build TypeScript pulita
+- Smoke test manuale guidato (lista pagine principali in preview)
+- Report finale con: file modificati, LOC ridotte, componenti estratti, helper centralizzati, file morti **solo segnalati** (non rimossi senza tua conferma)
+
+---
+
+## Regole rispettate
+
+- Nessuna modifica a: route, schema DB, RLS, auth, nomi campi, librerie nuove
+- Nessuna rimozione di funzionalità
+- Stile grafico invariato (token esistenti)
+- Refactor solo per leggibilità/manutenibilità
+
+## Cosa NON farò senza tuo OK esplicito
+
+- Eliminare file sospetti come morti
+- Introdurre nuove librerie (es. zustand, react-query refactor)
+- Convertire pagine a `react-hook-form` se oggi usano `useState`
+- Cambiare strategia di data fetching (oggi: supabase-js diretto)
+
+Confermi questo piano? Posso partire dallo **Step 1** (solo report, zero modifiche al codice).
