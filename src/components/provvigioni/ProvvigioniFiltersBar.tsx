@@ -27,6 +27,10 @@ interface Props {
   clienti?: Option[];
   showTipo?: boolean;
   showSearch?: boolean;
+  loadingRami?: boolean;
+  loadingCompagnie?: boolean;
+  loadingProduttori?: boolean;
+  loadingClienti?: boolean;
 }
 
 const today = () => format(new Date(), "yyyy-MM-dd");
@@ -45,6 +49,7 @@ export const defaultFilters = (): ProvvigioniFilters => ({
 export const ProvvigioniFiltersBar = ({
   filters, onChange, rami = [], compagnie = [], produttori = [], clienti = [],
   showTipo = false, showSearch = true,
+  loadingRami, loadingCompagnie, loadingProduttori, loadingClienti,
 }: Props) => {
   const set = (patch: Partial<ProvvigioniFilters>) => onChange({ ...filters, ...patch });
 
@@ -77,28 +82,28 @@ export const ProvvigioniFiltersBar = ({
         </div>
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        {rami.length > 0 && (
+        {(rami.length > 0 || loadingRami) && (
           <div className="space-y-1">
             <Label className="text-xs">Ramo</Label>
-            <FilterSearchableSelect value={filters.ramoId} onValueChange={(v) => set({ ramoId: v })} options={rami} placeholder="Ramo" allLabel="Tutti i rami" className="w-[200px] h-9" />
+            <FilterSearchableSelect value={filters.ramoId} onValueChange={(v) => set({ ramoId: v })} options={rami} placeholder="Ramo" allLabel="Tutti i rami" className="w-[200px] h-9" loading={loadingRami} />
           </div>
         )}
-        {compagnie.length > 0 && (
+        {(compagnie.length > 0 || loadingCompagnie) && (
           <div className="space-y-1">
             <Label className="text-xs">Compagnia</Label>
-            <FilterSearchableSelect value={filters.compagniaId} onValueChange={(v) => set({ compagniaId: v })} options={compagnie} placeholder="Compagnia" allLabel="Tutte" className="w-[200px] h-9" />
+            <FilterSearchableSelect value={filters.compagniaId} onValueChange={(v) => set({ compagniaId: v })} options={compagnie} placeholder="Compagnia" allLabel="Tutte" className="w-[200px] h-9" loading={loadingCompagnie} />
           </div>
         )}
-        {produttori.length > 0 && (
+        {(produttori.length > 0 || loadingProduttori) && (
           <div className="space-y-1">
             <Label className="text-xs">Produttore</Label>
-            <FilterSearchableSelect value={filters.produttoreId} onValueChange={(v) => set({ produttoreId: v })} options={produttori} placeholder="Produttore" allLabel="Tutti" className="w-[220px] h-9" />
+            <FilterSearchableSelect value={filters.produttoreId} onValueChange={(v) => set({ produttoreId: v })} options={produttori} placeholder="Produttore" allLabel="Tutti" className="w-[220px] h-9" loading={loadingProduttori} />
           </div>
         )}
-        {clienti.length > 0 && (
+        {(clienti.length > 0 || loadingClienti) && (
           <div className="space-y-1">
             <Label className="text-xs">Cliente</Label>
-            <FilterSearchableSelect value={filters.clienteId} onValueChange={(v) => set({ clienteId: v })} options={clienti} placeholder="Cliente" allLabel="Tutti" className="w-[220px] h-9" />
+            <FilterSearchableSelect value={filters.clienteId} onValueChange={(v) => set({ clienteId: v })} options={clienti} placeholder="Cliente" allLabel="Tutti" className="w-[220px] h-9" loading={loadingClienti} />
           </div>
         )}
         {showTipo && (
