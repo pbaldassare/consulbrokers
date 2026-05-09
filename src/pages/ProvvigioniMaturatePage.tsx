@@ -13,7 +13,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
@@ -163,9 +163,12 @@ const ProvvigioniMaturatePage = () => {
         </Button>
       </div>
 
-      {lookupsLoading ? <FiltersBarSkeleton /> : (
-        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} produttori={produttori} showTipo />
-      )}
+      <ProvvigioniFiltersBar
+        filters={filters}
+        onChange={(f) => { setFilters(f); setPage(0); }}
+        rami={rami} produttori={produttori} showTipo
+        loadingRami={lkRami} loadingProduttori={lkProd}
+      />
 
       {isLoading ? (
         <>
