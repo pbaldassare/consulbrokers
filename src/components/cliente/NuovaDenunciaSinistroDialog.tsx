@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
+import { Upload, X, MapPin } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface Props {
   open: boolean;
@@ -24,28 +25,42 @@ interface Polizza {
   cliente_anagrafica_id: string;
 }
 
+const TIPI_SINISTRO = [
+  { value: "rca_collisione", label: "RCA — collisione/tamponamento", isVeicolo: true },
+  { value: "rca_urto", label: "RCA — urto contro ostacolo", isVeicolo: true },
+  { value: "furto_veicolo", label: "Furto/incendio veicolo", isVeicolo: true },
+  { value: "cristalli", label: "Rottura cristalli", isVeicolo: true },
+  { value: "incendio_immobile", label: "Incendio immobile", isVeicolo: false },
+  { value: "furto_immobile", label: "Furto/scippo", isVeicolo: false },
+  { value: "danni_acqua", label: "Danni da acqua", isVeicolo: false },
+  { value: "eventi_atmosferici", label: "Eventi atmosferici", isVeicolo: false },
+  { value: "rc_terzi", label: "Responsabilità verso terzi", isVeicolo: false },
+  { value: "infortunio", label: "Infortunio", isVeicolo: false },
+  { value: "malattia", label: "Malattia", isVeicolo: false },
+  { value: "altro", label: "Altro", isVeicolo: false },
+];
+
 export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const { user } = useAuth();
-  const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [polizze, setPolizze] = useState<Polizza[]>([]);
 
-  // step 1
   const [titoloId, setTitoloId] = useState("");
+  const [tipoSinistro, setTipoSinistro] = useState("");
   const [dataEvento, setDataEvento] = useState("");
-  const [luogo, setLuogo] = useState("");
-  const [cittaSinistro, setCittaSinistro] = useState("");
-  // step 2
+  const [indirizzo, setIndirizzo] = useState("");
+  const [citta, setCitta] = useState("");
+  const [cap, setCap] = useState("");
+  const [provincia, setProvincia] = useState("");
   const [dinamica, setDinamica] = useState("");
   const [controparte, setControparte] = useState("");
   const [targa, setTarga] = useState("");
-  // step 3
   const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setStep(1);
-    setTitoloId(""); setDataEvento(""); setLuogo(""); setCittaSinistro("");
+    setTitoloId(""); setTipoSinistro(""); setDataEvento("");
+    setIndirizzo(""); setCitta(""); setCap(""); setProvincia("");
     setDinamica(""); setControparte(""); setTarga(""); setFiles([]);
     (async () => {
       const { data: cIds } = await supabase.rpc("get_my_cliente_ids");
@@ -63,12 +78,17 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
   }, [open]);
 
   const polizzaSelezionata = polizze.find(p => p.id === titoloId);
+  const tipoMeta = TIPI_SINISTRO.find(t => t.value === tipoSinistro);
+  const showTarga = !!tipoMeta?.isVeicolo;
+
+  const canSubmit = titoloId && tipoSinistro && dataEvento && dinamica.trim().length > 5;
 
   const submit = async () => {
     if (!user || !polizzaSelezionata) return;
     setSaving(true);
     try {
       const numero = `WEB-${Date.now().toString().slice(-8)}`;
+      const luogoCompleto = [indirizzo, cap, citta, provincia].filter(Boolean).join(", ");
       const { data: sin, error } = await supabase
         .from("sinistri")
         .insert({
@@ -79,20 +99,23 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
           cliente_anagrafica_id: polizzaSelezionata.cliente_anagrafica_id,
           ufficio_id: polizzaSelezionata.ufficio_id,
           ramo_sinistro: polizzaSelezionata.ramo_descrizione,
+          tipo_sinistro: tipoSinistro,
           data_evento: dataEvento || null,
           data_apertura: new Date().toISOString().slice(0, 10),
           data_denuncia: new Date().toISOString().slice(0, 10),
-          luogo_sinistro: luogo || null,
-          citta_sinistro: cittaSinistro || null,
+          luogo_sinistro: luogoCompleto || null,
+          indirizzo_sinistro: indirizzo || null,
+          citta_sinistro: citta || null,
+          cap_sinistro: cap || null,
+          provincia_sinistro: provincia || null,
           dinamica: dinamica || null,
           controparte: controparte || null,
-          targa_veicolo: targa || null,
+          targa_veicolo: showTarga ? (targa || null) : null,
         })
         .select("id")
         .single();
       if (error) throw error;
 
-      // Upload allegati
       for (const f of files) {
         const path = `${sin.id}/${Date.now()}_${f.name}`;
         const { error: uErr } = await supabase.storage
@@ -125,18 +148,16 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
     }
   };
 
-  const canNext1 = titoloId && dataEvento;
-  const canNext2 = dinamica.trim().length > 5;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Apri nuovo sinistro — Step {step}/3</DialogTitle>
+          <DialogTitle>Apri nuovo sinistro</DialogTitle>
         </DialogHeader>
 
-        {step === 1 && (
-          <div className="space-y-3">
+        <div className="space-y-5">
+          {/* Polizza & Tipo */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label>Polizza coinvolta *</Label>
               <Select value={titoloId} onValueChange={setTitoloId}>
@@ -150,44 +171,79 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Tipo di sinistro *</Label>
+              <Select value={tipoSinistro} onValueChange={setTipoSinistro}>
+                <SelectTrigger><SelectValue placeholder="Seleziona tipo" /></SelectTrigger>
+                <SelectContent>
+                  {TIPI_SINISTRO.map(t => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Data + indirizzo */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label>Data evento *</Label>
                 <Input type="date" value={dataEvento} onChange={e => setDataEvento(e.target.value)} />
               </div>
+            </div>
+            <div>
+              <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />Indirizzo del sinistro</Label>
+              <AddressAutocomplete
+                value={indirizzo}
+                onChange={setIndirizzo}
+                onSelect={(c) => {
+                  setIndirizzo(c.indirizzo);
+                  setCap(c.cap);
+                  setCitta(c.citta);
+                  setProvincia(c.provincia);
+                }}
+                placeholder="Inizia a digitare via, piazza..."
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Città</Label>
-                <Input value={cittaSinistro} onChange={e => setCittaSinistro(e.target.value)} />
+                <Input value={citta} onChange={e => setCitta(e.target.value)} />
               </div>
-            </div>
-            <div>
-              <Label>Luogo / indirizzo</Label>
-              <Input value={luogo} onChange={e => setLuogo(e.target.value)} />
+              <div>
+                <Label>CAP</Label>
+                <Input value={cap} onChange={e => setCap(e.target.value)} />
+              </div>
+              <div>
+                <Label>Provincia</Label>
+                <Input value={provincia} onChange={e => setProvincia(e.target.value.toUpperCase())} maxLength={2} />
+              </div>
             </div>
           </div>
-        )}
 
-        {step === 2 && (
-          <div className="space-y-3">
+          {/* Dinamica */}
+          <div>
+            <Label>Dinamica del sinistro *</Label>
+            <Textarea rows={4} value={dinamica} onChange={e => setDinamica(e.target.value)} placeholder="Descrivi cosa è successo..." />
+          </div>
+
+          {/* Opzionali */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <Label>Dinamica del sinistro *</Label>
-              <Textarea rows={5} value={dinamica} onChange={e => setDinamica(e.target.value)} placeholder="Descrivi cosa è successo..." />
+              <Label>Controparte (se presente)</Label>
+              <Input value={controparte} onChange={e => setControparte(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            {showTarga && (
               <div>
-                <Label>Controparte (se presente)</Label>
-                <Input value={controparte} onChange={e => setControparte(e.target.value)} />
-              </div>
-              <div>
-                <Label>Targa veicolo (RCA)</Label>
+                <Label>Targa veicolo</Label>
                 <Input value={targa} onChange={e => setTarga(e.target.value.toUpperCase())} />
               </div>
-            </div>
+            )}
           </div>
-        )}
 
-        {step === 3 && (
-          <div className="space-y-3">
+          {/* Allegati */}
+          <div className="space-y-2">
             <Label>Allegati (foto, denuncia, perizia...)</Label>
             <Input type="file" multiple onChange={e => setFiles(Array.from(e.target.files ?? []))} />
             {files.length > 0 && (
@@ -202,26 +258,15 @@ export const NuovaDenunciaSinistroDialog = ({ open, onOpenChange, onCreated }: P
                 ))}
               </ul>
             )}
-            <div className="text-xs text-muted-foreground p-3 bg-muted/40 rounded">
-              <strong>Riepilogo:</strong> {polizzaSelezionata?.numero_titolo} — {dataEvento} — {cittaSinistro || luogo}
-            </div>
           </div>
-        )}
+        </div>
 
-        <DialogFooter className="flex justify-between sm:justify-between gap-2">
-          <Button variant="outline" onClick={step === 1 ? () => onOpenChange(false) : () => setStep(step - 1)} disabled={saving}>
-            {step === 1 ? "Annulla" : <><ChevronLeft className="h-4 w-4 mr-1" />Indietro</>}
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Annulla</Button>
+          <Button onClick={submit} disabled={!canSubmit || saving} className="bg-teal-700 hover:bg-teal-800">
+            <Upload className="h-4 w-4 mr-1" />
+            {saving ? "Invio..." : "Invia denuncia"}
           </Button>
-          {step < 3 ? (
-            <Button onClick={() => setStep(step + 1)} disabled={(step === 1 && !canNext1) || (step === 2 && !canNext2)}>
-              Avanti <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          ) : (
-            <Button onClick={submit} disabled={saving}>
-              <Upload className="h-4 w-4 mr-1" />
-              {saving ? "Invio..." : "Invia denuncia"}
-            </Button>
-          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
