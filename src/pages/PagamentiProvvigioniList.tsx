@@ -42,7 +42,7 @@ const PagamentiProvvigioniList = () => {
   const [filterMetodo, setFilterMetodo] = useState<string>("");
   const [filterDa, setFilterDa] = useState<string>("");
   const [filterA, setFilterA] = useState<string>("");
-  const [page, setPage] = useState(0);
+  
 
   // Fetch distinte
   const { data: distinte = [], isLoading } = useQuery({
