@@ -4,11 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User } from "lucide-react";
+import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User, Eye, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import UploadDocPolizzaDialog from "@/components/cliente/UploadDocPolizzaDialog";
+import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const statoBadge: Record<string, string> = {
   attivo: "bg-emerald-100 text-emerald-800",
@@ -26,6 +29,8 @@ const ClientePolizzaDetail = () => {
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<any>(null);
+  const [deleteDoc, setDeleteDoc] = useState<any>(null);
 
   const refreshDocs = async () => {
     if (!id) return;
@@ -148,13 +153,53 @@ const ClientePolizzaDetail = () => {
                       )}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleDownload(d)}><Download className="h-4 w-4" /></Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => setPreviewDoc(d)} title="Anteprima"><Eye className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDownload(d)} title="Scarica"><Download className="h-4 w-4" /></Button>
+                    {d.caricato_da_cliente && (
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteDoc(d)} title="Elimina" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <DocPreviewDialog open={!!previewDoc} onOpenChange={(o) => !o && setPreviewDoc(null)} doc={previewDoc} />
+
+      <AlertDialog open={!!deleteDoc} onOpenChange={(o) => !o && setDeleteDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare il documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per eliminare <strong>{deleteDoc?.nome_file}</strong>. L'operazione è irreversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteDoc) return;
+                try {
+                  await supabase.storage.from(deleteDoc.bucket_name).remove([deleteDoc.path_storage]);
+                  const { error } = await supabase.from("documenti").delete().eq("id", deleteDoc.id);
+                  if (error) throw error;
+                  toast.success("Documento eliminato");
+                  setDeleteDoc(null);
+                  refreshDocs();
+                } catch (e: any) {
+                  toast.error(e.message ?? "Errore eliminazione");
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >Elimina</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {titolo.cliente_anagrafica_id && (
         <UploadDocPolizzaDialog

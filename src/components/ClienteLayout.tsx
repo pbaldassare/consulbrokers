@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
-  Bell, CreditCard, Upload, LogOut, Menu, X, AlertTriangle, User, Building,
+  Bell, CreditCard, LogOut, Menu, X, AlertTriangle, Building2, Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,9 +19,8 @@ const allNavItems = [
   { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
-  { to: "/cliente/upload", label: "Carica Doc", icon: Upload, requiresCompleta: true },
-  { to: "/cliente/anagrafica", label: "I Miei Dati", icon: User },
-  { to: "/cliente/ufficio", label: "Il Mio Ufficio", icon: Building },
+  { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2 },
+  { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone },
 ];
 
 const ClienteLayout = () => {
@@ -53,9 +52,7 @@ const ClienteLayout = () => {
     refetchInterval: 15000,
   });
 
-  const navItems = allNavItems.filter(
-    (item) => !(item as any).requiresCompleta || areaType === "completa"
-  );
+  const navItems = allNavItems;
 
   const handleLogout = async () => {
     await signOut();
