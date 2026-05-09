@@ -648,7 +648,22 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       >
                         <TableCell className="flex items-center gap-2">
                           {v.is_rca_principale && <ShieldCheck className="h-4 w-4 text-teal-700" />}
-                          {v.garanzia}
+                          {!useAutoTaxFormula && !v.is_rca_principale ? (
+                            <Input
+                              defaultValue={v.garanzia ?? ""}
+                              key={`gar-${v.id}-${v.garanzia ?? ""}`}
+                              onBlur={(e) => {
+                                const val = e.target.value.trim();
+                                if (!val || val === v.garanzia) return;
+                                upsertMut.mutate({ id: v.id, garanzia: val } as any);
+                              }}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              className="h-8 max-w-[220px]"
+                              placeholder="Nome garanzia"
+                            />
+                          ) : (
+                            <span>{v.garanzia}</span>
+                          )}
                           {v.is_rca_principale && <Badge className="ml-1 bg-teal-600 hover:bg-teal-700 text-[10px]">obbligatoria</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
