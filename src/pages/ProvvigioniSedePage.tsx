@@ -201,7 +201,7 @@ const ProvvigioniSedePage = () => {
 
       <ProvvigioniFiltersBar
         filters={filters}
-        onChange={(f) => { setFilters(f); setPage(0); }}
+        onChange={(f) => { setFilters(f); resetPage(); }}
         rami={rami} compagnie={compagnie} produttori={produttori}
         loadingRami={lkRami} loadingCompagnie={lkComp} loadingProduttori={lkProd}
       />
@@ -315,9 +315,7 @@ const ProvvigioniSedePage = () => {
 
       {/* Dettaglio polizze */}
       {(() => {
-        const pages = Math.ceil(filteredTitoli.length / PAGE_SIZE);
-        const safePage = Math.min(page, Math.max(0, pages - 1));
-        const pageRows = filteredTitoli.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+        // pagine/pageRows gestiti dall'hook usePagination al top del componente
         return (
           <Card>
             <CardContent className="p-0">
