@@ -85,7 +85,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true, aliquotaDefault, mostraCampiCapitaleRata = false }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true, aliquotaDefault, mostraCampiCapitaleRata = false, addizionaliValue, onAddizionaliChange }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -102,6 +102,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   aliquotaDefault?: number;
   /** Mostra colonne Capitale / Tasso ‰ / Rata / Annuo (rami non-auto). */
   mostraCampiCapitaleRata?: boolean;
+  /** Importo Addizionali (rami non-auto). Se passato, viene mostrato un input nei totali e sommato al Lordo. */
+  addizionaliValue?: number | null;
+  onAddizionaliChange?: (v: number) => void;
 }) {
   const ALIQ_DEFAULT = aliquotaDefault ?? ALIQUOTA_ACCESSORIE_DEFAULT;
   const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
