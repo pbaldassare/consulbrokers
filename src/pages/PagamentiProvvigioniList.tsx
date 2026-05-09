@@ -295,69 +295,125 @@ const PagamentiProvvigioniList = () => {
         </Dialog>
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Distinte Totali</CardTitle>
-            <FileText className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent><p className="text-2xl font-bold">{distinte.length}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Totale Pagato</CardTitle>
-            <DollarSign className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent><p className="text-2xl font-bold">€{totaleDistinte.toFixed(2)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Beneficiari</CardTitle>
-            <Users className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent><p className="text-2xl font-bold">{new Set(distinte.map((d: any) => d.pagato_a_user_id)).size}</p></CardContent>
-        </Card>
+      {/* Filtri */}
+      <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Da</Label>
+          <Input type="date" value={filterDa} onChange={(e) => setFilterDa(e.target.value)} className="h-9 w-[150px]" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">A</Label>
+          <Input type="date" value={filterA} onChange={(e) => setFilterA(e.target.value)} className="h-9 w-[150px]" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Beneficiario</Label>
+          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => setFilterBeneficiario(v === "__all__" ? "" : v)}>
+            <SelectTrigger className="h-9 w-[200px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Tutti</SelectItem>
+              {utenti.map((u: any) => (
+                <SelectItem key={u.id} value={u.id}>{u.cognome} {u.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Metodo</Label>
+          <Select value={filterMetodo || "__all__"} onValueChange={(v) => setFilterMetodo(v === "__all__" ? "" : v)}>
+            <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Tutti</SelectItem>
+              <SelectItem value="bonifico">Bonifico</SelectItem>
+              <SelectItem value="contanti">Contanti</SelectItem>
+              <SelectItem value="altro">Altro</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(filterDa || filterA || filterBeneficiario || filterMetodo) && (
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); }}>Reset</Button>
+        )}
       </div>
 
-      {/* Lista distinte */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Beneficiario</TableHead>
-                <TableHead>Periodo</TableHead>
-                <TableHead>Metodo</TableHead>
-                <TableHead>Riferimento</TableHead>
-                <TableHead className="text-right">Importo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {distinte.map((d: any) => (
-                <TableRow
-                  key={d.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => navigate(`/pagamenti-provvigioni/${d.id}`)}
-                >
-                  <TableCell>{format(new Date(d.created_at), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>{d.pagato_a?.cognome} {d.pagato_a?.nome}</TableCell>
-                  <TableCell className="text-sm">
-                    {format(new Date(d.periodo_da), "dd/MM/yy")} - {format(new Date(d.periodo_a), "dd/MM/yy")}
-                  </TableCell>
-                  <TableCell><Badge variant="outline">{d.metodo}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{d.riferimento || "-"}</TableCell>
-                  <TableCell className="text-right font-semibold">€{(d.totale_importo || 0).toFixed(2)}</TableCell>
-                </TableRow>
-              ))}
-              {distinte.length === 0 && !isLoading && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessuna distinta creata</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {(() => {
+        const filteredDistinte = distinte.filter((d: any) => {
+          if (filterBeneficiario && d.pagato_a_user_id !== filterBeneficiario) return false;
+          if (filterMetodo && d.metodo !== filterMetodo) return false;
+          if (filterDa && d.created_at < filterDa) return false;
+          if (filterA && d.created_at > filterA + "T23:59:59") return false;
+          return true;
+        });
+        const totFiltered = filteredDistinte.reduce((s: number, d: any) => s + (d.totale_importo || 0), 0);
+
+        // Aggregations for charts
+        const byMese = new Map<string, number>();
+        const byMetodo = new Map<string, number>();
+        for (const d of filteredDistinte) {
+          const k = (d.created_at || "").slice(0, 7);
+          if (k) byMese.set(k, (byMese.get(k) || 0) + (d.totale_importo || 0));
+          const m = d.metodo || "altro";
+          byMetodo.set(m, (byMetodo.get(m) || 0) + (d.totale_importo || 0));
+        }
+        const trendData = [...byMese.entries()].sort().map(([k, v]) => ({
+          mese: format(new Date(k + "-01"), "MMM yy", { locale: it }),
+          name: format(new Date(k + "-01"), "MMM yy", { locale: it }),
+          value: v,
+        }));
+        const metodoData = [...byMetodo.entries()].map(([name, value]) => ({ name, value }));
+
+        return (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <ProvvigioniKpiCard icon={FileText} label="Distinte" value={String(filteredDistinte.length)} />
+              <ProvvigioniKpiCard icon={DollarSign} label="Totale Pagato" value={fmtEuro(totFiltered)} accent="primary" />
+              <ProvvigioniKpiCard icon={Users} label="Beneficiari" value={String(new Set(filteredDistinte.map((d: any) => d.pagato_a_user_id)).size)} />
+              <ProvvigioniKpiCard icon={DollarSign} label="Importo medio" value={fmtEuro(filteredDistinte.length ? totFiltered / filteredDistinte.length : 0)} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <ProvvigioniBarChart title="Pagamenti per mese" data={trendData} />
+              <ProvvigioniPieChart title="Per Metodo" data={metodoData} />
+            </div>
+
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Beneficiario</TableHead>
+                      <TableHead>Periodo</TableHead>
+                      <TableHead>Metodo</TableHead>
+                      <TableHead>Riferimento</TableHead>
+                      <TableHead className="text-right">Importo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredDistinte.map((d: any, i: number) => (
+                      <TableRow
+                        key={d.id}
+                        className={`cursor-pointer hover:bg-muted/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}
+                        onClick={() => navigate(`/pagamenti-provvigioni/${d.id}`)}
+                      >
+                        <TableCell>{format(new Date(d.created_at), "dd/MM/yyyy")}</TableCell>
+                        <TableCell>{d.pagato_a?.cognome} {d.pagato_a?.nome}</TableCell>
+                        <TableCell className="text-sm">
+                          {format(new Date(d.periodo_da), "dd/MM/yy")} - {format(new Date(d.periodo_a), "dd/MM/yy")}
+                        </TableCell>
+                        <TableCell><Badge variant="outline">{d.metodo}</Badge></TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{d.riferimento || "-"}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums font-semibold">{fmtEuro(d.totale_importo)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredDistinte.length === 0 && !isLoading && (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessuna distinta per i filtri selezionati</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
+        );
+      })()}
     </div>
   );
 };
