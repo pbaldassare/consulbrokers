@@ -1,26 +1,64 @@
 ## Obiettivo
-Uniformare la gestione documenti del portale cliente: **anteprima** disponibile su TUTTI i documenti, **eliminazione con popup di conferma** solo sui documenti caricati dal cliente stesso (`caricato_da_cliente = true`), come richiesto.
-
-## Stato attuale
-- `ClienteDocumenti.tsx` e `ClientePolizzaDetail.tsx` → preview ✅ + delete ✅ (già con AlertDialog di conferma) — OK.
-- `SinistroDocumentiCliente.tsx` (usato in `/cliente/sinistri` dentro le card sinistro) → solo download. **Manca preview e delete.**
+Semplificare e migliorare il dialog "Apri nuovo sinistro" del portale cliente:
+1. **Un solo step** (no wizard 1/3, 2/3, 3/3).
+2. **Indirizzo con Google Maps Autocomplete** riusando `AddressAutocomplete` già esistente nel progetto.
+3. **Menu a tendina per i tipi di sinistro più ricorrenti** (campo `tipo_sinistro` già presente in DB).
 
 ## Modifiche
 
-### 1. `src/components/cliente/SinistroDocumentiCliente.tsx`
-Allineare al pattern di `ClientePolizzaDetail`:
-- Aggiungere stato `previewDoc` e `deleteDoc`.
-- Per ogni doc mostrare tre azioni: 👁 Anteprima · ⬇ Scarica · 🗑 Elimina (solo se `caricato_da_cliente`).
-- Anteprima tramite `DocPreviewDialog` (componente già esistente).
-- Eliminazione con `AlertDialog` di conferma ("Eliminare il documento? Operazione irreversibile") che rimuove file da storage (`documenti_sinistri`) e riga da `documenti`, poi `toast.success` e refresh lista.
-- Conservare upload esistente.
+### `src/components/cliente/NuovaDenunciaSinistroDialog.tsx` (riscrittura)
 
-### 2. Verifica RLS
-Le policy DELETE su `documenti` e sul bucket `documenti_sinistri` per il ruolo cliente (limitate a `caricato_da_cliente=true` e path `{cliente_id}/...`) sono già state create nella migration precedente — nessuna nuova migration necessaria.
+Rimuovere `step`, `setStep` e i tre branch condizionali. Mantenere un unico form scrollabile con sezioni separate da titoli leggeri:
+
+**1. Polizza & Tipo**
+- `Select` Polizza coinvolta (come oggi).
+- `Select` **Tipo di sinistro** (nuovo) con opzioni comuni:
+  - `rca_collisione` — RCA: collisione/tamponamento
+  - `rca_urto` — RCA: urto contro ostacolo
+  - `furto_veicolo` — Furto/incendio veicolo
+  - `cristalli` — Rottura cristalli
+  - `incendio_immobile` — Incendio immobile
+  - `furto_immobile` — Furto/scippo
+  - `danni_acqua` — Danni da acqua
+  - `eventi_atmosferici` — Eventi atmosferici
+  - `rc_terzi` — Responsabilità verso terzi
+  - `infortunio` — Infortunio
+  - `malattia` — Malattia
+  - `altro` — Altro (mostra campo testo libero opzionale)
+
+**2. Data e luogo**
+- `Input type="date"` Data evento (obbligatorio).
+- `AddressAutocomplete` (componente esistente) per **Indirizzo**: al `onSelect` popola automaticamente stati locali `indirizzo`, `cap`, `citta`, `provincia`. L'utente può sempre modificare manualmente i 4 campi sotto.
+- Campi mostrati read-friendly sotto l'autocomplete: Città, CAP, Provincia (compilati ma editabili).
+
+**3. Dinamica**
+- `Textarea` (min 5 char) — invariato.
+
+**4. Dati opzionali (mostrati solo se rilevanti)**
+- Controparte (sempre visibile, opzionale).
+- Targa veicolo (visibile solo se `tipo_sinistro` inizia con `rca_` o è `furto_veicolo` o `cristalli`).
+
+**5. Allegati**
+- `Input type="file" multiple` con lista rimovibile (come oggi).
+
+**Footer**: due bottoni — `Annulla` e `Invia denuncia` (no più Avanti/Indietro).
+
+### Insert su `sinistri`
+Aggiornare il payload includendo:
+- `tipo_sinistro` (valore selezionato)
+- `indirizzo_sinistro` (da autocomplete)
+- `cap_sinistro`, `provincia_sinistro`
+- `citta_sinistro` (già presente, ora popolato dall'autocomplete)
+- `luogo_sinistro` mantenuto come fallback compatibilità (= `indirizzo` formattato completo)
+
+### Validazione submit
+Bottone "Invia denuncia" abilitato quando:
+- `titoloId` && `tipoSinistro` && `dataEvento` && `dinamica.length > 5`
 
 ## Out of scope
-- Eliminazione di documenti caricati dall'agenzia (richiederebbe workflow di approvazione).
-- Modifiche a `ClienteDocumenti` e `ClientePolizzaDetail` (già conformi).
+- Modifiche allo schema DB (tutti i campi esistono già).
+- Validazione lato server / nuove RLS.
+- Integrazione mappa visuale (solo autocomplete testuale).
 
 ## File toccati
-- `src/components/cliente/SinistroDocumentiCliente.tsx` (riscrittura sezione lista doc + dialog conferma).
+- `src/components/cliente/NuovaDenunciaSinistroDialog.tsx` (riscrittura completa, ~150 righe).
