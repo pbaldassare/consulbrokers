@@ -165,7 +165,7 @@ const ProvvigioniMaturatePage = () => {
 
       <ProvvigioniFiltersBar
         filters={filters}
-        onChange={(f) => { setFilters(f); setPage(0); }}
+        onChange={(f) => { setFilters(f); resetPage(); }}
         rami={rami} produttori={produttori} showTipo
         loadingRami={lkRami} loadingProduttori={lkProd}
       />
