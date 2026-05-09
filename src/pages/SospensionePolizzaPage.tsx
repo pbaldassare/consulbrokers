@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, User as UserIcon, FileText, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { PolizzaHeaderCard } from "@/components/polizze/PolizzaHeaderCard";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const SospensionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -143,17 +145,17 @@ const SospensionePolizzaPage = () => {
   const handleConferma = () => sospensioneMutation.mutate();
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Sospensione Polizza</h1>
-        <p className="text-sm text-muted-foreground mt-1">Sospensione polizze dal portafoglio</p>
-      </div>
+    <div className="space-y-4 max-w-4xl">
+      <PolizzaHeaderCard
+        titoloId={paramTitoloId || undefined}
+        pageTitle="Sospensione Polizza"
+        pageSubtitle={paramTitoloId ? undefined : "Sospensione polizze dal portafoglio"}
+        backTo={paramTitoloId ? `/titoli/${paramTitoloId}` : "/portafoglio/attive"}
+      />
 
-      {/* CLIENTE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente</legend>
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[200px]">
+      <PolizzaSection title="Cliente" icon={UserIcon}>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="space-y-1.5 flex-1 max-w-[220px]">
             <Label htmlFor="codice-cliente-sosp">Codice</Label>
             <div className="relative">
               <Input id="codice-cliente-sosp" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
@@ -166,7 +168,7 @@ const SospensionePolizzaPage = () => {
             </p>
           )}
         </div>
-        <div className="space-y-1.5 max-w-[300px]">
+        <div className="space-y-1.5 max-w-[320px] mt-3">
           <Label>A/E</Label>
           <select value={selectedAE} onChange={(e) => setSelectedAE(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -176,13 +178,11 @@ const SospensionePolizzaPage = () => {
             ))}
           </select>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* POLIZZA */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Polizza</legend>
+      <PolizzaSection title="Polizza" icon={FileText}>
         <div className="flex items-end gap-4 flex-wrap">
-          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
+          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[260px]">
             <Label htmlFor="numero-polizza-sosp">Numero</Label>
             <div className="relative">
               <Input id="numero-polizza-sosp" value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
@@ -195,32 +195,27 @@ const SospensionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="data-sosp">Data Sospensione *</Label>
-            <Input id="data-sosp" type="date" value={dataSospensione} onChange={(e) => setDataSospensione(e.target.value)} />
+            <Input id="data-sosp" type="date" value={dataSospensione} onChange={(e) => setDataSospensione(e.target.value)} className="tabular-nums" />
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="limite-riatt">Limite Riattivazione</Label>
-            <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => setLimiteRiattivazione(e.target.value)} />
+            <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => setLimiteRiattivazione(e.target.value)} className="tabular-nums" />
           </div>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 mt-3">
           <Label htmlFor="motivo-sosp">Motivo</Label>
           <Textarea id="motivo-sosp" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={2} />
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* TIPO */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Tipo</legend>
-        <div className="flex items-center gap-3">
-          <Label>Tipo Operazione</Label>
-          <RadioGroup value="sospensione" className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="sospensione" id="tipo-sosp" />
-              <Label htmlFor="tipo-sosp" className="font-normal cursor-pointer">Sospensione</Label>
-            </div>
-          </RadioGroup>
-        </div>
-      </fieldset>
+      <PolizzaSection title="Tipo Operazione" icon={Settings2}>
+        <RadioGroup value="sospensione" className="flex gap-4">
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="sospensione" id="tipo-sosp" />
+            <Label htmlFor="tipo-sosp" className="font-normal cursor-pointer">Sospensione</Label>
+          </div>
+        </RadioGroup>
+      </PolizzaSection>
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
