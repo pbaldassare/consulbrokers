@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePagination } from "@/hooks/usePagination";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -23,7 +24,7 @@ import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard"
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestita da usePagination (default 25)
 
 const PagamentiProvvigioniList = () => {
   const { isAdmin } = useAuth();
@@ -41,7 +42,7 @@ const PagamentiProvvigioniList = () => {
   const [filterMetodo, setFilterMetodo] = useState<string>("");
   const [filterDa, setFilterDa] = useState<string>("");
   const [filterA, setFilterA] = useState<string>("");
-  const [page, setPage] = useState(0);
+  
 
   // Fetch distinte
   const { data: distinte = [], isLoading } = useQuery({
@@ -55,6 +56,19 @@ const PagamentiProvvigioniList = () => {
       return data || [];
     },
   });
+
+  // Filtri + paginazione (sollevati al top per l'hook usePagination)
+  const filteredDistinte = useMemo(() => {
+    return (distinte as any[]).filter((d: any) => {
+      if (filterBeneficiario && d.pagato_a_user_id !== filterBeneficiario) return false;
+      if (filterMetodo && d.metodo !== filterMetodo) return false;
+      if (filterDa && d.created_at < filterDa) return false;
+      if (filterA && d.created_at > filterA + "T23:59:59") return false;
+      return true;
+    });
+  }, [distinte, filterBeneficiario, filterMetodo, filterDa, filterA]);
+
+  const { page: safePage, setPage, pages, pageRows, resetPage } = usePagination(filteredDistinte);
 
   // Fetch users with unpaid commissions
   const { data: utenti = [], isLoading: utentiLoading } = useQuery({
@@ -303,15 +317,15 @@ const PagamentiProvvigioniList = () => {
       <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
-          <Input type="date" value={filterDa} onChange={(e) => { setFilterDa(e.target.value); setPage(0); }} className="h-9 w-[150px]" />
+          <Input type="date" value={filterDa} onChange={(e) => { setFilterDa(e.target.value); resetPage(); }} className="h-9 w-[150px]" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">A</Label>
-          <Input type="date" value={filterA} onChange={(e) => { setFilterA(e.target.value); setPage(0); }} className="h-9 w-[150px]" />
+          <Input type="date" value={filterA} onChange={(e) => { setFilterA(e.target.value); resetPage(); }} className="h-9 w-[150px]" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Beneficiario</Label>
-          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }} disabled={utentiLoading}>
+          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); resetPage(); }} disabled={utentiLoading}>
             <SelectTrigger className="h-9 w-[200px]">
               {utentiLoading ? (
                 <span className="flex items-center gap-2 text-muted-foreground/70"><Loader2 className="h-4 w-4 animate-spin" /> Caricamento...</span>
@@ -329,7 +343,7 @@ const PagamentiProvvigioniList = () => {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Metodo</Label>
-          <Select value={filterMetodo || "__all__"} onValueChange={(v) => { setFilterMetodo(v === "__all__" ? "" : v); setPage(0); }}>
+          <Select value={filterMetodo || "__all__"} onValueChange={(v) => { setFilterMetodo(v === "__all__" ? "" : v); resetPage(); }}>
             <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tutti</SelectItem>
@@ -340,18 +354,12 @@ const PagamentiProvvigioniList = () => {
           </Select>
         </div>
         {(filterDa || filterA || filterBeneficiario || filterMetodo) && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); setPage(0); }}>Reset</Button>
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); resetPage(); }}>Reset</Button>
         )}
       </div>
 
       {(() => {
-        const filteredDistinte = distinte.filter((d: any) => {
-          if (filterBeneficiario && d.pagato_a_user_id !== filterBeneficiario) return false;
-          if (filterMetodo && d.metodo !== filterMetodo) return false;
-          if (filterDa && d.created_at < filterDa) return false;
-          if (filterA && d.created_at > filterA + "T23:59:59") return false;
-          return true;
-        });
+        // filteredDistinte / paginazione gestiti dall'hook usePagination al top del componente
         const totFiltered = filteredDistinte.reduce((s: number, d: any) => s + (d.totale_importo || 0), 0);
 
         // Aggregations for charts (on full filtered set, not paginated)
@@ -369,10 +377,6 @@ const PagamentiProvvigioniList = () => {
           value: v,
         }));
         const metodoData = [...byMetodo.entries()].map(([name, value]) => ({ name, value }));
-
-        const pages = Math.ceil(filteredDistinte.length / PAGE_SIZE);
-        const safePage = Math.min(page, Math.max(0, pages - 1));
-        const pageRows = filteredDistinte.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
         if (isLoading) {
           return (

@@ -10,13 +10,14 @@ import { Landmark, TrendingUp, Users, Briefcase, Receipt, Download } from "lucid
 import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
+import { usePagination } from "@/hooks/usePagination";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestita da usePagination (default 25)
 
 type Row = any;
 
@@ -80,7 +81,7 @@ const ProvvigioniSedePage = () => {
     },
   });
   
-  const [page, setPage] = useState(0);
+  
 
   // Main query - filtered titoli incassati
   const { data: titoli = [], isLoading } = useQuery({
@@ -148,6 +149,8 @@ const ProvvigioniSedePage = () => {
     });
   }, [titoli, filters.search]);
 
+  const { page: safePage, setPage, pages, pageRows, resetPage } = usePagination(filteredTitoli);
+
   const totals = useMemo(() => filteredTitoli.reduce((acc: any, t: any) => {
     const provvAg = t.provvigioni_firma || 0;
     const pc = t.percentuale_commerciale ?? 100;
@@ -198,7 +201,7 @@ const ProvvigioniSedePage = () => {
 
       <ProvvigioniFiltersBar
         filters={filters}
-        onChange={(f) => { setFilters(f); setPage(0); }}
+        onChange={(f) => { setFilters(f); resetPage(); }}
         rami={rami} compagnie={compagnie} produttori={produttori}
         loadingRami={lkRami} loadingCompagnie={lkComp} loadingProduttori={lkProd}
       />
@@ -312,9 +315,7 @@ const ProvvigioniSedePage = () => {
 
       {/* Dettaglio polizze */}
       {(() => {
-        const pages = Math.ceil(filteredTitoli.length / PAGE_SIZE);
-        const safePage = Math.min(page, Math.max(0, pages - 1));
-        const pageRows = filteredTitoli.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+        // pagine/pageRows gestiti dall'hook usePagination al top del componente
         return (
           <Card>
             <CardContent className="p-0">

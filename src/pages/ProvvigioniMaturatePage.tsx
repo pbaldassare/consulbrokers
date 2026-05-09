@@ -10,6 +10,7 @@ import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { usePagination } from "@/hooks/usePagination";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
@@ -25,12 +26,12 @@ const tipoBadge = (tipo: string | null) => {
   }
 };
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestita da usePagination (default 25)
 
 const ProvvigioniMaturatePage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
-  const [page, setPage] = useState(0);
+  
 
   // Lookups
   const { data: rami = [], isLoading: lkRami } = useQuery({
@@ -145,8 +146,7 @@ const ProvvigioniMaturatePage = () => {
     return map[p.tipo_destinatario] || p.tipo_destinatario || "—";
   }), [filtered]);
 
-  const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const pages = Math.ceil(filtered.length / PAGE_SIZE);
+  const { page, setPage, pages, pageRows, resetPage } = usePagination(filtered);
 
   const labelDa = format(new Date(filters.da), "dd/MM/yyyy");
   const labelA = format(new Date(filters.a), "dd/MM/yyyy");
@@ -165,7 +165,7 @@ const ProvvigioniMaturatePage = () => {
 
       <ProvvigioniFiltersBar
         filters={filters}
-        onChange={(f) => { setFilters(f); setPage(0); }}
+        onChange={(f) => { setFilters(f); resetPage(); }}
         rami={rami} produttori={produttori} showTipo
         loadingRami={lkRami} loadingProduttori={lkProd}
       />
