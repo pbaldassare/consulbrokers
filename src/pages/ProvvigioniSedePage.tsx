@@ -86,10 +86,11 @@ const ProvvigioniSedePage = () => {
         .from("titoli")
         .select(`
           id, numero_titolo, premio_lordo, provvigioni_firma, percentuale_commerciale, stato,
-          data_messa_cassa, ramo_id, compagnia_id, commerciale_id, cliente_id,
+          data_messa_cassa, ramo_id, compagnia_id, commerciale_id, anagrafica_commerciale_id, cliente_id, produttore_nome,
           compagnia_diretta:compagnie!titoli_compagnia_id_fkey(nome),
           ramo:rami!titoli_ramo_id_fkey(codice, descrizione),
           commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome),
+          anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, nome, cognome, ragione_sociale),
           clienti:clienti!titoli_cliente_id_fkey(id, nome, cognome, ragione_sociale)
         `)
         .eq("stato", "incassato")
@@ -98,7 +99,7 @@ const ProvvigioniSedePage = () => {
         .lte("data_messa_cassa", filters.a);
       if (filters.ramoId) q = q.eq("ramo_id", filters.ramoId);
       if (filters.compagniaId) q = q.eq("compagnia_id", filters.compagniaId);
-      if (filters.produttoreId) q = q.eq("commerciale_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("anagrafica_commerciale_id", filters.produttoreId);
       if (filters.clienteId) q = q.eq("cliente_id", filters.clienteId);
       const { data } = await q.order("data_messa_cassa", { ascending: false }).limit(1000);
       return data || [];
