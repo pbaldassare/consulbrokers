@@ -1,66 +1,61 @@
 ## Obiettivo
+Trasformare l'attuale area `/cliente` (oggi popolata con dati demo del Comune di Varese) in un portale operativo pronto a ricevere dati reali: anagrafica ente arricchita con richiesta di modifica, gestione documentale per cliente/polizze/sinistri sui bucket già esistenti, apertura denuncia sinistro dal portale e upload allegati.
 
-1. **Rami non-auto**: la sezione "Importi" (Premio Netto / Tasse / Lordo / Provvigioni / Totali) **non deve più esistere come card separata** — i totali vanno calcolati e mostrati direttamente in fondo alle card **Premi per Garanzia — Firma** e **Premi per Garanzia — Quietanza**. La tabella visiva tipica RCA (sotto-righe IPT/SSN, colonna "Imposta provinciale", riga RCA principale obbligatoria) **non deve essere richiamata** quando il ramo non è auto.
-2. **Aliquota tasse di default**: leggere `aliquota_tasse_ramo` dalla tabella `rami` (campo già presente nella query del titolo) — fallback a 22.25% solo se nullo. Niente più 13.5% hardcoded per i non-auto.
-3. **Concetto "personalizzato"** (oggi solo Quietanza): introdurlo anche su **RCA Firma** — quando un valore IPT/SSN viene editato manualmente, mostrare badge "Personalizzato" con pulsante "Ripristina calcolo automatico" (già esiste come "Ricalcola IPT/SSN", va solo allineato visivamente con badge + tooltip).
+## Stato attuale (verificato)
+- **Bucket già presenti**: `documenti_clienti`, `documenti_titoli`, `documenti_sinistri`, `documenti_generali` (tutti privati). Riusiamo questi, niente nuovi bucket.
+- **RLS cliente**:
+  - `clienti.cliente_select_own` → cliente vede la propria riga
+  - `documenti.cliente_select_own_documenti` → vede solo doc con `visibile_al_cliente = true`
+  - `documenti.cliente_insert_documenti` → può inserire SOLO doc su `entita_tipo='cliente'` (non su sinistri/polizze)
+  - `sinistri` per cliente: nessuna policy INSERT, solo SELECT via `get_my_cliente_ids()`
+- **Pagine cliente esistenti**: Dashboard, Polizze, Sinistri (read-only + grafici), Documenti, Scadenze, Chat, Notifiche, Pagamenti, UploadDoc (solo anagrafici), Anagrafica (read-only base), Ufficio.
 
-## Modifiche
+## Cosa costruiamo
 
-### 1. `VociRcaCard.tsx`
+### 1. Anagrafica ente con richiesta modifica
+- Estendere `ClienteAnagrafica.tsx` mostrando in chiaro tutti i campi rilevanti per ente (P.IVA, CF azienda, codice SDI, codice CUP, sede legale, sede operativa, PEC, telefono, referenti).
+- Aggiungere pulsante **"Richiedi modifica dati"** che apre un dialog: il cliente seleziona il/i campi da aggiornare, inserisce il nuovo valore + motivazione, allega eventuale documento giustificativo.
+- Nuova tabella `richieste_modifica_cliente` (cliente_id, campo, valore_attuale, valore_proposto, motivazione, stato `in_attesa|approvata|rifiutata|annullata`, note_agenzia, gestita_da, gestita_il).
+- Lato agenzia: nuova pagina `/clienti/richieste-modifica` (solo `ufficio`/`admin`) con elenco pendenti, dettaglio, pulsanti Approva/Rifiuta. L'approvazione applica l'aggiornamento al record `clienti` e chiude la richiesta; il rifiuto richiede note.
+- Notifica realtime all'agenzia alla creazione, al cliente quando approvata/rifiutata.
 
-**Nuova prop**
-- `mostraTotaliFooter?: boolean = false` — quando `true`, in fondo alla card mostra un blocco "Totali" con: Premio Netto, Addizionali, Tasse, **Premio Lordo**, Provvigioni (se `provvigioniValue` è gestito).
-  - Per non-auto: i totali sono semplici somme delle voci (`Σ netto`, `Σ tasse = Σ(lordo - netto)`, `Σ lordo`).
-  - Le righe del footer sono editabili inline solo per "Provvigioni" (campo già esistente). Premio Lordo è readonly e calcolato.
-- `mostraCampoAddizionali?: boolean = false` — colonna opzionale "Addizionali" per riga (richiesto da contabilità non-auto). Valore salvato in nuova colonna se utile, altrimenti aggregato in `tasse`. **Per ora**: mostro solo riga "Addizionali" nel footer come campo libero salvato su `titoli.addizionali` / `titoli.addizionali_quietanza` via callback.
+### 2. Sezione referenti ente
+- Visualizzare la lista referenti dalla tabella `cliente_referenti` (read-only) e abilitare aggiunta/modifica via stessa logica "richiesta modifica".
 
-**Refactor visuale per `useAutoTaxFormula={false}`**
-- Header card: titolo dinamico (già passato via prop `titolo`); rimuovere l'icona `Car`/`ShieldCheck` RCA-specifica e usare `ShieldCheck` neutro.
-- Tabella: mai mostrare la riga "RCA Auto" sintetica, mai mostrare le sotto-righe IPT/SSN, mai mostrare il selettore aliquota provinciale globale. Colonne: `Garanzia | Netto | Aliquota % | Lordo | Capitale | Tasso ‰ | Rata | Annuo | ⌫`.
-- Pulsante "Ricalcola IPT/SSN" e blocco "Imposta provinciale" nascosti.
-- "Aggiungi voce libera" sempre disponibile.
+### 3. Apertura denuncia sinistro dal portale
+- Nuovo bottone "Apri nuovo sinistro" in `/cliente/sinistri` → wizard 3 step:
+  1. Polizza coinvolta (select tra le polizze attive del cliente) + ramo + data evento + luogo
+  2. Dinamica + controparte + targa (se RCA) + persone coinvolte
+  3. Allegati (foto, denuncia ecc.) + conferma
+- Insert in `sinistri` con `stato='aperto'`, `cliente_anagrafica_id` valorizzato, `aperto_da_cliente=true` (nuova colonna boolean), `ufficio_id` ereditato dalla polizza scelta, `numero_sinistro` generato server-side (placeholder finché agenzia non assegna numero compagnia).
+- Documenti caricati: bucket `documenti_sinistri`, riga in `documenti` con `entita_tipo='sinistro'`, `visibile_al_cliente=true`, `caricato_da_cliente=true`.
+- Notifica realtime all'agenzia (specialist + ufficio del cliente).
 
-**Concetto "personalizzato" su RCA (anche Firma)**
-- Quando `is_rca_principale=true` e `overrideImposta || overrideSsn` (logica già presente in `calcolaLordo`), mostrare badge piccolo "Personalizzato" accanto al nome riga e link "Ripristina automatico" (già esistente come "Ricalcola IPT/SSN") → spostarlo inline alla riga invece che solo nell'header.
-- Su Quietanza, badge "Quietanza personalizzata" già esiste e resta.
+### 4. Upload allegati su sinistro esistente
+- Nel dettaglio sinistro espanso (già presente in `ClienteSinistri`), aggiungere riquadro "Documenti del sinistro" con elenco doc visibili e pulsante upload.
+- Mostrare anche stato pratica e timeline eventi (riserva, liquidazione, chiusura) in sola lettura.
 
-### 2. `TitoloDetail.tsx`
+### 5. RLS / migrazioni necessarie
+- Tabella `richieste_modifica_cliente` con RLS:
+  - cliente: INSERT/SELECT/DELETE solo su righe del proprio `cliente_id` in stato `in_attesa`
+  - agenzia (`ufficio`/`admin`): SELECT/UPDATE
+- `sinistri`: nuova policy `cliente_insert_sinistro` con `WITH CHECK (has_role(auth.uid(),'cliente') AND cliente_anagrafica_id IN (SELECT get_my_cliente_ids()) AND stato='aperto' AND aperto_da_cliente=true)`. Aggiungere colonna `aperto_da_cliente boolean default false`.
+- `documenti`: estendere `cliente_insert_documenti` per accettare `entita_tipo IN ('cliente','sinistro','titolo')` purché l'entità riferita appartenga a un `cliente_id` del cliente loggato e `visibile_al_cliente=true`. Aggiungere colonna `caricato_da_cliente boolean default false`.
+- `storage.objects` per `documenti_sinistri` e `documenti_titoli`: policy INSERT che permetta al ruolo `cliente` di scrivere in path che inizia con un id di sinistro/polizza appartenente a un suo `cliente_id`.
 
-**Sezione "Importi" (linee ~2488-2755)** — nuova logica di branching:
+### 6. Dashboard cliente
+- Card riassuntiva "Richieste in corso" (modifiche dati + sinistri aperti dal cliente) con stato.
 
-- **Se `isRamoAuto`** (auto/natanti): comportamento attuale invariato. La card "Importi" resta con form modifica completa, e sotto le `VociRcaCard` Firma/Quietanza alimentano `titoli.premio_netto/tasse/...` come oggi. (No regressione RCA.)
+## Cosa NON tocchiamo
+- Non rimuoviamo i dati demo Varese: restano marcati `[DEMO]` come da memoria. Diventeranno semplicemente "veri" quando l'agenzia inserirà i record reali.
+- Nessuna modifica ai bucket esistenti né nuovi bucket.
+- Nessuna modifica al portale prospect.
 
-- **Se NON `isRamoAuto`**: 
-  - **Rimuovere** la card `SectionCollapsible "Importi"` per intero (form modifica + visualizzazione).
-  - La sezione `SectionCollapsible "Premi per Garanzia"` (linee ~3003-3085) diventa l'unica fonte di importi: contiene le due `VociRcaCard` (Firma+Quietanza) con `mostraTotaliFooter={true}` e `mostraCampoAddizionali={true}`.
-  - Spostare al loro interno: `renderSplitImporti("Provvigioni alla Firma"/"Quietanza")`, lo switch valuta/cambio (se esiste resta in una sotto-card), i flag `indicizzata` / `rimborso` (in un piccolo footer sotto le due card o eliminati se non usati per non-auto — verifico, decido in fase di build).
-  - I totali calcolati nelle card sincronizzano `titoli.premio_netto`, `tasse`, `premio_lordo`, `premio_netto_quietanza`, `tasse_quietanza` via callback `onTotaliChange` (già implementato).
-  - `addizionali` / `addizionali_quietanza`: editabili inline nel footer della card (debounced UPDATE su `titoli`).
+## Dettagli tecnici (riepilogo)
+- Migrazioni: nuova tabella `richieste_modifica_cliente`, colonne `sinistri.aperto_da_cliente`, `documenti.caricato_da_cliente`, policy RLS su `sinistri`/`documenti`/`storage.objects`.
+- Frontend: nuove pagine `RichiesteModificaList.tsx` (lato agenzia), nuovi dialog `RichiestaModificaDialog.tsx` e `NuovaDenunciaSinistroDialog.tsx`, refactor `ClienteAnagrafica.tsx` e `ClienteSinistri.tsx`.
+- Realtime: canale `notifiche` per i due flussi nuovi (richiesta modifica creata, denuncia cliente creata).
+- Audit trail: già attivo su `clienti` e `sinistri` (memoria audit), quindi le modifiche approvate vengono registrate automaticamente.
 
-**Aliquota da `rami`**
-- Verificare che la query del titolo selezioni `rami.aliquota_tasse_ramo`. Se assente, aggiungerla.
-- Passare `aliquotaDefault={t.ramo?.aliquota_tasse_ramo ?? 22.25}` alle `VociRcaCard` non-auto (già previsto in plan precedente, lo confermo).
-
-### 3. Cleanup
-
-- Codice morto da rimuovere se diventa inutilizzato per il path non-auto: `editingImporti`, `importiForm`, `saveImportiMutation`, `startEditImporti` restano ma vengono usati **solo** quando `isRamoAuto` è vero. Niente rimozione globale per evitare regressioni RCA.
-
-## Cosa NON cambia
-
-- Schema DB: nessuna modifica.
-- Polizze RCA esistenti: layout RCA invariato, solo il badge "Personalizzato" viene reso più visibile.
-- Trigger sync Firma↔Quietanza: invariati.
-- `ImportPolizzaAiButton`: invariato.
-
-## Verifica post-build
-
-1. Aprire un titolo RCA Auto → sezione "Importi" presente come oggi, con sotto le card Firma/Quietanza RCA. Editare manualmente IPT su Firma → compare badge "Personalizzato" inline + link "Ripristina automatico".
-2. Aprire un titolo Incendio/Vita/RCT → **niente** card "Importi" separata. Solo la sezione "Premi per Garanzia" con due card teal Firma/Quietanza che mostrano in basso il footer Totali (Netto/Addizionali/Tasse/Lordo/Provvigioni). Aliquota di default = `aliquota_tasse_ramo` del ramo (es. 22.25%).
-3. Modificare una voce non-auto → totali nel footer si aggiornano, `titoli.premio_netto/tasse/lordo` aggiornati nel DB, e `titoli.premio_netto_quietanza/tasse_quietanza` per la card Quietanza.
-4. AI scan funziona su entrambi i path.
-5. `renderSplitImporti` (split commerciale/agenzia) appare sotto ciascuna card Firma/Quietanza in entrambi i casi.
-
-## File toccati
-
-- `src/components/polizze/VociRcaCard.tsx` (nuove prop `mostraTotaliFooter`, `mostraCampoAddizionali`; badge "Personalizzato" inline su RCA principale)
-- `src/pages/TitoloDetail.tsx` (branching Importi auto/non-auto; rimozione card Importi per non-auto; passaggio nuove prop)
+## Domande residue (zero)
+Tutte le scelte chiave già confermate dalle risposte precedenti.
