@@ -311,56 +311,72 @@ const ProvvigioniSedePage = () => {
       )}
 
       {/* Dettaglio polizze */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <TableRowsSkeleton rows={10} cols={10} />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Polizza</TableHead>
-                  <TableHead>Compagnia</TableHead>
-                  <TableHead>Ramo</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Commerciale</TableHead>
-                  <TableHead className="text-right">Premio</TableHead>
-                  <TableHead className="text-right">Provv. Agenzia</TableHead>
-                  <TableHead className="text-right">% C.</TableHead>
-                  <TableHead className="text-right">Provv. Comm.</TableHead>
-                  <TableHead className="text-right">Provv. Consul</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTitoli.map((t: any, i: number) => {
-                  const provvAg = t.provvigioni_firma || 0;
-                  const pc = t.percentuale_commerciale ?? 100;
-                  const cli = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
-                  return (
-                    <TableRow key={t.id} className={`cursor-pointer hover:bg-muted/50 ${i % 2 === 0 ? "bg-muted/20" : ""}`} onClick={() => navigate(`/portafoglio/${t.id}`)}>
-                      <TableCell className="font-mono text-xs">{t.numero_titolo || t.id.slice(0, 8)}</TableCell>
-                      <TableCell className="text-xs">{t.compagnia_diretta?.nome || "—"}</TableCell>
-                      <TableCell className="text-xs">{t.ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-xs">{cli || "—"}</TableCell>
-                      <TableCell className="text-xs">
-                        {t.commerciale ? `${t.commerciale.cognome} ${t.commerciale.nome}` : <Badge variant="secondary" className="text-[10px]">Consul</Badge>}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(t.premio_lordo)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{pc}%</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg * pc / 100)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-xs font-semibold text-primary font-sans">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
+      {(() => {
+        const pages = Math.ceil(filteredTitoli.length / PAGE_SIZE);
+        const safePage = Math.min(page, Math.max(0, pages - 1));
+        const pageRows = filteredTitoli.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+        return (
+          <Card>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <TableRowsSkeleton rows={10} cols={10} />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Polizza</TableHead>
+                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Ramo</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Commerciale</TableHead>
+                      <TableHead className="text-right">Premio</TableHead>
+                      <TableHead className="text-right">Provv. Agenzia</TableHead>
+                      <TableHead className="text-right">% C.</TableHead>
+                      <TableHead className="text-right">Provv. Comm.</TableHead>
+                      <TableHead className="text-right">Provv. Consul</TableHead>
                     </TableRow>
-                  );
-                })}
-                {filteredTitoli.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun dato per i filtri selezionati</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {pageRows.map((t: any, i: number) => {
+                      const provvAg = t.provvigioni_firma || 0;
+                      const pc = t.percentuale_commerciale ?? 100;
+                      const cli = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
+                      return (
+                        <TableRow key={t.id} className={`cursor-pointer hover:bg-muted/50 ${i % 2 === 0 ? "bg-muted/20" : ""}`} onClick={() => navigate(`/portafoglio/${t.id}`)}>
+                          <TableCell className="font-mono text-xs">{t.numero_titolo || t.id.slice(0, 8)}</TableCell>
+                          <TableCell className="text-xs">{t.compagnia_diretta?.nome || "—"}</TableCell>
+                          <TableCell className="text-xs">{t.ramo?.descrizione || "—"}</TableCell>
+                          <TableCell className="text-xs">{cli || "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            {t.commerciale ? `${t.commerciale.cognome} ${t.commerciale.nome}` : <Badge variant="secondary" className="text-[10px]">Consul</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{fmtEuro(t.premio_lordo)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{fmtEuro(provvAg)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{pc}%</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{fmtEuro(provvAg * pc / 100)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-semibold text-primary font-sans">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {filteredTitoli.length === 0 && (
+                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun dato per i filtri selezionati</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+              {!isLoading && pages > 1 && (
+                <div className="flex items-center justify-between p-3 border-t">
+                  <span className="text-xs text-muted-foreground">Pagina {safePage + 1} di {pages} · {filteredTitoli.length} polizze</span>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Prec</Button>
+                    <Button size="sm" variant="outline" disabled={safePage + 1 >= pages} onClick={() => setPage(p => p + 1)}>Succ</Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 };
