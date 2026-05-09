@@ -10,6 +10,7 @@ import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { fmtEuro } from "@/lib/formatCurrency";
+import { usePagination } from "@/hooks/usePagination";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
