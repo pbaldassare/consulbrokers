@@ -108,7 +108,7 @@ const ClienteUfficio = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-foreground">Il Mio Ufficio</h2>
+      <h2 className="text-2xl font-bold text-foreground">Info e Contatti</h2>
 
       {/* Sede info */}
       <Card>
