@@ -1082,9 +1082,13 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
 
           {/* Totali */}
           {(() => {
+            const parseSafe = (s: string | number | null | undefined) => {
+              const n = Number(s ?? 0);
+              return Number.isFinite(n) ? n : 0;
+            };
             const addLive = addizionaliDraft !== null
-              ? Number(addizionaliDraft || 0)
-              : Number(addizionaliValue ?? 0);
+              ? parseSafe(addizionaliDraft)
+              : parseSafe(addizionaliValue);
             const lordoConAdd = round2(totali.lordo + (mostraAddizionali ? addLive : 0));
             const deltaConAdd = premioLordoTitolo == null ? 0 : round2(lordoConAdd - Number(premioLordoTitolo));
             const quadraConAdd = premioLordoTitolo == null || Math.abs(deltaConAdd) < 0.01;
@@ -1175,7 +1179,8 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   value={addLive}
                   onChange={(e) => setAddizionaliDraft(e.target.value)}
                   onBlur={(e) => {
-                    const val = Number(e.target.value || 0);
+                    const raw = Number(e.target.value);
+                    const val = Number.isFinite(raw) ? round2(raw) : 0;
                     setAddizionaliDraft(null);
                     if (Math.abs(val - Number(addizionaliValue ?? 0)) < 0.01) return;
                     onAddizionaliChange?.(val);
