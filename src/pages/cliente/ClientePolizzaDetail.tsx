@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText } from "lucide-react";
+import { ArrowLeft, Download, Shield, Building2, Calendar, CreditCard, FileText, Upload, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import UploadDocPolizzaDialog from "@/components/cliente/UploadDocPolizzaDialog";
 
 const statoBadge: Record<string, string> = {
   attivo: "bg-emerald-100 text-emerald-800",
@@ -24,12 +25,19 @@ const ClientePolizzaDetail = () => {
   const [titolo, setTitolo] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  const refreshDocs = async () => {
+    if (!id) return;
+    const { data } = await supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id).order("created_at", { ascending: false });
+    setDocs(data ?? []);
+  };
 
   useEffect(() => {
     if (!id) return;
     Promise.all([
       supabase.from("titoli").select("*, compagnie(nome), rami(descrizione)").eq("id", id).maybeSingle(),
-      supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id),
+      supabase.from("documenti").select("*").eq("entita_tipo", "titolo").eq("entita_id", id).order("created_at", { ascending: false }),
     ]).then(([tRes, dRes]) => {
       setTitolo(tRes.data);
       setDocs(dRes.data ?? []);
@@ -113,15 +121,33 @@ const ClientePolizzaDetail = () => {
 
       {/* Documenti */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Documenti allegati</CardTitle></CardHeader>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Documenti allegati</CardTitle>
+          {titolo.cliente_anagrafica_id && (
+            <Button size="sm" className="bg-teal-700 hover:bg-teal-800 gap-1.5" onClick={() => setUploadOpen(true)}>
+              <Upload className="h-4 w-4" /> Carica documento
+            </Button>
+          )}
+        </CardHeader>
         <CardContent>
           {docs.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nessun documento disponibile.</p>
           ) : (
             <div className="space-y-2">
               {docs.map((d) => (
-                <div key={d.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <span className="text-sm">{d.nome_file}</span>
+                <div key={d.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{d.nome_file}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {d.categoria && <Badge variant="secondary" className="text-[10px]">{d.categoria}</Badge>}
+                      {d.caricato_da_cliente && (
+                        <Badge className="bg-teal-100 text-teal-800 text-[10px] gap-1"><User className="h-3 w-3" />Caricato da te</Badge>
+                      )}
+                      {d.created_at && (
+                        <span className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), "dd/MM/yyyy HH:mm", { locale: it })}</span>
+                      )}
+                    </div>
+                  </div>
                   <Button variant="ghost" size="sm" onClick={() => handleDownload(d)}><Download className="h-4 w-4" /></Button>
                 </div>
               ))}
@@ -129,6 +155,16 @@ const ClientePolizzaDetail = () => {
           )}
         </CardContent>
       </Card>
+
+      {titolo.cliente_anagrafica_id && (
+        <UploadDocPolizzaDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          titoloId={titolo.id}
+          clienteAnagraficaId={titolo.cliente_anagrafica_id}
+          onUploaded={refreshDocs}
+        />
+      )}
     </div>
   );
 };
