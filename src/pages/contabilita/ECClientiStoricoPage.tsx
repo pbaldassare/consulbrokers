@@ -22,7 +22,7 @@ const ECClientiStoricoPage = () => {
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [q, numeroPolizza, clienteId, dateFrom, dateTo, clientiConPolizza]);
+
 
   const { data: clientiOpts = [] } = useQuery({
     queryKey: ["ec-clienti-storico-clienti"],
