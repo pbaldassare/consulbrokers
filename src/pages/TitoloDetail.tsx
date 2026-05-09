@@ -2484,6 +2484,24 @@ const TitoloDetail = () => {
         };
         const sFirma = t.provvigioni_firma;
         const sQui = t.provvigioni_quietanza;
+        if (!isRamoAuto((t as any).ramo)) {
+          // Per i rami non-auto la sezione "Importi" è integrata direttamente
+          // nelle card "Premi per Garanzia — Firma/Quietanza" (totali, addizionali, provvigioni).
+          // Mostriamo qui solo gli split provvigioni e i flag valuta/indicizzata/rimborso.
+          return (
+            <SectionCollapsible title="Riepilogo Provvigioni & Valuta" icon={DollarSign} defaultOpen={false}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+                {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t mt-3">
+                <div className="text-xs"><span className="text-muted-foreground">Valuta: </span><span className="font-semibold">{(t as any).valuta || "EUR"}</span></div>
+                <div className="text-xs"><span className="text-muted-foreground">Indicizzata: </span><span className="font-semibold">{(t as any).indicizzata ? "Sì" : "No"}</span></div>
+                <div className="text-xs"><span className="text-muted-foreground">Rimborso: </span><span className="font-semibold">{(t as any).rimborso ? "Sì" : "No"}</span></div>
+              </div>
+            </SectionCollapsible>
+          );
+        }
         return (
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
