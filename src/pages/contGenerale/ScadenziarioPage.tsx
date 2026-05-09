@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,8 +11,12 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 import { format, differenceInDays } from "date-fns";
 const ScadenziarioPage = () => {
-  const { page, setPage, pageSize, range } = useServerPagination(25, [statoFilter]);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [statoFilter, setStatoFilter] = useState("tutte");
+
+  // Reset paginazione quando cambiano filtri/search
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(0); }, [statoFilter]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["scadenziario", page, statoFilter],

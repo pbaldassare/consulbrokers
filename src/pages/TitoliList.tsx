@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +24,7 @@ const TitoliList = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const { page, setPage, pageSize, range } = useServerPagination(25, [appliedFilters]);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [searched, setSearched] = useState(false);
 
   // Form nuovo titolo
@@ -58,6 +58,10 @@ const TitoliList = () => {
 
   // Applied filters (only search on CERCA click)
   const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
+
+  // Reset paginazione quando cambiano filtri/search
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(0); }, [appliedFilters]);
 
   const { data: prodotti = [] } = useQuery({
     queryKey: ["prodotti_attivi"],
