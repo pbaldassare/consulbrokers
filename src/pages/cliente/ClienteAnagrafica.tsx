@@ -20,11 +20,12 @@ const ClienteAnagrafica = () => {
     const { data } = await supabase.from("clienti").select("*").eq("user_id", user.id).maybeSingle();
     setCliente(data);
     if (data?.id) {
-      const [{ data: refs }, { data: req }] = await Promise.all([
-        supabase.from("cliente_referenti").select("*").eq("cliente_id", data.id).order("created_at"),
-        supabase.from("richieste_modifica_cliente").select("*").eq("cliente_id", data.id).order("created_at", { ascending: false }),
-      ]);
-      setReferenti(refs ?? []);
+      const { data: req } = await supabase
+        .from("richieste_modifica_cliente")
+        .select("*")
+        .eq("cliente_id", data.id)
+        .order("created_at", { ascending: false });
+      setReferenti([]);
       setRichieste(req ?? []);
     }
     setLoading(false);
