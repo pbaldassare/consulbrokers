@@ -10,12 +10,9 @@ import { Users, Search } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 const ClientiContabPage = () => {
-  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
 
-  // Reset paginazione quando cambiano filtri/search
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(0); }, [search]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["clienti_contab", page, search],

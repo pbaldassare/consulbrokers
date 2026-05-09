@@ -17,16 +17,13 @@ const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
-  const { page, setPage, pageSize, range } = useServerPagination();
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const fineMese = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
-  // Reset paginazione quando cambiano filtri/search
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(0); }, [search, filtroRamo, escludiMeseCorrente]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroRamo, escludiMeseCorrente]);
 
   const { data: rami } = useQuery({
     queryKey: ["rami-lookup"],

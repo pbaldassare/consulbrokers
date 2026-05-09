@@ -56,7 +56,6 @@ export default function StoricoGarePage() {
   const isAdmin = profile?.ruolo === "admin" || profile?.ruolo === "responsabile_sede";
   const queryClient = useQueryClient();
 
-  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [filtroProvincia, setFiltroProvincia] = useState("tutti");
@@ -77,9 +76,7 @@ export default function StoricoGarePage() {
   const [importResult, setImportResult] = useState<any>(null);
 
   // Carica valori distinti per dropdown
-  // Reset paginazione quando cambiano filtri/search
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(0); }, [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta]);
 
   const { data: lookupData } = useQuery({
     queryKey: ["storico_gare_lookups"],
@@ -303,7 +300,6 @@ export default function StoricoGarePage() {
           </ResponsiveContainer>
         </Card>
       </div>
-
 
       {/* Filtri */}
       <Card className="p-4 space-y-3">

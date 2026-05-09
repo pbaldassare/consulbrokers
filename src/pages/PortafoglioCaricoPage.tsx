@@ -32,7 +32,6 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const { page, setPage, pageSize, range } = useServerPagination();
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -45,7 +44,6 @@ const PortafoglioCaricoPage = () => {
   const scadenzaDate = caricoDate;
   const caricoStart = format(startOfMonth(scadenzaDate), "yyyy-MM-dd");
   const caricoEnd = format(endOfMonth(scadenzaDate), "yyyy-MM-dd");
-
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -69,9 +67,7 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  // Reset paginazione quando cambiano filtri/search
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(0); }, [search, filtroStato, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, caricoStart, caricoEnd, sortField, sortDirection]);
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],

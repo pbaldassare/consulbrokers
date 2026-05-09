@@ -17,14 +17,11 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 const DichiarativiCUPage = () => {
   const queryClient = useQueryClient();
-  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [annoFilter, setAnnoFilter] = useState(new Date().getFullYear().toString());
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Reset paginazione quando cambiano filtri/search
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(0); }, [search, annoFilter]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, annoFilter]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["certificazioni_cu", page, search, annoFilter],
