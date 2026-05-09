@@ -163,6 +163,7 @@ const ClienteLayout = () => {
             {profile?.nome} {profile?.cognome}
           </p>
         )}
+        <TourSidebarButton compact={compact} />
         <Button
           variant="ghost"
           size="sm"
