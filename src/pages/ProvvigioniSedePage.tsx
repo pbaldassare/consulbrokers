@@ -197,16 +197,26 @@ const ProvvigioniSedePage = () => {
         </Button>
       </div>
 
-      <ProvvigioniFiltersBar filters={filters} onChange={setFilters} rami={rami} compagnie={compagnie} produttori={produttori} />
+      {lookupsLoading ? (
+        <FiltersBarSkeleton />
+      ) : (
+        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} compagnie={compagnie} produttori={produttori} />
+      )}
 
       {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <ProvvigioniKpiCard icon={Landmark} label="Provv. Consul" value={fmtEuro(totals.consul)} accent="primary" hint={fmtPct(totals.agenzia ? totals.consul / totals.agenzia * 100 : 0)} />
-        <ProvvigioniKpiCard icon={Users} label="Provv. Commerciali" value={fmtEuro(totals.comm)} hint={fmtPct(totals.agenzia ? totals.comm / totals.agenzia * 100 : 0)} />
-        <ProvvigioniKpiCard icon={TrendingUp} label="Tot. Agenzia" value={fmtEuro(totals.agenzia)} />
-        <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
-        <ProvvigioniKpiCard icon={Receipt} label="N° Polizze" value={String(filteredTitoli.length)} />
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => <KpiCardSkeleton key={i} />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <ProvvigioniKpiCard icon={Landmark} label="Provv. Consul" value={fmtEuro(totals.consul)} accent="primary" hint={fmtPct(totals.agenzia ? totals.consul / totals.agenzia * 100 : 0)} />
+          <ProvvigioniKpiCard icon={Users} label="Provv. Commerciali" value={fmtEuro(totals.comm)} hint={fmtPct(totals.agenzia ? totals.comm / totals.agenzia * 100 : 0)} />
+          <ProvvigioniKpiCard icon={TrendingUp} label="Tot. Agenzia" value={fmtEuro(totals.agenzia)} />
+          <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
+          <ProvvigioniKpiCard icon={Receipt} label="N° Polizze" value={String(filteredTitoli.length)} />
+        </div>
+      )}
 
       {/* Tabs Distribuzione */}
       <Tabs defaultValue="ramo">
