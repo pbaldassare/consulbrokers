@@ -15,6 +15,7 @@ import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard"
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
