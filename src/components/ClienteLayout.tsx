@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
-  Bell, CreditCard, LogOut, Menu, X, AlertTriangle, Building2, Phone,
+  Bell, LogOut, Menu, X, AlertTriangle, Building2, Phone,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ const allNavItems = [
   { to: "/cliente/scadenze", label: "Scadenze", icon: CalendarClock },
   { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
-  { to: "/cliente/pagamenti", label: "Pagamenti", icon: CreditCard },
   { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2 },
   { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone },
 ];

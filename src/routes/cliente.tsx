@@ -8,7 +8,7 @@ import ClienteDocumenti from "@/pages/cliente/ClienteDocumenti";
 import ClienteScadenze from "@/pages/cliente/ClienteScadenze";
 import ClienteComunicazioni from "@/pages/cliente/ClienteComunicazioni";
 import ClienteNotifiche from "@/pages/cliente/ClienteNotifiche";
-import ClientePagamenti from "@/pages/cliente/ClientePagamenti";
+
 import ClienteUploadDoc from "@/pages/cliente/ClienteUploadDoc";
 import ClienteSinistri from "@/pages/cliente/ClienteSinistri";
 import ClienteAnagrafica from "@/pages/cliente/ClienteAnagrafica";
@@ -24,7 +24,7 @@ export const clienteRoutes = (
     <Route path="/cliente/chat" element={<ClienteComunicazioni />} />
     <Route path="/cliente/comunicazioni" element={<ClienteComunicazioni />} />
     <Route path="/cliente/notifiche" element={<ClienteNotifiche />} />
-    <Route path="/cliente/pagamenti" element={<ClientePagamenti />} />
+    
     <Route path="/cliente/upload" element={<ClienteUploadDoc />} />
     <Route path="/cliente/sinistri" element={<ClienteSinistri />} />
     <Route path="/cliente/anagrafica" element={<ClienteAnagrafica />} />
