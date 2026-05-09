@@ -21,6 +21,9 @@ import { it } from "date-fns/locale";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+
+const PAGE_SIZE = 25;
 
 const PagamentiProvvigioniList = () => {
   const { isAdmin } = useAuth();
@@ -38,6 +41,7 @@ const PagamentiProvvigioniList = () => {
   const [filterMetodo, setFilterMetodo] = useState<string>("");
   const [filterDa, setFilterDa] = useState<string>("");
   const [filterA, setFilterA] = useState<string>("");
+  const [page, setPage] = useState(0);
 
   // Fetch distinte
   const { data: distinte = [], isLoading } = useQuery({
@@ -299,15 +303,15 @@ const PagamentiProvvigioniList = () => {
       <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
-          <Input type="date" value={filterDa} onChange={(e) => setFilterDa(e.target.value)} className="h-9 w-[150px]" />
+          <Input type="date" value={filterDa} onChange={(e) => { setFilterDa(e.target.value); setPage(0); }} className="h-9 w-[150px]" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">A</Label>
-          <Input type="date" value={filterA} onChange={(e) => setFilterA(e.target.value)} className="h-9 w-[150px]" />
+          <Input type="date" value={filterA} onChange={(e) => { setFilterA(e.target.value); setPage(0); }} className="h-9 w-[150px]" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Beneficiario</Label>
-          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => setFilterBeneficiario(v === "__all__" ? "" : v)}>
+          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }}>
             <SelectTrigger className="h-9 w-[200px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tutti</SelectItem>
@@ -319,7 +323,7 @@ const PagamentiProvvigioniList = () => {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Metodo</Label>
-          <Select value={filterMetodo || "__all__"} onValueChange={(v) => setFilterMetodo(v === "__all__" ? "" : v)}>
+          <Select value={filterMetodo || "__all__"} onValueChange={(v) => { setFilterMetodo(v === "__all__" ? "" : v); setPage(0); }}>
             <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tutti</SelectItem>
@@ -330,7 +334,7 @@ const PagamentiProvvigioniList = () => {
           </Select>
         </div>
         {(filterDa || filterA || filterBeneficiario || filterMetodo) && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); }}>Reset</Button>
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); setPage(0); }}>Reset</Button>
         )}
       </div>
 
@@ -344,7 +348,7 @@ const PagamentiProvvigioniList = () => {
         });
         const totFiltered = filteredDistinte.reduce((s: number, d: any) => s + (d.totale_importo || 0), 0);
 
-        // Aggregations for charts
+        // Aggregations for charts (on full filtered set, not paginated)
         const byMese = new Map<string, number>();
         const byMetodo = new Map<string, number>();
         for (const d of filteredDistinte) {
@@ -359,6 +363,24 @@ const PagamentiProvvigioniList = () => {
           value: v,
         }));
         const metodoData = [...byMetodo.entries()].map(([name, value]) => ({ name, value }));
+
+        const pages = Math.ceil(filteredDistinte.length / PAGE_SIZE);
+        const safePage = Math.min(page, Math.max(0, pages - 1));
+        const pageRows = filteredDistinte.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+        if (isLoading) {
+          return (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => <KpiCardSkeleton key={i} />)}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ChartSkeleton /><ChartSkeleton />
+              </div>
+              <Card><CardContent className="p-0"><TableRowsSkeleton rows={8} cols={6} /></CardContent></Card>
+            </>
+          );
+        }
 
         return (
           <>
@@ -388,7 +410,7 @@ const PagamentiProvvigioniList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDistinte.map((d: any, i: number) => (
+                    {pageRows.map((d: any, i: number) => (
                       <TableRow
                         key={d.id}
                         className={`cursor-pointer hover:bg-muted/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}
@@ -404,11 +426,20 @@ const PagamentiProvvigioniList = () => {
                         <TableCell className="text-right tabular-nums font-semibold font-sans">{fmtEuro(d.totale_importo)}</TableCell>
                       </TableRow>
                     ))}
-                    {filteredDistinte.length === 0 && !isLoading && (
+                    {filteredDistinte.length === 0 && (
                       <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessuna distinta per i filtri selezionati</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
+                {pages > 1 && (
+                  <div className="flex items-center justify-between p-3 border-t">
+                    <span className="text-xs text-muted-foreground">Pagina {safePage + 1} di {pages} · {filteredDistinte.length} distinte</span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Prec</Button>
+                      <Button size="sm" variant="outline" disabled={safePage + 1 >= pages} onClick={() => setPage(p => p + 1)}>Succ</Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>

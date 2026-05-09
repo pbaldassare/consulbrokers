@@ -13,6 +13,7 @@ import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
+import { TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
 
 type Row = any;
@@ -292,7 +293,7 @@ const ProvvigioniSedePage = () => {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-muted-foreground text-sm text-center py-8">Caricamento...</p>
+            <TableRowsSkeleton rows={10} cols={10} />
           ) : (
             <Table>
               <TableHeader>

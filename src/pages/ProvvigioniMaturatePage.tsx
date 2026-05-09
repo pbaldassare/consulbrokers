@@ -13,6 +13,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
@@ -163,20 +164,33 @@ const ProvvigioniMaturatePage = () => {
 
       <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} produttori={produttori} showTipo />
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <ProvvigioniKpiCard icon={TrendingUp} label="Totale Maturato" value={fmtEuro(totals.maturato)} accent="primary" />
-        <ProvvigioniKpiCard icon={CreditCard} label="N. Provvigioni" value={String(totals.count)} />
-        <ProvvigioniKpiCard icon={Users} label="Destinatari" value={String(totals.destinatari)} />
-        <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
-        <ProvvigioniKpiCard icon={Receipt} label="Importo medio" value={fmtEuro(totals.medio)} />
-      </div>
+      {isLoading ? (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {Array.from({ length: 5 }).map((_, i) => <KpiCardSkeleton key={i} />)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartSkeleton /><ChartSkeleton /><ChartSkeleton /><ChartSkeleton />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <ProvvigioniKpiCard icon={TrendingUp} label="Totale Maturato" value={fmtEuro(totals.maturato)} accent="primary" />
+            <ProvvigioniKpiCard icon={CreditCard} label="N. Provvigioni" value={String(totals.count)} />
+            <ProvvigioniKpiCard icon={Users} label="Destinatari" value={String(totals.destinatari)} />
+            <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
+            <ProvvigioniKpiCard icon={Receipt} label="Importo medio" value={fmtEuro(totals.medio)} />
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ProvvigioniBarChart title="Top Produttori" data={byProduttore.slice(0, 10)} />
-        <ProvvigioniBarChart title="Per Ramo" data={byRamo.slice(0, 10)} />
-        <ProvvigioniPieChart title="Per Tipo Destinatario" data={byTipo} />
-        <ProvvigioniLineChart title="Trend ultimi 12 mesi" data={trend12} />
-      </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ProvvigioniBarChart title="Top Produttori" data={byProduttore.slice(0, 10)} />
+            <ProvvigioniBarChart title="Per Ramo" data={byRamo.slice(0, 10)} />
+            <ProvvigioniPieChart title="Per Tipo Destinatario" data={byTipo} />
+            <ProvvigioniLineChart title="Trend ultimi 12 mesi" data={trend12} />
+          </div>
+        </>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -197,7 +211,7 @@ const ProvvigioniMaturatePage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="text-center py-8">Caricamento...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="p-0"><TableRowsSkeleton rows={8} cols={10} /></TableCell></TableRow>
               ) : pageRows.length === 0 ? (
                 <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessuna provvigione per i filtri selezionati</TableCell></TableRow>
               ) : (
