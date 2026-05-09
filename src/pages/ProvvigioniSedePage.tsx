@@ -13,7 +13,7 @@ import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 25;
