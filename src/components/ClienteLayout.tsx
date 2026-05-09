@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, CreditCard, LogOut, Menu, X, AlertTriangle, Building2, Phone,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,11 +24,31 @@ const allNavItems = [
   { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone },
 ];
 
+const SIDEBAR_BG = { background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" };
+
 const ClienteLayout = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [areaType, setAreaType] = useState<string>("completa");
+
+  // Lock body scroll when mobile drawer open
+  useEffect(() => {
+    if (mobileOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [mobileOpen]);
+
+  // Close drawer on Escape
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMobileOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (!user) return;
@@ -59,12 +80,18 @@ const ClienteLayout = () => {
     navigate("/login");
   };
 
-  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+  const SidebarContent = ({ onItemClick, compact = false }: { onItemClick?: () => void; compact?: boolean }) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="p-5 border-b border-white/10">
-        <h1 className="text-xl font-bold text-white tracking-tight">CBnet</h1>
-        <span className="text-xs text-white/60">Area Clienti</span>
+      <div className={cn("border-b border-white/10", compact ? "p-3 text-center" : "p-5")}>
+        {compact ? (
+          <h1 className="text-base font-bold text-white tracking-tight">CB</h1>
+        ) : (
+          <>
+            <h1 className="text-xl font-bold text-white tracking-tight">CBnet</h1>
+            <span className="text-xs text-white/60">Area Clienti</span>
+          </>
+        )}
       </div>
 
       {/* Nav */}
@@ -75,9 +102,11 @@ const ClienteLayout = () => {
             to={item.to}
             end={item.end}
             onClick={onItemClick}
+            title={compact ? item.label : undefined}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-3 rounded-lg text-sm font-medium transition-all min-h-[44px]",
+                compact ? "justify-center px-2 py-2" : "px-3 py-2.5",
                 isActive
                   ? "bg-white/20 text-white shadow-sm"
                   : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -85,9 +114,14 @@ const ClienteLayout = () => {
             }
           >
             <item.icon className="h-4 w-4 shrink-0" />
-            <span className="flex-1">{item.label}</span>
+            {!compact && <span className="flex-1">{item.label}</span>}
             {(item as any).hasBadge && unreadCount > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none",
+                  compact && "absolute translate-x-3 -translate-y-2"
+                )}
+              >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
@@ -96,13 +130,24 @@ const ClienteLayout = () => {
       </nav>
 
       {/* User + logout */}
-      <div className="p-3 border-t border-white/10 space-y-2">
-        <p className="text-xs text-white/50 truncate px-1">
-          {profile?.nome} {profile?.cognome}
-        </p>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full justify-start gap-2 text-white/70 hover:text-white hover:bg-white/10">
+      <div className={cn("border-t border-white/10 space-y-2", compact ? "p-2" : "p-3")}>
+        {!compact && (
+          <p className="text-xs text-white/50 truncate px-1">
+            {profile?.nome} {profile?.cognome}
+          </p>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          title={compact ? "Esci" : undefined}
+          className={cn(
+            "w-full gap-2 text-white/70 hover:text-white hover:bg-white/10 min-h-[40px]",
+            compact ? "justify-center px-0" : "justify-start"
+          )}
+        >
           <LogOut className="h-4 w-4" />
-          Esci
+          {!compact && "Esci"}
         </Button>
       </div>
     </div>
@@ -110,48 +155,94 @@ const ClienteLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar (md+) — collapsible */}
       <aside
-        className="hidden md:flex w-56 shrink-0 flex-col"
-        style={{ background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" }}
+        className={cn(
+          "hidden md:flex shrink-0 flex-col relative transition-[width] duration-200",
+          desktopCollapsed ? "w-16" : "w-56"
+        )}
+        style={SIDEBAR_BG}
       >
-        <SidebarContent />
+        <SidebarContent compact={desktopCollapsed} />
+        <button
+          onClick={() => setDesktopCollapsed((v) => !v)}
+          aria-label={desktopCollapsed ? "Espandi sidebar" : "Comprimi sidebar"}
+          className="absolute -right-3 top-20 z-10 h-6 w-6 rounded-full bg-card border border-border shadow flex items-center justify-center text-foreground hover:bg-muted"
+        >
+          {desktopCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
       </aside>
 
-      {/* Mobile + main */}
+      {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden sticky top-0 z-50 border-b border-border bg-card shadow-sm">
-          <div className="flex items-center justify-between px-4 h-14">
-            <div className="flex items-center gap-3">
-              <button className="p-1.5 rounded-md hover:bg-muted" onClick={() => setMobileOpen(!mobileOpen)}>
-                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {/* Topbar — visible on all sizes; hamburger only on mobile */}
+        <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <div className="flex items-center justify-between gap-3 px-3 sm:px-4 h-14">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                className="md:hidden p-2 -ml-1 rounded-md hover:bg-muted active:bg-muted/70 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Apri menu"
+              >
+                <Menu className="h-5 w-5" />
               </button>
-              <h1 className="text-lg font-bold text-primary tracking-tight">CBnet</h1>
+              <h1 className="text-base sm:text-lg font-bold text-primary tracking-tight truncate">CBnet</h1>
+              <span className="hidden sm:inline text-xs text-muted-foreground border-l border-border pl-2 ml-1 truncate">
+                Area Clienti
+              </span>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[200px]">
+                {profile?.nome} {profile?.cognome}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="gap-1.5 text-muted-foreground hover:text-foreground min-h-[40px]"
+                aria-label="Esci"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Esci</span>
+              </Button>
+            </div>
           </div>
         </header>
 
-        {/* Mobile overlay */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)}>
-            <aside
-              className="absolute left-0 top-0 bottom-0 w-64"
-              style={{ background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" }}
-              onClick={(e) => e.stopPropagation()}
+        {/* Mobile drawer */}
+        <div
+          className={cn(
+            "fixed inset-0 z-50 md:hidden transition-opacity duration-200",
+            mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          )}
+          aria-hidden={!mobileOpen}
+        >
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
+          <aside
+            className={cn(
+              "absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] shadow-2xl transition-transform duration-200",
+              mobileOpen ? "translate-x-0" : "-translate-x-full"
+            )}
+            style={SIDEBAR_BG}
+            role="dialog"
+            aria-label="Menu di navigazione"
+          >
+            <button
+              onClick={() => setMobileOpen(false)}
+              aria-label="Chiudi menu"
+              className="absolute right-2 top-2 p-2 rounded-md text-white/80 hover:bg-white/10 min-h-[40px] min-w-[40px] flex items-center justify-center"
             >
-              <SidebarContent onItemClick={() => setMobileOpen(false)} />
-            </aside>
-          </div>
-        )}
+              <X className="h-5 w-5" />
+            </button>
+            <SidebarContent onItemClick={() => setMobileOpen(false)} />
+          </aside>
+        </div>
 
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
           <Outlet />
         </main>
 
-        <footer className="border-t border-border bg-card py-3 text-center text-xs text-muted-foreground">
+        <footer className="border-t border-border bg-card py-3 text-center text-xs text-muted-foreground px-3">
           CBnet — Per assistenza contatta la tua agenzia
         </footer>
       </div>
