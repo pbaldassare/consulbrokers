@@ -295,7 +295,7 @@ const ClienteLayout = () => {
       </div>
     </div>
     <AppTour />
-    <TourLauncher />
+    
     </TourProvider>
   );
 };
