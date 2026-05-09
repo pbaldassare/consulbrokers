@@ -17,7 +17,7 @@ const PortafoglioStoricoPage = () => {
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
   const [filtroRamo, setFiltroRamo] = useState("tutti");
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroRamo, filtroStato]);
 
   const today = format(new Date(), "yyyy-MM-dd");
 

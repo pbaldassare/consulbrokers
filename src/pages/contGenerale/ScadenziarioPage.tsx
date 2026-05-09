@@ -10,7 +10,7 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 import { format, differenceInDays } from "date-fns";
 const ScadenziarioPage = () => {
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [statoFilter]);
   const [statoFilter, setStatoFilter] = useState("tutte");
 
   const { data, isLoading } = useQuery({

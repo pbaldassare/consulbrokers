@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 const DichiarativiCUPage = () => {
   const queryClient = useQueryClient();
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, annoFilter]);
   const [search, setSearch] = useState("");
   const [annoFilter, setAnnoFilter] = useState(new Date().getFullYear().toString());
   const [confirmOpen, setConfirmOpen] = useState(false);

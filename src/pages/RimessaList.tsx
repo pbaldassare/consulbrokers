@@ -19,7 +19,7 @@ const RimessaList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato]);
 
   const revertMutation = useMutation({
     mutationFn: async (rimessaId: string) => {

@@ -26,7 +26,7 @@ const getDefaultForm = () => ({
 const PrimanotaGeneralePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<any>(getDefaultForm());

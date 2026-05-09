@@ -23,7 +23,7 @@ const TitoliList = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [appliedFilters]);
   const [searched, setSearched] = useState(false);
 
   // Form nuovo titolo

@@ -59,7 +59,7 @@ const ProspectList = () => {
   const [open, setOpen] = useState(false);
   const [filtroStato, setFiltroStato] = useState("tutti");
   const [filtroSearch, setFiltroSearch] = useState("");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroSearch]);
   const [form, setForm] = useState(initialForm);
   const scannedFilesRef = useRef<{ file: File; documentType: string }[]>([]);
 

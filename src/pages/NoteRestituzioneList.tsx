@@ -29,7 +29,7 @@ const NoteRestituzioneList = () => {
   const [noteText, setNoteText] = useState("");
   const [filtroStato, setFiltroStato] = useState("all");
   const [filtroUfficio, setFiltroUfficio] = useState("all");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [filtroStato, filtroUfficio]);
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici"],

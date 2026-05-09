@@ -55,7 +55,7 @@ export default function StoricoGarePage() {
   const isAdmin = profile?.ruolo === "admin" || profile?.ruolo === "responsabile_sede";
   const queryClient = useQueryClient();
 
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroAnno, filtroProvincia, filtroTipologia, filtroEsito, filtroBroker, filtroCategoria, filtroStatoMandato, filtroSoloIntermedia, flagCauzione, flagReferenze, flagAccesso, flagOfferta]);
   const [search, setSearch] = useState("");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [filtroProvincia, setFiltroProvincia] = useState("tutti");

@@ -19,7 +19,7 @@ const ECProduttoriStoricoPage = () => {
   const [produttoreId, setProduttoreId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const { page, setPage, pageSize, range } = useServerPagination();
+  const { page, setPage, pageSize, range } = useServerPagination(25, [q, produttoreId, dateFrom, dateTo]);
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
