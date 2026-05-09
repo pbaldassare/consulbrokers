@@ -383,7 +383,7 @@ const PagamentiProvvigioniList = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <ChartSkeleton /><ChartSkeleton />
               </div>
-              <Card><CardContent className="p-0"><TableRowsSkeleton rows={8} cols={6} /></CardContent></Card>
+              <Card><CardContent className="p-0"><TableRowsSkeleton rows={8} cellTypes={["short","text","text","badge","short","num"]} /></CardContent></Card>
             </>
           );
         }
