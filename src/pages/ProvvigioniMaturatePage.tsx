@@ -79,11 +79,11 @@ const ProvvigioniMaturatePage = () => {
       const da = format(startOfMonth(subMonths(new Date(), 11)), "yyyy-MM-dd");
       let q = supabase
         .from("provvigioni_generate")
-        .select("importo_provvigione, titoli!inner(data_messa_cassa, ramo_id), tipo_destinatario, user_id")
+        .select("importo_provvigione, titoli!inner(data_messa_cassa, ramo_id, anagrafica_commerciale_id), tipo_destinatario, user_id")
         .eq("solo_statistico", false)
         .gte("titoli.data_messa_cassa", da);
       if (filters.ramoId) q = q.eq("titoli.ramo_id", filters.ramoId);
-      if (filters.produttoreId) q = q.eq("user_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("titoli.anagrafica_commerciale_id", filters.produttoreId);
       if (filters.tipoDestinatario) q = q.eq("tipo_destinatario", filters.tipoDestinatario);
       const { data } = await q.limit(5000);
       const buckets = new Map<string, number>();
