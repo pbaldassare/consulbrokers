@@ -239,7 +239,7 @@ const PagamentiProvvigioniList = () => {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">Provvigioni non pagate ({provvigioniNonPagate.length})</h3>
                     <div className="flex items-center gap-4">
-                      <span className="text-sm font-medium">Totale selezionato: €{totaleSelezionato.toFixed(2)}</span>
+                      <span className="text-sm font-medium">Totale selezionato: {fmtEuro(totaleSelezionato)}</span>
                       <Button variant="outline" size="sm" onClick={toggleAll}>
                         {selectedProvvigioni.length === provvigioniNonPagate.length ? "Deseleziona tutte" : "Seleziona tutte"}
                       </Button>
