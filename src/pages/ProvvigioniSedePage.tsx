@@ -16,6 +16,7 @@ import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/com
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
+import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
 
 // PAGE_SIZE gestita da usePagination (default 25)
 
