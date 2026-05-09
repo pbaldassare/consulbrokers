@@ -1,66 +1,62 @@
-# Filtri portale cliente + upload documenti su polizza
+# Refactor area cliente: documenti CRUD + sidebar pulita
 
-## 1. `/cliente/scadenze` — filtri e drill-down
+## 1. `/cliente/documenti` — gestione completa documenti
 
-Aggiungo una barra filtri sopra la lista:
-- **Finestra scadenza**: Tutte / Entro 30 gg / Entro 60 gg / Entro 90 gg / Range date personalizzato (da–a, con `DatePicker`).
-- **Ramo / tipologia polizza**: `SearchableSelect` popolato dai rami effettivamente presenti nelle polizze del cliente (es. RC Auto, Incendio, RC Inquinamento…). Multi-select.
-- **Compagnia**: `SearchableSelect` popolato dalle compagnie presenti.
-- **Ricerca testuale**: numero polizza / targa.
-- Pulsante **Reset filtri**.
+Trasformo la pagina (oggi solo lista read-only senza filtro per cliente) in un vero gestore documentale con upload, visualizzazione e cancellazione.
 
-Le KPI "Entro 30/60/90" si ricalcolano sui risultati filtrati.
+- **Filtro per cliente**: query limitata via `get_my_cliente_ids()` su `documenti` con `entita_tipo IN ('cliente','titolo','sinistro')` legati alle proprie entità (oggi mostra `*`, con RLS comunque ristretta ma senza filtro lato query).
+- **Pulsante "Carica documento"** in alto a destra → riusa `UploadDocPolizzaDialog` generalizzato in `UploadDocClienteDialog` con scelta dell'entità target:
+  - **Generale (anagrafica ente)** → bucket `documenti_clienti`, `entita_tipo='cliente'`.
+  - **Su una polizza** → select polizza + bucket `documenti_titoli`, `entita_tipo='titolo'`.
+  - **Su un sinistro** → select sinistro + bucket `documenti_sinistri`, `entita_tipo='sinistro'`.
+  - Tipologia documento + file PDF/JPG/PNG (max 20MB).
+- **Visualizzazione inline**: pulsante anteprima (icona occhio) che apre il file in un dialog (PDF in `<iframe>` da signed URL, immagini in `<img>`).
+- **Download**: già presente, mantenuto.
+- **Eliminazione**: pulsante cestino solo per documenti con `caricato_da_cliente=true` (gli unici che il cliente può rimuovere via RLS). Conferma dialog. Cancella sia la riga `documenti` sia il file dallo storage.
+- **Lista migliorata**: ogni riga mostra nome file, badge tipologia (`categoria`), badge entità (Polizza N°/Sinistro N°/Generale), data, badge "Caricato da te". Raggruppamento opzionale per entità (toggle).
+- **Filtri**: ricerca testuale + filtro per entità (Tutti/Generali/Polizze/Sinistri) + filtro tipologia.
 
-Ogni card scadenza diventa cliccabile e porta a **`/cliente/polizze/:id`** (la pagina dettaglio già esiste, `ClientePolizzaDetail.tsx`). Aggiungo cursor-pointer + hover.
+## 2. `/cliente/polizze/:id` — stesso comportamento sui documenti
 
-> Nota: la pagina mostra **scadenze polizze**, non sinistri. Interpreto "tipologia di sinistro" come "tipologia/ramo della polizza in scadenza". Se invece serve un filtro sui sinistri aperti, lo aggiungo in `/cliente/sinistri` (fammelo sapere).
+Nel pannello "Documenti allegati" del dettaglio polizza:
+- Mantengo upload (già fatto).
+- Aggiungo **anteprima inline** (stessa logica dei documenti).
+- Aggiungo **eliminazione** per i doc con `caricato_da_cliente=true` (con conferma).
 
-## 2. `/cliente/polizze` — filtri elenco
+## 3. RLS / DB
 
-Barra filtri sopra la tabella (stesso stile teal):
-- **Stato**: Tutti / Attivo / Sospeso / Scaduto / Incassato.
-- **Ramo**: `SearchableSelect` multi.
-- **Compagnia**: `SearchableSelect` multi.
-- **Scadenza da/a**: due `DatePicker`.
-- **Ricerca testuale**: numero polizza / targa / prodotto.
-- Pulsante **Reset**.
+Verifico le policy `documenti` per DELETE:
+- Se manca `cliente_delete_own_documenti` (cancellazione solo per `caricato_da_cliente=true` su entità del cliente), aggiungo policy.
+- Storage `documenti_clienti`/`documenti_titoli`/`documenti_sinistri`: aggiungo policy DELETE per cliente sui propri file (path che inizia con `{cliente_id}/`), se mancante.
 
-Il totale "Premio Annuo Lordo" in footer si aggiorna sui risultati filtrati. Conteggio "N polizze trovate" anch'esso dinamico.
+Una **migration** dedicata aggiunge solo le policy DELETE mancanti, nessun cambio struttura.
 
-## 3. `/cliente/polizze/:id` — upload documenti tracciato
+## 4. Sidebar `/cliente`
 
-Nella card "Documenti allegati" del dettaglio polizza:
+In `src/components/ClienteLayout.tsx`:
+- Rinomino **"I Miei Dati" → "Dati Ente"** (icona `Building2`).
+- Rinomino **"Il Mio Ufficio" → "Info e Contatti"** (icona `Phone` o `Info`).
+- **Rimuovo** la voce **"Carica Doc"** (`/cliente/upload`) dalla sidebar — l'upload si fa direttamente dalla pagina Documenti / dettaglio Polizza / dettaglio Sinistro. La rotta `/cliente/upload` resta accessibile ma nascosta (oppure la rimuovo del tutto: confermo rimozione completa).
 
-- Nuovo pulsante **"Carica documento"** → apre `UploadDocPolizzaDialog` (nuovo componente in `src/components/cliente/`).
-- Dialog con:
-  - **File** (drag&drop o file picker, max 20MB, PDF/JPG/PNG).
-  - **Tipologia documento**: select con valori (Quietanza, Appendice, Comunicazione compagnia, Documento identità, Libretto, Verbale, Perizia, Altro). Salvato in `documenti.tipo_documento` (campo già usato nel sistema).
-  - **Descrizione** (textarea opzionale).
-  - **Data documento** (DatePicker opzionale).
-- Upload reale su bucket **`documenti_titoli`** (path `{cliente_id}/{titolo_id}/{uuid}-{filename}`).
-- Insert in tabella **`documenti`** con: `entita_tipo='titolo'`, `entita_id=titolo.id`, `cliente_anagrafica_id`, `bucket_name='documenti_titoli'`, `path_storage`, `nome_file`, `mime_type`, `dimensione_bytes`, `tipo_documento`, `descrizione`, `data_documento`, `caricato_da_cliente=true`, `visibile_al_cliente=true`, `caricato_da=user.id`.
-- Lista documenti aggiornata in realtime (refetch dopo insert) con badge **"Caricato da te"** sui doc con `caricato_da_cliente=true`, accanto a tipo_documento e data caricamento.
-- Download tramite `createSignedUrl` (già implementato).
+## 5. Pagina `/cliente/anagrafica` (header)
 
-## 4. RLS / DB
+Aggiorno solo titolo H1 da "I Miei Dati" → **"Dati Ente"** per coerenza con la sidebar (resta la card "Anagrafica" interna).
 
-Le policy esistenti già consentono:
-- `documenti` insert per cliente su `entita_tipo='titolo'` + propria polizza.
-- `storage.objects` insert su `documenti_titoli` per path che inizia col proprio `cliente_id`.
-
-Verifica rapida che le policy coprano il path scelto; se manca solo il pattern path (es. `{titolo_id}/...` senza `{cliente_id}/` davanti), allineo il path al pattern già autorizzato. **Nessuna nuova migration** prevista, salvo gap rilevati in fase di test.
-
-## 5. File toccati / nuovi
+## 6. File toccati / nuovi
 
 **Modificati**
-- `src/pages/cliente/ClienteScadenze.tsx` — barra filtri + drill-down link.
-- `src/pages/cliente/ClientePolizze.tsx` — barra filtri + totali dinamici.
-- `src/pages/cliente/ClientePolizzaDetail.tsx` — pulsante "Carica documento", badge tipo + "Caricato da te".
+- `src/components/ClienteLayout.tsx` — rename voci, rimozione "Carica Doc".
+- `src/pages/cliente/ClienteDocumenti.tsx` — refactor completo CRUD + filtri + anteprima.
+- `src/pages/cliente/ClientePolizzaDetail.tsx` — anteprima + delete sui doc cliente.
+- `src/pages/cliente/ClienteAnagrafica.tsx` — titolo "Dati Ente".
+- `src/pages/cliente/ClienteUfficio.tsx` — titolo "Info e Contatti".
 
 **Nuovi**
-- `src/components/cliente/UploadDocPolizzaDialog.tsx` — dialog upload tracciato.
+- `src/components/cliente/UploadDocClienteDialog.tsx` — dialog upload generico (entità: cliente/polizza/sinistro).
+- `src/components/cliente/DocPreviewDialog.tsx` — anteprima inline PDF/immagini.
+- Migration RLS: policy DELETE su `documenti` + `storage.objects` per i 3 bucket cliente.
 
 ## Fuori scope
-- Modifica/cancellazione documenti caricati dal cliente (solo upload + view).
-- Filtri avanzati su `/cliente/sinistri` (separato, da confermare).
-- Cambio struttura bucket o nuove policy massive.
+- Versioning documenti.
+- Cartelle/folder gerarchici cliente-side.
+- Sostituzione del documento (delete+upload manuale come oggi).
