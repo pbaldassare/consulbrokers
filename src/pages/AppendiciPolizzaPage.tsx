@@ -274,7 +274,7 @@ const AppendiciPolizzaPage = () => {
       </PolizzaSection>
 
       {/* FORM APPENDICE */}
-      <PolizzaSection title="{editingId ? `Modifica Appendice #${numeroAppendice}` : "Nuova Appendice"}">
+      <PolizzaSection title={editingId ? `Modifica Appendice #${numeroAppendice}` : "Nuova Appendice"}>
 
         <div className="flex gap-4 flex-wrap">
           <div className="space-y-1.5 w-[120px]">
@@ -389,7 +389,7 @@ const AppendiciPolizzaPage = () => {
       </PolizzaSection>
 
       {/* LISTA APPENDICI ESISTENTI */}
-      <PolizzaSection title="Appendici Esistenti ({appendici.length})">
+      <PolizzaSection title={`Appendici Esistenti (${appendici.length})`}>
         {loadingAppendici ? (
           <p className="text-sm text-muted-foreground">Caricamento...</p>
         ) : appendici.length === 0 ? (
