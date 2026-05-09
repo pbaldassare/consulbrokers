@@ -79,7 +79,7 @@ const ProvvigioniSedePage = () => {
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
-  const lookupsLoading = lkRami || lkComp || lkProd;
+  
   const [page, setPage] = useState(0);
 
   // Main query - filtered titoli incassati
