@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, User as UserIcon, FileText, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { PolizzaHeaderCard } from "@/components/polizze/PolizzaHeaderCard";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const SospensionePolizzaPage = () => {
   const navigate = useNavigate();
