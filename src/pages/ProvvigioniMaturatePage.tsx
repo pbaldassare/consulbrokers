@@ -47,7 +47,7 @@ const ProvvigioniMaturatePage = () => {
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
-  const lookupsLoading = lkRami || lkProd;
+  
 
   const { data: provvigioni = [], isLoading } = useQuery({
     queryKey: ["provvigioni-maturate", filters],
@@ -217,7 +217,7 @@ const ProvvigioniMaturatePage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="p-0"><TableRowsSkeleton rows={8} cols={10} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="p-0"><TableRowsSkeleton rows={8} cellTypes={["short","text","text","text","num","short","badge","text","num","badge"]} /></TableCell></TableRow>
               ) : pageRows.length === 0 ? (
                 <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessuna provvigione per i filtri selezionati</TableCell></TableRow>
               ) : (
