@@ -42,13 +42,7 @@ const ProvvigioniMaturatePage = () => {
       return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
     },
   });
-  const { data: produttori = [], isLoading: lkProd } = useQuery({
-    queryKey: ["lookup-produttori"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
-      return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
-    },
-  });
+  const { data: produttori = [], isLoading: lkProd } = useProduttoriLookup();
   
 
   const { data: provvigioni = [], isLoading } = useQuery({
