@@ -1,17 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, Clock, AlertTriangle } from "lucide-react";
+import { CalendarClock, Clock, X } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { it } from "date-fns/locale";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { DatePicker } from "@/components/contabilita/DatePicker";
+
+type Finestra = "tutte" | "30" | "60" | "90" | "custom";
 
 const ClienteScadenze = () => {
   const { user } = useAuth();
   const [polizze, setPolizze] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // filtri
+  const [finestra, setFinestra] = useState<Finestra>("tutte");
+  const [ramo, setRamo] = useState<string>("");
+  const [compagnia, setCompagnia] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [dataDa, setDataDa] = useState<Date | null>(null);
+  const [dataA, setDataA] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -20,7 +35,7 @@ const ClienteScadenze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, compagnie(nome), rami(descrizione)")
+        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, targa_telaio, compagnie(nome), rami(descrizione)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .eq("stato", "attivo")
         .not("data_scadenza", "is", null)
@@ -31,19 +46,70 @@ const ClienteScadenze = () => {
     load();
   }, [user]);
 
-  if (loading) return <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}</div>;
+  const today = useMemo(() => new Date(), []);
 
-  const today = new Date();
-  const withDays = polizze.map(p => ({ ...p, giorni: differenceInDays(new Date(p.data_scadenza), today) })).filter(p => p.giorni >= 0);
+  const withDays = useMemo(
+    () => polizze.map(p => ({ ...p, giorni: differenceInDays(new Date(p.data_scadenza), today) })).filter(p => p.giorni >= 0),
+    [polizze, today]
+  );
 
-  const entro30 = withDays.filter(p => p.giorni <= 30).length;
-  const entro60 = withDays.filter(p => p.giorni <= 60).length;
-  const entro90 = withDays.filter(p => p.giorni <= 90).length;
+  const ramiOptions = useMemo(() => {
+    const set = new Map<string, string>();
+    withDays.forEach(p => { const r = (p.rami as any)?.descrizione; if (r) set.set(r, r); });
+    return [{ value: "", label: "Tutti i rami" }, ...Array.from(set.values()).sort().map(r => ({ value: r, label: r }))];
+  }, [withDays]);
+
+  const compagnieOptions = useMemo(() => {
+    const set = new Map<string, string>();
+    withDays.forEach(p => { const c = (p.compagnie as any)?.nome; if (c) set.set(c, c); });
+    return [{ value: "", label: "Tutte le compagnie" }, ...Array.from(set.values()).sort().map(c => ({ value: c, label: c }))];
+  }, [withDays]);
+
+  const filtered = useMemo(() => {
+    return withDays.filter(p => {
+      if (finestra === "30" && p.giorni > 30) return false;
+      if (finestra === "60" && p.giorni > 60) return false;
+      if (finestra === "90" && p.giorni > 90) return false;
+      if (finestra === "custom") {
+        const d = new Date(p.data_scadenza);
+        if (dataDa && d < dataDa) return false;
+        if (dataA && d > dataA) return false;
+      }
+      if (ramo && (p.rami as any)?.descrizione !== ramo) return false;
+      if (compagnia && (p.compagnie as any)?.nome !== compagnia) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const hay = `${p.numero_titolo ?? ""} ${p.targa_telaio ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [withDays, finestra, ramo, compagnia, search, dataDa, dataA]);
+
+  const entro30 = filtered.filter(p => p.giorni <= 30).length;
+  const entro60 = filtered.filter(p => p.giorni <= 60).length;
+  const entro90 = filtered.filter(p => p.giorni <= 90).length;
 
   const kpis = [
-    { label: "Entro 30 gg", value: entro30, color: "text-red-600", bg: "bg-red-100", border: "#dc2626" },
-    { label: "Entro 60 gg", value: entro60, color: "text-orange-600", bg: "bg-orange-100", border: "#ea580c" },
-    { label: "Entro 90 gg", value: entro90, color: "text-yellow-600", bg: "bg-yellow-100", border: "#ca8a04" },
+    { label: "Entro 30 gg", value: entro30, color: "text-red-600", border: "#dc2626" },
+    { label: "Entro 60 gg", value: entro60, color: "text-orange-600", border: "#ea580c" },
+    { label: "Entro 90 gg", value: entro90, color: "text-yellow-600", border: "#ca8a04" },
+  ];
+
+  const resetFiltri = () => {
+    setFinestra("tutte"); setRamo(""); setCompagnia(""); setSearch(""); setDataDa(null); setDataA(null);
+  };
+
+  const filtriAttivi = finestra !== "tutte" || ramo || compagnia || search || dataDa || dataA;
+
+  if (loading) return <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}</div>;
+
+  const finestre: { v: Finestra; l: string }[] = [
+    { v: "tutte", l: "Tutte" },
+    { v: "30", l: "≤ 30 gg" },
+    { v: "60", l: "≤ 60 gg" },
+    { v: "90", l: "≤ 90 gg" },
+    { v: "custom", l: "Range date" },
   ];
 
   return (
@@ -54,7 +120,7 @@ const ClienteScadenze = () => {
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Scadenziario Polizze</h1>
-          <p className="text-sm text-muted-foreground">{withDays.length} polizze con scadenza futura</p>
+          <p className="text-sm text-muted-foreground">{filtered.length} di {withDays.length} polizze</p>
         </div>
       </div>
 
@@ -70,44 +136,76 @@ const ClienteScadenze = () => {
         ))}
       </div>
 
+      {/* Filtri */}
+      <Card>
+        <CardContent className="pt-4 pb-4 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {finestre.map(f => (
+              <Button key={f.v} size="sm" variant={finestra === f.v ? "default" : "outline"}
+                className={finestra === f.v ? "bg-teal-700 hover:bg-teal-800" : ""}
+                onClick={() => setFinestra(f.v)}>
+                {f.l}
+              </Button>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Ramo" />
+            <SearchableSelect options={compagnieOptions} value={compagnia} onValueChange={setCompagnia} placeholder="Compagnia" />
+            <Input placeholder="Cerca n° polizza / targa" value={search} onChange={(e) => setSearch(e.target.value)} />
+            {finestra === "custom" && (
+              <div className="flex gap-2">
+                <DatePicker value={dataDa} onChange={setDataDa} placeholder="Da" />
+                <DatePicker value={dataA} onChange={setDataA} placeholder="A" />
+              </div>
+            )}
+            {filtriAttivi && (
+              <Button variant="ghost" size="sm" onClick={resetFiltri} className="gap-1.5">
+                <X className="h-4 w-4" /> Reset
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Lista Scadenze */}
       <div className="space-y-3">
-        {withDays.length === 0 ? (
-          <p className="text-muted-foreground text-center py-12">Nessuna scadenza futura</p>
-        ) : withDays.map(p => {
+        {filtered.length === 0 ? (
+          <p className="text-muted-foreground text-center py-12">Nessuna scadenza con i filtri selezionati</p>
+        ) : filtered.map(p => {
           const urgente = p.giorni <= 30;
           const inScadenza = p.giorni <= 60;
           const barWidth = Math.max(5, Math.min(100, 100 - (p.giorni / 365) * 100));
           const barColor = urgente ? "bg-red-500" : inScadenza ? "bg-orange-400" : "bg-yellow-400";
 
           return (
-            <Card key={p.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-bold text-foreground">{p.numero_titolo}</p>
-                      {urgente && <Badge className="bg-red-100 text-red-800 text-xs">🔴 URGENTE</Badge>}
-                      {!urgente && inScadenza && <Badge className="bg-orange-100 text-orange-800 text-xs">🟠 IN SCADENZA</Badge>}
+            <Link key={p.id} to={`/cliente/polizze/${p.id}`} className="block">
+              <Card className="hover:shadow-md hover:border-teal-300 transition-all cursor-pointer">
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-bold text-foreground">{p.numero_titolo}</p>
+                        {urgente && <Badge className="bg-red-100 text-red-800 text-xs">🔴 URGENTE</Badge>}
+                        {!urgente && inScadenza && <Badge className="bg-orange-100 text-orange-800 text-xs">🟠 IN SCADENZA</Badge>}
+                      </div>
+                      <p className="text-sm text-teal-700">{(p.rami as any)?.descrizione}</p>
+                      <p className="text-xs text-muted-foreground">{(p.compagnie as any)?.nome}</p>
+                      <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${barWidth}%` }} />
+                      </div>
                     </div>
-                    <p className="text-sm text-teal-700">{(p.rami as any)?.descrizione}</p>
-                    <p className="text-xs text-muted-foreground">{(p.compagnie as any)?.nome}</p>
-                    {/* Progress bar */}
-                    <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${barWidth}%` }} />
+                    <div className="text-right shrink-0">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <Clock className={`h-4 w-4 ${urgente ? "text-red-500" : "text-muted-foreground"}`} />
+                        <span className={`text-2xl font-bold ${urgente ? "text-red-600" : inScadenza ? "text-orange-600" : "text-foreground"}`}>{p.giorni}</span>
+                        <span className="text-xs text-muted-foreground">gg</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{format(new Date(p.data_scadenza), "dd MMM yyyy", { locale: it })}</p>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <Clock className={`h-4 w-4 ${urgente ? "text-red-500" : "text-muted-foreground"}`} />
-                      <span className={`text-2xl font-bold ${urgente ? "text-red-600" : inScadenza ? "text-orange-600" : "text-foreground"}`}>{p.giorni}</span>
-                      <span className="text-xs text-muted-foreground">gg</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{format(new Date(p.data_scadenza), "dd MMM yyyy", { locale: it })}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>
