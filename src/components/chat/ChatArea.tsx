@@ -196,6 +196,8 @@ export default function ChatArea({ canaleId, headerSlot, highlightTerm, aboveMes
         </div>
       )}
 
+      {aboveMessages}
+
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-3">
@@ -221,10 +223,10 @@ export default function ChatArea({ canaleId, headerSlot, highlightTerm, aboveMes
                     </Badge>
                   )}
                 </div>
-                <div className={`rounded-lg px-3 py-2 mt-1 max-w-[80%] text-sm ${
+                <div className={`rounded-lg px-3 py-2 mt-1 max-w-[80%] text-sm whitespace-pre-wrap break-words ${
                   isOwn ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"
                 }`}>
-                  {m.messaggio}
+                  {renderMessage ? renderMessage(m.messaggio) : m.messaggio}
                 </div>
                 {m.richiedi_conferma && isOwn && isAdmin && (
                   <button
