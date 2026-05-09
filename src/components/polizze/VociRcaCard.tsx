@@ -85,7 +85,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true, aliquotaDefault, mostraCampiCapitaleRata = false }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true, aliquotaDefault, mostraCampiCapitaleRata = false, addizionaliValue, onAddizionaliChange }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -102,6 +102,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   aliquotaDefault?: number;
   /** Mostra colonne Capitale / Tasso ‰ / Rata / Annuo (rami non-auto). */
   mostraCampiCapitaleRata?: boolean;
+  /** Importo Addizionali (rami non-auto). Se passato, viene mostrato un input nei totali e sommato al Lordo. */
+  addizionaliValue?: number | null;
+  onAddizionaliChange?: (v: number) => void;
 }) {
   const ALIQ_DEFAULT = aliquotaDefault ?? ALIQUOTA_ACCESSORIE_DEFAULT;
   const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
@@ -110,6 +113,8 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   const [toDelete, setToDelete] = useState<Voce | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const mostraAddizionali = !!onAddizionaliChange;
+  const [addizionaliDraft, setAddizionaliDraft] = useState<string | null>(null);
   // Draft state per editing live (controlled inputs); chiavi: voce.id → campi sovrascritti
   const [draftVoci, setDraftVoci] = useState<Record<string, Partial<Voce>>>({});
   const setDraft = (id: string, patch: Partial<Voce>) =>
@@ -546,7 +551,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         <CardHeader className={cn("border-b py-3", isQuietanza ? "bg-amber-50/60 dark:bg-amber-950/20" : "bg-teal-50/60 dark:bg-teal-950/20")}>
           <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
             <CardTitle className={cn("flex items-center gap-2 text-base sm:text-lg", isQuietanza ? "text-amber-900 dark:text-amber-100" : "text-teal-900 dark:text-teal-100")}>
-              <Car className="h-5 w-5" />
+              {useAutoTaxFormula ? <Car className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
               {titolo ?? (isQuietanza ? "Composizione Premio RCA — Quietanza" : "Composizione Premio RCA — Firma")}
               {isQuietanza && voci.some((v) => v.quietanza_personalizzata) && (
                 <Badge variant="outline" className="ml-1 text-[10px] gap-1 border-amber-400 text-amber-800">
@@ -558,6 +563,18 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   Sincronizzata
                 </Badge>
               )}
+              {/* Badge Personalizzato anche su Firma RCA quando IPT/SSN sono override manuali */}
+              {!isQuietanza && useAutoTaxFormula && (() => {
+                const rca = voci.find((v) => v.is_rca_principale);
+                if (!rca) return null;
+                const c = calcolaLordo(rca, aliquotaProv);
+                if (!c.overrideImposta && !c.overrideSsn) return null;
+                return (
+                  <Badge variant="outline" className="ml-1 text-[10px] gap-1 border-amber-400 text-amber-800" title="IPT o SSN sovrascritti manualmente">
+                    <PencilLine className="h-3 w-3" /> Personalizzato
+                  </Badge>
+                );
+              })()}
               {disallineamentoVoci > 0 && (
                 <Badge
                   variant="outline"
@@ -1064,7 +1081,16 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           </div>
 
           {/* Totali */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-br from-teal-50/40 to-transparent border-t">
+          {(() => {
+            const addLive = addizionaliDraft !== null
+              ? Number(addizionaliDraft || 0)
+              : Number(addizionaliValue ?? 0);
+            const lordoConAdd = round2(totali.lordo + (mostraAddizionali ? addLive : 0));
+            const deltaConAdd = premioLordoTitolo == null ? 0 : round2(lordoConAdd - Number(premioLordoTitolo));
+            const quadraConAdd = premioLordoTitolo == null || Math.abs(deltaConAdd) < 0.01;
+            return (
+          <div className={cn("grid gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-br from-teal-50/40 to-transparent border-t",
+            mostraAddizionali ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3")}>
             <div className="rounded-lg border bg-card p-2 sm:p-3">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Totale Netto</p>
               <p className="text-base sm:text-xl font-bold font-mono tabular-nums">{fmtEur(totali.netto)}</p>
@@ -1141,26 +1167,47 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 );
               })()}
             </div>
+            {mostraAddizionali && (
+              <div className="rounded-lg border bg-card p-2 sm:p-3">
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Addizionali</p>
+                <Input
+                  type="number" step="0.01" inputMode="decimal"
+                  value={addLive}
+                  onChange={(e) => setAddizionaliDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value || 0);
+                    setAddizionaliDraft(null);
+                    if (Math.abs(val - Number(addizionaliValue ?? 0)) < 0.01) return;
+                    onAddizionaliChange?.(val);
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                  className="h-9 text-right font-mono tabular-nums text-base font-bold mt-1"
+                />
+              </div>
+            )}
             <div className={cn(
               "col-span-2 md:col-span-1 rounded-lg border-2 p-2 sm:p-3",
-              quadra ? "border-emerald-400 bg-emerald-50/50" : "border-amber-400 bg-amber-50/50",
+              quadraConAdd ? "border-emerald-400 bg-emerald-50/50" : "border-amber-400 bg-amber-50/50",
             )}>
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                 Premio Lordo
-                {quadra
+                {quadraConAdd
                   ? <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                   : <AlertCircle className="h-3 w-3 text-amber-600" />}
               </p>
-              <p className="text-base sm:text-xl font-bold font-mono tabular-nums text-teal-900">{fmtEur(totali.lordo)}</p>
-              {premioLordoTitolo != null && !quadra && (
-                <p className="text-[11px] text-amber-700 mt-1">Δ vs polizza: {fmtEur(delta)}</p>
+              <p className="text-base sm:text-xl font-bold font-mono tabular-nums text-teal-900">{fmtEur(lordoConAdd)}</p>
+              {premioLordoTitolo != null && !quadraConAdd && (
+                <p className="text-[11px] text-amber-700 mt-1">Δ vs polizza: {fmtEur(deltaConAdd)}</p>
               )}
               {!quadraInterno && (
                 <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" /> Netto + Tasse ≠ Lordo (errore di arrotondamento)
                 </p>
               )}
+            </div>
           </div>
+            );
+          })()}
 
           {/* Provvigioni */}
           <div className={cn(
@@ -1184,7 +1231,6 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 if (!isNaN(v)) onProvvigioniChange?.(v);
               }}
             />
-          </div>
           </div>
         </CardContent>
       </Card>
