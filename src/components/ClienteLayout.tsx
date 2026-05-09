@@ -198,6 +198,7 @@ const ClienteLayout = () => {
               <NavLink
                 to="/cliente/notifiche"
                 title="Notifiche"
+                data-tour="cl-topbar-bell"
                 className="relative p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground min-h-[40px] min-w-[40px] flex items-center justify-center"
                 aria-label="Notifiche"
               >
@@ -208,7 +209,7 @@ const ClienteLayout = () => {
                   </span>
                 )}
               </NavLink>
-              <div className="hidden sm:flex flex-col items-end leading-tight max-w-[200px] truncate pr-1">
+              <div data-tour="cl-topbar-user" className="hidden sm:flex flex-col items-end leading-tight max-w-[200px] truncate pr-1">
                 <span className="text-xs font-medium text-foreground truncate">
                   {profile?.nome} {profile?.cognome}
                 </span>
@@ -218,6 +219,7 @@ const ClienteLayout = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
+                data-tour="cl-topbar-logout"
                 className="gap-1.5 text-muted-foreground hover:text-foreground min-h-[40px]"
                 aria-label="Esci"
               >
