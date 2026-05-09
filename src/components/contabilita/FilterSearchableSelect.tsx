@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -12,17 +12,22 @@ interface FilterSearchableSelectProps {
   placeholder: string;
   allLabel: string;
   className?: string;
+  loading?: boolean;
 }
 
-export function FilterSearchableSelect({ value, onValueChange, options, placeholder, allLabel, className }: FilterSearchableSelectProps) {
+export function FilterSearchableSelect({ value, onValueChange, options, placeholder, allLabel, className, loading }: FilterSearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const selectedLabel = value ? options.find((o) => o.value === value)?.label || placeholder : allLabel;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open && !loading} onOpenChange={(o) => !loading && setOpen(o)}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className={cn("justify-between bg-background font-normal", className)}>
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <Button variant="outline" role="combobox" aria-expanded={open} disabled={loading} className={cn("justify-between bg-background font-normal", className)}>
+          <span className={cn("truncate", loading && "text-muted-foreground/70")}>{loading ? "Caricamento..." : selectedLabel}</span>
+          {loading ? (
+            <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-70" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[250px] p-0" align="start">
