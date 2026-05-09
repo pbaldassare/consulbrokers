@@ -132,9 +132,12 @@ const ProvvigioniMaturatePage = () => {
     return [...m.values()].sort((a, b) => b.value - a.value);
   };
 
+  const labelAnag = (a: any) =>
+    (a?.ragione_sociale && a.ragione_sociale.trim()) ||
+    `${a?.cognome || ""} ${a?.nome || ""}`.trim();
   const byProduttore = useMemo(() => aggBy(
-    (p) => p.user_id || (p.titoli?.produttore_nome ? `n:${p.titoli.produttore_nome}` : null),
-    (p) => p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—"),
+    (p) => p.titoli?.anagrafica_commerciale_id || (p.titoli?.produttore_nome ? `n:${p.titoli.produttore_nome}` : null),
+    (p) => labelAnag(p.titoli?.anagrafica_commerciale) || (p.titoli?.produttore_nome || "—"),
   ), [filtered]);
   const byRamo = useMemo(() => aggBy((p) => p.titoli?.ramo_id, (p) => p.titoli?.rami?.descrizione || "—"), [filtered]);
   const byTipo = useMemo(() => aggBy((p) => p.tipo_destinatario, (p) => {
