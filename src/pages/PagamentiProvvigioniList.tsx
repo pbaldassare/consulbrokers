@@ -317,15 +317,15 @@ const PagamentiProvvigioniList = () => {
       <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
-          <Input type="date" value={filterDa} onChange={(e) => { setFilterDa(e.target.value); setPage(0); }} className="h-9 w-[150px]" />
+          <Input type="date" value={filterDa} onChange={(e) => { setFilterDa(e.target.value); resetPage(); }} className="h-9 w-[150px]" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">A</Label>
-          <Input type="date" value={filterA} onChange={(e) => { setFilterA(e.target.value); setPage(0); }} className="h-9 w-[150px]" />
+          <Input type="date" value={filterA} onChange={(e) => { setFilterA(e.target.value); resetPage(); }} className="h-9 w-[150px]" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Beneficiario</Label>
-          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }} disabled={utentiLoading}>
+          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); resetPage(); }} disabled={utentiLoading}>
             <SelectTrigger className="h-9 w-[200px]">
               {utentiLoading ? (
                 <span className="flex items-center gap-2 text-muted-foreground/70"><Loader2 className="h-4 w-4 animate-spin" /> Caricamento...</span>
@@ -343,7 +343,7 @@ const PagamentiProvvigioniList = () => {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Metodo</Label>
-          <Select value={filterMetodo || "__all__"} onValueChange={(v) => { setFilterMetodo(v === "__all__" ? "" : v); setPage(0); }}>
+          <Select value={filterMetodo || "__all__"} onValueChange={(v) => { setFilterMetodo(v === "__all__" ? "" : v); resetPage(); }}>
             <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tutti</SelectItem>
@@ -354,7 +354,7 @@ const PagamentiProvvigioniList = () => {
           </Select>
         </div>
         {(filterDa || filterA || filterBeneficiario || filterMetodo) && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); setPage(0); }}>Reset</Button>
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); resetPage(); }}>Reset</Button>
         )}
       </div>
 
