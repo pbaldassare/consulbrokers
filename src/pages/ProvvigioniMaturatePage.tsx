@@ -163,7 +163,9 @@ const ProvvigioniMaturatePage = () => {
         </Button>
       </div>
 
-      <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} produttori={produttori} showTipo />
+      {lookupsLoading ? <FiltersBarSkeleton /> : (
+        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} produttori={produttori} showTipo />
+      )}
 
       {isLoading ? (
         <>
