@@ -37,6 +37,10 @@ interface Voce {
   tipo_premio?: "firma" | "quietanza";
   quietanza_personalizzata?: boolean;
   voce_origine_id?: string | null;
+  capitale?: number | null;
+  tasso?: number | null;
+  rata?: number | null;
+  annuo?: number | null;
 }
 
 type TipoPremio = "firma" | "quietanza";
@@ -81,7 +85,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true, aliquotaDefault, mostraCampiCapitaleRata = false }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -94,7 +98,12 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   /** Quando false (rami non-auto), NON viene auto-creata la riga principale RCA con formula IPT+SSN.
    *  Tutte le voci usano la formula semplice: lordo = netto × (1 + aliquota/100). */
   useAutoTaxFormula?: boolean;
+  /** Aliquota tasse default per nuove voci (es. aliquota_tasse_ramo). Sovrascrive il fallback 13.5. */
+  aliquotaDefault?: number;
+  /** Mostra colonne Capitale / Tasso ‰ / Rata / Annuo (rami non-auto). */
+  mostraCampiCapitaleRata?: boolean;
 }) {
+  const ALIQ_DEFAULT = aliquotaDefault ?? ALIQUOTA_ACCESSORIE_DEFAULT;
   const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
   const qc = useQueryClient();
   const isQuietanza = tipoPremio === "quietanza";
@@ -238,7 +247,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         titolo_id: titoloId,
         garanzia: g.descrizione,
         codice_garanzia: g.codice,
-        aliquota_tasse_pct: g.aliquota_tasse ?? ALIQUOTA_ACCESSORIE_DEFAULT,
+        aliquota_tasse_pct: g.aliquota_tasse ?? ALIQ_DEFAULT,
         is_rca_principale: false,
         firma: 0,
         ordine: (voci.length || 0) + 1,
@@ -578,18 +587,22 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   </Button>
                 );
               })()}
-              <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
-              <span className="text-muted-foreground sm:hidden">IPT:</span>
-              <Input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                className="h-8 w-16 sm:w-20 text-right"
-                defaultValue={aliquotaProv}
-                onBlur={(e) => handleAliquotaProvChange(Number(e.target.value || 0))}
-              />
-              <span className="text-muted-foreground">%</span>
-              {provinciaCliente && <Badge variant="outline" className="text-[10px]">{provinciaCliente}</Badge>}
+              {useAutoTaxFormula && (
+                <>
+                  <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
+                  <span className="text-muted-foreground sm:hidden">IPT:</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    className="h-8 w-16 sm:w-20 text-right"
+                    defaultValue={aliquotaProv}
+                    onBlur={(e) => handleAliquotaProvChange(Number(e.target.value || 0))}
+                  />
+                  <span className="text-muted-foreground">%</span>
+                  {provinciaCliente && <Badge variant="outline" className="text-[10px]">{provinciaCliente}</Badge>}
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -599,10 +612,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[35%]">Voce</TableHead>
+                  <TableHead className="w-[28%]">Voce</TableHead>
                   <TableHead className="text-right">Premio Netto</TableHead>
-                  <TableHead className="text-right w-[120px]">Aliquota %</TableHead>
+                  <TableHead className="text-right w-[110px]">Aliquota %</TableHead>
                   <TableHead className="text-right">Premio Lordo</TableHead>
+                  {mostraCampiCapitaleRata && <TableHead className="text-right">Capitale</TableHead>}
+                  {mostraCampiCapitaleRata && <TableHead className="text-right w-[90px]">Tasso ‰</TableHead>}
+                  {mostraCampiCapitaleRata && <TableHead className="text-right">Rata</TableHead>}
+                  {mostraCampiCapitaleRata && <TableHead className="text-right">Annuo</TableHead>}
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -631,7 +648,22 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                       >
                         <TableCell className="flex items-center gap-2">
                           {v.is_rca_principale && <ShieldCheck className="h-4 w-4 text-teal-700" />}
-                          {v.garanzia}
+                          {!useAutoTaxFormula && !v.is_rca_principale ? (
+                            <Input
+                              defaultValue={v.garanzia ?? ""}
+                              key={`gar-${v.id}-${v.garanzia ?? ""}`}
+                              onBlur={(e) => {
+                                const val = e.target.value.trim();
+                                if (!val || val === v.garanzia) return;
+                                upsertMut.mutate({ id: v.id, garanzia: val } as any);
+                              }}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              className="h-8 max-w-[220px]"
+                              placeholder="Nome garanzia"
+                            />
+                          ) : (
+                            <span>{v.garanzia}</span>
+                          )}
                           {v.is_rca_principale && <Badge className="ml-1 bg-teal-600 hover:bg-teal-700 text-[10px]">obbligatoria</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
@@ -684,6 +716,66 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             className="h-8 text-right ml-auto w-32 font-mono tabular-nums"
                           />
                         </TableCell>
+                        {mostraCampiCapitaleRata && (
+                          <>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                defaultValue={v.capitale ?? ""}
+                                key={`cap-${v.id}-${v.capitale ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.capitale ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, capitale: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-28 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.001" inputMode="decimal"
+                                defaultValue={v.tasso ?? ""}
+                                key={`tas-${v.id}-${v.tasso ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.tasso ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, tasso: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-20 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                defaultValue={v.rata ?? ""}
+                                key={`rat-${v.id}-${v.rata ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.rata ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, rata: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-24 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                defaultValue={v.annuo ?? ""}
+                                key={`ann-${v.id}-${v.annuo ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.annuo ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, annuo: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-24 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           {v.is_rca_principale ? (
                             <span title={`${RCA_LABEL_EFFECTIVE} non rimovibile`} className="inline-flex">
@@ -697,7 +789,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                           )}
                         </TableCell>
                       </TableRow>
-                      {v.is_rca_principale && (
+                      {useAutoTaxFormula && v.is_rca_principale && (
                         <>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
                             <TableCell className="pl-10">
@@ -936,10 +1028,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
             })}
           </div>
 
-          <div className="p-3 border-t">
+          <div className="p-3 border-t flex flex-wrap gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="gap-1">
                   <Plus className="h-4 w-4" /> Aggiungi voce
                 </Button>
               </PopoverTrigger>
@@ -961,6 +1053,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 </Command>
               </PopoverContent>
             </Popover>
+            {!useAutoTaxFormula && (
+              <Button
+                variant="outline" size="sm" className="gap-1"
+                onClick={() => addMut.mutate({ codice: `LIB-${Date.now().toString(36).slice(-4).toUpperCase()}`, descrizione: "Nuova garanzia", aliquota_tasse: ALIQ_DEFAULT })}
+              >
+                <Plus className="h-4 w-4" /> Voce libera
+              </Button>
+            )}
           </div>
 
           {/* Totali */}
@@ -974,7 +1074,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 <span>Totale Tasse</span>
                 <span className="font-mono tabular-nums text-foreground">{fmtEur(totali.tasse)}</span>
               </p>
-              {(() => {
+              {useAutoTaxFormula && (() => {
                 const rcaRow = voci.find((v) => v.is_rca_principale);
                 const rcaMerged = rcaRow ? { ...rcaRow, ...(draftVoci[rcaRow.id] || {}) } : null;
                 const rcaCalc = rcaMerged ? calcolaLordo(rcaMerged, aliquotaProv) : null;
