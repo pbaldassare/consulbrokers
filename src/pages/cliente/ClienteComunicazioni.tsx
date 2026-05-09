@@ -44,7 +44,7 @@ const ClienteComunicazioni = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div data-tour="cl-chat-page" className="space-y-4">
       <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
         <MessageSquare className="h-5 w-5 text-primary" /> Chat
       </h1>

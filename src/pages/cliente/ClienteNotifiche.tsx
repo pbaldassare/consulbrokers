@@ -29,7 +29,7 @@ const ClienteNotifiche = () => {
   if (loading) return <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>;
 
   return (
-    <div className="space-y-4">
+    <div data-tour="cl-notif-page" className="space-y-4">
       <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
         <Bell className="h-5 w-5 text-destructive" /> Notifiche
       </h1>

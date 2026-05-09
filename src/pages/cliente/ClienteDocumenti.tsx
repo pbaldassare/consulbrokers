@@ -92,14 +92,14 @@ const ClienteDocumenti = () => {
   const filtriAttivi = search || filtroTipo;
 
   return (
-    <div className="space-y-4">
+    <div data-tour="cl-doc-page" className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-foreground">Documentazione Ente</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Documenti generali collegati alla tua anagrafica</p>
         </div>
         {clienteId && (
-          <Button onClick={() => setUploadOpen(true)} className="bg-teal-700 hover:bg-teal-800 gap-1.5">
+          <Button data-tour="cl-doc-upload" onClick={() => setUploadOpen(true)} className="bg-teal-700 hover:bg-teal-800 gap-1.5">
             <Upload className="h-4 w-4" /> Carica documento
           </Button>
         )}

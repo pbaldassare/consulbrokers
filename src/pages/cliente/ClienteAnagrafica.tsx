@@ -63,7 +63,7 @@ const ClienteAnagrafica = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div data-tour="cl-anag-page" className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Dati Ente</h2>
 
       <Card>

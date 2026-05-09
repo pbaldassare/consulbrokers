@@ -106,7 +106,7 @@ const ClientePolizze = () => {
   const totale = filtered.reduce((sum, t) => sum + (t.premio_lordo ?? 0), 0);
 
   return (
-    <div className="space-y-5">
+    <div data-tour="cl-pol-page" className="space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-full bg-teal-700 flex items-center justify-center">

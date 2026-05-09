@@ -120,7 +120,7 @@ const ClienteDashboard = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="cl-dash-kpi" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((k) => (
           <Link key={k.title} to={k.link}>
             <Card className="hover:shadow-lg transition-all cursor-pointer border-l-4" style={{ borderLeftColor: k.color.includes("emerald") ? "#059669" : k.color.includes("blue") ? "#2563eb" : k.color.includes("orange") ? "#ea580c" : "#dc2626" }}>
