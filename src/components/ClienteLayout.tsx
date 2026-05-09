@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 const allNavItems = [
   { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/cliente/polizze", label: "Polizze", icon: Shield },
+  { to: "/cliente/scadenze", label: "Scadenziario", icon: CalendarClock },
   { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
-  { to: "/cliente/documenti", label: "Documenti", icon: FileText },
-  { to: "/cliente/scadenze", label: "Scadenze", icon: CalendarClock },
   { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
+  { to: "/cliente/documenti", label: "Documentazione Ente", icon: FileText },
   { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
   { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2 },
   { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone },
