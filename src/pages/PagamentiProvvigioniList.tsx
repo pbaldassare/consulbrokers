@@ -57,6 +57,19 @@ const PagamentiProvvigioniList = () => {
     },
   });
 
+  // Filtri + paginazione (sollevati al top per l'hook usePagination)
+  const filteredDistinte = useMemo(() => {
+    return (distinte as any[]).filter((d: any) => {
+      if (filterBeneficiario && d.pagato_a_user_id !== filterBeneficiario) return false;
+      if (filterMetodo && d.metodo !== filterMetodo) return false;
+      if (filterDa && d.created_at < filterDa) return false;
+      if (filterA && d.created_at > filterA + "T23:59:59") return false;
+      return true;
+    });
+  }, [distinte, filterBeneficiario, filterMetodo, filterDa, filterA]);
+
+  const { page: safePage, setPage, pages, pageRows, resetPage } = usePagination(filteredDistinte);
+
   // Fetch users with unpaid commissions
   const { data: utenti = [], isLoading: utentiLoading } = useQuery({
     queryKey: ["utenti_provvigioni"],
