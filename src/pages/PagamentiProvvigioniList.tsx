@@ -401,7 +401,7 @@ const PagamentiProvvigioniList = () => {
                         </TableCell>
                         <TableCell><Badge variant="outline">{d.metodo}</Badge></TableCell>
                         <TableCell className="text-sm text-muted-foreground">{d.riferimento || "-"}</TableCell>
-                        <TableCell className="text-right font-mono tabular-nums font-semibold">{fmtEuro(d.totale_importo)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold font-sans">{fmtEuro(d.totale_importo)}</TableCell>
                       </TableRow>
                     ))}
                     {filteredDistinte.length === 0 && !isLoading && (
