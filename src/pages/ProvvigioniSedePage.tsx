@@ -227,7 +227,7 @@ const ProvvigioniSedePage = () => {
                 {byRamo.map((r, i) => (
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{r.name}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold text-primary">{fmtEuro(r.value)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(r.value)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? r.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
@@ -250,7 +250,7 @@ const ProvvigioniSedePage = () => {
                 {byProduttore.map((p, i) => (
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{p.name}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold text-primary">{fmtEuro(p.value)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(p.value)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? p.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
@@ -273,7 +273,7 @@ const ProvvigioniSedePage = () => {
                 {byCliente.map((c, i) => (
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{c.name}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold text-primary">{fmtEuro(c.value)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(c.value)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? c.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
@@ -327,7 +327,7 @@ const ProvvigioniSedePage = () => {
                       <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-xs">{pc}%</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg * pc / 100)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs font-semibold text-primary">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs font-semibold text-primary font-sans">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
                     </TableRow>
                   );
                 })}
