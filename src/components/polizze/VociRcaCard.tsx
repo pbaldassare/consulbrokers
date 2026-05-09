@@ -247,7 +247,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         titolo_id: titoloId,
         garanzia: g.descrizione,
         codice_garanzia: g.codice,
-        aliquota_tasse_pct: g.aliquota_tasse ?? ALIQUOTA_ACCESSORIE_DEFAULT,
+        aliquota_tasse_pct: g.aliquota_tasse ?? ALIQ_DEFAULT,
         is_rca_principale: false,
         firma: 0,
         ordine: (voci.length || 0) + 1,
