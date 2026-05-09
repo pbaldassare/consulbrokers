@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
@@ -264,20 +265,16 @@ const AppendiciPolizzaPage = () => {
       </div>
 
       {/* INFO POLIZZA */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-3">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Polizza</legend>
+      <PolizzaSection title="Polizza">
         <div className="flex items-center gap-6 flex-wrap text-sm">
           <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{clienteLabel}</span></div>
           <div><span className="text-muted-foreground">Polizza:</span> <span className="font-mono font-medium">{paramPolizza || "—"}</span></div>
           <div><span className="text-muted-foreground">Riga:</span> <span className="font-mono">{paramRiga || "—"}</span></div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* FORM APPENDICE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">
-          {editingId ? `Modifica Appendice #${numeroAppendice}` : "Nuova Appendice"}
-        </legend>
+      <PolizzaSection title="{editingId ? `Modifica Appendice #${numeroAppendice}` : "Nuova Appendice"}">
 
         <div className="flex gap-4 flex-wrap">
           <div className="space-y-1.5 w-[120px]">
@@ -389,13 +386,10 @@ const AppendiciPolizzaPage = () => {
             {saveMutation.isPending ? "Salvataggio..." : editingId ? "Aggiorna Appendice" : "Salva Appendice"}
           </Button>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* LISTA APPENDICI ESISTENTI */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-3">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">
-          Appendici Esistenti ({appendici.length})
-        </legend>
+      <PolizzaSection title="Appendici Esistenti ({appendici.length})">
         {loadingAppendici ? (
           <p className="text-sm text-muted-foreground">Caricamento...</p>
         ) : appendici.length === 0 ? (
@@ -470,7 +464,7 @@ const AppendiciPolizzaPage = () => {
             </Table>
           </div>
         )}
-      </fieldset>
+      </PolizzaSection>
 
       {/* Dialog visualizza testo */}
       <Dialog open={!!viewText} onOpenChange={() => setViewText(null)}>
