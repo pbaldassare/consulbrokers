@@ -34,6 +34,10 @@ const PagamentiProvvigioniList = () => {
   const [riferimento, setRiferimento] = useState("");
   const [note, setNote] = useState("");
   const [selectedProvvigioni, setSelectedProvvigioni] = useState<string[]>([]);
+  const [filterBeneficiario, setFilterBeneficiario] = useState<string>("");
+  const [filterMetodo, setFilterMetodo] = useState<string>("");
+  const [filterDa, setFilterDa] = useState<string>("");
+  const [filterA, setFilterA] = useState<string>("");
 
   // Fetch distinte
   const { data: distinte = [], isLoading } = useQuery({
