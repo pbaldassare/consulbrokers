@@ -1051,7 +1051,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 <span>Totale Tasse</span>
                 <span className="font-mono tabular-nums text-foreground">{fmtEur(totali.tasse)}</span>
               </p>
-              {(() => {
+              {useAutoTaxFormula && (() => {
                 const rcaRow = voci.find((v) => v.is_rca_principale);
                 const rcaMerged = rcaRow ? { ...rcaRow, ...(draftVoci[rcaRow.id] || {}) } : null;
                 const rcaCalc = rcaMerged ? calcolaLordo(rcaMerged, aliquotaProv) : null;
