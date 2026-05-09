@@ -697,6 +697,66 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                             className="h-8 text-right ml-auto w-32 font-mono tabular-nums"
                           />
                         </TableCell>
+                        {mostraCampiCapitaleRata && (
+                          <>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                defaultValue={v.capitale ?? ""}
+                                key={`cap-${v.id}-${v.capitale ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.capitale ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, capitale: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-28 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.001" inputMode="decimal"
+                                defaultValue={v.tasso ?? ""}
+                                key={`tas-${v.id}-${v.tasso ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.tasso ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, tasso: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-20 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                defaultValue={v.rata ?? ""}
+                                key={`rat-${v.id}-${v.rata ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.rata ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, rata: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-24 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number" step="0.01" inputMode="decimal"
+                                defaultValue={v.annuo ?? ""}
+                                key={`ann-${v.id}-${v.annuo ?? ""}`}
+                                onBlur={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  if ((v.annuo ?? null) === val) return;
+                                  upsertMut.mutate({ id: v.id, annuo: val } as any);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="h-8 text-right ml-auto w-24 font-mono tabular-nums"
+                              />
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           {v.is_rca_principale ? (
                             <span title={`${RCA_LABEL_EFFECTIVE} non rimovibile`} className="inline-flex">
@@ -710,7 +770,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                           )}
                         </TableCell>
                       </TableRow>
-                      {v.is_rca_principale && (
+                      {useAutoTaxFormula && v.is_rca_principale && (
                         <>
                           <TableRow className="bg-muted/30 text-xs text-muted-foreground">
                             <TableCell className="pl-10">
