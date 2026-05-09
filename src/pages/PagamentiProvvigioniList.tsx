@@ -15,13 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, FileText, DollarSign, Users } from "lucide-react";
+import { Plus, FileText, DollarSign, Users, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const PAGE_SIZE = 25;
 
@@ -300,7 +300,6 @@ const PagamentiProvvigioniList = () => {
       </div>
 
       {/* Filtri */}
-      {utentiLoading ? <FiltersBarSkeleton /> : (
       <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
@@ -312,8 +311,14 @@ const PagamentiProvvigioniList = () => {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Beneficiario</Label>
-          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }}>
-            <SelectTrigger className="h-9 w-[200px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
+          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }} disabled={utentiLoading}>
+            <SelectTrigger className="h-9 w-[200px]">
+              {utentiLoading ? (
+                <span className="flex items-center gap-2 text-muted-foreground/70"><Loader2 className="h-4 w-4 animate-spin" /> Caricamento...</span>
+              ) : (
+                <SelectValue placeholder="Tutti" />
+              )}
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tutti</SelectItem>
               {utenti.map((u: any) => (
@@ -338,7 +343,6 @@ const PagamentiProvvigioniList = () => {
           <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); setPage(0); }}>Reset</Button>
         )}
       </div>
-      )}
 
       {(() => {
         const filteredDistinte = distinte.filter((d: any) => {
@@ -379,7 +383,7 @@ const PagamentiProvvigioniList = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <ChartSkeleton /><ChartSkeleton />
               </div>
-              <Card><CardContent className="p-0"><TableRowsSkeleton rows={8} cols={6} /></CardContent></Card>
+              <Card><CardContent className="p-0"><TableRowsSkeleton rows={8} cellTypes={["short","text","text","badge","short","num"]} /></CardContent></Card>
             </>
           );
         }

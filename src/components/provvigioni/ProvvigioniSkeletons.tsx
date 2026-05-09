@@ -41,14 +41,34 @@ export const FiltersBarSkeleton = () => (
   </div>
 );
 
-export const TableRowsSkeleton = ({ rows = 8, cols = 6 }: { rows?: number; cols?: number }) => (
-  <div className="divide-y">
-    {Array.from({ length: rows }).map((_, r) => (
-      <div key={r} className="flex items-center gap-3 px-4 py-3">
-        {Array.from({ length: cols }).map((_, c) => (
-          <Skeleton key={c} className="h-4 flex-1" />
-        ))}
-      </div>
-    ))}
-  </div>
+export const BadgeSkeleton = ({ className = "" }: { className?: string }) => (
+  <Skeleton className={`inline-block h-5 w-20 rounded-full ${className}`} />
 );
+
+type CellType = "text" | "num" | "badge" | "short";
+const cellClass = (t: CellType) => {
+  switch (t) {
+    case "num": return "h-4 w-16 ml-auto";
+    case "badge": return "h-5 w-20 rounded-full";
+    case "short": return "h-4 w-12";
+    default: return "h-4 w-full max-w-[160px]";
+  }
+};
+
+export const TableRowsSkeleton = ({ rows = 8, cols = 6, cellTypes }: { rows?: number; cols?: number; cellTypes?: CellType[] }) => {
+  const types: CellType[] = cellTypes || Array.from({ length: cols }, () => "text" as CellType);
+  return (
+    <div className="divide-y">
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} className="flex items-center gap-3 px-4 py-3">
+          {types.map((t, c) => (
+            <div key={c} className={`flex-1 ${t === "num" ? "text-right" : ""}`}>
+              <Skeleton className={cellClass(t)} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
+

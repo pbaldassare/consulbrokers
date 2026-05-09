@@ -13,7 +13,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
@@ -47,7 +47,7 @@ const ProvvigioniMaturatePage = () => {
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
-  const lookupsLoading = lkRami || lkProd;
+  
 
   const { data: provvigioni = [], isLoading } = useQuery({
     queryKey: ["provvigioni-maturate", filters],
@@ -163,9 +163,12 @@ const ProvvigioniMaturatePage = () => {
         </Button>
       </div>
 
-      {lookupsLoading ? <FiltersBarSkeleton /> : (
-        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} produttori={produttori} showTipo />
-      )}
+      <ProvvigioniFiltersBar
+        filters={filters}
+        onChange={(f) => { setFilters(f); setPage(0); }}
+        rami={rami} produttori={produttori} showTipo
+        loadingRami={lkRami} loadingProduttori={lkProd}
+      />
 
       {isLoading ? (
         <>
@@ -214,7 +217,7 @@ const ProvvigioniMaturatePage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="p-0"><TableRowsSkeleton rows={8} cols={10} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="p-0"><TableRowsSkeleton rows={8} cellTypes={["short","text","text","text","num","short","badge","text","num","badge"]} /></TableCell></TableRow>
               ) : pageRows.length === 0 ? (
                 <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessuna provvigione per i filtri selezionati</TableCell></TableRow>
               ) : (

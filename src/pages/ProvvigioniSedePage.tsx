@@ -13,7 +13,7 @@ import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 25;
@@ -79,7 +79,7 @@ const ProvvigioniSedePage = () => {
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
-  const lookupsLoading = lkRami || lkComp || lkProd;
+  
   const [page, setPage] = useState(0);
 
   // Main query - filtered titoli incassati
@@ -196,11 +196,12 @@ const ProvvigioniSedePage = () => {
         </Button>
       </div>
 
-      {lookupsLoading ? (
-        <FiltersBarSkeleton />
-      ) : (
-        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} compagnie={compagnie} produttori={produttori} />
-      )}
+      <ProvvigioniFiltersBar
+        filters={filters}
+        onChange={(f) => { setFilters(f); setPage(0); }}
+        rami={rami} compagnie={compagnie} produttori={produttori}
+        loadingRami={lkRami} loadingCompagnie={lkComp} loadingProduttori={lkProd}
+      />
 
       {/* KPI */}
       {isLoading ? (
@@ -318,7 +319,7 @@ const ProvvigioniSedePage = () => {
           <Card>
             <CardContent className="p-0">
               {isLoading ? (
-                <TableRowsSkeleton rows={10} cols={10} />
+                <TableRowsSkeleton rows={10} cellTypes={["short","text","text","text","badge","num","num","short","num","num"]} />
               ) : (
                 <Table>
                   <TableHeader>
