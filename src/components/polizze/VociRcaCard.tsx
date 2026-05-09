@@ -189,6 +189,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   useEffect(() => {
     if (isLoading) return;
     if (isQuietanza) return; // la riga RCA Quietanza viene creata dal trigger
+    if (!useAutoTaxFormula) return; // rami non-auto: nessuna riga principale auto-creata
     const hasRca = voci.some((v) => v.is_rca_principale);
     if (!hasRca) {
       supabase.from("premi_garanzia_polizza" as any).insert({
@@ -202,7 +203,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
       }).then(() => invalidateBoth());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, voci, titoloId, isQuietanza]);
+  }, [isLoading, voci, titoloId, isQuietanza, useAutoTaxFormula]);
 
   const upsertMut = useMutation({
     mutationFn: async (v: Partial<Voce> & { id: string }) => {
