@@ -13,7 +13,7 @@ import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
@@ -33,20 +33,21 @@ const ProvvigioniMaturatePage = () => {
   const [page, setPage] = useState(0);
 
   // Lookups
-  const { data: rami = [] } = useQuery({
+  const { data: rami = [], isLoading: lkRami } = useQuery({
     queryKey: ["lookup-rami"],
     queryFn: async () => {
       const { data } = await supabase.from("rami").select("id, codice, descrizione").order("codice");
       return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
     },
   });
-  const { data: produttori = [] } = useQuery({
+  const { data: produttori = [], isLoading: lkProd } = useQuery({
     queryKey: ["lookup-produttori"],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
+  const lookupsLoading = lkRami || lkProd;
 
   const { data: provvigioni = [], isLoading } = useQuery({
     queryKey: ["provvigioni-maturate", filters],
