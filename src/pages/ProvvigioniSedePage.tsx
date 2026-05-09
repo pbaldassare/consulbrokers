@@ -10,13 +10,14 @@ import { Landmark, TrendingUp, Users, Briefcase, Receipt, Download } from "lucid
 import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
+import { usePagination } from "@/hooks/usePagination";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestita da usePagination (default 25)
 
 type Row = any;
 
@@ -80,7 +81,7 @@ const ProvvigioniSedePage = () => {
     },
   });
   
-  const [page, setPage] = useState(0);
+  
 
   // Main query - filtered titoli incassati
   const { data: titoli = [], isLoading } = useQuery({
