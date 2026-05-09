@@ -190,10 +190,26 @@ const ClienteLayout = () => {
                 Area Clienti
               </span>
             </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[200px]">
-                {profile?.nome} {profile?.cognome}
-              </span>
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+              <NavLink
+                to="/cliente/notifiche"
+                title="Notifiche"
+                className="relative p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground min-h-[40px] min-w-[40px] flex items-center justify-center"
+                aria-label="Notifiche"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold leading-none">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </NavLink>
+              <div className="hidden sm:flex flex-col items-end leading-tight max-w-[200px] truncate pr-1">
+                <span className="text-xs font-medium text-foreground truncate">
+                  {profile?.nome} {profile?.cognome}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">Area Clienti</span>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
