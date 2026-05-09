@@ -3,8 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, FileText, Download } from "lucide-react";
+import { Upload, FileText, Download, Eye, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
+import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Props {
   sinistroId: string;
@@ -15,11 +26,13 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
   const [docs, setDocs] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<any>(null);
+  const [deleteDoc, setDeleteDoc] = useState<any>(null);
 
   const load = async () => {
     const { data } = await supabase
       .from("documenti")
-      .select("id, nome_file, path_storage, bucket_name, created_at, caricato_da_cliente")
+      .select("id, nome_file, path_storage, bucket_name, created_at, caricato_da_cliente, categoria")
       .eq("entita_tipo", "sinistro")
       .eq("entita_id", sinistroId)
       .eq("visibile_al_cliente", true)
@@ -64,6 +77,20 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
     window.open(data.signedUrl, "_blank");
   };
 
+  const confirmDelete = async () => {
+    if (!deleteDoc) return;
+    try {
+      await supabase.storage.from(deleteDoc.bucket_name).remove([deleteDoc.path_storage]);
+      const { error } = await supabase.from("documenti").delete().eq("id", deleteDoc.id);
+      if (error) throw error;
+      toast.success("Documento eliminato");
+      setDeleteDoc(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Errore eliminazione");
+    }
+  };
+
   return (
     <div className="border-t pt-3 space-y-2">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
@@ -72,14 +99,34 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
       {docs.length === 0 && <p className="text-xs text-muted-foreground">Nessun documento</p>}
       <ul className="space-y-1">
         {docs.map(d => (
-          <li key={d.id} className="flex items-center justify-between text-sm bg-muted/30 rounded px-2 py-1">
-            <span className="truncate flex-1">
-              {d.nome_file}
-              {d.caricato_da_cliente && <span className="ml-2 text-[10px] text-primary">tuo</span>}
+          <li key={d.id} className="flex items-center justify-between text-sm bg-muted/30 rounded px-2 py-1 gap-2">
+            <span className="truncate flex-1 flex items-center gap-2">
+              <span className="truncate">{d.nome_file}</span>
+              {d.caricato_da_cliente && (
+                <span className="text-[10px] text-teal-700 inline-flex items-center gap-0.5 shrink-0">
+                  <User className="h-3 w-3" />tuo
+                </span>
+              )}
             </span>
-            <Button variant="ghost" size="sm" onClick={() => download(d)}>
-              <Download className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setPreviewDoc(d)} title="Anteprima">
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => download(d)} title="Scarica">
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+              {d.caricato_da_cliente && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteDoc(d)}
+                  title="Elimina"
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -90,6 +137,25 @@ export const SinistroDocumentiCliente = ({ sinistroId }: Props) => {
           {uploading ? "..." : "Carica"}
         </Button>
       </div>
+
+      <DocPreviewDialog open={!!previewDoc} onOpenChange={(o) => !o && setPreviewDoc(null)} doc={previewDoc} />
+
+      <AlertDialog open={!!deleteDoc} onOpenChange={(o) => !o && setDeleteDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare il documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per eliminare <strong>{deleteDoc?.nome_file}</strong>. L'operazione è irreversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
