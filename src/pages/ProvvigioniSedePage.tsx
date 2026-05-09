@@ -149,6 +149,8 @@ const ProvvigioniSedePage = () => {
     });
   }, [titoli, filters.search]);
 
+  const { page: safePage, setPage, pages, pageRows, resetPage } = usePagination(filteredTitoli);
+
   const totals = useMemo(() => filteredTitoli.reduce((acc: any, t: any) => {
     const provvAg = t.provvigioni_firma || 0;
     const pc = t.percentuale_commerciale ?? 100;
