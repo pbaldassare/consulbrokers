@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch";
 import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
 import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
+import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 
 
 const fmt = (v: any) => v ?? "—";
