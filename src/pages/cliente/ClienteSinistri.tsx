@@ -82,7 +82,7 @@ export default function ClienteSinistri() {
   };
 
   return (
-    <div className="space-y-6">
+    <div data-tour="cl-sin-page" className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">

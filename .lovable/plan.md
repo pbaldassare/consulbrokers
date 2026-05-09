@@ -1,45 +1,60 @@
-## Obiettivo
-Riorganizzare il portale cliente: rinominare la voce "Documenti" in "Documentazione Ente" mostrando solo i documenti dell'ente (anagrafica cliente), e riordinare le voci della sidebar.
+# Tour guidato Area Clienti — stile Cibarius
 
-## 1. Riordino sidebar (`src/components/ClienteLayout.tsx`)
+Replichiamo il pattern di Cibarius HACCP (spotlight + tooltip + auto-advance) e lo adattiamo al contesto assicurativo CBnet, attraversando tutte le sezioni del portale cliente.
 
-Nuovo ordine voci `allNavItems`:
-1. Dashboard
-2. Polizze
-3. Scadenziario (rinominato da "Scadenze", path invariato `/cliente/scadenze`)
-4. Sinistri
-5. Chat
-6. Documentazione Ente (rinominato da "Documenti", path invariato `/cliente/documenti`)
-7. Notifiche
-8. Dati Ente
-9. Info e Contatti
+## Componenti nuovi
 
-## 2. Pagina Documentazione Ente (`src/pages/cliente/ClienteDocumenti.tsx`)
+1. **`src/components/tour/AppTourContext.tsx`** — Provider con stato globale del tour:
+   - `isActive`, `currentStep`, `steps`, `startTour()`, `stopTour()`, `nextStep()`, `prevStep()`
+   - Tipi `TourStep` con `selector`, `title`, `description`, `page`, `action` (`navigate` | `scroll` | `wait`)
+   - Una sola lista `CLIENTE_TOUR_STEPS` (~22 step) che copre Dashboard → Polizze → Scadenziario → Sinistri → Chat → Documentazione Ente → Notifiche → Dati Ente → Info e Contatti
+   - Persistenza in `localStorage` (`cbnet_cliente_tour_done`) per auto-start al primo accesso
 
-Riscrittura per mostrare **solo i documenti collegati all'ente** (entita_tipo='cliente'):
+2. **`src/components/tour/AppTour.tsx`** — Overlay visivo (porting da Cibarius):
+   - SVG mask con foro su `getBoundingClientRect()` del target → spotlight scuro (`bg-black/65`)
+   - Bordo animato `border-primary` con glow `box-shadow: 0 0 24px hsl(var(--primary)/0.25)`
+   - Cursore freccia che si muove sul target prima di mostrare il tooltip
+   - Tooltip card con: contatore `n/totale`, titolo, descrizione, **barra progresso countdown**, pulsante Pausa/Play, X per chiudere, link "Salta tour"
+   - Auto-advance: `max(3500ms, descrizione.length * 35ms)`
+   - Click sul tooltip = pausa/riprendi; ricalcolo posizione su `resize`
+   - Posizionamento intelligente top/bottom in base allo spazio disponibile
+   - Tutto via token semantici (`hsl(var(--primary))`, `bg-card`, `border-border`)
 
-- Titolo: "Documentazione Ente"
-- Query: `documenti.select('*').eq('entita_tipo','cliente').in('entita_id', myIds)` ordinata per `created_at desc`
-- Filtri rimasti:
-  - Ricerca testuale (nome file / categoria)
-  - Filtro per **Tipologia** (categoria) — popolato dinamicamente
-  - Rimosso il filtro "Entità" (non serve, tutto è dell'ente)
-- Card lista con stesso layout zebra esistente, mostrando nome file, categoria, data, badge "Caricato da te"
-- Azioni per riga: Anteprima (Eye), Scarica (Download), **Elimina con AlertDialog di conferma** (già presente, mantenuto; l'utente può eliminare solo i propri caricamenti — `caricato_da_cliente=true`)
-- Pulsante "Carica documento" in alto: apre `UploadDocClienteDialog` con `fixedEntita={ tipo: "cliente", id: clienteId }` per forzare upload sull'ente nel bucket `documenti_clienti`
-- Rimosso enrichment polizze/sinistri (non più necessario)
+3. **`src/components/tour/TourLauncher.tsx`** — Pulsante flottante in basso a destra (`fixed bottom-4 right-4`) con icona `Sparkles` + tooltip "Tour guidato", visibile solo nelle pagine `/cliente/*`. All'avvio chiama `startTour()`.
 
-## 3. Bucket storage
+## Modifiche
 
-Verificato: il bucket `documenti_clienti` esiste già (privato) con policy RLS corrette per cliente (SELECT/INSERT/DELETE basate su `caricato_da` / `visibile_al_cliente`). **Nessuna migrazione necessaria.**
+- **`src/App.tsx`** — Avvolgere le route `/cliente/*` con `<TourProvider>` e renderizzare `<AppTour />` + `<TourLauncher />` dentro `ClienteLayout`.
+- **`src/components/ClienteLayout.tsx`** — Aggiungere `data-tour="..."` sugli elementi chiave: `cl-logo`, `cl-nav-dashboard`, `cl-nav-polizze`, `cl-nav-scadenziario`, `cl-nav-sinistri`, `cl-nav-chat`, `cl-nav-documenti`, `cl-nav-notifiche`, `cl-nav-dati`, `cl-nav-contatti`, `cl-topbar-bell`, `cl-topbar-user`, `cl-topbar-logout`. Auto-start del tour al primo login (se `localStorage` vuoto).
+- **Pagine cliente** — Aggiungere attributi `data-tour` sui blocchi principali (header, KPI, tabella, filtri, pulsante upload):
+  - `ClienteDashboard.tsx`: `cl-dash-header`, `cl-dash-kpi`, `cl-dash-prossime`
+  - `ClientePolizze.tsx`: `cl-pol-header`, `cl-pol-filtri`, `cl-pol-tabella`
+  - `ClienteScadenze.tsx`: `cl-scad-header`, `cl-scad-list`
+  - `ClienteSinistri.tsx`: `cl-sin-header`, `cl-sin-nuova`, `cl-sin-list`
+  - `ClienteComunicazioni.tsx`: `cl-chat-header`, `cl-chat-canali`, `cl-chat-area`
+  - `ClienteDocumenti.tsx`: `cl-doc-header`, `cl-doc-filtri`, `cl-doc-upload`, `cl-doc-list`
+  - `ClienteNotifiche.tsx`: `cl-notif-header`, `cl-notif-list`
+  - `ClienteAnagrafica.tsx`: `cl-anag-header`, `cl-anag-form`
+  - `ClienteUfficio.tsx`: `cl-uff-header`, `cl-uff-contatti`
 
-## 4. File modificati
+## Esempio di step (tono assicurativo, friendly)
 
-- `src/components/ClienteLayout.tsx` — riordino + rinomina label
-- `src/pages/cliente/ClienteDocumenti.tsx` — riscrittura per soli documenti ente
+```
+{ selector: "cl-dash-kpi", title: "Le tue polizze a colpo d'occhio 📊",
+  description: "KPI in tempo reale: polizze attive, premio annuo e prossime scadenze. Tutto sincronizzato con la tua agenzia.",
+  page: "/cliente" }
 
-## Fuori scope
+{ selector: "cl-nav-sinistri", title: "Apri un sinistro in 2 minuti 🚨",
+  description: "Da qui denunci un nuovo sinistro, alleghi foto e documenti e segui ogni aggiornamento dal tuo perito.",
+  page: "/cliente", action: { type: "navigate", target: "/cliente/sinistri", delay: 500 } }
 
-- Nessuna modifica al backend, schema o policy.
-- Nessuna rinomina di route (i path restano `/cliente/documenti` e `/cliente/scadenze` per non rompere link esistenti).
-- Nessuna modifica al dialog di upload (già supporta `fixedEntita`).
+{ selector: "cl-doc-upload", title: "Carica documenti in sicurezza 🔐",
+  description: "Trascina qui PDF e immagini: vengono archiviati nel bucket privato del tuo ente e visti solo da te e dall'agenzia.",
+  page: "/cliente/documenti" }
+```
+
+## Non incluso (out of scope)
+
+- Backend / migrazioni DB (la "vista" del tour è solo client-side, persistenza in `localStorage`)
+- Tour separato per ruoli admin / specialist (estendibile in futuro)
+- Traduzioni multi-lingua

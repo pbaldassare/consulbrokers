@@ -107,7 +107,7 @@ const ClienteUfficio = () => {
   if (loading) return <div className="text-center py-12 text-muted-foreground">Caricamento...</div>;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="cl-uff-page" className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Info e Contatti</h2>
 
       {/* Sede info */}

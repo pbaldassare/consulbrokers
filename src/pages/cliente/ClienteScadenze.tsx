@@ -113,7 +113,7 @@ const ClienteScadenze = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div data-tour="cl-scad-page" className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
           <CalendarClock className="h-5 w-5 text-red-600" />
