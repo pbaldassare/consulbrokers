@@ -83,15 +83,22 @@ export default function ClienteSinistri() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">I Miei Sinistri</h1>
+            <p className="text-sm text-muted-foreground">{sinistri.length} sinistri registrati</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold">I Miei Sinistri</h1>
-          <p className="text-sm text-muted-foreground">{sinistri.length} sinistri registrati</p>
-        </div>
+        <Button onClick={() => setOpenNuovo(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Apri nuovo sinistro
+        </Button>
       </div>
+
+      <NuovaDenunciaSinistroDialog open={openNuovo} onOpenChange={setOpenNuovo} onCreated={() => refetch()} />
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -251,6 +258,9 @@ export default function ClienteSinistri() {
                                   <p className="text-sm italic">{s.note_perito}</p>
                                 </div>
                               )}
+
+                              {/* Documenti del sinistro */}
+                              <SinistroDocumentiCliente sinistroId={s.id} />
                             </div>
                           </TableCell>
                         </TableRow>
