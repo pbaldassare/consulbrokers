@@ -1358,16 +1358,15 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}`)}>
               <FileText className="w-4 h-4 mr-1" /> Precontrattuale
             </Button>
-            {isRamoAuto((t as any).ramo) && (
-              <ImportPolizzaAiButton
-                titoloId={t.id}
-                ramo={(t as any).ramo}
-                onImported={() => {
-                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
-                  queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
-                }}
-              />
-            )}
+            <ImportPolizzaAiButton
+              titoloId={t.id}
+              ramo={(t as any).ramo}
+              onImported={() => {
+                queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
+                queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
+                queryClient.invalidateQueries({ queryKey: ["premi-garanzia", t.id] });
+              }}
+            />
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">

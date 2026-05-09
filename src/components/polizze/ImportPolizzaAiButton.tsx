@@ -227,7 +227,7 @@ export function ImportPolizzaAiButton({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Sparkles className="h-4 w-4 text-teal-600" />
-          Carica Quietanza
+          Scansione AI Polizza
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">

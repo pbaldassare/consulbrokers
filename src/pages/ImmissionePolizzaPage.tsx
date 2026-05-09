@@ -24,6 +24,7 @@ import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCom
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
 import { UserPlus } from "lucide-react";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -551,8 +552,7 @@ const ImmissionePolizzaPage = () => {
       </div>
 
       {/* CLIENTE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente & Sede</legend>
+      <PolizzaSection title="Cliente & Sede">
 
         {/* Selezione cliente esistente */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
@@ -644,11 +644,10 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* CONTRATTO */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Contratto</legend>
+      <PolizzaSection title="Contratto">
 
         <AiDocumentScanner
           documentType="copia_polizza"
@@ -765,11 +764,10 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* PERIODO */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Periodo</legend>
+      <PolizzaSection title="Periodo">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Durata Da</Label>
@@ -819,11 +817,10 @@ const ImmissionePolizzaPage = () => {
             <Input type="number" value={disdettaMesi} onChange={(e) => setDisdettaMesi(e.target.value)} placeholder="0" className="h-8 text-xs" />
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* REGOLAZIONE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Regolazione</legend>
+      <PolizzaSection title="Regolazione">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="flex items-center gap-2 h-8">
             <Checkbox id="regolazione" checked={regolazione} onCheckedChange={(v) => setRegolazione(v === true)} />
@@ -879,11 +876,10 @@ const ImmissionePolizzaPage = () => {
             </RadioGroup>
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* IMPORTI */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Importi</legend>
+      <PolizzaSection title="Importi">
 
         {/* Tabella Firma / Quietanza */}
         <div className="overflow-x-auto">
@@ -980,11 +976,10 @@ const ImmissionePolizzaPage = () => {
             <Input value={numeroIncasso} onChange={(e) => setNumeroIncasso(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* PROVVIGIONI */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Provvigioni</legend>
+      <PolizzaSection title="Provvigioni">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">% Provvigione Agenzia</Label>
@@ -1060,11 +1055,10 @@ const ImmissionePolizzaPage = () => {
             )}
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* TIPO */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Tipo</legend>
+      <PolizzaSection title="Tipo">
         <div className="space-y-3">
           <Label className="text-xs">Tipo Operazione</Label>
           <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
@@ -1085,7 +1079,7 @@ const ImmissionePolizzaPage = () => {
           <Checkbox id="polizza-auto" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(v === true)} />
           <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
       {/* === SEZIONI RCA AUTO === */}
       {isRCA && (
@@ -1102,8 +1096,7 @@ const ImmissionePolizzaPage = () => {
           </div>
 
           {/* DATI VEICOLO */}
-          <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><Car className="h-3.5 w-3.5" /> Dati Veicolo</legend>
+          <PolizzaSection title="Dati Veicolo" icon={Car}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo Veicolo</Label>
@@ -1201,11 +1194,10 @@ const ImmissionePolizzaPage = () => {
                   options={["Benzina","Diesel","GPL","Metano","Ibrido","Elettrico"].map(v => ({ value: v, label: v }))} />
               </div>
             </div>
-          </fieldset>
+          </PolizzaSection>
 
           {/* DATI PREMIO PER GARANZIA */}
-          <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Dati Premio per Garanzia</legend>
+          <PolizzaSection title="Dati Premio per Garanzia" icon={Receipt}>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -1238,11 +1230,10 @@ const ImmissionePolizzaPage = () => {
                 </tbody>
               </table>
             </div>
-          </fieldset>
+          </PolizzaSection>
 
           {/* DATI CONDUCENTE */}
-          <fieldset className="border border-border rounded-lg p-5 space-y-4 border-l-4 border-l-primary">
-            <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/15 rounded py-0.5 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Dati Conducente</legend>
+          <PolizzaSection title="Dati Conducente" icon={User}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
@@ -1259,7 +1250,7 @@ const ImmissionePolizzaPage = () => {
               <div className="space-y-1.5"><Label className="text-xs">Data Rilascio Patente</Label><Input type="date" value={cDataRilascioPatente} onChange={(e) => setCDataRilascioPatente(e.target.value)} className="h-8 text-xs" /></div>
               <div className="space-y-1.5 col-span-2"><Label className="text-xs">Note</Label><Input value={cNote} onChange={(e) => setCNote(e.target.value)} className="h-8 text-xs" /></div>
             </div>
-          </fieldset>
+          </PolizzaSection>
         </>
       )}
 
