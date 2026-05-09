@@ -81,7 +81,7 @@ function calcolaLordo(
   return { netto, lordo: round2(netto + tasse), imposta: 0, ssn: 0, overrideImposta: false, overrideSsn: false };
 }
 
-export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel }: {
+export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onTotaliChange, tipoPremio = "firma", titolo, provvigioniValue, onProvvigioniChange, mainLabel, useAutoTaxFormula = true }: {
   titoloId: string;
   premioLordoTitolo?: number | null;
   provinciaCliente?: string | null;
@@ -91,6 +91,9 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   provvigioniValue?: number | null;
   onProvvigioniChange?: (v: number) => void;
   mainLabel?: string;
+  /** Quando false (rami non-auto), NON viene auto-creata la riga principale RCA con formula IPT+SSN.
+   *  Tutte le voci usano la formula semplice: lordo = netto × (1 + aliquota/100). */
+  useAutoTaxFormula?: boolean;
 }) {
   const RCA_LABEL_EFFECTIVE = mainLabel || "RCA Auto";
   const qc = useQueryClient();
