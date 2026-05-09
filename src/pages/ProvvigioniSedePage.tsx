@@ -196,11 +196,12 @@ const ProvvigioniSedePage = () => {
         </Button>
       </div>
 
-      {lookupsLoading ? (
-        <FiltersBarSkeleton />
-      ) : (
-        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} compagnie={compagnie} produttori={produttori} />
-      )}
+      <ProvvigioniFiltersBar
+        filters={filters}
+        onChange={(f) => { setFilters(f); setPage(0); }}
+        rami={rami} compagnie={compagnie} produttori={produttori}
+        loadingRami={lkRami} loadingCompagnie={lkComp} loadingProduttori={lkProd}
+      />
 
       {/* KPI */}
       {isLoading ? (
