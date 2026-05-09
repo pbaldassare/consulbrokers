@@ -3043,7 +3043,6 @@ const TitoloDetail = () => {
               } else toast.error("Errore aggiornamento provvigioni");
             }}
           />
-          {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
           <VociRcaCard
             tipoPremio="quietanza"
             useAutoTaxFormula={false}
