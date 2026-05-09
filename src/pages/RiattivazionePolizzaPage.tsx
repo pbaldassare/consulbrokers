@@ -129,17 +129,17 @@ const RiattivazionePolizzaPage = () => {
   const handleConferma = () => riattivazioneMutation.mutate();
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Riattivazione Polizza</h1>
-        <p className="text-sm text-muted-foreground mt-1">Riattivazione polizze sospese</p>
-      </div>
+    <div className="space-y-4 max-w-4xl">
+      <PolizzaHeaderCard
+        titoloId={paramTitoloId || undefined}
+        pageTitle="Riattivazione Polizza"
+        pageSubtitle={paramTitoloId ? undefined : "Riattivazione polizze sospese"}
+        backTo={paramTitoloId ? `/titoli/${paramTitoloId}` : "/portafoglio/attive"}
+      />
 
-      {/* CLIENTE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente</legend>
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[200px]">
+      <PolizzaSection title="Cliente" icon={UserIcon}>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="space-y-1.5 flex-1 max-w-[220px]">
             <Label htmlFor="codice-cliente-riatt">Codice</Label>
             <div className="relative">
               <Input id="codice-cliente-riatt" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
@@ -152,7 +152,7 @@ const RiattivazionePolizzaPage = () => {
             </p>
           )}
         </div>
-        <div className="space-y-1.5 max-w-[300px]">
+        <div className="space-y-1.5 max-w-[320px] mt-3">
           <Label>A/E</Label>
           <select value={selectedAE} onChange={(e) => setSelectedAE(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -162,13 +162,11 @@ const RiattivazionePolizzaPage = () => {
             ))}
           </select>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* NUOVA POLIZZA EMESSA */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Nuova Polizza Emessa</legend>
+      <PolizzaSection title="Nuova Polizza Emessa" icon={RefreshCw}>
         <div className="flex items-end gap-4 flex-wrap">
-          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
+          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[260px]">
             <Label htmlFor="numero-nuova-riatt">Numero</Label>
             <div className="relative">
               <Input id="numero-nuova-riatt" value={numeroNuova} onChange={(e) => setNumeroNuova(e.target.value)} placeholder="N° polizza" />
@@ -181,34 +179,29 @@ const RiattivazionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="data-riatt">Data Riattivazione *</Label>
-            <Input id="data-riatt" type="date" value={dataRiattivazione} onChange={(e) => setDataRiattivazione(e.target.value)} />
+            <Input id="data-riatt" type="date" value={dataRiattivazione} onChange={(e) => setDataRiattivazione(e.target.value)} className="tabular-nums" />
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* TIPO */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Tipo</legend>
-        <div className="flex items-center gap-3">
-          <Label>Tipo Operazione</Label>
+      <PolizzaSection title="Tipo Operazione" icon={Settings2}>
+        <div className="space-y-3">
           <RadioGroup value="riattivazione" className="flex gap-4">
             <div className="flex items-center gap-2">
               <RadioGroupItem value="riattivazione" id="tipo-riatt" />
               <Label htmlFor="tipo-riatt" className="font-normal cursor-pointer">Riattivazione</Label>
             </div>
           </RadioGroup>
+          <div className="flex items-center gap-2">
+            <Checkbox id="polizza-auto-riatt" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(!!v)} />
+            <Label htmlFor="polizza-auto-riatt" className="font-normal cursor-pointer">Polizza Auto</Label>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Checkbox id="polizza-auto-riatt" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(!!v)} />
-          <Label htmlFor="polizza-auto-riatt" className="font-normal cursor-pointer">Polizza Auto</Label>
-        </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* POLIZZA DA RIATTIVARE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Polizza da Riattivare</legend>
+      <PolizzaSection title="Polizza da Riattivare" icon={FileText}>
         <div className="flex items-end gap-4 flex-wrap">
-          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
+          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[260px]">
             <Label htmlFor="numero-da-riatt">Numero</Label>
             <div className="relative">
               <Input id="numero-da-riatt" value={numeroDaRiatt} onChange={(e) => setNumeroDaRiatt(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
@@ -220,13 +213,12 @@ const RiattivazionePolizzaPage = () => {
             <Input id="riga-da-riatt" value={rigaDaRiatt} onChange={(e) => setRigaDaRiatt(e.target.value)} readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-3">
           <Checkbox id="copia-archivio" checked={copiaArchivio} onCheckedChange={(v) => setCopiaArchivio(!!v)} />
           <Label htmlFor="copia-archivio" className="font-normal cursor-pointer">Copia archivio</Label>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>Chiudi</Button>
         <Button onClick={handleConferma} disabled={riattivazioneMutation.isPending}>
