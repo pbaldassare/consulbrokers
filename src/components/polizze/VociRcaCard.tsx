@@ -1179,9 +1179,19 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   value={addLive}
                   onChange={(e) => setAddizionaliDraft(e.target.value)}
                   onBlur={(e) => {
-                    const raw = Number(e.target.value);
-                    const val = Number.isFinite(raw) ? round2(raw) : 0;
+                    const text = e.target.value.trim();
                     setAddizionaliDraft(null);
+                    if (text === "") {
+                      if (Number(addizionaliValue ?? 0) !== 0) onAddizionaliChange?.(0);
+                      return;
+                    }
+                    const raw = Number(text.replace(",", "."));
+                    if (!Number.isFinite(raw) || raw < 0) {
+                      toast.error("Addizionali non valido: ripristinato a 0");
+                      onAddizionaliChange?.(0);
+                      return;
+                    }
+                    const val = round2(raw);
                     if (Math.abs(val - Number(addizionaliValue ?? 0)) < 0.01) return;
                     onAddizionaliChange?.(val);
                   }}
