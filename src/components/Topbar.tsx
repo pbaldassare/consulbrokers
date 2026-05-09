@@ -42,17 +42,18 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
     : "U";
 
   return (
-    <header className="h-14 bg-card border-b-2 border-primary/20 flex items-center justify-between px-6 sticky top-0 z-20 shadow-sm">
+    <header className="h-14 bg-card border-b-2 border-primary/20 flex items-center gap-2 px-3 sm:px-6 sticky top-0 z-20 shadow-sm">
       <button
         onClick={onToggleSidebar}
-        className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+        aria-label="Toggle sidebar"
+        className="shrink-0 p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
       >
         <Menu className="w-5 h-5" />
       </button>
 
-      <div className="flex items-center gap-3">
-        <GlobalSearch />
-        <Badge variant={isDev ? "destructive" : "default"} className="text-[10px] px-2 py-0.5 uppercase tracking-wider">
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+        <div className="flex-1 min-w-0 max-w-xl"><GlobalSearch /></div>
+        <Badge variant={isDev ? "destructive" : "default"} className="hidden sm:inline-flex text-[10px] px-2 py-0.5 uppercase tracking-wider">
           {appEnv}
         </Badge>
       </div>
