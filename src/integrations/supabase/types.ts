@@ -7735,6 +7735,21 @@ export type Database = {
           tipo_cliente: string
         }[]
       }
+      get_canali_cliente_with_meta: {
+        Args: { _limit?: number; _offset?: number; _user_id: string }
+        Returns: {
+          ambito: string
+          created_at: string
+          entita_id: string
+          entita_tipo: string
+          id: string
+          last_message_at: string
+          last_message_preview: string
+          nome: string
+          unread_count: number
+          visibile_cliente: boolean
+        }[]
+      }
       get_chat_unread_count: { Args: { _user_id: string }; Returns: number }
       get_iban_cliente: {
         Args: { p_cliente_id: string }
