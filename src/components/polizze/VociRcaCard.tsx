@@ -1179,7 +1179,8 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   value={addLive}
                   onChange={(e) => setAddizionaliDraft(e.target.value)}
                   onBlur={(e) => {
-                    const val = Number(e.target.value || 0);
+                    const raw = Number(e.target.value);
+                    const val = Number.isFinite(raw) ? round2(raw) : 0;
                     setAddizionaliDraft(null);
                     if (Math.abs(val - Number(addizionaliValue ?? 0)) < 0.01) return;
                     onAddizionaliChange?.(val);
