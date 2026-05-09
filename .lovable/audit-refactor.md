@@ -92,14 +92,36 @@
 
 ## Roadmap operativa
 
-- **Step 2 (sicuro)**: import unused, formatter centralizzati (`formatCurrency`, `formatDate`), nessuna logica toccata.
-- **Step 3 (refactor)**: split top 5 componenti grossi, **API pubblica invariata**.
+- **Step 2 (sicuro)** ✅ — fatto.
+- **Step 3 (refactor)**: split top 5 componenti grossi, migrazione `usePagination` sulle 22 pagine (richiede sollevare `filteredX` al top level con `useMemo`, **non** è un'edit "safe").
 - **Step 4 (UX)**: riorganizzazione visiva di `AreaCFO`, `ClientiList`, `TabelleBasePage`.
 - **Step 5**: verifica build + report finale.
 
-## Quick wins immediati (Step 2)
+## Step 2 — risultati
 
-1. `usePagination` hook — elimina ~22 duplicazioni.
-2. `formatCurrency` ovunque — elimina 13 duplicazioni.
-3. `formatDate` helper — elimina 11 duplicazioni.
-4. Conferma rimozione 3 file morti elencati al §6.
+| Azione | Stato |
+|---|---|
+| Eliminato `src/pages/GestioneUtenti.tsx` (rotta già redirect) | ✅ |
+| Eliminato `src/pages/BancaImport.tsx` (rotta già redirect) | ✅ |
+| Eliminato `src/pages/FornitoriPage.tsx` (rotta già redirect) | ✅ |
+| Creato hook `src/hooks/usePagination.ts` | ✅ pronto, adozione in Step 3 |
+| Creato helper `src/lib/formatDate.ts` (`fmtDate`, `fmtDateTime`, `fmtMonthYear`) | ✅ pronto, adozione progressiva |
+| Migrazione `Intl.NumberFormat` → `formatCurrency` | ⏸ sospesa: 3 file cliente usano 0 decimali, 9 usano 2 → richiede `fmtEuro0` variant + verifica caso per caso, fatto in Step 3 |
+| Rimozione import inutilizzati / `console.log` | ✅ già pulito (0 occorrenze) |
+
+## Note di adozione (per Step 3)
+
+**`usePagination` migration template** — pattern attuale (esempio `PagamentiProvvigioniList`):
+```tsx
+// PRIMA
+const [page, setPage] = useState(0);
+// ...dentro IIFE:
+const pages = Math.ceil(filteredDistinte.length / PAGE_SIZE);
+const safePage = Math.min(page, Math.max(0, pages - 1));
+const pageRows = filteredDistinte.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+// DOPO (richiede sollevare filteredDistinte al top level)
+const filteredDistinte = useMemo(() => /* ... */, [distinte, filterDa, ...]);
+const { page, setPage, pages, pageRows, resetPage } = usePagination(filteredDistinte);
+```
+Tutti i `setPage(0)` nei filtri diventano `resetPage()`.
