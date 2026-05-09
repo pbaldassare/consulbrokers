@@ -300,7 +300,6 @@ const PagamentiProvvigioniList = () => {
       </div>
 
       {/* Filtri */}
-      {utentiLoading ? <FiltersBarSkeleton /> : (
       <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
@@ -312,8 +311,14 @@ const PagamentiProvvigioniList = () => {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Beneficiario</Label>
-          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }}>
-            <SelectTrigger className="h-9 w-[200px]"><SelectValue placeholder="Tutti" /></SelectTrigger>
+          <Select value={filterBeneficiario || "__all__"} onValueChange={(v) => { setFilterBeneficiario(v === "__all__" ? "" : v); setPage(0); }} disabled={utentiLoading}>
+            <SelectTrigger className="h-9 w-[200px]">
+              {utentiLoading ? (
+                <span className="flex items-center gap-2 text-muted-foreground/70"><Loader2 className="h-4 w-4 animate-spin" /> Caricamento...</span>
+              ) : (
+                <SelectValue placeholder="Tutti" />
+              )}
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tutti</SelectItem>
               {utenti.map((u: any) => (
@@ -338,7 +343,6 @@ const PagamentiProvvigioniList = () => {
           <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); setPage(0); }}>Reset</Button>
         )}
       </div>
-      )}
 
       {(() => {
         const filteredDistinte = distinte.filter((d: any) => {
