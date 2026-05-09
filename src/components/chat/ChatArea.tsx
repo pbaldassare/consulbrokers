@@ -16,9 +16,11 @@ interface ChatAreaProps {
   canaleId: string | null;
   headerSlot?: React.ReactNode;
   highlightTerm?: string;
+  aboveMessages?: React.ReactNode;
+  renderMessage?: (text: string) => React.ReactNode;
 }
 
-export default function ChatArea({ canaleId, headerSlot, highlightTerm }: ChatAreaProps) {
+export default function ChatArea({ canaleId, headerSlot, highlightTerm, aboveMessages, renderMessage }: ChatAreaProps) {
   const { profile, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [msg, setMsg] = useState("");
