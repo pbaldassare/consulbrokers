@@ -164,8 +164,12 @@ const ProvvigioniSedePage = () => {
   ), [filteredTitoli]);
 
   const byProduttore = useMemo(() => aggregate(filteredTitoli,
-    (t) => t.commerciale_id || "__no_comm__",
-    (t) => t.commerciale ? `${t.commerciale.cognome} ${t.commerciale.nome}` : "Consul (no commerciale)",
+    (t) => t.anagrafica_commerciale_id || (t.produttore_nome ? `n:${t.produttore_nome}` : "__no_comm__"),
+    (t) => {
+      const a = t.anagrafica_commerciale;
+      const lbl = (a?.ragione_sociale && a.ragione_sociale.trim()) || `${a?.cognome || ""} ${a?.nome || ""}`.trim();
+      return lbl || t.produttore_nome || "Consul (no commerciale)";
+    },
     (t) => (t.provvigioni_firma || 0) * (100 - (t.percentuale_commerciale ?? 100)) / 100
   ), [filteredTitoli]);
 
