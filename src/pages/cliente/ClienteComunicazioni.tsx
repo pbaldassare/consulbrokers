@@ -1,15 +1,23 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ChatArea from "@/components/chat/ChatArea";
 import CanaleContextHeader from "@/components/cliente/CanaleContextHeader";
 import NuovaChatClienteDialog from "@/components/cliente/NuovaChatClienteDialog";
+import PolizzeLinkPicker from "@/components/cliente/PolizzeLinkPicker";
+import MessaggioConChip from "@/components/cliente/MessaggioConChip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, FileText, Briefcase, AlertTriangle, Plus, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { MessageSquare, FileText, Briefcase, AlertTriangle, Plus, Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { it } from "date-fns/locale";
+import { toast } from "sonner";
+
+const PAGE_SIZE = 20;
 
 const entitaIcons: Record<string, typeof FileText> = {
   cliente: MessageSquare,
@@ -27,26 +35,57 @@ const entitaLabels: Record<string, string> = {
   argomento: "Argomento",
 };
 
+interface CanaleMeta {
+  id: string;
+  nome: string | null;
+  entita_tipo: string;
+  entita_id: string | null;
+  ambito: string;
+  visibile_cliente: boolean;
+  created_at: string;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  unread_count: number;
+}
+
 const ClienteComunicazioni = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const qc = useQueryClient();
   const [canaleAttivoId, setCanaleAttivoId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data: canali } = useQuery({
-    queryKey: ["chat_canali_cliente", user?.id],
+  const { data: clienteIds } = useQuery({
+    queryKey: ["my_cliente_ids_chat", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("chat_canali")
-        .select("*, chat_canali_membri(user_id, profiles:user_id(nome, cognome))")
-        .eq("ambito", "contestuale")
-        .eq("visibile_cliente", true)
-        .order("created_at", { ascending: false });
-      return data || [];
+      const { data } = await supabase.rpc("get_my_cliente_ids");
+      const arr: any[] = data || [];
+      return arr.map((x) => (typeof x === "string" ? x : x.get_my_cliente_ids ?? x.id ?? x)).filter(Boolean) as string[];
     },
+    enabled: !!user?.id,
+  });
+
+  // Canali con metadati (paginato)
+  const { data: pages, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["chat_canali_cliente_meta", user?.id],
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await supabase.rpc("get_canali_cliente_with_meta", {
+        _user_id: user!.id,
+        _limit: PAGE_SIZE,
+        _offset: pageParam,
+      });
+      if (error) throw error;
+      return (data || []) as CanaleMeta[];
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
     enabled: !!user?.id,
     refetchInterval: 10000,
   });
+
+  const canali: CanaleMeta[] = useMemo(() => (pages?.pages || []).flat(), [pages]);
 
   // Search nei messaggi
   const { data: matchingCanaliIds } = useQuery({
@@ -64,10 +103,9 @@ const ClienteComunicazioni = () => {
   });
 
   const canaliFiltrati = useMemo(() => {
-    if (!canali) return [];
     if (!search) return canali;
     const q = search.toLowerCase();
-    return canali.filter((c: any) => {
+    return canali.filter((c) => {
       const nameMatch = (c.nome || "").toLowerCase().includes(q) ||
         (entitaLabels[c.entita_tipo] || "").toLowerCase().includes(q);
       const msgMatch = matchingCanaliIds?.has(c.id);
@@ -75,11 +113,57 @@ const ClienteComunicazioni = () => {
     });
   }, [canali, search, matchingCanaliIds]);
 
+  const totalUnread = useMemo(
+    () => canali.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0),
+    [canali]
+  );
+
+  // Infinite scroll trigger
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || search) return; // disable load-more in search mode
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, search]);
+
+  // Canale attivo (per decidere se mostrare PolizzeLinkPicker)
+  const canaleAttivo = canali.find((c) => c.id === canaleAttivoId);
+  const showPolizzePicker =
+    !!canaleAttivo &&
+    (canaleAttivo.entita_tipo === "argomento" || canaleAttivo.entita_tipo === "cliente");
+
+  const handlePickPolizza = async (t: any) => {
+    if (!canaleAttivoId || !profile?.id) return;
+    const marker = `[POLIZZA:${t.id}]`;
+    const { error } = await supabase.from("chat_messaggi_interni").insert({
+      canale_id: canaleAttivoId,
+      mittente_id: profile.id,
+      messaggio: `📎 Riferimento: ${marker}`,
+    });
+    if (error) {
+      toast.error("Errore collegamento polizza");
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["chat_messaggi_interni", canaleAttivoId] });
+    qc.invalidateQueries({ queryKey: ["chat_canali_cliente_meta", user?.id] });
+    toast.success("Polizza collegata alla conversazione");
+  };
+
   return (
     <div data-tour="cl-chat-page" className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-primary" /> Chat
+          {totalUnread > 0 && (
+            <Badge variant="default" className="ml-1 h-5 min-w-[20px] rounded-full px-1.5 text-[10px]">
+              {totalUnread}
+            </Badge>
+          )}
         </h1>
         <Button data-tour="cl-chat-new" onClick={() => setDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Nuova conversazione
@@ -88,7 +172,7 @@ const ClienteComunicazioni = () => {
 
       <div className="flex h-[calc(100vh-14rem)] border rounded-lg overflow-hidden">
         {/* Sidebar canali */}
-        <div className="w-72 shrink-0 border-r border-border bg-card flex flex-col">
+        <div className="w-80 shrink-0 border-r border-border bg-card flex flex-col">
           <div className="p-3 border-b border-border space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Le tue conversazioni
@@ -105,28 +189,55 @@ const ClienteComunicazioni = () => {
           </div>
           <ScrollArea className="flex-1">
             <div className="p-1">
-              {canaliFiltrati.map((canale: any) => {
-                const Icon = entitaIcons[canale.entita_tipo] || MessageSquare;
-                const label = canale.nome || entitaLabels[canale.entita_tipo] || "Chat";
-                const matchInMsg = search && matchingCanaliIds?.has(canale.id);
+              {canaliFiltrati.map((c) => {
+                const Icon = entitaIcons[c.entita_tipo] || MessageSquare;
+                const label = c.nome || entitaLabels[c.entita_tipo] || "Chat";
+                const matchInMsg = search && matchingCanaliIds?.has(c.id);
+                const unread = Number(c.unread_count) || 0;
+                const isActive = canaleAttivoId === c.id;
+                const ts = c.last_message_at || c.created_at;
                 return (
                   <button
-                    key={canale.id}
-                    onClick={() => setCanaleAttivoId(canale.id)}
+                    key={c.id}
+                    onClick={() => setCanaleAttivoId(c.id)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
-                      canaleAttivoId === canale.id
-                        ? "bg-primary/10 text-primary font-medium"
+                      "w-full flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
+                      isActive
+                        ? "bg-primary/10 text-primary"
                         : "text-foreground hover:bg-muted"
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-[13px]">{label}</p>
-                      <p className="text-[10px] text-muted-foreground capitalize">
-                        {entitaLabels[canale.entita_tipo] || canale.entita_tipo}
-                        {matchInMsg && <span className="ml-1 text-primary">• match nei messaggi</span>}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn("truncate text-[13px]", unread > 0 ? "font-semibold" : "font-normal")}>
+                          {label}
+                        </p>
+                        {ts && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {formatDistanceToNow(new Date(ts), { locale: it, addSuffix: false })}
+                          </span>
+                        )}
+                      </div>
+                      {c.last_message_preview && (
+                        <p className={cn(
+                          "truncate text-[11px] mt-0.5",
+                          unread > 0 ? "text-foreground" : "text-muted-foreground"
+                        )}>
+                          {c.last_message_preview.replace(/\[POLIZZA:[0-9a-f-]+\]/gi, "📎 polizza")}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-[10px] text-muted-foreground capitalize">
+                          {entitaLabels[c.entita_tipo] || c.entita_tipo}
+                          {matchInMsg && <span className="ml-1 text-primary">• match</span>}
+                        </span>
+                        {unread > 0 && (
+                          <Badge variant="default" className="h-4 min-w-[16px] rounded-full px-1 text-[9px]">
+                            {unread}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -136,21 +247,38 @@ const ClienteComunicazioni = () => {
                   {search ? "Nessun risultato" : "Nessuna conversazione attiva"}
                 </p>
               )}
+              {!search && hasNextPage && (
+                <div ref={sentinelRef} className="py-3 flex items-center justify-center">
+                  {isFetchingNextPage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
 
-        {/* Area chat con header contestuale */}
+        {/* Area chat */}
         <ChatArea
           canaleId={canaleAttivoId}
           headerSlot={canaleAttivoId ? <CanaleContextHeader canaleId={canaleAttivoId} /> : undefined}
+          aboveMessages={
+            showPolizzePicker && clienteIds?.length ? (
+              <div className="border-b border-border bg-card px-4 py-2 flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">Aggiungi riferimento:</span>
+                <PolizzeLinkPicker clienteIds={clienteIds} onPick={handlePickPolizza} />
+              </div>
+            ) : undefined
+          }
+          renderMessage={(text) => <MessaggioConChip text={text} />}
         />
       </div>
 
       <NuovaChatClienteDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onCreated={(id) => setCanaleAttivoId(id)}
+        onCreated={(id) => {
+          setCanaleAttivoId(id);
+          qc.invalidateQueries({ queryKey: ["chat_canali_cliente_meta", user?.id] });
+        }}
       />
     </div>
   );
