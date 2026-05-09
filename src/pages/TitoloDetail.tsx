@@ -3081,10 +3081,6 @@ const TitoloDetail = () => {
               } else toast.error("Errore aggiornamento provvigioni");
             }}
           />
-          {(() => {
-            const sQui = (t as any).provvigioni_quietanza;
-            return renderSplitImporti("Provvigioni Quietanza", sQui, "amber");
-          })()}
         </div>
       </SectionCollapsible>
       )}
