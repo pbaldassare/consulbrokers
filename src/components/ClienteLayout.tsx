@@ -10,17 +10,20 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { TourProvider } from "@/components/tour/AppTourContext";
+import AppTour from "@/components/tour/AppTour";
+import TourLauncher from "@/components/tour/TourLauncher";
 
 const allNavItems = [
-  { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/cliente/polizze", label: "Polizze", icon: Shield },
-  { to: "/cliente/scadenze", label: "Scadenziario", icon: CalendarClock },
-  { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle },
-  { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true },
-  { to: "/cliente/documenti", label: "Documentazione Ente", icon: FileText },
-  { to: "/cliente/notifiche", label: "Notifiche", icon: Bell },
-  { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2 },
-  { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone },
+  { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true, tour: "cl-nav-dashboard" },
+  { to: "/cliente/polizze", label: "Polizze", icon: Shield, tour: "cl-nav-polizze" },
+  { to: "/cliente/scadenze", label: "Scadenziario", icon: CalendarClock, tour: "cl-nav-scadenziario" },
+  { to: "/cliente/sinistri", label: "Sinistri", icon: AlertTriangle, tour: "cl-nav-sinistri" },
+  { to: "/cliente/chat", label: "Chat", icon: MessageSquare, hasBadge: true, tour: "cl-nav-chat" },
+  { to: "/cliente/documenti", label: "Documentazione Ente", icon: FileText, tour: "cl-nav-documenti" },
+  { to: "/cliente/notifiche", label: "Notifiche", icon: Bell, tour: "cl-nav-notifiche" },
+  { to: "/cliente/anagrafica", label: "Dati Ente", icon: Building2, tour: "cl-nav-dati" },
+  { to: "/cliente/ufficio", label: "Info e Contatti", icon: Phone, tour: "cl-nav-contatti" },
 ];
 
 const SIDEBAR_BG = { background: "linear-gradient(180deg, hsl(199, 58%, 18%) 0%, hsl(199, 58%, 26%) 100%)" };
@@ -82,7 +85,7 @@ const ClienteLayout = () => {
   const SidebarContent = ({ onItemClick, compact = false }: { onItemClick?: () => void; compact?: boolean }) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={cn("border-b border-white/10", compact ? "p-3 text-center" : "p-5")}>
+      <div data-tour="cl-logo" className={cn("border-b border-white/10", compact ? "p-3 text-center" : "p-5")}>
         {compact ? (
           <h1 className="text-base font-bold text-white tracking-tight">CB</h1>
         ) : (
@@ -101,6 +104,7 @@ const ClienteLayout = () => {
             to={item.to}
             end={item.end}
             onClick={onItemClick}
+            data-tour={(item as any).tour}
             title={compact ? item.label : undefined}
             className={({ isActive }) =>
               cn(
