@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search } from "lucide-react";
+import { Search, User as UserIcon, FileText, Settings2, Copy } from "lucide-react";
+import { PolizzaHeaderCard } from "@/components/polizze/PolizzaHeaderCard";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const DuplicazionePolizzaPage = () => {
   const navigate = useNavigate();

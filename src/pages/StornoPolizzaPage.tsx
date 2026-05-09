@@ -64,17 +64,17 @@ const StornoPolizzaPage = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Storno Polizza</h1>
-        <p className="text-sm text-muted-foreground mt-1">Storno polizze dal portafoglio</p>
-      </div>
+    <div className="space-y-4 max-w-4xl">
+      <PolizzaHeaderCard
+        titoloId={paramTitoloId || undefined}
+        pageTitle="Storno Polizza"
+        pageSubtitle={paramTitoloId ? undefined : "Storno polizze dal portafoglio"}
+        backTo={paramTitoloId ? `/titoli/${paramTitoloId}` : "/portafoglio/attive"}
+      />
 
-      {/* CLIENTE */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Cliente</legend>
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[200px]">
+      <PolizzaSection title="Cliente" icon={UserIcon}>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="space-y-1.5 flex-1 max-w-[220px]">
             <Label htmlFor="codice-cliente-st">Codice</Label>
             <div className="relative">
               <Input id="codice-cliente-st" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
@@ -87,7 +87,7 @@ const StornoPolizzaPage = () => {
             </p>
           )}
         </div>
-        <div className="space-y-1.5 max-w-[300px]">
+        <div className="space-y-1.5 max-w-[320px] mt-3">
           <Label>A/E</Label>
           <select value={selectedAE} onChange={(e) => setSelectedAE(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -97,13 +97,11 @@ const StornoPolizzaPage = () => {
             ))}
           </select>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* POLIZZA */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Polizza</legend>
+      <PolizzaSection title="Polizza" icon={FileText}>
         <div className="flex items-end gap-4 flex-wrap">
-          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[250px]">
+          <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[260px]">
             <Label htmlFor="numero-polizza-st">Numero</Label>
             <div className="relative">
               <Input id="numero-polizza-st" value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
@@ -119,23 +117,17 @@ const StornoPolizzaPage = () => {
             <Input id="appendice-st" value={appendice} onChange={(e) => setAppendice(e.target.value)} />
           </div>
         </div>
-      </fieldset>
+      </PolizzaSection>
 
-      {/* TIPO */}
-      <fieldset className="border border-border rounded-lg p-5 space-y-4">
-        <legend className="px-2 text-sm font-bold uppercase text-primary bg-primary/10 rounded py-0.5">Tipo</legend>
-        <div className="flex items-center gap-3">
-          <Label>Tipo Operazione</Label>
-          <RadioGroup value="storno" className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="storno" id="tipo-storno" />
-              <Label htmlFor="tipo-storno" className="font-normal cursor-pointer">Storno</Label>
-            </div>
-          </RadioGroup>
-        </div>
-      </fieldset>
+      <PolizzaSection title="Tipo Operazione" icon={Settings2}>
+        <RadioGroup value="storno" className="flex gap-4">
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="storno" id="tipo-storno" />
+            <Label htmlFor="tipo-storno" className="font-normal cursor-pointer">Storno</Label>
+          </div>
+        </RadioGroup>
+      </PolizzaSection>
 
-      {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>Chiudi</Button>
         <Button onClick={handleConferma}>Conferma</Button>
