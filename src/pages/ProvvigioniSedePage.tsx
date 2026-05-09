@@ -219,6 +219,11 @@ const ProvvigioniSedePage = () => {
       )}
 
       {/* Tabs Distribuzione */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartSkeleton /><ChartSkeleton />
+        </div>
+      ) : (
       <Tabs defaultValue="ramo">
         <TabsList>
           <TabsTrigger value="ramo">Per Ramo</TabsTrigger>
@@ -244,7 +249,7 @@ const ProvvigioniSedePage = () => {
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{r.name}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(r.value)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? r.value / totals.consul * 100 : 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans">{fmtPct(totals.consul ? r.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
                 {byRamo.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Nessun dato</TableCell></TableRow>}
@@ -267,7 +272,7 @@ const ProvvigioniSedePage = () => {
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{p.name}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(p.value)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? p.value / totals.consul * 100 : 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans">{fmtPct(totals.consul ? p.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
                 {byProduttore.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Nessun dato</TableCell></TableRow>}
@@ -290,7 +295,7 @@ const ProvvigioniSedePage = () => {
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{c.name}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(c.value)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? c.value / totals.consul * 100 : 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans">{fmtPct(totals.consul ? c.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
                 {byCliente.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Nessun dato</TableCell></TableRow>}
@@ -303,6 +308,7 @@ const ProvvigioniSedePage = () => {
           <ProvvigioniLineChart title="Trend Provv. Consul - ultimi 12 mesi" data={trend12} />
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Dettaglio polizze */}
       <Card>
