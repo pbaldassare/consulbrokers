@@ -21,6 +21,9 @@ import { it } from "date-fns/locale";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+
+const PAGE_SIZE = 25;
 
 const PagamentiProvvigioniList = () => {
   const { isAdmin } = useAuth();
@@ -38,6 +41,7 @@ const PagamentiProvvigioniList = () => {
   const [filterMetodo, setFilterMetodo] = useState<string>("");
   const [filterDa, setFilterDa] = useState<string>("");
   const [filterA, setFilterA] = useState<string>("");
+  const [page, setPage] = useState(0);
 
   // Fetch distinte
   const { data: distinte = [], isLoading } = useQuery({
