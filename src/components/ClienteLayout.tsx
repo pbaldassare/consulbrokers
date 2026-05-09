@@ -6,13 +6,37 @@ import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Shield, FileText, CalendarClock, MessageSquare,
   Bell, LogOut, Menu, X, AlertTriangle, Building2, Phone,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { TourProvider } from "@/components/tour/AppTourContext";
+import { TourProvider, useTour, hasSeenClienteTour } from "@/components/tour/AppTourContext";
 import AppTour from "@/components/tour/AppTour";
-import TourLauncher from "@/components/tour/TourLauncher";
+
+const TourSidebarButton = ({ compact }: { compact?: boolean }) => {
+  const { startTour, isActive } = useTour();
+  useEffect(() => {
+    if (!hasSeenClienteTour()) {
+      const t = setTimeout(() => startTour(), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [startTour]);
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => !isActive && startTour()}
+      title={compact ? "Tour guidato" : undefined}
+      className={cn(
+        "w-full gap-2 text-white hover:bg-white/15 min-h-[40px] bg-white/10 border border-white/15",
+        compact ? "justify-center px-0" : "justify-start"
+      )}
+    >
+      <Sparkles className="h-4 w-4 shrink-0" />
+      {!compact && <span>Tour guidato</span>}
+    </Button>
+  );
+};
 
 const allNavItems = [
   { to: "/cliente", label: "Dashboard", icon: LayoutDashboard, end: true, tour: "cl-nav-dashboard" },
@@ -139,6 +163,7 @@ const ClienteLayout = () => {
             {profile?.nome} {profile?.cognome}
           </p>
         )}
+        <TourSidebarButton compact={compact} />
         <Button
           variant="ghost"
           size="sm"
@@ -270,7 +295,7 @@ const ClienteLayout = () => {
       </div>
     </div>
     <AppTour />
-    <TourLauncher />
+    
     </TourProvider>
   );
 };
