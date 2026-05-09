@@ -13,8 +13,11 @@ import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+
+const PAGE_SIZE = 25;
 
 type Row = any;
 
@@ -56,27 +59,29 @@ const ProvvigioniSedePage = () => {
   const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
 
   // Lookup options
-  const { data: rami = [] } = useQuery({
+  const { data: rami = [], isLoading: lkRami } = useQuery({
     queryKey: ["lookup-rami"],
     queryFn: async () => {
       const { data } = await supabase.from("rami").select("id, codice, descrizione").order("codice");
       return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
     },
   });
-  const { data: compagnie = [] } = useQuery({
+  const { data: compagnie = [], isLoading: lkComp } = useQuery({
     queryKey: ["lookup-compagnie-active"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });
-  const { data: produttori = [] } = useQuery({
+  const { data: produttori = [], isLoading: lkProd } = useQuery({
     queryKey: ["lookup-produttori"],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
+  const lookupsLoading = lkRami || lkComp || lkProd;
+  const [page, setPage] = useState(0);
 
   // Main query - filtered titoli incassati
   const { data: titoli = [], isLoading } = useQuery({
