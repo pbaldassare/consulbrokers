@@ -66,7 +66,7 @@ export default function SinistriList() {
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       if (filtroCompagnia !== "tutti") q = q.eq("compagnia_id", filtroCompagnia);
       if (search) q = q.or(`numero_sinistro.ilike.%${search}%,descrizione.ilike.%${search}%`);
-      const { data, error, count } = await q.order("created_at", { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data, error, count } = await q.order("created_at", { ascending: false }).range(range.from, range.to);
       if (error) throw error;
       return { data: data || [], count: count || 0 };
     },
@@ -417,7 +417,7 @@ export default function SinistriList() {
           </TableBody>
         </Table>
         <div className="p-4">
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </div>
       </div>
     </div>

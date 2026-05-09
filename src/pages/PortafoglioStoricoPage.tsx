@@ -67,7 +67,7 @@ const PortafoglioStoricoPage = () => {
       q = buildFilter(q);
       const { data, count } = await q
         .order("data_scadenza", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
   });
@@ -235,7 +235,7 @@ const PortafoglioStoricoPage = () => {
               </TableBody>
             </Table>
           </div>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
     </div>

@@ -20,7 +20,7 @@ const ClientiContabPage = () => {
     queryFn: async () => {
       let q = supabase.from("clienti").select("*", { count: "exact" });
       if (search) q = q.or(`cognome.ilike.%${search}%,nome.ilike.%${search}%,ragione_sociale.ilike.%${search}%,codice_fiscale.ilike.%${search}%`);
-      q = q.order("cognome").range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.order("cognome").range(range.from, range.to);
       const { data, count, error } = await q;
       if (error) throw error;
       return { rows: data || [], total: count || 0 };
@@ -89,7 +89,7 @@ const ClientiContabPage = () => {
               ))}
             </TableBody>
           </Table>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </CardContent>
       </Card>
     </div>

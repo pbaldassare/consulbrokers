@@ -87,7 +87,7 @@ const PortafoglioCaricoPage = () => {
 
       const { data, count } = await q
         .order(sortField, { ascending: sortDirection === "asc" })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
   });
@@ -556,7 +556,7 @@ const PortafoglioCaricoPage = () => {
               </TableBody>
             </Table>
           </div>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
 

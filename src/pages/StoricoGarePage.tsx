@@ -129,7 +129,7 @@ export default function StoricoGarePage() {
       let q = supabase.from("v_storico_gare" as any).select("*", { count: "exact" });
       q = applyFilters(q);
       q = q.order("anno_riferimento", { ascending: false }).order("data_consegna", { ascending: false, nullsFirst: false });
-      q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      q = q.range(range.from, range.to);
       const { data, error, count } = await q;
       if (error) throw error;
       return { rows: (data as any[]) ?? [], total: count ?? 0 };
@@ -451,7 +451,7 @@ export default function StoricoGarePage() {
           </TableBody>
         </Table>
         <div className="p-3 border-t">
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
         </div>
       </Card>
 

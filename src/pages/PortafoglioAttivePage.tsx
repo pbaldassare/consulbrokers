@@ -53,7 +53,7 @@ const PortafoglioAttivePage = () => {
 
       const { data, count } = await q
         .order("garanzia_a", { ascending: true })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
   });
@@ -191,7 +191,7 @@ const PortafoglioAttivePage = () => {
               </TableBody>
             </Table>
           </div>
-          <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+          <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
     </div>

@@ -302,8 +302,8 @@ const ClientiList = () => {
       }
 
       // Pagination
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const from = range.from;
+      const to = range.to;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -1166,7 +1166,7 @@ const ClientiList = () => {
                 )}
               </TableBody>
             </Table>
-            <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
+            <ServerPagination page={page} pageSize={pageSize} totalCount={totalCount} onPageChange={setPage} />
             </>
           )}
         </CardContent>
