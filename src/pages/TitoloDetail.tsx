@@ -3046,7 +3046,7 @@ const TitoloDetail = () => {
                 const curTasse = Number((titolo as any)?.tasse ?? 0);
                 const curAdd = Number((titolo as any)?.addizionali ?? 0);
                 const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
-                const newLordo = round2(tot.lordo + curAdd);
+                const newLordo = Math.round((tot.lordo + curAdd) * 100) / 100;
                 if (
                   Math.abs(curNetto - tot.netto) < 0.01 &&
                   Math.abs(curTasse - tot.tasse) < 0.01 &&
