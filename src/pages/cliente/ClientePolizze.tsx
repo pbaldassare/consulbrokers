@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
-import { Shield, Calendar } from "lucide-react";
+import { Shield, Calendar, X } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { DatePicker } from "@/components/contabilita/DatePicker";
 
 const statoBadge: Record<string, string> = {
   attivo: "bg-emerald-100 text-emerald-800 border-emerald-300",
@@ -23,6 +28,14 @@ const ClientePolizze = () => {
   const { user } = useAuth();
   const [titoli, setTitoli] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // filtri
+  const [stato, setStato] = useState<string>("");
+  const [ramo, setRamo] = useState<string>("");
+  const [compagnia, setCompagnia] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [scadDa, setScadDa] = useState<Date | null>(null);
+  const [scadA, setScadA] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,17 +53,57 @@ const ClientePolizze = () => {
     load();
   }, [user]);
 
+  const ramiOptions = useMemo(() => {
+    const set = new Map<string, string>();
+    titoli.forEach(t => { const r = (t.rami as any)?.descrizione; if (r) set.set(r, r); });
+    return [{ value: "", label: "Tutti i rami" }, ...Array.from(set.values()).sort().map(r => ({ value: r, label: r }))];
+  }, [titoli]);
+
+  const compagnieOptions = useMemo(() => {
+    const set = new Map<string, string>();
+    titoli.forEach(t => { const c = (t.compagnie as any)?.nome; if (c) set.set(c, c); });
+    return [{ value: "", label: "Tutte le compagnie" }, ...Array.from(set.values()).sort().map(c => ({ value: c, label: c }))];
+  }, [titoli]);
+
+  const statiOptions = [
+    { value: "", label: "Tutti gli stati" },
+    { value: "attivo", label: "Attivo" },
+    { value: "sospeso", label: "Sospeso" },
+    { value: "scaduto", label: "Scaduto" },
+    { value: "incassato", label: "Incassato" },
+  ];
+
+  const filtered = useMemo(() => {
+    return titoli.filter(t => {
+      if (stato && t.stato !== stato) return false;
+      if (ramo && (t.rami as any)?.descrizione !== ramo) return false;
+      if (compagnia && (t.compagnie as any)?.nome !== compagnia) return false;
+      if (scadDa && (!t.data_scadenza || new Date(t.data_scadenza) < scadDa)) return false;
+      if (scadA && (!t.data_scadenza || new Date(t.data_scadenza) > scadA)) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const hay = `${t.numero_titolo ?? ""} ${t.targa_telaio ?? ""} ${t.prodotto_nome ?? ""} ${t.descrizione_polizza ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [titoli, stato, ramo, compagnia, scadDa, scadA, search]);
+
+  const resetFiltri = () => {
+    setStato(""); setRamo(""); setCompagnia(""); setSearch(""); setScadDa(null); setScadA(null);
+  };
+
+  const filtriAttivi = stato || ramo || compagnia || search || scadDa || scadA;
+
   if (loading)
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-12 w-full rounded-lg" />
-        ))}
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
       </div>
     );
 
   const today = new Date();
-  const totale = titoli.reduce((sum, t) => sum + (t.premio_lordo ?? 0), 0);
+  const totale = filtered.reduce((sum, t) => sum + (t.premio_lordo ?? 0), 0);
 
   return (
     <div className="space-y-5">
@@ -61,13 +114,34 @@ const ClientePolizze = () => {
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground uppercase tracking-wide">
-            Elenco Posizioni Assicurative Attive
+            Elenco Posizioni Assicurative
           </h1>
-          <p className="text-sm text-muted-foreground">{titoli.length} polizze trovate</p>
+          <p className="text-sm text-muted-foreground">{filtered.length} di {titoli.length} polizze</p>
         </div>
       </div>
 
-      {titoli.length === 0 ? (
+      {/* Filtri */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <SearchableSelect options={statiOptions} value={stato} onValueChange={setStato} placeholder="Stato" />
+            <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Ramo" />
+            <SearchableSelect options={compagnieOptions} value={compagnia} onValueChange={setCompagnia} placeholder="Compagnia" />
+            <Input placeholder="Cerca polizza / targa / prodotto" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="flex gap-2">
+              <DatePicker value={scadDa} onChange={setScadDa} placeholder="Scad. da" />
+              <DatePicker value={scadA} onChange={setScadA} placeholder="Scad. a" />
+            </div>
+            {filtriAttivi && (
+              <Button variant="ghost" size="sm" onClick={resetFiltri} className="gap-1.5 self-center">
+                <X className="h-4 w-4" /> Reset filtri
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-12">Nessuna polizza trovata.</p>
       ) : (
         <div className="rounded-lg border overflow-hidden shadow-sm">
@@ -85,84 +159,50 @@ const ClientePolizze = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {titoli.map((t, idx) => {
+                {filtered.map((t, idx) => {
                   const giorni = t.data_scadenza ? differenceInDays(new Date(t.data_scadenza), today) : null;
                   const compagnia = (t.compagnie as any)?.nome ?? "—";
                   const prodotto = (t.rami as any)?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "—";
                   const polizzaTarga = [t.numero_titolo, t.targa_telaio].filter(Boolean).join(" / ") || "N/D";
 
                   return (
-                    <TableRow
-                      key={t.id}
-                      className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"}`}
-                      onClick={() => {}}
-                    >
-                      <TableCell className="py-2.5">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <Badge className={`text-[10px] ${statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}`}>
-                            {t.stato}
-                          </Badge>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <p className="font-semibold text-sm text-foreground">{compagnia}</p>
-                          {t.produttore_nome && (
-                            <p className="text-xs text-muted-foreground">{t.produttore_nome}</p>
-                          )}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <p className="text-sm font-medium text-teal-800">{prodotto}</p>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <p className="text-sm font-mono text-foreground">{polizzaTarga}</p>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-sm">
-                              {t.data_scadenza
-                                ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it })
-                                : "—"}
-                            </span>
-                          </div>
-                          {giorni !== null && giorni >= 0 && giorni <= 90 && (
-                            <Badge className={`mt-0.5 text-[10px] ${giorni <= 30 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
-                              {giorni} gg
-                            </Badge>
-                          )}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-2.5 text-center">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <span className="text-sm">{t.periodicita ?? "—"}</span>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-2.5 text-right">
-                        <Link to={`/cliente/polizze/${t.id}`} className="block">
-                          <span className="text-sm font-bold text-foreground">
-                            {t.premio_lordo ? fmt(t.premio_lordo) : "—"}
-                          </span>
-                        </Link>
-                      </TableCell>
+                    <TableRow key={t.id} className={`cursor-pointer transition-colors hover:bg-teal-50 ${idx % 2 === 0 ? "bg-white" : "bg-muted/30"}`}>
+                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <Badge className={`text-[10px] ${statoBadge[t.stato] ?? "bg-muted text-muted-foreground"}`}>{t.stato}</Badge>
+                      </Link></TableCell>
+                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <p className="font-semibold text-sm text-foreground">{compagnia}</p>
+                        {t.produttore_nome && <p className="text-xs text-muted-foreground">{t.produttore_nome}</p>}
+                      </Link></TableCell>
+                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <p className="text-sm font-medium text-teal-800">{prodotto}</p>
+                      </Link></TableCell>
+                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <p className="text-sm font-mono text-foreground">{polizzaTarga}</p>
+                      </Link></TableCell>
+                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-sm">{t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}</span>
+                        </div>
+                        {giorni !== null && giorni >= 0 && giorni <= 90 && (
+                          <Badge className={`mt-0.5 text-[10px] ${giorni <= 30 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>{giorni} gg</Badge>
+                        )}
+                      </Link></TableCell>
+                      <TableCell className="py-2.5 text-center"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <span className="text-sm">{t.periodicita ?? "—"}</span>
+                      </Link></TableCell>
+                      <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <span className="text-sm font-bold text-foreground">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</span>
+                      </Link></TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-teal-50 border-t-2 border-teal-700">
-                  <TableCell colSpan={6} className="font-bold text-sm text-teal-900 uppercase">
-                    Totale Premio Annuo Lordo
-                  </TableCell>
-                  <TableCell className="text-right font-bold text-base text-teal-900">
-                    {fmt(totale)}
-                  </TableCell>
+                  <TableCell colSpan={6} className="font-bold text-sm text-teal-900 uppercase">Totale Premio Annuo Lordo</TableCell>
+                  <TableCell className="text-right font-bold text-base text-teal-900">{fmt(totale)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
