@@ -25,12 +25,12 @@ const tipoBadge = (tipo: string | null) => {
   }
 };
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestita da usePagination (default 25)
 
 const ProvvigioniMaturatePage = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
-  const [page, setPage] = useState(0);
+  
 
   // Lookups
   const { data: rami = [], isLoading: lkRami } = useQuery({
@@ -145,8 +145,7 @@ const ProvvigioniMaturatePage = () => {
     return map[p.tipo_destinatario] || p.tipo_destinatario || "—";
   }), [filtered]);
 
-  const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const pages = Math.ceil(filtered.length / PAGE_SIZE);
+  const { page, setPage, pages, pageRows, resetPage } = usePagination(filtered);
 
   const labelDa = format(new Date(filters.da), "dd/MM/yyyy");
   const labelA = format(new Date(filters.a), "dd/MM/yyyy");
