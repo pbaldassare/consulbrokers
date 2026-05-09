@@ -213,7 +213,7 @@ const ProvvigioniMaturatePage = () => {
                       <TableCell>{p.titoli?.data_messa_cassa ? format(new Date(p.titoli.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
                       <TableCell>{tipoBadge(p.tipo_destinatario)}</TableCell>
                       <TableCell>{p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—")}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums font-semibold">{fmtEuro(p.importo_provvigione)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold font-sans">{fmtEuro(p.importo_provvigione)}</TableCell>
                       <TableCell>
                         {p.pagata ? (
                           <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">Pagata</Badge>
