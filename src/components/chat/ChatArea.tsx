@@ -14,9 +14,11 @@ import { logAttivita } from "@/lib/logAttivita";
 
 interface ChatAreaProps {
   canaleId: string | null;
+  headerSlot?: React.ReactNode;
+  highlightTerm?: string;
 }
 
-export default function ChatArea({ canaleId }: ChatAreaProps) {
+export default function ChatArea({ canaleId, headerSlot, highlightTerm }: ChatAreaProps) {
   const { profile, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [msg, setMsg] = useState("");
