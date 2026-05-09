@@ -3033,21 +3033,28 @@ const TitoloDetail = () => {
             aliquotaDefault={Number((t as any).ramo?.aliquota_tasse_ramo ?? 22.25)}
             titoloId={t.id}
             premioLordoTitolo={(t as any).premio_lordo}
+            addizionaliValue={(t as any).addizionali}
+            onAddizionaliChange={async (v) => {
+              const { error } = await supabase.from("titoli").update({ addizionali: v }).eq("id", t.id);
+              if (!error) await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
+              else toast.error("Errore aggiornamento addizionali");
+            }}
             onTotaliChange={(tot) => {
-              if (editingImporti) return;
               if (vociRcaSyncTimer.current) clearTimeout(vociRcaSyncTimer.current);
               vociRcaSyncTimer.current = setTimeout(async () => {
                 const curNetto = Number((titolo as any)?.premio_netto ?? 0);
                 const curTasse = Number((titolo as any)?.tasse ?? 0);
+                const curAdd = Number((titolo as any)?.addizionali ?? 0);
                 const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
+                const newLordo = round2(tot.lordo + curAdd);
                 if (
                   Math.abs(curNetto - tot.netto) < 0.01 &&
                   Math.abs(curTasse - tot.tasse) < 0.01 &&
-                  Math.abs(curLordo - tot.lordo) < 0.01
+                  Math.abs(curLordo - newLordo) < 0.01
                 ) return;
                 const { error } = await supabase
                   .from("titoli")
-                  .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: tot.lordo })
+                  .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: newLordo })
                   .eq("id", t.id);
                 if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
               }, 800);
@@ -3069,8 +3076,13 @@ const TitoloDetail = () => {
             mainLabel={(t as any).ramo?.descrizione || "Premio"}
             aliquotaDefault={Number((t as any).ramo?.aliquota_tasse_ramo ?? 22.25)}
             titoloId={t.id}
+            addizionaliValue={(t as any).addizionali_quietanza}
+            onAddizionaliChange={async (v) => {
+              const { error } = await supabase.from("titoli").update({ addizionali_quietanza: v }).eq("id", t.id);
+              if (!error) await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
+              else toast.error("Errore aggiornamento addizionali");
+            }}
             onTotaliChange={(tot) => {
-              if (editingImporti) return;
               if (vociRcaQuietanzaTimer.current) clearTimeout(vociRcaQuietanzaTimer.current);
               vociRcaQuietanzaTimer.current = setTimeout(async () => {
                 const curNetto = Number((titolo as any)?.premio_netto_quietanza ?? 0);
@@ -3084,7 +3096,6 @@ const TitoloDetail = () => {
                   .update({
                     premio_netto_quietanza: tot.netto,
                     tasse_quietanza: tot.tasse,
-                    addizionali_quietanza: 0,
                   })
                   .eq("id", t.id);
                 if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
