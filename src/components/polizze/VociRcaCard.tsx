@@ -608,10 +608,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[35%]">Voce</TableHead>
+                  <TableHead className="w-[28%]">Voce</TableHead>
                   <TableHead className="text-right">Premio Netto</TableHead>
-                  <TableHead className="text-right w-[120px]">Aliquota %</TableHead>
+                  <TableHead className="text-right w-[110px]">Aliquota %</TableHead>
                   <TableHead className="text-right">Premio Lordo</TableHead>
+                  {mostraCampiCapitaleRata && <TableHead className="text-right">Capitale</TableHead>}
+                  {mostraCampiCapitaleRata && <TableHead className="text-right w-[90px]">Tasso ‰</TableHead>}
+                  {mostraCampiCapitaleRata && <TableHead className="text-right">Rata</TableHead>}
+                  {mostraCampiCapitaleRata && <TableHead className="text-right">Annuo</TableHead>}
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
