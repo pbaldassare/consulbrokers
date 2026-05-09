@@ -18,6 +18,9 @@ import { toast } from "sonner";
 import { Plus, FileText, DollarSign, Users } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { fmtEuro } from "@/lib/formatCurrency";
+import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
+import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 
 const PagamentiProvvigioniList = () => {
   const { isAdmin } = useAuth();
