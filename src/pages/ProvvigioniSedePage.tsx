@@ -319,7 +319,7 @@ const ProvvigioniSedePage = () => {
           <Card>
             <CardContent className="p-0">
               {isLoading ? (
-                <TableRowsSkeleton rows={10} cols={10} />
+                <TableRowsSkeleton rows={10} cellTypes={["short","text","text","text","badge","num","num","short","num","num"]} />
               ) : (
                 <Table>
                   <TableHeader>
