@@ -2458,6 +2458,7 @@ export type Database = {
         Row: {
           bucket_name: string
           caricato_da: string | null
+          caricato_da_cliente: boolean
           categoria: string | null
           created_at: string | null
           entita_id: string
@@ -2470,6 +2471,7 @@ export type Database = {
         Insert: {
           bucket_name?: string
           caricato_da?: string | null
+          caricato_da_cliente?: boolean
           categoria?: string | null
           created_at?: string | null
           entita_id: string
@@ -2482,6 +2484,7 @@ export type Database = {
         Update: {
           bucket_name?: string
           caricato_da?: string | null
+          caricato_da_cliente?: boolean
           categoria?: string | null
           created_at?: string | null
           entita_id?: string
@@ -5352,6 +5355,68 @@ export type Database = {
           },
         ]
       }
+      richieste_modifica_cliente: {
+        Row: {
+          campo: string
+          campo_label: string | null
+          cliente_id: string
+          created_at: string
+          documento_url: string | null
+          gestita_da: string | null
+          gestita_il: string | null
+          id: string
+          motivazione: string | null
+          note_agenzia: string | null
+          richiesto_da: string
+          stato: string
+          updated_at: string
+          valore_attuale: string | null
+          valore_proposto: string
+        }
+        Insert: {
+          campo: string
+          campo_label?: string | null
+          cliente_id: string
+          created_at?: string
+          documento_url?: string | null
+          gestita_da?: string | null
+          gestita_il?: string | null
+          id?: string
+          motivazione?: string | null
+          note_agenzia?: string | null
+          richiesto_da: string
+          stato?: string
+          updated_at?: string
+          valore_attuale?: string | null
+          valore_proposto: string
+        }
+        Update: {
+          campo?: string
+          campo_label?: string | null
+          cliente_id?: string
+          created_at?: string
+          documento_url?: string | null
+          gestita_da?: string | null
+          gestita_il?: string | null
+          id?: string
+          motivazione?: string | null
+          note_agenzia?: string | null
+          richiesto_da?: string
+          stato?: string
+          updated_at?: string
+          valore_attuale?: string | null
+          valore_proposto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "richieste_modifica_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rimessa_dettaglio: {
         Row: {
           id: string
@@ -5597,6 +5662,7 @@ export type Database = {
       }
       sinistri: {
         Row: {
+          aperto_da_cliente: boolean
           cap_sinistro: string | null
           citta_sinistro: string | null
           cliente_anagrafica_id: string | null
@@ -5636,6 +5702,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          aperto_da_cliente?: boolean
           cap_sinistro?: string | null
           citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
@@ -5675,6 +5742,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          aperto_da_cliente?: boolean
           cap_sinistro?: string | null
           citta_sinistro?: string | null
           cliente_anagrafica_id?: string | null
