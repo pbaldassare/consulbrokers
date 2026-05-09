@@ -119,7 +119,7 @@ const ProvvigioniSedePage = () => {
         .gte("data_messa_cassa", da);
       if (filters.ramoId) q = q.eq("ramo_id", filters.ramoId);
       if (filters.compagniaId) q = q.eq("compagnia_id", filters.compagniaId);
-      if (filters.produttoreId) q = q.eq("commerciale_id", filters.produttoreId);
+      if (filters.produttoreId) q = q.eq("anagrafica_commerciale_id", filters.produttoreId);
       const { data } = await q.limit(5000);
       const buckets = new Map<string, number>();
       for (const t of data || []) {
