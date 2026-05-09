@@ -587,18 +587,22 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   </Button>
                 );
               })()}
-              <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
-              <span className="text-muted-foreground sm:hidden">IPT:</span>
-              <Input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                className="h-8 w-16 sm:w-20 text-right"
-                defaultValue={aliquotaProv}
-                onBlur={(e) => handleAliquotaProvChange(Number(e.target.value || 0))}
-              />
-              <span className="text-muted-foreground">%</span>
-              {provinciaCliente && <Badge variant="outline" className="text-[10px]">{provinciaCliente}</Badge>}
+              {useAutoTaxFormula && (
+                <>
+                  <span className="text-muted-foreground hidden sm:inline">Imposta provinciale:</span>
+                  <span className="text-muted-foreground sm:hidden">IPT:</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    className="h-8 w-16 sm:w-20 text-right"
+                    defaultValue={aliquotaProv}
+                    onBlur={(e) => handleAliquotaProvChange(Number(e.target.value || 0))}
+                  />
+                  <span className="text-muted-foreground">%</span>
+                  {provinciaCliente && <Badge variant="outline" className="text-[10px]">{provinciaCliente}</Badge>}
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
