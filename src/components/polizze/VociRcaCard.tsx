@@ -1204,7 +1204,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   <AlertCircle className="h-3 w-3" /> Netto + Tasse ≠ Lordo (errore di arrotondamento)
                 </p>
               )}
+            </div>
           </div>
+            );
+          })()}
 
           {/* Provvigioni */}
           <div className={cn(
@@ -1228,7 +1231,6 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 if (!isNaN(v)) onProvvigioniChange?.(v);
               }}
             />
-          </div>
           </div>
         </CardContent>
       </Card>
