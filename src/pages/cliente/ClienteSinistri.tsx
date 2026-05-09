@@ -5,11 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, ShieldCheck, Clock, DollarSign, ChevronDown, ChevronRight, MapPin, User, FileText, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinistroDialog";
+import SinistroDocumentiCliente from "@/components/cliente/SinistroDocumentiCliente";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -27,8 +28,9 @@ const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", c
 export default function ClienteSinistri() {
   const { user } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openNuovo, setOpenNuovo] = useState(false);
 
-  const { data: sinistri = [] } = useQuery({
+  const { data: sinistri = [], refetch } = useQuery({
     queryKey: ["cliente-sinistri", user?.id],
     queryFn: async () => {
       const { data: clienteIds } = await supabase.rpc("get_my_cliente_ids");
@@ -81,15 +83,22 @@ export default function ClienteSinistri() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">I Miei Sinistri</h1>
+            <p className="text-sm text-muted-foreground">{sinistri.length} sinistri registrati</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold">I Miei Sinistri</h1>
-          <p className="text-sm text-muted-foreground">{sinistri.length} sinistri registrati</p>
-        </div>
+        <Button onClick={() => setOpenNuovo(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Apri nuovo sinistro
+        </Button>
       </div>
+
+      <NuovaDenunciaSinistroDialog open={openNuovo} onOpenChange={setOpenNuovo} onCreated={() => refetch()} />
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -249,6 +258,9 @@ export default function ClienteSinistri() {
                                   <p className="text-sm italic">{s.note_perito}</p>
                                 </div>
                               )}
+
+                              {/* Documenti del sinistro */}
+                              <SinistroDocumentiCliente sinistroId={s.id} />
                             </div>
                           </TableCell>
                         </TableRow>
