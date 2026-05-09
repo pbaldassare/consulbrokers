@@ -273,7 +273,7 @@ const ProvvigioniSedePage = () => {
                 {byCliente.map((c, i) => (
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{c.name}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold text-primary">{fmtEuro(c.value)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(c.value)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? c.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
