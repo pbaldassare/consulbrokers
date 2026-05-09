@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Pause, Play, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
 import { useTour } from "./AppTourContext";
 
 const AUTO_ADVANCE_MIN = 3800;
 const MS_PER_CHAR = 38;
 
 const AppTour = () => {
-  const { isActive, currentStep, steps, totalSteps, nextStep, stopTour } = useTour();
+  const { isActive, currentStep, steps, totalSteps, nextStep, prevStep, stopTour } = useTour();
   const navigate = useNavigate();
   const location = useLocation();
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -75,6 +75,9 @@ const AppTour = () => {
         rafRef.current = window.setTimeout(findAndHighlight, 150);
         return;
       }
+      console.warn(
+        `[AppTour] data-tour="${step.selector}" non trovato su ${location.pathname} dopo ${retryRef.current} tentativi (step ${currentStep + 1}/${totalSteps}). Salto allo step successivo.`
+      );
       setShowTooltip(false);
       nextStep();
       return;
@@ -254,18 +257,25 @@ const AppTour = () => {
                 style={{ width: `${(1 - countdown) * 100}%`, transition: paused ? "none" : undefined }}
               />
             </div>
-            <div className="px-4 py-2 flex items-center justify-between">
+            <div className="px-3 py-2 flex items-center justify-between gap-2">
               <button
-                onClick={(e) => { e.stopPropagation(); nextStep(); }}
-                className="text-[12px] text-primary font-semibold hover:underline"
+                onClick={(e) => { e.stopPropagation(); prevStep(); }}
+                disabled={currentStep === 0}
+                className="inline-flex items-center gap-1 text-[12px] text-muted-foreground font-medium hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-2 py-1 rounded-md hover:bg-muted"
               >
-                Avanti →
+                <ChevronLeft className="h-3.5 w-3.5" /> Indietro
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); stopTour(); }}
-                className="text-[12px] text-muted-foreground font-medium hover:text-foreground transition-colors"
+                className="text-[11px] text-muted-foreground font-medium hover:text-foreground transition-colors"
               >
-                Salta tour
+                Salta
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); nextStep(); }}
+                className="inline-flex items-center gap-1 text-[12px] text-primary-foreground font-semibold bg-primary hover:bg-primary/90 transition-colors px-3 py-1 rounded-md"
+              >
+                {currentStep + 1 === totalSteps ? "Fine" : "Avanti"} <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
