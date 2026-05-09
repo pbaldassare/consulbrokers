@@ -21,7 +21,7 @@ import { it } from "date-fns/locale";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const PAGE_SIZE = 25;
 
@@ -57,7 +57,7 @@ const PagamentiProvvigioniList = () => {
   });
 
   // Fetch users with unpaid commissions
-  const { data: utenti = [] } = useQuery({
+  const { data: utenti = [], isLoading: utentiLoading } = useQuery({
     queryKey: ["utenti_provvigioni"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -300,6 +300,7 @@ const PagamentiProvvigioniList = () => {
       </div>
 
       {/* Filtri */}
+      {utentiLoading ? <FiltersBarSkeleton /> : (
       <div className="rounded-lg border bg-card p-4 flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
@@ -337,6 +338,7 @@ const PagamentiProvvigioniList = () => {
           <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFilterDa(""); setFilterA(""); setFilterBeneficiario(""); setFilterMetodo(""); setPage(0); }}>Reset</Button>
         )}
       </div>
+      )}
 
       {(() => {
         const filteredDistinte = distinte.filter((d: any) => {

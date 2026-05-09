@@ -13,8 +13,10 @@ import { fmtEuro, fmtPct } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { TableRowsSkeleton, KpiCardSkeleton, ChartSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useNavigate } from "react-router-dom";
+
+const PAGE_SIZE = 25;
 
 type Row = any;
 
@@ -56,27 +58,29 @@ const ProvvigioniSedePage = () => {
   const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
 
   // Lookup options
-  const { data: rami = [] } = useQuery({
+  const { data: rami = [], isLoading: lkRami } = useQuery({
     queryKey: ["lookup-rami"],
     queryFn: async () => {
       const { data } = await supabase.from("rami").select("id, codice, descrizione").order("codice");
       return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
     },
   });
-  const { data: compagnie = [] } = useQuery({
+  const { data: compagnie = [], isLoading: lkComp } = useQuery({
     queryKey: ["lookup-compagnie-active"],
     queryFn: async () => {
       const { data } = await supabase.from("compagnie").select("id, nome").order("nome");
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });
-  const { data: produttori = [] } = useQuery({
+  const { data: produttori = [], isLoading: lkProd } = useQuery({
     queryKey: ["lookup-produttori"],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
       return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
     },
   });
+  const lookupsLoading = lkRami || lkComp || lkProd;
+  const [page, setPage] = useState(0);
 
   // Main query - filtered titoli incassati
   const { data: titoli = [], isLoading } = useQuery({
@@ -192,18 +196,33 @@ const ProvvigioniSedePage = () => {
         </Button>
       </div>
 
-      <ProvvigioniFiltersBar filters={filters} onChange={setFilters} rami={rami} compagnie={compagnie} produttori={produttori} />
+      {lookupsLoading ? (
+        <FiltersBarSkeleton />
+      ) : (
+        <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} compagnie={compagnie} produttori={produttori} />
+      )}
 
       {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <ProvvigioniKpiCard icon={Landmark} label="Provv. Consul" value={fmtEuro(totals.consul)} accent="primary" hint={fmtPct(totals.agenzia ? totals.consul / totals.agenzia * 100 : 0)} />
-        <ProvvigioniKpiCard icon={Users} label="Provv. Commerciali" value={fmtEuro(totals.comm)} hint={fmtPct(totals.agenzia ? totals.comm / totals.agenzia * 100 : 0)} />
-        <ProvvigioniKpiCard icon={TrendingUp} label="Tot. Agenzia" value={fmtEuro(totals.agenzia)} />
-        <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
-        <ProvvigioniKpiCard icon={Receipt} label="N° Polizze" value={String(filteredTitoli.length)} />
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => <KpiCardSkeleton key={i} />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <ProvvigioniKpiCard icon={Landmark} label="Provv. Consul" value={fmtEuro(totals.consul)} accent="primary" hint={fmtPct(totals.agenzia ? totals.consul / totals.agenzia * 100 : 0)} />
+          <ProvvigioniKpiCard icon={Users} label="Provv. Commerciali" value={fmtEuro(totals.comm)} hint={fmtPct(totals.agenzia ? totals.comm / totals.agenzia * 100 : 0)} />
+          <ProvvigioniKpiCard icon={TrendingUp} label="Tot. Agenzia" value={fmtEuro(totals.agenzia)} />
+          <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
+          <ProvvigioniKpiCard icon={Receipt} label="N° Polizze" value={String(filteredTitoli.length)} />
+        </div>
+      )}
 
       {/* Tabs Distribuzione */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartSkeleton /><ChartSkeleton />
+        </div>
+      ) : (
       <Tabs defaultValue="ramo">
         <TabsList>
           <TabsTrigger value="ramo">Per Ramo</TabsTrigger>
@@ -229,7 +248,7 @@ const ProvvigioniSedePage = () => {
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{r.name}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(r.value)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? r.value / totals.consul * 100 : 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans">{fmtPct(totals.consul ? r.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
                 {byRamo.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Nessun dato</TableCell></TableRow>}
@@ -252,7 +271,7 @@ const ProvvigioniSedePage = () => {
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{p.name}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(p.value)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? p.value / totals.consul * 100 : 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans">{fmtPct(totals.consul ? p.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
                 {byProduttore.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Nessun dato</TableCell></TableRow>}
@@ -275,7 +294,7 @@ const ProvvigioniSedePage = () => {
                   <TableRow key={i} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                     <TableCell>{c.name}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-primary font-sans">{fmtEuro(c.value)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmtPct(totals.consul ? c.value / totals.consul * 100 : 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-sans">{fmtPct(totals.consul ? c.value / totals.consul * 100 : 0)}</TableCell>
                   </TableRow>
                 ))}
                 {byCliente.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Nessun dato</TableCell></TableRow>}
@@ -288,58 +307,75 @@ const ProvvigioniSedePage = () => {
           <ProvvigioniLineChart title="Trend Provv. Consul - ultimi 12 mesi" data={trend12} />
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Dettaglio polizze */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <TableRowsSkeleton rows={10} cols={10} />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Polizza</TableHead>
-                  <TableHead>Compagnia</TableHead>
-                  <TableHead>Ramo</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Commerciale</TableHead>
-                  <TableHead className="text-right">Premio</TableHead>
-                  <TableHead className="text-right">Provv. Agenzia</TableHead>
-                  <TableHead className="text-right">% C.</TableHead>
-                  <TableHead className="text-right">Provv. Comm.</TableHead>
-                  <TableHead className="text-right">Provv. Consul</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTitoli.map((t: any, i: number) => {
-                  const provvAg = t.provvigioni_firma || 0;
-                  const pc = t.percentuale_commerciale ?? 100;
-                  const cli = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
-                  return (
-                    <TableRow key={t.id} className={`cursor-pointer hover:bg-muted/50 ${i % 2 === 0 ? "bg-muted/20" : ""}`} onClick={() => navigate(`/portafoglio/${t.id}`)}>
-                      <TableCell className="font-mono text-xs">{t.numero_titolo || t.id.slice(0, 8)}</TableCell>
-                      <TableCell className="text-xs">{t.compagnia_diretta?.nome || "—"}</TableCell>
-                      <TableCell className="text-xs">{t.ramo?.descrizione || "—"}</TableCell>
-                      <TableCell className="text-xs">{cli || "—"}</TableCell>
-                      <TableCell className="text-xs">
-                        {t.commerciale ? `${t.commerciale.cognome} ${t.commerciale.nome}` : <Badge variant="secondary" className="text-[10px]">Consul</Badge>}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(t.premio_lordo)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{pc}%</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg * pc / 100)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-xs font-semibold text-primary font-sans">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
+      {(() => {
+        const pages = Math.ceil(filteredTitoli.length / PAGE_SIZE);
+        const safePage = Math.min(page, Math.max(0, pages - 1));
+        const pageRows = filteredTitoli.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+        return (
+          <Card>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <TableRowsSkeleton rows={10} cols={10} />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Polizza</TableHead>
+                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Ramo</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Commerciale</TableHead>
+                      <TableHead className="text-right">Premio</TableHead>
+                      <TableHead className="text-right">Provv. Agenzia</TableHead>
+                      <TableHead className="text-right">% C.</TableHead>
+                      <TableHead className="text-right">Provv. Comm.</TableHead>
+                      <TableHead className="text-right">Provv. Consul</TableHead>
                     </TableRow>
-                  );
-                })}
-                {filteredTitoli.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun dato per i filtri selezionati</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {pageRows.map((t: any, i: number) => {
+                      const provvAg = t.provvigioni_firma || 0;
+                      const pc = t.percentuale_commerciale ?? 100;
+                      const cli = t.clienti?.ragione_sociale || `${t.clienti?.cognome || ""} ${t.clienti?.nome || ""}`.trim();
+                      return (
+                        <TableRow key={t.id} className={`cursor-pointer hover:bg-muted/50 ${i % 2 === 0 ? "bg-muted/20" : ""}`} onClick={() => navigate(`/portafoglio/${t.id}`)}>
+                          <TableCell className="font-mono text-xs">{t.numero_titolo || t.id.slice(0, 8)}</TableCell>
+                          <TableCell className="text-xs">{t.compagnia_diretta?.nome || "—"}</TableCell>
+                          <TableCell className="text-xs">{t.ramo?.descrizione || "—"}</TableCell>
+                          <TableCell className="text-xs">{cli || "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            {t.commerciale ? `${t.commerciale.cognome} ${t.commerciale.nome}` : <Badge variant="secondary" className="text-[10px]">Consul</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{fmtEuro(t.premio_lordo)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{fmtEuro(provvAg)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{pc}%</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-sans">{fmtEuro(provvAg * pc / 100)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-semibold text-primary font-sans">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {filteredTitoli.length === 0 && (
+                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nessun dato per i filtri selezionati</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+              {!isLoading && pages > 1 && (
+                <div className="flex items-center justify-between p-3 border-t">
+                  <span className="text-xs text-muted-foreground">Pagina {safePage + 1} di {pages} · {filteredTitoli.length} polizze</span>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Prec</Button>
+                    <Button size="sm" variant="outline" disabled={safePage + 1 >= pages} onClick={() => setPage(p => p + 1)}>Succ</Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 };
