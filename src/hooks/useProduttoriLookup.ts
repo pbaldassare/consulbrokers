@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 export type ProduttoreOption = { value: string; label: string };
 
@@ -17,7 +19,7 @@ export type ProduttoreOption = { value: string; label: string };
  * nel gestionale.
  */
 export const useProduttoriLookup = () => {
-  return useQuery({
+  const q = useQuery({
     queryKey: ["lookup-produttori-anagrafiche"],
     queryFn: async (): Promise<ProduttoreOption[]> => {
       const { data, error } = await supabase
@@ -36,5 +38,10 @@ export const useProduttoriLookup = () => {
       opts.sort((a, b) => a.label.localeCompare(b.label, "it"));
       return opts;
     },
+    staleTime: 5 * 60 * 1000,
   });
+  useEffect(() => {
+    if (q.error) toast.error("Errore caricamento Produttori", { description: (q.error as Error).message });
+  }, [q.error]);
+  return q;
 };
