@@ -327,7 +327,7 @@ const ProvvigioniSedePage = () => {
                       <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-xs">{pc}%</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-xs">{fmtEuro(provvAg * pc / 100)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-xs font-semibold text-primary">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs font-semibold text-primary font-sans">{fmtEuro(provvAg * (100 - pc) / 100)}</TableCell>
                     </TableRow>
                   );
                 })}
