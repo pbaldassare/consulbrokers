@@ -1013,10 +1013,10 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
             })}
           </div>
 
-          <div className="p-3 border-t">
+          <div className="p-3 border-t flex flex-wrap gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="gap-1">
                   <Plus className="h-4 w-4" /> Aggiungi voce
                 </Button>
               </PopoverTrigger>
@@ -1038,6 +1038,14 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 </Command>
               </PopoverContent>
             </Popover>
+            {!useAutoTaxFormula && (
+              <Button
+                variant="outline" size="sm" className="gap-1"
+                onClick={() => addMut.mutate({ codice: `LIB-${Date.now().toString(36).slice(-4).toUpperCase()}`, descrizione: "Nuova garanzia", aliquota_tasse: ALIQ_DEFAULT })}
+              >
+                <Plus className="h-4 w-4" /> Voce libera
+              </Button>
+            )}
           </div>
 
           {/* Totali */}
