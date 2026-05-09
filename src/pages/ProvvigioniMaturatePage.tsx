@@ -1,136 +1,194 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Users, ChevronLeft, ChevronRight, CreditCard, ArrowRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { TrendingUp, Users, CreditCard, ArrowRight, Briefcase, Receipt } from "lucide-react";
+import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-
-const fmtEuro = (v: number | null) => v != null ? `€ ${v.toFixed(2)}` : "—";
+import { fmtEuro } from "@/lib/formatCurrency";
+import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
+import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/components/provvigioni/ProvvigioniFiltersBar";
+import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
-    case "commerciale":
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-300" variant="outline">Commerciale</Badge>;
-    case "admin":
-      return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300" variant="outline">Consulbrokers SPA</Badge>;
-    case "sede":
-      return <Badge className="bg-purple-100 text-purple-800 border-purple-300" variant="outline">Sede</Badge>;
-    case "consul":
-      return <Badge className="bg-amber-100 text-amber-800 border-amber-300" variant="outline">Consul (legacy)</Badge>;
-    default:
-      return <Badge className="bg-gray-100 text-gray-600 border-gray-300" variant="outline">—</Badge>;
+    case "commerciale": return <Badge className="bg-blue-100 text-blue-800 border-blue-300" variant="outline">Commerciale</Badge>;
+    case "admin": return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300" variant="outline">Consulbrokers SPA</Badge>;
+    case "sede": return <Badge className="bg-purple-100 text-purple-800 border-purple-300" variant="outline">Sede</Badge>;
+    case "consul": return <Badge className="bg-amber-100 text-amber-800 border-amber-300" variant="outline">Consul (legacy)</Badge>;
+    default: return <Badge variant="outline">—</Badge>;
   }
 };
 
+const PAGE_SIZE = 25;
+
 const ProvvigioniMaturatePage = () => {
   const navigate = useNavigate();
-  const [meseCorrente, setMeseCorrente] = useState(new Date());
+  const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
+  const [page, setPage] = useState(0);
 
-  const meseDa = format(startOfMonth(meseCorrente), "yyyy-MM-dd");
-  const meseA = format(endOfMonth(meseCorrente), "yyyy-MM-dd");
-  const meseLabel = format(meseCorrente, "MMMM yyyy", { locale: it });
+  // Lookups
+  const { data: rami = [] } = useQuery({
+    queryKey: ["lookup-rami"],
+    queryFn: async () => {
+      const { data } = await supabase.from("rami").select("id, codice, descrizione").order("codice");
+      return (data || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }));
+    },
+  });
+  const { data: produttori = [] } = useQuery({
+    queryKey: ["lookup-produttori"],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
+      return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
+    },
+  });
 
   const { data: provvigioni = [], isLoading } = useQuery({
-    queryKey: ["provvigioni-maturate", meseDa, meseA],
+    queryKey: ["provvigioni-maturate", filters],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("provvigioni_generate")
         .select(`
-          id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario, solo_statistico,
+          id, percentuale, importo_provvigione, calcolata_il, pagata, tipo_destinatario, solo_statistico, user_id,
           titoli!inner(
-            id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome,
+            id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome, ramo_id, compagnia_id, cliente_id,
             compagnie!titoli_compagnia_id_fkey(nome),
-            rami!titoli_ramo_id_fkey(codice, descrizione)
+            rami!titoli_ramo_id_fkey(codice, descrizione),
+            clienti:clienti!titoli_cliente_id_fkey(id, nome, cognome, ragione_sociale)
           ),
           profiles!provvigioni_generate_user_id_fkey(nome, cognome)
         `)
-        .eq("pagata", false)
         .eq("solo_statistico", false)
-        .gte("titoli.data_messa_cassa", meseDa)
-        .lte("titoli.data_messa_cassa", meseA)
-        .order("calcolata_il", { ascending: true })
-        .limit(500);
+        .gte("titoli.data_messa_cassa", filters.da)
+        .lte("titoli.data_messa_cassa", filters.a);
+      if (filters.ramoId) q = q.eq("titoli.ramo_id", filters.ramoId);
+      if (filters.produttoreId) q = q.eq("user_id", filters.produttoreId);
+      if (filters.tipoDestinatario) q = q.eq("tipo_destinatario", filters.tipoDestinatario);
+      const { data } = await q.order("calcolata_il", { ascending: false }).limit(1000);
       return data || [];
     },
   });
 
-  // Sort by data_messa_cassa client-side
-  const sorted = [...provvigioni].sort((a: any, b: any) => {
-    const dA = a.titoli?.data_messa_cassa || "";
-    const dB = b.titoli?.data_messa_cassa || "";
-    return dA.localeCompare(dB);
+  // Trend 12 mesi (independent)
+  const { data: trend12 = [] } = useQuery({
+    queryKey: ["provvigioni-maturate-trend", filters.produttoreId, filters.ramoId, filters.tipoDestinatario],
+    queryFn: async () => {
+      const da = format(startOfMonth(subMonths(new Date(), 11)), "yyyy-MM-dd");
+      let q = supabase
+        .from("provvigioni_generate")
+        .select("importo_provvigione, titoli!inner(data_messa_cassa, ramo_id), tipo_destinatario, user_id")
+        .eq("solo_statistico", false)
+        .gte("titoli.data_messa_cassa", da);
+      if (filters.ramoId) q = q.eq("titoli.ramo_id", filters.ramoId);
+      if (filters.produttoreId) q = q.eq("user_id", filters.produttoreId);
+      if (filters.tipoDestinatario) q = q.eq("tipo_destinatario", filters.tipoDestinatario);
+      const { data } = await q.limit(5000);
+      const buckets = new Map<string, number>();
+      for (const p of (data as any[]) || []) {
+        const d = p.titoli?.data_messa_cassa;
+        if (!d) continue;
+        const k = d.slice(0, 7);
+        buckets.set(k, (buckets.get(k) || 0) + (p.importo_provvigione || 0));
+      }
+      return [...buckets.entries()].sort().map(([mese, value]) => ({
+        mese: format(new Date(mese + "-01"), "MMM yy", { locale: it }),
+        value,
+      }));
+    },
   });
 
-  const totMaturato = sorted.reduce((s, p: any) => s + (p.importo_provvigione || 0), 0);
-  const utentiUnici = new Set(sorted.map((p: any) => p.profiles?.cognome).filter(Boolean)).size;
+  const filtered = useMemo(() => {
+    if (!filters.search.trim()) return provvigioni;
+    const s = filters.search.toLowerCase();
+    return provvigioni.filter((p: any) => {
+      const cli = (p.titoli?.clienti?.ragione_sociale || `${p.titoli?.clienti?.cognome || ""} ${p.titoli?.clienti?.nome || ""}`).toLowerCase();
+      return (p.titoli?.numero_titolo || "").toLowerCase().includes(s) || cli.includes(s);
+    });
+  }, [provvigioni, filters.search]);
+
+  const totals = useMemo(() => {
+    const t = filtered.reduce((acc: any, p: any) => {
+      acc.maturato += p.importo_provvigione || 0;
+      acc.premio += p.titoli?.premio_lordo || 0;
+      if (p.profiles) acc.dest.add(`${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim());
+      else if (p.titoli?.produttore_nome) acc.dest.add(p.titoli.produttore_nome);
+      return acc;
+    }, { maturato: 0, premio: 0, dest: new Set<string>() });
+    return { maturato: t.maturato, premio: t.premio, destinatari: t.dest.size, count: filtered.length, medio: filtered.length ? t.maturato / filtered.length : 0 };
+  }, [filtered]);
+
+  const aggBy = (keyFn: (p: any) => string | null, labelFn: (p: any) => string) => {
+    const m = new Map<string, { name: string; value: number }>();
+    for (const p of filtered) {
+      const k = keyFn(p);
+      if (!k) continue;
+      const cur = m.get(k) || { name: labelFn(p), value: 0 };
+      cur.value += p.importo_provvigione || 0;
+      m.set(k, cur);
+    }
+    return [...m.values()].sort((a, b) => b.value - a.value);
+  };
+
+  const byProduttore = useMemo(() => aggBy(
+    (p) => p.user_id || (p.titoli?.produttore_nome ? `n:${p.titoli.produttore_nome}` : null),
+    (p) => p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—"),
+  ), [filtered]);
+  const byRamo = useMemo(() => aggBy((p) => p.titoli?.ramo_id, (p) => p.titoli?.rami?.descrizione || "—"), [filtered]);
+  const byTipo = useMemo(() => aggBy((p) => p.tipo_destinatario, (p) => {
+    const map: any = { admin: "Consulbrokers SPA", commerciale: "Commerciale", sede: "Sede", consul: "Consul (legacy)" };
+    return map[p.tipo_destinatario] || p.tipo_destinatario || "—";
+  }), [filtered]);
+
+  const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pages = Math.ceil(filtered.length / PAGE_SIZE);
+
+  const labelDa = format(new Date(filters.da), "dd/MM/yyyy");
+  const labelA = format(new Date(filters.a), "dd/MM/yyyy");
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Provvigioni Maturate</h1>
-        <Button onClick={() => navigate("/pagamenti-provvigioni")} variant="default">
-          <ArrowRight className="mr-2 h-4 w-4" /> Vai a Pagamento
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Provvigioni Maturate</h1>
+          <p className="text-sm text-muted-foreground">Provvigioni dei produttori · {labelDa} → {labelA}</p>
+        </div>
+        <Button onClick={() => navigate("/pagamenti-provvigioni")}>
+          <ArrowRight className="mr-2 h-4 w-4" /> Pagamenti
         </Button>
       </div>
 
-      {/* Month selector */}
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => setMeseCorrente(subMonths(meseCorrente, 1))}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-lg font-semibold capitalize min-w-[180px] text-center">{meseLabel}</span>
-        <Button variant="outline" size="icon" onClick={() => setMeseCorrente(addMonths(meseCorrente, 1))}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+      <ProvvigioniFiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(0); }} rami={rami} produttori={produttori} showTipo />
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <ProvvigioniKpiCard icon={TrendingUp} label="Totale Maturato" value={fmtEuro(totals.maturato)} accent="primary" />
+        <ProvvigioniKpiCard icon={CreditCard} label="N. Provvigioni" value={String(totals.count)} />
+        <ProvvigioniKpiCard icon={Users} label="Destinatari" value={String(totals.destinatari)} />
+        <ProvvigioniKpiCard icon={Briefcase} label="Premio Incassato" value={fmtEuro(totals.premio)} />
+        <ProvvigioniKpiCard icon={Receipt} label="Importo medio" value={fmtEuro(totals.medio)} />
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground">Totale Maturato</p>
-              <p className="text-xl font-bold">{fmtEuro(totMaturato)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <CreditCard className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground">N. Provvigioni</p>
-              <p className="text-xl font-bold">{sorted.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <Users className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground">Destinatari</p>
-              <p className="text-xl font-bold">{utentiUnici}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ProvvigioniBarChart title="Top Produttori" data={byProduttore.slice(0, 10)} />
+        <ProvvigioniBarChart title="Per Ramo" data={byRamo.slice(0, 10)} />
+        <ProvvigioniPieChart title="Per Tipo Destinatario" data={byTipo} />
+        <ProvvigioniLineChart title="Trend ultimi 12 mesi" data={trend12} />
       </div>
 
-      {/* Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Polizza</TableHead>
-                <TableHead>Agenzia</TableHead>
+                <TableHead>Compagnia</TableHead>
                 <TableHead>Ramo</TableHead>
+                <TableHead>Cliente</TableHead>
                 <TableHead className="text-right">Premio</TableHead>
-                <TableHead>Data Messa a Cassa</TableHead>
+                <TableHead>Messa a cassa</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Destinatario</TableHead>
                 <TableHead className="text-right">Provvigione</TableHead>
@@ -139,36 +197,45 @@ const ProvvigioniMaturatePage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8">Caricamento...</TableCell></TableRow>
-              ) : sorted.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessuna provvigione maturata nel periodo selezionato</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-8">Caricamento...</TableCell></TableRow>
+              ) : pageRows.length === 0 ? (
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessuna provvigione per i filtri selezionati</TableCell></TableRow>
               ) : (
-                sorted.map((p: any, i) => (
-                  <TableRow key={p.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
-                    <TableCell className="font-medium">{p.titoli?.numero_titolo || "—"}</TableCell>
-                    <TableCell>{(p.titoli?.compagnie as any)?.nome || "—"}</TableCell>
-                    <TableCell>{(p.titoli?.rami as any)?.descrizione || "—"}</TableCell>
-                    <TableCell className="text-right">{fmtEuro(p.titoli?.premio_lordo)}</TableCell>
-                    <TableCell>
-                      {p.titoli?.data_messa_cassa
-                        ? format(new Date(p.titoli.data_messa_cassa), "dd/MM/yyyy")
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{tipoBadge(p.tipo_destinatario)}</TableCell>
-                    <TableCell>
-                      {p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—")}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">{fmtEuro(p.importo_provvigione)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
-                        Da pagare
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
+                pageRows.map((p: any, i: number) => {
+                  const cli = p.titoli?.clienti?.ragione_sociale || `${p.titoli?.clienti?.cognome || ""} ${p.titoli?.clienti?.nome || ""}`.trim();
+                  return (
+                    <TableRow key={p.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
+                      <TableCell className="font-medium">{p.titoli?.numero_titolo || "—"}</TableCell>
+                      <TableCell>{p.titoli?.compagnie?.nome || "—"}</TableCell>
+                      <TableCell>{p.titoli?.rami?.descrizione || "—"}</TableCell>
+                      <TableCell className="text-xs">{cli || "—"}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{fmtEuro(p.titoli?.premio_lordo)}</TableCell>
+                      <TableCell>{p.titoli?.data_messa_cassa ? format(new Date(p.titoli.data_messa_cassa), "dd/MM/yyyy") : "—"}</TableCell>
+                      <TableCell>{tipoBadge(p.tipo_destinatario)}</TableCell>
+                      <TableCell>{p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—")}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums font-semibold">{fmtEuro(p.importo_provvigione)}</TableCell>
+                      <TableCell>
+                        {p.pagata ? (
+                          <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">Pagata</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">Da pagare</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
+          {pages > 1 && (
+            <div className="flex items-center justify-between p-3 border-t">
+              <span className="text-xs text-muted-foreground">Pagina {page + 1} di {pages} · {filtered.length} righe</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Prec</Button>
+                <Button size="sm" variant="outline" disabled={page + 1 >= pages} onClick={() => setPage(p => p + 1)}>Succ</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
