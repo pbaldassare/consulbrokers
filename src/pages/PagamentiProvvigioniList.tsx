@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePagination } from "@/hooks/usePagination";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
@@ -23,7 +24,7 @@ import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard"
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestita da usePagination (default 25)
 
 const PagamentiProvvigioniList = () => {
   const { isAdmin } = useAuth();
