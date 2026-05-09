@@ -74,13 +74,7 @@ const ProvvigioniSedePage = () => {
       return (data || []).map((c) => ({ value: c.id, label: c.nome }));
     },
   });
-  const { data: produttori = [], isLoading: lkProd } = useQuery({
-    queryKey: ["lookup-produttori"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, nome, cognome").eq("attivo", true).order("cognome");
-      return (data || []).map((p) => ({ value: p.id, label: `${p.cognome || ""} ${p.nome || ""}`.trim() }));
-    },
-  });
+  const { data: produttori = [], isLoading: lkProd } = useProduttoriLookup();
   
   
 
