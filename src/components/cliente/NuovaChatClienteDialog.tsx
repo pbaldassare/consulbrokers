@@ -34,7 +34,8 @@ export default function NuovaChatClienteDialog({ open, onClose, onCreated }: Pro
     queryKey: ["my_cliente_ids", user?.id],
     queryFn: async () => {
       const { data } = await supabase.rpc("get_my_cliente_ids");
-      return (data || []) as string[];
+      const arr: any[] = data || [];
+      return arr.map((x) => (typeof x === "string" ? x : x.get_my_cliente_ids ?? x.id ?? x)).filter(Boolean) as string[];
     },
     enabled: open && !!user?.id,
   });
