@@ -15,13 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, FileText, DollarSign, Users } from "lucide-react";
+import { Plus, FileText, DollarSign, Users, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { ProvvigioniKpiCard } from "@/components/provvigioni/ProvvigioniKpiCard";
 import { ProvvigioniBarChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
-import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton, FiltersBarSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
+import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 
 const PAGE_SIZE = 25;
 
