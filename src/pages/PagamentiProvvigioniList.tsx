@@ -359,13 +359,7 @@ const PagamentiProvvigioniList = () => {
       </div>
 
       {(() => {
-        const filteredDistinte = distinte.filter((d: any) => {
-          if (filterBeneficiario && d.pagato_a_user_id !== filterBeneficiario) return false;
-          if (filterMetodo && d.metodo !== filterMetodo) return false;
-          if (filterDa && d.created_at < filterDa) return false;
-          if (filterA && d.created_at > filterA + "T23:59:59") return false;
-          return true;
-        });
+        // filteredDistinte / paginazione gestiti dall'hook usePagination al top del componente
         const totFiltered = filteredDistinte.reduce((s: number, d: any) => s + (d.totale_importo || 0), 0);
 
         // Aggregations for charts (on full filtered set, not paginated)
@@ -383,10 +377,6 @@ const PagamentiProvvigioniList = () => {
           value: v,
         }));
         const metodoData = [...byMetodo.entries()].map(([name, value]) => ({ name, value }));
-
-        const pages = Math.ceil(filteredDistinte.length / PAGE_SIZE);
-        const safePage = Math.min(page, Math.max(0, pages - 1));
-        const pageRows = filteredDistinte.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
         if (isLoading) {
           return (
