@@ -113,6 +113,8 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   const [toDelete, setToDelete] = useState<Voce | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const mostraAddizionali = !!onAddizionaliChange;
+  const [addizionaliDraft, setAddizionaliDraft] = useState<string | null>(null);
   // Draft state per editing live (controlled inputs); chiavi: voce.id → campi sovrascritti
   const [draftVoci, setDraftVoci] = useState<Record<string, Partial<Voce>>>({});
   const setDraft = (id: string, patch: Partial<Voce>) =>
