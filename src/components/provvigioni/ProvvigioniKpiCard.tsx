@@ -25,7 +25,7 @@ export const ProvvigioniKpiCard = ({ icon: Icon, label, value, hint, accent = "m
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-muted-foreground truncate">{label}</p>
-        <p className={cn("text-xl font-bold font-mono tabular-nums truncate", accent === "primary" && "text-primary")}>
+        <p className={cn("text-xl font-bold tabular-nums truncate font-sans", accent === "primary" && "text-primary")}>
           {value}
         </p>
         {hint && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{hint}</p>}
