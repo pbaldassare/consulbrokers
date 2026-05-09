@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +27,7 @@ const getDefaultForm = () => ({
 const PrimanotaGeneralePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search]);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<any>(getDefaultForm());
@@ -41,6 +41,10 @@ const PrimanotaGeneralePage = () => {
   const [scadenzaDialogRow, setScadenzaDialogRow] = useState<any>(null);
   const [scadenzaGiorni, setScadenzaGiorni] = useState(30);
   const [scadenzaData, setScadenzaData] = useState("");
+
+  // Reset paginazione quando cambiano filtri/search
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(0); }, [search]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["primanota_generale", page, search],
