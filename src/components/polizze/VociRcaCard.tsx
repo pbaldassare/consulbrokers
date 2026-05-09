@@ -549,7 +549,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
         <CardHeader className={cn("border-b py-3", isQuietanza ? "bg-amber-50/60 dark:bg-amber-950/20" : "bg-teal-50/60 dark:bg-teal-950/20")}>
           <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
             <CardTitle className={cn("flex items-center gap-2 text-base sm:text-lg", isQuietanza ? "text-amber-900 dark:text-amber-100" : "text-teal-900 dark:text-teal-100")}>
-              <Car className="h-5 w-5" />
+              {useAutoTaxFormula ? <Car className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
               {titolo ?? (isQuietanza ? "Composizione Premio RCA — Quietanza" : "Composizione Premio RCA — Firma")}
               {isQuietanza && voci.some((v) => v.quietanza_personalizzata) && (
                 <Badge variant="outline" className="ml-1 text-[10px] gap-1 border-amber-400 text-amber-800">
@@ -561,6 +561,18 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                   Sincronizzata
                 </Badge>
               )}
+              {/* Badge Personalizzato anche su Firma RCA quando IPT/SSN sono override manuali */}
+              {!isQuietanza && useAutoTaxFormula && (() => {
+                const rca = voci.find((v) => v.is_rca_principale);
+                if (!rca) return null;
+                const c = calcolaLordo(rca, aliquotaProv);
+                if (!c.overrideImposta && !c.overrideSsn) return null;
+                return (
+                  <Badge variant="outline" className="ml-1 text-[10px] gap-1 border-amber-400 text-amber-800" title="IPT o SSN sovrascritti manualmente">
+                    <PencilLine className="h-3 w-3" /> Personalizzato
+                  </Badge>
+                );
+              })()}
               {disallineamentoVoci > 0 && (
                 <Badge
                   variant="outline"
