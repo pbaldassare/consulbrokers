@@ -1082,9 +1082,13 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
 
           {/* Totali */}
           {(() => {
+            const parseSafe = (s: string | number | null | undefined) => {
+              const n = Number(s ?? 0);
+              return Number.isFinite(n) ? n : 0;
+            };
             const addLive = addizionaliDraft !== null
-              ? Number(addizionaliDraft || 0)
-              : Number(addizionaliValue ?? 0);
+              ? parseSafe(addizionaliDraft)
+              : parseSafe(addizionaliValue);
             const lordoConAdd = round2(totali.lordo + (mostraAddizionali ? addLive : 0));
             const deltaConAdd = premioLordoTitolo == null ? 0 : round2(lordoConAdd - Number(premioLordoTitolo));
             const quadraConAdd = premioLordoTitolo == null || Math.abs(deltaConAdd) < 0.01;
