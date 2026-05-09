@@ -1,0 +1,176 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FileText, Percent, Clock, List, Users, ShieldCheck, StickyNote, Pencil, Eye, Download } from "lucide-react";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import DocumentiTab from "@/components/DocumentiTab";
+import ChatTab from "@/components/ChatTab";
+import TimelineTab from "@/components/TimelineTab";
+
+const fmtEuro = (v: number | null | undefined) =>
+  v == null || isNaN(Number(v))
+    ? "—"
+    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
+
+interface TitoloTabsProps {
+  id: string;
+  t: any;
+  movimentiPolizza: any[];
+  provvigioni: any[];
+  appendiciPolizza: any[];
+  navigate: (path: string) => void;
+}
+
+/**
+ * Estratto da TitoloDetail.tsx (lines 3143-3280) per ridurre la complessità del file principale.
+ * Comportamento e markup identici all'originale.
+ */
+export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate }: TitoloTabsProps) => {
+  return (
+    <Tabs defaultValue="movimenti">
+      <TabsList className="flex-wrap h-auto">
+        <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
+        <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
+        <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
+        <TabsTrigger value="garanzie"><ShieldCheck className="w-4 h-4 mr-1" />Garanzie</TabsTrigger>
+        {/* Voci RCA spostate dentro la sezione Importi */}
+        <TabsTrigger value="familiari"><Users className="w-4 h-4 mr-1" />Familiari</TabsTrigger>
+        <TabsTrigger value="note"><StickyNote className="w-4 h-4 mr-1" />Note</TabsTrigger>
+        <TabsTrigger value="documenti"><FileText className="w-4 h-4 mr-1" />Documenti</TabsTrigger>
+        <TabsTrigger value="chat">Chat</TabsTrigger>
+        <TabsTrigger value="timeline"><Clock className="w-4 h-4 mr-1" />Log Attività</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="movimenti">
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">
+            I movimenti sono visualizzati nella sezione sopra. Questa tab potrà contenere funzionalità di gestione avanzata (aggiunta rinnovi, appendici, storni).
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="provvigioni">
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Beneficiario</TableHead>
+                  <TableHead>Percentuale</TableHead>
+                  <TableHead>Importo €</TableHead>
+                  <TableHead>Calcolata il</TableHead>
+                  <TableHead>Pagata</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {provvigioni.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.profiles ? `${p.profiles.nome} ${p.profiles.cognome}` : "—"}</TableCell>
+                    <TableCell className="font-mono">{p.percentuale}%</TableCell>
+                    <TableCell className="font-mono">{fmtEuro(p.importo_provvigione)}</TableCell>
+                    <TableCell>{p.calcolata_il ? format(new Date(p.calcolata_il), "dd/MM/yyyy HH:mm", { locale: it }) : "—"}</TableCell>
+                    <TableCell><Badge variant={p.pagata ? "default" : "secondary"}>{p.pagata ? "Sì" : "No"}</Badge></TableCell>
+                  </TableRow>
+                ))}
+                {provvigioni.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna provvigione generata</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="appendici">
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">Appendici registrate per questa polizza</p>
+              <Button size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+                <FileText className="w-4 h-4 mr-1" /> Nuova Appendice
+              </Button>
+            </div>
+            {appendiciPolizza.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nessuna appendice registrata.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">N°</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Effetto</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Oggetto</TableHead>
+                    <TableHead>File</TableHead>
+                    <TableHead className="w-28">Azioni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(appendiciPolizza as any[]).map((a: any) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-mono font-bold">{a.numero_appendice}</TableCell>
+                      <TableCell className="text-sm">{a.data_appendice ? format(new Date(a.data_appendice), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                      <TableCell className="text-sm">{a.data_effetto ? format(new Date(a.data_effetto), "dd/MM/yyyy", { locale: it }) : "—"}</TableCell>
+                      <TableCell><Badge variant="outline" className="capitalize">{a.tipo}</Badge></TableCell>
+                      <TableCell className="max-w-[200px] truncate text-sm">{a.oggetto || "—"}</TableCell>
+                      <TableCell className="text-sm">{a.nome_file || "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Modifica" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}&appendiceId=${a.id}`)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          {a.testo && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizza testo" onClick={() => {
+                              const w = window.open("", "_blank");
+                              if (w) { w.document.write(`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2rem">${a.testo}</pre>`); }
+                            }}>
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {a.file_path && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Download" onClick={async () => {
+                              const { data, error } = await supabase.storage.from("documenti_titoli").download(a.file_path);
+                              if (error || !data) return;
+                              const url = URL.createObjectURL(data);
+                              const link = document.createElement("a");
+                              link.href = url; link.download = a.nome_file || "file"; link.click();
+                              URL.revokeObjectURL(url);
+                            }}>
+                              <Download className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="garanzie">
+        <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Garanzie — in fase di sviluppo. Qui verranno mostrate le coperture e garanzie della polizza.</CardContent></Card>
+      </TabsContent>
+      {/* Voci RCA: integrate dentro la sezione Importi sopra */}
+      <TabsContent value="familiari">
+        <Card><CardContent className="pt-6 text-sm text-muted-foreground">Sezione Familiari — in fase di sviluppo. Qui verranno mostrati assicurati e beneficiari collegati alla polizza.</CardContent></Card>
+      </TabsContent>
+      <TabsContent value="note">
+        <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
+      </TabsContent>
+      <TabsContent value="documenti">
+        <Card><CardContent className="pt-6"><DocumentiTab entitaTipo="titolo" entitaId={id} bucketName="documenti_titoli" /></CardContent></Card>
+      </TabsContent>
+      <TabsContent value="chat">
+        <Card><CardContent className="pt-6"><ChatTab entitaTipo="titolo" entitaId={id} /></CardContent></Card>
+      </TabsContent>
+      <TabsContent value="timeline">
+        <Card><CardContent className="pt-6"><TimelineTab entitaTipo="titolo" entitaId={id} /></CardContent></Card>
+      </TabsContent>
+    </Tabs>
+  );
+};
