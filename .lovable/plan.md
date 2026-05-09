@@ -1,61 +1,66 @@
-## Obiettivo
-Trasformare l'attuale area `/cliente` (oggi popolata con dati demo del Comune di Varese) in un portale operativo pronto a ricevere dati reali: anagrafica ente arricchita con richiesta di modifica, gestione documentale per cliente/polizze/sinistri sui bucket già esistenti, apertura denuncia sinistro dal portale e upload allegati.
+# Filtri portale cliente + upload documenti su polizza
 
-## Stato attuale (verificato)
-- **Bucket già presenti**: `documenti_clienti`, `documenti_titoli`, `documenti_sinistri`, `documenti_generali` (tutti privati). Riusiamo questi, niente nuovi bucket.
-- **RLS cliente**:
-  - `clienti.cliente_select_own` → cliente vede la propria riga
-  - `documenti.cliente_select_own_documenti` → vede solo doc con `visibile_al_cliente = true`
-  - `documenti.cliente_insert_documenti` → può inserire SOLO doc su `entita_tipo='cliente'` (non su sinistri/polizze)
-  - `sinistri` per cliente: nessuna policy INSERT, solo SELECT via `get_my_cliente_ids()`
-- **Pagine cliente esistenti**: Dashboard, Polizze, Sinistri (read-only + grafici), Documenti, Scadenze, Chat, Notifiche, Pagamenti, UploadDoc (solo anagrafici), Anagrafica (read-only base), Ufficio.
+## 1. `/cliente/scadenze` — filtri e drill-down
 
-## Cosa costruiamo
+Aggiungo una barra filtri sopra la lista:
+- **Finestra scadenza**: Tutte / Entro 30 gg / Entro 60 gg / Entro 90 gg / Range date personalizzato (da–a, con `DatePicker`).
+- **Ramo / tipologia polizza**: `SearchableSelect` popolato dai rami effettivamente presenti nelle polizze del cliente (es. RC Auto, Incendio, RC Inquinamento…). Multi-select.
+- **Compagnia**: `SearchableSelect` popolato dalle compagnie presenti.
+- **Ricerca testuale**: numero polizza / targa.
+- Pulsante **Reset filtri**.
 
-### 1. Anagrafica ente con richiesta modifica
-- Estendere `ClienteAnagrafica.tsx` mostrando in chiaro tutti i campi rilevanti per ente (P.IVA, CF azienda, codice SDI, codice CUP, sede legale, sede operativa, PEC, telefono, referenti).
-- Aggiungere pulsante **"Richiedi modifica dati"** che apre un dialog: il cliente seleziona il/i campi da aggiornare, inserisce il nuovo valore + motivazione, allega eventuale documento giustificativo.
-- Nuova tabella `richieste_modifica_cliente` (cliente_id, campo, valore_attuale, valore_proposto, motivazione, stato `in_attesa|approvata|rifiutata|annullata`, note_agenzia, gestita_da, gestita_il).
-- Lato agenzia: nuova pagina `/clienti/richieste-modifica` (solo `ufficio`/`admin`) con elenco pendenti, dettaglio, pulsanti Approva/Rifiuta. L'approvazione applica l'aggiornamento al record `clienti` e chiude la richiesta; il rifiuto richiede note.
-- Notifica realtime all'agenzia alla creazione, al cliente quando approvata/rifiutata.
+Le KPI "Entro 30/60/90" si ricalcolano sui risultati filtrati.
 
-### 2. Sezione referenti ente
-- Visualizzare la lista referenti dalla tabella `cliente_referenti` (read-only) e abilitare aggiunta/modifica via stessa logica "richiesta modifica".
+Ogni card scadenza diventa cliccabile e porta a **`/cliente/polizze/:id`** (la pagina dettaglio già esiste, `ClientePolizzaDetail.tsx`). Aggiungo cursor-pointer + hover.
 
-### 3. Apertura denuncia sinistro dal portale
-- Nuovo bottone "Apri nuovo sinistro" in `/cliente/sinistri` → wizard 3 step:
-  1. Polizza coinvolta (select tra le polizze attive del cliente) + ramo + data evento + luogo
-  2. Dinamica + controparte + targa (se RCA) + persone coinvolte
-  3. Allegati (foto, denuncia ecc.) + conferma
-- Insert in `sinistri` con `stato='aperto'`, `cliente_anagrafica_id` valorizzato, `aperto_da_cliente=true` (nuova colonna boolean), `ufficio_id` ereditato dalla polizza scelta, `numero_sinistro` generato server-side (placeholder finché agenzia non assegna numero compagnia).
-- Documenti caricati: bucket `documenti_sinistri`, riga in `documenti` con `entita_tipo='sinistro'`, `visibile_al_cliente=true`, `caricato_da_cliente=true`.
-- Notifica realtime all'agenzia (specialist + ufficio del cliente).
+> Nota: la pagina mostra **scadenze polizze**, non sinistri. Interpreto "tipologia di sinistro" come "tipologia/ramo della polizza in scadenza". Se invece serve un filtro sui sinistri aperti, lo aggiungo in `/cliente/sinistri` (fammelo sapere).
 
-### 4. Upload allegati su sinistro esistente
-- Nel dettaglio sinistro espanso (già presente in `ClienteSinistri`), aggiungere riquadro "Documenti del sinistro" con elenco doc visibili e pulsante upload.
-- Mostrare anche stato pratica e timeline eventi (riserva, liquidazione, chiusura) in sola lettura.
+## 2. `/cliente/polizze` — filtri elenco
 
-### 5. RLS / migrazioni necessarie
-- Tabella `richieste_modifica_cliente` con RLS:
-  - cliente: INSERT/SELECT/DELETE solo su righe del proprio `cliente_id` in stato `in_attesa`
-  - agenzia (`ufficio`/`admin`): SELECT/UPDATE
-- `sinistri`: nuova policy `cliente_insert_sinistro` con `WITH CHECK (has_role(auth.uid(),'cliente') AND cliente_anagrafica_id IN (SELECT get_my_cliente_ids()) AND stato='aperto' AND aperto_da_cliente=true)`. Aggiungere colonna `aperto_da_cliente boolean default false`.
-- `documenti`: estendere `cliente_insert_documenti` per accettare `entita_tipo IN ('cliente','sinistro','titolo')` purché l'entità riferita appartenga a un `cliente_id` del cliente loggato e `visibile_al_cliente=true`. Aggiungere colonna `caricato_da_cliente boolean default false`.
-- `storage.objects` per `documenti_sinistri` e `documenti_titoli`: policy INSERT che permetta al ruolo `cliente` di scrivere in path che inizia con un id di sinistro/polizza appartenente a un suo `cliente_id`.
+Barra filtri sopra la tabella (stesso stile teal):
+- **Stato**: Tutti / Attivo / Sospeso / Scaduto / Incassato.
+- **Ramo**: `SearchableSelect` multi.
+- **Compagnia**: `SearchableSelect` multi.
+- **Scadenza da/a**: due `DatePicker`.
+- **Ricerca testuale**: numero polizza / targa / prodotto.
+- Pulsante **Reset**.
 
-### 6. Dashboard cliente
-- Card riassuntiva "Richieste in corso" (modifiche dati + sinistri aperti dal cliente) con stato.
+Il totale "Premio Annuo Lordo" in footer si aggiorna sui risultati filtrati. Conteggio "N polizze trovate" anch'esso dinamico.
 
-## Cosa NON tocchiamo
-- Non rimuoviamo i dati demo Varese: restano marcati `[DEMO]` come da memoria. Diventeranno semplicemente "veri" quando l'agenzia inserirà i record reali.
-- Nessuna modifica ai bucket esistenti né nuovi bucket.
-- Nessuna modifica al portale prospect.
+## 3. `/cliente/polizze/:id` — upload documenti tracciato
 
-## Dettagli tecnici (riepilogo)
-- Migrazioni: nuova tabella `richieste_modifica_cliente`, colonne `sinistri.aperto_da_cliente`, `documenti.caricato_da_cliente`, policy RLS su `sinistri`/`documenti`/`storage.objects`.
-- Frontend: nuove pagine `RichiesteModificaList.tsx` (lato agenzia), nuovi dialog `RichiestaModificaDialog.tsx` e `NuovaDenunciaSinistroDialog.tsx`, refactor `ClienteAnagrafica.tsx` e `ClienteSinistri.tsx`.
-- Realtime: canale `notifiche` per i due flussi nuovi (richiesta modifica creata, denuncia cliente creata).
-- Audit trail: già attivo su `clienti` e `sinistri` (memoria audit), quindi le modifiche approvate vengono registrate automaticamente.
+Nella card "Documenti allegati" del dettaglio polizza:
 
-## Domande residue (zero)
-Tutte le scelte chiave già confermate dalle risposte precedenti.
+- Nuovo pulsante **"Carica documento"** → apre `UploadDocPolizzaDialog` (nuovo componente in `src/components/cliente/`).
+- Dialog con:
+  - **File** (drag&drop o file picker, max 20MB, PDF/JPG/PNG).
+  - **Tipologia documento**: select con valori (Quietanza, Appendice, Comunicazione compagnia, Documento identità, Libretto, Verbale, Perizia, Altro). Salvato in `documenti.tipo_documento` (campo già usato nel sistema).
+  - **Descrizione** (textarea opzionale).
+  - **Data documento** (DatePicker opzionale).
+- Upload reale su bucket **`documenti_titoli`** (path `{cliente_id}/{titolo_id}/{uuid}-{filename}`).
+- Insert in tabella **`documenti`** con: `entita_tipo='titolo'`, `entita_id=titolo.id`, `cliente_anagrafica_id`, `bucket_name='documenti_titoli'`, `path_storage`, `nome_file`, `mime_type`, `dimensione_bytes`, `tipo_documento`, `descrizione`, `data_documento`, `caricato_da_cliente=true`, `visibile_al_cliente=true`, `caricato_da=user.id`.
+- Lista documenti aggiornata in realtime (refetch dopo insert) con badge **"Caricato da te"** sui doc con `caricato_da_cliente=true`, accanto a tipo_documento e data caricamento.
+- Download tramite `createSignedUrl` (già implementato).
+
+## 4. RLS / DB
+
+Le policy esistenti già consentono:
+- `documenti` insert per cliente su `entita_tipo='titolo'` + propria polizza.
+- `storage.objects` insert su `documenti_titoli` per path che inizia col proprio `cliente_id`.
+
+Verifica rapida che le policy coprano il path scelto; se manca solo il pattern path (es. `{titolo_id}/...` senza `{cliente_id}/` davanti), allineo il path al pattern già autorizzato. **Nessuna nuova migration** prevista, salvo gap rilevati in fase di test.
+
+## 5. File toccati / nuovi
+
+**Modificati**
+- `src/pages/cliente/ClienteScadenze.tsx` — barra filtri + drill-down link.
+- `src/pages/cliente/ClientePolizze.tsx` — barra filtri + totali dinamici.
+- `src/pages/cliente/ClientePolizzaDetail.tsx` — pulsante "Carica documento", badge tipo + "Caricato da te".
+
+**Nuovi**
+- `src/components/cliente/UploadDocPolizzaDialog.tsx` — dialog upload tracciato.
+
+## Fuori scope
+- Modifica/cancellazione documenti caricati dal cliente (solo upload + view).
+- Filtri avanzati su `/cliente/sinistri` (separato, da confermare).
+- Cambio struttura bucket o nuove policy massive.
