@@ -20,9 +20,6 @@ import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { MessaCassaDialog } from "@/components/portafoglio/MessaCassaDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
-const PAGE_SIZE = 25;
-
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
 const PortafoglioCaricoPage = () => {
@@ -34,7 +31,7 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());

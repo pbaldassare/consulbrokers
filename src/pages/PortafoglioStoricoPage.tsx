@@ -11,16 +11,13 @@ import { useNavigate } from "react-router-dom";
 import { Archive, Search, Plus, Eye } from "lucide-react";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
-
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
   const [filtroRamo, setFiltroRamo] = useState("tutti");
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   const today = format(new Date(), "yyyy-MM-dd");
 

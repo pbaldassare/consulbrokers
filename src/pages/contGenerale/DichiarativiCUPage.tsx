@@ -14,12 +14,9 @@ import ServerPagination from "@/components/ServerPagination";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
-
-const PAGE_SIZE = 25;
-
 const DichiarativiCUPage = () => {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [annoFilter, setAnnoFilter] = useState(new Date().getFullYear().toString());
   const [confirmOpen, setConfirmOpen] = useState(false);

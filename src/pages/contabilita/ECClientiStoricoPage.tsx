@@ -12,16 +12,13 @@ import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import PdfPreview from "@/components/PdfPreview";
-
-const PAGE_SIZE = 25;
-
 const ECClientiStoricoPage = () => {
   const [q, setQ] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 

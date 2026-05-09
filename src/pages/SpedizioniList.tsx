@@ -15,14 +15,12 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiSpedizione = ["preparata", "spedita", "consegnata", "problema"];
 
 const SpedizioniList = () => {
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [newStato, setNewStato] = useState("");

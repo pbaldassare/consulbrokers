@@ -17,9 +17,6 @@ import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
 import { format, addDays } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-const PAGE_SIZE = 25;
-
 const getDefaultForm = () => ({
   numero_pn: "", data_pn: new Date().toISOString().slice(0, 10), numero_protocollo: "", data_protocollo: "",
   numero_documento: "", data_documento: "", fornitore_id: "", causale_id: "", tipo: "EE",
@@ -29,7 +26,7 @@ const getDefaultForm = () => ({
 const PrimanotaGeneralePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<any>(getDefaultForm());

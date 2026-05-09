@@ -13,15 +13,13 @@ import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-
-const PAGE_SIZE = 25;
 const statiRimessa = ["bozza", "pronta", "inviata", "errore"];
 
 const RimessaList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filtroStato, setFiltroStato] = useState("all");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   const revertMutation = useMutation({
     mutationFn: async (rimessaId: string) => {

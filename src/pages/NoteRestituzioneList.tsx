@@ -17,8 +17,6 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiNota = ["bozza", "pronta", "spedita", "chiusa"];
 
 const NoteRestituzioneList = () => {
@@ -31,7 +29,7 @@ const NoteRestituzioneList = () => {
   const [noteText, setNoteText] = useState("");
   const [filtroStato, setFiltroStato] = useState("all");
   const [filtroUfficio, setFiltroUfficio] = useState("all");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici"],

@@ -14,8 +14,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiSinistro = ["aperto", "in_lavorazione", "in_attesa_documenti", "chiuso", "respinto"];
 const tipiSinistro = [
   "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
@@ -42,7 +40,7 @@ export default function SinistriList() {
   const [filtroCompagnia, setFiltroCompagnia] = useState<string>("tutti");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
 
   // Wizard state
   const [step, setStep] = useState<1 | 2>(1);

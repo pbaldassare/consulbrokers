@@ -138,9 +138,7 @@ const ClientiList = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState<"denominazione" | "created_at">("denominazione");
-  const [page, setPage] = useState(0);
-  const PAGE_SIZE = 25;
-
+  const { page, setPage, pageSize, range } = useServerPagination();
   // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => {

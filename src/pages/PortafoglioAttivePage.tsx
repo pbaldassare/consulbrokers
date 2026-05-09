@@ -12,14 +12,11 @@ import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
-
-const PAGE_SIZE = 25;
-
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");

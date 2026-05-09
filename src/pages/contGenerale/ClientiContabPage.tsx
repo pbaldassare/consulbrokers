@@ -8,11 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Search } from "lucide-react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
-
 const ClientiContabPage = () => {
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({

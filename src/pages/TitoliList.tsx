@@ -16,8 +16,6 @@ import { Plus, Search, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ServerPagination from "@/components/ServerPagination";
-
-const PAGE_SIZE = 25;
 const statiTitolo = ["creato", "incassato", "stornato", "annullato"];
 
 const TitoliList = () => {
@@ -25,7 +23,7 @@ const TitoliList = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [searched, setSearched] = useState(false);
 
   // Form nuovo titolo

@@ -16,9 +16,6 @@ import { toast } from "sonner";
 import ServerPagination from "@/components/ServerPagination";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
-
-const PAGE_SIZE = 25;
-
 const ESITI = [
   { value: "vinta", label: "Vinta", color: "bg-green-100 text-green-800" },
   { value: "persa", label: "Persa", color: "bg-red-100 text-red-800" },
@@ -58,7 +55,7 @@ export default function StoricoGarePage() {
   const isAdmin = profile?.ruolo === "admin" || profile?.ruolo === "responsabile_sede";
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(0); // 0-based
+  const { page, setPage, pageSize, range } = useServerPagination();
   const [search, setSearch] = useState("");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [filtroProvincia, setFiltroProvincia] = useState("tutti");
