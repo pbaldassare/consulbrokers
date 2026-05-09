@@ -58,17 +58,17 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
         </Badge>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1 sm:gap-4 shrink-0">
         <NotificheDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 pl-3 border-l border-border hover:opacity-80 transition-opacity">
-              <div className="text-right">
-                <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
-                <p className="text-xs text-muted-foreground">{roleLabel}</p>
+            <button className="flex items-center gap-2 sm:gap-3 sm:pl-3 sm:border-l border-border hover:opacity-80 transition-opacity max-w-[220px]">
+              <div className="text-right hidden md:block min-w-0">
+                <p className="text-sm font-medium text-foreground leading-tight truncate">{displayName}</p>
+                <p className="text-xs text-muted-foreground truncate">{roleLabel}</p>
               </div>
-              <Avatar className="w-8 h-8 ring-2 ring-primary/20 ring-offset-1 ring-offset-card">
+              <Avatar className="w-8 h-8 ring-2 ring-primary/20 ring-offset-1 ring-offset-card shrink-0">
                 {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={displayName} />}
                 <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
                   {initials}
