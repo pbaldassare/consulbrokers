@@ -37,6 +37,10 @@ interface Voce {
   tipo_premio?: "firma" | "quietanza";
   quietanza_personalizzata?: boolean;
   voce_origine_id?: string | null;
+  capitale?: number | null;
+  tasso?: number | null;
+  rata?: number | null;
+  annuo?: number | null;
 }
 
 type TipoPremio = "firma" | "quietanza";
