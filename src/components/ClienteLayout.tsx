@@ -157,6 +157,7 @@ const ClienteLayout = () => {
   );
 
   return (
+    <TourProvider>
     <div className="min-h-screen bg-background flex">
       {/* Desktop sidebar (md+) — collapsible */}
       <aside
@@ -268,6 +269,9 @@ const ClienteLayout = () => {
         </footer>
       </div>
     </div>
+    <AppTour />
+    <TourLauncher />
+    </TourProvider>
   );
 };
 
