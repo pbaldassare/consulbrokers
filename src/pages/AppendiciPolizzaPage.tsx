@@ -17,10 +17,10 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-import { PolizzaSection } from "@/components/polizze/PolizzaSection";
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 
 const TIPI_APPENDICE = [
   { value: "modifica", label: "Modifica" },
