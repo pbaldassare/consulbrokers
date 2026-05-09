@@ -3002,85 +3002,91 @@ const TitoloDetail = () => {
 
       {!isRamoAuto((t as any).ramo) && (
       <SectionCollapsible title="Premi per Garanzia" icon={ShieldCheck}>
-        <div className="flex justify-end mb-2 gap-2">
-          {!editingPremi ? (
-            <Button variant="ghost" size="sm" onClick={startEditPremi}>
-              <Pencil className="w-4 h-4 mr-1" /> Modifica
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={addPremiRow}>+ Aggiungi riga</Button>
-              <Button variant="outline" size="sm" onClick={() => setEditingPremi(false)}>Annulla</Button>
-              <Button size="sm" onClick={() => savePremiMutation.mutate()} disabled={savePremiMutation.isPending}>
-                {savePremiMutation.isPending ? "Salvataggio..." : "Salva"}
-              </Button>
-            </>
-          )}
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            ℹ️ I premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata".
+          </p>
+          <VociRcaCard
+            tipoPremio="firma"
+            useAutoTaxFormula={false}
+            mostraCampiCapitaleRata
+            titolo="Premi per Garanzia — Firma"
+            mainLabel={(t as any).ramo?.descrizione || "Premio"}
+            aliquotaDefault={Number((t as any).ramo?.aliquota_tasse_ramo ?? 22.25)}
+            titoloId={t.id}
+            premioLordoTitolo={(t as any).premio_lordo}
+            onTotaliChange={(tot) => {
+              if (editingImporti) return;
+              if (vociRcaSyncTimer.current) clearTimeout(vociRcaSyncTimer.current);
+              vociRcaSyncTimer.current = setTimeout(async () => {
+                const curNetto = Number((titolo as any)?.premio_netto ?? 0);
+                const curTasse = Number((titolo as any)?.tasse ?? 0);
+                const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
+                if (
+                  Math.abs(curNetto - tot.netto) < 0.01 &&
+                  Math.abs(curTasse - tot.tasse) < 0.01 &&
+                  Math.abs(curLordo - tot.lordo) < 0.01
+                ) return;
+                const { error } = await supabase
+                  .from("titoli")
+                  .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: tot.lordo })
+                  .eq("id", t.id);
+                if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+              }, 800);
+            }}
+            provvigioniValue={(t as any).provvigioni_firma}
+            onProvvigioniChange={async (v) => {
+              const { error } = await supabase.from("titoli").update({ provvigioni_firma: v }).eq("id", t.id);
+              if (!error) {
+                await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
+                toast.success("Provvigioni Firma aggiornate");
+              } else toast.error("Errore aggiornamento provvigioni");
+            }}
+          />
+          {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+          <VociRcaCard
+            tipoPremio="quietanza"
+            useAutoTaxFormula={false}
+            mostraCampiCapitaleRata
+            titolo="Premi per Garanzia — Quietanza"
+            mainLabel={(t as any).ramo?.descrizione || "Premio"}
+            aliquotaDefault={Number((t as any).ramo?.aliquota_tasse_ramo ?? 22.25)}
+            titoloId={t.id}
+            onTotaliChange={(tot) => {
+              if (editingImporti) return;
+              if (vociRcaQuietanzaTimer.current) clearTimeout(vociRcaQuietanzaTimer.current);
+              vociRcaQuietanzaTimer.current = setTimeout(async () => {
+                const curNetto = Number((titolo as any)?.premio_netto_quietanza ?? 0);
+                const curTasse = Number((titolo as any)?.tasse_quietanza ?? 0);
+                if (
+                  Math.abs(curNetto - tot.netto) < 0.01 &&
+                  Math.abs(curTasse - tot.tasse) < 0.01
+                ) return;
+                const { error } = await supabase
+                  .from("titoli")
+                  .update({
+                    premio_netto_quietanza: tot.netto,
+                    tasse_quietanza: tot.tasse,
+                    addizionali_quietanza: 0,
+                  })
+                  .eq("id", t.id);
+                if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+              }, 800);
+            }}
+            provvigioniValue={(t as any).provvigioni_quietanza}
+            onProvvigioniChange={async (v) => {
+              const { error } = await supabase.from("titoli").update({ provvigioni_quietanza: v }).eq("id", t.id);
+              if (!error) {
+                await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
+                toast.success("Provvigioni Quietanza aggiornate");
+              } else toast.error("Errore aggiornamento provvigioni");
+            }}
+          />
+          {(() => {
+            const sQui = (t as any).provvigioni_quietanza;
+            return renderSplitImporti("Provvigioni Quietanza", sQui, "amber");
+          })()}
         </div>
-
-        {!editingPremi ? (
-          (premiGaranzia as any[]).length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Garanzia</TableHead>
-                  <TableHead className="text-right">Capitale</TableHead>
-                  <TableHead className="text-right">Tasso</TableHead>
-                  <TableHead className="text-right">Firma</TableHead>
-                  <TableHead className="text-right">Rata</TableHead>
-                  <TableHead className="text-right">Annuo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(premiGaranzia as any[]).map((pg: any) => (
-                  <TableRow key={pg.id}>
-                    <TableCell className="font-medium">{pg.garanzia}</TableCell>
-                    <TableCell className="text-right font-mono">{fmtEuro(pg.capitale)}</TableCell>
-                    <TableCell className="text-right font-mono">{pg.tasso ?? "—"}</TableCell>
-                    <TableCell className="text-right font-mono">{fmtEuro(pg.firma)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmtEuro(pg.rata)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmtEuro(pg.annuo)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">Nessuna garanzia. Clicca "Modifica" per aggiungerne.</p>
-          )
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[28%]">Garanzia *</TableHead>
-                <TableHead>Capitale €</TableHead>
-                <TableHead>Tasso ‰</TableHead>
-                <TableHead>Firma €</TableHead>
-                <TableHead>Rata €</TableHead>
-                <TableHead>Annuo €</TableHead>
-                <TableHead className="w-[40px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {premiRows.filter((r) => !r._deleted).map((r, displayIdx) => {
-                const realIdx = premiRows.findIndex((row) => row === r);
-                return (
-                  <TableRow key={r.id ?? `new-${displayIdx}`}>
-                    <TableCell><Input value={r.garanzia} onChange={(e) => updatePremiRow(realIdx, "garanzia", e.target.value)} placeholder="Es. RCA, Furto..." /></TableCell>
-                    <TableCell><Input type="number" step="0.01" value={r.capitale} onChange={(e) => updatePremiRow(realIdx, "capitale", e.target.value)} /></TableCell>
-                    <TableCell><Input type="number" step="0.001" value={r.tasso} onChange={(e) => updatePremiRow(realIdx, "tasso", e.target.value)} /></TableCell>
-                    <TableCell><Input type="number" step="0.01" value={r.firma} onChange={(e) => updatePremiRow(realIdx, "firma", e.target.value)} /></TableCell>
-                    <TableCell><Input type="number" step="0.01" value={r.rata} onChange={(e) => updatePremiRow(realIdx, "rata", e.target.value)} /></TableCell>
-                    <TableCell><Input type="number" step="0.01" value={r.annuo} onChange={(e) => updatePremiRow(realIdx, "annuo", e.target.value)} /></TableCell>
-                    <TableCell><Button variant="ghost" size="icon" onClick={() => removePremiRow(realIdx)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
-                  </TableRow>
-                );
-              })}
-              {premiRows.filter((r) => !r._deleted).length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground italic">Nessuna riga. Clicca "+ Aggiungi riga".</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
       </SectionCollapsible>
       )}
 
