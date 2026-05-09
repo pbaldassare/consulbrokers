@@ -1081,7 +1081,16 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
           </div>
 
           {/* Totali */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-br from-teal-50/40 to-transparent border-t">
+          {(() => {
+            const addLive = addizionaliDraft !== null
+              ? Number(addizionaliDraft || 0)
+              : Number(addizionaliValue ?? 0);
+            const lordoConAdd = round2(totali.lordo + (mostraAddizionali ? addLive : 0));
+            const deltaConAdd = premioLordoTitolo == null ? 0 : round2(lordoConAdd - Number(premioLordoTitolo));
+            const quadraConAdd = premioLordoTitolo == null || Math.abs(deltaConAdd) < 0.01;
+            return (
+          <div className={cn("grid gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-br from-teal-50/40 to-transparent border-t",
+            mostraAddizionali ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3")}>
             <div className="rounded-lg border bg-card p-2 sm:p-3">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Totale Netto</p>
               <p className="text-base sm:text-xl font-bold font-mono tabular-nums">{fmtEur(totali.netto)}</p>
@@ -1158,19 +1167,37 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 );
               })()}
             </div>
+            {mostraAddizionali && (
+              <div className="rounded-lg border bg-card p-2 sm:p-3">
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Addizionali</p>
+                <Input
+                  type="number" step="0.01" inputMode="decimal"
+                  value={addLive}
+                  onChange={(e) => setAddizionaliDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value || 0);
+                    setAddizionaliDraft(null);
+                    if (Math.abs(val - Number(addizionaliValue ?? 0)) < 0.01) return;
+                    onAddizionaliChange?.(val);
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                  className="h-9 text-right font-mono tabular-nums text-base font-bold mt-1"
+                />
+              </div>
+            )}
             <div className={cn(
               "col-span-2 md:col-span-1 rounded-lg border-2 p-2 sm:p-3",
-              quadra ? "border-emerald-400 bg-emerald-50/50" : "border-amber-400 bg-amber-50/50",
+              quadraConAdd ? "border-emerald-400 bg-emerald-50/50" : "border-amber-400 bg-amber-50/50",
             )}>
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                 Premio Lordo
-                {quadra
+                {quadraConAdd
                   ? <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                   : <AlertCircle className="h-3 w-3 text-amber-600" />}
               </p>
-              <p className="text-base sm:text-xl font-bold font-mono tabular-nums text-teal-900">{fmtEur(totali.lordo)}</p>
-              {premioLordoTitolo != null && !quadra && (
-                <p className="text-[11px] text-amber-700 mt-1">Δ vs polizza: {fmtEur(delta)}</p>
+              <p className="text-base sm:text-xl font-bold font-mono tabular-nums text-teal-900">{fmtEur(lordoConAdd)}</p>
+              {premioLordoTitolo != null && !quadraConAdd && (
+                <p className="text-[11px] text-amber-700 mt-1">Δ vs polizza: {fmtEur(deltaConAdd)}</p>
               )}
               {!quadraInterno && (
                 <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
