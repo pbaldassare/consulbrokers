@@ -873,52 +873,37 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* IMPORTI */}
-      <PolizzaSection title="Importi">
+      <PolizzaSection title="Importi" icon={DollarSign}>
 
-        {/* Tabella Firma / Quietanza */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-24"></th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Netto €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Addizionali €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Tasse €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Totale €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Provvigioni €</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-border/50">
-                <td className="py-1.5 px-2 font-semibold text-foreground">Firma</td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={premioNetto} onChange={(e) => setPremioNetto(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={addizionali} onChange={(e) => setAddizionali(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={tasse} onChange={(e) => setTasse(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1.5 px-2 text-right font-mono font-semibold text-foreground">{totFirma.toFixed(2)}</td>
-                <td className="py-1.5 px-2 text-right font-mono text-foreground">{provvFirma.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td className="py-1.5 px-2 font-semibold text-foreground">Pros. Quietanza</td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={premioNettoQuietanza} onChange={(e) => setPremioNettoQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={addizionaliQuietanza} onChange={(e) => setAddizionaliQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={tasseQuietanza} onChange={(e) => setTasseQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1.5 px-2 text-right font-mono font-semibold text-foreground">{totQuietanza.toFixed(2)}</td>
-                <td className="py-1.5 px-2 text-right font-mono text-foreground">{provvQuietanza.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+        {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
+        <div className="space-y-4">
+          <PremiGaranziaCardShell
+            tipoPremio="firma"
+            mainLabel={isRCA ? "RCA Auto" : "Premio"}
+            premioNetto={premioNetto}
+            onPremioNettoChange={setPremioNetto}
+            addizionali={addizionali}
+            onAddizionaliChange={setAddizionali}
+            tasse={tasse}
+            onTasseChange={setTasse}
+            provvigioni={provvFirma}
+          />
+          <PremiGaranziaCardShell
+            tipoPremio="quietanza"
+            mainLabel={isRCA ? "RCA Auto" : "Premio"}
+            premioNetto={premioNettoQuietanza}
+            onPremioNettoChange={setPremioNettoQuietanza}
+            addizionali={addizionaliQuietanza}
+            onAddizionaliChange={setAddizionaliQuietanza}
+            tasse={tasseQuietanza}
+            onTasseChange={setTasseQuietanza}
+            provvigioni={provvQuietanza}
+            sincronizzata={
+              premioNettoQuietanza === premioNetto &&
+              addizionaliQuietanza === addizionali &&
+              tasseQuietanza === tasse
+            }
+          />
         </div>
 
         {/* Flags row */}
