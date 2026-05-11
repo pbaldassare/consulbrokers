@@ -555,7 +555,7 @@ const ImmissionePolizzaPage = () => {
       </div>
 
       {/* CLIENTE */}
-      <PolizzaSection title="Cliente & Sede">
+      <PolizzaSection title="Cliente & Sede" icon={Users}>
 
         {/* Selezione cliente esistente */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
@@ -650,7 +650,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* CONTRATTO */}
-      <PolizzaSection title="Contratto">
+      <PolizzaSection title="Contratto" icon={FileText}>
 
         <AiDocumentScanner
           documentType="copia_polizza"
@@ -761,7 +761,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* PERIODO */}
-      <PolizzaSection title="Periodo">
+      <PolizzaSection title="Periodo" icon={Calendar}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Durata Da</Label>
@@ -814,7 +814,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* REGOLAZIONE */}
-      <PolizzaSection title="Regolazione">
+      <PolizzaSection title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="flex items-center gap-2 h-8">
             <Checkbox id="regolazione" checked={regolazione} onCheckedChange={(v) => setRegolazione(v === true)} />
@@ -973,7 +973,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* PROVVIGIONI */}
-      <PolizzaSection title="Provvigioni">
+      <PolizzaSection title="Provvigioni" icon={Percent}>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">% Provvigione Agenzia</Label>
@@ -1052,7 +1052,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* TIPO */}
-      <PolizzaSection title="Tipo">
+      <PolizzaSection title="Tipo" icon={Tag}>
         <div className="space-y-3">
           <Label className="text-xs">Tipo Operazione</Label>
           <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
@@ -1191,7 +1191,7 @@ const ImmissionePolizzaPage = () => {
           </PolizzaSection>
 
           {/* DATI PREMIO PER GARANZIA */}
-          <PolizzaSection title="Dati Premio per Garanzia" icon={Receipt}>
+          <PolizzaSection title="Premi per Garanzia" icon={ShieldCheck}>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -1227,7 +1227,7 @@ const ImmissionePolizzaPage = () => {
           </PolizzaSection>
 
           {/* DATI CONDUCENTE */}
-          <PolizzaSection title="Dati Conducente" icon={User}>
+          <PolizzaSection title="Dati Conducente" icon={UserCheck}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
