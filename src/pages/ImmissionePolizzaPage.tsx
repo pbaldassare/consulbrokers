@@ -35,6 +35,38 @@ const ImmissionePolizzaPage = () => {
   const preselectedClienteId = searchParams.get("clienteId");
   const { user, profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [aiImportOpen, setAiImportOpen] = useState(false);
+
+  const handleAIImportApply = (m: MatchResult) => {
+    const d = m.data;
+    if (m.cliente?.id) setSelectedClienteId(m.cliente.id);
+    else if (d.contraente_codice_fiscale) setCodiceCliente(d.contraente_codice_fiscale);
+    if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
+    if (m.ramo) {
+      setSelectedGruppoRamoId(m.ramo.gruppoRamoId);
+      setSelectedRamo(m.ramo.ramoId);
+    }
+    if (d.prodotto) setProdottoNome(d.prodotto);
+    if (d.numero_polizza) setNumeroPolizza(d.numero_polizza);
+    if (d.decorrenza) setDurataDa(d.decorrenza);
+    if (d.scadenza) setDurataA(d.scadenza);
+    if (typeof d.tacito_rinnovo === "boolean") setTacitoRinnovo(d.tacito_rinnovo);
+    if (d.frazionamento) {
+      const fraz = d.frazionamento.toLowerCase();
+      const map: Record<string, string> = {
+        annuale: "1", semestrale: "2", quadrimestrale: "3", trimestrale: "4", mensile: "12",
+      };
+      if (map[fraz]) setRate(map[fraz]);
+    }
+    if (d.premio_firma_netto != null) setPremioNetto(String(d.premio_firma_netto));
+    if (d.premio_firma_imposte != null) setTasse(String(d.premio_firma_imposte));
+    if (d.premio_firma_accessori != null) setAddizionali(String(d.premio_firma_accessori));
+    if (d.premio_quietanza_netto != null) setPremioNettoQuietanza(String(d.premio_quietanza_netto));
+    if (d.premio_quietanza_imposte != null) setTasseQuietanza(String(d.premio_quietanza_imposte));
+    if (d.premio_quietanza_accessori != null) setAddizionaliQuietanza(String(d.premio_quietanza_accessori));
+    if (d.targa) setTargaTelaio(d.targa);
+    toast.success("Dati applicati al form");
+  };
 
   // Form state — Cliente
   const [codiceCliente, setCodiceCliente] = useState("");
