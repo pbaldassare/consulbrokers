@@ -821,7 +821,7 @@ const RcaGaranzieTab = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Garanzie RCA</CardTitle>
+        <CardTitle className="text-lg">Catalogo Garanzie</CardTitle>
         <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuova</Button>
       </CardHeader>
       <CardContent>
@@ -863,7 +863,7 @@ const RcaGaranzieTab = () => {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Modifica Garanzia RCA" : "Nuova Garanzia RCA"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Garanzia" : "Nuova Garanzia"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 01" /></div>
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Cristalli veicolo" /></div>
@@ -1066,7 +1066,7 @@ const tabConfig: { value: string; label: string; tableName: string; queryKey: st
   { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
   
   { value: "rca_usi", label: "Usi RCA", tableName: "rca_usi", queryKey: "rca-usi", title: "Uso RCA", custom: "rca_usi" },
-  { value: "rca_garanzie", label: "Garanzie RCA", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia RCA", custom: "rca_garanzie" },
+  { value: "rca_garanzie", label: "Catalogo Garanzie", tableName: "rca_garanzie", queryKey: "rca-garanzie", title: "Garanzia", custom: "rca_garanzie" },
   { value: "gruppi_statistici", label: "Gruppi Statistici", tableName: "gruppi_statistici", queryKey: "gruppi-statistici", title: "Gruppo Statistico" },
   { value: "gruppi_finanziari", label: "Gruppi Finanziari", tableName: "gruppi_finanziari", queryKey: "gruppi-finanziari", title: "Gruppo Finanziario", custom: "gruppi_finanziari" },
   { value: "tipi_mandatario", label: "Tipi Mandatario", tableName: "tipi_mandatario", queryKey: "tipi-mandatario", title: "Tipo Mandatario" },

@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,11 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Car, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PremiGaranziaCardShellProps {
   tipoPremio: "firma" | "quietanza";
   /** Etichetta della voce principale (es. "RCA Auto" oppure "Premio") */
   mainLabel?: string;
+  /** Gruppo Ramo selezionato sul titolo: filtra il catalogo garanzie selezionabili */
+  gruppoRamoId?: string | null;
+  /** Codice garanzia selezionata (catalogo rca_garanzie) */
+  garanziaCodice?: string;
+  onGaranziaChange?: (codice: string, descrizione: string, aliquotaTasse: number) => void;
   premioNetto: string;
   onPremioNettoChange: (v: string) => void;
   addizionali: string;
@@ -32,6 +40,9 @@ export interface PremiGaranziaCardShellProps {
 export function PremiGaranziaCardShell({
   tipoPremio,
   mainLabel = "Premio",
+  gruppoRamoId,
+  garanziaCodice,
+  onGaranziaChange,
   premioNetto,
   onPremioNettoChange,
   addizionali,
@@ -49,6 +60,26 @@ export function PremiGaranziaCardShell({
   const add = parseFloat(addizionali || "0") || 0;
   const lordo = netto + tax + add;
   const aliquota = netto > 0 ? (tax / netto) * 100 : 0;
+
+  // Catalogo garanzie filtrato per gruppo ramo del titolo
+  const { data: catalogo = [] } = useQuery({
+    queryKey: ["garanzie-catalogo-shell", gruppoRamoId || "none"],
+    enabled: !!gruppoRamoId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rca_garanzie" as any)
+        .select("codice, descrizione, aliquota_tasse")
+        .eq("attivo", true)
+        .eq("gruppo_ramo_id", gruppoRamoId!)
+        .order("codice");
+      return (data as any[]) || [];
+    },
+  });
+
+  const garanziaOptions = catalogo.map((g: any) => ({
+    value: g.codice,
+    label: `${g.codice} — ${g.descrizione}`,
+  }));
 
   return (
     <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
@@ -97,17 +128,24 @@ export function PremiGaranziaCardShell({
                   "font-medium",
                 )}
               >
-                <TableCell className="flex items-center gap-2">
-                  <ShieldCheck className={cn("h-4 w-4", isQuietanza ? "text-amber-700" : "text-teal-700")} />
-                  <span>{mainLabel}</span>
-                  <Badge
-                    className={cn(
-                      "ml-1 text-[10px]",
-                      isQuietanza ? "bg-amber-600 hover:bg-amber-700" : "bg-teal-600 hover:bg-teal-700",
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className={cn("h-4 w-4 flex-shrink-0", isQuietanza ? "text-amber-700" : "text-teal-700")} />
+                    {onGaranziaChange && gruppoRamoId ? (
+                      <SearchableSelect
+                        options={garanziaOptions}
+                        value={garanziaCodice || ""}
+                        onValueChange={(v) => {
+                          const sel = catalogo.find((g: any) => g.codice === v);
+                          if (sel) onGaranziaChange(sel.codice, sel.descrizione, Number(sel.aliquota_tasse) || 0);
+                        }}
+                        placeholder={garanziaOptions.length ? "Seleziona garanzia…" : "Nessuna garanzia per questo Ramo"}
+                        className="min-w-[220px]"
+                      />
+                    ) : (
+                      <span>{mainLabel}</span>
                     )}
-                  >
-                    obbligatoria
-                  </Badge>
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <Input

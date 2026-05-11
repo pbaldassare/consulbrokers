@@ -880,6 +880,14 @@ const ImmissionePolizzaPage = () => {
           <PremiGaranziaCardShell
             tipoPremio="firma"
             mainLabel={isRCA ? "RCA Auto" : "Premio"}
+            gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
+            onGaranziaChange={(_codice, _descr, aliquotaTasse) => {
+              // Pre-popola l'aliquota tasse se il netto è valorizzato
+              const netto = parseFloat(premioNetto) || 0;
+              if (netto > 0 && aliquotaTasse > 0) {
+                setTasse((netto * aliquotaTasse / 100).toFixed(2));
+              }
+            }}
             premioNetto={premioNetto}
             onPremioNettoChange={setPremioNetto}
             addizionali={addizionali}
@@ -891,6 +899,13 @@ const ImmissionePolizzaPage = () => {
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
             mainLabel={isRCA ? "RCA Auto" : "Premio"}
+            gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
+            onGaranziaChange={(_codice, _descr, aliquotaTasse) => {
+              const netto = parseFloat(premioNettoQuietanza) || 0;
+              if (netto > 0 && aliquotaTasse > 0) {
+                setTasseQuietanza((netto * aliquotaTasse / 100).toFixed(2));
+              }
+            }}
             premioNetto={premioNettoQuietanza}
             onPremioNettoChange={setPremioNettoQuietanza}
             addizionali={addizionaliQuietanza}
