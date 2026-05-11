@@ -64,7 +64,7 @@ const ImmissionePolizzaPage = () => {
       }
 
       const prefill: NuovoClienteInitialData = {
-        tipoCliente: isAzienda ? "azienda" : "privato",
+        tipoCliente: m.tipoCliente ?? (isAzienda ? "azienda" : "privato"),
         ragioneSociale: isAzienda ? nome || undefined : undefined,
         nome: !isAzienda ? nome || undefined : undefined,
         codiceFiscale: cf || undefined,
@@ -76,6 +76,8 @@ const ImmissionePolizzaPage = () => {
         citta: d.contraente_comune,
         provincia: d.contraente_provincia,
         nazione: d.contraente_nazione,
+        gruppoFinanziarioId: m.gruppoFinanziarioId,
+        codiceCup: m.codiceCup,
       };
       // Bumpiamo il nonce: il NuovoClienteDialog viene rimontato (key={nonce}),
       // garantendo stato pulito e applicazione deterministica del nuovo prefill.
