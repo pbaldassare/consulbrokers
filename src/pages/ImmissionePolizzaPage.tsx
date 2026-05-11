@@ -112,7 +112,7 @@ const ImmissionePolizzaPage = () => {
   // Veicolo
   const [vSettore, setVSettore] = useState("Autovetture");
   const [vTipoVeicolo, setVTipoVeicolo] = useState("AUTOVETTURA");
-  const [vUso, setVUso] = useState("PRIVATO");
+  const [vUso, setVUso] = useState("");
   const [vMarca, setVMarca] = useState("");
   const [vModello, setVModello] = useState("");
   const [vVersione, setVVersione] = useState("");
