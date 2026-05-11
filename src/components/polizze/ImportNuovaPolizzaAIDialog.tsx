@@ -56,6 +56,7 @@ export type MatchResult = {
   cliente?: { id: string; label: string } | null;
   compagnia?: { id: string; label: string } | null;
   ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
+  isNewCliente?: boolean;
 };
 
 type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
@@ -354,6 +355,7 @@ export function ImportNuovaPolizzaAIDialog({
       cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
       compagnia: compagnia ? { id: compagnia.id, label: compagnia.label } : null,
       ramo: ramo ? { gruppoRamoId: ramo.gruppoRamoId, ramoId: ramo.ramoId, label: ramo.label } : null,
+      isNewCliente: selectedClienteId === NEW_CLIENTE,
     };
   };
 
@@ -507,9 +509,11 @@ export function ImportNuovaPolizzaAIDialog({
                 <>
                   <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-2 text-xs text-amber-800 dark:text-amber-200 flex gap-2">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
-                    Il cliente non esiste. Cliccando <strong>Applica</strong> si aprirà il form di
-                    creazione cliente pre-compilato — i campi obbligatori (Gruppo Finanziario, e per Enti
-                    il Codice CUP) andranno completati prima di salvare.
+                    Il cliente non esiste. Cliccando <strong>Applica</strong> si aprirà automaticamente
+                    il form <em>Nuovo Cliente</em> pre-compilato con i dati estratti — dovrai
+                    selezionare il <strong>Gruppo Finanziario</strong> (obbligatorio, determina il tipo
+                    cliente) e, per gli <strong>Enti</strong>, anche il <strong>Codice CUP</strong>
+                    prima di poter salvare.
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <FieldInput label="Nome / Ragione Sociale" value={data.contraente_nome} onChange={(v) => updateField("contraente_nome", v)} />
