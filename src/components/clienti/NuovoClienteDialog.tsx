@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -325,14 +325,22 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
   }, [open, initialData]);
 
+  // Stable id derived from query data: prevents re-runs when array reference changes but content doesn't
+  const backofficeProfileId = useMemo<string | null>(
+    () => profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice")?.id ?? null,
+    [profiliCommercialiRaw]
+  );
+
+  // Auto-assign backoffice profile when dialog opens.
+  // Guards: only when open + id available; functional setState avoids stale closure on backofficeRole
+  // and short-circuits if profilo_id is already set (no spurious state updates / re-renders).
   useEffect(() => {
-    if (open && !backofficeRole.profilo_id) {
-      const backofficeProfile = profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice");
-      if (backofficeProfile) {
-        setBackofficeRole(prev => ({ ...prev, profilo_id: backofficeProfile.id }));
-      }
-    }
-  }, [open, profiliCommercialiRaw]);
+    if (!open || !backofficeProfileId) return;
+    setBackofficeRole(prev => {
+      if (prev.profilo_id) return prev;
+      return { ...prev, profilo_id: backofficeProfileId };
+    });
+  }, [open, backofficeProfileId]);
 
   const insertCommercialRoles = async (clienteId: string) => {
     const roles = [
