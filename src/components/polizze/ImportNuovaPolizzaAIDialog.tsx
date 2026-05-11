@@ -57,6 +57,16 @@ export type MatchResult = {
   compagnia?: { id: string; label: string } | null;
   ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
   isNewCliente?: boolean;
+  gruppoFinanziarioId?: string;
+  tipoCliente?: "privato" | "azienda" | "ente";
+  codiceCup?: string;
+};
+
+type GruppoFinanziarioOpt = {
+  id: string;
+  codice: string;
+  nome: string;
+  tipo_soggetto: "privato" | "azienda" | "ente";
 };
 
 type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
