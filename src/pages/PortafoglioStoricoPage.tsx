@@ -12,13 +12,18 @@ import { useNavigate } from "react-router-dom";
 import { Archive, Search, Plus, Eye } from "lucide-react";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
+import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
+import { useRamiAll } from "@/hooks/useRamiLookup";
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
-  const [filtroRamo, setFiltroRamo] = useState("tutti");
+  const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
+  const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroRamo, filtroStato]);
+  const { data: ramiAll = [] } = useRamiAll();
+  const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato]);
 
   const today = format(new Date(), "yyyy-MM-dd");
 
@@ -30,13 +35,7 @@ const PortafoglioStoricoPage = () => {
     },
   });
 
-  const { data: rami } = useQuery({
-    queryKey: ["rami-lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
-      return data || [];
-    },
-  });
+  // rami list now provided via useRamiAll above
 
   const buildFilter = (q: any) => {
     if (filtroStato === "tutti") {
@@ -51,12 +50,12 @@ const PortafoglioStoricoPage = () => {
       q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
-    if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+    if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
     return q;
   };
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-storico", search, filtroCompagnia, filtroRamo, filtroStato, page, today],
+    queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id",
@@ -152,17 +151,15 @@ const PortafoglioStoricoPage = () => {
             ))}
           </SelectContent>
         </Select>
-        <Select value={filtroRamo} onValueChange={(v) => { setFiltroRamo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Ramo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutti i rami</SelectItem>
-            {rami?.map((r) => (
-              <SelectItem key={r.id} value={r.id}>{r.descrizione}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <RamoSottoramoFilter
+          gruppoRamoId={filtroGruppoRamo}
+          ramoId={filtroRamo}
+          onChange={({ gruppoRamoId, ramoId }) => {
+            setFiltroGruppoRamo(gruppoRamoId);
+            setFiltroRamo(ramoId);
+            setPage(0);
+          }}
+        />
       </div>
 
       {isLoading ? (

@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -139,7 +140,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -471,6 +472,7 @@ const TitoloDetail = () => {
     ufficio_id: "" as string | null,
     compagnia_id: "" as string | null,
     ramo_id: "" as string | null,
+    gruppo_ramo_id: null as string | null,
   });
 
   const { data: produttoriOpts = [] } = useQuery({
@@ -567,7 +569,8 @@ const TitoloDetail = () => {
         ufficio_id: (titolo as any).ufficio_id ?? null,
         compagnia_id: (titolo as any).compagnia_id ?? null,
         ramo_id: (titolo as any).ramo_id ?? null,
-      });
+        gruppo_ramo_id: ((titolo as any).ramo as any)?.gruppo_ramo_id ?? null,
+      } as any);
     }
     setEditingContratto(true);
   };
@@ -1864,7 +1867,8 @@ const TitoloDetail = () => {
             <FieldRow label="Agenzia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
-            <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
+            <FieldRow label="Ramo" value={fmt((t.ramo as any)?.gruppo_ramo?.descrizione)} />
+            <FieldRow label="Sottoramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
             
@@ -1905,13 +1909,13 @@ const TitoloDetail = () => {
                 placeholder="— Seleziona agenzia / agenzia —"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Ramo</Label>
-              <SearchableSelect
-                options={ramiOpts}
-                value={contrattoForm.ramo_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, ramo_id: v || null }))}
-                placeholder="Seleziona ramo"
+            <div className="space-y-1 col-span-2">
+              <RamoSottoramoSelect
+                gruppoRamoId={(contrattoForm as any).gruppo_ramo_id || null}
+                ramoId={contrattoForm.ramo_id || null}
+                onChange={({ gruppoRamoId, ramoId }) =>
+                  setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
+                }
               />
             </div>
             <div className="space-y-1">

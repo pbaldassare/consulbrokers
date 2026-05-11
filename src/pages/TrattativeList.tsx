@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { TrattativaDetailDialog } from "@/components/trattative/TrattativaDetailDialog";
 import { STATI_TRATTATIVA_FULL, getStatoLabel, getStatoColor } from "@/components/trattative/StatoPipeline";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ interface TrattativaForm {
   prospect_id: string;
   cliente_id: string;
   ramo_id: string;
+  gruppo_ramo_id: string;
   compagnia_id: string;
   ufficio_id: string;
   premio_previsto: string;
@@ -40,6 +42,7 @@ const emptyForm: TrattativaForm = {
   prospect_id: "",
   cliente_id: "",
   ramo_id: "",
+  gruppo_ramo_id: "",
   compagnia_id: "",
   ufficio_id: "",
   premio_previsto: "",
@@ -312,15 +315,16 @@ const TrattativeList = () => {
                   <SearchableSelect options={clienti} value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })} placeholder="Cerca cliente..." />
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Ramo</Label>
-                  <SearchableSelect options={rami} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Ramo..." />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Agenzia</Label>
-                  <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Agenzia..." />
-                </div>
+              <RamoSottoramoSelect
+                gruppoRamoId={form.gruppo_ramo_id || null}
+                ramoId={form.ramo_id || null}
+                onChange={({ gruppoRamoId, ramoId }) =>
+                  setForm({ ...form, gruppo_ramo_id: gruppoRamoId || "", ramo_id: ramoId || "" })
+                }
+              />
+              <div className="space-y-1.5">
+                <Label>Agenzia</Label>
+                <SearchableSelect options={compagnie} value={form.compagnia_id} onValueChange={(v) => setForm({ ...form, compagnia_id: v })} placeholder="Agenzia..." />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

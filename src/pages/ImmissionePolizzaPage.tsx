@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+
 import { Search, Car, Receipt, User, Info } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import {
@@ -52,6 +53,7 @@ const ImmissionePolizzaPage = () => {
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedRamo, setSelectedRamo] = useState("");
+  const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
   const [prodottoNome, setProdottoNome] = useState("");
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
   
@@ -679,23 +681,14 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">Ramo</Label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <SearchableSelect
-                  className="h-8 text-xs"
-                  value={selectedRamo}
-                  onValueChange={setSelectedRamo}
-                  placeholder="— Ramo —"
-                  options={(ramiList || []).map((r) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))}
-                />
-              </div>
-              {selectedGruppoRamo && (
-                <Badge variant="secondary" className="text-[10px] whitespace-nowrap shrink-0">
-                  {selectedGruppoRamo.descrizione}
-                </Badge>
-              )}
-            </div>
+            <RamoSottoramoSelect
+              gruppoRamoId={selectedGruppoRamoId}
+              ramoId={selectedRamo || null}
+              onChange={({ gruppoRamoId, ramoId }) => {
+                setSelectedGruppoRamoId(gruppoRamoId);
+                setSelectedRamo(ramoId || "");
+              }}
+            />
             {isRCA && (
               <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
                 <Info className="h-3 w-3" />

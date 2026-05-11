@@ -1,44 +1,92 @@
-## Causa
-La tabella `rca_usi` contiene **43 righe attive** ma molte sono duplicati esatti dello stesso `(codice, descrizione)`:
 
-| codice + descrizione | righe |
-|---|---|
-| `1 - CONTO PROPRIO` | 5 |
-| `2 - CONTO TERZI` | 3 |
-| `1 - PRIVATO` | 3 |
-| `2 - LOCAZIONE SENZA CONDUC.` | 2 |
-| `13 - Trasporto C/Proprio` | 2 |
-| `14 - Trasporto C/Terzi` | 2 |
-| `15 - Uso Speciale` | 2 |
+## Obiettivo
 
-Sono 12 righe duplicate (43 → 31 distinte). Probabile esito di import multipli storici. La hook `useRcaUsi` mostra ogni record, quindi appaiono ripetuti nella select.
+Uniformare ovunque la selezione del ramo polizza usando due selettori coordinati:
+- **Ramo** = `gruppi_ramo` (es. `ZQ - R.C.A.`)
+- **Sottoramo** = `rami` filtrati per gruppo selezionato (es. `PI R.C. AUTOVEICOLI`)
 
-Restano poi alcune **descrizioni simili ma con codice diverso** (legittime varianti ANIA), es. `1 CONTO PROPRIO` vs `5 CONTO PROPRIO`, `5 SCUOLA GUIDA` vs `8 SCUOLA GUIDA`. Quelle NON sono duplicati tecnici e vanno mantenute (codici differenti = significati differenti per le compagnie).
+Eliminare la colonna legacy `titoli.gruppo_ramo` (sempre NULL, fuorviante).
 
-## Verifica utilizzo
-Nessun record in `veicoli_polizza.uso` referenzia attualmente questi id (campo testuale, non FK). La pulizia è quindi sicura.
+## 1. Database
 
-## Soluzione
+Migrazione:
+- `ALTER TABLE titoli DROP COLUMN gruppo_ramo;`
+- Verifica viste dipendenti (`v_portafoglio_titoli` espone `gruppo_ramo` come testo derivato dal join — la teniamo perché già calcolata via join, non dipende dalla colonna eliminata; rigenerare la vista se necessario).
 
-**Migrazione SQL** che disattiva (`attivo=false`) i duplicati esatti per `(codice, descrizione)`, conservando per ciascun gruppo l'`id` più piccolo (deterministico).
+Nessun backfill necessario: tutti i 25 titoli hanno `ramo_id` valido e il gruppo è sempre derivabile via `rami.gruppo_ramo_id → gruppi_ramo`.
 
-```sql
-WITH ranked AS (
-  SELECT id,
-         ROW_NUMBER() OVER (
-           PARTITION BY codice, descrizione
-           ORDER BY id
-         ) AS rn
-  FROM rca_usi
-  WHERE attivo = true
-)
-UPDATE rca_usi
-SET attivo = false
-WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+## 2. Hook condiviso
+
+Nuovo `src/hooks/useRamiLookup.ts`:
+- `useGruppiRamo()` → `[{ value: id, label: "codice - descrizione" }]`
+- `useRami(gruppoRamoId?: string)` → `[{ value: id, label: "codice - descrizione", gruppo_ramo_id }]` filtrato lato client se `gruppoRamoId` valorizzato.
+- Cache `staleTime` 30 min.
+
+## 3. Componente riusabile
+
+Nuovo `src/components/polizze/RamoSottoramoSelect.tsx`:
+- Props: `gruppoRamoId`, `ramoId`, `onChange({gruppoRamoId, ramoId})`, `disabled`, `required`, `layout` (`row|stacked`).
+- Rende due `SearchableSelect` affiancati, label "Ramo" / "Sottoramo".
+- Logica:
+  - Cambio Ramo (gruppo) → se il sottoramo corrente non appartiene al nuovo gruppo, viene resettato.
+  - Cambio Sottoramo → se il gruppo è vuoto o diverso, viene auto-popolato dal `gruppo_ramo_id` del sottoramo.
+  - Sottoramo è disabilitato finché il Ramo non è scelto (oppure mostra tutti i sottorami con badge gruppo se `gruppoRamoId` vuoto — opzione `freeMode`).
+
+## 4. Form polizza (nuove + esistenti)
+
+**`ImmissionePolizzaPage.tsx`**
+- Stato attuale `selectedRamo` (= ramo_id) → aggiungere `selectedGruppoRamo`.
+- Sostituire l'attuale Select "Ramo" con `<RamoSottoramoSelect>`.
+- Salvataggio `titoli`: continua a scrivere solo `ramo_id` (gruppo derivato).
+
+**`TitoloDetail.tsx` (Card Contratto, sezione modifica)**
+- Sostituire il Select "Ramo" con `<RamoSottoramoSelect>` (riga 1909-1914).
+- Display read-only (riga 1867): mostrare due righe — "Ramo" (gruppo) e "Sottoramo" (rami).
+- Rimuovere riferimenti a `contrattoForm.gruppo_ramo` se presenti.
+
+**`RinnovoTitoloDialog.tsx`**
+- Rimuovere `gruppo_ramo: t.gruppo_ramo` (riga 205) dall'oggetto rinnovo.
+
+## 5. Trattative
+
+**`TrattativaDettagliTab.tsx`**
+- Sostituire il `SearchableSelect` ramo (riga 167-168) con `<RamoSottoramoSelect>`.
+- Salvataggio: `trattative` ha solo `ramo_id`; nessun nuovo campo.
+
+## 6. Filtri Portafoglio / Provvigioni / Estrazioni
+
+Pagine coinvolte (filtri ramo presenti):
+- `PortafoglioAttivePage.tsx`, `PortafoglioCaricoPage.tsx`, `PortafoglioStoricoPage.tsx`
+- `ProvvigioniMaturatePage.tsx`, `ProvvigioniSedePage.tsx`
+- `TrattativeList.tsx`, `StoricoTrattativePage.tsx`
+- `ECAgenziaPdfPage.tsx`, `ECClientePdfPage.tsx`, `ECProduttorePdfPage.tsx`
+- `ClienteDetail.tsx`, `ProspectDetail.tsx`, `ClienteDashboard.tsx`
+
+Pattern: aggiungere un `FilterSearchableSelect` "Ramo" (gruppo) **prima** dell'esistente filtro "Sottoramo". La selezione del gruppo filtra dinamicamente le opzioni del sottoramo. Le query continuano a filtrare per `ramo_id` (sottoramo); se è valorizzato solo il gruppo, si filtra `ramo_id IN (lista rami del gruppo)`.
+
+Per evitare duplicazione, creare `src/components/polizze/RamoSottoramoFilter.tsx` (variante "filtro": entrambi opzionali, con opzione "Tutti").
+
+## 7. Cleanup
+
+- `src/integrations/supabase/types.ts` si rigenera dopo migration.
+- Cercare e rimuovere ogni `gruppo_ramo` testuale residuo nei payload insert/update titoli.
+- Memoria: aggiornare `mem://insurance/policy-financial-structure-expansion` (o creare nuova memory `ramo-sottoramo-coordinated-selection`) con la convenzione UI Ramo/Sottoramo + eliminazione colonna legacy.
+
+## 8. QA
+
+1. Crea polizza nuova: scegli Ramo `R.C.A.` → solo sottorami RCA disponibili. Salva e riapri: i due campi sono coerenti.
+2. Apri polizza esistente, cambia Ramo (gruppo) → Sottoramo si resetta. Salva il nuovo sottoramo: la VociRcaCard si aggiorna correttamente filtrando garanzie per nuovo gruppo.
+3. Filtri Portafoglio: scegli solo "Ramo R.C.A." → elenco mostra tutte le polizze di tutti i sottorami RCA. Aggiungi sottoramo → si restringe.
+4. Trattativa: stesso comportamento del form polizza.
+5. Verifica che VociRcaCard (che usa `useQuery titolo-gruppo-ramo`) continui a funzionare poiché basata su join, non sulla colonna eliminata.
+
+## Tabelle/file toccati
+
+```text
+DB:    titoli (DROP COLUMN gruppo_ramo)
+NEW:   src/hooks/useRamiLookup.ts
+NEW:   src/components/polizze/RamoSottoramoSelect.tsx
+NEW:   src/components/polizze/RamoSottoramoFilter.tsx
+EDIT:  ImmissionePolizzaPage, TitoloDetail, RinnovoTitoloDialog,
+       TrattativaDettagliTab, +12 pagine con filtro ramo
 ```
-
-Risultato atteso: lookup passa da 43 → 31 voci, senza ripetizioni nella select "Uso".
-
-## Fuori scopo
-- Non unifico le varianti maiuscole/minuscole (`Trasporto C/Proprio` vs `TRASPORTO CONTO PROPRIO`) né le descrizioni simili: hanno codici ANIA diversi e cancellarle può rompere logiche o report.
-- Nessuna modifica al frontend.

@@ -5235,6 +5235,13 @@ export type Database = {
             referencedRelation: "gruppi_ramo"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rami_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
         ]
       }
       rca_garanzie: {
@@ -5272,6 +5279,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gruppi_ramo"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rca_garanzie_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
           },
         ]
       }
@@ -6260,7 +6274,6 @@ export type Database = {
           garanzia_a: string | null
           garanzia_da: string | null
           giorni_presentazione: number | null
-          gruppo_ramo: string | null
           id: string
           id_legacy: number | null
           importo_incassato: number | null
@@ -6357,7 +6370,6 @@ export type Database = {
           garanzia_a?: string | null
           garanzia_da?: string | null
           giorni_presentazione?: number | null
-          gruppo_ramo?: string | null
           id?: string
           id_legacy?: number | null
           importo_incassato?: number | null
@@ -6454,7 +6466,6 @@ export type Database = {
           garanzia_a?: string | null
           garanzia_da?: string | null
           giorni_presentazione?: number | null
-          gruppo_ramo?: string | null
           id?: string
           id_legacy?: number | null
           importo_incassato?: number | null
@@ -7332,6 +7343,8 @@ export type Database = {
           garanzia_da: string | null
           giorni_presentazione: number | null
           gruppo_ramo: string | null
+          gruppo_ramo_descrizione: string | null
+          gruppo_ramo_id: string | null
           id: string | null
           id_legacy: number | null
           importo_incassato: number | null
@@ -7380,6 +7393,7 @@ export type Database = {
           storno_appendice: string | null
           storno_polizza: string | null
           storno_riga: number | null
+          tacito_rinnovo: boolean | null
           targa_telaio: string | null
           tasse: number | null
           tasse_quietanza: number | null
@@ -7395,6 +7409,7 @@ export type Database = {
           updated_at: string | null
           valuta: string | null
           vincolo: string | null
+          vincolo_attivo: boolean | null
         }
         Relationships: [
           {
