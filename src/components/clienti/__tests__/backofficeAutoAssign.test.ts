@@ -21,6 +21,7 @@ const backofficeUpdater =
   (prev: CommercialRole): CommercialRole => {
     if (!backofficeProfileId) return prev;
     if (prev.profilo_id) return prev;
+    if (prev.profilo_id === backofficeProfileId) return prev;
     return { ...prev, profilo_id: backofficeProfileId };
   };
 
@@ -66,5 +67,44 @@ describe("NuovoClienteDialog - backoffice auto-assign guard", () => {
     state = update(state);
     state = update(state);
     expect(state).toBe(afterFirst); // nessuna nuova reference dopo la prima
+  });
+
+  /**
+   * Test di integrazione (state-machine): simula la riapertura del dialog con initialData
+   * che pre-popola il profilo backoffice. Verifica che l'effect:
+   *   - non sovrascriva il profilo_id già impostato da initialData
+   *   - mantenga la stessa reference (no re-render)
+   *   - preservi tutti i campi extra di initialData
+   */
+  it("riapertura con initialData: non sovrascrive profilo_id pre-impostato", () => {
+    // 1° apertura: dialog vuoto, l'effect assegna il backoffice
+    let state: CommercialRole = { profilo_id: null };
+    const update = backofficeUpdater("backoffice-default");
+    state = update(state);
+    expect(state.profilo_id).toBe("backoffice-default");
+
+    // Chiusura dialog → riapertura con initialData (profilo + campi custom)
+    const initialData: CommercialRole = {
+      profilo_id: "specialist-from-initialData",
+      percentuale: 12,
+      noteInitialData: "preserved",
+      ufficio_id: "sede-xyz",
+    };
+    state = { ...initialData };
+
+    // L'effect rigira (es. backofficeProfileId resta lo stesso o cambia): no-op
+    const refBefore = state;
+    state = update(state);
+    expect(state).toBe(refBefore); // stessa reference → React bailout
+    expect(state.profilo_id).toBe("specialist-from-initialData");
+    expect(state.percentuale).toBe(12);
+    expect(state.noteInitialData).toBe("preserved");
+    expect(state.ufficio_id).toBe("sede-xyz");
+
+    // Anche con un id diverso che arriva dopo, profilo_id già valorizzato vince
+    const updateNewId = backofficeUpdater("backoffice-other");
+    state = updateNewId(state);
+    expect(state).toBe(refBefore);
+    expect(state.profilo_id).toBe("specialist-from-initialData");
   });
 });
