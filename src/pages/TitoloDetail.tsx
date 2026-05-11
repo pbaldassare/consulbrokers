@@ -939,6 +939,7 @@ const TitoloDetail = () => {
   // --- Veicolo edit state ---
   const [editingVeicolo, setEditingVeicolo] = useState(false);
   const [veicoloForm, setVeicoloForm] = useState<any>({});
+  const { data: rcaUsi = [] } = useRcaUsi();
 
   const TIPI_VEICOLO_OPTS = [
     "AUTOVETTURA","AUTOTASSAMETRO","AUTOBUS","AUTOCARRO","CICLOMOTORE","MOTOCICLO",
