@@ -77,15 +77,11 @@ const ImmissionePolizzaPage = () => {
         provincia: d.contraente_provincia,
         nazione: d.contraente_nazione,
       };
-      // Resettiamo prima di reimpostare per forzare il re-run del useEffect
-      // di prefill in NuovoClienteDialog anche se l'utente aveva già aperto/chiuso il dialog.
-      setAiClientePrefill(null);
-      setNuovoClienteOpen(false);
-      // microtask: garantisce che il dialog si "smonti" lo stato e poi ri-applichi il nuovo prefill
-      queueMicrotask(() => {
-        setAiClientePrefill(prefill);
-        setNuovoClienteOpen(true);
-      });
+      // Bumpiamo il nonce: il NuovoClienteDialog viene rimontato (key={nonce}),
+      // garantendo stato pulito e applicazione deterministica del nuovo prefill.
+      setAiClientePrefill(prefill);
+      setNuovoClienteNonce((n) => n + 1);
+      setNuovoClienteOpen(true);
       if (cf) setCodiceCliente(cf);
     } else if (d.contraente_codice_fiscale) {
       setCodiceCliente(d.contraente_codice_fiscale);
@@ -676,6 +672,7 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <NuovoClienteDialog
+            key={nuovoClienteNonce}
             trigger={
               <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5">
                 <UserPlus className="w-3.5 h-3.5" />
