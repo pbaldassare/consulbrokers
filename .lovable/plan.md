@@ -1,78 +1,104 @@
 ## Obiettivo
 
-Rendere la pagina **Nuova Emissione Polizza** (`ImmissionePolizzaPage.tsx`) graficamente identica alla pagina **Polizza esistente** (`TitoloDetail.tsx`), così l'utente vede lo stesso layout sia in inserimento sia in modifica. Solo restyle: nessun cambio di logica/salvataggio.
+Replicare il pattern RCA (catalogo garanzie filtrato per `gruppo_ramo`) per **tutti i rami**. Quando in una polizza (esistente o nuova) si imposta Ramo + Sottoramo, le card **Premio Firma** e **Premio Quietanza** devono mostrare nel dropdown "Voce / Garanzia" **solo le garanzie collegate al Gruppo Ramo selezionato**, e accettare solo quelle.
 
-## Differenze attuali
+## Stato attuale
 
-| Elemento | TitoloDetail (esistenti) | ImmissionePolizzaPage (nuovo) |
-|---|---|---|
-| Wrapper sezioni | `SectionCollapsible` (teal, **con icona**) | `PolizzaSection` (teal, **senza icona** sui blocchi principali) |
-| Sezione Importi | 2 card `VociRcaCard` "Premi per Garanzia — Firma" / "— Quietanza" (per RCA) + blocco Importi standard per altri rami | Tabella semplice Firma / Pros. Quietanza |
-| Pulsante "Importa con AI" | Presente in Importi (solo RCA) | Assente |
-| Sezioni e ordine | Contratto → Periodo → Regolazione → Commerciale & Provvigioni → Importi → … → Dati Veicolo / Premi per Garanzia / Conducente | Cliente & Sede → Contratto → Periodo → Regolazione → Importi → Provvigioni → Tipo → Dati Veicolo / Dati Premio per Garanzia / Conducente |
-| Icone sui titoli | Sì (FileText, Calendar, Shield, Percent, DollarSign, Car, ShieldCheck, UserCheck…) | Solo le sezioni RCA hanno l'icona |
+- `rca_garanzie` ha già `gruppo_ramo_id NOT NULL` ma è popolata solo per **ZQ – R.C.A.** (18 garanzie). Gli altri 11 gruppi (Corpi, Incendio, Infortuni, RCT, Vita, …) hanno 0 garanzie.
+- `VociRcaCard.tsx` filtra il catalogo `.eq('gruppo_ramo_id', gruppoRamoTitolo)` → su rami non-RCA il dropdown è vuoto, e la card oggi viene mostrata solo per `isRamoAuto` (auto + natanti). Sugli altri rami in TitoloDetail c'è una tabella Importi semplice; in `ImmissionePolizzaPage` c'è `PremiGaranziaCardShell` (shell visiva senza catalogo).
 
-## 1. Allineare il wrapper di sezione
+## Decisione architetturale
 
-`PolizzaSection` ha **già** lo stesso stile visivo di `SectionCollapsible` (border-l teal, header teal, chevron). Differenza: in immissione manca solo l'icona sulla maggior parte dei titoli.
+Promuovere `rca_garanzie` a **catalogo generico garanzie per Gruppo Ramo** (ribattezzandolo concettualmente "Catalogo Garanzie", senza rinominare la tabella per non rompere FK/migrazioni esistenti). Stessa struttura, stessa UI di gestione in Tabelle di Base, stessa relazione `gruppo_ramo_id`. La tabella `premi_garanzia_polizza` resta invariata (continua a usare `codice_garanzia` testuale).
 
-→ Aggiungere il prop `icon` a tutte le `<PolizzaSection>` di `ImmissionePolizzaPage` con le stesse icone usate in TitoloDetail:
+## 1. Dati / Tabelle di Base
+
+- **Estendere l'editor `RcaGaranzieTab`** (`TabelleBasePage.tsx`):
+  - Rinominare la tab in **"Catalogo Garanzie"**.
+  - Mantenere la colonna/select **Gruppo Ramo** (già obbligatoria, default ZQ).
+  - Aggiungere filtro lista per Gruppo Ramo in alto.
+- **Seed minimo per ogni Gruppo Ramo non RCA**: inserire una garanzia "principale" per gruppo, così la card non resta vuota quando si seleziona un nuovo ramo. La compilazione completa del catalogo per ogni gruppo è poi a carico dell'utente da Tabelle di Base.
+
+  ```text
+  Gruppo  → garanzia principale (codice / descrizione / aliquota_tasse)
+  ZD      → CORPI   / Corpi                              / 21.25
+  ZL      → INC     / Incendio Furto Rischi Tecnologici  / 21.25
+  ZN      → INF     / Infortuni                          / 2.50
+  ZM      → MAL     / Malattia                           / 2.50
+  ZP      → RCT     / R.C. Terzi                         / 21.25
+  ZS      → TG      / Tutela Giudiziaria                 / 21.25
+  ZC      → CRC     / Credito / Cauzioni                 / 21.25
+  ZT      → TRA     / Trasporti                          / 7.50
+  ZV      → VITA    / Vita                               / 2.50
+  ZY      → ALTRI   / Altri Rami Danni                   / 21.25
+  DI      → ASS     / Assistenza                         / 10.00
+  ```
+
+  (le aliquote indicative sono editabili da Tabelle di Base; nessun blocco)
+
+## 2. UI Polizze (esistenti) – `TitoloDetail.tsx`
+
+- Estendere il rendering delle due card **Premi per Garanzia – Firma / Quietanza** (oggi `<VociRcaCard>` solo se `isRamoAuto`) a **tutti i rami**.
+- La sezione Importi diventa quindi sempre composta da:
+  - Card Firma (teal) + Card Quietanza (amber) basate su `VociRcaCard`.
+  - La tabella "Importi semplice" attuale per non-RCA viene rimossa (sostituita dalle card).
+- `VociRcaCard` modifiche minime:
+  - Prop nuovo opzionale `mainVoceObbligatoria?: boolean` (default `true` solo per RCA/Natanti). Per gli altri rami **nessuna riga obbligatoria pre-inserita**.
+  - `useAutoTaxFormula` resta `true` per auto/natanti, `false` per gli altri (lordo = netto × (1 + aliquota%)).
+  - `mostraCampiCapitaleRata` resta su Auto/Natanti.
+  - Il filtro catalogo su `gruppo_ramo_id` è già attivo: niente da cambiare.
+- Mirroring Firma↔Quietanza (`sync_quietanza_da_firma` + trigger) **resta valido per tutti i rami**: nessuna modifica al trigger.
+
+## 3. UI Nuova Emissione – `ImmissionePolizzaPage.tsx`
+
+Oggi usa `PremiGaranziaCardShell` (solo grafica, senza catalogo, senza persistenza voci). Per allinearla al pattern serve un titolo in DB → due opzioni proposte all'utente più avanti; per il piano corrente:
+
+- **Step A (questo piano)**: rendere `PremiGaranziaCardShell` un vero **catalogo-aware shell**:
+  - Riceve `gruppoRamoId` derivato dalla selezione `RamoSottoramoSelect`.
+  - Carica `rca_garanzie` filtrate per quel `gruppo_ramo_id` (stessa query di `VociRcaCard`).
+  - Le voci vengono gestite in **stato locale** (array di righe `{ codice_garanzia, descrizione, premio_netto, aliquota, premio_lordo }`) e mostrate con lo stesso layout di `VociRcaCard`.
+  - Cambio Sottoramo → reset righe (con conferma se non vuote).
+- **Step B (fuori scopo, già concordato)**: persistenza vera in `premi_garanzia_polizza` al momento del primo salvataggio del titolo (batch insert delle righe locali).
+
+## 4. File toccati
 
 ```text
-Cliente & Sede           → Users
-Contratto                → FileText
-Periodo                  → Calendar
-Regolazione              → Shield (defaultOpen={false} come in TitoloDetail)
-Importi                  → DollarSign
-Provvigioni              → Percent
-Tipo                     → Tag
-Dati Veicolo             → Car        (già presente)
-Dati Premio per Garanzia → ShieldCheck (rinominare titolo in "Premi per Garanzia")
-Dati Conducente          → UserCheck   (già Car? sostituire)
+NEW migration: 20260511_xxxxxx_seed_garanzie_per_gruppo.sql
+   - INSERT garanzia principale per ogni gruppo_ramo non-RCA (idempotente)
+
+EDIT  src/pages/TabelleBasePage.tsx (RcaGaranzieTab)
+   - rinomina label tab "Catalogo Garanzie"
+   - filtro lista per gruppo_ramo
+
+EDIT  src/components/polizze/VociRcaCard.tsx
+   - prop mainVoceObbligatoria (default true se isRamoAuto/Natante, false altrimenti)
+   - skip seed automatico riga principale quando false
+
+EDIT  src/pages/TitoloDetail.tsx
+   - rimuovere ramo gating: card Firma/Quietanza VociRcaCard sempre presenti
+   - rimuovere blocco "Importi semplice" non-RCA
+   - passare useAutoTaxFormula e mainVoceObbligatoria in base al ramo
+
+EDIT  src/components/polizze/PremiGaranziaCardShell.tsx
+   - aggiungere prop gruppoRamoId
+   - dropdown voce filtrato su rca_garanzie.eq(gruppo_ramo_id)
+   - state locale righe; layout identico a VociRcaCard
+
+EDIT  src/pages/ImmissionePolizzaPage.tsx
+   - passare gruppoRamoId derivato da Sottoramo selezionato a PremiGaranziaCardShell
+
+UPDATE memoria mem://insurance/garanzie-rca-gruppo-ramo
+   - generalizzata a "Catalogo garanzie per Gruppo Ramo"
 ```
 
-## 2. Sostituire la tabella Importi con le card "Premi per Garanzia"
+## 5. QA
 
-Nella sezione **Importi** della nuova immissione, riprodurre lo stesso layout di TitoloDetail:
+1. Tabelle di Base → "Catalogo Garanzie": filtro per Gruppo Ramo funziona; aggiunta garanzia con gruppo `ZP – R.C.T.` la rende selezionabile in una polizza RCT.
+2. Polizza esistente ramo RCT (es. `RG – R.C.T.`) → sezione Importi mostra due card teal/amber con dropdown popolato dalle sole garanzie ZP.
+3. Nuova Emissione → seleziona Ramo "ZN – Infortuni" + Sottoramo `IN`: card Firma/Quietanza mostrano dropdown filtrato su garanzie ZN; cambio Sottoramo a un altro gruppo chiede conferma reset.
+4. RCA Auto invariato: riga RCA Auto pre-inserita e non rimovibile, formula auto attiva.
 
-- Per **rami RCA / Natanti** (`isRamoAuto(ramo)`): mostrare **due card affiancate** stile `VociRcaCard` — "Premi per Garanzia — Firma" (teal) e "Premi per Garanzia — Quietanza" (amber), con tabella voci, totali (Totale Netto / Totale Tasse / Addizionali / Premio Lordo) e riga "Provvigioni Firma/Quietanza".
-- Per **altri rami**: mantenere l'attuale tabella Firma / Pros. Quietanza ma racchiusa in card con lo stesso stile visivo (header verde "Premi per Garanzia — Firma" / "— Quietanza", totali in fondo come in TitoloDetail).
+## 6. Fuori scopo
 
-**Nota workflow**: `VociRcaCard` reale richiede `titoloId` (persiste su `premi_garanzia_polizza`). In immissione il titolo non esiste ancora → in questo step **solo grafica**: creare un componente "shell" `PremiGaranziaCardShell` che riproduce **header, layout, totali, footer Provvigioni** della VociRcaCard ma lavora su state locale (le righe Firma/Quietanza correnti). Il salvataggio resta quello attuale (`titoli.premio_netto`, `tasse`, `premio_lordo`, `provvigioni_firma`, ecc.). La gestione voci-per-garanzia in immissione viene affrontata in un secondo step ("poi passiamo a mettere a posto il resto").
-
-## 3. Sezione "Premi per Garanzia" RCA
-
-L'attuale "Dati Premio per Garanzia" (riga 1193-1226) viene **rinominata** "Premi per Garanzia" con icona `ShieldCheck`, identica a TitoloDetail. Il contenuto resta quello attuale (sarà sostituito dalle card vere in un passo successivo).
-
-## 4. Pulsante "Importa con AI"
-
-Aggiungere `<ImportPolizzaAiButton>` nell'header della sezione Importi (slot `headerExtra` di `PolizzaSection`) **solo per rami RCA/Natanti**, come in TitoloDetail. In immissione il bottone popola gli state locali del form (premi, voci) — la logica di binding è già presente nel componente; va solo passata la callback giusta. Se la callback richiede troppo lavoro in questo step, il bottone può essere lasciato disabilitato con tooltip "disponibile dopo il primo salvataggio" — decisione minima per restare in ambito grafico.
-
-## 5. File toccati
-
-```text
-EDIT: src/pages/ImmissionePolizzaPage.tsx
-       - import icone (Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck)
-       - aggiungere icon={…} a tutte le PolizzaSection
-       - Regolazione: defaultOpen={false}
-       - rinominare sezione "Dati Premio per Garanzia" → "Premi per Garanzia"
-       - sostituire tabella Importi con <PremiGaranziaCardShell tipoPremio="firma"/"quietanza" />
-
-NEW:  src/components/polizze/PremiGaranziaCardShell.tsx
-       - replica visiva di VociRcaCard (header teal/amber, tabella voci, totali, footer Provvigioni)
-       - alimentata da props (premioNetto, addizionali, tasse, provvigioni…) e callback onChange
-       - usata SOLO in immissione finché non si introduce la persistenza voci pre-titolo
-```
-
-## 6. Fuori scopo (prossimo step)
-
-- Persistenza vera delle voci `premi_garanzia_polizza` in fase di immissione (richiede creazione titolo bozza o salvataggio in batch).
-- Card "Commerciale & Provvigioni", "Sostituzioni / Storni", "Dettaglio Riparto", "Dettaglio Movimenti" (esistono solo a polizza creata).
-- Refactor del salvataggio.
-
-## QA
-
-1. Apri "Nuova Emissione" → tutte le sezioni hanno header teal con icona, identico a una polizza esistente.
-2. Sezione Importi: scegli ramo RCA → vedi due card "Premi per Garanzia — Firma/Quietanza" come in TitoloDetail; scegli ramo non-RCA → vedi le stesse card ma con la riga unica Firma/Quietanza, sempre stile teal/amber.
-3. Regolazione parte chiusa, espandibile.
-4. Salvataggio finale invariato: titolo creato con gli stessi campi di prima.
+- Persistenza vera voci in immissione (Step B sopra).
+- Popolamento massivo del catalogo per tutti i gruppi (l'utente lo completerà da Tabelle di Base).
