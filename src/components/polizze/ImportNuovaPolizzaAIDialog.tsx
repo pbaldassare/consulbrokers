@@ -153,6 +153,8 @@ export function ImportNuovaPolizzaAIDialog({
     setSelectedCompagniaId("");
     setRamoCandidates([]);
     setSelectedRamoKey("");
+    setSelectedGruppoFinanziarioId("");
+    setCodiceCupNew("");
   };
 
   const log = (level: LogEntry["level"], msg: string) =>
