@@ -7254,6 +7254,13 @@ export type Database = {
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "veicoli_polizza_uso_fkey"
+            columns: ["uso"]
+            isOneToOne: false
+            referencedRelation: "rca_usi"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
