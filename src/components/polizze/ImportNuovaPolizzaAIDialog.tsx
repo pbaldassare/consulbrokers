@@ -112,6 +112,9 @@ export function ImportNuovaPolizzaAIDialog({
   const [selectedCompagniaId, setSelectedCompagniaId] = useState<string>("");
   const [ramoCandidates, setRamoCandidates] = useState<RamoCand[]>([]);
   const [selectedRamoKey, setSelectedRamoKey] = useState<string>("");
+  const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
+  const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
+  const [codiceCupNew, setCodiceCupNew] = useState<string>("");
 
   const fileInput = useRef<HTMLInputElement>(null);
   const logScrollRef = useRef<HTMLDivElement>(null);
@@ -121,6 +124,20 @@ export function ImportNuovaPolizzaAIDialog({
       logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
     }
   }, [logs]);
+
+  // Carica i gruppi finanziari quando si entra in review con cliente nuovo
+  useEffect(() => {
+    if (step !== "review") return;
+    if (gruppiFinanziari.length > 0) return;
+    (async () => {
+      const { data: rows } = await supabase
+        .from("gruppi_finanziari" as any)
+        .select("id, codice, nome, tipo_soggetto")
+        .eq("attivo", true)
+        .order("codice");
+      setGruppiFinanziari((rows || []) as GruppoFinanziarioOpt[]);
+    })();
+  }, [step, gruppiFinanziari.length]);
 
   const reset = () => {
     setStep("upload");
