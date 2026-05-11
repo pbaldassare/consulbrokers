@@ -40,6 +40,9 @@ export interface PremiGaranziaCardShellProps {
 export function PremiGaranziaCardShell({
   tipoPremio,
   mainLabel = "Premio",
+  gruppoRamoId,
+  garanziaCodice,
+  onGaranziaChange,
   premioNetto,
   onPremioNettoChange,
   addizionali,
@@ -57,6 +60,26 @@ export function PremiGaranziaCardShell({
   const add = parseFloat(addizionali || "0") || 0;
   const lordo = netto + tax + add;
   const aliquota = netto > 0 ? (tax / netto) * 100 : 0;
+
+  // Catalogo garanzie filtrato per gruppo ramo del titolo
+  const { data: catalogo = [] } = useQuery({
+    queryKey: ["garanzie-catalogo-shell", gruppoRamoId || "none"],
+    enabled: !!gruppoRamoId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rca_garanzie" as any)
+        .select("codice, descrizione, aliquota_tasse")
+        .eq("attivo", true)
+        .eq("gruppo_ramo_id", gruppoRamoId!)
+        .order("codice");
+      return (data as any[]) || [];
+    },
+  });
+
+  const garanziaOptions = catalogo.map((g: any) => ({
+    value: g.codice,
+    label: `${g.codice} — ${g.descrizione}`,
+  }));
 
   return (
     <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
