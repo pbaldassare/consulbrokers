@@ -10,7 +10,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
-import { Search, Car, Receipt, User, Info } from "lucide-react";
+import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck } from "lucide-react";
+import { PremiGaranziaCardShell } from "@/components/polizze/PremiGaranziaCardShell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
@@ -554,7 +555,7 @@ const ImmissionePolizzaPage = () => {
       </div>
 
       {/* CLIENTE */}
-      <PolizzaSection title="Cliente & Sede">
+      <PolizzaSection title="Cliente & Sede" icon={Users}>
 
         {/* Selezione cliente esistente */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
@@ -649,7 +650,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* CONTRATTO */}
-      <PolizzaSection title="Contratto">
+      <PolizzaSection title="Contratto" icon={FileText}>
 
         <AiDocumentScanner
           documentType="copia_polizza"
@@ -760,7 +761,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* PERIODO */}
-      <PolizzaSection title="Periodo">
+      <PolizzaSection title="Periodo" icon={Calendar}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Durata Da</Label>
@@ -813,7 +814,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* REGOLAZIONE */}
-      <PolizzaSection title="Regolazione">
+      <PolizzaSection title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="flex items-center gap-2 h-8">
             <Checkbox id="regolazione" checked={regolazione} onCheckedChange={(v) => setRegolazione(v === true)} />
@@ -872,52 +873,37 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* IMPORTI */}
-      <PolizzaSection title="Importi">
+      <PolizzaSection title="Importi" icon={DollarSign}>
 
-        {/* Tabella Firma / Quietanza */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-24"></th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Netto €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Addizionali €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Tasse €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Totale €</th>
-                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Provvigioni €</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-border/50">
-                <td className="py-1.5 px-2 font-semibold text-foreground">Firma</td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={premioNetto} onChange={(e) => setPremioNetto(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={addizionali} onChange={(e) => setAddizionali(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={tasse} onChange={(e) => setTasse(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1.5 px-2 text-right font-mono font-semibold text-foreground">{totFirma.toFixed(2)}</td>
-                <td className="py-1.5 px-2 text-right font-mono text-foreground">{provvFirma.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td className="py-1.5 px-2 font-semibold text-foreground">Pros. Quietanza</td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={premioNettoQuietanza} onChange={(e) => setPremioNettoQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={addizionaliQuietanza} onChange={(e) => setAddizionaliQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1 px-1">
-                  <Input type="number" step="0.01" value={tasseQuietanza} onChange={(e) => setTasseQuietanza(e.target.value)} className="h-7 text-xs font-mono text-right" />
-                </td>
-                <td className="py-1.5 px-2 text-right font-mono font-semibold text-foreground">{totQuietanza.toFixed(2)}</td>
-                <td className="py-1.5 px-2 text-right font-mono text-foreground">{provvQuietanza.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+        {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
+        <div className="space-y-4">
+          <PremiGaranziaCardShell
+            tipoPremio="firma"
+            mainLabel={isRCA ? "RCA Auto" : "Premio"}
+            premioNetto={premioNetto}
+            onPremioNettoChange={setPremioNetto}
+            addizionali={addizionali}
+            onAddizionaliChange={setAddizionali}
+            tasse={tasse}
+            onTasseChange={setTasse}
+            provvigioni={provvFirma}
+          />
+          <PremiGaranziaCardShell
+            tipoPremio="quietanza"
+            mainLabel={isRCA ? "RCA Auto" : "Premio"}
+            premioNetto={premioNettoQuietanza}
+            onPremioNettoChange={setPremioNettoQuietanza}
+            addizionali={addizionaliQuietanza}
+            onAddizionaliChange={setAddizionaliQuietanza}
+            tasse={tasseQuietanza}
+            onTasseChange={setTasseQuietanza}
+            provvigioni={provvQuietanza}
+            sincronizzata={
+              premioNettoQuietanza === premioNetto &&
+              addizionaliQuietanza === addizionali &&
+              tasseQuietanza === tasse
+            }
+          />
         </div>
 
         {/* Flags row */}
@@ -972,7 +958,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* PROVVIGIONI */}
-      <PolizzaSection title="Provvigioni">
+      <PolizzaSection title="Provvigioni" icon={Percent}>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
           <div className="space-y-1.5">
             <Label className="text-xs">% Provvigione Agenzia</Label>
@@ -1051,7 +1037,7 @@ const ImmissionePolizzaPage = () => {
       </PolizzaSection>
 
       {/* TIPO */}
-      <PolizzaSection title="Tipo">
+      <PolizzaSection title="Tipo" icon={Tag}>
         <div className="space-y-3">
           <Label className="text-xs">Tipo Operazione</Label>
           <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
@@ -1190,7 +1176,7 @@ const ImmissionePolizzaPage = () => {
           </PolizzaSection>
 
           {/* DATI PREMIO PER GARANZIA */}
-          <PolizzaSection title="Dati Premio per Garanzia" icon={Receipt}>
+          <PolizzaSection title="Premi per Garanzia" icon={ShieldCheck}>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -1226,7 +1212,7 @@ const ImmissionePolizzaPage = () => {
           </PolizzaSection>
 
           {/* DATI CONDUCENTE */}
-          <PolizzaSection title="Dati Conducente" icon={User}>
+          <PolizzaSection title="Dati Conducente" icon={UserCheck}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
