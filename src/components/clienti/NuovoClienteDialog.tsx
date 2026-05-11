@@ -284,13 +284,47 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   }));
 
   useEffect(() => {
-    if (open && !backofficeRole.profilo_id) {
-      const backofficeProfile = profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice");
-      if (backofficeProfile) {
-        setBackofficeRole(prev => ({ ...prev, profilo_id: backofficeProfile.id }));
+    if (open && initialData) {
+      const cf = (initialData.codiceFiscale || "").toUpperCase();
+      const piva = (initialData.partitaIva || "").trim();
+      const inferredTipo: "privato" | "azienda" | "ente" =
+        initialData.tipoCliente ||
+        (piva || (cf && cf.length === 11) ? "azienda" : "privato");
+      setTipoCliente(inferredTipo);
+      if (inferredTipo === "privato") {
+        if (initialData.nome) setNome(initialData.nome);
+        if (initialData.cognome) setCognome(initialData.cognome);
+        else if (initialData.ragioneSociale && !initialData.nome) {
+          // try splitting "COGNOME NOME"
+          const parts = initialData.ragioneSociale.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            setCognome(parts[0]);
+            setNome(parts.slice(1).join(" "));
+          } else {
+            setNome(initialData.ragioneSociale);
+          }
+        }
+        if (cf) setCodiceFiscale(cf);
+        if (initialData.indirizzo) setIndirizzoResidenza(initialData.indirizzo);
+        if (initialData.cap) setCapResidenza(initialData.cap);
+        if (initialData.citta) setCittaResidenza(initialData.citta);
+        if (initialData.provincia) setProvinciaResidenza(initialData.provincia.toUpperCase());
+      } else {
+        if (initialData.ragioneSociale) setRagioneSociale(initialData.ragioneSociale);
+        if (piva) setPartitaIva(piva);
+        if (cf) setCodiceFiscaleAzienda(cf);
+        if (initialData.indirizzo) setIndirizzoSede(initialData.indirizzo);
+        if (initialData.cap) setCapSede(initialData.cap);
+        if (initialData.citta) setCittaSede(initialData.citta);
+        if (initialData.provincia) setProvinciaSede(initialData.provincia.toUpperCase());
       }
+      if (initialData.email) setEmail(initialData.email);
+      if (initialData.telefono) setTelefono(initialData.telefono);
+      if (initialData.cellulare) setCellulare(initialData.cellulare);
+      if (initialData.nazione) setNazione(initialData.nazione);
     }
-  }, [open, profiliCommercialiRaw]);
+  }, [open, initialData]);
+
 
   const insertCommercialRoles = async (clienteId: string) => {
     const roles = [
