@@ -38,6 +38,9 @@ const ImmissionePolizzaPage = () => {
   const [aiImportOpen, setAiImportOpen] = useState(false);
   const [nuovoClienteOpen, setNuovoClienteOpen] = useState(false);
   const [aiClientePrefill, setAiClientePrefill] = useState<NuovoClienteInitialData | null>(null);
+  // Nonce per forzare il remount del NuovoClienteDialog quando arriva un nuovo prefill,
+  // evitando race condition tra chiusura/riapertura e useEffect interni.
+  const [nuovoClienteNonce, setNuovoClienteNonce] = useState(0);
 
   const handleAIImportApply = (m: MatchResult) => {
     const d = m.data;
