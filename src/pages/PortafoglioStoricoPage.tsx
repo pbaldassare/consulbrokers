@@ -12,13 +12,18 @@ import { useNavigate } from "react-router-dom";
 import { Archive, Search, Plus, Eye } from "lucide-react";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
+import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
+import { useRamiAll } from "@/hooks/useRamiLookup";
 const PortafoglioStoricoPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filtroCompagnia, setFiltroCompagnia] = useState("tutte");
-  const [filtroRamo, setFiltroRamo] = useState("tutti");
+  const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
+  const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [filtroStato, setFiltroStato] = useState("tutti");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroRamo, filtroStato]);
+  const { data: ramiAll = [] } = useRamiAll();
+  const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato]);
 
   const today = format(new Date(), "yyyy-MM-dd");
 
@@ -30,13 +35,7 @@ const PortafoglioStoricoPage = () => {
     },
   });
 
-  const { data: rami } = useQuery({
-    queryKey: ["rami-lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
-      return data || [];
-    },
-  });
+  // rami list now provided via useRamiAll above
 
   const buildFilter = (q: any) => {
     if (filtroStato === "tutti") {
@@ -51,7 +50,7 @@ const PortafoglioStoricoPage = () => {
       q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
-    if (filtroRamo !== "tutti") q = q.eq("ramo_id", filtroRamo);
+    if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
     return q;
   };
 
