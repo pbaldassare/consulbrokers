@@ -5244,6 +5244,7 @@ export type Database = {
           codice: string
           created_at: string | null
           descrizione: string
+          gruppo_ramo_id: string
           id: string
         }
         Insert: {
@@ -5252,6 +5253,7 @@ export type Database = {
           codice: string
           created_at?: string | null
           descrizione: string
+          gruppo_ramo_id: string
           id?: string
         }
         Update: {
@@ -5260,9 +5262,18 @@ export type Database = {
           codice?: string
           created_at?: string | null
           descrizione?: string
+          gruppo_ramo_id?: string
           id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rca_garanzie_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rca_usi: {
         Row: {
