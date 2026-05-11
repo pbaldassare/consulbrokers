@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Search, Car, Receipt, User, Info } from "lucide-react";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
 import type { DocumentType } from "@/components/AiDocumentScanner";
 import {
