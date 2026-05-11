@@ -946,11 +946,30 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             </Accordion>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Annulla</Button>
-          <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
-            {createMutation.isPending ? "Salvataggio..." : "Salva"}
-          </Button>
+        <DialogFooter className="flex-col items-stretch sm:flex-row sm:items-center gap-2">
+          {(() => {
+            const missingGruppo = !gruppoFinanziarioId;
+            const missingCup = tipoCliente === "ente" && !codiceCup.trim();
+            const blocked = missingGruppo || missingCup;
+            return (
+              <>
+                {blocked && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mr-auto">
+                    {missingGruppo && "Seleziona il Gruppo Finanziario in cima al modulo. "}
+                    {missingCup && "Inserisci il Codice CUP (obbligatorio per gli Enti)."}
+                  </p>
+                )}
+                <Button variant="outline" onClick={() => setOpen(false)}>Annulla</Button>
+                <Button
+                  onClick={() => createMutation.mutate()}
+                  disabled={createMutation.isPending || blocked}
+                  title={blocked ? "Compila i campi obbligatori prima di salvare" : undefined}
+                >
+                  {createMutation.isPending ? "Salvataggio..." : "Salva"}
+                </Button>
+              </>
+            );
+          })()}
         </DialogFooter>
       </DialogContent>
     </Dialog>
