@@ -202,7 +202,6 @@ export function RinnovoTitoloDialog({ open, onOpenChange, titolo }: RinnovoTitol
         produttore_id: t.produttore_id,
         compagnia_id: t.compagnia_id,
         ramo_id: t.ramo_id,
-        gruppo_ramo: t.gruppo_ramo,
         specialist: t.specialist,
         commerciale_id: t.commerciale_id,
         percentuale_commerciale: t.percentuale_commerciale,
