@@ -11,8 +11,10 @@ export function useRcaUsi() {
         .eq("attivo", true)
         .order("codice");
       return (data || []).map((r: any) => ({
-        value: r.descrizione,
+        value: r.id as string,
         label: `${r.codice} - ${r.descrizione}`,
+        codice: r.codice as string,
+        descrizione: r.descrizione as string,
       }));
     },
     staleTime: 1000 * 60 * 30,
