@@ -656,7 +656,7 @@ function CompagniaFormDialog({
   );
 }
 
-// ── Tab Agenzie (Gruppi Agenzia nel DB) ──
+// ── Tab Compagnie Assicurative (Gruppi Compagnia nel DB) ──
 
 interface GruppoForm {
   codice: string;
@@ -975,7 +975,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Layers className="w-5 h-5" />Agenzie ({filtered.length})
+            <Layers className="w-5 h-5" />Compagnie Assicurative ({filtered.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1222,10 +1222,10 @@ const CompagnieList = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Agenzie / Agenzie</h1>
+          <h1 className="text-2xl font-bold text-foreground">Compagnie Assicurative / Agenzie</h1>
           <p className="text-muted-foreground">
-            Gestione agenzie (gruppi madre), agenzie e provvigioni —{" "}
-            <span className="font-semibold">{compagnie.length}</span> agenzie totali
+            Gestione compagnie assicurative, agenzie e provvigioni —{" "}
+            <span className="font-semibold">{compagnie.length}</span> compagnie totali
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
@@ -1263,7 +1263,7 @@ const CompagnieList = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="agenzie" className="gap-2">
-            <Layers className="w-4 h-4" />Agenzie
+            <Layers className="w-4 h-4" />Compagnie Assicurative
           </TabsTrigger>
           <TabsTrigger value="anagrafica" className="gap-2">
             <Building2 className="w-4 h-4" />Agenzie
