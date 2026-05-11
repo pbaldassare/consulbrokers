@@ -110,14 +110,42 @@ function DatiStatisticiCreate(props: any) {
   );
 }
 
+export interface NuovoClienteInitialData {
+  tipoCliente?: "privato" | "azienda" | "ente";
+  nome?: string;
+  cognome?: string;
+  ragioneSociale?: string;
+  codiceFiscale?: string;
+  partitaIva?: string;
+  email?: string;
+  telefono?: string;
+  cellulare?: string;
+  indirizzo?: string;
+  cap?: string;
+  citta?: string;
+  provincia?: string;
+  nazione?: string;
+}
+
 export interface NuovoClienteDialogProps {
   trigger?: React.ReactNode;
   onCreated?: (clienteId: string, label: string) => void;
+  /** Controlled open state (optional). When provided, dialog is controlled by parent. */
+  controlledOpen?: boolean;
+  onOpenChange?: (o: boolean) => void;
+  /** Pre-fill the form when the dialog opens. */
+  initialData?: NuovoClienteInitialData;
 }
 
-export function NuovoClienteDialog({ trigger, onCreated }: NuovoClienteDialogProps) {
+export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenChange, initialData }: NuovoClienteDialogProps) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? !!controlledOpen : internalOpen;
+  const setOpen = (o: boolean) => {
+    if (!isControlled) setInternalOpen(o);
+    onOpenChange?.(o);
+  };
 
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
   const [nome, setNome] = useState("");
@@ -256,13 +284,47 @@ export function NuovoClienteDialog({ trigger, onCreated }: NuovoClienteDialogPro
   }));
 
   useEffect(() => {
-    if (open && !backofficeRole.profilo_id) {
-      const backofficeProfile = profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice");
-      if (backofficeProfile) {
-        setBackofficeRole(prev => ({ ...prev, profilo_id: backofficeProfile.id }));
+    if (open && initialData) {
+      const cf = (initialData.codiceFiscale || "").toUpperCase();
+      const piva = (initialData.partitaIva || "").trim();
+      const inferredTipo: "privato" | "azienda" | "ente" =
+        initialData.tipoCliente ||
+        (piva || (cf && cf.length === 11) ? "azienda" : "privato");
+      setTipoCliente(inferredTipo);
+      if (inferredTipo === "privato") {
+        if (initialData.nome) setNome(initialData.nome);
+        if (initialData.cognome) setCognome(initialData.cognome);
+        else if (initialData.ragioneSociale && !initialData.nome) {
+          // try splitting "COGNOME NOME"
+          const parts = initialData.ragioneSociale.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            setCognome(parts[0]);
+            setNome(parts.slice(1).join(" "));
+          } else {
+            setNome(initialData.ragioneSociale);
+          }
+        }
+        if (cf) setCodiceFiscale(cf);
+        if (initialData.indirizzo) setIndirizzoResidenza(initialData.indirizzo);
+        if (initialData.cap) setCapResidenza(initialData.cap);
+        if (initialData.citta) setCittaResidenza(initialData.citta);
+        if (initialData.provincia) setProvinciaResidenza(initialData.provincia.toUpperCase());
+      } else {
+        if (initialData.ragioneSociale) setRagioneSociale(initialData.ragioneSociale);
+        if (piva) setPartitaIva(piva);
+        if (cf) setCodiceFiscaleAzienda(cf);
+        if (initialData.indirizzo) setIndirizzoSede(initialData.indirizzo);
+        if (initialData.cap) setCapSede(initialData.cap);
+        if (initialData.citta) setCittaSede(initialData.citta);
+        if (initialData.provincia) setProvinciaSede(initialData.provincia.toUpperCase());
       }
+      if (initialData.email) setEmail(initialData.email);
+      if (initialData.telefono) setTelefono(initialData.telefono);
+      if (initialData.cellulare) setCellulare(initialData.cellulare);
+      if (initialData.nazione) setNazione(initialData.nazione);
     }
-  }, [open, profiliCommercialiRaw]);
+  }, [open, initialData]);
+
 
   const insertCommercialRoles = async (clienteId: string) => {
     const roles = [
