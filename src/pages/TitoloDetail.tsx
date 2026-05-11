@@ -2681,19 +2681,35 @@ const TitoloDetail = () => {
           </div>
         )}
 
-        {/* Composizione voci RCA Auto - Firma + Quietanza, integrate nella sezione Importi */}
-        {isRamoAuto((t as any).ramo) && (
+        {/* Composizione voci per garanzia - Firma + Quietanza, sempre presenti.
+            Per RCA Auto/Natanti calcolo IPT+SSN; per gli altri rami formula semplice. */}
+        {(() => {
+          const _ramo = (t as any).ramo;
+          const _isAuto = isRamoAuto(_ramo);
+          const _aliqRamo = Number((_ramo as any)?.aliquota_tasse_ramo ?? 0) || undefined;
+          return (
           <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
             <p className="text-xs text-muted-foreground">
-              ℹ️ Per le polizze <strong>{isRamoNatante((t as any).ramo) ? "RC Natanti / Nautica" : "RCA Auto"}</strong> i premi sono calcolati come somma delle singole garanzie. La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
+              ℹ️ {_isAuto ? (
+                <>Per le polizze <strong>{isRamoNatante(_ramo) ? "RC Natanti / Nautica" : "RCA Auto"}</strong> i premi sono calcolati come somma delle singole garanzie.</>
+              ) : (
+                <>Le voci di garanzia disponibili sono filtrate sul <strong>Gruppo Ramo</strong> della polizza ({_ramo?.descrizione || "—"}). Aggiungi una voce per ogni garanzia compresa nel premio.</>
+              )} La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
             </p>
             <div className="space-y-4">
               <VociRcaCard
                 tipoPremio="firma"
-                mainLabel={getMainVoceLabel((t as any).ramo)}
+                mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
+                useAutoTaxFormula={_isAuto}
+                aliquotaDefault={_aliqRamo}
                 titoloId={t.id}
                 premioLordoTitolo={(t as any).premio_lordo}
                 provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+                addizionaliValue={!_isAuto ? (t as any).addizionali : undefined}
+                onAddizionaliChange={!_isAuto ? async (v) => {
+                  const { error } = await supabase.from("titoli").update({ addizionali: v }).eq("id", t.id);
+                  if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                } : undefined}
                 onTotaliChange={(tot) => {
                   setVociRcaTotali(tot);
                   if (editingImporti) return;
@@ -2726,9 +2742,16 @@ const TitoloDetail = () => {
               {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
               <VociRcaCard
                 tipoPremio="quietanza"
-                mainLabel={getMainVoceLabel((t as any).ramo)}
+                mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
+                useAutoTaxFormula={_isAuto}
+                aliquotaDefault={_aliqRamo}
                 titoloId={t.id}
                 provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
+                addizionaliValue={!_isAuto ? (t as any).addizionali_quietanza : undefined}
+                onAddizionaliChange={!_isAuto ? async (v) => {
+                  const { error } = await supabase.from("titoli").update({ addizionali_quietanza: v }).eq("id", t.id);
+                  if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+                } : undefined}
                 onTotaliChange={(tot) => {
                   if (editingImporti) return;
                   if (vociRcaQuietanzaTimer.current) clearTimeout(vociRcaQuietanzaTimer.current);
@@ -2744,7 +2767,6 @@ const TitoloDetail = () => {
                       .update({
                         premio_netto_quietanza: tot.netto,
                         tasse_quietanza: tot.tasse,
-                        addizionali_quietanza: 0,
                       })
                       .eq("id", t.id);
                     if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
@@ -2762,7 +2784,8 @@ const TitoloDetail = () => {
               {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
             </div>
           </div>
-        )}
+          );
+        })()}
       </SectionCollapsible>
         );
       })()}
