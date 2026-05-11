@@ -135,7 +135,7 @@ export function ImportNuovaPolizzaAIDialog({
         .select("id, codice, nome, tipo_soggetto")
         .eq("attivo", true)
         .order("codice");
-      setGruppiFinanziari((rows || []) as GruppoFinanziarioOpt[]);
+      setGruppiFinanziari((rows || []) as unknown as GruppoFinanziarioOpt[]);
     })();
   }, [step, gruppiFinanziari.length]);
 
