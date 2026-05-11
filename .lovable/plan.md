@@ -1,36 +1,46 @@
-## Problema
-Nel flusso "Importa polizza da PDF (AI)" su `ImmissionePolizzaPage`, quando il cliente non esiste l'utente sceglie *"Crea nuovo cliente da questi dati"* nel dialog di revisione AI, ma poi `handleAIImportApply` si limita a copiare il CF nel campo "Lookup rapido". Non viene aperto `NuovoClienteDialog` con i dati estratti, quindi il **Gruppo Finanziario** (obbligatorio, da cui dipende `tipo_cliente`) e gli altri passaggi obbligatori (es. **Codice CUP** per gli Enti) non vengono gestiti dal flusso AI.
+## Problemi visti nello screenshot
 
-## Obiettivo
-Quando l'AI rileva un cliente nuovo, aprire automaticamente `NuovoClienteDialog` pre-compilato con i dati del PDF e forzare il completamento dei campi obbligatori prima del salvataggio.
+1. **Layout rotto del banner ambra**: il messaggio è renderizzato come `flex gap-2` con l'icona + testo + `<strong>` + `<em>` come *figli diretti* del flex → ogni nodo inline diventa un flex item (colonna), spezzando il testo parola-per-parola.
+2. **Manca Gruppo Finanziario nel dialog AI**: l'utente deve poter scegliere il Gruppo Finanziario *qui*, nel dialog di revisione AI, così da derivare automaticamente il tipo cliente (privato/azienda/ente) prima ancora di aprire `NuovoClienteDialog`.
 
 ## Modifiche
 
-### 1. `ImportNuovaPolizzaAIDialog.tsx`
-- Estendere `MatchResult` con un flag `isNewCliente: boolean` (true quando l'utente ha scelto `__new__`).
-- In `buildResult` includere il flag.
-- Aggiornare il messaggio in giallo per riflettere che si aprirà automaticamente il form di creazione cliente.
+### 1. `ImportNuovaPolizzaAIDialog.tsx` — fix layout banner
+Avvolgere il testo del messaggio in un singolo `<span>` (o `<div className="flex-1">`) così il flex ha solo 2 figli: icona + blocco testo. Il testo torna a fluire normalmente.
 
-### 2. `ImmissionePolizzaPage.tsx`
-- Aggiungere stati: `nuovoClienteOpen: boolean` e `aiPrefill: NuovoClienteInitialData | null`.
-- In `handleAIImportApply`, quando `m.isNewCliente`:
-  - Mappare i campi `data.contraente_*` in `NuovoClienteInitialData` (nome/cognome split euristico se manca ragione sociale, CF, P.IVA, email, telefono, indirizzo, CAP, città, provincia, nazione).
-  - Suggerire `tipoCliente` di default a `azienda` se è presente la P.IVA, altrimenti `privato` (l'utente potrà cambiarlo selezionando il Gruppo Finanziario, che sovrascrive comunque il tipo).
-  - Salvare il prefill e aprire `NuovoClienteDialog` in modalità controllata.
-- Convertire l'istanza esistente di `NuovoClienteDialog` in modalità controllata (mantenendo il `trigger` per l'apertura manuale via bottone): usare `controlledOpen={nuovoClienteOpen}`, `onOpenChange={setNuovoClienteOpen}`, `initialData={aiPrefill ?? undefined}`.
-- In `onCreated` resettare `aiPrefill` e selezionare il cliente appena creato.
+### 2. `ImportNuovaPolizzaAIDialog.tsx` — selettore Gruppo Finanziario inline
+- Caricare `gruppi_finanziari` (id, codice, nome, tipo_soggetto) via `useQuery` quando `step === "review"` e `isNewCliente`.
+- Aggiungere un `SearchableSelect` "Gruppo Finanziario *" subito sopra (o sotto) il banner ambra, *visibile solo quando* `isNewCliente`.
+- Stato locale: `selectedGruppoFinanziarioId`.
+- Quando l'utente seleziona un gruppo:
+  - Mostrare un Badge "Tipo Cliente: Privato/Azienda/Ente (auto)" identico a quello del NuovoClienteDialog (coerenza UX).
+  - Se `tipo_soggetto === "ente"` mostrare anche un Input "Codice CUP *" obbligatorio inline.
+- Aggiornare il banner ambra: se Gruppo Finanziario (e CUP per Enti) sono compilati qui, il messaggio passa da "amber" a "teal" e dice "Tutto pronto: cliccando Applica verrà creato il nuovo cliente con questi dati."
+- Bloccare il pulsante **Applica** finché Gruppo Finanziario (e CUP se Ente) non sono valorizzati, quando `isNewCliente`.
 
-### 3. `NuovoClienteDialog.tsx`
-- La validazione `gruppoFinanziarioId` obbligatorio + `codice_cup` per ENTE è già presente (righe 385-386). Nessuna modifica funzionale richiesta.
-- Verificare che `initialData` resetti correttamente lo stato a ogni apertura senza interferire con il `useEffect` del backoffice già rifattorizzato (già coperto dai test esistenti).
-- Aggiungere mappatura mancante in `initialData`: `codice_fiscale_azienda` non è in `NuovoClienteInitialData`; estendere l'interfaccia con `codiceFiscaleAzienda?` per l'utilizzo dal flusso AI.
+### 3. `MatchResult` esteso
+Aggiungere campi opzionali:
+```ts
+gruppoFinanziarioId?: string;
+tipoCliente?: "privato" | "azienda" | "ente";
+codiceCup?: string;
+```
+
+### 4. `NuovoClienteInitialData` esteso
+Aggiungere:
+```ts
+gruppoFinanziarioId?: string;
+codiceCup?: string;
+```
+e nel `useEffect` di prefill di `NuovoClienteDialog` impostarli (se forniti) tramite `setGruppoFinanziarioId` e `setCodiceCup`. Il tipo cliente viene già derivato automaticamente dal gruppo finanziario tramite il listener esistente — basterà chiamare il `setTipoCliente` direttamente con `initialData.tipoCliente`.
+
+### 5. `ImmissionePolizzaPage.handleAIImportApply`
+Passare `gruppoFinanziarioId`, `codiceCup` (e `tipoCliente` se presente) a `aiClientePrefill` quando arrivano da `MatchResult`. La validazione blocco-Salva nel NuovoClienteDialog già esistente diventerà automaticamente "verde" all'apertura, evitando friction.
 
 ## Test
-- Aggiornare/aggiungere un test in `src/components/polizze/__tests__/` (vitest) che simuli `handleAIImportApply` con `isNewCliente=true` e verifichi:
-  - lo stato `nuovoClienteOpen` diventa true,
-  - `aiPrefill` contiene i campi mappati attesi.
-- Riusare i test backoffice esistenti per garantire che `initialData` non sovrascriva il profilo backoffice.
+- Aggiungere caso a `aiImportPrefill.test.ts`: con `gruppoFinanziarioId` + `tipoCliente: "ente"` + `codiceCup` nel `MatchResult`, il prefill costruito li riporta tutti correttamente.
+- Aggiungere test che verifica `canApply === false` quando `isNewCliente && !gruppoFinanziarioId`.
 
 ## Out of scope
-- Logica di matching AI lato edge function.
-- Modifiche al layout grafico del NuovoClienteDialog.
+- Refactor visivo del NuovoClienteDialog (l'integrazione resta invariata — riceve solo più campi via initialData).
+- Caricamento di "Gruppo Statistico" o altri lookup nel dialog AI.

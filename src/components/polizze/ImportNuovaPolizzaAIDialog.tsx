@@ -57,6 +57,16 @@ export type MatchResult = {
   compagnia?: { id: string; label: string } | null;
   ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
   isNewCliente?: boolean;
+  gruppoFinanziarioId?: string;
+  tipoCliente?: "privato" | "azienda" | "ente";
+  codiceCup?: string;
+};
+
+type GruppoFinanziarioOpt = {
+  id: string;
+  codice: string;
+  nome: string;
+  tipo_soggetto: "privato" | "azienda" | "ente";
 };
 
 type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
@@ -102,6 +112,9 @@ export function ImportNuovaPolizzaAIDialog({
   const [selectedCompagniaId, setSelectedCompagniaId] = useState<string>("");
   const [ramoCandidates, setRamoCandidates] = useState<RamoCand[]>([]);
   const [selectedRamoKey, setSelectedRamoKey] = useState<string>("");
+  const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
+  const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
+  const [codiceCupNew, setCodiceCupNew] = useState<string>("");
 
   const fileInput = useRef<HTMLInputElement>(null);
   const logScrollRef = useRef<HTMLDivElement>(null);
@@ -111,6 +124,20 @@ export function ImportNuovaPolizzaAIDialog({
       logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
     }
   }, [logs]);
+
+  // Carica i gruppi finanziari quando si entra in review con cliente nuovo
+  useEffect(() => {
+    if (step !== "review") return;
+    if (gruppiFinanziari.length > 0) return;
+    (async () => {
+      const { data: rows } = await supabase
+        .from("gruppi_finanziari" as any)
+        .select("id, codice, nome, tipo_soggetto")
+        .eq("attivo", true)
+        .order("codice");
+      setGruppiFinanziari((rows || []) as unknown as GruppoFinanziarioOpt[]);
+    })();
+  }, [step, gruppiFinanziari.length]);
 
   const reset = () => {
     setStep("upload");
@@ -126,6 +153,8 @@ export function ImportNuovaPolizzaAIDialog({
     setSelectedCompagniaId("");
     setRamoCandidates([]);
     setSelectedRamoKey("");
+    setSelectedGruppoFinanziarioId("");
+    setCodiceCupNew("");
   };
 
   const log = (level: LogEntry["level"], msg: string) =>
@@ -343,6 +372,16 @@ export function ImportNuovaPolizzaAIDialog({
     toast.success(`Lordo ${which} ricalcolato: ${fmtEur(tot)}`);
   };
 
+  const isNewCliente = selectedClienteId === NEW_CLIENTE;
+  const selectedGruppoFinanziario = useMemo(
+    () => gruppiFinanziari.find((g) => g.id === selectedGruppoFinanziarioId) || null,
+    [gruppiFinanziari, selectedGruppoFinanziarioId],
+  );
+  const tipoClienteAuto = selectedGruppoFinanziario?.tipo_soggetto;
+  const cupRequired = tipoClienteAuto === "ente";
+  const newClienteReady =
+    !isNewCliente || (!!selectedGruppoFinanziarioId && (!cupRequired || codiceCupNew.trim().length > 0));
+
   const buildResult = (): MatchResult => {
     const cliente =
       selectedClienteId && selectedClienteId !== NEW_CLIENTE
@@ -355,15 +394,26 @@ export function ImportNuovaPolizzaAIDialog({
       cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
       compagnia: compagnia ? { id: compagnia.id, label: compagnia.label } : null,
       ramo: ramo ? { gruppoRamoId: ramo.gruppoRamoId, ramoId: ramo.ramoId, label: ramo.label } : null,
-      isNewCliente: selectedClienteId === NEW_CLIENTE,
+      isNewCliente,
+      gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
+      tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
+      codiceCup: isNewCliente && cupRequired ? codiceCupNew.trim() || undefined : undefined,
     };
   };
 
-  const canProceed = !!selectedClienteId; // either an id or NEW_CLIENTE
+  const canProceed = !!selectedClienteId && newClienteReady;
 
   const apply = () => {
-    if (!canProceed) {
+    if (!selectedClienteId) {
       toast.error("Seleziona un cliente esistente o scegli 'Crea nuovo cliente'");
+      return;
+    }
+    if (isNewCliente && !selectedGruppoFinanziarioId) {
+      toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
+      return;
+    }
+    if (isNewCliente && cupRequired && !codiceCupNew.trim()) {
+      toast.error("Inserisci il Codice CUP (obbligatorio per gli Enti)");
       return;
     }
     onApply(buildResult());
@@ -379,7 +429,6 @@ export function ImportNuovaPolizzaAIDialog({
     [clienteCandidates],
   );
 
-  const isNewCliente = selectedClienteId === NEW_CLIENTE;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
@@ -507,14 +556,92 @@ export function ImportNuovaPolizzaAIDialog({
               </div>
               {isNewCliente && (
                 <>
-                  <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-2 text-xs text-amber-800 dark:text-amber-200 flex gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    Il cliente non esiste. Cliccando <strong>Applica</strong> si aprirà automaticamente
-                    il form <em>Nuovo Cliente</em> pre-compilato con i dati estratti — dovrai
-                    selezionare il <strong>Gruppo Finanziario</strong> (obbligatorio, determina il tipo
-                    cliente) e, per gli <strong>Enti</strong>, anche il <strong>Codice CUP</strong>
-                    prima di poter salvare.
+                  {/* Gruppo Finanziario inline: determina automaticamente il tipo cliente */}
+                  <div
+                    className={cn(
+                      "rounded border p-3 space-y-3",
+                      !selectedGruppoFinanziarioId
+                        ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20"
+                        : "border-teal-300 bg-teal-50/40 dark:bg-teal-950/20",
+                    )}
+                  >
+                    <div>
+                      <Label className="text-xs">Gruppo Finanziario *</Label>
+                      <SearchableSelect
+                        value={selectedGruppoFinanziarioId}
+                        onValueChange={(v) => {
+                          setSelectedGruppoFinanziarioId(v);
+                          const gf = gruppiFinanziari.find((g) => g.id === v);
+                          if (gf?.tipo_soggetto !== "ente") setCodiceCupNew("");
+                        }}
+                        placeholder="— Cerca e seleziona gruppo finanziario —"
+                        options={gruppiFinanziari.map((g) => ({
+                          value: g.id,
+                          label: `${g.codice} - ${g.nome}`,
+                        }))}
+                        emptyText="Nessun gruppo trovato"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Tipo Cliente:</span>
+                      {tipoClienteAuto ? (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            tipoClienteAuto === "privato" && "border-blue-500 text-blue-700 bg-blue-50",
+                            tipoClienteAuto === "azienda" && "border-emerald-600 text-emerald-700 bg-emerald-50",
+                            tipoClienteAuto === "ente" && "border-amber-600 text-amber-700 bg-amber-50",
+                          )}
+                        >
+                          {tipoClienteAuto === "privato"
+                            ? "Privato"
+                            : tipoClienteAuto === "azienda"
+                              ? "Azienda"
+                              : "Ente"}{" "}
+                          (auto)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Seleziona un gruppo finanziario
+                        </Badge>
+                      )}
+                    </div>
+                    {cupRequired && (
+                      <div>
+                        <Label className="text-xs">Codice CUP * (obbligatorio per gli Enti)</Label>
+                        <Input
+                          value={codiceCupNew}
+                          onChange={(e) => setCodiceCupNew(e.target.value)}
+                          placeholder="Inserisci Codice CUP"
+                          className={cn(
+                            "h-8 text-xs",
+                            !codiceCupNew.trim() && "border-amber-400",
+                          )}
+                        />
+                      </div>
+                    )}
                   </div>
+
+                  <div
+                    className={cn(
+                      "rounded border p-2 text-xs flex gap-2 items-start",
+                      newClienteReady
+                        ? "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900 text-teal-800 dark:text-teal-200"
+                        : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200",
+                    )}
+                  >
+                    {newClienteReady ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    )}
+                    <span className="flex-1 leading-relaxed">
+                      {newClienteReady
+                        ? "Tutto pronto: cliccando Applica verrà aperto il form Nuovo Cliente pre-compilato (incluso Gruppo Finanziario) per il salvataggio."
+                        : "Seleziona il Gruppo Finanziario qui sopra (e il Codice CUP per gli Enti) prima di proseguire. Il tipo cliente verrà derivato automaticamente."}
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <FieldInput label="Nome / Ragione Sociale" value={data.contraente_nome} onChange={(v) => updateField("contraente_nome", v)} />
                     <FieldInput label="Codice Fiscale" value={data.contraente_codice_fiscale} onChange={(v) => updateField("contraente_codice_fiscale", v.toUpperCase())} />

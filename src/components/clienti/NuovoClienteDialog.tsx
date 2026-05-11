@@ -125,6 +125,8 @@ export interface NuovoClienteInitialData {
   citta?: string;
   provincia?: string;
   nazione?: string;
+  gruppoFinanziarioId?: string;
+  codiceCup?: string;
 }
 
 export interface NuovoClienteDialogProps {
@@ -322,6 +324,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (initialData.telefono) setTelefono(initialData.telefono);
       if (initialData.cellulare) setCellulare(initialData.cellulare);
       if (initialData.nazione) setNazione(initialData.nazione);
+      if (initialData.gruppoFinanziarioId) setGruppoFinanziarioId(initialData.gruppoFinanziarioId);
+      if (initialData.codiceCup) setCodiceCup(initialData.codiceCup);
     }
   }, [open, initialData]);
 

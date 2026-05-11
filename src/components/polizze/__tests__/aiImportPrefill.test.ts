@@ -14,7 +14,7 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
   const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
   const isAzienda = !!piva || (!!cf && cf.length === 11);
   return {
-    tipoCliente: isAzienda ? "azienda" : "privato",
+    tipoCliente: m.tipoCliente ?? (isAzienda ? "azienda" : "privato"),
     ragioneSociale: isAzienda ? d.contraente_nome : undefined,
     nome: !isAzienda ? d.contraente_nome : undefined,
     codiceFiscale: cf || undefined,
@@ -26,7 +26,20 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
     citta: d.contraente_comune,
     provincia: d.contraente_provincia,
     nazione: d.contraente_nazione,
+    gruppoFinanziarioId: m.gruppoFinanziarioId,
+    codiceCup: m.codiceCup,
   };
+}
+
+/**
+ * Replica della logica di gating "Applica" del dialog AI:
+ * isNewCliente richiede sempre Gruppo Finanziario; Enti richiedono anche CUP.
+ */
+function canApplyAi(m: MatchResult): boolean {
+  if (!m.isNewCliente) return true;
+  if (!m.gruppoFinanziarioId) return false;
+  if (m.tipoCliente === "ente" && !(m.codiceCup || "").trim()) return false;
+  return true;
 }
 
 describe("AI import → NuovoClienteDialog prefill", () => {
@@ -61,14 +74,82 @@ describe("AI import → NuovoClienteDialog prefill", () => {
     expect(p.ragioneSociale).toBeUndefined();
   });
 
-  it("non preimposta MAI gruppo finanziario o codice CUP (campi obbligatori da compilare)", () => {
+  it("non preimposta gruppo finanziario o codice CUP quando l'AI non li include (devono restare undefined)", () => {
     const p = buildPrefill({
       isNewCliente: true,
       data: { contraente_nome: "Comune di Varese", contraente_partita_iva: "00441340121" },
     });
-    // Sanity: questi campi non esistono nel prefill — il dialog DEVE forzarli a mano
-    expect((p as any).gruppoFinanziarioId).toBeUndefined();
-    expect((p as any).codiceCup).toBeUndefined();
+    expect(p.gruppoFinanziarioId).toBeUndefined();
+    expect(p.codiceCup).toBeUndefined();
+  });
+
+  it("propaga gruppoFinanziarioId, tipoCliente e codiceCup quando scelti nel dialog AI (Ente)", () => {
+    const p = buildPrefill({
+      isNewCliente: true,
+      tipoCliente: "ente",
+      gruppoFinanziarioId: "gf-uuid-123",
+      codiceCup: "C12E34567",
+      data: { contraente_nome: "Comune di Roma", contraente_partita_iva: "02438750586" },
+    });
+    expect(p.tipoCliente).toBe("ente");
+    expect(p.gruppoFinanziarioId).toBe("gf-uuid-123");
+    expect(p.codiceCup).toBe("C12E34567");
+    expect(p.ragioneSociale).toBe("Comune di Roma");
+  });
+});
+
+describe("AI import → gating Applica", () => {
+  it("blocca Applica quando isNewCliente e manca gruppoFinanziarioId", () => {
+    expect(
+      canApplyAi({
+        isNewCliente: true,
+        data: { contraente_nome: "X" },
+      }),
+    ).toBe(false);
+  });
+
+  it("blocca Applica quando Ente senza Codice CUP", () => {
+    expect(
+      canApplyAi({
+        isNewCliente: true,
+        tipoCliente: "ente",
+        gruppoFinanziarioId: "gf-1",
+        data: { contraente_nome: "X" },
+      }),
+    ).toBe(false);
+  });
+
+  it("permette Applica quando GF presente e tipo non-Ente", () => {
+    expect(
+      canApplyAi({
+        isNewCliente: true,
+        tipoCliente: "azienda",
+        gruppoFinanziarioId: "gf-1",
+        data: { contraente_nome: "X" },
+      }),
+    ).toBe(true);
+  });
+
+  it("permette Applica quando Ente con CUP valorizzato", () => {
+    expect(
+      canApplyAi({
+        isNewCliente: true,
+        tipoCliente: "ente",
+        gruppoFinanziarioId: "gf-1",
+        codiceCup: "ABC123",
+        data: { contraente_nome: "X" },
+      }),
+    ).toBe(true);
+  });
+
+  it("permette Applica quando il cliente è esistente (non nuovo)", () => {
+    expect(
+      canApplyAi({
+        isNewCliente: false,
+        cliente: { id: "x", label: "Y" },
+        data: {},
+      }),
+    ).toBe(true);
   });
 });
 
