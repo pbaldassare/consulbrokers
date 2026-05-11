@@ -749,19 +749,42 @@ const RcaGaranzieTab = () => {
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [aliquota, setAliquota] = useState("0");
+  const [gruppoRamoId, setGruppoRamoId] = useState<string>("");
+
+  const { data: gruppiRamo = [] } = useQuery({
+    queryKey: ["gruppi-ramo-lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gruppi_ramo" as any)
+        .select("id, codice, descrizione")
+        .eq("attivo", true)
+        .order("codice");
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["rca-garanzie"],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("rca_garanzie" as any) as any).select("*").order("codice");
+      const { data, error } = await (supabase.from("rca_garanzie" as any) as any)
+        .select("*, gruppi_ramo(codice, descrizione)")
+        .order("codice");
       if (error) throw error;
       return data as any[];
     },
   });
 
+  const defaultGruppoZqId = gruppiRamo.find((g: any) => g.codice === "ZQ")?.id || "";
+
   const save = useMutation({
     mutationFn: async () => {
-      const payload = { codice, descrizione, aliquota_tasse: parseFloat(aliquota) || 0 };
+      const payload = {
+        codice,
+        descrizione,
+        aliquota_tasse: parseFloat(aliquota) || 0,
+        gruppo_ramo_id: gruppoRamoId || defaultGruppoZqId,
+      };
       if (editing) {
         const { error } = await (supabase.from("rca_garanzie" as any) as any).update(payload).eq("id", editing.id);
         if (error) throw error;
