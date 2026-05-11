@@ -14,7 +14,7 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
   const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
   const isAzienda = !!piva || (!!cf && cf.length === 11);
   return {
-    tipoCliente: isAzienda ? "azienda" : "privato",
+    tipoCliente: m.tipoCliente ?? (isAzienda ? "azienda" : "privato"),
     ragioneSociale: isAzienda ? d.contraente_nome : undefined,
     nome: !isAzienda ? d.contraente_nome : undefined,
     codiceFiscale: cf || undefined,
@@ -26,7 +26,20 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
     citta: d.contraente_comune,
     provincia: d.contraente_provincia,
     nazione: d.contraente_nazione,
+    gruppoFinanziarioId: m.gruppoFinanziarioId,
+    codiceCup: m.codiceCup,
   };
+}
+
+/**
+ * Replica della logica di gating "Applica" del dialog AI:
+ * isNewCliente richiede sempre Gruppo Finanziario; Enti richiedono anche CUP.
+ */
+function canApplyAi(m: MatchResult): boolean {
+  if (!m.isNewCliente) return true;
+  if (!m.gruppoFinanziarioId) return false;
+  if (m.tipoCliente === "ente" && !(m.codiceCup || "").trim()) return false;
+  return true;
 }
 
 describe("AI import → NuovoClienteDialog prefill", () => {
