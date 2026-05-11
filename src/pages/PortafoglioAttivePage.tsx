@@ -32,7 +32,7 @@ const PortafoglioAttivePage = () => {
 
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-attive", search, filtroRamo, page, today, escludiMeseCorrente],
+    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
@@ -46,7 +46,7 @@ const PortafoglioAttivePage = () => {
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
-      if (filtroRamo) q = q.eq("ramo_id", filtroRamo);
+      if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
 
       const { data, count } = await q
         .order("garanzia_a", { ascending: true })
@@ -59,7 +59,7 @@ const PortafoglioAttivePage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-attive-totale", search, filtroRamo, today, escludiMeseCorrente],
+    queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
         .eq("stato", "attivo").gte("garanzia_a", today);
@@ -69,7 +69,7 @@ const PortafoglioAttivePage = () => {
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
-      if (filtroRamo) q = q.eq("ramo_id", filtroRamo);
+      if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
       const { data } = await q;
       return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
     },
@@ -122,13 +122,14 @@ const PortafoglioAttivePage = () => {
             className="pl-9"
           />
         </div>
-        <FilterSearchableSelect
-          value={filtroRamo}
-          onValueChange={(v) => { setFiltroRamo(v); setPage(0); }}
-          options={rami || []}
-          placeholder="Ramo"
-          allLabel="Tutti i rami"
-          className="w-[220px]"
+        <RamoSottoramoFilter
+          gruppoRamoId={filtroGruppoRamo}
+          ramoId={filtroRamo}
+          onChange={({ gruppoRamoId, ramoId }) => {
+            setFiltroGruppoRamo(gruppoRamoId);
+            setFiltroRamo(ramoId);
+            setPage(0);
+          }}
         />
         <div className="flex items-center gap-2 ml-auto">
           <Switch
