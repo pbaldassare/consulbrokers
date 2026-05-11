@@ -814,8 +814,8 @@ const RcaGaranzieTab = () => {
     onError: () => toast.error("Errore"),
   });
 
-  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setAliquota("0"); setOpen(true); };
-  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setAliquota(String(g.aliquota_tasse ?? 0)); setOpen(true); };
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setAliquota("0"); setGruppoRamoId(defaultGruppoZqId); setOpen(true); };
+  const openEdit = (g: any) => { setEditing(g); setCodice(g.codice); setDescrizione(g.descrizione); setAliquota(String(g.aliquota_tasse ?? 0)); setGruppoRamoId(g.gruppo_ramo_id || defaultGruppoZqId); setOpen(true); };
   const closeDialog = () => { setOpen(false); setEditing(null); };
 
   return (
@@ -830,6 +830,7 @@ const RcaGaranzieTab = () => {
             <TableRow>
               <TableHead className="w-24">Codice</TableHead>
               <TableHead>Descrizione</TableHead>
+              <TableHead className="w-40">Gruppo Ramo</TableHead>
               <TableHead className="w-28 text-right">% Tasse</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
@@ -837,13 +838,16 @@ const RcaGaranzieTab = () => {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
             ) : items.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {item.gruppi_ramo ? `${item.gruppi_ramo.codice} - ${item.gruppi_ramo.descrizione}` : "—"}
+                </TableCell>
                 <TableCell className="text-right font-mono">{item.aliquota_tasse ?? 0}%</TableCell>
                 <TableCell className="text-center">
                   <Switch checked={item.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: item.id, attivo: v })} />
@@ -863,11 +867,20 @@ const RcaGaranzieTab = () => {
             <div className="space-y-4">
               <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 01" /></div>
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Cristalli veicolo" /></div>
+              <div>
+                <Label>Gruppo Ramo</Label>
+                <SearchableSelect
+                  value={gruppoRamoId}
+                  onValueChange={setGruppoRamoId}
+                  options={gruppiRamo.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` }))}
+                  placeholder="Seleziona gruppo ramo..."
+                />
+              </div>
               <div><Label>% Tasse</Label><Input type="number" step="0.01" value={aliquota} onChange={(e) => setAliquota(e.target.value)} /></div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={closeDialog}>Annulla</Button>
-              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || save.isPending}>
+              <Button onClick={() => save.mutate()} disabled={!codice || !descrizione || !gruppoRamoId || save.isPending}>
                 {save.isPending ? "Salvataggio..." : "Salva"}
               </Button>
             </DialogFooter>
