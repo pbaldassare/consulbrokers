@@ -331,16 +331,25 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     [profiliCommercialiRaw]
   );
 
-  // Auto-assign backoffice profile when dialog opens.
-  // Guards: only when open + id available; functional setState avoids stale closure on backofficeRole
-  // and short-circuits if profilo_id is already set (no spurious state updates / re-renders).
+  // `open` lives in a ref so the effect depends only on `backofficeProfileId`:
+  // re-runs only when the resolved id actually changes, not on every dialog toggle.
+  const openRef = useRef(open);
   useEffect(() => {
-    if (!open || !backofficeProfileId) return;
+    openRef.current = open;
+  }, [open]);
+
+  // Auto-assign backoffice profile.
+  // - Effect deps: only `backofficeProfileId` (stable via useMemo) → no spurious re-runs.
+  // - setState is idempotent: if `profilo_id` is already set OR equal to the incoming id,
+  //   we return the SAME reference so React bails out (no re-render, no overwrite of initialData).
+  useEffect(() => {
+    if (!openRef.current || !backofficeProfileId) return;
     setBackofficeRole(prev => {
-      if (prev.profilo_id) return prev;
+      if (prev.profilo_id) return prev; // already assigned (manual or initialData) → no-op
+      if (prev.profilo_id === backofficeProfileId) return prev; // same id → keep reference
       return { ...prev, profilo_id: backofficeProfileId };
     });
-  }, [open, backofficeProfileId]);
+  }, [backofficeProfileId]);
 
   const insertCommercialRoles = async (clienteId: string) => {
     const roles = [
