@@ -151,17 +151,15 @@ const PortafoglioStoricoPage = () => {
             ))}
           </SelectContent>
         </Select>
-        <Select value={filtroRamo} onValueChange={(v) => { setFiltroRamo(v); setPage(0); }}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Ramo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Tutti i rami</SelectItem>
-            {rami?.map((r) => (
-              <SelectItem key={r.id} value={r.id}>{r.descrizione}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <RamoSottoramoFilter
+          gruppoRamoId={filtroGruppoRamo}
+          ramoId={filtroRamo}
+          onChange={({ gruppoRamoId, ramoId }) => {
+            setFiltroGruppoRamo(gruppoRamoId);
+            setFiltroRamo(ramoId);
+            setPage(0);
+          }}
+        />
       </div>
 
       {isLoading ? (
