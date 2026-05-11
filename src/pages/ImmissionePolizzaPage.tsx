@@ -582,10 +582,26 @@ const ImmissionePolizzaPage = () => {
 
   return (
     <div className="space-y-5 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Immissione Polizza</h1>
-        <p className="text-sm text-muted-foreground mt-1">Inserimento nuova polizza nel portafoglio</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Immissione Polizza</h1>
+          <p className="text-sm text-muted-foreground mt-1">Inserimento nuova polizza nel portafoglio</p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setAiImportOpen(true)}
+          className="gap-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800"
+        >
+          <Sparkles className="h-4 w-4" />
+          Importa da PDF (AI)
+        </Button>
       </div>
+
+      <ImportNuovaPolizzaAIDialog
+        open={aiImportOpen}
+        onOpenChange={setAiImportOpen}
+        onApply={handleAIImportApply}
+      />
 
       {/* CLIENTE */}
       <PolizzaSection title="Cliente & Sede" icon={Users}>
