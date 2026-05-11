@@ -110,14 +110,42 @@ function DatiStatisticiCreate(props: any) {
   );
 }
 
+export interface NuovoClienteInitialData {
+  tipoCliente?: "privato" | "azienda" | "ente";
+  nome?: string;
+  cognome?: string;
+  ragioneSociale?: string;
+  codiceFiscale?: string;
+  partitaIva?: string;
+  email?: string;
+  telefono?: string;
+  cellulare?: string;
+  indirizzo?: string;
+  cap?: string;
+  citta?: string;
+  provincia?: string;
+  nazione?: string;
+}
+
 export interface NuovoClienteDialogProps {
   trigger?: React.ReactNode;
   onCreated?: (clienteId: string, label: string) => void;
+  /** Controlled open state (optional). When provided, dialog is controlled by parent. */
+  controlledOpen?: boolean;
+  onOpenChange?: (o: boolean) => void;
+  /** Pre-fill the form when the dialog opens. */
+  initialData?: NuovoClienteInitialData;
 }
 
-export function NuovoClienteDialog({ trigger, onCreated }: NuovoClienteDialogProps) {
+export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenChange, initialData }: NuovoClienteDialogProps) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? !!controlledOpen : internalOpen;
+  const setOpen = (o: boolean) => {
+    if (!isControlled) setInternalOpen(o);
+    onOpenChange?.(o);
+  };
 
   const [tipoCliente, setTipoCliente] = useState<"privato" | "azienda" | "ente">("privato");
   const [nome, setNome] = useState("");
