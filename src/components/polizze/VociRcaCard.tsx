@@ -157,13 +157,28 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
     },
   });
 
+  // Recupera il gruppo_ramo_id del titolo per filtrare il catalogo garanzie
+  const { data: gruppoRamoTitolo } = useQuery({
+    queryKey: ["titolo-gruppo-ramo", titoloId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli" as any)
+        .select("ramo_id, rami!inner(gruppo_ramo_id)")
+        .eq("id", titoloId)
+        .maybeSingle();
+      return (data as any)?.rami?.gruppo_ramo_id as string | undefined;
+    },
+  });
+
   const { data: catalogo = [] } = useQuery({
-    queryKey: ["rca-garanzie-catalogo"],
+    queryKey: ["rca-garanzie-catalogo", gruppoRamoTitolo || "all"],
+    enabled: !!gruppoRamoTitolo,
     queryFn: async () => {
       const { data } = await supabase
         .from("rca_garanzie" as any)
         .select("codice, descrizione, aliquota_tasse")
         .eq("attivo", true)
+        .eq("gruppo_ramo_id", gruppoRamoTitolo!)
         .order("codice");
       return (data as any[]) || [];
     },
