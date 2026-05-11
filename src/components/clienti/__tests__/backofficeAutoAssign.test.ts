@@ -21,6 +21,7 @@ const backofficeUpdater =
   (prev: CommercialRole): CommercialRole => {
     if (!backofficeProfileId) return prev;
     if (prev.profilo_id) return prev;
+    if (prev.profilo_id === backofficeProfileId) return prev;
     return { ...prev, profilo_id: backofficeProfileId };
   };
 
