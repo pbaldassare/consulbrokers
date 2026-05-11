@@ -591,7 +591,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           <DialogTitle>Nuovo Cliente</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+          <div className={`rounded-lg border p-3 space-y-3 ${!gruppoFinanziarioId ? "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20" : "bg-muted/30"}`}>
             <div>
               <Label>Gruppo Finanziario *</Label>
               <SearchableSelect
@@ -600,12 +600,20 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   setGruppoFinanziarioId(v);
                   const gf = gruppiFinanziari.find((g: any) => g.id === v);
                   if (gf?.tipo_soggetto) {
-                    setTipoCliente(gf.tipo_soggetto as "privato" | "azienda" | "ente");
+                    const newTipo = gf.tipo_soggetto as "privato" | "azienda" | "ente";
+                    setTipoCliente(newTipo);
+                    // Pulisci CUP se non è più Ente
+                    if (newTipo !== "ente") setCodiceCup("");
                   }
                 }}
                 placeholder="— Cerca e seleziona gruppo finanziario —"
                 options={gruppiFinanziari.map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.nome}` }))}
               />
+              {!gruppoFinanziarioId && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                  Obbligatorio: determina automaticamente il tipo cliente.
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Label className="mb-0">Tipo Cliente:</Label>
@@ -735,7 +743,17 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               {tipoCliente === "ente" && (
                 <div>
                   <Label>Codice CUP *</Label>
-                  <Input value={codiceCup} onChange={(e) => setCodiceCup(e.target.value.toUpperCase())} placeholder="Codice Unico di Progetto (obbligatorio)" />
+                  <Input
+                    value={codiceCup}
+                    onChange={(e) => setCodiceCup(e.target.value.toUpperCase())}
+                    placeholder="Codice Unico di Progetto (obbligatorio)"
+                    className={!codiceCup.trim() ? "border-amber-400 focus-visible:ring-amber-400" : undefined}
+                  />
+                  {!codiceCup.trim() && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                      Obbligatorio per gli Enti.
+                    </p>
+                  )}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">

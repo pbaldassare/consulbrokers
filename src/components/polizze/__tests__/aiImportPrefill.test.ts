@@ -71,3 +71,69 @@ describe("AI import → NuovoClienteDialog prefill", () => {
     expect((p as any).codiceCup).toBeUndefined();
   });
 });
+
+/**
+ * Replica della logica "fallback identità incompleta" usata in handleAIImportApply:
+ * quando l'AI non estrae né nome né CF né P.IVA, mostriamo un toast di avviso
+ * ma APRIAMO comunque il NuovoClienteDialog (vuoto) così l'utente può completare
+ * a mano i campi obbligatori (Gruppo Finanziario in primis).
+ */
+type AiOpenAction = {
+  toastWarning?: string;
+  openDialog: boolean;
+  prefill: NuovoClienteInitialData;
+};
+
+function planAiClienteOpen(m: MatchResult): AiOpenAction | null {
+  if (!m.isNewCliente) return null;
+  const d = m.data;
+  const piva = (d.contraente_partita_iva || "").trim();
+  const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
+  const nome = (d.contraente_nome || "").trim();
+  const hasMinimalIdentity = !!nome || !!cf || !!piva;
+  return {
+    toastWarning: hasMinimalIdentity
+      ? undefined
+      : "Dati cliente incompleti dal PDF: compila manualmente nome/ragione sociale, CF/P.IVA e il Gruppo Finanziario.",
+    openDialog: true,
+    prefill: buildPrefill(m),
+  };
+}
+
+describe("AI import → fallback dati incompleti", () => {
+  it("emette il toast di warning e apre comunque il dialog quando mancano nome, CF e P.IVA", () => {
+    const action = planAiClienteOpen({
+      isNewCliente: true,
+      data: {
+        // solo dati polizza, nessun identificativo cliente
+        numero_polizza: "ABC123",
+        compagnia: "Generali",
+      },
+    });
+    expect(action).not.toBeNull();
+    expect(action!.openDialog).toBe(true);
+    expect(action!.toastWarning).toMatch(/incompleti/i);
+    expect(action!.prefill.nome).toBeUndefined();
+    expect(action!.prefill.ragioneSociale).toBeUndefined();
+    expect(action!.prefill.codiceFiscale).toBeUndefined();
+    expect(action!.prefill.partitaIva).toBeUndefined();
+  });
+
+  it("NON emette il toast quando c'è almeno un identificativo (CF o P.IVA o nome)", () => {
+    const action = planAiClienteOpen({
+      isNewCliente: true,
+      data: { contraente_nome: "Mario Rossi" },
+    });
+    expect(action!.toastWarning).toBeUndefined();
+    expect(action!.openDialog).toBe(true);
+  });
+
+  it("ritorna null se non è un nuovo cliente", () => {
+    const action = planAiClienteOpen({
+      isNewCliente: false,
+      data: { contraente_nome: "X" },
+      cliente: { id: "abc", label: "X" },
+    });
+    expect(action).toBeNull();
+  });
+});
