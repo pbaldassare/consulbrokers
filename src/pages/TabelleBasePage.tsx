@@ -863,7 +863,7 @@ const RcaGaranzieTab = () => {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Modifica Garanzia RCA" : "Nuova Garanzia RCA"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Modifica Garanzia" : "Nuova Garanzia"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div><Label>Codice</Label><Input value={codice} onChange={(e) => setCodice(e.target.value)} placeholder="es. 01" /></div>
               <div><Label>Descrizione</Label><Input value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="es. Cristalli veicolo" /></div>
