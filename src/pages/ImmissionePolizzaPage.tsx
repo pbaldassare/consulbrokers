@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
-import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
+import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
 import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
@@ -36,11 +36,39 @@ const ImmissionePolizzaPage = () => {
   const { user, profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [aiImportOpen, setAiImportOpen] = useState(false);
+  const [nuovoClienteOpen, setNuovoClienteOpen] = useState(false);
+  const [aiClientePrefill, setAiClientePrefill] = useState<NuovoClienteInitialData | null>(null);
 
   const handleAIImportApply = (m: MatchResult) => {
     const d = m.data;
-    if (m.cliente?.id) setSelectedClienteId(m.cliente.id);
-    else if (d.contraente_codice_fiscale) setCodiceCliente(d.contraente_codice_fiscale);
+    if (m.cliente?.id) {
+      setSelectedClienteId(m.cliente.id);
+    } else if (m.isNewCliente) {
+      // Apre NuovoClienteDialog precompilato: l'utente DEVE selezionare Gruppo Finanziario
+      // (e Codice CUP per gli Enti) prima di poter salvare.
+      const piva = (d.contraente_partita_iva || "").trim();
+      const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
+      const isAzienda = !!piva || (!!cf && cf.length === 11);
+      const prefill: NuovoClienteInitialData = {
+        tipoCliente: isAzienda ? "azienda" : "privato",
+        ragioneSociale: isAzienda ? d.contraente_nome : undefined,
+        nome: !isAzienda ? d.contraente_nome : undefined,
+        codiceFiscale: cf || undefined,
+        partitaIva: piva || undefined,
+        email: d.contraente_email,
+        telefono: d.contraente_telefono,
+        indirizzo: d.contraente_indirizzo,
+        cap: d.contraente_cap,
+        citta: d.contraente_comune,
+        provincia: d.contraente_provincia,
+        nazione: d.contraente_nazione,
+      };
+      setAiClientePrefill(prefill);
+      setNuovoClienteOpen(true);
+      if (cf) setCodiceCliente(cf);
+    } else if (d.contraente_codice_fiscale) {
+      setCodiceCliente(d.contraente_codice_fiscale);
+    }
     if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
     if (m.ramo) {
       setSelectedGruppoRamoId(m.ramo.gruppoRamoId);
@@ -65,7 +93,9 @@ const ImmissionePolizzaPage = () => {
     if (d.premio_quietanza_imposte != null) setTasseQuietanza(String(d.premio_quietanza_imposte));
     if (d.premio_quietanza_accessori != null) setAddizionaliQuietanza(String(d.premio_quietanza_accessori));
     if (d.targa) setTargaTelaio(d.targa);
-    toast.success("Dati applicati al form");
+    toast.success(m.isNewCliente && !m.cliente?.id
+      ? "Dati applicati. Completa la creazione del nuovo cliente (Gruppo Finanziario obbligatorio)."
+      : "Dati applicati al form");
   };
 
   // Form state — Cliente
@@ -631,9 +661,17 @@ const ImmissionePolizzaPage = () => {
                 Nuovo Cliente
               </Button>
             }
+            controlledOpen={nuovoClienteOpen || undefined}
+            onOpenChange={(o) => {
+              setNuovoClienteOpen(o);
+              if (!o) setAiClientePrefill(null);
+            }}
+            initialData={aiClientePrefill ?? undefined}
             onCreated={(id, label) => {
               setSelectedClienteId(id);
               setClienteSearch(label);
+              setAiClientePrefill(null);
+              setNuovoClienteOpen(false);
             }}
           />
         </div>
