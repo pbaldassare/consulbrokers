@@ -1864,7 +1864,8 @@ const TitoloDetail = () => {
             <FieldRow label="Agenzia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
-            <FieldRow label="Ramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
+            <FieldRow label="Ramo" value={fmt((t.ramo as any)?.gruppo_ramo?.descrizione || (t.ramo as any)?.gruppo_ramo_label)} />
+            <FieldRow label="Sottoramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
             
@@ -1905,13 +1906,13 @@ const TitoloDetail = () => {
                 placeholder="— Seleziona agenzia / agenzia —"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Ramo</Label>
-              <SearchableSelect
-                options={ramiOpts}
-                value={contrattoForm.ramo_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, ramo_id: v || null }))}
-                placeholder="Seleziona ramo"
+            <div className="space-y-1 col-span-2">
+              <RamoSottoramoSelect
+                gruppoRamoId={(contrattoForm as any).gruppo_ramo_id || null}
+                ramoId={contrattoForm.ramo_id || null}
+                onChange={({ gruppoRamoId, ramoId }) =>
+                  setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
+                }
               />
             </div>
             <div className="space-y-1">
