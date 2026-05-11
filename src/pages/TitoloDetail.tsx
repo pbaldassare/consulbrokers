@@ -2971,7 +2971,13 @@ const TitoloDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <div><Label className="text-xs">Settore</Label><Input value={veicoloForm.settore} onChange={(e) => setVeicoloForm({ ...veicoloForm, settore: e.target.value })} /></div>
               <div><Label className="text-xs">Tipo Veicolo</Label><SearchableSelect options={TIPI_VEICOLO_OPTS} value={veicoloForm.tipo_veicolo} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, tipo_veicolo: v })} placeholder="Seleziona..." /></div>
-              <div><Label className="text-xs">Uso</Label><SearchableSelect options={rcaUsi} value={veicoloForm.uso} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, uso: v })} placeholder="Seleziona..." /></div>
+              <div>
+                <Label className="text-xs">Uso</Label>
+                <SearchableSelect options={rcaUsi} value={veicoloForm.uso} onValueChange={(v) => setVeicoloForm({ ...veicoloForm, uso: v })} placeholder="Seleziona..." />
+                {veicoloForm.uso && rcaUsi.length > 0 && !rcaUsi.some((o: any) => o.value === veicoloForm.uso) && (
+                  <p className="text-xs text-destructive mt-1">⚠ Valore "Uso" non corrispondente a nessuna voce in tabella RCA Usi.</p>
+                )}
+              </div>
               <div><Label className="text-xs">Targa</Label><Input value={veicoloForm.targa} onChange={(e) => setVeicoloForm({ ...veicoloForm, targa: e.target.value.toUpperCase() })} /></div>
               <div><Label className="text-xs">Marca</Label><Input value={veicoloForm.marca} onChange={(e) => setVeicoloForm({ ...veicoloForm, marca: e.target.value.toUpperCase() })} /></div>
               <div><Label className="text-xs">Modello</Label><Input value={veicoloForm.modello} onChange={(e) => setVeicoloForm({ ...veicoloForm, modello: e.target.value.toUpperCase() })} /></div>
