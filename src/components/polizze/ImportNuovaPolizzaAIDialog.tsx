@@ -429,7 +429,6 @@ export function ImportNuovaPolizzaAIDialog({
     [clienteCandidates],
   );
 
-  const isNewCliente = selectedClienteId === NEW_CLIENTE;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
