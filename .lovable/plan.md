@@ -1,63 +1,100 @@
 ## Obiettivo
-Aggiungere un **import AI di polizza da PDF** alla pagina "Nuova Emissione" (`/portafoglio/immissione`). L'utente carica una scheda di polizza (es. AmTrust Colpa Grave testato), il sistema la analizza con AI, riconosce cliente/compagnia e pre-compila tutti i campi del form.
+Migliorare il dialog "Importa polizza da PDF (AI)" con: progress + log live, multi-match selezionabile per cliente/compagnia/ramo, editing inline dei campi estratti, riepilogo finale prima dell'apply, e — quando il cliente non esiste — flusso obbligato che apre `NuovoClienteDialog` pre-compilato con i campi obbligatori bloccanti, prima di poter applicare la polizza.
 
-## Flusso utente
+## Modifiche
 
-1. In cima alla pagina **Immissione Polizza** appare una card "📄 Importa da PDF (AI)".
-2. L'utente trascina/seleziona il PDF della scheda di polizza.
-3. Spinner "Analisi in corso…" → l'edge function chiama Gemini via Lovable AI Gateway.
-4. Modale di **anteprima e conferma** con:
-   - **Cliente**: match automatico per CF/P.IVA → se trovato mostra il cliente esistente con badge "✅ Cliente esistente"; se non trovato propone "🆕 Crea nuovo cliente" con dati precompilati (Nome, CF, Indirizzo, Comune, Prov, CAP, Nazione).
-   - **Compagnia**: match fuzzy su `compagnie.denominazione` → mostra match con confidence; se nessun match, propone selezione manuale.
-   - **Ramo / Sottoramo**: AI suggerisce un mapping (es. "RC Professionale Medico" → gruppo `ZP` / sottoramo `RC PATRIMONIALE`); utente può correggere.
-   - **Dati polizza**: numero, decorrenza, scadenza, frazionamento, tacito rinnovo, prossima quietanza.
-   - **Premi firma + quietanza**: netto, accessori, tasse, lordo (entrambe le quote).
-   - **Garanzie**: lista con descrizione + massimale (per polizze RC/professionali) → mappate sul catalogo `rca_garanzie` filtrato per gruppo ramo.
-5. L'utente clicca **"Conferma e compila form"** → tutti i campi vengono iniettati nello stato della pagina Immissione (cliente, sede, contratto, premi, garanzie). L'utente può rifinire e poi salvare normalmente.
+### 1. `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx` (refactor principale)
 
-## Dati estratti dal PDF di test (validazione mapping)
+**Stati nuovi**
+- `step`: `"upload" | "parsing" | "review" | "summary"`
+- `progress`: 0–100, `progressLabel`: stringa
+- `logs`: `{ts, level, msg}[]` con auto-scroll
+- `data`: `ParsedPolizzaData` editabile (form controllato copiato dal risultato AI)
+- `clienteCandidates`, `compagniaCandidates`, `ramoCandidates` (top 5 ciascuno) + relativi `selectedId`
+- `manualNewCliente: boolean` (forza creazione anche se candidati esistenti)
 
+**Progress + Log**
+- Componente `<Progress />` (shadcn) sopra il drop-zone durante parsing.
+- Pannello scrollabile con righe colorate (info/success/warn/error), aggiornato in fasi:
+  1. "Lettura file…" (10%)
+  2. "Conversione base64…" (25%)
+  3. "Invio a Gemini…" (40%)
+  4. "Estrazione dati…" (70%) — al ritorno
+  5. "Ricerca cliente in DB…" (80%)
+  6. "Ricerca compagnia…" (88%)
+  7. "Ricerca ramo…" (95%)
+  8. "Completato" (100%)
+- Errori catturati come riga log + toast.
+
+**Multi-match (lookup esteso)**
+- `lookupMatches` rivisto: ritorna array `candidates` per ognuno (limit 5):
+  - Cliente: query con `or(cf.eq, piva.eq)` esatta + fallback `ilike` su ragione_sociale/cognome usando token nome.
+  - Compagnia: `ilike` su `nome` e `gruppo_compagnia` (più token), score per match parola intera.
+  - Ramo: tokenizzato come oggi ma top 5 con join a `gruppi_ramo` (mostro `gruppo - ramo`).
+- UI: `SearchableSelect` per ciascuno (con "Crea nuovo cliente" come opzione speciale per il cliente).
+
+**Editing inline (step "review")**
+- Tutti i `<Field>` read-only diventano `<Input>`/`<Select>`/`<Switch>` controllati su `data`.
+- Sezioni: Cliente (anagrafica + indirizzo), Compagnia & Ramo (con i select multi-match), Periodo (date + frazionamento + tacito), Premi (Firma + Quietanza, numerici), Garanzie (lista editabile descrizione/massimale/premio, con "Rimuovi").
+- Bottone "Ricalcola lordo" che somma netto+imposte+accessori per Firma e Quietanza.
+
+**Step "summary" (riepilogo)**
+- Vista compatta read-only con tutti i dati finalizzati, badge match per ogni entità (✓ esistente / ➕ nuovo / ⚠ da scegliere).
+- Conferma con bottone "Applica al form".
+- Se cliente = "nuovo" → bottone primario diventa "Crea cliente e applica" (vedi punto 3).
+
+**Footer dinamico**
+- step upload: solo "Annulla"
+- step review: "Indietro", "Riepilogo →"
+- step summary: "Indietro", "Applica" / "Crea cliente e applica"
+
+### 2. `src/components/clienti/NuovoClienteDialog.tsx` (estensione minima)
+
+- Aggiungere prop opzionale `initialData?: Partial<{...campi...}>` e `controlledOpen?`/`onOpenChange?` per pilotarlo dall'esterno.
+- In `useEffect`, quando `open` passa a true e `initialData` fornito, popolare gli stati pertinenti (nome/cognome/CF, ragione_sociale/PIVA, indirizzo+CAP+città+provincia, email/telefono).
+- Inferire `tipoCliente`: "azienda" se PIVA presente o CF di 11 cifre, altrimenti "privato".
+- **Nessun cambio alle validazioni esistenti**: `gruppo_finanziario_id` resta obbligatorio (l'utente lo deve scegliere), CF 16 char per privato, CUP per ente. Questa è già la garanzia richiesta dall'utente sui campi obbligatori — il salvataggio non parte se mancano.
+- Aggiungere chiaramente l'asterisco "*" a label dei campi obbligatori già esistenti (Gruppo Finanziario, e per ente Codice CUP) per visibilità.
+
+### 3. `src/pages/ImmissionePolizzaPage.tsx` (integrazione)
+
+- `handleAIImportApply(m: MatchResult)` esteso:
+  - Se `m.cliente?.id` esiste → applica come oggi e chiude.
+  - Se `m.cliente == null` (utente ha scelto "nuovo cliente") → invece di applicare subito, salva `m` in `pendingImport` state, apre `NuovoClienteDialog` con `initialData` derivato da `m.data.contraente_*`. Al callback `onCreated(clienteId, label)` setta `selectedClienteId = clienteId` e procede ad applicare il resto del payload (compagnia/ramo/premi/date).
+  - Toast finale "Polizza pre-compilata".
+- Il bottone "Applica al form" del dialog AI resta bloccato (disabled) se l'utente in step summary non ha scelto un cliente esistente né "nuovo cliente".
+
+## Dettagli tecnici
+
+**Tipi nuovi**
+```ts
+type Candidate<T> = T & { score?: number };
+type MatchState = {
+  data: ParsedPolizzaData;                  // editabile
+  clienteCandidates: { id; label; cf?; piva? }[];
+  selectedClienteId: string | "__new__" | "";
+  compagniaCandidates: { id; label }[];
+  selectedCompagniaId: string;
+  ramoCandidates: { gruppoRamoId; ramoId; label }[];
+  selectedRamoKey: string;                  // `${gruppoRamoId}:${ramoId}`
+};
 ```
-Polizza: RCM20080076069 | Compagnia: AmTrust Assicurazioni
-Contraente: GIUSEPPE AMUSO | CF: MSAGPP56M06C351X
-Indirizzo: VIA FELICE PARADISO 3, CATANIA (CT) 95121 IT
-Decorrenza: 12/01/2026 | Scadenza: 12/01/2027 | Frazionamento: Annuale | Tacito Rinnovo: SÌ
-Premi: Netto 376,27 | Imposte 83,73 | Lordo 460,00 (firma = quietanza = annuo)
-Ramo: RC Professionale Medico (Colpa Grave) → suggerimento ZP / RC PATRIMONIALE
-Garanzia attiva: "Garanzia Base II (Colpa Grave): Dipendente Privato" | Massimale 5.000.000
+
+**MatchResult passato a `onApply`** (retrocompatibile)
+```ts
+{ data, cliente: selectedClienteId !== "__new__" ? {id, label} : null,
+  compagnia: ..., ramo: ... }
 ```
 
-## Componenti tecnici
+**Helper per logging**
+```ts
+const log = (level, msg) => setLogs(l => [...l, {ts: Date.now(), level, msg}]);
+```
 
-**Nuova edge function `parse-polizza-generica`** (basata su `parse-polizza-rca` esistente):
-- Input: `{ fileBase64, mimeType }`.
-- Modello: `google/gemini-2.5-flash` (già usato in `parse-polizza-rca`, `parse-provvigioni-pdf`).
-- Tool/JSON schema esteso che copre: contraente (nome, CF, P.IVA, indirizzo completo), assicurato (se diverso), compagnia, intermediario/codice nodo, polizza (numero, decorrenza, scadenza, frazionamento, tacito rinnovo, prossima quietanza), premi firma + rate future, ramo/prodotto, garanzie (descrizione, massimale, sottolimiti).
+**Nessuna modifica a `parse-polizza-completa` edge function** (interfaccia invariata).
 
-**Lookup nel client (post-AI)**:
-- Cliente: query `clienti` per `codice_fiscale` o `partita_iva` (esatto, uppercase).
-- Compagnia: query `compagnie` con ILIKE su denominazione, mostrare top 3 risultati ordinati.
-- Ramo: query `rami` + `gruppi_ramo` con ILIKE su descrizione restituita dall'AI.
-
-**Nuovo componente `ImportPolizzaAIDialog.tsx`**:
-- Dropzone PDF (max 10MB).
-- Stati: idle / uploading / parsing / preview / done.
-- Sezioni di review con override manuale per ogni campo dubbio.
-- Pulsante "Applica al form" che chiama una callback `onImportComplete(data)` esposta dalla pagina Immissione.
-
-**Modifica `ImmissionePolizzaPage.tsx`**:
-- Card "Importa da PDF (AI)" sopra "Cliente & Sede" (collassabile).
-- Handler che riceve i dati confermati e li scrive negli stati esistenti (cliente_id, contratto, premi, garanzie).
-
-## Out of scope (questo round)
-- Salvataggio automatico del PDF originale come allegato della polizza (proposta come step successivo).
-- Feedback loop / training: nessuna persistenza delle correzioni utente sul catalogo per ora.
-- Import di documenti diversi dalla scheda di polizza (es. quietanze, appendici).
-- OCR pre-elaborazione: ci affidiamo direttamente alla capacità multimodale di Gemini sui PDF nativi.
-
-## QA
-- PDF AmTrust di test → tutti i campi sopra estratti correttamente; cliente CF `MSAGPP56M06C351X` proposto come "nuovo" (verificare che non esista già); compagnia "AmTrust Assicurazioni" matchata.
-- Test con PDF RCA (riusa il medesimo dialog, garanzie multiple).
-- Test con PDF danneggiato/illeggibile → messaggio d'errore chiaro.
-
-Dopo conferma del piano implemento edge function, dialog, e integrazione nella pagina.
+## Out of scope
+- Nessuna modifica allo schema DB.
+- Nessuna modifica al modello AI o al prompt.
+- Nessuna validazione extra lato server (RLS già in vigore).
+- Persistenza del file PDF allegato (non richiesta).
