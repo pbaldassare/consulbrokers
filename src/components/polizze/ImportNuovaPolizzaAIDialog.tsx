@@ -372,6 +372,16 @@ export function ImportNuovaPolizzaAIDialog({
     toast.success(`Lordo ${which} ricalcolato: ${fmtEur(tot)}`);
   };
 
+  const isNewCliente = selectedClienteId === NEW_CLIENTE;
+  const selectedGruppoFinanziario = useMemo(
+    () => gruppiFinanziari.find((g) => g.id === selectedGruppoFinanziarioId) || null,
+    [gruppiFinanziari, selectedGruppoFinanziarioId],
+  );
+  const tipoClienteAuto = selectedGruppoFinanziario?.tipo_soggetto;
+  const cupRequired = tipoClienteAuto === "ente";
+  const newClienteReady =
+    !isNewCliente || (!!selectedGruppoFinanziarioId && (!cupRequired || codiceCupNew.trim().length > 0));
+
   const buildResult = (): MatchResult => {
     const cliente =
       selectedClienteId && selectedClienteId !== NEW_CLIENTE
@@ -384,15 +394,26 @@ export function ImportNuovaPolizzaAIDialog({
       cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
       compagnia: compagnia ? { id: compagnia.id, label: compagnia.label } : null,
       ramo: ramo ? { gruppoRamoId: ramo.gruppoRamoId, ramoId: ramo.ramoId, label: ramo.label } : null,
-      isNewCliente: selectedClienteId === NEW_CLIENTE,
+      isNewCliente,
+      gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
+      tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
+      codiceCup: isNewCliente && cupRequired ? codiceCupNew.trim() || undefined : undefined,
     };
   };
 
-  const canProceed = !!selectedClienteId; // either an id or NEW_CLIENTE
+  const canProceed = !!selectedClienteId && newClienteReady;
 
   const apply = () => {
-    if (!canProceed) {
+    if (!selectedClienteId) {
       toast.error("Seleziona un cliente esistente o scegli 'Crea nuovo cliente'");
+      return;
+    }
+    if (isNewCliente && !selectedGruppoFinanziarioId) {
+      toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
+      return;
+    }
+    if (isNewCliente && cupRequired && !codiceCupNew.trim()) {
+      toast.error("Inserisci il Codice CUP (obbligatorio per gli Enti)");
       return;
     }
     onApply(buildResult());
