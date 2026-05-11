@@ -2915,7 +2915,7 @@ const TitoloDetail = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
                 <FieldRow label="Settore" value={fmt((veicolo as any).settore)} />
                 <FieldRow label="Tipo" value={fmt((veicolo as any).tipo_veicolo)} />
-                <FieldRow label="Uso" value={fmt((veicolo as any).uso)} />
+                <FieldRow label="Uso" value={fmt(rcaUsi.find((o: any) => o.value === (veicolo as any).uso)?.label)} />
                 <FieldRow label="Targa" value={fmt((veicolo as any).targa)} />
                 <FieldRow label="Marca" value={fmt((veicolo as any).marca)} />
                 <FieldRow label="Modello" value={fmt((veicolo as any).modello)} />
