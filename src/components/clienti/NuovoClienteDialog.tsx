@@ -125,6 +125,8 @@ export interface NuovoClienteInitialData {
   citta?: string;
   provincia?: string;
   nazione?: string;
+  gruppoFinanziarioId?: string;
+  codiceCup?: string;
 }
 
 export interface NuovoClienteDialogProps {
