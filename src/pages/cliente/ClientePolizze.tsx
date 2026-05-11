@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
-import { Shield, Calendar, X } from "lucide-react";
+import { Shield, Calendar, X, FileSpreadsheet, FileText } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -44,7 +45,7 @@ const ClientePolizze = () => {
       if (!clienteIds?.length) { setLoading(false); return; }
       const { data } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
+        .select("id, numero_titolo, stato, premio_lordo, premio_netto, cig_rif, data_scadenza, durata_da, periodicita, descrizione_polizza, produttore_nome, targa_telaio, prodotto_nome, compagnie(nome), rami(descrizione)")
         .in("cliente_anagrafica_id", clienteIds.map((c: any) => c))
         .order("created_at", { ascending: false });
       setTitoli(data ?? []);
@@ -82,7 +83,7 @@ const ClientePolizze = () => {
       if (scadA && (!t.data_scadenza || new Date(t.data_scadenza) > scadA)) return false;
       if (search) {
         const q = search.toLowerCase();
-        const hay = `${t.numero_titolo ?? ""} ${t.targa_telaio ?? ""} ${t.prodotto_nome ?? ""} ${t.descrizione_polizza ?? ""}`.toLowerCase();
+        const hay = `${t.numero_titolo ?? ""} ${t.targa_telaio ?? ""} ${t.prodotto_nome ?? ""} ${t.descrizione_polizza ?? ""} ${t.cig_rif ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -95,6 +96,51 @@ const ClientePolizze = () => {
 
   const filtriAttivi = stato || ramo || compagnia || search || scadDa || scadA;
 
+  const buildExportRows = () =>
+    filtered.map(t => ({
+      Stato: t.stato ?? "",
+      Compagnia: (t.compagnie as any)?.nome ?? "",
+      Produttore: t.produttore_nome ?? "",
+      Prodotto: (t.rami as any)?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "",
+      "N° Polizza": t.numero_titolo ?? "",
+      Targa: t.targa_telaio ?? "",
+      CIG: t.cig_rif ?? "",
+      "Data Scadenza": t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy") : "",
+      Periodicita: t.periodicita ?? "",
+      "Premio Imponibile": t.premio_netto ?? 0,
+      "Premio Lordo": t.premio_lordo ?? 0,
+    }));
+
+  const fileBase = `polizze_${format(new Date(), "yyyyMMdd")}`;
+
+  const exportCSV = () => {
+    const rows = buildExportRows();
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const escape = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [
+      headers.join(";"),
+      ...rows.map(r => headers.map(h => escape((r as any)[h])).join(";"))
+    ].join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${fileBase}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportXLSX = () => {
+    const rows = buildExportRows();
+    if (!rows.length) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Polizze");
+    XLSX.writeFile(wb, `${fileBase}.xlsx`);
+  };
+
   if (loading)
     return (
       <div className="space-y-3">
@@ -104,19 +150,30 @@ const ClientePolizze = () => {
 
   const today = new Date();
   const totale = filtered.reduce((sum, t) => sum + (t.premio_lordo ?? 0), 0);
+  const totaleImponibile = filtered.reduce((sum, t) => sum + (t.premio_netto ?? 0), 0);
 
   return (
     <div data-tour="cl-pol-page" className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-teal-700 flex items-center justify-center">
-          <Shield className="h-5 w-5 text-white" />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-teal-700 flex items-center justify-center">
+            <Shield className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground uppercase tracking-wide">
+              Elenco Posizioni Assicurative
+            </h1>
+            <p className="text-sm text-muted-foreground">{filtered.length} di {titoli.length} polizze</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground uppercase tracking-wide">
-            Elenco Posizioni Assicurative
-          </h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} di {titoli.length} polizze</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!filtered.length} className="gap-1.5">
+            <FileText className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportXLSX} disabled={!filtered.length} className="gap-1.5">
+            <FileSpreadsheet className="h-4 w-4" /> Excel
+          </Button>
         </div>
       </div>
 
@@ -127,7 +184,7 @@ const ClientePolizze = () => {
             <SearchableSelect options={statiOptions} value={stato} onValueChange={setStato} placeholder="Stato" />
             <SearchableSelect options={ramiOptions} value={ramo} onValueChange={setRamo} placeholder="Ramo" />
             <SearchableSelect options={compagnieOptions} value={compagnia} onValueChange={setCompagnia} placeholder="Compagnia" />
-            <Input placeholder="Cerca polizza / targa / prodotto" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Cerca polizza / targa / prodotto / CIG" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="flex gap-2">
               <DatePicker value={scadDa} onChange={setScadDa} placeholder="Scad. da" />
               <DatePicker value={scadA} onChange={setScadA} placeholder="Scad. a" />
@@ -153,8 +210,10 @@ const ClientePolizze = () => {
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Mandato / Agenzia</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Prodotto</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">N° Polizza / Targa</TableHead>
+                  <TableHead className="text-white font-bold text-xs uppercase tracking-wider">CIG</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider">Data Scadenza</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider text-center">Fraz.</TableHead>
+                  <TableHead className="text-white font-bold text-xs uppercase tracking-wider text-right">Premio Imponibile</TableHead>
                   <TableHead className="text-white font-bold text-xs uppercase tracking-wider text-right">Premio Annuo Lordo</TableHead>
                 </TableRow>
               </TableHeader>
@@ -181,6 +240,9 @@ const ClientePolizze = () => {
                         <p className="text-sm font-mono text-foreground">{polizzaTarga}</p>
                       </Link></TableCell>
                       <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <p className="text-xs font-mono text-muted-foreground">{t.cig_rif ?? "—"}</p>
+                      </Link></TableCell>
+                      <TableCell className="py-2.5"><Link to={`/cliente/polizze/${t.id}`} className="block">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="text-sm">{t.data_scadenza ? format(new Date(t.data_scadenza), "dd/MM/yyyy", { locale: it }) : "—"}</span>
@@ -193,6 +255,9 @@ const ClientePolizze = () => {
                         <span className="text-sm">{t.periodicita ?? "—"}</span>
                       </Link></TableCell>
                       <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
+                        <span className="text-sm text-foreground">{t.premio_netto ? fmt(t.premio_netto) : "—"}</span>
+                      </Link></TableCell>
+                      <TableCell className="py-2.5 text-right"><Link to={`/cliente/polizze/${t.id}`} className="block">
                         <span className="text-sm font-bold text-foreground">{t.premio_lordo ? fmt(t.premio_lordo) : "—"}</span>
                       </Link></TableCell>
                     </TableRow>
@@ -201,7 +266,8 @@ const ClientePolizze = () => {
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-teal-50 border-t-2 border-teal-700">
-                  <TableCell colSpan={6} className="font-bold text-sm text-teal-900 uppercase">Totale Premio Annuo Lordo</TableCell>
+                  <TableCell colSpan={7} className="font-bold text-sm text-teal-900 uppercase">Totale</TableCell>
+                  <TableCell className="text-right font-bold text-sm text-teal-900">{fmt(totaleImponibile)}</TableCell>
                   <TableCell className="text-right font-bold text-base text-teal-900">{fmt(totale)}</TableCell>
                 </TableRow>
               </TableFooter>
