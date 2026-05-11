@@ -325,6 +325,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
   }, [open, initialData]);
 
+  useEffect(() => {
+    if (open && !backofficeRole.profilo_id) {
+      const backofficeProfile = profiliCommercialiRaw.find((p: any) => p.ruolo === "backoffice");
+      if (backofficeProfile) {
+        setBackofficeRole(prev => ({ ...prev, profilo_id: backofficeProfile.id }));
+      }
+    }
+  }, [open, profiliCommercialiRaw]);
 
   const insertCommercialRoles = async (clienteId: string) => {
     const roles = [
