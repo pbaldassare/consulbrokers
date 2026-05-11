@@ -1,53 +1,34 @@
-## Fonte dati confermata
+# Collegamento Garanzie RCA ↔ Gruppi Ramo
 
-La tabella **`anagrafiche_professionali`** (UI: *Anagrafiche Amministrative*) è la fonte unica per Produttori, Account Executive, Resp. Sede e Specialist.
+## Stato attuale
+- `gruppi_ramo` (12) ← `rami` (198, via `gruppo_ramo_id`) ✅ già collegati
+- `rca_garanzie` (18) → **scollegata** da rami / gruppi_ramo ❌
 
-Mapping tipo → ruolo UI:
-- `corrispondente` → Produttore (include esterni come Interfidi)
-- `account_executive` → Account Executive
-- `responsabile_sede` → Resp. Sede
-- `backoffice` → Specialist
-
-Collegamento ai titoli: `titoli.anagrafica_commerciale_id` → `anagrafiche_professionali.id` (FK già presente).
-
-## Problema attuale
-
-Le 3 pagine Provvigioni usano `profiles` (utenti del gestionale) per popolare il filtro Produttore, e applicano il filtro su `provvigioni_generate.user_id`. Risultato: i produttori reali presenti in `anagrafiche_professionali` ma senza utenza non compaiono nel dropdown e non sono filtrabili.
+## Obiettivo
+Le 18 garanzie RCA devono appartenere al gruppo ramo `ZQ - R.C.A.`. In fase polizza, il dropdown Garanzie RCA mostrerà solo quelle del gruppo del ramo della polizza corrente.
 
 ## Modifiche
 
-### 1. Nuovo hook `src/hooks/useProduttoriLookup.ts`
-```ts
-supabase.from("anagrafiche_professionali")
-  .select("id, nome, cognome, ragione_sociale, tipo")
-  .eq("tipo", "corrispondente")
-  .eq("attivo", true)
-  .order("ragione_sociale", { nullsFirst: false })
-```
-Restituisce `Option[]` con `value = id`, `label = ragione_sociale ?? "cognome nome"`.
+### 1. Database (migrazione)
+- Aggiungi colonna `rca_garanzie.gruppo_ramo_id uuid REFERENCES gruppi_ramo(id) ON DELETE RESTRICT`
+- Indice su `gruppo_ramo_id`
+- Backfill: tutte le 18 righe esistenti → id del gruppo `ZQ`
+- Set `NOT NULL` dopo backfill
+- RLS: invariata (lettura authenticated, scrittura staff già esistenti)
 
-### 2. Pagine da aggiornare
-- `src/pages/ProvvigioniMaturatePage.tsx`
-- `src/pages/ProvvigioniSedePage.tsx`
-- `src/pages/PagamentiProvvigioniList.tsx`
+### 2. UI Tabelle di Base (`src/pages/TabelleBasePage.tsx`)
+- Custom editor `rca_garanzie`: aggiungi `SearchableSelect` "Gruppo Ramo" (default ZQ) accanto a Codice/Descrizione/Aliquota
+- Colonna tabella: mostra il codice gruppo accanto alla descrizione
+- Insert/Update payload include `gruppo_ramo_id`
 
-In ciascuna:
-- sostituire la `useQuery` su `profiles` con `useProduttoriLookup()`
-- cambiare il filtro applicato:
-  ```ts
-  // prima
-  if (filters.produttoreId) q = q.eq("user_id", filters.produttoreId);
-  // dopo
-  if (filters.produttoreId) q = q.eq("titoli.anagrafica_commerciale_id", filters.produttoreId);
-  ```
-- nelle aggregazioni "Top Produttori": joinare `titoli.anagrafica_commerciale:anagrafiche_professionali(id, nome, cognome, ragione_sociale)` e usare quel record come chiave/label, con fallback a `titoli.produttore_nome` solo per record storici senza FK
+### 3. Lookup polizza (`src/components/polizze/VociRcaCard.tsx`)
+- Query `rca_garanzie`: filtra `.eq('gruppo_ramo_id', gruppoRamoIdDelRamoCorrente)` ricavato dal `ramo` del titolo (join `rami → gruppo_ramo_id`)
+- Se nessun gruppo collegato (ramo non auto), il pulsante "Voce da catalogo" resta nascosto come oggi
 
-### 3. Nessuna modifica DB
-Solo refactor frontend; tutte le FK necessarie esistono già.
+### 4. Memoria
+Salvo nuovo file `mem://insurance/garanzie-rca-gruppo-ramo` e aggiorno l'indice.
 
-## Verifica
-
-1. `/provvigioni-maturate`: dropdown Produttore mostra tutti i `corrispondente` attivi di `anagrafiche_professionali`
-2. Selezionando un produttore, KPI/tabella si filtrano sui titoli con `anagrafica_commerciale_id` corrispondente
-3. Stesso comportamento su `/provvigioni-sede` e `/pagamenti-provvigioni`
-4. "Top Produttori" raggruppa per `anagrafica_commerciale_id` (con fallback a `produttore_nome` per i record storici)
+## Note tecniche
+- Nessuna rottura di dati: backfill completo prima di NOT NULL
+- `mapGaranzieRca.ts` (mapping AI) resta invariato: usa codice garanzia
+- `premi_garanzia_polizza` non viene toccata (riferisce `codice_garanzia` testuale)
