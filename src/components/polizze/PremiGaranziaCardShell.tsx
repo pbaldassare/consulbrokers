@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,11 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Car, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PremiGaranziaCardShellProps {
   tipoPremio: "firma" | "quietanza";
   /** Etichetta della voce principale (es. "RCA Auto" oppure "Premio") */
   mainLabel?: string;
+  /** Gruppo Ramo selezionato sul titolo: filtra il catalogo garanzie selezionabili */
+  gruppoRamoId?: string | null;
+  /** Codice garanzia selezionata (catalogo rca_garanzie) */
+  garanziaCodice?: string;
+  onGaranziaChange?: (codice: string, descrizione: string, aliquotaTasse: number) => void;
   premioNetto: string;
   onPremioNettoChange: (v: string) => void;
   addizionali: string;
