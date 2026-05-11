@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -163,9 +164,14 @@ export const TrattativaDettagliTab = ({ trattativa, onSaved, onEvento }: Props) 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="space-y-1.5">
-          <Label>Ramo</Label>
-          <SearchableSelect options={rami} value={form.ramo_id} onValueChange={(v) => setForm({ ...form, ramo_id: v })} placeholder="Seleziona ramo..." />
+        <div className="space-y-1.5 md:col-span-2">
+          <RamoSottoramoSelect
+            gruppoRamoId={(form as any).gruppo_ramo_id || null}
+            ramoId={form.ramo_id || null}
+            onChange={({ gruppoRamoId, ramoId }) =>
+              setForm({ ...form, ramo_id: ramoId || "", gruppo_ramo_id: gruppoRamoId } as any)
+            }
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Agenzia</Label>
