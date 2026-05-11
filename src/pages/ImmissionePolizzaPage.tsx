@@ -48,11 +48,22 @@ const ImmissionePolizzaPage = () => {
       // (e Codice CUP per gli Enti) prima di poter salvare.
       const piva = (d.contraente_partita_iva || "").trim();
       const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
+      const nome = (d.contraente_nome || "").trim();
       const isAzienda = !!piva || (!!cf && cf.length === 11);
+
+      // Fallback: se l'AI non ha estratto né nome né CF/P.IVA, avvisa l'utente.
+      // Apriamo comunque il dialog (vuoto) così può completare a mano i campi obbligatori.
+      const hasMinimalIdentity = !!nome || !!cf || !!piva;
+      if (!hasMinimalIdentity) {
+        toast.warning(
+          "Dati cliente incompleti dal PDF: compila manualmente nome/ragione sociale, CF/P.IVA e il Gruppo Finanziario.",
+        );
+      }
+
       const prefill: NuovoClienteInitialData = {
         tipoCliente: isAzienda ? "azienda" : "privato",
-        ragioneSociale: isAzienda ? d.contraente_nome : undefined,
-        nome: !isAzienda ? d.contraente_nome : undefined,
+        ragioneSociale: isAzienda ? nome || undefined : undefined,
+        nome: !isAzienda ? nome || undefined : undefined,
         codiceFiscale: cf || undefined,
         partitaIva: piva || undefined,
         email: d.contraente_email,
@@ -63,8 +74,15 @@ const ImmissionePolizzaPage = () => {
         provincia: d.contraente_provincia,
         nazione: d.contraente_nazione,
       };
-      setAiClientePrefill(prefill);
-      setNuovoClienteOpen(true);
+      // Resettiamo prima di reimpostare per forzare il re-run del useEffect
+      // di prefill in NuovoClienteDialog anche se l'utente aveva già aperto/chiuso il dialog.
+      setAiClientePrefill(null);
+      setNuovoClienteOpen(false);
+      // microtask: garantisce che il dialog si "smonti" lo stato e poi ri-applichi il nuovo prefill
+      queueMicrotask(() => {
+        setAiClientePrefill(prefill);
+        setNuovoClienteOpen(true);
+      });
       if (cf) setCodiceCliente(cf);
     } else if (d.contraente_codice_fiscale) {
       setCodiceCliente(d.contraente_codice_fiscale);
