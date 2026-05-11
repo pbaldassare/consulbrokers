@@ -13,9 +13,12 @@ import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
+import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
+import { useRamiAll } from "@/hooks/useRamiLookup";
 const PortafoglioAttivePage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
 
@@ -23,15 +26,10 @@ const PortafoglioAttivePage = () => {
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const fineMese = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroRamo, escludiMeseCorrente]);
+  const { data: ramiAll = [] } = useRamiAll();
+  const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroGruppoRamo, filtroRamo, escludiMeseCorrente]);
 
-  const { data: rami } = useQuery({
-    queryKey: ["rami-lookup"],
-    queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, descrizione").eq("attivo", true).order("descrizione");
-      return (data || []).map((r) => ({ value: r.id, label: r.descrizione }));
-    },
-  });
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-attive", search, filtroRamo, page, today, escludiMeseCorrente],
