@@ -472,6 +472,7 @@ const TitoloDetail = () => {
     ufficio_id: "" as string | null,
     compagnia_id: "" as string | null,
     ramo_id: "" as string | null,
+    gruppo_ramo_id: null as string | null,
   });
 
   const { data: produttoriOpts = [] } = useQuery({
