@@ -65,3 +65,6 @@ verify_jwt = true
 
 [functions.import-storico-gare-oneshot]
 verify_jwt = false
+
+[functions.parse-polizza-completa]
+verify_jwt = false

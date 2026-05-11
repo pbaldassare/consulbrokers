@@ -25,8 +25,9 @@ import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -34,6 +35,38 @@ const ImmissionePolizzaPage = () => {
   const preselectedClienteId = searchParams.get("clienteId");
   const { user, profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [aiImportOpen, setAiImportOpen] = useState(false);
+
+  const handleAIImportApply = (m: MatchResult) => {
+    const d = m.data;
+    if (m.cliente?.id) setSelectedClienteId(m.cliente.id);
+    else if (d.contraente_codice_fiscale) setCodiceCliente(d.contraente_codice_fiscale);
+    if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
+    if (m.ramo) {
+      setSelectedGruppoRamoId(m.ramo.gruppoRamoId);
+      setSelectedRamo(m.ramo.ramoId);
+    }
+    if (d.prodotto) setProdottoNome(d.prodotto);
+    if (d.numero_polizza) setNumeroPolizza(d.numero_polizza);
+    if (d.decorrenza) setDurataDa(d.decorrenza);
+    if (d.scadenza) setDurataA(d.scadenza);
+    if (typeof d.tacito_rinnovo === "boolean") setTacitoRinnovo(d.tacito_rinnovo);
+    if (d.frazionamento) {
+      const fraz = d.frazionamento.toLowerCase();
+      const map: Record<string, string> = {
+        annuale: "1", semestrale: "2", quadrimestrale: "3", trimestrale: "4", mensile: "12",
+      };
+      if (map[fraz]) setRate(map[fraz]);
+    }
+    if (d.premio_firma_netto != null) setPremioNetto(String(d.premio_firma_netto));
+    if (d.premio_firma_imposte != null) setTasse(String(d.premio_firma_imposte));
+    if (d.premio_firma_accessori != null) setAddizionali(String(d.premio_firma_accessori));
+    if (d.premio_quietanza_netto != null) setPremioNettoQuietanza(String(d.premio_quietanza_netto));
+    if (d.premio_quietanza_imposte != null) setTasseQuietanza(String(d.premio_quietanza_imposte));
+    if (d.premio_quietanza_accessori != null) setAddizionaliQuietanza(String(d.premio_quietanza_accessori));
+    if (d.targa) setTargaTelaio(d.targa);
+    toast.success("Dati applicati al form");
+  };
 
   // Form state — Cliente
   const [codiceCliente, setCodiceCliente] = useState("");
@@ -549,10 +582,26 @@ const ImmissionePolizzaPage = () => {
 
   return (
     <div className="space-y-5 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Immissione Polizza</h1>
-        <p className="text-sm text-muted-foreground mt-1">Inserimento nuova polizza nel portafoglio</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Immissione Polizza</h1>
+          <p className="text-sm text-muted-foreground mt-1">Inserimento nuova polizza nel portafoglio</p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setAiImportOpen(true)}
+          className="gap-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800"
+        >
+          <Sparkles className="h-4 w-4" />
+          Importa da PDF (AI)
+        </Button>
       </div>
+
+      <ImportNuovaPolizzaAIDialog
+        open={aiImportOpen}
+        onOpenChange={setAiImportOpen}
+        onApply={handleAIImportApply}
+      />
 
       {/* CLIENTE */}
       <PolizzaSection title="Cliente & Sede" icon={Users}>
