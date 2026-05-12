@@ -105,11 +105,13 @@ const ImmissionePolizzaPage = () => {
       };
       if (map[fraz]) setRate(map[fraz]);
     }
-    if (d.premio_firma_netto != null) setPremioNetto(String(d.premio_firma_netto));
-    if (d.premio_firma_imposte != null) setTasse(String(d.premio_firma_imposte));
+    if (d.premio_firma_netto != null || d.premio_firma_imposte != null) {
+      setPremiFirmaRows([{ ...emptyGaranziaRow(), netto: d.premio_firma_netto != null ? String(d.premio_firma_netto) : "", tasse: d.premio_firma_imposte != null ? String(d.premio_firma_imposte) : "" }]);
+    }
     if (d.premio_firma_accessori != null) setAddizionali(String(d.premio_firma_accessori));
-    if (d.premio_quietanza_netto != null) setPremioNettoQuietanza(String(d.premio_quietanza_netto));
-    if (d.premio_quietanza_imposte != null) setTasseQuietanza(String(d.premio_quietanza_imposte));
+    if (d.premio_quietanza_netto != null || d.premio_quietanza_imposte != null) {
+      setPremiQuietanzaRows([{ ...emptyGaranziaRow(), netto: d.premio_quietanza_netto != null ? String(d.premio_quietanza_netto) : "", tasse: d.premio_quietanza_imposte != null ? String(d.premio_quietanza_imposte) : "" }]);
+    }
     if (d.premio_quietanza_accessori != null) setAddizionaliQuietanza(String(d.premio_quietanza_accessori));
     if (d.targa) setTargaTelaio(d.targa);
     toast.success(m.isNewCliente && !m.cliente?.id
