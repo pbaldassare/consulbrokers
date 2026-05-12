@@ -543,7 +543,7 @@ function CompagniaFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
-                Agenzia di appartenenza <span className="text-destructive">*</span>
+                Compagnia Assicurativa (gruppo) <span className="text-destructive">*</span>
               </Label>
               <SearchableSelect
                 options={gruppiCompagnia}
@@ -553,7 +553,7 @@ function CompagniaFormDialog({
                   const found = gruppiCompagnia.find((g: any) => g.value === v);
                   setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
                 }}
-                placeholder="Seleziona agenzia..."
+                placeholder="Seleziona compagnia assicurativa..."
               />
               {!form.gruppo_compagnia_id && (
                 <p className="text-xs text-destructive">Campo obbligatorio</p>
