@@ -1,65 +1,120 @@
+## Obiettivo
 
-# Refusi Compagnie Assicurative / Agenzie + ricerca tab Agenzie
+1. Garantire che ogni voce della sidebar abbia una rotta valida (placeholder per quelle non ancora implementate).
+2. Uniformare intestazioni, label colonne e copy nei tab "Compagnie Assicurative" e "Agenzie".
+3. Esporre in modo strutturato (UI + DB già esistente) la relazione **Compagnia Assicurativa ↔ Agenzie**, sia 1:N sia N:N (plurimandatarie), eliminando qualunque mapping hardcoded.
 
-## Convenzione (già stabilita)
-- **Compagnia Assicurativa** = riga di `gruppi_compagnia` (es. ALLIANZ, AIG, AMISSIMA…)
-- **Agenzia** = riga di `compagnie` (rapporto agenziale, es. "MED000 - Lloyd's Broker")
-- Sotto-tab `value="agenzie"` mostra le **Compagnie Assicurative** (gruppi); sotto-tab `value="anagrafica"` mostra le **Agenzie**.
+---
 
-Oggi nel codice ci sono diversi punti in cui un'entità viene chiamata con il nome dell'altra. Inoltre nel tab "Agenzie" il blocco di ricerca esiste ma è poco visibile/poco coerente con quello del tab gemello.
+## 1) Routing — placeholder per voci sidebar
 
-## File interessato
-`src/pages/CompagnieList.tsx`
+### Stato attuale
+La sidebar (`src/components/AppSidebar.tsx`) elenca ~50 voci raggruppate. Le route registrate stanno in `src/routes/{archivi,portafoglio,contabilita,sistema,sinistri,cliente,prospect}.tsx`. Alcune voci puntano a path che oggi cadono su `NotFound` (es. nei gruppi Sistema, Provvigioni, Sinistri sotto-sezioni, Trattative/Storico Gare ecc.).
 
-## Modifiche
+### Cosa fare
+- Censire ogni `path` presente in `sidebarEntries` e confrontarlo con le `<Route>` registrate.
+- Per ogni path mancante, aggiungere una `<Route>` che rende `PlaceholderPage` (componente già esistente in `src/components/PlaceholderPage.tsx`) con:
+  - `title` = label sidebar
+  - `description` = breve descrizione coerente
+  - `icon` = stessa icona usata nella sidebar
+- Le rotte placeholder vanno collocate nel file `src/routes/*.tsx` tematicamente più vicino (o in un nuovo `src/routes/extra.tsx` se non c'è una corrispondenza chiara) e montate in `App.tsx` se serve.
+- Nessuna logica di business: solo scaffolding di pagina con header/breadcrumb coerenti con il resto.
 
-### A) Tab "Compagnie Assicurative" — `CompagnieMadriTab` (righe ~791–1088)
-Tutto ciò che riguarda i record di `gruppi_compagnia` deve dire **Compagnia Assicurativa**, non Agenzia.
+### Out of scope
+- Implementazione vera dei placeholder (verrà fatta in iterazioni dedicate).
 
-- Placeholder ricerca: `"Cerca agenzia..."` → `"Cerca compagnia assicurativa..."`
-- Bottone + dialog: `"Nuova Agenzia"` / titolo `"Nuova Agenzia"` / label `"Crea Agenzia"` → `"Nuova Compagnia Assicurativa"` / `"Crea Compagnia Assicurativa"`
-- Dialog di modifica (titolo): aggiungere `"Modifica Compagnia Assicurativa"` (oggi non c'è titolo dedicato; usare lo stesso `renderForm`).
-- Toast: `"Agenzia creata"`, `"Agenzia aggiornata"`, `"Agenzia eliminata"` → `"Compagnia assicurativa ..."`.
-- Messaggi errore duplicato: `"Esiste già una agenzia con questo nome"` → `"Esiste già una compagnia assicurativa con questo nome"`.
-- Toast guard PLURIMANDATARIO: `"Agenzia di sistema (PLURIMANDATARIO): non modificabile/eliminabile"` → `"Compagnia assicurativa di sistema ..."`.
-- `CardTitle` interno è già `Compagnie Assicurative ({n})` — invariato.
+---
 
-### B) Pagina principale (intestazione, righe ~1221–1246)
-- Sottotitolo: `"... — N compagnie totali"` mostra `compagnie.length` (cioè conteggio di `compagnie` = agenzie). Cambiare in `"N agenzie · M compagnie assicurative"` mostrando entrambi i conteggi (`compagnie.length` per Agenzie, `Object.keys(gruppiMap).length` per Compagnie Assicurative).
-- Bottone in alto a destra `"Nuova Agenzia"`: lasciarlo, **ma** renderlo contestuale al tab attivo:
-  - Su tab `agenzie` (Compagnie Assicurative): nascondere il bottone (l'azione "Nuova Compagnia Assicurativa" è già dentro il sotto-tab).
-  - Su tab `anagrafica` (Agenzie): testo `"Nuova Agenzia"` → invariato; apre il `CompagniaFormDialog` come oggi.
-  - Sugli altri tab: nascosto.
+## 2) Uniformità tab "Compagnie Assicurative" e "Agenzie"
 
-### C) Tab "Agenzie" — sezione `TabsContent value="anagrafica"` (righe ~1284–1450)
-Il blocco di ricerca esiste già (Card con due Input + filtro Plurimandatario + Reset). Per allinearlo al tab Compagnie Assicurative e renderlo immediatamente riconoscibile:
+File: `src/pages/CompagnieList.tsx`.
 
-- Spostare la `Card` di ricerca in cima al tab e racchiuderla in un layout uguale a quello del tab gemello (stesso ordine: ricerca a sinistra full-width con icona, "Reset" a destra, "Nuova Agenzia" a destra del Reset).
-- Aggiornare label/placeholder per coerenza:
-  - Label sopra il primo input: `"Cerca per nome, sede o codice"` (un'unica label).
-  - Placeholder primo input: `"Cerca agenzia..."` (mantenuto).
-  - Spostare l'input "Codice..." accanto, larghezza fissa, label `"Codice iniziale"`.
-- Mantenere il toggle `"Solo Plurimandatario"` con il suo badge.
-- Aggiungere il bottone `"Nuova Agenzia"` anche dentro la Card di ricerca (oltre a quello in alto) per coerenza visiva con il tab Compagnie Assicurative.
-- `CardTitle` interno: oggi `"Elenco Agenzie ({filteredAnagrafica.length})"` — invariato.
+Le rinominazioni testuali sono già state applicate. Resta da uniformare struttura/colonne/copy fra i due tab gemelli:
 
-### D) Dialog "Agenzie collegate a una compagnia assicurativa" — `AgenzieCollegateDialog` (righe ~670–788)
-- Titolo dialog: `"Agenzie collegate a {gruppoDescrizione}"` — invariato.
-- Verifica testo introduttivo/colonne: dove parla di "compagnia madre" usare **Compagnia Assicurativa**; dove elenca i record usare **Agenzia**.
+### Header del tab (entrambi)
+Stessa anatomia in `Card`:
+- Titolo `CardTitle` con conteggio: `Compagnie Assicurative ({n})` / `Agenzie ({n})`
+- `CardDescription` breve che spiega cosa è l'entità (1 riga).
+- Riga azioni in alto a destra: pulsante primario (`Nuova Compagnia Assicurativa` / `Nuova Agenzia`) + pulsante `Reset filtri`.
 
-### E) `CompagniaFormDialog` (form di una Agenzia, righe ~424–657)
-Solo etichette in cui si confondono i due livelli:
-- Titolo già parametrico (`Nuova Agenzia` / `Modifica Agenzia`) — invariato.
-- Tab "Dati Anagrafici": il campo che oggi si chiama "Compagnia" (e collega a `gruppi_compagnia`) deve essere etichettato **"Compagnia Assicurativa (gruppo)"** con placeholder `"Seleziona compagnia assicurativa..."`.
-- Eventuali label "Agenzia" che si riferiscono in realtà al gruppo: rinominare in "Compagnia Assicurativa".
+### Blocco filtri (entrambi)
+Stesso layout grid:
+- Input `Cerca per nome / codice / sede` (full-width, con icona lente)
+- Input `Codice iniziale` (largh. fissa)
+- Toggle `Solo Plurimandatario` con badge contatore
+- Bottone `Reset` a destra
+
+### Tabella (uniformare colonne e ordini)
+| Tab | Colonne richieste |
+|---|---|
+| Compagnie Assicurative | Codice · Nome · Tipo Mandatario · # Agenzie collegate · Plurimandataria · Stato · Azioni |
+| Agenzie | Codice · Nome · Compagnia Assicurativa (gruppo) · Sede · Stato · Azioni |
+
+Stesse classi tipografiche, stesso stile zebra, stesso menù azioni (Modifica · Elimina · in più sul tab Compagnie: "Vedi agenzie collegate"; sul tab Agenzie: "Vedi rapporti compagnia").
+
+### Toast / messaggi errore
+Verificare coerenza terminologica:
+- Compagnia Assicurativa → entità di `gruppi_compagnia`
+- Agenzia → entità di `compagnie`
+
+---
+
+## 3) Connessione Compagnia ↔ Agenzie (no hardcoding)
+
+### Stato DB attuale (già presente, da non duplicare)
+- `gruppi_compagnia` — anagrafica **Compagnia Assicurativa** (es. ALLIANZ).
+- `compagnie` — anagrafica **Agenzia**, con FK `gruppo_compagnia_id` → relazione **1:N** "agenzia di default".
+- `compagnia_rapporti` — tabella ponte **N:N** già esistente per **plurimandatarie**, con campi: `compagnia_id`, `gruppo_compagnia_id`, `codice_rapporto`, `tipo_rapporto`, `rami_abilitati[]`, `data_inizio`, `data_fine`, `attivo`, `percentuale_provvigione`, `iban_dedicato`, `referente_compagnia`, `email/telefono_referente`, `conto_bancario_id`, `note`.
+
+Quindi **la struttura tabellare esiste già** e non è hardcoded: va solo esposta in UI in modo chiaro e usata in modo consistente.
+
+### Cosa fare lato UI
+
+#### A) Dal tab "Compagnie Assicurative"
+- Per ogni riga, azione **"Agenzie collegate"** che apre il dialog esistente (`AgenzieCollegateDialog`) ma esteso a mostrare **due sezioni**:
+  1. **Agenzia principale (1:N)** — agenzie con `compagnie.gruppo_compagnia_id = gruppo`. Solo lettura, link al dettaglio.
+  2. **Rapporti aggiuntivi (N:N, plurimandatarie)** — righe da `compagnia_rapporti`. Tabella con: Agenzia · Codice rapporto · Tipo · Rami · Data inizio/fine · Attivo · Provvigione %. Pulsanti **Aggiungi rapporto**, **Modifica**, **Disattiva**.
+- Il dialog "Aggiungi rapporto" usa `SearchableSelect` per scegliere l'Agenzia + form sui campi di `compagnia_rapporti`.
+
+#### B) Dal tab "Agenzie" (dettaglio o azione "Rapporti compagnia")
+- Riusare `RapportiCompagniaDialog` (già esistente in `src/components/compagnie/RapportiCompagniaDialog.tsx`) — verificarne i campi e allinearlo al medesimo modello di dati.
+- Mostrare la **Compagnia Assicurativa principale** (FK `gruppo_compagnia_id`) come campo editabile via `SearchableSelect`, e sotto la lista dei **rapporti N:N** con la stessa griglia del punto A.
+
+#### C) Validazioni
+- `(compagnia_id, gruppo_compagnia_id, codice_rapporto)` deve essere unico per evitare duplicati. Se non esiste in DB un vincolo, aggiungerlo via migration:
+  - `UNIQUE (compagnia_id, gruppo_compagnia_id, codice_rapporto)` su `compagnia_rapporti`.
+- Trigger/RLS già coperti dal sistema esistente.
+
+#### D) Conteggio "# Agenzie collegate"
+- Calcolare lato query come `count(distinct compagnia_id)` unendo:
+  - `compagnie` con `gruppo_compagnia_id = g.id`
+  - `compagnia_rapporti` con `gruppo_compagnia_id = g.id AND attivo = true`
+- Mostrarlo nella colonna del tab Compagnie Assicurative.
+
+### Migrazione DB (minima, solo se serve)
+Solo l'eventuale aggiunta del vincolo univoco; nessuna nuova tabella, nessun campo aggiunto.
+
+---
+
+## Dettagli tecnici
+
+- File toccati principali:
+  - `src/components/AppSidebar.tsx` (solo lettura per censimento)
+  - `src/routes/*.tsx` (aggiunta route placeholder)
+  - `src/pages/CompagnieList.tsx` (uniformità tab + uso del nuovo dialog)
+  - `src/pages/CompagnieList.tsx` → `AgenzieCollegateDialog` esteso con sezione "Rapporti N:N"
+  - `src/components/compagnie/RapportiCompagniaDialog.tsx` (allineamento form campi)
+- Componenti riusati: `PlaceholderPage`, `SearchableSelect`, `Card`, `Table` (con stile zebra), `Dialog`.
+- Migration eventuale: `ALTER TABLE public.compagnia_rapporti ADD CONSTRAINT compagnia_rapporti_unique UNIQUE (compagnia_id, gruppo_compagnia_id, codice_rapporto);` (solo se non già presente).
 
 ## Fuori scope
-- Nessuna modifica a schema DB (i nomi tabella `compagnie` / `gruppi_compagnia` restano).
-- Nessuna modifica al dialog AI di importazione polizza (`ImportNuovaPolizzaAIDialog`), già allineato.
-- Nessuna modifica a sidebar / breadcrumb / route (la voce di menu resta "Compagnie / Agenzie").
+- Logica di business avanzata sui rapporti (workflow approvazione, storico versioni).
+- Modifica delle entity di polizza che già usano `compagnia_id` / `gruppo_compagnia_id`.
+- Implementazione reale delle pagine placeholder.
 
 ## QA manuale
-1. Tab "Compagnie Assicurative": creare/modificare/eliminare un gruppo → toast e dialog parlano di "Compagnia Assicurativa".
-2. Tab "Agenzie": il blocco ricerca è visibile in cima, identico per ergonomia a quello del tab gemello; filtro per nome, codice e Plurimandatario funzionano.
-3. Header pagina: i due conteggi sono coerenti (N agenzie · M compagnie assicurative).
-4. Bottone in alto "Nuova Agenzia" appare solo sul tab Agenzie.
+1. Cliccando ogni voce della sidebar non si vede mai NotFound: o la pagina vera o un placeholder coerente.
+2. I tab Compagnie Assicurative e Agenzie hanno header, filtri e tabella con la stessa anatomia.
+3. Da una Compagnia Assicurativa è possibile vedere/aggiungere/modificare/disattivare un rapporto verso una Agenzia (plurimandataria) e il dato persiste in `compagnia_rapporti`.
+4. Da una Agenzia si vede la Compagnia Assicurativa principale e l'elenco dei rapporti N:N.
+5. La colonna "# Agenzie collegate" riflette sia i collegamenti 1:N che i rapporti N:N attivi.
