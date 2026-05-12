@@ -170,19 +170,21 @@ export function ImportNuovaPolizzaAIDialog({
     setData((d) => ({ ...d, [k]: v }));
 
   const lookupClienti = async (d: ParsedPolizzaData): Promise<ClienteCand[]> => {
-    const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
-    const piva = (d.contraente_partita_iva || "").trim();
+    const cf = (d.contraente_codice_fiscale || "").replace(/\s+/g, "").toUpperCase();
+    const piva = (d.contraente_partita_iva || "").replace(/\s+/g, "");
     const out: ClienteCand[] = [];
     const seen = new Set<string>();
     if (cf || piva) {
       const orParts: string[] = [];
-      if (cf) orParts.push(`codice_fiscale.eq.${cf}`);
-      if (piva) orParts.push(`partita_iva.eq.${piva}`);
+      // ilike (case-insensitive, exact pattern) tollera differenze di case nel DB
+      if (cf) orParts.push(`codice_fiscale.ilike.${cf}`);
+      if (piva) orParts.push(`partita_iva.ilike.${piva}`);
       const { data: rows } = await supabase
         .from("clienti")
         .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
         .or(orParts.join(","))
         .limit(5);
+      const before = out.length;
       (rows || []).forEach((c: any) => {
         if (seen.has(c.id)) return;
         seen.add(c.id);
