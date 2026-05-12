@@ -721,11 +721,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           {tipoCliente === "privato" ? (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-                <div><Label>Cognome</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} /></div>
+                <div><Label>Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} className={!nome.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Cognome *</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} className={!cognome.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Codice Fiscale</Label><Input value={codiceFiscale} onChange={(e) => {
+                <div><Label>Codice Fiscale *</Label><Input value={codiceFiscale} className={!codiceFiscale.trim() ? "border-amber-400" : undefined} onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   setCodiceFiscale(val);
                   if (val.length === 16) {
@@ -745,11 +745,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
               <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
-              <div><Label>Indirizzo Residenza</Label><AddressAutocomplete value={indirizzoResidenza} onChange={setIndirizzoResidenza} onSelect={(c) => { setCapResidenza(c.cap); setCittaResidenza(c.citta); setProvinciaResidenza(c.provincia); }} /></div>
+              <div><Label>Indirizzo Residenza *</Label><AddressAutocomplete value={indirizzoResidenza} onChange={setIndirizzoResidenza} onSelect={(c) => { setCapResidenza(c.cap); setCittaResidenza(c.citta); setProvinciaResidenza(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
-                <div><Label>CAP</Label><Input value={capResidenza} onChange={(e) => setCapResidenza(e.target.value)} maxLength={5} /></div>
-                <div><Label>Città</Label><Input value={cittaResidenza} onChange={(e) => setCittaResidenza(e.target.value)} /></div>
-                <div><Label>Provincia</Label><Input value={provinciaResidenza} onChange={(e) => setProvinciaResidenza(e.target.value)} maxLength={2} /></div>
+                <div><Label>CAP *</Label><Input value={capResidenza} onChange={(e) => setCapResidenza(e.target.value)} maxLength={5} className={!capResidenza.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Città *</Label><Input value={cittaResidenza} onChange={(e) => setCittaResidenza(e.target.value)} className={!cittaResidenza.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Provincia *</Label><Input value={provinciaResidenza} onChange={(e) => setProvinciaResidenza(e.target.value)} maxLength={2} className={!provinciaResidenza.trim() ? "border-amber-400" : undefined} /></div>
               </div>
             </>
           ) : (
