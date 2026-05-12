@@ -844,7 +844,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => (g.descrizione || "").trim().toUpperCase() === norm)) {
-        throw new Error("Esiste già una agenzia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+        throw new Error("Esiste già una compagnia assicurativa con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
