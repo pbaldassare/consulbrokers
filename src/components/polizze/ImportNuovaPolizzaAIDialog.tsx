@@ -239,39 +239,54 @@ export function ImportNuovaPolizzaAIDialog({
     return out;
   };
 
-  const lookupCompagnie = async (d: ParsedPolizzaData): Promise<CompagniaCand[]> => {
+  const lookupGruppiCompagnia = async (d: ParsedPolizzaData): Promise<GruppoCompagniaCand[]> => {
     const compName = (d.compagnia || "").trim();
     if (!compName) return [];
     const tokens = compName.split(/\s+/).filter((t) => t.length >= 3).slice(0, 3);
-    if (!tokens.length) return [];
-    const orFilter = tokens
-      .flatMap((t) => [`nome.ilike.%${t}%`, `gruppo_compagnia.ilike.%${t}%`])
-      .join(",");
+    const lower = compName.toLowerCase();
+    const orFilter = tokens.length
+      ? tokens.map((t) => `descrizione.ilike.%${t}%`).join(",")
+      : `descrizione.ilike.%${compName}%`;
     const { data: rows } = await supabase
-      .from("compagnie")
-      .select("id, codice, nome, gruppo_compagnia")
+      .from("gruppi_compagnia" as any)
+      .select("id, codice, descrizione, attivo")
+      .eq("attivo", true)
       .or(orFilter)
       .limit(10);
+    const out: GruppoCompagniaCand[] = [];
     const seen = new Set<string>();
-    const out: CompagniaCand[] = [];
-    const lower = compName.toLowerCase();
     (rows || [])
-      .map((c: any) => {
-        const name = (c.nome || "").toLowerCase();
-        const gruppo = (c.gruppo_compagnia || "").toLowerCase();
+      .map((g: any) => {
+        const desc = (g.descrizione || "").toLowerCase();
         const score =
-          (name === lower ? 100 : 0) +
-          (name.includes(lower) ? 50 : 0) +
-          tokens.reduce((acc, t) => acc + (name.includes(t.toLowerCase()) ? 10 : 0) + (gruppo.includes(t.toLowerCase()) ? 5 : 0), 0);
-        return { ...c, score };
+          (desc === lower ? 100 : 0) +
+          (desc.includes(lower) ? 50 : 0) +
+          tokens.reduce((a, t) => a + (desc.includes(t.toLowerCase()) ? 10 : 0), 0);
+        return { ...g, score };
       })
       .sort((a: any, b: any) => b.score - a.score)
-      .forEach((c: any) => {
-        if (seen.has(c.id) || out.length >= 5) return;
-        seen.add(c.id);
-        out.push({ id: c.id, label: `${c.codice ? c.codice + " - " : ""}${c.nome}${c.gruppo_compagnia ? ` (${c.gruppo_compagnia})` : ""}` });
+      .forEach((g: any) => {
+        if (seen.has(g.id) || out.length >= 5) return;
+        seen.add(g.id);
+        out.push({ id: g.id, label: `${g.codice ? g.codice + " - " : ""}${g.descrizione}` });
       });
     return out;
+  };
+
+  const loadAgenzieByGruppo = async (gruppoCompagniaId: string): Promise<AgenziaCand[]> => {
+    if (!gruppoCompagniaId) return [];
+    const { data: rows } = await supabase
+      .from("compagnie")
+      .select("id, codice, nome, gruppo_compagnia_id")
+      .eq("gruppo_compagnia_id", gruppoCompagniaId)
+      .eq("attiva", true)
+      .order("nome")
+      .limit(50);
+    return (rows || []).map((c: any) => ({
+      id: c.id,
+      label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
+      gruppo_compagnia_id: c.gruppo_compagnia_id,
+    }));
   };
 
   const lookupRami = async (d: ParsedPolizzaData): Promise<RamoCand[]> => {
