@@ -916,14 +916,23 @@ export function ImportNuovaPolizzaAIDialog({
                   }
                 />
                 <SummaryRow
-                  label="Compagnia"
-                  badge={selectedCompagniaId ? "ok" : "mancante"}
-                  value={compagniaCandidates.find((c) => c.id === selectedCompagniaId)?.label || data.compagnia || "—"}
+                  label="Compagnia assicurativa"
+                  badge={selectedGruppoCompagniaId ? "ok" : "mancante"}
+                  value={gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId)?.label || data.compagnia || "—"}
                 />
                 <SummaryRow
-                  label="Ramo"
-                  badge={selectedRamoKey ? "ok" : "mancante"}
-                  value={ramoCandidates.find((r) => `${r.gruppoRamoId}:${r.ramoId}` === selectedRamoKey)?.label || data.ramo_descrizione || "—"}
+                  label="Agenzia"
+                  badge={selectedAgenziaId ? "ok" : "mancante"}
+                  value={agenziaCandidates.find((a) => a.id === selectedAgenziaId)?.label || "—"}
+                />
+                <SummaryRow
+                  label="Ramo / Sottoramo"
+                  badge={selectedSottoramoId ? "ok" : "mancante"}
+                  value={
+                    ramoCandidates.find((r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId)?.label ||
+                    data.ramo_descrizione ||
+                    "—"
+                  }
                 />
                 <SummaryRow label="N. Polizza" value={data.numero_polizza} />
                 <SummaryRow label="Prodotto" value={data.prodotto} />
