@@ -807,22 +807,37 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .order("descrizione");
       if (error) throw error;
 
-      // Count agenzie per gruppo
+      // Conteggio relazioni 1:N (agenzie con gruppo principale)
       const { data: countsData } = await supabase
         .from("compagnie")
         .select("gruppo_compagnia_id")
         .not("gruppo_compagnia_id", "is", null);
 
-      const counts: Record<string, number> = {};
+      const counts1n: Record<string, number> = {};
       (countsData || []).forEach((row: any) => {
         if (row.gruppo_compagnia_id) {
-          counts[row.gruppo_compagnia_id] = (counts[row.gruppo_compagnia_id] || 0) + 1;
+          counts1n[row.gruppo_compagnia_id] = (counts1n[row.gruppo_compagnia_id] || 0) + 1;
         }
+      });
+
+      // Conteggio relazioni N:N attive (rapporti plurimandatari)
+      const { data: rapportiData } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("compagnia_id, gruppo_compagnia_id")
+        .eq("attivo", true);
+
+      const countsNn: Record<string, Set<string>> = {};
+      (rapportiData || []).forEach((row: any) => {
+        if (!row.gruppo_compagnia_id) return;
+        if (!countsNn[row.gruppo_compagnia_id]) countsNn[row.gruppo_compagnia_id] = new Set();
+        countsNn[row.gruppo_compagnia_id].add(row.compagnia_id);
       });
 
       const enriched = (gruppiData || []).map((g: any) => ({
         ...g,
-        agenzie_count: counts[g.id] || 0,
+        agenzie_count_1n: counts1n[g.id] || 0,
+        rapporti_count_nn: countsNn[g.id]?.size || 0,
+        agenzie_count: (counts1n[g.id] || 0) + (countsNn[g.id]?.size || 0),
         is_pluri: g.codice === PLURIMANDATARIO_CODE,
       }));
 
@@ -1033,7 +1048,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-30"
                         disabled={g.is_pluri}
-                        title={g.is_pluri ? "Agenzia di sistema, non eliminabile" : "Elimina"}
+                        title={g.is_pluri ? "Compagnia assicurativa di sistema, non eliminabile" : "Elimina"}
                         onClick={() => handleDeleteClick(g)}
                       >
                         <Trash2 className="w-4 h-4" />
