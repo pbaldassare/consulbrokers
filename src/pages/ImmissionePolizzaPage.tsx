@@ -600,23 +600,6 @@ const ImmissionePolizzaPage = () => {
           tipologia_guida: vTipologiaGuida || null, tipo_alimentazione: vTipoAlimentazione || null,
         } as any);
 
-        // Premi garanzia
-        const premiRows = premiGaranzia.filter(p => parseFloat(p.firma || "0") > 0 || parseFloat(p.rata || "0") > 0 || parseFloat(p.annuo || "0") > 0);
-        if (premiRows.length > 0) {
-          await supabase.from("premi_garanzia_polizza").insert(
-            premiRows.map(p => ({
-              titolo_id: newTitolo.id,
-              garanzia: p.garanzia,
-              capitale: parseFloat(p.capitale || "0"),
-              tasso: parseFloat(p.tasso || "0"),
-              firma: parseFloat(p.firma || "0"),
-              rata: parseFloat(p.rata || "0"),
-              annuo: parseFloat(p.annuo || "0"),
-              ordine: p.ordine,
-            })) as any
-          );
-        }
-
         // Conducente
         if (cNome || cCognome) {
           await supabase.from("conducenti_polizza").insert({
@@ -628,6 +611,30 @@ const ImmissionePolizzaPage = () => {
           } as any);
         }
       }
+
+      // Premi garanzia (Firma + Quietanza) — vale per qualunque ramo
+      const buildPremiInsert = (rows: GaranziaRow[], tipo: "firma" | "quietanza") =>
+        rows
+          .filter((r) => (r.codice || r.descrizione.trim()) && (parseFloat(r.netto || "0") || parseFloat(r.tasse || "0")))
+          .map((r, idx) => ({
+            titolo_id: newTitolo.id,
+            tipo_premio: tipo,
+            garanzia: r.codice || r.descrizione || "Premio",
+            capitale: 0,
+            tasso: 0,
+            firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
+            rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
+            annuo: 0,
+            ordine: idx,
+          }));
+      const premiPayload = [
+        ...buildPremiInsert(premiFirmaRows, "firma"),
+        ...buildPremiInsert(premiQuietanzaRows, "quietanza"),
+      ];
+      if (premiPayload.length > 0) {
+        await supabase.from("premi_garanzia_polizza").insert(premiPayload as any);
+      }
+
 
       toast.success("Polizza registrata con successo");
       navigate(`/titoli/${newTitolo.id}`);
