@@ -111,10 +111,13 @@ export function ImportNuovaPolizzaAIDialog({
 
   const [clienteCandidates, setClienteCandidates] = useState<ClienteCand[]>([]);
   const [selectedClienteId, setSelectedClienteId] = useState<string>("");
-  const [compagniaCandidates, setCompagniaCandidates] = useState<CompagniaCand[]>([]);
-  const [selectedCompagniaId, setSelectedCompagniaId] = useState<string>("");
+  const [gruppoCompagniaCandidates, setGruppoCompagniaCandidates] = useState<GruppoCompagniaCand[]>([]);
+  const [selectedGruppoCompagniaId, setSelectedGruppoCompagniaId] = useState<string>("");
+  const [agenziaCandidates, setAgenziaCandidates] = useState<AgenziaCand[]>([]);
+  const [selectedAgenziaId, setSelectedAgenziaId] = useState<string>("");
   const [ramoCandidates, setRamoCandidates] = useState<RamoCand[]>([]);
-  const [selectedRamoKey, setSelectedRamoKey] = useState<string>("");
+  const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string>("");
+  const [selectedSottoramoId, setSelectedSottoramoId] = useState<string>("");
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCupNew, setCodiceCupNew] = useState<string>("");
