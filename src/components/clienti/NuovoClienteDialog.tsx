@@ -384,10 +384,39 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
   };
 
+  const getMissingFields = (): string[] => {
+    const missing: string[] = [];
+    if (!gruppoFinanziarioId) missing.push("Gruppo Finanziario");
+    if (tipoCliente === "privato") {
+      if (!nome.trim()) missing.push("Nome");
+      if (!cognome.trim()) missing.push("Cognome");
+      if (!codiceFiscale.trim()) missing.push("Codice Fiscale");
+      if (!indirizzoResidenza.trim()) missing.push("Indirizzo Residenza");
+      if (!capResidenza.trim()) missing.push("CAP");
+      if (!cittaResidenza.trim()) missing.push("Città");
+      if (!provinciaResidenza.trim()) missing.push("Provincia");
+      if (!email.trim()) missing.push("Email");
+    } else {
+      if (!ragioneSociale.trim()) missing.push(tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale");
+      if (!partitaIva.trim()) missing.push("Partita IVA");
+      if (tipoCliente === "ente" && !codiceFiscaleAzienda.trim()) missing.push("Codice Fiscale Ente");
+      if (tipoCliente === "ente" && !codiceCup.trim()) missing.push("Codice CUP");
+      if (!indirizzoSede.trim()) missing.push("Indirizzo Sede");
+      if (!capSede.trim()) missing.push("CAP");
+      if (!cittaSede.trim()) missing.push("Città");
+      if (!provinciaSede.trim()) missing.push("Provincia");
+      if (!referenteNome.trim()) missing.push("Nome Referente");
+      if (!referenteCognome.trim()) missing.push("Cognome Referente");
+      if (!referenteEmail.trim()) missing.push("Email Referente");
+      if (!email.trim()) missing.push("Email");
+    }
+    return missing;
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!gruppoFinanziarioId) throw new Error("Seleziona un Gruppo Finanziario");
-      if (tipoCliente === "ente" && !codiceCup.trim()) throw new Error("Codice CUP obbligatorio per gli Enti");
+      const missing = getMissingFields();
+      if (missing.length > 0) throw new Error(`Campi obbligatori mancanti: ${missing.join(", ")}`);
       if (tipoCliente === "privato" && codiceFiscale && codiceFiscale.length !== 16) {
         throw new Error("Codice Fiscale deve essere di 16 caratteri");
       }

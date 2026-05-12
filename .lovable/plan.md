@@ -1,55 +1,54 @@
-## Problema
+## Obiettivo
+Aggiungere validazione bloccante in `NuovoClienteDialog` con regole differenziate in base al `tipo_soggetto` derivato dal Gruppo Finanziario.
 
-Nello step "Importi" di Immissione Polizza (sezione **Premi per Garanzia — Firma / Quietanza**) puoi inserire **una sola riga di garanzia** e, per i rami non-RCA, la tendina mostra spesso **una sola voce** (es. `MAL — Malattia` per il gruppo ZM). Risultato: non riesci ad articolare più garanzie/sotto-voci sotto un sottoramo come faresti dopo aver salvato la polizza (dove `VociRcaCard` consente più righe con "Aggiungi voce").
+## Regole di obbligatorietà
 
-Cause individuate:
-- `PremiGaranziaCardShell` è single-row by design (un solo `SearchableSelect` + un solo `Input` netto/tasse).
-- Il catalogo `rca_garanzie` contiene 1 sola riga per ogni `gruppo_ramo_id` non-RCA (verificato: ZM, ZN, ZP, ZL, ZS, ZT, ZV, ZY, ZD, ZC, DI hanno tutti 1 garanzia; solo ZQ-RCA ne ha 18).
-- Nessun pulsante "Aggiungi voce" e niente persistenza di righe multiple per non-RCA in `premi_garanzia_polizza` (l'insert al rigo ~596 si attiva solo dal vecchio blocco RCA `premiGaranzia`).
+### PRIVATO
+- Nome
+- Cognome
+- Codice Fiscale (16 char)
+- Indirizzo Residenza (indirizzo + CAP + Città + Provincia)
+- Email
 
-## Cosa costruire
+### AZIENDA
+- Ragione Sociale
+- Partita IVA
+- Indirizzo Sede (indirizzo + CAP + Città + Provincia)
+- Referente Aziendale (Nome + Cognome + Email referente)
+- Email
 
-### 1. `PremiGaranziaCardShell.tsx` — multi-row come `VociRcaCard`
+### ENTE
+- Denominazione Ente (ragione_sociale)
+- Partita IVA
+- Codice Fiscale Ente
+- Codice CUP (già presente)
+- Indirizzo Sede (indirizzo + CAP + Città + Provincia)
+- Referente Ente (Nome + Cognome + Email)
+- Email
 
-Trasforma la card da single-row a tabella con N righe + totali in fondo:
+### Sempre
+- Gruppo Finanziario (già presente)
 
-- Props nuove:
-  - `rows: GaranziaRow[]` con `onRowsChange(next: GaranziaRow[]) => void`
-  - `GaranziaRow = { codice: string | null; descrizione: string; netto: string; tasse: string; aliquotaTasse: number }`
-  - `addizionali`/`onAddizionaliChange` rimangono a livello card (totale).
-- UI per ogni riga: `SearchableSelect` (catalogo filtrato per `gruppoRamoId`) **+ campo testo libero** se il catalogo restituisce ≤1 voce, così l'utente può aggiungere righe nominandole liberamente (es. "Day Hospital", "Diaria"). Fallback gestito via flag `allowFreeText = catalogo.length <= 1`.
-- Pulsante `+ Aggiungi voce` in fondo alla tabella (stile `VociRcaCard`).
-- Pulsante "rimuovi riga" (icona Trash) per ogni riga, con conferma solo se non vuota.
-- Ricalcolo automatico tasse della riga al cambio garanzia: `netto * aliquotaTasse / 100`.
-- Riga totale (in fondo): somma `netto`, somma `tasse`, `addizionali` editabile, `lordo = Σ netto + Σ tasse + addizionali`.
-- Provvigioni footer rimane invariato (somma globale calcolata fuori).
+## Implementazione (`src/components/clienti/NuovoClienteDialog.tsx`)
 
-### 2. `ImmissionePolizzaPage.tsx` — state + persistenza
+1. **Helper `getMissingFields()`** dentro al componente: ritorna `string[]` con label dei campi mancanti in base a `tipoCliente`.
 
-- Sostituisci gli scalari `premioNetto/tasse` (e gli equivalenti Quietanza) con due array di righe:
-  - `premiFirma: GaranziaRow[]`, default `[{ codice: null, descrizione: "", netto: "", tasse: "", aliquotaTasse: 0 }]`
-  - `premiQuietanza: GaranziaRow[]` con stesso default; bottone "Sincronizza da Firma" (icona) per copiare l'array.
-- Calcoli derivati `premioNetto = Σ netto`, `tasse = Σ tasse`, `lordo`, già passati alle altre sezioni che li leggono (verificare e adattare i punti che usano `premioNetto`/`tasse` per "Provvigioni Firma/Quietanza" e "Importi totali").
-- Salvataggio:
-  - Persisti **tutte** le righe Firma in `premi_garanzia_polizza` (oltre al ramo RCA). Estendi l'insert al ~rigo 596 a non-RCA usando `premiFirma`. Mappa: `garanzia = codice ?? descrizione`, `firma = netto`, `tasse = tasse`, `ordine = idx`.
-  - Persisti anche le righe Quietanza? Schema attuale `premi_garanzia_polizza` non distingue Firma/Quietanza: aggiungi colonna **`tipo_premio text NOT NULL DEFAULT 'firma' CHECK IN ('firma','quietanza')`** e inserisci entrambi i set marcati.
-  - Persisti `addizionali` e `addizionali_quietanza` su `titoli` (campi già presenti).
-- Rimuovi il vecchio blocco `<PolizzaSection title="Premi per Garanzia">` RCA al rigo 1300 (legacy duplicato): le sue righe confluiscono nel nuovo multi-row Firma quando `isRCA`.
+2. **Validazione in `createMutation.mutationFn`**: se `missing.length > 0` → `throw new Error("Campi obbligatori mancanti: ...")`. Mantiene anche i check esistenti (gruppo, CUP ente, CF privato 16 char).
 
-### 3. Migrazione DB
+3. **UI inline**:
+   - Aggiungere asterisco `*` alle Label dei campi obbligatori (condizionale per tipo).
+   - Bordo `border-amber-400` su Input quando il valore è vuoto e il campo è richiesto (pattern già usato per CUP).
+   - Mantenere validazione visiva non invasiva (no toast spam mentre digita).
 
-- `ALTER TABLE premi_garanzia_polizza ADD COLUMN tipo_premio text NOT NULL DEFAULT 'firma' CHECK (tipo_premio IN ('firma','quietanza'));`
-- Backfill: lasciare i record esistenti a `'firma'` (default già lo fa).
-- Aggiorna `VociRcaCard` (già usata in `TitoloDetail`) per leggere/filtrare per `tipo_premio` quando rilevante — fuori scope se non rompe la UI esistente; verificare con una lettura mirata e adattare solo se rompe.
+4. **Footer Salva**:
+   - Estendere il calcolo `blocked` esistente: `blocked = missingGruppo || getMissingFields().length > 0`.
+   - Messaggio amber sintetico: "Mancano: Nome, Cognome, …" (max 3 campi + "…").
+   - Pulsante Salva disabilitato come oggi.
 
-### 4. Test
+5. **Reset**: nessuna modifica, `resetForm` già copre tutti i campi.
 
-Aggiungi a `src/components/polizze/__tests__/`:
-- `premiGaranziaShell.test.ts`: aggiunta riga, rimozione riga, free-text quando catalogo ≤1, ricalcolo tasse al cambio garanzia, totali.
-- `immissionePolizzaPremi.test.ts` (logica pura, senza render): mapping array Firma+Quietanza → payload `premi_garanzia_polizza` con `tipo_premio` corretto e `ordine` incrementale.
-
-## Fuori scope
-
-- Riempire/estendere il catalogo `rca_garanzie` per i rami non-RCA (richiede dato business — l'utente può aggiungere voci a mano via free-text intanto).
-- Refactor di `VociRcaCard` (resta com'è in TitoloDetail).
-- AI import multi-garanzia (un follow-up separato).
+## Out of scope
+- Modifiche a `ClienteDetail.tsx` (modifica cliente esistente).
+- Modifiche al DB / RLS.
+- Validazione formato email/CF avanzata oltre a quanto già presente.
+- Test automatici (se richiesti, da aggiungere come task separato).
