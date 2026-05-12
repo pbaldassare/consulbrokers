@@ -999,15 +999,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         </div>
         <DialogFooter className="flex-col items-stretch sm:flex-row sm:items-center gap-2">
           {(() => {
-            const missingGruppo = !gruppoFinanziarioId;
-            const missingCup = tipoCliente === "ente" && !codiceCup.trim();
-            const blocked = missingGruppo || missingCup;
+            const missing = getMissingFields();
+            const blocked = missing.length > 0;
+            const preview = missing.slice(0, 4).join(", ") + (missing.length > 4 ? "…" : "");
             return (
               <>
                 {blocked && (
                   <p className="text-xs text-amber-700 dark:text-amber-400 mr-auto">
-                    {missingGruppo && "Seleziona il Gruppo Finanziario in cima al modulo. "}
-                    {missingCup && "Inserisci il Codice CUP (obbligatorio per gli Enti)."}
+                    Mancano: {preview}
                   </p>
                 )}
                 <Button variant="outline" onClick={() => setOpen(false)}>Annulla</Button>
