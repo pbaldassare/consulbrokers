@@ -951,7 +951,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           <div className="border-t pt-4">
             <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>
             <div className="grid grid-cols-3 gap-4">
-              <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+              <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
               <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
               <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
             </div>
