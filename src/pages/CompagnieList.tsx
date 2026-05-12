@@ -906,7 +906,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
   const openEdit = (g: any) => {
     if (g.is_pluri) {
-      toast.info("Agenzia di sistema (PLURIMANDATARIO): non modificabile.");
+      toast.info("Compagnia assicurativa di sistema (PLURIMANDATARIO): non modificabile.");
       return;
     }
     setForm({ codice: g.codice || "", descrizione: g.descrizione || "", attivo: g.attivo ?? true });
