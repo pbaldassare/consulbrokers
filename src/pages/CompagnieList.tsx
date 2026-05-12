@@ -899,7 +899,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setDeleteTarget(null);
-      toast.success("Agenzia eliminata");
+      toast.success("Compagnia assicurativa eliminata");
     },
     onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
   });
