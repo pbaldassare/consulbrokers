@@ -885,7 +885,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       setEditOpen(false);
       setEditId(null);
       setForm(emptyGruppo);
-      toast.success("Agenzia aggiornata");
+      toast.success("Compagnia assicurativa aggiornata");
     },
     onError: (e: any) => toast.error(e.message || "Errore aggiornamento"),
   });
