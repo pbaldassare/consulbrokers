@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import {
   Sparkles, UploadCloud, Loader2, FileText, CheckCircle2, AlertTriangle,
   UserPlus, ArrowLeft, ArrowRight, Trash2, Calculator,
@@ -54,7 +55,8 @@ export type ParsedPolizzaData = {
 export type MatchResult = {
   data: ParsedPolizzaData;
   cliente?: { id: string; label: string } | null;
-  compagnia?: { id: string; label: string } | null;
+  gruppoCompagnia?: { id: string; label: string } | null;
+  compagnia?: { id: string; label: string } | null; // = agenzia (compagnie.id)
   ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
   isNewCliente?: boolean;
   gruppoFinanziarioId?: string;
@@ -70,7 +72,8 @@ type GruppoFinanziarioOpt = {
 };
 
 type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
-type CompagniaCand = { id: string; label: string };
+type GruppoCompagniaCand = { id: string; label: string };
+type AgenziaCand = { id: string; label: string; gruppo_compagnia_id: string | null };
 type RamoCand = { gruppoRamoId: string; ramoId: string; label: string };
 type LogEntry = { ts: number; level: "info" | "success" | "warn" | "error"; msg: string };
 type Step = "upload" | "review" | "summary";
@@ -108,10 +111,13 @@ export function ImportNuovaPolizzaAIDialog({
 
   const [clienteCandidates, setClienteCandidates] = useState<ClienteCand[]>([]);
   const [selectedClienteId, setSelectedClienteId] = useState<string>("");
-  const [compagniaCandidates, setCompagniaCandidates] = useState<CompagniaCand[]>([]);
-  const [selectedCompagniaId, setSelectedCompagniaId] = useState<string>("");
+  const [gruppoCompagniaCandidates, setGruppoCompagniaCandidates] = useState<GruppoCompagniaCand[]>([]);
+  const [selectedGruppoCompagniaId, setSelectedGruppoCompagniaId] = useState<string>("");
+  const [agenziaCandidates, setAgenziaCandidates] = useState<AgenziaCand[]>([]);
+  const [selectedAgenziaId, setSelectedAgenziaId] = useState<string>("");
   const [ramoCandidates, setRamoCandidates] = useState<RamoCand[]>([]);
-  const [selectedRamoKey, setSelectedRamoKey] = useState<string>("");
+  const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string>("");
+  const [selectedSottoramoId, setSelectedSottoramoId] = useState<string>("");
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCupNew, setCodiceCupNew] = useState<string>("");
@@ -149,10 +155,13 @@ export function ImportNuovaPolizzaAIDialog({
     setData({});
     setClienteCandidates([]);
     setSelectedClienteId("");
-    setCompagniaCandidates([]);
-    setSelectedCompagniaId("");
+    setGruppoCompagniaCandidates([]);
+    setSelectedGruppoCompagniaId("");
+    setAgenziaCandidates([]);
+    setSelectedAgenziaId("");
     setRamoCandidates([]);
-    setSelectedRamoKey("");
+    setSelectedGruppoRamoId("");
+    setSelectedSottoramoId("");
     setSelectedGruppoFinanziarioId("");
     setCodiceCupNew("");
   };
@@ -230,39 +239,54 @@ export function ImportNuovaPolizzaAIDialog({
     return out;
   };
 
-  const lookupCompagnie = async (d: ParsedPolizzaData): Promise<CompagniaCand[]> => {
+  const lookupGruppiCompagnia = async (d: ParsedPolizzaData): Promise<GruppoCompagniaCand[]> => {
     const compName = (d.compagnia || "").trim();
     if (!compName) return [];
     const tokens = compName.split(/\s+/).filter((t) => t.length >= 3).slice(0, 3);
-    if (!tokens.length) return [];
-    const orFilter = tokens
-      .flatMap((t) => [`nome.ilike.%${t}%`, `gruppo_compagnia.ilike.%${t}%`])
-      .join(",");
+    const lower = compName.toLowerCase();
+    const orFilter = tokens.length
+      ? tokens.map((t) => `descrizione.ilike.%${t}%`).join(",")
+      : `descrizione.ilike.%${compName}%`;
     const { data: rows } = await supabase
-      .from("compagnie")
-      .select("id, codice, nome, gruppo_compagnia")
+      .from("gruppi_compagnia" as any)
+      .select("id, codice, descrizione, attivo")
+      .eq("attivo", true)
       .or(orFilter)
       .limit(10);
+    const out: GruppoCompagniaCand[] = [];
     const seen = new Set<string>();
-    const out: CompagniaCand[] = [];
-    const lower = compName.toLowerCase();
     (rows || [])
-      .map((c: any) => {
-        const name = (c.nome || "").toLowerCase();
-        const gruppo = (c.gruppo_compagnia || "").toLowerCase();
+      .map((g: any) => {
+        const desc = (g.descrizione || "").toLowerCase();
         const score =
-          (name === lower ? 100 : 0) +
-          (name.includes(lower) ? 50 : 0) +
-          tokens.reduce((acc, t) => acc + (name.includes(t.toLowerCase()) ? 10 : 0) + (gruppo.includes(t.toLowerCase()) ? 5 : 0), 0);
-        return { ...c, score };
+          (desc === lower ? 100 : 0) +
+          (desc.includes(lower) ? 50 : 0) +
+          tokens.reduce((a, t) => a + (desc.includes(t.toLowerCase()) ? 10 : 0), 0);
+        return { ...g, score };
       })
       .sort((a: any, b: any) => b.score - a.score)
-      .forEach((c: any) => {
-        if (seen.has(c.id) || out.length >= 5) return;
-        seen.add(c.id);
-        out.push({ id: c.id, label: `${c.codice ? c.codice + " - " : ""}${c.nome}${c.gruppo_compagnia ? ` (${c.gruppo_compagnia})` : ""}` });
+      .forEach((g: any) => {
+        if (seen.has(g.id) || out.length >= 5) return;
+        seen.add(g.id);
+        out.push({ id: g.id, label: `${g.codice ? g.codice + " - " : ""}${g.descrizione}` });
       });
     return out;
+  };
+
+  const loadAgenzieByGruppo = async (gruppoCompagniaId: string): Promise<AgenziaCand[]> => {
+    if (!gruppoCompagniaId) return [];
+    const { data: rows } = await supabase
+      .from("compagnie")
+      .select("id, codice, nome, gruppo_compagnia_id")
+      .eq("gruppo_compagnia_id", gruppoCompagniaId)
+      .eq("attiva", true)
+      .order("nome")
+      .limit(50);
+    return (rows || []).map((c: any) => ({
+      id: c.id,
+      label: `${c.codice ? c.codice + " - " : ""}${c.nome}`,
+      gruppo_compagnia_id: c.gruppo_compagnia_id,
+    }));
   };
 
   const lookupRami = async (d: ParsedPolizzaData): Promise<RamoCand[]> => {
@@ -336,14 +360,24 @@ export function ImportNuovaPolizzaAIDialog({
         setSelectedClienteId(NEW_CLIENTE);
       }
 
-      setPhase(88, "Ricerca compagnia…");
-      const comp = await lookupCompagnie(parsed);
-      setCompagniaCandidates(comp);
-      if (comp.length) {
-        log("success", `${comp.length} compagnia/e candidata/e`);
-        setSelectedCompagniaId(comp[0].id);
+      setPhase(88, "Ricerca compagnia assicurativa…");
+      const grComp = await lookupGruppiCompagnia(parsed);
+      setGruppoCompagniaCandidates(grComp);
+      if (grComp.length) {
+        log("success", `${grComp.length} compagnia/e (gruppo) candidata/e`);
+        setSelectedGruppoCompagniaId(grComp[0].id);
+        const ag = await loadAgenzieByGruppo(grComp[0].id);
+        setAgenziaCandidates(ag);
+        if (ag.length === 1) {
+          setSelectedAgenziaId(ag[0].id);
+          log("success", `Agenzia auto-selezionata: ${ag[0].label}`);
+        } else if (ag.length > 1) {
+          log("info", `${ag.length} agenzie nel gruppo — selezionane una`);
+        } else {
+          log("warn", "Nessuna agenzia attiva per questo gruppo");
+        }
       } else {
-        log("warn", "Nessuna compagnia trovata");
+        log("warn", "Nessuna compagnia (gruppo) trovata");
       }
 
       setPhase(95, "Ricerca ramo…");
@@ -351,8 +385,8 @@ export function ImportNuovaPolizzaAIDialog({
       setRamoCandidates(ram);
       if (ram.length) {
         log("success", `${ram.length} ramo/i candidato/i`);
-        const k = `${ram[0].gruppoRamoId}:${ram[0].ramoId}`;
-        setSelectedRamoKey(k);
+        setSelectedGruppoRamoId(ram[0].gruppoRamoId);
+        setSelectedSottoramoId(ram[0].ramoId);
       } else {
         log("warn", "Nessun ramo mappato — selezionalo manualmente nel form");
       }
@@ -394,13 +428,24 @@ export function ImportNuovaPolizzaAIDialog({
       selectedClienteId && selectedClienteId !== NEW_CLIENTE
         ? clienteCandidates.find((c) => c.id === selectedClienteId)
         : null;
-    const compagnia = compagniaCandidates.find((c) => c.id === selectedCompagniaId) || null;
-    const ramo = ramoCandidates.find((r) => `${r.gruppoRamoId}:${r.ramoId}` === selectedRamoKey) || null;
+    const gruppoComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId) || null;
+    const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId) || null;
+    const ramoLabel = ramoCandidates.find(
+      (r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId,
+    );
+    const ramo = selectedGruppoRamoId && selectedSottoramoId
+      ? {
+          gruppoRamoId: selectedGruppoRamoId,
+          ramoId: selectedSottoramoId,
+          label: ramoLabel?.label || "",
+        }
+      : null;
     return {
       data,
       cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
-      compagnia: compagnia ? { id: compagnia.id, label: compagnia.label } : null,
-      ramo: ramo ? { gruppoRamoId: ramo.gruppoRamoId, ramoId: ramo.ramoId, label: ramo.label } : null,
+      gruppoCompagnia: gruppoComp ? { id: gruppoComp.id, label: gruppoComp.label } : null,
+      compagnia: agenzia ? { id: agenzia.id, label: agenzia.label } : null,
+      ramo,
       isNewCliente,
       gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
       tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
@@ -408,7 +453,12 @@ export function ImportNuovaPolizzaAIDialog({
     };
   };
 
-  const canProceed = !!selectedClienteId && newClienteReady;
+  const canProceed =
+    !!selectedClienteId &&
+    newClienteReady &&
+    !!selectedGruppoCompagniaId &&
+    !!selectedAgenziaId &&
+    !!selectedSottoramoId;
 
   const apply = () => {
     if (!selectedClienteId) {
@@ -665,28 +715,55 @@ export function ImportNuovaPolizzaAIDialog({
               )}
             </section>
 
-            {/* COMPAGNIA & RAMO */}
+            {/* COMPAGNIA & AGENZIA & RAMO */}
             <section className="border rounded-lg p-3 space-y-3">
-              <h3 className="font-semibold">Compagnia & Ramo</h3>
+              <h3 className="font-semibold">Compagnia, Agenzia & Ramo</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Compagnia (dal PDF: <em>{data.compagnia || "—"}</em>)</Label>
+                  <Label className="text-xs">
+                    Compagnia assicurativa <span className="text-destructive">*</span>{" "}
+                    <span className="text-muted-foreground">(dal PDF: <em>{data.compagnia || "—"}</em>)</span>
+                  </Label>
                   <SearchableSelect
-                    value={selectedCompagniaId}
-                    onValueChange={setSelectedCompagniaId}
-                    placeholder="— Seleziona compagnia —"
-                    options={compagniaCandidates.map((c) => ({ value: c.id, label: c.label }))}
-                    emptyText="Nessun match — selezionala dal form"
+                    value={selectedGruppoCompagniaId}
+                    onValueChange={async (v) => {
+                      setSelectedGruppoCompagniaId(v);
+                      setSelectedAgenziaId("");
+                      const ag = await loadAgenzieByGruppo(v);
+                      setAgenziaCandidates(ag);
+                      if (ag.length === 1) setSelectedAgenziaId(ag[0].id);
+                    }}
+                    placeholder="— Seleziona compagnia (gruppo) —"
+                    options={gruppoCompagniaCandidates.map((g) => ({ value: g.id, label: g.label }))}
+                    emptyText="Nessun match — selezionala manualmente"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Ramo (dal PDF: <em>{data.ramo_descrizione || "—"}</em>)</Label>
+                  <Label className="text-xs">
+                    Agenzia (rapporto) <span className="text-destructive">*</span>
+                  </Label>
                   <SearchableSelect
-                    value={selectedRamoKey}
-                    onValueChange={setSelectedRamoKey}
-                    placeholder="— Seleziona ramo —"
-                    options={ramoCandidates.map((r) => ({ value: `${r.gruppoRamoId}:${r.ramoId}`, label: r.label }))}
-                    emptyText="Nessun match — selezionalo dal form"
+                    value={selectedAgenziaId}
+                    onValueChange={setSelectedAgenziaId}
+                    placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Prima scegli la compagnia"}
+                    options={agenziaCandidates.map((a) => ({ value: a.id, label: a.label }))}
+                    disabled={!selectedGruppoCompagniaId}
+                    emptyText="Nessuna agenzia per questo gruppo"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-xs mb-1 block">
+                    Ramo / Sottoramo <span className="text-destructive">*</span>{" "}
+                    <span className="text-muted-foreground">(dal PDF: <em>{data.ramo_descrizione || "—"}</em>)</span>
+                  </Label>
+                  <RamoSottoramoSelect
+                    gruppoRamoId={selectedGruppoRamoId || null}
+                    ramoId={selectedSottoramoId || null}
+                    onChange={({ gruppoRamoId, ramoId }) => {
+                      setSelectedGruppoRamoId(gruppoRamoId || "");
+                      setSelectedSottoramoId(ramoId || "");
+                    }}
+                    hideLabels
                   />
                 </div>
                 <FieldInput label="Prodotto" value={data.prodotto} onChange={(v) => updateField("prodotto", v)} />
@@ -839,14 +916,23 @@ export function ImportNuovaPolizzaAIDialog({
                   }
                 />
                 <SummaryRow
-                  label="Compagnia"
-                  badge={selectedCompagniaId ? "ok" : "mancante"}
-                  value={compagniaCandidates.find((c) => c.id === selectedCompagniaId)?.label || data.compagnia || "—"}
+                  label="Compagnia assicurativa"
+                  badge={selectedGruppoCompagniaId ? "ok" : "mancante"}
+                  value={gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId)?.label || data.compagnia || "—"}
                 />
                 <SummaryRow
-                  label="Ramo"
-                  badge={selectedRamoKey ? "ok" : "mancante"}
-                  value={ramoCandidates.find((r) => `${r.gruppoRamoId}:${r.ramoId}` === selectedRamoKey)?.label || data.ramo_descrizione || "—"}
+                  label="Agenzia"
+                  badge={selectedAgenziaId ? "ok" : "mancante"}
+                  value={agenziaCandidates.find((a) => a.id === selectedAgenziaId)?.label || "—"}
+                />
+                <SummaryRow
+                  label="Ramo / Sottoramo"
+                  badge={selectedSottoramoId ? "ok" : "mancante"}
+                  value={
+                    ramoCandidates.find((r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId)?.label ||
+                    data.ramo_descrizione ||
+                    "—"
+                  }
                 />
                 <SummaryRow label="N. Polizza" value={data.numero_polizza} />
                 <SummaryRow label="Prodotto" value={data.prodotto} />
