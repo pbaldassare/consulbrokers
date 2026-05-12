@@ -360,14 +360,24 @@ export function ImportNuovaPolizzaAIDialog({
         setSelectedClienteId(NEW_CLIENTE);
       }
 
-      setPhase(88, "Ricerca compagnia…");
-      const comp = await lookupCompagnie(parsed);
-      setCompagniaCandidates(comp);
-      if (comp.length) {
-        log("success", `${comp.length} compagnia/e candidata/e`);
-        setSelectedCompagniaId(comp[0].id);
+      setPhase(88, "Ricerca compagnia assicurativa…");
+      const grComp = await lookupGruppiCompagnia(parsed);
+      setGruppoCompagniaCandidates(grComp);
+      if (grComp.length) {
+        log("success", `${grComp.length} compagnia/e (gruppo) candidata/e`);
+        setSelectedGruppoCompagniaId(grComp[0].id);
+        const ag = await loadAgenzieByGruppo(grComp[0].id);
+        setAgenziaCandidates(ag);
+        if (ag.length === 1) {
+          setSelectedAgenziaId(ag[0].id);
+          log("success", `Agenzia auto-selezionata: ${ag[0].label}`);
+        } else if (ag.length > 1) {
+          log("info", `${ag.length} agenzie nel gruppo — selezionane una`);
+        } else {
+          log("warn", "Nessuna agenzia attiva per questo gruppo");
+        }
       } else {
-        log("warn", "Nessuna compagnia trovata");
+        log("warn", "Nessuna compagnia (gruppo) trovata");
       }
 
       setPhase(95, "Ricerca ramo…");
@@ -375,8 +385,8 @@ export function ImportNuovaPolizzaAIDialog({
       setRamoCandidates(ram);
       if (ram.length) {
         log("success", `${ram.length} ramo/i candidato/i`);
-        const k = `${ram[0].gruppoRamoId}:${ram[0].ramoId}`;
-        setSelectedRamoKey(k);
+        setSelectedGruppoRamoId(ram[0].gruppoRamoId);
+        setSelectedSottoramoId(ram[0].ramoId);
       } else {
         log("warn", "Nessun ramo mappato — selezionalo manualmente nel form");
       }
