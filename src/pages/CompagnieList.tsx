@@ -1289,15 +1289,15 @@ const CompagnieList = () => {
             <CardContent className="pt-6">
               <div className="flex items-end gap-4">
                 <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Specificare il nome, anche parziale (vuoto = tutto)</Label>
+                  <Label className="text-xs text-muted-foreground">Cerca per nome, sede o codice</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca per nome o sede..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
+                    <Input placeholder="Cerca agenzia..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
                   </div>
                 </div>
                 <div className="w-40 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Oppure il codice iniziale</Label>
-                  <Input placeholder="Codice..." value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
+                  <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
+                  <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Filtro rapido</Label>
