@@ -856,7 +856,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setCreateOpen(false);
       setForm(emptyGruppo);
-      toast.success("Agenzia creata");
+      toast.success("Compagnia assicurativa creata");
     },
     onError: (e: any) => toast.error(e.message || "Errore creazione"),
   });
