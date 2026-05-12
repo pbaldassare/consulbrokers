@@ -55,7 +55,8 @@ export type ParsedPolizzaData = {
 export type MatchResult = {
   data: ParsedPolizzaData;
   cliente?: { id: string; label: string } | null;
-  compagnia?: { id: string; label: string } | null;
+  gruppoCompagnia?: { id: string; label: string } | null;
+  compagnia?: { id: string; label: string } | null; // = agenzia (compagnie.id)
   ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
   isNewCliente?: boolean;
   gruppoFinanziarioId?: string;
@@ -71,7 +72,8 @@ type GruppoFinanziarioOpt = {
 };
 
 type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
-type CompagniaCand = { id: string; label: string };
+type GruppoCompagniaCand = { id: string; label: string };
+type AgenziaCand = { id: string; label: string; gruppo_compagnia_id: string | null };
 type RamoCand = { gruppoRamoId: string; ramoId: string; label: string };
 type LogEntry = { ts: number; level: "info" | "success" | "warn" | "error"; msg: string };
 type Step = "upload" | "review" | "summary";
