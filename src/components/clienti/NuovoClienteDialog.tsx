@@ -294,14 +294,24 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         (piva || (cf && cf.length === 11) ? "azienda" : "privato");
       setTipoCliente(inferredTipo);
       if (inferredTipo === "privato") {
-        if (initialData.nome) setNome(initialData.nome);
-        if (initialData.cognome) setCognome(initialData.cognome);
-        else if (initialData.ragioneSociale && !initialData.nome) {
-          // try splitting "COGNOME NOME"
+        if (initialData.nome && initialData.cognome) {
+          setNome(initialData.nome);
+          setCognome(initialData.cognome);
+        } else if (initialData.nome && !initialData.cognome) {
+          // Safeguard: nome ricevuto come stringa unica "NOME COGNOME"
+          const parts = initialData.nome.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            setNome(parts[0]);
+            setCognome(parts.slice(1).join(" "));
+          } else {
+            setNome(initialData.nome);
+          }
+        } else if (initialData.ragioneSociale && !initialData.nome) {
+          // try splitting "NOME COGNOME"
           const parts = initialData.ragioneSociale.trim().split(/\s+/);
           if (parts.length >= 2) {
-            setCognome(parts[0]);
-            setNome(parts.slice(1).join(" "));
+            setNome(parts[0]);
+            setCognome(parts.slice(1).join(" "));
           } else {
             setNome(initialData.ragioneSociale);
           }
