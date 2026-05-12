@@ -155,10 +155,13 @@ export function ImportNuovaPolizzaAIDialog({
     setData({});
     setClienteCandidates([]);
     setSelectedClienteId("");
-    setCompagniaCandidates([]);
-    setSelectedCompagniaId("");
+    setGruppoCompagniaCandidates([]);
+    setSelectedGruppoCompagniaId("");
+    setAgenziaCandidates([]);
+    setSelectedAgenziaId("");
     setRamoCandidates([]);
-    setSelectedRamoKey("");
+    setSelectedGruppoRamoId("");
+    setSelectedSottoramoId("");
     setSelectedGruppoFinanziarioId("");
     setCodiceCupNew("");
   };
