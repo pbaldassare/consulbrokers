@@ -228,11 +228,7 @@ const ImmissionePolizzaPage = () => {
   const [vPesoTotale, setVPesoTotale] = useState("0");
   const [vTipologiaGuida, setVTipologiaGuida] = useState("");
   const [vTipoAlimentazione, setVTipoAlimentazione] = useState("");
-  // Premi garanzia
-  const garanzie_default = ["RC", "Furto/Incendio/Eventi", "Tutela Legale", "ARD", "Kasko/Cristalli", "Ass. Stradale", "Infortuni"];
-  const [premiGaranzia, setPremiGaranzia] = useState(
-    garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i }))
-  );
+  // (Le righe garanzia/Firma/Quietanza sono in premiFirmaRows / premiQuietanzaRows.)
   // Conducente
   const [cNome, setCNome] = useState("");
   const [cCognome, setCCognome] = useState("");
