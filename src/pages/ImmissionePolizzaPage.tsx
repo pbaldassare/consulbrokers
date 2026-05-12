@@ -460,11 +460,22 @@ const ImmissionePolizzaPage = () => {
   const provvigioneFromDb = false;
   const isProvvigioneModified = false;
 
-  // --- Computed ---
-  const totFirma = (parseFloat(premioNetto || "0") + parseFloat(addizionali || "0") + parseFloat(tasse || "0"));
-  const totQuietanza = (parseFloat(premioNettoQuietanza || "0") + parseFloat(addizionaliQuietanza || "0") + parseFloat(tasseQuietanza || "0"));
-  const provvFirma = percentualeProvvigione ? (parseFloat(premioNetto || "0") * parseFloat(percentualeProvvigione) / 100) : 0;
-  const provvQuietanza = percentualeProvvigione ? (parseFloat(premioNettoQuietanza || "0") * parseFloat(percentualeProvvigione) / 100) : 0;
+  // --- Computed: derive scalars from row arrays ---
+  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse") =>
+    arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
+  const premioNettoNum = sumNum(premiFirmaRows, "netto");
+  const tasseNum = sumNum(premiFirmaRows, "tasse");
+  const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
+  const tasse = tasseNum ? String(tasseNum) : "";
+  const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
+  const tasseQNum = sumNum(premiQuietanzaRows, "tasse");
+  const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
+  const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
+
+  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum;
+  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
+  const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
+  const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
   // --- Handlers ---
 
