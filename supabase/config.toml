@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.parse-polizza-completa]
 verify_jwt = false
+
+[functions.seed-comune-varese-polizze]
+verify_jwt = false
