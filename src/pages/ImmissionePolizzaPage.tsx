@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
 import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck } from "lucide-react";
-import { PremiGaranziaCardShell } from "@/components/polizze/PremiGaranziaCardShell";
+import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
