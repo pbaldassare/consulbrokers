@@ -1315,41 +1315,7 @@ const ImmissionePolizzaPage = () => {
             </div>
           </PolizzaSection>
 
-          {/* DATI PREMIO PER GARANZIA */}
-          <PolizzaSection title="Premi per Garanzia" icon={ShieldCheck}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-48">Garanzia</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Capitale</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Tasso</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Firma</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Rata</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Annuo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {premiGaranzia.map((pg, idx) => (
-                    <tr key={pg.garanzia} className="border-b border-border/50">
-                      <td className="py-1 px-2 font-medium text-foreground">{pg.garanzia}</td>
-                      {(["capitale", "tasso", "firma", "rata", "annuo"] as const).map((col) => (
-                        <td key={col} className="py-1 px-1">
-                          <Input type="number" step="0.01" value={(pg as any)[col]}
-                            onChange={(e) => {
-                              const updated = [...premiGaranzia];
-                              (updated[idx] as any)[col] = e.target.value;
-                              setPremiGaranzia(updated);
-                            }}
-                            className="h-7 text-xs font-mono text-right w-24" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </PolizzaSection>
+          {/* Le righe garanzia (Firma + Quietanza) sono ora gestite nella sezione Importi */}
 
           {/* DATI CONDUCENTE */}
           <PolizzaSection title="Dati Conducente" icon={UserCheck}>
