@@ -934,7 +934,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       </div>
       <div className="space-y-1">
         <Label className="text-xs text-muted-foreground">Descrizione *</Label>
-        <Input value={form.descrizione} onChange={(e) => setForm((p) => ({ ...p, descrizione: e.target.value }))} placeholder="es. Gruppo Generali" />
+        <Input value={form.descrizione} onChange={(e) => setForm((p) => ({ ...p, descrizione: e.target.value }))} placeholder="es. Gruppo Generali / ALLIANZ" />
       </div>
       <div className="flex items-center justify-between border-t pt-3">
         <Label className="text-sm">Attiva</Label>
