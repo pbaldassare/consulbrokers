@@ -63,10 +63,24 @@ const ImmissionePolizzaPage = () => {
         );
       }
 
+      // Split Nome/Cognome per i clienti privato (convenzione "NOME COGNOME")
+      let nomePrefill: string | undefined;
+      let cognomePrefill: string | undefined;
+      if (!isAzienda && nome) {
+        const tokens = nome.split(/\s+/).filter(Boolean);
+        if (tokens.length >= 2) {
+          nomePrefill = tokens[0];
+          cognomePrefill = tokens.slice(1).join(" ");
+        } else {
+          nomePrefill = nome;
+        }
+      }
+
       const prefill: NuovoClienteInitialData = {
         tipoCliente: m.tipoCliente ?? (isAzienda ? "azienda" : "privato"),
         ragioneSociale: isAzienda ? nome || undefined : undefined,
-        nome: !isAzienda ? nome || undefined : undefined,
+        nome: nomePrefill,
+        cognome: cognomePrefill,
         codiceFiscale: cf || undefined,
         partitaIva: piva || undefined,
         email: d.contraente_email,
