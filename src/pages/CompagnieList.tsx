@@ -1053,7 +1053,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) { setEditId(null); setForm(emptyGruppo); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Modifica Agenzia</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Modifica Compagnia Assicurativa</DialogTitle></DialogHeader>
           {renderForm()}
           <Button onClick={() => updateMutation.mutate()} disabled={!form.descrizione || updateMutation.isPending} className="w-full">
             {updateMutation.isPending ? "Salvataggio..." : "Salva Modifiche"}
