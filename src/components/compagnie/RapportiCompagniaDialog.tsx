@@ -132,6 +132,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
+      qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
       setFormOpen(false);
       setForm(emptyForm);
       toast.success("Rapporto salvato");
@@ -150,6 +152,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
+      qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
       toast.success("Rapporto chiuso");
     },
     onError: () => toast.error("Errore"),
@@ -163,6 +167,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
+      qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
       setDeleteId(null);
       toast.success("Rapporto eliminato");
     },
