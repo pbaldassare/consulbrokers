@@ -543,7 +543,7 @@ function CompagniaFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
-                Agenzia di appartenenza <span className="text-destructive">*</span>
+                Compagnia Assicurativa (gruppo) <span className="text-destructive">*</span>
               </Label>
               <SearchableSelect
                 options={gruppiCompagnia}
@@ -553,7 +553,7 @@ function CompagniaFormDialog({
                   const found = gruppiCompagnia.find((g: any) => g.value === v);
                   setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
                 }}
-                placeholder="Seleziona agenzia..."
+                placeholder="Seleziona compagnia assicurativa..."
               />
               {!form.gruppo_compagnia_id && (
                 <p className="text-xs text-destructive">Campo obbligatorio</p>
@@ -844,7 +844,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => (g.descrizione || "").trim().toUpperCase() === norm)) {
-        throw new Error("Esiste già una agenzia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+        throw new Error("Esiste già una compagnia assicurativa con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
@@ -856,7 +856,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setCreateOpen(false);
       setForm(emptyGruppo);
-      toast.success("Agenzia creata");
+      toast.success("Compagnia assicurativa creata");
     },
     onError: (e: any) => toast.error(e.message || "Errore creazione"),
   });
@@ -871,7 +871,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => g.id !== editId && (g.descrizione || "").trim().toUpperCase() === norm)) {
-        throw new Error("Esiste già una agenzia con questo nome (confronto senza distinzione di maiuscole/minuscole)");
+        throw new Error("Esiste già una compagnia assicurativa con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
         .from("gruppi_compagnia" as any)
@@ -885,7 +885,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       setEditOpen(false);
       setEditId(null);
       setForm(emptyGruppo);
-      toast.success("Agenzia aggiornata");
+      toast.success("Compagnia assicurativa aggiornata");
     },
     onError: (e: any) => toast.error(e.message || "Errore aggiornamento"),
   });
@@ -899,14 +899,14 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       queryClient.invalidateQueries({ queryKey: ["gruppi_compagnia_lookup"] });
       setDeleteTarget(null);
-      toast.success("Agenzia eliminata");
+      toast.success("Compagnia assicurativa eliminata");
     },
     onError: (e: any) => toast.error(e.message || "Errore eliminazione"),
   });
 
   const openEdit = (g: any) => {
     if (g.is_pluri) {
-      toast.info("Agenzia di sistema (PLURIMANDATARIO): non modificabile.");
+      toast.info("Compagnia assicurativa di sistema (PLURIMANDATARIO): non modificabile.");
       return;
     }
     setForm({ codice: g.codice || "", descrizione: g.descrizione || "", attivo: g.attivo ?? true });
@@ -916,7 +916,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
   const handleDeleteClick = (g: any) => {
     if (g.is_pluri) {
-      toast.error("Agenzia di sistema (PLURIMANDATARIO): non eliminabile.");
+      toast.error("Compagnia assicurativa di sistema (PLURIMANDATARIO): non eliminabile.");
       return;
     }
     setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count });
@@ -934,7 +934,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       </div>
       <div className="space-y-1">
         <Label className="text-xs text-muted-foreground">Descrizione *</Label>
-        <Input value={form.descrizione} onChange={(e) => setForm((p) => ({ ...p, descrizione: e.target.value }))} placeholder="es. Gruppo Generali" />
+        <Input value={form.descrizione} onChange={(e) => setForm((p) => ({ ...p, descrizione: e.target.value }))} placeholder="es. Gruppo Generali / ALLIANZ" />
       </div>
       <div className="flex items-center justify-between border-t pt-3">
         <Label className="text-sm">Attiva</Label>
@@ -952,19 +952,19 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
               <Label className="text-xs text-muted-foreground">Cerca per descrizione o codice</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Cerca agenzia..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                <Input placeholder="Cerca compagnia assicurativa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
               </div>
             </div>
             <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
             <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyGruppo); }}>
               <DialogTrigger asChild>
-                <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
+                <Button><Plus className="w-4 h-4 mr-2" />Nuova Compagnia Assicurativa</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nuova Agenzia</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Nuova Compagnia Assicurativa</DialogTitle></DialogHeader>
                 {renderForm()}
                 <Button onClick={() => createMutation.mutate()} disabled={!form.descrizione || createMutation.isPending} className="w-full">
-                  {createMutation.isPending ? "Salvataggio..." : "Crea Agenzia"}
+                  {createMutation.isPending ? "Salvataggio..." : "Crea Compagnia Assicurativa"}
                 </Button>
               </DialogContent>
             </Dialog>
@@ -1042,7 +1042,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                   </TableRow>
                 ))}
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna compagnia assicurativa trovata</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -1053,7 +1053,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) { setEditId(null); setForm(emptyGruppo); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Modifica Agenzia</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Modifica Compagnia Assicurativa</DialogTitle></DialogHeader>
           {renderForm()}
           <Button onClick={() => updateMutation.mutate()} disabled={!form.descrizione || updateMutation.isPending} className="w-full">
             {updateMutation.isPending ? "Salvataggio..." : "Salva Modifiche"}
@@ -1225,24 +1225,27 @@ const CompagnieList = () => {
           <h1 className="text-2xl font-bold text-foreground">Compagnie Assicurative / Agenzie</h1>
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
-            <span className="font-semibold">{compagnie.length}</span> compagnie totali
+            <span className="font-semibold">{compagnie.length}</span> agenzie ·{" "}
+            <span className="font-semibold">{Object.keys(gruppiMap as any).length}</span> compagnie assicurative
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-            <CompagniaFormDialog
-              form={form} setForm={setForm}
-              onSave={() => createMutation.mutate()}
-              saving={createMutation.isPending}
-              title="Nuova Agenzia"
-              saveLabel="Crea Agenzia"
-              compagniaId={null}
-            />
-          </DialogContent>
-        </Dialog>
+        {activeTab === "anagrafica" && (
+          <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+              <CompagniaFormDialog
+                form={form} setForm={setForm}
+                onSave={() => createMutation.mutate()}
+                saving={createMutation.isPending}
+                title="Nuova Agenzia"
+                saveLabel="Crea Agenzia"
+                compagniaId={null}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Edit dialog */}
@@ -1286,15 +1289,15 @@ const CompagnieList = () => {
             <CardContent className="pt-6">
               <div className="flex items-end gap-4">
                 <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Specificare il nome, anche parziale (vuoto = tutto)</Label>
+                  <Label className="text-xs text-muted-foreground">Cerca per nome, sede o codice</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Cerca per nome o sede..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
+                    <Input placeholder="Cerca agenzia..." value={searchNome} onChange={(e) => setSearchNome(e.target.value)} className="pl-9" />
                   </div>
                 </div>
                 <div className="w-40 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Oppure il codice iniziale</Label>
-                  <Input placeholder="Codice..." value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
+                  <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
+                  <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Filtro rapido</Label>
