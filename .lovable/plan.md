@@ -1,99 +1,65 @@
-# Fix campi Compagnia/Agenzia/Ramo nel dialog "Importa polizza da PDF (AI)"
 
-## Problema
-Nel dialog di import AI la sezione "Compagnia & Ramo" mostra:
-- un solo campo **Compagnia** che in realtà è l'agenzia (`compagnie.id`),
-- un solo campo **Ramo** combinato (gruppo + sottoramo).
+# Refusi Compagnie Assicurative / Agenzie + ricerca tab Agenzie
 
-L'utente vuole quattro campi correttamente nidificati e salvati nel DB:
-1. **Compagnia assicurativa** (gruppo, es. *LLOYD'S INSURANCE COMPANY S.A.*)
-2. **Agenzia** (rapporto agenziale, es. *MED000 - Lloyd's Insurance Broker S.A.*) — filtrata in base alla compagnia scelta
-3. **Gruppo Ramo** (es. *ZQ - R.C.A.*)
-4. **Sottoramo** (es. *PI - R.C. AUTOVEICOLI*) — filtrato in base al Gruppo Ramo
+## Convenzione (già stabilita)
+- **Compagnia Assicurativa** = riga di `gruppi_compagnia` (es. ALLIANZ, AIG, AMISSIMA…)
+- **Agenzia** = riga di `compagnie` (rapporto agenziale, es. "MED000 - Lloyd's Broker")
+- Sotto-tab `value="agenzie"` mostra le **Compagnie Assicurative** (gruppi); sotto-tab `value="anagrafica"` mostra le **Agenzie**.
 
-## Modello dati (esistente, niente migrazioni)
-- `gruppi_compagnia (id, codice, descrizione)` → la "Compagnia assicurativa"
-- `compagnie (id, codice, nome, gruppo_compagnia_id)` → l'"Agenzia/Rapporto"
-- `gruppi_ramo` → "Ramo", `rami (gruppo_ramo_id)` → "Sottoramo"
-- `titoli.compagnia_id` continua a salvare l'agenzia; il gruppo si deriva via JOIN
-- `titoli.ramo_id` salva il sottoramo (Gruppo Ramo derivato via JOIN — convenzione già in uso)
+Oggi nel codice ci sono diversi punti in cui un'entità viene chiamata con il nome dell'altra. Inoltre nel tab "Agenzie" il blocco di ricerca esiste ma è poco visibile/poco coerente con quello del tab gemello.
 
-Nessuna modifica allo schema DB.
+## File interessato
+`src/pages/CompagnieList.tsx`
 
 ## Modifiche
 
-### 1) `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx`
+### A) Tab "Compagnie Assicurative" — `CompagnieMadriTab` (righe ~791–1088)
+Tutto ciò che riguarda i record di `gruppi_compagnia` deve dire **Compagnia Assicurativa**, non Agenzia.
 
-**Tipi**
-- Estendere `MatchResult`:
-  ```ts
-  gruppoCompagnia?: { id: string; label: string } | null;
-  compagnia?: { id: string; label: string } | null; // = agenzia
-  ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
-  ```
+- Placeholder ricerca: `"Cerca agenzia..."` → `"Cerca compagnia assicurativa..."`
+- Bottone + dialog: `"Nuova Agenzia"` / titolo `"Nuova Agenzia"` / label `"Crea Agenzia"` → `"Nuova Compagnia Assicurativa"` / `"Crea Compagnia Assicurativa"`
+- Dialog di modifica (titolo): aggiungere `"Modifica Compagnia Assicurativa"` (oggi non c'è titolo dedicato; usare lo stesso `renderForm`).
+- Toast: `"Agenzia creata"`, `"Agenzia aggiornata"`, `"Agenzia eliminata"` → `"Compagnia assicurativa ..."`.
+- Messaggi errore duplicato: `"Esiste già una agenzia con questo nome"` → `"Esiste già una compagnia assicurativa con questo nome"`.
+- Toast guard PLURIMANDATARIO: `"Agenzia di sistema (PLURIMANDATARIO): non modificabile/eliminabile"` → `"Compagnia assicurativa di sistema ..."`.
+- `CardTitle` interno è già `Compagnie Assicurative ({n})` — invariato.
 
-**Stato nuovo**
-- `selectedGruppoCompagniaId`, `agenziaCandidates`, `selectedAgenziaId`
-- `selectedGruppoRamoId`, `selectedSottoramoId` (al posto di `selectedRamoKey`)
+### B) Pagina principale (intestazione, righe ~1221–1246)
+- Sottotitolo: `"... — N compagnie totali"` mostra `compagnie.length` (cioè conteggio di `compagnie` = agenzie). Cambiare in `"N agenzie · M compagnie assicurative"` mostrando entrambi i conteggi (`compagnie.length` per Agenzie, `Object.keys(gruppiMap).length` per Compagnie Assicurative).
+- Bottone in alto a destra `"Nuova Agenzia"`: lasciarlo, **ma** renderlo contestuale al tab attivo:
+  - Su tab `agenzie` (Compagnie Assicurative): nascondere il bottone (l'azione "Nuova Compagnia Assicurativa" è già dentro il sotto-tab).
+  - Su tab `anagrafica` (Agenzie): testo `"Nuova Agenzia"` → invariato; apre il `CompagniaFormDialog` come oggi.
+  - Sugli altri tab: nascosto.
 
-**Lookup AI (estensione esistente)**
-- `lookupCompagnie(d)` → adesso restituisce candidati di **gruppi_compagnia**: query su `gruppi_compagnia` con `descrizione ilike %token%` sul testo `d.compagnia` (il PDF contiene il nome del gruppo, es. "LLOYD'S INSURANCE COMPANY S.A."). Pre-seleziona il primo.
-- Nuova funzione `loadAgenzieByGruppo(gruppoCompagniaId)` → query su `compagnie` filtrata per `gruppo_compagnia_id`. Pre-seleziona la prima agenzia se presente nel gruppo (oppure nessuna se ce ne sono molte, lasciando l'utente decidere).
-- Mantenere `lookupRami(d)` ma:
-  - usare i risultati per pre-selezionare `selectedGruppoRamoId` (e `selectedSottoramoId` se univoco), poi affidarsi a `RamoSottoramoSelect` per il resto.
+### C) Tab "Agenzie" — sezione `TabsContent value="anagrafica"` (righe ~1284–1450)
+Il blocco di ricerca esiste già (Card con due Input + filtro Plurimandatario + Reset). Per allinearlo al tab Compagnie Assicurative e renderlo immediatamente riconoscibile:
 
-**UI sezione "Compagnia & Ramo"**
-Sostituire i due `SearchableSelect` attuali con un blocco a 2x2:
+- Spostare la `Card` di ricerca in cima al tab e racchiuderla in un layout uguale a quello del tab gemello (stesso ordine: ricerca a sinistra full-width con icona, "Reset" a destra, "Nuova Agenzia" a destra del Reset).
+- Aggiornare label/placeholder per coerenza:
+  - Label sopra il primo input: `"Cerca per nome, sede o codice"` (un'unica label).
+  - Placeholder primo input: `"Cerca agenzia..."` (mantenuto).
+  - Spostare l'input "Codice..." accanto, larghezza fissa, label `"Codice iniziale"`.
+- Mantenere il toggle `"Solo Plurimandatario"` con il suo badge.
+- Aggiungere il bottone `"Nuova Agenzia"` anche dentro la Card di ricerca (oltre a quello in alto) per coerenza visiva con il tab Compagnie Assicurative.
+- `CardTitle` interno: oggi `"Elenco Agenzie ({filteredAnagrafica.length})"` — invariato.
 
-```
-[ Compagnia assicurativa (gruppo)   ]   [ Agenzia (filtrata da compagnia) ]
-[ Gruppo Ramo                       ]   [ Sottoramo (filtrato da gruppo)  ]
-[ Prodotto                          ]   [ Numero Polizza                  ]
-```
+### D) Dialog "Agenzie collegate a una compagnia assicurativa" — `AgenzieCollegateDialog` (righe ~670–788)
+- Titolo dialog: `"Agenzie collegate a {gruppoDescrizione}"` — invariato.
+- Verifica testo introduttivo/colonne: dove parla di "compagnia madre" usare **Compagnia Assicurativa**; dove elenca i record usare **Agenzia**.
 
-- Componenti: `SearchableSelect` per Compagnia/Agenzia (Agenzia disabilitato finché non c'è una Compagnia).
-- Per Ramo/Sottoramo riutilizzare `RamoSottoramoSelect` già esistente:
-  ```tsx
-  <RamoSottoramoSelect
-    gruppoRamoId={selectedGruppoRamoId}
-    ramoId={selectedSottoramoId}
-    onChange={({ gruppoRamoId, ramoId }) => { ... }}
-  />
-  ```
-- Mostrare in label il valore originale dal PDF (es. `Compagnia (dal PDF: ...)`).
+### E) `CompagniaFormDialog` (form di una Agenzia, righe ~424–657)
+Solo etichette in cui si confondono i due livelli:
+- Titolo già parametrico (`Nuova Agenzia` / `Modifica Agenzia`) — invariato.
+- Tab "Dati Anagrafici": il campo che oggi si chiama "Compagnia" (e collega a `gruppi_compagnia`) deve essere etichettato **"Compagnia Assicurativa (gruppo)"** con placeholder `"Seleziona compagnia assicurativa..."`.
+- Eventuali label "Agenzia" che si riferiscono in realtà al gruppo: rinominare in "Compagnia Assicurativa".
 
-**Effetti**
-- Quando cambia `selectedGruppoCompagniaId` → ricaricare `agenziaCandidates` e resettare `selectedAgenziaId` se incoerente.
+## Fuori scope
+- Nessuna modifica a schema DB (i nomi tabella `compagnie` / `gruppi_compagnia` restano).
+- Nessuna modifica al dialog AI di importazione polizza (`ImportNuovaPolizzaAIDialog`), già allineato.
+- Nessuna modifica a sidebar / breadcrumb / route (la voce di menu resta "Compagnie / Agenzie").
 
-**`buildResult`**
-- Restituire `gruppoCompagnia`, `compagnia` (= agenzia selezionata), `ramo` (gruppoRamoId + ramoId).
-
-**Validazione step**
-- `canProceed` richiede: cliente ok + Compagnia + Agenzia + Sottoramo (Gruppo Ramo derivato dal sottoramo).
-
-**Riepilogo**
-- Aggiungere righe `Compagnia assicurativa`, `Agenzia`, `Gruppo Ramo`, `Sottoramo`.
-
-### 2) `src/pages/ImmissionePolizzaPage.tsx` — `handleAIImportApply`
-- Sostituire il blocco:
-  ```ts
-  if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
-  if (m.ramo) { setSelectedGruppoRamoId(...); setSelectedRamo(...); }
-  ```
-  con:
-  ```ts
-  if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id); // agenzia → titoli.compagnia_id
-  if (m.ramo) {
-    setSelectedGruppoRamoId(m.ramo.gruppoRamoId);
-    setSelectedRamo(m.ramo.ramoId); // sottoramo → titoli.ramo_id
-  }
-  ```
-  (di fatto invariato, ma ora `m.compagnia` è davvero l'agenzia coerente con la compagnia scelta).
-
-### 3) Nessuna modifica al backend
-- Nessuna migrazione: `titoli.compagnia_id` (= agenzia) e `titoli.ramo_id` (= sottoramo) sono già le colonne corrette. Il salvataggio finale dal form principale non cambia.
-
-## Out of scope
-- Modifiche a `parse-polizza-completa` (l'AI già restituisce `compagnia` e `ramo_descrizione`).
-- Aggiungere una colonna `gruppo_compagnia_id` su `titoli` (deriva via JOIN da `compagnie`).
-- Refactor della label "Agenzia / Agenzia di rif." nel form principale (resta com'è).
+## QA manuale
+1. Tab "Compagnie Assicurative": creare/modificare/eliminare un gruppo → toast e dialog parlano di "Compagnia Assicurativa".
+2. Tab "Agenzie": il blocco ricerca è visibile in cima, identico per ergonomia a quello del tab gemello; filtro per nome, codice e Plurimandatario funzionano.
+3. Header pagina: i due conteggi sono coerenti (N agenzie · M compagnie assicurative).
+4. Bottone in alto "Nuova Agenzia" appare solo sul tab Agenzie.
