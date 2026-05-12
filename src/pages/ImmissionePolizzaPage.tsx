@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
 import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, DollarSign, Percent, Tag, ShieldCheck, UserCheck } from "lucide-react";
-import { PremiGaranziaCardShell } from "@/components/polizze/PremiGaranziaCardShell";
+import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import AiDocumentScanner from "@/components/AiDocumentScanner";
@@ -105,11 +105,13 @@ const ImmissionePolizzaPage = () => {
       };
       if (map[fraz]) setRate(map[fraz]);
     }
-    if (d.premio_firma_netto != null) setPremioNetto(String(d.premio_firma_netto));
-    if (d.premio_firma_imposte != null) setTasse(String(d.premio_firma_imposte));
+    if (d.premio_firma_netto != null || d.premio_firma_imposte != null) {
+      setPremiFirmaRows([{ ...emptyGaranziaRow(), netto: d.premio_firma_netto != null ? String(d.premio_firma_netto) : "", tasse: d.premio_firma_imposte != null ? String(d.premio_firma_imposte) : "" }]);
+    }
     if (d.premio_firma_accessori != null) setAddizionali(String(d.premio_firma_accessori));
-    if (d.premio_quietanza_netto != null) setPremioNettoQuietanza(String(d.premio_quietanza_netto));
-    if (d.premio_quietanza_imposte != null) setTasseQuietanza(String(d.premio_quietanza_imposte));
+    if (d.premio_quietanza_netto != null || d.premio_quietanza_imposte != null) {
+      setPremiQuietanzaRows([{ ...emptyGaranziaRow(), netto: d.premio_quietanza_netto != null ? String(d.premio_quietanza_netto) : "", tasse: d.premio_quietanza_imposte != null ? String(d.premio_quietanza_imposte) : "" }]);
+    }
     if (d.premio_quietanza_accessori != null) setAddizionaliQuietanza(String(d.premio_quietanza_accessori));
     if (d.targa) setTargaTelaio(d.targa);
     toast.success(m.isNewCliente && !m.cliente?.id
@@ -166,15 +168,12 @@ const ImmissionePolizzaPage = () => {
   const [periodicita, setPeriodicita] = useState("annuale");
   const [libroMatricola, setLibroMatricola] = useState("no");
 
-  // Importi
-  const [premioNetto, setPremioNetto] = useState("");
+  // Importi — multi-row garanzie
+  const [premiFirmaRows, setPremiFirmaRows] = useState<GaranziaRow[]>([emptyGaranziaRow()]);
+  const [premiQuietanzaRows, setPremiQuietanzaRows] = useState<GaranziaRow[]>([emptyGaranziaRow()]);
   const [addizionali, setAddizionali] = useState("0");
-  const [tasse, setTasse] = useState("");
   const [valuta, setValuta] = useState("EUR");
-  // Quietanza
-  const [premioNettoQuietanza, setPremioNettoQuietanza] = useState("");
   const [addizionaliQuietanza, setAddizionaliQuietanza] = useState("0");
-  const [tasseQuietanza, setTasseQuietanza] = useState("");
   // Flags
   const [rimborso, setRimborso] = useState(false);
   const [indicizzata, setIndicizzata] = useState(false);
@@ -229,11 +228,7 @@ const ImmissionePolizzaPage = () => {
   const [vPesoTotale, setVPesoTotale] = useState("0");
   const [vTipologiaGuida, setVTipologiaGuida] = useState("");
   const [vTipoAlimentazione, setVTipoAlimentazione] = useState("");
-  // Premi garanzia
-  const garanzie_default = ["RC", "Furto/Incendio/Eventi", "Tutela Legale", "ARD", "Kasko/Cristalli", "Ass. Stradale", "Infortuni"];
-  const [premiGaranzia, setPremiGaranzia] = useState(
-    garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i }))
-  );
+  // (Le righe garanzia/Firma/Quietanza sono in premiFirmaRows / premiQuietanzaRows.)
   // Conducente
   const [cNome, setCNome] = useState("");
   const [cCognome, setCCognome] = useState("");
@@ -449,7 +444,7 @@ const ImmissionePolizzaPage = () => {
     setVCv("0"); setVKw("0"); setVCc("0"); setVPosti("0");
     setVPesoMotrice("0"); setVPesoRimorchio("0"); setVPesoTotale("0");
     setVTipologiaGuida(""); setVTipoAlimentazione("");
-    setPremiGaranzia(garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i })));
+    setPremiFirmaRows([emptyGaranziaRow()]); setPremiQuietanzaRows([emptyGaranziaRow()]);
     setCNome(""); setCCognome(""); setCIndirizzo(""); setCCap("");
     setCCitta(""); setCProvincia(""); setCDataNascita("");
     setCTipoPatente(""); setCDataRilascioPatente(""); setCNote("");
@@ -461,11 +456,22 @@ const ImmissionePolizzaPage = () => {
   const provvigioneFromDb = false;
   const isProvvigioneModified = false;
 
-  // --- Computed ---
-  const totFirma = (parseFloat(premioNetto || "0") + parseFloat(addizionali || "0") + parseFloat(tasse || "0"));
-  const totQuietanza = (parseFloat(premioNettoQuietanza || "0") + parseFloat(addizionaliQuietanza || "0") + parseFloat(tasseQuietanza || "0"));
-  const provvFirma = percentualeProvvigione ? (parseFloat(premioNetto || "0") * parseFloat(percentualeProvvigione) / 100) : 0;
-  const provvQuietanza = percentualeProvvigione ? (parseFloat(premioNettoQuietanza || "0") * parseFloat(percentualeProvvigione) / 100) : 0;
+  // --- Computed: derive scalars from row arrays ---
+  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse") =>
+    arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
+  const premioNettoNum = sumNum(premiFirmaRows, "netto");
+  const tasseNum = sumNum(premiFirmaRows, "tasse");
+  const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
+  const tasse = tasseNum ? String(tasseNum) : "";
+  const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
+  const tasseQNum = sumNum(premiQuietanzaRows, "tasse");
+  const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
+  const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
+
+  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum;
+  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
+  const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
+  const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
   // --- Handlers ---
 
@@ -590,23 +596,6 @@ const ImmissionePolizzaPage = () => {
           tipologia_guida: vTipologiaGuida || null, tipo_alimentazione: vTipoAlimentazione || null,
         } as any);
 
-        // Premi garanzia
-        const premiRows = premiGaranzia.filter(p => parseFloat(p.firma || "0") > 0 || parseFloat(p.rata || "0") > 0 || parseFloat(p.annuo || "0") > 0);
-        if (premiRows.length > 0) {
-          await supabase.from("premi_garanzia_polizza").insert(
-            premiRows.map(p => ({
-              titolo_id: newTitolo.id,
-              garanzia: p.garanzia,
-              capitale: parseFloat(p.capitale || "0"),
-              tasso: parseFloat(p.tasso || "0"),
-              firma: parseFloat(p.firma || "0"),
-              rata: parseFloat(p.rata || "0"),
-              annuo: parseFloat(p.annuo || "0"),
-              ordine: p.ordine,
-            })) as any
-          );
-        }
-
         // Conducente
         if (cNome || cCognome) {
           await supabase.from("conducenti_polizza").insert({
@@ -618,6 +607,30 @@ const ImmissionePolizzaPage = () => {
           } as any);
         }
       }
+
+      // Premi garanzia (Firma + Quietanza) — vale per qualunque ramo
+      const buildPremiInsert = (rows: GaranziaRow[], tipo: "firma" | "quietanza") =>
+        rows
+          .filter((r) => (r.codice || r.descrizione.trim()) && (parseFloat(r.netto || "0") || parseFloat(r.tasse || "0")))
+          .map((r, idx) => ({
+            titolo_id: newTitolo.id,
+            tipo_premio: tipo,
+            garanzia: r.codice || r.descrizione || "Premio",
+            capitale: 0,
+            tasso: 0,
+            firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
+            rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
+            annuo: 0,
+            ordine: idx,
+          }));
+      const premiPayload = [
+        ...buildPremiInsert(premiFirmaRows, "firma"),
+        ...buildPremiInsert(premiQuietanzaRows, "quietanza"),
+      ];
+      if (premiPayload.length > 0) {
+        await supabase.from("premi_garanzia_polizza").insert(premiPayload as any);
+      }
+
 
       toast.success("Polizza registrata con successo");
       navigate(`/titoli/${newTitolo.id}`);
@@ -986,46 +999,47 @@ const ImmissionePolizzaPage = () => {
         <div className="space-y-4">
           <PremiGaranziaCardShell
             tipoPremio="firma"
-            mainLabel={isRCA ? "RCA Auto" : "Premio"}
             gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
-            onGaranziaChange={(_codice, _descr, aliquotaTasse) => {
-              // Pre-popola l'aliquota tasse se il netto è valorizzato
-              const netto = parseFloat(premioNetto) || 0;
-              if (netto > 0 && aliquotaTasse > 0) {
-                setTasse((netto * aliquotaTasse / 100).toFixed(2));
-              }
-            }}
-            premioNetto={premioNetto}
-            onPremioNettoChange={setPremioNetto}
+            rows={premiFirmaRows}
+            onRowsChange={setPremiFirmaRows}
             addizionali={addizionali}
             onAddizionaliChange={setAddizionali}
-            tasse={tasse}
-            onTasseChange={setTasse}
             provvigioni={provvFirma}
           />
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
-            mainLabel={isRCA ? "RCA Auto" : "Premio"}
             gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
-            onGaranziaChange={(_codice, _descr, aliquotaTasse) => {
-              const netto = parseFloat(premioNettoQuietanza) || 0;
-              if (netto > 0 && aliquotaTasse > 0) {
-                setTasseQuietanza((netto * aliquotaTasse / 100).toFixed(2));
-              }
-            }}
-            premioNetto={premioNettoQuietanza}
-            onPremioNettoChange={setPremioNettoQuietanza}
+            rows={premiQuietanzaRows}
+            onRowsChange={setPremiQuietanzaRows}
             addizionali={addizionaliQuietanza}
             onAddizionaliChange={setAddizionaliQuietanza}
-            tasse={tasseQuietanza}
-            onTasseChange={setTasseQuietanza}
             provvigioni={provvQuietanza}
+            headerExtra={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                  setAddizionaliQuietanza(addizionali);
+                }}
+              >
+                Sincronizza da Firma
+              </Button>
+            }
             sincronizzata={
-              premioNettoQuietanza === premioNetto &&
-              addizionaliQuietanza === addizionali &&
-              tasseQuietanza === tasse
+              premiQuietanzaRows.length === premiFirmaRows.length &&
+              premiQuietanzaRows.every((r, i) =>
+                r.netto === premiFirmaRows[i]?.netto &&
+                r.tasse === premiFirmaRows[i]?.tasse &&
+                (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
+                r.descrizione === premiFirmaRows[i]?.descrizione,
+              ) &&
+              addizionaliQuietanza === addizionali
             }
           />
+
         </div>
 
         {/* Flags row */}
@@ -1297,41 +1311,7 @@ const ImmissionePolizzaPage = () => {
             </div>
           </PolizzaSection>
 
-          {/* DATI PREMIO PER GARANZIA */}
-          <PolizzaSection title="Premi per Garanzia" icon={ShieldCheck}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-48">Garanzia</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Capitale</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Tasso</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Firma</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Rata</th>
-                    <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Annuo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {premiGaranzia.map((pg, idx) => (
-                    <tr key={pg.garanzia} className="border-b border-border/50">
-                      <td className="py-1 px-2 font-medium text-foreground">{pg.garanzia}</td>
-                      {(["capitale", "tasso", "firma", "rata", "annuo"] as const).map((col) => (
-                        <td key={col} className="py-1 px-1">
-                          <Input type="number" step="0.01" value={(pg as any)[col]}
-                            onChange={(e) => {
-                              const updated = [...premiGaranzia];
-                              (updated[idx] as any)[col] = e.target.value;
-                              setPremiGaranzia(updated);
-                            }}
-                            className="h-7 text-xs font-mono text-right w-24" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </PolizzaSection>
+          {/* Le righe garanzia (Firma + Quietanza) sono ora gestite nella sezione Importi */}
 
           {/* DATI CONDUCENTE */}
           <PolizzaSection title="Dati Conducente" icon={UserCheck}>

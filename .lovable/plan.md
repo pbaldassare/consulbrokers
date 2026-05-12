@@ -1,46 +1,55 @@
-## Problemi visti nello screenshot
+## Problema
 
-1. **Layout rotto del banner ambra**: il messaggio è renderizzato come `flex gap-2` con l'icona + testo + `<strong>` + `<em>` come *figli diretti* del flex → ogni nodo inline diventa un flex item (colonna), spezzando il testo parola-per-parola.
-2. **Manca Gruppo Finanziario nel dialog AI**: l'utente deve poter scegliere il Gruppo Finanziario *qui*, nel dialog di revisione AI, così da derivare automaticamente il tipo cliente (privato/azienda/ente) prima ancora di aprire `NuovoClienteDialog`.
+Nello step "Importi" di Immissione Polizza (sezione **Premi per Garanzia — Firma / Quietanza**) puoi inserire **una sola riga di garanzia** e, per i rami non-RCA, la tendina mostra spesso **una sola voce** (es. `MAL — Malattia` per il gruppo ZM). Risultato: non riesci ad articolare più garanzie/sotto-voci sotto un sottoramo come faresti dopo aver salvato la polizza (dove `VociRcaCard` consente più righe con "Aggiungi voce").
 
-## Modifiche
+Cause individuate:
+- `PremiGaranziaCardShell` è single-row by design (un solo `SearchableSelect` + un solo `Input` netto/tasse).
+- Il catalogo `rca_garanzie` contiene 1 sola riga per ogni `gruppo_ramo_id` non-RCA (verificato: ZM, ZN, ZP, ZL, ZS, ZT, ZV, ZY, ZD, ZC, DI hanno tutti 1 garanzia; solo ZQ-RCA ne ha 18).
+- Nessun pulsante "Aggiungi voce" e niente persistenza di righe multiple per non-RCA in `premi_garanzia_polizza` (l'insert al rigo ~596 si attiva solo dal vecchio blocco RCA `premiGaranzia`).
 
-### 1. `ImportNuovaPolizzaAIDialog.tsx` — fix layout banner
-Avvolgere il testo del messaggio in un singolo `<span>` (o `<div className="flex-1">`) così il flex ha solo 2 figli: icona + blocco testo. Il testo torna a fluire normalmente.
+## Cosa costruire
 
-### 2. `ImportNuovaPolizzaAIDialog.tsx` — selettore Gruppo Finanziario inline
-- Caricare `gruppi_finanziari` (id, codice, nome, tipo_soggetto) via `useQuery` quando `step === "review"` e `isNewCliente`.
-- Aggiungere un `SearchableSelect` "Gruppo Finanziario *" subito sopra (o sotto) il banner ambra, *visibile solo quando* `isNewCliente`.
-- Stato locale: `selectedGruppoFinanziarioId`.
-- Quando l'utente seleziona un gruppo:
-  - Mostrare un Badge "Tipo Cliente: Privato/Azienda/Ente (auto)" identico a quello del NuovoClienteDialog (coerenza UX).
-  - Se `tipo_soggetto === "ente"` mostrare anche un Input "Codice CUP *" obbligatorio inline.
-- Aggiornare il banner ambra: se Gruppo Finanziario (e CUP per Enti) sono compilati qui, il messaggio passa da "amber" a "teal" e dice "Tutto pronto: cliccando Applica verrà creato il nuovo cliente con questi dati."
-- Bloccare il pulsante **Applica** finché Gruppo Finanziario (e CUP se Ente) non sono valorizzati, quando `isNewCliente`.
+### 1. `PremiGaranziaCardShell.tsx` — multi-row come `VociRcaCard`
 
-### 3. `MatchResult` esteso
-Aggiungere campi opzionali:
-```ts
-gruppoFinanziarioId?: string;
-tipoCliente?: "privato" | "azienda" | "ente";
-codiceCup?: string;
-```
+Trasforma la card da single-row a tabella con N righe + totali in fondo:
 
-### 4. `NuovoClienteInitialData` esteso
-Aggiungere:
-```ts
-gruppoFinanziarioId?: string;
-codiceCup?: string;
-```
-e nel `useEffect` di prefill di `NuovoClienteDialog` impostarli (se forniti) tramite `setGruppoFinanziarioId` e `setCodiceCup`. Il tipo cliente viene già derivato automaticamente dal gruppo finanziario tramite il listener esistente — basterà chiamare il `setTipoCliente` direttamente con `initialData.tipoCliente`.
+- Props nuove:
+  - `rows: GaranziaRow[]` con `onRowsChange(next: GaranziaRow[]) => void`
+  - `GaranziaRow = { codice: string | null; descrizione: string; netto: string; tasse: string; aliquotaTasse: number }`
+  - `addizionali`/`onAddizionaliChange` rimangono a livello card (totale).
+- UI per ogni riga: `SearchableSelect` (catalogo filtrato per `gruppoRamoId`) **+ campo testo libero** se il catalogo restituisce ≤1 voce, così l'utente può aggiungere righe nominandole liberamente (es. "Day Hospital", "Diaria"). Fallback gestito via flag `allowFreeText = catalogo.length <= 1`.
+- Pulsante `+ Aggiungi voce` in fondo alla tabella (stile `VociRcaCard`).
+- Pulsante "rimuovi riga" (icona Trash) per ogni riga, con conferma solo se non vuota.
+- Ricalcolo automatico tasse della riga al cambio garanzia: `netto * aliquotaTasse / 100`.
+- Riga totale (in fondo): somma `netto`, somma `tasse`, `addizionali` editabile, `lordo = Σ netto + Σ tasse + addizionali`.
+- Provvigioni footer rimane invariato (somma globale calcolata fuori).
 
-### 5. `ImmissionePolizzaPage.handleAIImportApply`
-Passare `gruppoFinanziarioId`, `codiceCup` (e `tipoCliente` se presente) a `aiClientePrefill` quando arrivano da `MatchResult`. La validazione blocco-Salva nel NuovoClienteDialog già esistente diventerà automaticamente "verde" all'apertura, evitando friction.
+### 2. `ImmissionePolizzaPage.tsx` — state + persistenza
 
-## Test
-- Aggiungere caso a `aiImportPrefill.test.ts`: con `gruppoFinanziarioId` + `tipoCliente: "ente"` + `codiceCup` nel `MatchResult`, il prefill costruito li riporta tutti correttamente.
-- Aggiungere test che verifica `canApply === false` quando `isNewCliente && !gruppoFinanziarioId`.
+- Sostituisci gli scalari `premioNetto/tasse` (e gli equivalenti Quietanza) con due array di righe:
+  - `premiFirma: GaranziaRow[]`, default `[{ codice: null, descrizione: "", netto: "", tasse: "", aliquotaTasse: 0 }]`
+  - `premiQuietanza: GaranziaRow[]` con stesso default; bottone "Sincronizza da Firma" (icona) per copiare l'array.
+- Calcoli derivati `premioNetto = Σ netto`, `tasse = Σ tasse`, `lordo`, già passati alle altre sezioni che li leggono (verificare e adattare i punti che usano `premioNetto`/`tasse` per "Provvigioni Firma/Quietanza" e "Importi totali").
+- Salvataggio:
+  - Persisti **tutte** le righe Firma in `premi_garanzia_polizza` (oltre al ramo RCA). Estendi l'insert al ~rigo 596 a non-RCA usando `premiFirma`. Mappa: `garanzia = codice ?? descrizione`, `firma = netto`, `tasse = tasse`, `ordine = idx`.
+  - Persisti anche le righe Quietanza? Schema attuale `premi_garanzia_polizza` non distingue Firma/Quietanza: aggiungi colonna **`tipo_premio text NOT NULL DEFAULT 'firma' CHECK IN ('firma','quietanza')`** e inserisci entrambi i set marcati.
+  - Persisti `addizionali` e `addizionali_quietanza` su `titoli` (campi già presenti).
+- Rimuovi il vecchio blocco `<PolizzaSection title="Premi per Garanzia">` RCA al rigo 1300 (legacy duplicato): le sue righe confluiscono nel nuovo multi-row Firma quando `isRCA`.
 
-## Out of scope
-- Refactor visivo del NuovoClienteDialog (l'integrazione resta invariata — riceve solo più campi via initialData).
-- Caricamento di "Gruppo Statistico" o altri lookup nel dialog AI.
+### 3. Migrazione DB
+
+- `ALTER TABLE premi_garanzia_polizza ADD COLUMN tipo_premio text NOT NULL DEFAULT 'firma' CHECK (tipo_premio IN ('firma','quietanza'));`
+- Backfill: lasciare i record esistenti a `'firma'` (default già lo fa).
+- Aggiorna `VociRcaCard` (già usata in `TitoloDetail`) per leggere/filtrare per `tipo_premio` quando rilevante — fuori scope se non rompe la UI esistente; verificare con una lettura mirata e adattare solo se rompe.
+
+### 4. Test
+
+Aggiungi a `src/components/polizze/__tests__/`:
+- `premiGaranziaShell.test.ts`: aggiunta riga, rimozione riga, free-text quando catalogo ≤1, ricalcolo tasse al cambio garanzia, totali.
+- `immissionePolizzaPremi.test.ts` (logica pura, senza render): mapping array Firma+Quietanza → payload `premi_garanzia_polizza` con `tipo_premio` corretto e `ordine` incrementale.
+
+## Fuori scope
+
+- Riempire/estendere il catalogo `rca_garanzie` per i rami non-RCA (richiede dato business — l'utente può aggiungere voci a mano via free-text intanto).
+- Refactor di `VociRcaCard` (resta com'è in TitoloDetail).
+- AI import multi-garanzia (un follow-up separato).
