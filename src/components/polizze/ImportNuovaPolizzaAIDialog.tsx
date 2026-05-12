@@ -715,28 +715,55 @@ export function ImportNuovaPolizzaAIDialog({
               )}
             </section>
 
-            {/* COMPAGNIA & RAMO */}
+            {/* COMPAGNIA & AGENZIA & RAMO */}
             <section className="border rounded-lg p-3 space-y-3">
-              <h3 className="font-semibold">Compagnia & Ramo</h3>
+              <h3 className="font-semibold">Compagnia, Agenzia & Ramo</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Compagnia (dal PDF: <em>{data.compagnia || "—"}</em>)</Label>
+                  <Label className="text-xs">
+                    Compagnia assicurativa <span className="text-destructive">*</span>{" "}
+                    <span className="text-muted-foreground">(dal PDF: <em>{data.compagnia || "—"}</em>)</span>
+                  </Label>
                   <SearchableSelect
-                    value={selectedCompagniaId}
-                    onValueChange={setSelectedCompagniaId}
-                    placeholder="— Seleziona compagnia —"
-                    options={compagniaCandidates.map((c) => ({ value: c.id, label: c.label }))}
-                    emptyText="Nessun match — selezionala dal form"
+                    value={selectedGruppoCompagniaId}
+                    onValueChange={async (v) => {
+                      setSelectedGruppoCompagniaId(v);
+                      setSelectedAgenziaId("");
+                      const ag = await loadAgenzieByGruppo(v);
+                      setAgenziaCandidates(ag);
+                      if (ag.length === 1) setSelectedAgenziaId(ag[0].id);
+                    }}
+                    placeholder="— Seleziona compagnia (gruppo) —"
+                    options={gruppoCompagniaCandidates.map((g) => ({ value: g.id, label: g.label }))}
+                    emptyText="Nessun match — selezionala manualmente"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Ramo (dal PDF: <em>{data.ramo_descrizione || "—"}</em>)</Label>
+                  <Label className="text-xs">
+                    Agenzia (rapporto) <span className="text-destructive">*</span>
+                  </Label>
                   <SearchableSelect
-                    value={selectedRamoKey}
-                    onValueChange={setSelectedRamoKey}
-                    placeholder="— Seleziona ramo —"
-                    options={ramoCandidates.map((r) => ({ value: `${r.gruppoRamoId}:${r.ramoId}`, label: r.label }))}
-                    emptyText="Nessun match — selezionalo dal form"
+                    value={selectedAgenziaId}
+                    onValueChange={setSelectedAgenziaId}
+                    placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Prima scegli la compagnia"}
+                    options={agenziaCandidates.map((a) => ({ value: a.id, label: a.label }))}
+                    disabled={!selectedGruppoCompagniaId}
+                    emptyText="Nessuna agenzia per questo gruppo"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-xs mb-1 block">
+                    Ramo / Sottoramo <span className="text-destructive">*</span>{" "}
+                    <span className="text-muted-foreground">(dal PDF: <em>{data.ramo_descrizione || "—"}</em>)</span>
+                  </Label>
+                  <RamoSottoramoSelect
+                    gruppoRamoId={selectedGruppoRamoId || null}
+                    ramoId={selectedSottoramoId || null}
+                    onChange={({ gruppoRamoId, ramoId }) => {
+                      setSelectedGruppoRamoId(gruppoRamoId || "");
+                      setSelectedSottoramoId(ramoId || "");
+                    }}
+                    hideLabels
                   />
                 </div>
                 <FieldInput label="Prodotto" value={data.prodotto} onChange={(v) => updateField("prodotto", v)} />
