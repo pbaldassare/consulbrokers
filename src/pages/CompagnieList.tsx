@@ -1225,24 +1225,27 @@ const CompagnieList = () => {
           <h1 className="text-2xl font-bold text-foreground">Compagnie Assicurative / Agenzie</h1>
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
-            <span className="font-semibold">{compagnie.length}</span> compagnie totali
+            <span className="font-semibold">{compagnie.length}</span> agenzie ·{" "}
+            <span className="font-semibold">{Object.keys(gruppiMap as any).length}</span> compagnie assicurative
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-            <CompagniaFormDialog
-              form={form} setForm={setForm}
-              onSave={() => createMutation.mutate()}
-              saving={createMutation.isPending}
-              title="Nuova Agenzia"
-              saveLabel="Crea Agenzia"
-              compagniaId={null}
-            />
-          </DialogContent>
-        </Dialog>
+        {activeTab === "anagrafica" && (
+          <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyForm); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+              <CompagniaFormDialog
+                form={form} setForm={setForm}
+                onSave={() => createMutation.mutate()}
+                saving={createMutation.isPending}
+                title="Nuova Agenzia"
+                saveLabel="Crea Agenzia"
+                compagniaId={null}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Edit dialog */}
