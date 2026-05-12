@@ -952,19 +952,19 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
               <Label className="text-xs text-muted-foreground">Cerca per descrizione o codice</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Cerca agenzia..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                <Input placeholder="Cerca compagnia assicurativa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
               </div>
             </div>
             <Button variant="secondary" onClick={() => setSearch("")}>Reset</Button>
             <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setForm(emptyGruppo); }}>
               <DialogTrigger asChild>
-                <Button><Plus className="w-4 h-4 mr-2" />Nuova Agenzia</Button>
+                <Button><Plus className="w-4 h-4 mr-2" />Nuova Compagnia Assicurativa</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nuova Agenzia</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Nuova Compagnia Assicurativa</DialogTitle></DialogHeader>
                 {renderForm()}
                 <Button onClick={() => createMutation.mutate()} disabled={!form.descrizione || createMutation.isPending} className="w-full">
-                  {createMutation.isPending ? "Salvataggio..." : "Crea Agenzia"}
+                  {createMutation.isPending ? "Salvataggio..." : "Crea Compagnia Assicurativa"}
                 </Button>
               </DialogContent>
             </Dialog>
