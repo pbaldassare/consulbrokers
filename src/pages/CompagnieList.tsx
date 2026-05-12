@@ -1042,7 +1042,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                   </TableRow>
                 ))}
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nessuna compagnia assicurativa trovata</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
