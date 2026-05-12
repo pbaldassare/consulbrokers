@@ -697,6 +697,23 @@ function AgenzieCollegateDialog({
     enabled: !!gruppoId && open,
   });
 
+  // Rapporti N:N (plurimandatarie) verso questa Compagnia Assicurativa
+  const { data: rapporti = [], isLoading: loadingRapporti } = useQuery({
+    queryKey: ["rapporti-per-gruppo", gruppoId],
+    queryFn: async () => {
+      if (!gruppoId) return [];
+      const { data, error } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("id, codice_rapporto, tipo_rapporto, rami_abilitati, data_inizio, data_fine, attivo, percentuale_provvigione, compagnia_id, compagnie:compagnia_id(id, codice, nome, nome_sede)")
+        .eq("gruppo_compagnia_id", gruppoId)
+        .order("attivo", { ascending: false })
+        .order("data_inizio", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!gruppoId && open,
+  });
+
   const filtered = compagnie.filter((a: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -710,78 +727,162 @@ function AgenzieCollegateDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSearch(""); onClose(); } }}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="w-5 h-5" />
             Agenzie collegate a <span className="text-primary">{gruppoDescrizione}</span>
-            <Badge variant="secondary" className="ml-2">{compagnie.length}</Badge>
+            <Badge variant="secondary" className="ml-2">{compagnie.length} principali</Badge>
+            {rapporti.length > 0 && (
+              <Badge variant="outline" className="border-primary/40">{rapporti.filter((r: any) => r.attivo).length} rapporti N:N</Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Cerca per nome, sede, codice o comune..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            autoFocus
-          />
+        {/* Sezione 1: Agenzie principali (1:N) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-primary" />
+              Agenzie con questa Compagnia Assicurativa come <span className="text-primary">principale</span> (1:N)
+            </h3>
+          </div>
+
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Cerca per nome, sede, codice o comune..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+
+          <div className="max-h-[35vh] overflow-auto border rounded-md">
+            {isLoading ? (
+              <p className="p-4 text-muted-foreground">Caricamento...</p>
+            ) : (
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-28">Codice</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Sede</TableHead>
+                    <TableHead>Comune</TableHead>
+                    <TableHead className="w-16">Prov</TableHead>
+                    <TableHead className="w-28">Stato</TableHead>
+                    <TableHead className="w-20 text-right">Azioni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((a: any, idx: number) => (
+                    <TableRow key={a.id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
+                      <TableCell className="font-mono text-sm">{a.codice || "—"}</TableCell>
+                      <TableCell className="font-medium">{a.nome || "—"}</TableCell>
+                      <TableCell>{a.nome_sede || "—"}</TableCell>
+                      <TableCell>{a.comune || "—"}</TableCell>
+                      <TableCell>{a.provincia || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={a.stato === "Attivo" ? "default" : "secondary"}>
+                          {a.stato || (a.attiva ? "Attivo" : "Non Operativo")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {onOpenAgenzia && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { onOpenAgenzia(a.id); onClose(); }}
+                          >
+                            Apri
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                        {compagnie.length === 0 ? "Nessuna agenzia con questa Compagnia Assicurativa come principale" : "Nessun risultato per la ricerca"}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-auto border rounded-md">
-          {isLoading ? (
-            <p className="p-4 text-muted-foreground">Caricamento...</p>
-          ) : (
-            <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
-                <TableRow>
-                  <TableHead className="w-28">Codice</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Sede</TableHead>
-                  <TableHead>Comune</TableHead>
-                  <TableHead className="w-16">Prov</TableHead>
-                  <TableHead className="w-28">Stato</TableHead>
-                  <TableHead className="w-20 text-right">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((a: any, idx: number) => (
-                  <TableRow key={a.id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
-                    <TableCell className="font-mono text-sm">{a.codice || "—"}</TableCell>
-                    <TableCell className="font-medium">{a.nome || "—"}</TableCell>
-                    <TableCell>{a.nome_sede || "—"}</TableCell>
-                    <TableCell>{a.comune || "—"}</TableCell>
-                    <TableCell>{a.provincia || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={a.stato === "Attivo" ? "default" : "secondary"}>
-                        {a.stato || (a.attiva ? "Attivo" : "Non Operativo")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {onOpenAgenzia && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => { onOpenAgenzia(a.id); onClose(); }}
-                        >
-                          Apri
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+        {/* Sezione 2: Rapporti N:N (plurimandatarie) */}
+        <div className="space-y-2 mt-2">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Network className="w-4 h-4 text-primary" />
+            Rapporti aggiuntivi (plurimandatarie) — N:N
+            <span className="text-xs text-muted-foreground font-normal">
+              gestibili dal tab "Agenzie" → colonna "Rapporti"
+            </span>
+          </h3>
+
+          <div className="max-h-[30vh] overflow-auto border rounded-md">
+            {loadingRapporti ? (
+              <p className="p-4 text-muted-foreground">Caricamento...</p>
+            ) : (
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
-                      {compagnie.length === 0 ? "Nessuna agenzia collegata" : "Nessun risultato per la ricerca"}
-                    </TableCell>
+                    <TableHead>Agenzia</TableHead>
+                    <TableHead className="w-32">Codice rapp.</TableHead>
+                    <TableHead className="w-40">Tipo</TableHead>
+                    <TableHead>Rami</TableHead>
+                    <TableHead className="w-28">Inizio</TableHead>
+                    <TableHead className="w-28">Fine</TableHead>
+                    <TableHead className="w-20 text-right">% Provv.</TableHead>
+                    <TableHead className="w-24">Stato</TableHead>
+                    <TableHead className="w-20 text-right">Azioni</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {(rapporti as any[]).map((r, idx) => (
+                    <TableRow key={r.id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
+                      <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.codice_rapporto || "—"}</TableCell>
+                      <TableCell className="text-sm">{r.tipo_rapporto || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                        {Array.isArray(r.rami_abilitati) && r.rami_abilitati.length ? r.rami_abilitati.join(", ") : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">{r.data_inizio || "—"}</TableCell>
+                      <TableCell className="text-sm">{r.data_fine || "—"}</TableCell>
+                      <TableCell className="text-right text-sm">
+                        {r.percentuale_provvigione != null ? `${r.percentuale_provvigione}%` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={r.attivo ? "default" : "secondary"}>{r.attivo ? "Attivo" : "Chiuso"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {onOpenAgenzia && r.compagnia_id && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { onOpenAgenzia(r.compagnia_id); onClose(); }}
+                          >
+                            Apri
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {rapporti.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-6">
+                        Nessun rapporto N:N registrato verso questa Compagnia Assicurativa
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -807,22 +908,37 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
         .order("descrizione");
       if (error) throw error;
 
-      // Count agenzie per gruppo
+      // Conteggio relazioni 1:N (agenzie con gruppo principale)
       const { data: countsData } = await supabase
         .from("compagnie")
         .select("gruppo_compagnia_id")
         .not("gruppo_compagnia_id", "is", null);
 
-      const counts: Record<string, number> = {};
+      const counts1n: Record<string, number> = {};
       (countsData || []).forEach((row: any) => {
         if (row.gruppo_compagnia_id) {
-          counts[row.gruppo_compagnia_id] = (counts[row.gruppo_compagnia_id] || 0) + 1;
+          counts1n[row.gruppo_compagnia_id] = (counts1n[row.gruppo_compagnia_id] || 0) + 1;
         }
+      });
+
+      // Conteggio relazioni N:N attive (rapporti plurimandatari)
+      const { data: rapportiData } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("compagnia_id, gruppo_compagnia_id")
+        .eq("attivo", true);
+
+      const countsNn: Record<string, Set<string>> = {};
+      (rapportiData || []).forEach((row: any) => {
+        if (!row.gruppo_compagnia_id) return;
+        if (!countsNn[row.gruppo_compagnia_id]) countsNn[row.gruppo_compagnia_id] = new Set();
+        countsNn[row.gruppo_compagnia_id].add(row.compagnia_id);
       });
 
       const enriched = (gruppiData || []).map((g: any) => ({
         ...g,
-        agenzie_count: counts[g.id] || 0,
+        agenzie_count_1n: counts1n[g.id] || 0,
+        rapporti_count_nn: countsNn[g.id]?.size || 0,
+        agenzie_count: (counts1n[g.id] || 0) + (countsNn[g.id]?.size || 0),
         is_pluri: g.codice === PLURIMANDATARIO_CODE,
       }));
 
@@ -1033,7 +1149,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-30"
                         disabled={g.is_pluri}
-                        title={g.is_pluri ? "Agenzia di sistema, non eliminabile" : "Elimina"}
+                        title={g.is_pluri ? "Compagnia assicurativa di sistema, non eliminabile" : "Elimina"}
                         onClick={() => handleDeleteClick(g)}
                       >
                         <Trash2 className="w-4 h-4" />

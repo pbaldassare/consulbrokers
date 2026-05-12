@@ -102,7 +102,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!compagniaId) throw new Error("Agenzia non valida");
-      if (!form.gruppo_compagnia_id) throw new Error("Seleziona la agenzia");
+      if (!form.gruppo_compagnia_id) throw new Error("Seleziona la Compagnia Assicurativa");
       const payload: any = {
         compagnia_id: compagniaId,
         gruppo_compagnia_id: form.gruppo_compagnia_id,
@@ -132,6 +132,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
+      qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
       setFormOpen(false);
       setForm(emptyForm);
       toast.success("Rapporto salvato");
@@ -150,6 +152,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
+      qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
       toast.success("Rapporto chiuso");
     },
     onError: () => toast.error("Errore"),
@@ -163,6 +167,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
+      qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
       setDeleteId(null);
       toast.success("Rapporto eliminato");
     },
@@ -207,7 +213,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Network className="w-5 h-5 text-primary" />
-              Rapporti con agenzie — <span className="text-primary">{compagniaNome}</span>
+              Rapporti con Compagnie Assicurative — <span className="text-primary">{compagniaNome}</span>
               <Badge variant="secondary" className="ml-2">{rapporti.length}</Badge>
             </DialogTitle>
           </DialogHeader>
@@ -231,7 +237,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Agenzia</TableHead>
+                        <TableHead>Compagnia Assicurativa</TableHead>
                         <TableHead>Codice</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Rami</TableHead>
@@ -311,12 +317,12 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Agenzia *</Label>
+              <Label className="text-xs text-muted-foreground">Compagnia Assicurativa *</Label>
               <SearchableSelect
                 options={gruppiOptions}
                 value={form.gruppo_compagnia_id}
                 onValueChange={(v) => setForm((p) => ({ ...p, gruppo_compagnia_id: v }))}
-                placeholder="Seleziona agenzia..."
+                placeholder="Seleziona Compagnia Assicurativa..."
               />
             </div>
 
@@ -387,15 +393,15 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 value={form.conto_bancario_id}
                 onChange={(id) => setForm((p) => ({ ...p, conto_bancario_id: id }))}
                 tipi={["agenzia", "generico"]}
-                placeholder="Usa il conto della agenzia"
+                placeholder="Usa il conto della Compagnia Assicurativa"
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Se valorizzato, sostituisce l'IBAN della agenzia per questo specifico rapporto. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
+                Se valorizzato, sostituisce l'IBAN della Compagnia Assicurativa per questo specifico rapporto. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
               </p>
             </div>
 
             <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Referente in Agenzia</Label>
+              <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
               <div className="grid grid-cols-3 gap-3">
                 <Input
                   placeholder="Nome referente"
