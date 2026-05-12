@@ -168,15 +168,12 @@ const ImmissionePolizzaPage = () => {
   const [periodicita, setPeriodicita] = useState("annuale");
   const [libroMatricola, setLibroMatricola] = useState("no");
 
-  // Importi
-  const [premioNetto, setPremioNetto] = useState("");
+  // Importi — multi-row garanzie
+  const [premiFirmaRows, setPremiFirmaRows] = useState<GaranziaRow[]>([emptyGaranziaRow()]);
+  const [premiQuietanzaRows, setPremiQuietanzaRows] = useState<GaranziaRow[]>([emptyGaranziaRow()]);
   const [addizionali, setAddizionali] = useState("0");
-  const [tasse, setTasse] = useState("");
   const [valuta, setValuta] = useState("EUR");
-  // Quietanza
-  const [premioNettoQuietanza, setPremioNettoQuietanza] = useState("");
   const [addizionaliQuietanza, setAddizionaliQuietanza] = useState("0");
-  const [tasseQuietanza, setTasseQuietanza] = useState("");
   // Flags
   const [rimborso, setRimborso] = useState(false);
   const [indicizzata, setIndicizzata] = useState(false);
