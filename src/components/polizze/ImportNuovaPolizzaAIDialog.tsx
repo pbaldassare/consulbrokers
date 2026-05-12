@@ -195,6 +195,11 @@ export function ImportNuovaPolizzaAIDialog({
           piva: c.partita_iva,
         });
       });
+      if (out.length === before) {
+        log("warn", `CF/P.IVA presenti (${[cf, piva].filter(Boolean).join(" / ")}) ma nessuna corrispondenza esatta — provo ricerca per nome`);
+      } else {
+        log("success", `Match esatto su CF/P.IVA: ${out[0].label}`);
+      }
     }
     if (out.length < 5) {
       const nameRaw = (d.contraente_nome || "").trim();
