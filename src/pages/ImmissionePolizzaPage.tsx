@@ -996,46 +996,47 @@ const ImmissionePolizzaPage = () => {
         <div className="space-y-4">
           <PremiGaranziaCardShell
             tipoPremio="firma"
-            mainLabel={isRCA ? "RCA Auto" : "Premio"}
             gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
-            onGaranziaChange={(_codice, _descr, aliquotaTasse) => {
-              // Pre-popola l'aliquota tasse se il netto è valorizzato
-              const netto = parseFloat(premioNetto) || 0;
-              if (netto > 0 && aliquotaTasse > 0) {
-                setTasse((netto * aliquotaTasse / 100).toFixed(2));
-              }
-            }}
-            premioNetto={premioNetto}
-            onPremioNettoChange={setPremioNetto}
+            rows={premiFirmaRows}
+            onRowsChange={setPremiFirmaRows}
             addizionali={addizionali}
             onAddizionaliChange={setAddizionali}
-            tasse={tasse}
-            onTasseChange={setTasse}
             provvigioni={provvFirma}
           />
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
-            mainLabel={isRCA ? "RCA Auto" : "Premio"}
             gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
-            onGaranziaChange={(_codice, _descr, aliquotaTasse) => {
-              const netto = parseFloat(premioNettoQuietanza) || 0;
-              if (netto > 0 && aliquotaTasse > 0) {
-                setTasseQuietanza((netto * aliquotaTasse / 100).toFixed(2));
-              }
-            }}
-            premioNetto={premioNettoQuietanza}
-            onPremioNettoChange={setPremioNettoQuietanza}
+            rows={premiQuietanzaRows}
+            onRowsChange={setPremiQuietanzaRows}
             addizionali={addizionaliQuietanza}
             onAddizionaliChange={setAddizionaliQuietanza}
-            tasse={tasseQuietanza}
-            onTasseChange={setTasseQuietanza}
             provvigioni={provvQuietanza}
+            headerExtra={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                  setAddizionaliQuietanza(addizionali);
+                }}
+              >
+                Sincronizza da Firma
+              </Button>
+            }
             sincronizzata={
-              premioNettoQuietanza === premioNetto &&
-              addizionaliQuietanza === addizionali &&
-              tasseQuietanza === tasse
+              premiQuietanzaRows.length === premiFirmaRows.length &&
+              premiQuietanzaRows.every((r, i) =>
+                r.netto === premiFirmaRows[i]?.netto &&
+                r.tasse === premiFirmaRows[i]?.tasse &&
+                (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
+                r.descrizione === premiFirmaRows[i]?.descrizione,
+              ) &&
+              addizionaliQuietanza === addizionali
             }
           />
+
         </div>
 
         {/* Flags row */}
