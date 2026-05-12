@@ -428,13 +428,24 @@ export function ImportNuovaPolizzaAIDialog({
       selectedClienteId && selectedClienteId !== NEW_CLIENTE
         ? clienteCandidates.find((c) => c.id === selectedClienteId)
         : null;
-    const compagnia = compagniaCandidates.find((c) => c.id === selectedCompagniaId) || null;
-    const ramo = ramoCandidates.find((r) => `${r.gruppoRamoId}:${r.ramoId}` === selectedRamoKey) || null;
+    const gruppoComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId) || null;
+    const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId) || null;
+    const ramoLabel = ramoCandidates.find(
+      (r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId,
+    );
+    const ramo = selectedGruppoRamoId && selectedSottoramoId
+      ? {
+          gruppoRamoId: selectedGruppoRamoId,
+          ramoId: selectedSottoramoId,
+          label: ramoLabel?.label || "",
+        }
+      : null;
     return {
       data,
       cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
-      compagnia: compagnia ? { id: compagnia.id, label: compagnia.label } : null,
-      ramo: ramo ? { gruppoRamoId: ramo.gruppoRamoId, ramoId: ramo.ramoId, label: ramo.label } : null,
+      gruppoCompagnia: gruppoComp ? { id: gruppoComp.id, label: gruppoComp.label } : null,
+      compagnia: agenzia ? { id: agenzia.id, label: agenzia.label } : null,
+      ramo,
       isNewCliente,
       gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
       tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
@@ -442,7 +453,12 @@ export function ImportNuovaPolizzaAIDialog({
     };
   };
 
-  const canProceed = !!selectedClienteId && newClienteReady;
+  const canProceed =
+    !!selectedClienteId &&
+    newClienteReady &&
+    !!selectedGruppoCompagniaId &&
+    !!selectedAgenziaId &&
+    !!selectedSottoramoId;
 
   const apply = () => {
     if (!selectedClienteId) {
