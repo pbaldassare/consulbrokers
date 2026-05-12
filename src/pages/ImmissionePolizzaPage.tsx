@@ -444,7 +444,7 @@ const ImmissionePolizzaPage = () => {
     setVCv("0"); setVKw("0"); setVCc("0"); setVPosti("0");
     setVPesoMotrice("0"); setVPesoRimorchio("0"); setVPesoTotale("0");
     setVTipologiaGuida(""); setVTipoAlimentazione("");
-    setPremiGaranzia(garanzie_default.map((g, i) => ({ garanzia: g, capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: i })));
+    setPremiFirmaRows([emptyGaranziaRow()]); setPremiQuietanzaRows([emptyGaranziaRow()]);
     setCNome(""); setCCognome(""); setCIndirizzo(""); setCCap("");
     setCCitta(""); setCProvincia(""); setCDataNascita("");
     setCTipoPatente(""); setCDataRilascioPatente(""); setCNote("");
