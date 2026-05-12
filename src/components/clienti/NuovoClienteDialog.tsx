@@ -384,10 +384,39 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     }
   };
 
+  const getMissingFields = (): string[] => {
+    const missing: string[] = [];
+    if (!gruppoFinanziarioId) missing.push("Gruppo Finanziario");
+    if (tipoCliente === "privato") {
+      if (!nome.trim()) missing.push("Nome");
+      if (!cognome.trim()) missing.push("Cognome");
+      if (!codiceFiscale.trim()) missing.push("Codice Fiscale");
+      if (!indirizzoResidenza.trim()) missing.push("Indirizzo Residenza");
+      if (!capResidenza.trim()) missing.push("CAP");
+      if (!cittaResidenza.trim()) missing.push("Città");
+      if (!provinciaResidenza.trim()) missing.push("Provincia");
+      if (!email.trim()) missing.push("Email");
+    } else {
+      if (!ragioneSociale.trim()) missing.push(tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale");
+      if (!partitaIva.trim()) missing.push("Partita IVA");
+      if (tipoCliente === "ente" && !codiceFiscaleAzienda.trim()) missing.push("Codice Fiscale Ente");
+      if (tipoCliente === "ente" && !codiceCup.trim()) missing.push("Codice CUP");
+      if (!indirizzoSede.trim()) missing.push("Indirizzo Sede");
+      if (!capSede.trim()) missing.push("CAP");
+      if (!cittaSede.trim()) missing.push("Città");
+      if (!provinciaSede.trim()) missing.push("Provincia");
+      if (!referenteNome.trim()) missing.push("Nome Referente");
+      if (!referenteCognome.trim()) missing.push("Cognome Referente");
+      if (!referenteEmail.trim()) missing.push("Email Referente");
+      if (!email.trim()) missing.push("Email");
+    }
+    return missing;
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!gruppoFinanziarioId) throw new Error("Seleziona un Gruppo Finanziario");
-      if (tipoCliente === "ente" && !codiceCup.trim()) throw new Error("Codice CUP obbligatorio per gli Enti");
+      const missing = getMissingFields();
+      if (missing.length > 0) throw new Error(`Campi obbligatori mancanti: ${missing.join(", ")}`);
       if (tipoCliente === "privato" && codiceFiscale && codiceFiscale.length !== 16) {
         throw new Error("Codice Fiscale deve essere di 16 caratteri");
       }
@@ -692,11 +721,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           {tipoCliente === "privato" ? (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-                <div><Label>Cognome</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} /></div>
+                <div><Label>Nome *</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} className={!nome.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Cognome *</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} className={!cognome.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Codice Fiscale</Label><Input value={codiceFiscale} onChange={(e) => {
+                <div><Label>Codice Fiscale *</Label><Input value={codiceFiscale} className={!codiceFiscale.trim() ? "border-amber-400" : undefined} onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   setCodiceFiscale(val);
                   if (val.length === 16) {
@@ -716,18 +745,18 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
               <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
-              <div><Label>Indirizzo Residenza</Label><AddressAutocomplete value={indirizzoResidenza} onChange={setIndirizzoResidenza} onSelect={(c) => { setCapResidenza(c.cap); setCittaResidenza(c.citta); setProvinciaResidenza(c.provincia); }} /></div>
+              <div><Label>Indirizzo Residenza *</Label><AddressAutocomplete value={indirizzoResidenza} onChange={setIndirizzoResidenza} onSelect={(c) => { setCapResidenza(c.cap); setCittaResidenza(c.citta); setProvinciaResidenza(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
-                <div><Label>CAP</Label><Input value={capResidenza} onChange={(e) => setCapResidenza(e.target.value)} maxLength={5} /></div>
-                <div><Label>Città</Label><Input value={cittaResidenza} onChange={(e) => setCittaResidenza(e.target.value)} /></div>
-                <div><Label>Provincia</Label><Input value={provinciaResidenza} onChange={(e) => setProvinciaResidenza(e.target.value)} maxLength={2} /></div>
+                <div><Label>CAP *</Label><Input value={capResidenza} onChange={(e) => setCapResidenza(e.target.value)} maxLength={5} className={!capResidenza.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Città *</Label><Input value={cittaResidenza} onChange={(e) => setCittaResidenza(e.target.value)} className={!cittaResidenza.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Provincia *</Label><Input value={provinciaResidenza} onChange={(e) => setProvinciaResidenza(e.target.value)} maxLength={2} className={!provinciaResidenza.trim() ? "border-amber-400" : undefined} /></div>
               </div>
             </>
           ) : (
             <>
-              <div><Label>{tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale"}</Label><Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} /></div>
+              <div><Label>{tipoCliente === "ente" ? "Denominazione Ente *" : "Ragione Sociale *"}</Label><Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} className={!ragioneSociale.trim() ? "border-amber-400" : undefined} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Partita IVA</Label><Input value={partitaIva} onChange={(e) => {
+                <div><Label>Partita IVA *</Label><Input value={partitaIva} className={!partitaIva.trim() ? "border-amber-400" : undefined} onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   setPartitaIva(val);
                   if (val.length === 11 && /^\d{11}$/.test(val) && !codiceFiscaleAzienda) {
@@ -735,7 +764,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     toast.info("Codice Fiscale copiato dalla Partita IVA");
                   }
                 }} maxLength={11} /></div>
-                <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente" : "Azienda"}</Label><Input value={codiceFiscaleAzienda} onChange={(e) => {
+                <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente *" : "Azienda"}</Label><Input value={codiceFiscaleAzienda} className={tipoCliente === "ente" && !codiceFiscaleAzienda.trim() ? "border-amber-400" : undefined} onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   setCodiceFiscaleAzienda(val);
                   if (val.length === 11 && /^\d{11}$/.test(val) && !partitaIva) {
@@ -781,21 +810,21 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   />
                 </div>
               </div>
-              <div><Label>Indirizzo Sede</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
+              <div><Label>Indirizzo Sede *</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
-                <div><Label>CAP</Label><Input value={capSede} onChange={(e) => setCapSede(e.target.value)} maxLength={5} /></div>
-                <div><Label>Città</Label><Input value={cittaSede} onChange={(e) => setCittaSede(e.target.value)} /></div>
-                <div><Label>Provincia</Label><Input value={provinciaSede} onChange={(e) => setProvinciaSede(e.target.value)} maxLength={2} /></div>
+                <div><Label>CAP *</Label><Input value={capSede} onChange={(e) => setCapSede(e.target.value)} maxLength={5} className={!capSede.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Città *</Label><Input value={cittaSede} onChange={(e) => setCittaSede(e.target.value)} className={!cittaSede.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Provincia *</Label><Input value={provinciaSede} onChange={(e) => setProvinciaSede(e.target.value)} maxLength={2} className={!provinciaSede.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="border-t pt-4">
-                <p className="text-sm font-medium text-muted-foreground mb-3">Referente {tipoCliente === "ente" ? "Ente" : "Aziendale"}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-3">Referente {tipoCliente === "ente" ? "Ente" : "Aziendale"} *</p>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Nome Referente</Label><Input value={referenteNome} onChange={(e) => setReferenteNome(e.target.value)} /></div>
-                  <div><Label>Cognome Referente</Label><Input value={referenteCognome} onChange={(e) => setReferenteCognome(e.target.value)} /></div>
+                  <div><Label>Nome Referente *</Label><Input value={referenteNome} onChange={(e) => setReferenteNome(e.target.value)} className={!referenteNome.trim() ? "border-amber-400" : undefined} /></div>
+                  <div><Label>Cognome Referente *</Label><Input value={referenteCognome} onChange={(e) => setReferenteCognome(e.target.value)} className={!referenteCognome.trim() ? "border-amber-400" : undefined} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <div><Label>Telefono Referente</Label><Input value={referenteTelefono} onChange={(e) => setReferenteTelefono(e.target.value)} /></div>
-                  <div><Label>Email Referente</Label><Input type="email" value={referenteEmail} onChange={(e) => setReferenteEmail(e.target.value)} /></div>
+                  <div><Label>Email Referente *</Label><Input type="email" value={referenteEmail} onChange={(e) => setReferenteEmail(e.target.value)} className={!referenteEmail.trim() ? "border-amber-400" : undefined} /></div>
                 </div>
               </div>
             </>
@@ -922,7 +951,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           <div className="border-t pt-4">
             <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>
             <div className="grid grid-cols-3 gap-4">
-              <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+              <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
               <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
               <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
             </div>
@@ -970,15 +999,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         </div>
         <DialogFooter className="flex-col items-stretch sm:flex-row sm:items-center gap-2">
           {(() => {
-            const missingGruppo = !gruppoFinanziarioId;
-            const missingCup = tipoCliente === "ente" && !codiceCup.trim();
-            const blocked = missingGruppo || missingCup;
+            const missing = getMissingFields();
+            const blocked = missing.length > 0;
+            const preview = missing.slice(0, 4).join(", ") + (missing.length > 4 ? "…" : "");
             return (
               <>
                 {blocked && (
                   <p className="text-xs text-amber-700 dark:text-amber-400 mr-auto">
-                    {missingGruppo && "Seleziona il Gruppo Finanziario in cima al modulo. "}
-                    {missingCup && "Inserisci il Codice CUP (obbligatorio per gli Enti)."}
+                    Mancano: {preview}
                   </p>
                 )}
                 <Button variant="outline" onClick={() => setOpen(false)}>Annulla</Button>
