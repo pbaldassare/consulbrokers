@@ -916,7 +916,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
   const handleDeleteClick = (g: any) => {
     if (g.is_pluri) {
-      toast.error("Agenzia di sistema (PLURIMANDATARIO): non eliminabile.");
+      toast.error("Compagnia assicurativa di sistema (PLURIMANDATARIO): non eliminabile.");
       return;
     }
     setDeleteTarget({ id: g.id, descrizione: g.descrizione, count: g.agenzie_count });
