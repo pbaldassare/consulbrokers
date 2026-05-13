@@ -1529,9 +1529,7 @@ export default function ClienteDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Polizze del cliente</CardTitle>
-              <Button size="sm" onClick={() => navigate(`/portafoglio/immissione?clienteId=${id}`)}>
-                + Nuova Polizza
-              </Button>
+              <NuovaPolizzaButton clienteId={id} size="sm" />
             </CardHeader>
             <CardContent className="pt-2">
               {polizze.length === 0 ? (
