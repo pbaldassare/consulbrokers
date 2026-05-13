@@ -731,13 +731,13 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   if (val.length === 16) {
                     const parsed = parseCF(val);
                     if (parsed) {
-                      if (!sesso) setSesso(parsed.sesso);
-                      if (!dataNascita) setDataNascita(parsed.dataNascita);
+                      setSesso(parsed.sesso);
+                      setDataNascita(parsed.dataNascita);
                       const info = lookupComune(parsed.codiceCatastale);
                       if (info) {
-                        if (!comuneNascita) setComuneNascita(info.comune);
-                        if (!provinciaNascita) setProvinciaNascita(info.provincia);
-                        if (!luogoNascita) setLuogoNascita(`${info.comune} (${info.provincia})`);
+                        setComuneNascita(info.comune);
+                        setProvinciaNascita(info.provincia);
+                        setLuogoNascita(`${info.comune} (${info.provincia})`);
                       }
                       toast.info("Dati estratti automaticamente dal Codice Fiscale");
                     }

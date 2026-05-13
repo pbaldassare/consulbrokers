@@ -555,7 +555,7 @@ const AddressAutocomplete = ({
             <button
               key={prediction.place_id}
               type="button"
-              className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+              className="w-full px-3 py-2 text-left text-sm bg-popover text-popover-foreground hover:bg-muted/40 hover:ring-1 hover:ring-border hover:ring-inset focus:bg-muted/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
               onMouseDown={(event) => {
                 event.preventDefault();
                 if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);

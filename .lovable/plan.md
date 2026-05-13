@@ -1,37 +1,28 @@
-# Fix sorgente tendine Rete Commerciale in NuovoClienteDialog
+# Fix prefill Luogo di Nascita da CF + colore hover suggerimenti Maps
 
-## Problema
-Nel dialog "Nuovo Cliente" la tendina **Produttore** (e anche **AE**) usa la tabella `profiles` filtrando per ruoli `produttore_sede` / `account_executive`. È sbagliato: i Produttori e gli AE veri vivono in `anagrafiche_professionali` (es. **INTERFIDI SRL**, `tipo='corrispondente'`, `attivo=true`) e non hanno alcun profilo utente. Per questo "Interfidi" e altri produttori reali non compaiono nella lista.
+## 1) Luogo di Nascita non si prefilla dal CF
 
-Inoltre la tendina **Specialist** ora mostra anche admin/AE/produttori perché la query carica tutti e 4 i ruoli senza filtrare lato UI: va ristretta ai soli `backoffice`.
+In `NuovoClienteDialog.tsx` (cliente Privato) il prefill esiste già, ma è gated da `if (!luogoNascita)` (e idem `!comuneNascita` / `!provinciaNascita`). Il valore letto è quello di chiusura al momento del render: se l'utente apre il dialog con qualunque valore preesistente, o se il campo è già stato toccato da uno scan AI, il prefill non scatta. Inoltre questo guard rende la UX inaffidabile (l'utente non capisce perché a volte funziona e a volte no).
 
-## Verifica DB
-- `anagrafiche_professionali` con `tipo='corrispondente'` e `attivo=true` contiene `INTERFIDI SRL` (id `cbe0e599-…`) — non visibile oggi nel dialog.
-- Esistono già gli hook canonici: `useProduttoriLookup` e `useAccountExecutivesLookup`.
-- Memoria progetto: la persistenza canonica per AE/Produttore lato cliente è `codici_commerciali_cliente.anagrafica_id` (le colonne `profilo_id` per quei ruoli sono legacy).
+**Cambio**: quando `parseCF(val)` ha successo e `lookupComune(codiceCatastale)` restituisce un comune, **sovrascrivere sempre** i campi derivati dal CF (sesso, data nascita, comune, provincia, luogoNascita = `"Comune (PR)"`). Il CF è la fonte di verità.
 
-## Modifiche (solo `src/components/clienti/NuovoClienteDialog.tsx`)
+File: `src/components/clienti/NuovoClienteDialog.tsx`, blocco onChange del `FiscalCodeInput` per il privato (intorno alle righe 729-744).
 
-1. **Sorgente tendine**
-   - Produttore → `useProduttoriLookup()` (anagrafiche_professionali, tipo='corrispondente', attivo=true).
-   - Account Executive → `useAccountExecutivesLookup()` (tipo='account_executive', attivo=true).
-   - Specialist → resta `profiles`, ma la query `profili_commerciali_lookup` viene filtrata a `ruolo='backoffice'` (oppure si filtra il `.map` per mostrare solo i backoffice nella tendina Specialist), così non compaiono admin/AE/produttori.
+## 2) Hover acquamarina sui suggerimenti Google Maps
 
-2. **State + persistenza**
-   - Aggiungere accanto a `produttoreSede.profilo_id` un `produttoreSede.anagrafica_id` (e idem per `ae`). La tendina Produttore/AE scrive su `anagrafica_id`.
-   - In `insertCommercialRoles`:
-     - Riga "AE": `{ cliente_id, anagrafica_id: ae.anagrafica_id, ruolo: "AE" }` (omesso `profilo_id`).
-     - Riga "Produttore Sede": `{ cliente_id, anagrafica_id: produttoreSede.anagrafica_id, ruolo: "Produttore Sede" }`.
-     - Riga "Backoffice": invariata, continua con `profilo_id` (Specialist = utente con profilo).
-   - Validazione `getMissingFields()` per Specialist resta su `profilo_id`.
+In `AddressAutocomplete.tsx` (riga 558) i `<button>` dei suggerimenti usano `hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground` — nel tema corrente `accent` è il verde petrolio/teal del brand: l'effetto è invadente.
 
-3. **Reset / initialData**
-   - Aggiornare i reset a fine submit per azzerare anche i nuovi `anagrafica_id`.
+**Cambio richiesto dall'utente**: solo bordo sull'elemento sotto cursore/focus, senza riempire di colore. Sostituire le classi del `<button>` con uno schema "border-only":
+
+- bg ferma su `bg-popover` (default)
+- hover/focus → leggera evidenziazione neutra: `hover:bg-muted/40 focus:bg-muted/40` + `focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset`
+- aggiungere bordo sinistro/contorno on hover via `hover:ring-1 hover:ring-border hover:ring-inset` per "bordare" la riga selezionata
+
+Questo è l'unico componente che renderizza i suggerimenti Google Maps nel progetto (ricerca `rg` conferma: nessun altro file riusa il dropdown). Quindi il fix si applica una sola volta e copre tutti i form (clienti, polizze, compagnie, sedi, ecc.) come richiesto.
+
+File: `src/components/AddressAutocomplete.tsx`, riga 558 (className del `<button>` dentro il dropdown predizioni).
 
 ## Out of scope
-- Nessuna modifica DB (la colonna `anagrafica_id` su `codici_commerciali_cliente` esiste già per memoria).
-- Nessuna modifica ad altri form/pagina.
-- Logica auto-compila Sede dallo Specialist invariata.
-
-## Esito atteso
-Aprendo "Nuovo Cliente" → sezione Produttore mostra l'elenco reale dei corrispondenti (incluso **INTERFIDI SRL**). AE elenca gli account executive da anagrafiche. Specialist elenca solo i backoffice.
+- Nessuna modifica DB.
+- Nessun cambiamento al ClienteDetail (la sua logica CF è già aggressiva e funziona).
+- Nessuna modifica al tema/`--accent`: si interviene solo sulle classi del componente per non alterare gli altri usi del token `accent` nel resto dell'app.
