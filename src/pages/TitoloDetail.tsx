@@ -471,9 +471,48 @@ const TitoloDetail = () => {
     produttore_nome: "",
     ufficio_id: "" as string | null,
     compagnia_id: "" as string | null,
+    compagnia_rapporto_id: "" as string | null,
     ramo_id: "" as string | null,
     gruppo_ramo_id: null as string | null,
   });
+
+  // Rapporti attivi per la compagnia selezionata in editing
+  const { data: rapportiAgenziaEdit = [] } = useQuery({
+    queryKey: ["compagnia_rapporti_attivi_edit", contrattoForm.compagnia_id],
+    enabled: editingContratto && !!contrattoForm.compagnia_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("id, codice_rapporto, tipo_rapporto, attivo")
+        .eq("compagnia_id", contrattoForm.compagnia_id as string)
+        .eq("attivo", true)
+        .order("codice_rapporto");
+      return (data as any[]) || [];
+    },
+  });
+
+  // Auto-seleziona rapporto se uno solo / reset se non più valido
+  useEffect(() => {
+    if (!editingContratto) return;
+    if (!contrattoForm.compagnia_id) {
+      if (contrattoForm.compagnia_rapporto_id) {
+        setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+      }
+      return;
+    }
+    const list = rapportiAgenziaEdit || [];
+    if (list.length === 1 && contrattoForm.compagnia_rapporto_id !== list[0].id) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: list[0].id }));
+    } else if (list.length === 0 && contrattoForm.compagnia_rapporto_id) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+    } else if (
+      list.length >= 2 &&
+      contrattoForm.compagnia_rapporto_id &&
+      !list.find((r: any) => r.id === contrattoForm.compagnia_rapporto_id)
+    ) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+    }
+  }, [rapportiAgenziaEdit, contrattoForm.compagnia_id, editingContratto]);
 
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-anagrafiche"],
