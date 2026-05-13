@@ -20,6 +20,9 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { validatePIVA } from "@/lib/validatePIVA";
+import { validateCF } from "@/lib/validateCF";
 import {
   useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori,
   useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici,
@@ -480,9 +483,23 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     mutationFn: async () => {
       const missing = getMissingFields();
       if (missing.length > 0) throw new Error(`Campi obbligatori mancanti: ${missing.join(", ")}`);
-      if (tipoCliente === "privato" && codiceFiscale && codiceFiscale.length !== 16) {
-        throw new Error("Codice Fiscale deve essere di 16 caratteri");
+      // Validazione formato/checksum CF e P.IVA
+      const fiscalErrors: string[] = [];
+      if (tipoCliente === "privato" && codiceFiscale) {
+        const r = validateCF(codiceFiscale, { allowPIVAFormat: false });
+        if (!r.valid) fiscalErrors.push(`Codice Fiscale: ${r.error}`);
       }
+      if (tipoCliente !== "privato") {
+        if (partitaIva) {
+          const r = validatePIVA(partitaIva);
+          if (!r.valid) fiscalErrors.push(`Partita IVA: ${r.error}`);
+        }
+        if (codiceFiscaleAzienda) {
+          const r = validateCF(codiceFiscaleAzienda, { allowPIVAFormat: true });
+          if (!r.valid) fiscalErrors.push(`Codice Fiscale ${tipoCliente === "ente" ? "Ente" : "Azienda"}: ${r.error}`);
+        }
+      }
+      if (fiscalErrors.length > 0) throw new Error(fiscalErrors.join(" • "));
 
       const payload: Record<string, unknown> = {
         tipo_cliente: tipoCliente,
@@ -801,8 +818,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Cognome *</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} className={!cognome.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Codice Fiscale *</Label><Input value={codiceFiscale} className={!codiceFiscale.trim() ? "border-amber-400" : undefined} onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
+                <div><Label>Codice Fiscale *</Label><FiscalCodeInput kind="cf16" required value={codiceFiscale} onChange={(val) => {
                   setCodiceFiscale(val);
                   if (val.length === 16) {
                     const parsed = parseCF(val);
@@ -817,7 +833,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                       toast.info("Dati estratti automaticamente dal Codice Fiscale");
                     }
                   }
-                }} maxLength={16} /></div>
+                }} /></div>
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
               <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
@@ -832,16 +848,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             <>
               <div><Label>{tipoCliente === "ente" ? "Denominazione Ente *" : "Ragione Sociale *"}</Label><Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} className={!ragioneSociale.trim() ? "border-amber-400" : undefined} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Partita IVA *</Label><Input value={partitaIva} className={!partitaIva.trim() ? "border-amber-400" : undefined} onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
+                <div><Label>Partita IVA *</Label><FiscalCodeInput kind="piva" required value={partitaIva} onChange={(val) => {
                   setPartitaIva(val);
                   if (val.length === 11 && /^\d{11}$/.test(val) && !codiceFiscaleAzienda) {
                     setCodiceFiscaleAzienda(val);
                     toast.info("Codice Fiscale copiato dalla Partita IVA");
                   }
-                }} maxLength={11} /></div>
-                <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente *" : "Azienda"}</Label><Input value={codiceFiscaleAzienda} className={tipoCliente === "ente" && !codiceFiscaleAzienda.trim() ? "border-amber-400" : undefined} onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
+                }} /></div>
+                <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente *" : "Azienda"}</Label><FiscalCodeInput kind="cf-azienda" required={tipoCliente === "ente"} value={codiceFiscaleAzienda} onChange={(val) => {
                   setCodiceFiscaleAzienda(val);
                   if (val.length === 11 && /^\d{11}$/.test(val) && !partitaIva) {
                     setPartitaIva(val);

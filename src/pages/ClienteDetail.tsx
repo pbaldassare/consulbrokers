@@ -28,6 +28,9 @@ import type { DocumentType } from "@/components/AiDocumentScanner";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune, COMUNI_OPTIONS } from "@/lib/comuniItaliani";
+import { validatePIVA as validatePIVALib } from "@/lib/validatePIVA";
+import { validateCF as validateCFLib } from "@/lib/validateCF";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -123,12 +126,29 @@ function FieldInput({
           {action}
         </div>
       )}
-      {!readOnly && (
-        <>
-          {showError && <p className="text-xs text-destructive mt-0.5">{errorMessage || "Campo obbligatorio"}</p>}
-          {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
-        </>
-      )}
+      {!readOnly && (() => {
+        const v = (ef[field] || "").toString();
+        let fiscalErr: string | undefined;
+        if (v) {
+          if (field === "codice_fiscale") {
+            const r = validateCFLib(v, { allowPIVAFormat: false });
+            if (!r.valid) fiscalErr = r.error;
+          } else if (field === "codice_fiscale_azienda") {
+            const r = validateCFLib(v, { allowPIVAFormat: true });
+            if (!r.valid) fiscalErr = r.error;
+          } else if (field === "partita_iva") {
+            const r = validatePIVALib(v);
+            if (!r.valid) fiscalErr = r.error;
+          }
+        }
+        return (
+          <>
+            {showError && <p className="text-xs text-destructive mt-0.5">{errorMessage || "Campo obbligatorio"}</p>}
+            {!showError && fiscalErr && <p className="text-xs text-destructive mt-0.5">{fiscalErr}</p>}
+            {!showError && !fiscalErr && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -1428,8 +1448,10 @@ export default function ClienteDetail() {
   })();
 
   // Validazione campi obbligatori
-  const isCFValid = (cf: string) => /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test((cf || "").toUpperCase());
-  const isPIVAValid = (p: string) => /^\d{11}$/.test(p || "");
+  // Validazione P.IVA/CF con checksum (lib/validatePIVA, lib/validateCF)
+  const isCFValid = (cf: string) => validateCFLib(cf, { allowPIVAFormat: false }).valid;
+  const isPIVAValid = (p: string) => validatePIVALib(p).valid;
+  const isCFAziendaValid = (cf: string) => validateCFLib(cf, { allowPIVAFormat: true }).valid;
 
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
   const emailOk = isEmailValid(ef.email || "");
@@ -1455,7 +1477,7 @@ export default function ClienteDetail() {
         {
           field: "partita_iva",
           label: "Partita IVA o Codice Fiscale",
-          ok: isPIVAValid(ef.partita_iva || "") || isPIVAValid(ef.codice_fiscale_azienda || "") || isCFValid(ef.codice_fiscale_azienda || ""),
+          ok: isPIVAValid(ef.partita_iva || "") || isCFAziendaValid(ef.codice_fiscale_azienda || ""),
         },
         { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
         { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },

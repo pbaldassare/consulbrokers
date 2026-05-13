@@ -1,63 +1,58 @@
-# Rinomina "Codice CUP" → "Codice CIG"
+## Obiettivo
+Ridurre gli errori di inserimento di **Partita IVA** e **Codice Fiscale** introducendo validazione robusta (formato + checksum) riusabile in tutti i form dove vengono inseriti.
 
-Il campo obbligatorio per i clienti tipo **Ente** era stato chiamato erroneamente "CUP". Va rinominato ovunque in **CIG** (etichette UI, variabili, colonna DB).
+## 1. Nuovi helper di validazione (`src/lib/`)
 
-> Nota: NON tocco `DichiarativiCUPage` (è "Certificazione Unica") né i riferimenti `cig_rif` su `titoli` / `BandiPubblici` / `TitoliList` / `TitoloDetail` / `ClientePolizze` (sono già "CIG", non c'entrano).
+### `src/lib/validatePIVA.ts`
+- Funzione `validatePIVA(input)` → `{ valid, error?, normalized? }`.
+- Regole:
+  - 11 cifre numeriche.
+  - Checksum **algoritmo Luhn italiano** (somma cifre dispari + cifre pari ×2 con riporto, modulo 10 = 0).
+- Errori distinti: vuoto, lunghezza, caratteri non numerici, checksum errato.
 
-## 1. Database (migration)
+### `src/lib/validateCF.ts`
+- Funzione `validateCF(input, opts?)` → `{ valid, error?, normalized?, isPIVAFormat? }`.
+- Regole:
+  - Persona fisica: 16 caratteri, regex `^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$` + **carattere di controllo** (tabella ufficiale dispari/pari).
+  - Azienda: ammette anche 11 cifre (stesse regole della P.IVA via `validatePIVA`) → flag `isPIVAFormat=true`.
+- Coerenza con data/sesso opzionale (riusa `parseCF` esistente) solo come warning, non blocca.
 
-Nuova migration:
-- `ALTER TABLE clienti RENAME COLUMN codice_cup TO codice_cig;`
-- Aggiornare il `COMMENT ON COLUMN`: "Codice CIG (Codice Identificativo Gara) - obbligatorio per clienti tipo Ente".
-- Rigenerazione automatica di `src/integrations/supabase/types.ts` (3 occorrenze `codice_cup`).
+### Test (`src/lib/__tests__/validateFiscal.test.ts`)
+- Casi validi/non validi noti per CF persona, CF azienda 11 cifre, P.IVA con/senza checksum corretto.
 
-Le migration storiche già applicate (`20260429094141...`, `20260506215713...`) restano invariate per integrità storica.
+## 2. Componente input riusabile
 
-## 2. Frontend — rinomina identificatori e label
+### `src/components/ui/FiscalCodeInput.tsx` (sottile wrapper su `<Input>`)
+- Props: `value`, `onChange`, `kind: "cf16" | "piva" | "cf-azienda"`, `required?`, `onValidChange?(valid)`.
+- Comportamento:
+  - `onChange` → uppercase + strip spazi, `maxLength` adeguato (16 / 11).
+  - `onBlur` → esegue validatore, mostra messaggio inline rosso sotto il campo.
+  - Bordo: `border-destructive` se invalido a blur, `border-amber-400` se vuoto required.
+  - Tooltip `title` con regola sintetica.
+- Espone l'errore via callback per consentire ai form di bloccare il submit.
 
-### `src/components/clienti/NuovoClienteDialog.tsx`
-- `codiceCup` → `codiceCig` (state, setter, init da `initialData`, reset, payload, onChange uppercase, className validation, placeholder).
-- `initialData.codiceCup` → `initialData.codiceCig` (interfaccia + assegnazione).
-- `payload.codice_cup` → `payload.codice_cig`.
-- `missing.push("Codice CUP")` → `"Codice CIG"`.
-- Label `Codice CUP *` → `Codice CIG *`. Hint testuale → "Obbligatorio per Enti".
-- Commento "Pulisci CUP" → "Pulisci CIG".
+## 3. Integrazione nei form (solo UI/presentation)
 
-### `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx`
-- `codiceCup` (prop) → `codiceCig`.
-- `codiceCupNew` / `setCodiceCupNew` → `codiceCigNew` / `setCodiceCigNew`.
-- `cupRequired` → `cigRequired` (rinomina coerente).
-- Tutti i toast / label / placeholder / testi descrittivi: "CUP" → "CIG".
-- Reset, validazione, costruzione payload.
+Sostituire gli `<Input>` "raw" + uppercase manuali con `FiscalCodeInput` e bloccare il submit se invalido nei seguenti file:
 
-### `src/components/polizze/__tests__/aiImportPrefill.test.ts`
-- Rinomina campo `codiceCup` → `codiceCig` nei mock e nelle expect.
-- Aggiorna i nomi dei `it(...)` ("CUP" → "CIG") e i commenti di intestazione file.
+- `src/components/clienti/NuovoClienteDialog.tsx` — P.IVA, CF, CF azienda.
+- `src/pages/ClienteDetail.tsx` — sostituire `isCFValid`/`isPIVAValid` regex-only con i nuovi helper; aggiornare `FieldInput` per CF/P.IVA.
+- `src/pages/cliente/ClienteAnagrafica.tsx` — campi readonly: solo badge "valido/non valido".
+- `src/pages/ProspectList.tsx` e `src/pages/ProspectDetail.tsx` — P.IVA + CF.
+- `src/pages/AnagraficheInternePage.tsx` (Specialist/Produttori interni) — P.IVA + CF.
+- `src/pages/AnagraficheCompagniePage.tsx` — P.IVA + CF compagnia.
+- `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx` — campi cliente nuovo.
 
-### `src/pages/ImmissionePolizzaPage.tsx`
-- `m.codiceCup` → `m.codiceCig` (linea 94, propagazione AI prefill).
-- Commento linea 51: "Codice CUP per gli Enti" → "Codice CIG per gli Enti".
-- (`cigRif` / `cig_rif` su `titoli` restano come sono — sono già CIG.)
+In ciascun form:
+- Mantenere l'auto-fill esistente CF11 ↔ P.IVA.
+- Submit bloccato + toast con elenco campi invalidi se P.IVA/CF non superano il checksum (avviso, non solo formato).
 
-### `src/pages/ClienteDetail.tsx`
-- `codice_cup` → `codice_cig` (validation list e props del field).
-- Label "Codice CUP" → "Codice CIG", errorMessage "Codice CUP obbligatorio per Ente" → "Codice CIG obbligatorio per Ente".
+## 4. Fuori scope
+- Nessuna modifica a DB / RLS / edge function.
+- Nessun cambio sui flussi business o sui campi obbligatori per tipo soggetto (già definiti in altra memoria).
+- Pagine read-only di sola visualizzazione (PDF, liste contabili) restano invariate.
 
-### `src/pages/cliente/ClienteAnagrafica.tsx`
-- `{ campo: "codice_cup", label: "Codice CUP", ..., value: cliente.codice_cup }` → `codice_cig` / `"Codice CIG"` / `cliente.codice_cig`.
-
-## 3. Memoria progetto
-
-Aggiornare `.lovable/memory/insurance/gruppi-finanziari-tipo-soggetto.md`:
-- `clienti.codice_cup` → `clienti.codice_cig`
-- "Codice CUP obbligatorio" → "Codice CIG obbligatorio"
-
-## 4. Out of scope
-- `DichiarativiCUPage` (Certificazione Unica, non c'entra).
-- `titoli.cig_rif`, `bandi.cig`, `TitoliList`, `TitoloDetail`, `ClientePolizze`, `BandiPubblici`, `cerca-bandi`, `ec-agenzia-pdf` — sono già "CIG" gestiti correttamente.
-- Nessuna modifica a RLS o edge functions.
-
-## Verifica
-- `rg -n "codice_cup|codiceCup|Codice CUP"` deve restituire 0 risultati nei file modificati.
-- Build TypeScript pulita dopo rigenerazione `types.ts`.
-- Migration applicata: `SELECT codice_cig FROM clienti LIMIT 1;` ok.
+## Dettagli tecnici
+- Algoritmo P.IVA: cifre indice 1,3,5,7,9 sommate; indici 2,4,6,8,10 ×2, se >9 sottratto 9; somma totale + 11ª cifra ≡ 0 mod 10.
+- Algoritmo CF (carattere controllo): tabelle pari/dispari standard ministeriali; ultima lettera deve coincidere con `mod 26` della somma.
+- Tutti gli helper ritornano `normalized` upper/trim per essere salvati senza spazi.

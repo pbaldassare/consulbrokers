@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { Label as UILabel } from "@/components/ui/label";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import {
   Sparkles, UploadCloud, Loader2, FileText, CheckCircle2, AlertTriangle,
@@ -701,8 +703,8 @@ export function ImportNuovaPolizzaAIDialog({
 
                   <div className="grid grid-cols-2 gap-2">
                     <FieldInput label="Nome / Ragione Sociale" value={data.contraente_nome} onChange={(v) => updateField("contraente_nome", v)} />
-                    <FieldInput label="Codice Fiscale" value={data.contraente_codice_fiscale} onChange={(v) => updateField("contraente_codice_fiscale", v.toUpperCase())} />
-                    <FieldInput label="Partita IVA" value={data.contraente_partita_iva} onChange={(v) => updateField("contraente_partita_iva", v)} />
+                    <div><UILabel className="text-xs">Codice Fiscale</UILabel><FiscalCodeInput kind="cf-azienda" value={data.contraente_codice_fiscale || ""} onChange={(v) => updateField("contraente_codice_fiscale", v)} /></div>
+                    <div><UILabel className="text-xs">Partita IVA</UILabel><FiscalCodeInput kind="piva" value={data.contraente_partita_iva || ""} onChange={(v) => updateField("contraente_partita_iva", v)} /></div>
                     <FieldInput label="Email" value={data.contraente_email} onChange={(v) => updateField("contraente_email", v)} />
                     <FieldInput label="Telefono" value={data.contraente_telefono} onChange={(v) => updateField("contraente_telefono", v)} />
                     <FieldInput label="Indirizzo" value={data.contraente_indirizzo} onChange={(v) => updateField("contraente_indirizzo", v)} />

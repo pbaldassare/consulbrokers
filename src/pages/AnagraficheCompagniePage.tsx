@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, UserCheck, Scale, Eye, Trash2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
@@ -681,7 +682,7 @@ const AnagraficheCompagniePage = () => {
                 <div><Label>Codice Fornitore</Label><Input value={form.codice_fornitore} onChange={(e) => setForm({ ...form, codice_fornitore: e.target.value })} /></div>
                 <div><Label>Cognome o Denominazione *</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
                 <div><Label>Nome o seguito Denominazione</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-                <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value })} /></div>
+                <div><Label>Codice Fiscale</Label><FiscalCodeInput kind="cf-azienda" value={form.codice_fiscale || ""} onChange={(val) => setForm({ ...form, codice_fiscale: val })} /></div>
                 <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
                 <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
@@ -748,8 +749,7 @@ const AnagraficheCompagniePage = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => {
-              const val = e.target.value.toUpperCase();
+            <div><Label>Codice Fiscale</Label><FiscalCodeInput kind="cf-azienda" value={form.codice_fiscale || ""} onChange={(val) => {
               const updates: any = { ...form, codice_fiscale: val };
               if (val.length === 11 && /^\d{11}$/.test(val) && !form.partita_iva) {
                 updates.partita_iva = val;
@@ -757,7 +757,7 @@ const AnagraficheCompagniePage = () => {
               }
               setForm(updates);
             }} /></div>
-            <div><Label>Partita IVA</Label><Input value={form.partita_iva} onChange={(e) => setForm({ ...form, partita_iva: e.target.value.toUpperCase() })} /></div>
+            <div><Label>Partita IVA</Label><FiscalCodeInput kind="piva" value={form.partita_iva || ""} onChange={(val) => setForm({ ...form, partita_iva: val })} /></div>
             <div><Label>N° Albo</Label><Input value={form.albo_numero} onChange={(e) => setForm({ ...form, albo_numero: e.target.value })} /></div>
             <div><Label>Specializzazione</Label><Input value={form.specializzazione} onChange={(e) => setForm({ ...form, specializzazione: e.target.value })} /></div>
           </div>
