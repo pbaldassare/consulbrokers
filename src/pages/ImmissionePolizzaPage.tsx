@@ -505,6 +505,15 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  // Sync gruppo compagnia quando cambia agenzia
+  useEffect(() => {
+    if (!selectedCompagnia) return;
+    const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia);
+    if (ag?.gruppo_compagnia_id && ag.gruppo_compagnia_id !== selectedGruppoCompagniaId) {
+      setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+    }
+  }, [selectedCompagnia, compagnieList]);
+
   // Gruppo ramo del ramo selezionato
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
