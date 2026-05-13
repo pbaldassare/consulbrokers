@@ -648,19 +648,20 @@ const ImmissionePolizzaPage = () => {
         data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
-        // Produttore: salviamo il nome leggibile in produttore_nome (text).
-        // produttore_id resta NULL/legacy.
+        // Produttore: salviamo l'anagrafica + nome leggibile (produttore_id legacy resta NULL).
+        anagrafica_commerciale_id: selectedAE || null,
         produttore_nome: (() => {
           if (!selectedAE) return null;
           const ae = (aeList || []).find((a: any) => a.id === selectedAE);
           if (!ae) return null;
           return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
         })(),
-        // Account Executive salvato come "COGNOME NOME" leggibile in titoli.ae_nome
+        // Account Executive: anagrafica + nome leggibile.
+        ae_anagrafica_id: selectedAccountExecutiveId || null,
         ae_nome: (() => {
           if (!selectedAccountExecutiveId) return null;
-          const a = (commercialiList || []).find((c: any) => c.id === selectedAccountExecutiveId);
-          return a ? `${(a as any).cognome || ""} ${(a as any).nome || ""}`.trim() : null;
+          const a = (aeAnagraficheList || []).find((x) => x.value === selectedAccountExecutiveId);
+          return a ? a.label : null;
         })(),
         // Backoffice (Specialist) salvato come "COGNOME NOME" leggibile in titoli.specialist
         ...(selectedBackofficeId ? {
