@@ -1,27 +1,22 @@
-## Piano di correzione
+Problema individuato: la schermata carica correttamente i dati reali da Supabase (`compagnie` e `gruppi_compagnia`), ma la UI attuale separa “Compagnia Assicurativa” come gruppo e “Agenzia di Riferimento” come singola compagnia/agenzia. Questo genera confusione e, quando il gruppo non viene risolto o la ricerca non trova il testo atteso, sembra che la compagnia non venga presa. Inoltre nei log recenti c’è stato un 400 su `gruppi_compagnia.nome`: lo schema reale usa `descrizione`, non `nome`.
 
-1. **Sbloccare la tendina “Compagnia Assicurativa”**
-   - Correggere la query in `ImmissionePolizzaPage`: `gruppi_compagnia` non ha la colonna `nome`, ma `codice` e `descrizione`.
-   - Mostrare le opzioni come `codice - descrizione` e ordinare per `codice`/`descrizione`.
-   - Questo risolve l’errore 400 attuale: `column gruppi_compagnia.nome does not exist`, che lascia vuota la compagnia e manda fuori sync il resto.
+Piano di correzione:
 
-2. **Rendere coerente l’applicazione dei dati AI compagnia/agenzia**
-   - Quando l’import AI seleziona un’agenzia (`compagnie.id`), impostare subito anche il relativo gruppo compagnia, senza aspettare effetti asincroni.
-   - Se l’AI trova il gruppo ma non può scegliere automaticamente l’agenzia perché ce ne sono più di una, lasciare il gruppo selezionato e obbligare la scelta manuale dell’agenzia, evitando salvataggi incompleti.
+1. Rendere robusta la tendina “Compagnia Assicurativa”
+   - Usare sempre i record da `gruppi_compagnia` con campi reali `id`, `codice`, `descrizione`.
+   - Mostrare label chiare basate su `descrizione` e `codice`, non su una colonna `nome` inesistente.
+   - Gestire esplicitamente errori di query con `toast`/fallback vuoto invece di fallire silenziosamente.
 
-3. **Migliorare il matching compagnia nell’import AI**
-   - In `ImportNuovaPolizzaAIDialog`, mantenere la query sui gruppi con `descrizione`, ma rendere il match più robusto anche rispetto a `codice` e alle denominazioni presenti in `compagnie.nome`.
-   - Se il PDF riporta un nome di agenzia/compagnia specifico, provare prima a trovare una `compagnie` attiva e da lì derivare `gruppo_compagnia_id`; altrimenti usare il fallback su `gruppi_compagnia`.
+2. Rendere coerente la cascata Compagnia → Agenzia
+   - Quando viene scelta una compagnia/gruppo assicurativo, filtrare le agenzie di riferimento tramite `compagnie.gruppo_compagnia_id`.
+   - Quando viene scelta un’agenzia, sincronizzare automaticamente la compagnia/gruppo assicurativo associato.
+   - Non svuotare inutilmente la scelta dell’agenzia se il gruppo è già coerente.
 
-4. **Stabilizzare ramo/sottoramo dopo la compagnia**
-   - Non cambiare la struttura `RamoSottoramoSelect` già corretta.
-   - Verificare che il sottoramo venga impostato solo quando esiste un `ramo_id` valido; se il match è ambiguo, lasciarlo manuale invece di preselezionare un ramo sbagliato.
+3. Migliorare la ricerca nelle tendine
+   - Aggiornare `SearchableSelect` per usare valori univoci internamente e testo di ricerca separato, evitando problemi di `cmdk` con label duplicate o ricerca che mostra “Nessun risultato” pur avendo opzioni.
+   - Mantenere compatibile il componente con tutti gli usi esistenti.
 
-5. **CIG solo dove serve davvero**
-   - In immissione polizza, mantenere il campo come riferimento facoltativo, ma non renderlo obbligatorio per `privato` o `azienda`.
-   - Nel flusso “Nuovo Cliente” e nella revisione AI, confermare che il CIG venga richiesto solo se il Gruppo Finanziario classifica il cliente come `ente`.
-   - Rimuovere/aggiornare messaggi che possano far pensare che sia richiesto per aziende o persone fisiche.
-
-6. **Validazione finale**
-   - Controllare i network log: la richiesta a `gruppi_compagnia` deve tornare 200.
-   - Verificare in preview `/portafoglio/immissione` che la tendina compagnia si popoli, l’agenzia filtri correttamente e ramo/sottoramo restino coerenti.
+4. Validazione finale
+   - Verificare che la pagina `/portafoglio/immissione` non faccia più richieste a `gruppi_compagnia.nome`.
+   - Verificare che “Compagnia Assicurativa” mostri risultati e che, dopo la selezione, “Agenzia di Riferimento” venga popolata correttamente.
+   - Verificare che il payload di salvataggio continui a salvare `compagnia_id` dalla singola agenzia selezionata, come previsto dal database.
