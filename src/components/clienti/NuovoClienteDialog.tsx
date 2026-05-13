@@ -388,10 +388,10 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const insertCommercialRoles = async (clienteId: string) => {
     const rows: any[] = [];
 
-    if (ae.profilo_id) {
+    if (ae.anagrafica_id) {
       rows.push({
         cliente_id: clienteId,
-        profilo_id: ae.profilo_id,
+        anagrafica_id: ae.anagrafica_id,
         ruolo: "AE",
       });
     }
@@ -404,10 +404,10 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       });
     }
 
-    if (produttoreSede.profilo_id) {
+    if (produttoreSede.anagrafica_id) {
       rows.push({
         cliente_id: clienteId,
-        profilo_id: produttoreSede.profilo_id,
+        anagrafica_id: produttoreSede.anagrafica_id,
         ruolo: "Produttore Sede",
       });
     }
@@ -965,10 +965,10 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div>
                   <Label className="text-xs">Profilo</Label>
                   <SearchableSelect
-                    value={ae.profilo_id}
-                    onValueChange={(v) => updateRole(setAe, "profilo_id", v)}
+                    value={ae.anagrafica_id}
+                    onValueChange={(v) => updateRole(setAe, "anagrafica_id", v)}
                     placeholder="Seleziona AE..."
-                    options={profiliCommerciali}
+                    options={aeOpts}
                   />
                 </div>
               </div>
@@ -1011,17 +1011,17 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
 
-            {/* Produttore (DB ruolo "Produttore Sede") */}
+            {/* Produttore (anagrafiche_professionali tipo='corrispondente') */}
             <div className="rounded-md border p-4 mb-3">
               <p className="text-sm font-medium mb-3">Produttore</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-xs">Profilo</Label>
+                  <Label className="text-xs">Produttore</Label>
                   <SearchableSelect
-                    value={produttoreSede.profilo_id}
-                    onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
+                    value={produttoreSede.anagrafica_id}
+                    onValueChange={(v) => updateRole(setProduttoreSede, "anagrafica_id", v)}
                     placeholder="Seleziona Produttore..."
-                    options={profiliCommerciali}
+                    options={produttoriOpts}
                   />
                 </div>
               </div>
