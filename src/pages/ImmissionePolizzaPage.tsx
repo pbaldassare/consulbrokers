@@ -727,6 +727,12 @@ const ImmissionePolizzaPage = () => {
       toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
       return;
     }
+    // Se l'agenzia ha 2+ rapporti attivi, l'utente deve sceglierne uno
+    if (selectedCompagnia && (rapportiAgenzia || []).length >= 2 && !selectedRapportoId) {
+      toast.error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+      return;
+    }
+    const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
     setSaving(true);
     try {
       const payload: Record<string, any> = {
@@ -734,6 +740,8 @@ const ImmissionePolizzaPage = () => {
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
         compagnia_id: selectedCompagnia || null,
+        compagnia_rapporto_id: selectedRapportoId || null,
+        codice_rapporto: rapportoSel?.codice_rapporto || null,
         ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
