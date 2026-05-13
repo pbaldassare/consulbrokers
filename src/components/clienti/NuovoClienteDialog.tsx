@@ -984,6 +984,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
 
             {/* Sede (collegata allo Specialist) */}
             <div className={`rounded-md border p-4 mb-3 ${!ufficioClienteId ? "border-amber-400" : ""}`}>
+              <p className="text-sm font-medium mb-1">Sede *</p>
               <p className="text-xs text-muted-foreground mb-3">
                 Auto-compilata dallo Specialist selezionato, modificabile.
               </p>
