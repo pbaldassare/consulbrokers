@@ -27,7 +27,7 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
     provincia: d.contraente_provincia,
     nazione: d.contraente_nazione,
     gruppoFinanziarioId: m.gruppoFinanziarioId,
-    codiceCup: m.codiceCup,
+    codiceCig: m.codiceCig,
   };
 }
 
@@ -38,7 +38,7 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
 function canApplyAi(m: MatchResult): boolean {
   if (!m.isNewCliente) return true;
   if (!m.gruppoFinanziarioId) return false;
-  if (m.tipoCliente === "ente" && !(m.codiceCup || "").trim()) return false;
+  if (m.tipoCliente === "ente" && !(m.codiceCig || "").trim()) return false;
   return true;
 }
 
@@ -80,20 +80,20 @@ describe("AI import → NuovoClienteDialog prefill", () => {
       data: { contraente_nome: "Comune di Varese", contraente_partita_iva: "00441340121" },
     });
     expect(p.gruppoFinanziarioId).toBeUndefined();
-    expect(p.codiceCup).toBeUndefined();
+    expect(p.codiceCig).toBeUndefined();
   });
 
-  it("propaga gruppoFinanziarioId, tipoCliente e codiceCup quando scelti nel dialog AI (Ente)", () => {
+  it("propaga gruppoFinanziarioId, tipoCliente e codiceCig quando scelti nel dialog AI (Ente)", () => {
     const p = buildPrefill({
       isNewCliente: true,
       tipoCliente: "ente",
       gruppoFinanziarioId: "gf-uuid-123",
-      codiceCup: "C12E34567",
+      codiceCig: "C12E34567",
       data: { contraente_nome: "Comune di Roma", contraente_partita_iva: "02438750586" },
     });
     expect(p.tipoCliente).toBe("ente");
     expect(p.gruppoFinanziarioId).toBe("gf-uuid-123");
-    expect(p.codiceCup).toBe("C12E34567");
+    expect(p.codiceCig).toBe("C12E34567");
     expect(p.ragioneSociale).toBe("Comune di Roma");
   });
 });
@@ -108,7 +108,7 @@ describe("AI import → gating Applica", () => {
     ).toBe(false);
   });
 
-  it("blocca Applica quando Ente senza Codice CUP", () => {
+  it("blocca Applica quando Ente senza Codice CIG", () => {
     expect(
       canApplyAi({
         isNewCliente: true,
@@ -136,7 +136,7 @@ describe("AI import → gating Applica", () => {
         isNewCliente: true,
         tipoCliente: "ente",
         gruppoFinanziarioId: "gf-1",
-        codiceCup: "ABC123",
+        codiceCig: "ABC123",
         data: { contraente_nome: "X" },
       }),
     ).toBe(true);

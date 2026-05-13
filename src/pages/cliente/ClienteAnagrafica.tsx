@@ -44,7 +44,7 @@ const ClienteAnagrafica = () => {
     { campo: "partita_iva", label: "P.IVA", icon: FileText, value: cliente.partita_iva },
     { campo: "codice_fiscale_azienda", label: "Codice Fiscale", icon: FileText, value: cliente.codice_fiscale_azienda || cliente.codice_fiscale },
     { campo: "codice_sdi", label: "Codice SDI", icon: FileText, value: cliente.codice_sdi, editable: true },
-    { campo: "codice_cup", label: "Codice CUP", icon: FileText, value: cliente.codice_cup, editable: true },
+    { campo: "codice_cig", label: "Codice CIG", icon: FileText, value: cliente.codice_cig, editable: true },
     { campo: "indirizzo_sede", label: "Sede", icon: MapPin, value: sede, editable: true },
     { campo: "email", label: "Email", icon: Mail, value: cliente.email, editable: true },
     { campo: "pec", label: "PEC", icon: Mail, value: cliente.pec, editable: true },

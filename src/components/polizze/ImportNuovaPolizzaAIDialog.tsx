@@ -61,7 +61,7 @@ export type MatchResult = {
   isNewCliente?: boolean;
   gruppoFinanziarioId?: string;
   tipoCliente?: "privato" | "azienda" | "ente";
-  codiceCup?: string;
+  codiceCig?: string;
 };
 
 type GruppoFinanziarioOpt = {
@@ -120,7 +120,7 @@ export function ImportNuovaPolizzaAIDialog({
   const [selectedSottoramoId, setSelectedSottoramoId] = useState<string>("");
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
-  const [codiceCupNew, setCodiceCupNew] = useState<string>("");
+  const [codiceCigNew, setCodiceCigNew] = useState<string>("");
 
   const fileInput = useRef<HTMLInputElement>(null);
   const logScrollRef = useRef<HTMLDivElement>(null);
@@ -163,7 +163,7 @@ export function ImportNuovaPolizzaAIDialog({
     setSelectedGruppoRamoId("");
     setSelectedSottoramoId("");
     setSelectedGruppoFinanziarioId("");
-    setCodiceCupNew("");
+    setCodiceCigNew("");
   };
 
   const log = (level: LogEntry["level"], msg: string) =>
@@ -419,9 +419,9 @@ export function ImportNuovaPolizzaAIDialog({
     [gruppiFinanziari, selectedGruppoFinanziarioId],
   );
   const tipoClienteAuto = selectedGruppoFinanziario?.tipo_soggetto;
-  const cupRequired = tipoClienteAuto === "ente";
+  const cigRequired = tipoClienteAuto === "ente";
   const newClienteReady =
-    !isNewCliente || (!!selectedGruppoFinanziarioId && (!cupRequired || codiceCupNew.trim().length > 0));
+    !isNewCliente || (!!selectedGruppoFinanziarioId && (!cigRequired || codiceCigNew.trim().length > 0));
 
   const buildResult = (): MatchResult => {
     const cliente =
@@ -449,7 +449,7 @@ export function ImportNuovaPolizzaAIDialog({
       isNewCliente,
       gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
       tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
-      codiceCup: isNewCliente && cupRequired ? codiceCupNew.trim() || undefined : undefined,
+      codiceCig: isNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
     };
   };
 
@@ -469,8 +469,8 @@ export function ImportNuovaPolizzaAIDialog({
       toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
       return;
     }
-    if (isNewCliente && cupRequired && !codiceCupNew.trim()) {
-      toast.error("Inserisci il Codice CUP (obbligatorio per gli Enti)");
+    if (isNewCliente && cigRequired && !codiceCigNew.trim()) {
+      toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
       return;
     }
     onApply(buildResult());
@@ -629,7 +629,7 @@ export function ImportNuovaPolizzaAIDialog({
                         onValueChange={(v) => {
                           setSelectedGruppoFinanziarioId(v);
                           const gf = gruppiFinanziari.find((g) => g.id === v);
-                          if (gf?.tipo_soggetto !== "ente") setCodiceCupNew("");
+                          if (gf?.tipo_soggetto !== "ente") setCodiceCigNew("");
                         }}
                         placeholder="— Cerca e seleziona gruppo finanziario —"
                         options={gruppiFinanziari.map((g) => ({
@@ -663,16 +663,16 @@ export function ImportNuovaPolizzaAIDialog({
                         </Badge>
                       )}
                     </div>
-                    {cupRequired && (
+                    {cigRequired && (
                       <div>
-                        <Label className="text-xs">Codice CUP * (obbligatorio per gli Enti)</Label>
+                        <Label className="text-xs">Codice CIG * (obbligatorio per gli Enti)</Label>
                         <Input
-                          value={codiceCupNew}
-                          onChange={(e) => setCodiceCupNew(e.target.value)}
-                          placeholder="Inserisci Codice CUP"
+                          value={codiceCigNew}
+                          onChange={(e) => setCodiceCigNew(e.target.value)}
+                          placeholder="Inserisci Codice CIG"
                           className={cn(
                             "h-8 text-xs",
-                            !codiceCupNew.trim() && "border-amber-400",
+                            !codiceCigNew.trim() && "border-amber-400",
                           )}
                         />
                       </div>
@@ -695,7 +695,7 @@ export function ImportNuovaPolizzaAIDialog({
                     <span className="flex-1 leading-relaxed">
                       {newClienteReady
                         ? "Tutto pronto: cliccando Applica verrà aperto il form Nuovo Cliente pre-compilato (incluso Gruppo Finanziario) per il salvataggio."
-                        : "Seleziona il Gruppo Finanziario qui sopra (e il Codice CUP per gli Enti) prima di proseguire. Il tipo cliente verrà derivato automaticamente."}
+                        : "Seleziona il Gruppo Finanziario qui sopra (e il Codice CIG per gli Enti) prima di proseguire. Il tipo cliente verrà derivato automaticamente."}
                     </span>
                   </div>
 
@@ -948,7 +948,7 @@ export function ImportNuovaPolizzaAIDialog({
               <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-xs text-amber-800 dark:text-amber-200 flex gap-2">
                 <UserPlus className="h-4 w-4 shrink-0" />
                 Cliccando <strong>Crea cliente e applica</strong> si aprirà il form Nuovo Cliente
-                pre-compilato. Completa i campi obbligatori (Gruppo Finanziario, eventuale CUP) e
+                pre-compilato. Completa i campi obbligatori (Gruppo Finanziario, eventuale CIG) e
                 salva: la polizza verrà poi pre-compilata con questi dati.
               </div>
             )}
