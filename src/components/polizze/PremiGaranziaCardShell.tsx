@@ -171,7 +171,7 @@ export function PremiGaranziaCardShell({
               {rows.map((r, idx) => {
                 const netto = parseFloat(r.netto || "0") || 0;
                 const tax = parseFloat(r.tasse || "0") || 0;
-                const aliquotaCalc = netto > 0 ? (tax / netto) * 100 : 0;
+                const aliquotaCalc = netto > 0 ? (tax / netto) * 100 : (r.aliquotaTasse || 0);
                 const lordoRow = netto + tax;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
