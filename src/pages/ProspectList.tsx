@@ -319,9 +319,8 @@ const ProspectList = () => {
                 <>
                   <div><Label>Ragione Sociale *</Label><Input value={form.ragione_sociale} onChange={(e) => set("ragione_sociale", e.target.value)} placeholder="Azienda S.r.l." /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><Label>Partita IVA</Label><Input value={form.partita_iva} onChange={(e) => set("partita_iva", e.target.value.toUpperCase())} maxLength={11} /></div>
-                    <div><Label>Codice Fiscale Azienda</Label><Input value={form.codice_fiscale_azienda} onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
+                    <div><Label>Partita IVA</Label><FiscalCodeInput kind="piva" value={form.partita_iva} onChange={(val) => set("partita_iva", val)} /></div>
+                    <div><Label>Codice Fiscale Azienda</Label><FiscalCodeInput kind="cf-azienda" value={form.codice_fiscale_azienda} onChange={(val) => {
                       set("codice_fiscale_azienda", val);
                       if (val.length === 11 && /^\d{11}$/.test(val) && !form.partita_iva) {
                         set("partita_iva", val);
