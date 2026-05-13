@@ -171,15 +171,20 @@ const ImmissionePolizzaPage = () => {
   const [descrizionePolizza, setDescrizionePolizza] = useState("");
 
   // Periodo
-  const [durataDa, setDurataDa] = useState("");
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [durataDa, setDurataDa] = useState(todayISO);
   const [durataA, setDurataA] = useState("");
+  const [durataATouched, setDurataATouched] = useState(false);
   const [anniDurata, setAnniDurata] = useState("1");
   const [tacitoRinnovo, setTacitoRinnovo] = useState(true);
-  const [rate, setRate] = useState("1");
+  const [frazionamento, setFrazionamento] = useState<string>("Annuale");
   const [moraGiorni, setMoraGiorni] = useState("15");
   const [garanziaDa, setGaranziaDa] = useState("");
+  const [garanziaDaTouched, setGaranziaDaTouched] = useState(false);
   const [garanziaA, setGaranziaA] = useState("");
+  const [garanziaATouched, setGaranziaATouched] = useState(false);
   const [dataCompetenza, setDataCompetenza] = useState("");
+  const [dataCompetenzaTouched, setDataCompetenzaTouched] = useState(false);
   const [limiteMora, setLimiteMora] = useState("");
   const [disdettaMesi, setDisdettaMesi] = useState("");
 
