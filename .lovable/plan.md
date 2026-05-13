@@ -1,21 +1,46 @@
 ## Obiettivo
-Eliminare le polizze demo del Comune di Varese che hanno premio a 0, in modo che i conteggi/totali del portafoglio restino corretti.
 
-## Polizze da eliminare (premio_netto = 0 e premio_lordo = 0)
+In **Immissione Polizza** rendere il **Gruppo Finanziario** un dato sempre visibile e governante:
+- per **cliente esistente** → mostrato come badge derivato dal cliente
+- per **nuovo cliente** (creazione inline) → selezione obbligatoria **come primo campo**, prima di tutto il resto, perché determina quali campi anagrafica e quali campi polizza sono obbligatori (privato / azienda / ente).
 
-| Numero | Prodotto | Note |
-|---|---|---|
-| DEMO-VA-2026-006 | RCA Scuolabus | [DEMO] Scadenza imminente |
-| DEMO-VA-2026-007 | Cyber Risk PA | [DEMO] (duplicato di 2026-012 con premio reale) |
+## Piano
 
-Tutte le altre polizze DEMO-VA-* hanno importi validi e restano.
+### 1. Nuovo cliente — Gruppo Finanziario come primo step
+Nel form "Nuovo cliente" inline della pagina Immissione:
+- Aggiungere come **primo campo in cima** un `SearchableSelect` "Gruppo Finanziario *" che lista `gruppi_finanziari` (codice — nome — tipo_soggetto).
+- Finché non è selezionato, gli altri campi anagrafica restano disabilitati con messaggio "Seleziona prima il Gruppo Finanziario".
+- Una volta scelto, il `tipo_soggetto` derivato pilota:
+  - `privato` → mostra Nome, Cognome, CF, data nascita; nasconde Ragione sociale / P.IVA
+  - `azienda` → mostra Ragione sociale, P.IVA, CF aziendale; nasconde Nome/Cognome/data nascita
+  - `ente` → come azienda + abilita campi gara (CIG/CUP) nella sezione polizza
 
-## Operazioni
-1. Verificare dipendenze a cascata (sinistri, appendici, documenti, movimenti, log) collegate ai 2 `titolo_id`.
-2. Se presenti record collegati DEMO, rimuoverli prima per evitare violazioni FK.
-3. `DELETE FROM titoli WHERE id IN ('85aa81c4-4d7b-4d48-9ff7-543bc3735447','baa52123-1e2a-4483-b36f-0dffff0c76a3')`.
-4. Verificare il count residuo polizze del Comune di Varese e ricaricare /cliente/polizze per conferma.
+### 2. Cliente esistente — Badge Gruppo Finanziario
+Sotto il SearchableSelect cliente nella sezione "Cliente & Sede":
+- Badge colorato con `tipo_soggetto` (🟦 Privato / 🟧 Azienda / 🟩 Ente) + nome del gruppo.
+- Se cliente senza `gruppo_finanziario_id` → badge rosso "⚠ Gruppo finanziario mancante" + link "Apri scheda cliente" per assegnarlo.
 
-## Fuori scope
-- Non si toccano le altre polizze DEMO con importi.
-- Nessuna modifica UI o di business logic.
+### 3. Validazione condizionale in Immissione Polizza
+Dal `tipo_soggetto` (cliente esistente o appena creato):
+- `ente` → CIG e descrizione gara obbligatori; CUP opzionale ma visibile
+- `azienda` / `privato` → CIG nascosto
+- Asterisco rosso `*` + tooltip "Obbligatorio per {tipoSoggetto}"
+
+### 4. Blocco salvataggio
+Bottone "Salva polizza" disabilitato finché:
+- gruppo finanziario presente (su cliente esistente o nuovo)
+- campi obbligatori condizionali compilati
+
+### Sezione tecnica
+- File: `src/pages/ImmissionePolizzaPage.tsx` (estendere query cliente con join `gruppi_finanziari`, riordinare form nuovo cliente, aggiungere logica `tipoSoggetto`).
+- Nuovo componente piccolo `GruppoFinanziarioBadge.tsx` in `src/components/polizze/`.
+- Stessa logica già usata in `ImportNuovaPolizzaAIDialog.tsx` (rif. righe 421/632) → riusare il mapping.
+- Nessuna modifica DB / RLS / edge functions.
+- Memoria: `mem://insurance/gruppi-finanziari-tipo-soggetto`.
+
+### Fuori scope
+- Modifiche al wizard "Importa da PDF (AI)".
+- Refactor della scheda anagrafica cliente completa.
+- Validazioni server-side aggiuntive.
+
+Confermi e procedo?
