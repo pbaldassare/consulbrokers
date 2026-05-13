@@ -877,12 +877,19 @@ const ImmissionePolizzaPage = () => {
             titolo_id: newTitolo.id,
             tipo_premio: tipo,
             garanzia: r.codice || r.descrizione || "Premio",
+            codice_garanzia: r.codice || null,
             capitale: 0,
             tasso: 0,
             firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
             rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
             annuo: 0,
             ordine: idx,
+            is_rca_principale: r.isRcaPrincipale === true,
+            imposta_provinciale: r.isRcaPrincipale ? (parseFloat(r.imposta || "0") || 0) : null,
+            ssn: r.isRcaPrincipale ? (parseFloat(r.ssn || "0") || 0) : null,
+            aliquota_tasse_pct: r.isRcaPrincipale
+              ? (r.aliquotaProvinciale ?? null)
+              : (r.aliquotaTasse || null),
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
