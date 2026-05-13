@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
 import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
