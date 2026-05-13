@@ -16,7 +16,7 @@ import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import {
   Sparkles, UploadCloud, Loader2, FileText, CheckCircle2, AlertTriangle,
-  UserPlus, ArrowLeft, ArrowRight, Trash2, Calculator,
+  UserPlus, ArrowLeft, ArrowRight, Trash2, Calculator, Info, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
