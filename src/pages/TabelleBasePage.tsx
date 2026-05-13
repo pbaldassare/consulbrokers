@@ -94,9 +94,15 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">{title}</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -109,11 +115,11 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessun elemento inserito</TableCell></TableRow>
-            ) : items.map((item) => (
+            {(() => {
+              const filtered = items.filter((i: any) => matchSearch(search, [i.codice, i.descrizione]));
+              if (isLoading) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento inserito"}</TableCell></TableRow>);
+              return filtered.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
@@ -125,7 +131,8 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
