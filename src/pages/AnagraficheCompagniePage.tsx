@@ -17,6 +17,7 @@ import { Plus, Search, UserCheck, Scale, Eye, Trash2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
