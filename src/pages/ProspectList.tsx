@@ -25,6 +25,7 @@ import type { DocumentType } from "@/components/AiDocumentScanner";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
