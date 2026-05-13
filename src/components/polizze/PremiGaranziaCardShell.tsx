@@ -128,6 +128,19 @@ export function PremiGaranziaCardShell({
     });
   };
 
+  const handleLordoChange = (idx: number, value: string) => {
+    const r = rows[idx];
+    const lordo = parseFloat(value || "0") || 0;
+    const aliquota = r?.aliquotaTasse || 0;
+    if (aliquota > 0) {
+      const netto = lordo / (1 + aliquota / 100);
+      const tasse = lordo - netto;
+      updateRow(idx, { netto: netto.toFixed(2), tasse: tasse.toFixed(2) });
+    } else {
+      updateRow(idx, { netto: lordo.toFixed(2), tasse: "0.00" });
+    }
+  };
+
   return (
     <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
       <CardHeader
@@ -223,7 +236,16 @@ export function PremiGaranziaCardShell({
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{lordoRow.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={lordoRow ? lordoRow.toFixed(2) : ""}
+                        onChange={(e) => handleLordoChange(idx, e.target.value)}
+                        className="h-8 text-right font-mono font-semibold ml-auto w-28"
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
