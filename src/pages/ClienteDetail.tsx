@@ -1490,7 +1490,20 @@ export default function ClienteDetail() {
               </Button>
             </>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
+              {isAdmin && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteOpen(true)}
+                  title="Elimina cliente (lo storico polizze/sinistri/documenti viene preservato)"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Elimina
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
