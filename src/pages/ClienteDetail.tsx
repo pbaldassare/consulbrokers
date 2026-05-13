@@ -448,7 +448,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
   );
 }
 
-function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSave, saving }: any) {
+function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, hidePercentualeBrand, onSave, saving }: any) {
   const [profiloId, setProfiloId] = useState(existing?.profilo_id || "");
   const [percentuale, setPercentuale] = useState(existing?.percentuale?.toString() || "0");
   const [societaBrand, setSocietaBrand] = useState(existing?.societa_brand || "");
