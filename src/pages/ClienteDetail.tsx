@@ -1018,6 +1018,10 @@ export default function ClienteDetail() {
   const [tipoRelazione, setTipoRelazione] = useState("referente");
   const [noteRelazione, setNoteRelazione] = useState("");
   const [editMode, setEditMode] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { profile: currentProfile } = useAuth();
+  const isAdmin = currentProfile?.ruolo === "admin";
 
   const { data: cliente } = useQuery({
     queryKey: ["cliente", id],
