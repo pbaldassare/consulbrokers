@@ -142,6 +142,7 @@ const ImmissionePolizzaPage = () => {
     return () => clearTimeout(t);
   }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
+  const [selectedAccountExecutiveId, setSelectedAccountExecutiveId] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
   const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
