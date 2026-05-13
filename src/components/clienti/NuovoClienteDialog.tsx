@@ -1017,7 +1017,10 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </AccordionItem>
             </Accordion>
           </div>
+          </fieldset>
+          )}
         </div>
+
         <DialogFooter className="flex-col items-stretch sm:flex-row sm:items-center gap-2">
           {(() => {
             const missing = getMissingFields();
