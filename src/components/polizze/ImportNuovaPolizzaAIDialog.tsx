@@ -74,7 +74,8 @@ type GruppoFinanziarioOpt = {
   tipo_soggetto: "privato" | "azienda" | "ente";
 };
 
-type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
+type MatchType = "cf" | "piva" | "email" | "name";
+type ClienteCand = { id: string; label: string; cf?: string; piva?: string; email?: string; matchType: MatchType };
 type GruppoCompagniaCand = { id: string; label: string };
 type AgenziaCand = { id: string; label: string; gruppo_compagnia_id: string | null };
 type RamoCand = { gruppoRamoId: string; ramoId: string; label: string };
