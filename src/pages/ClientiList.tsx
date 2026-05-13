@@ -515,17 +515,14 @@ const ClientiList = () => {
   };
 
   const renderCorrispondenteFields = (role: CommercialRole, setter: React.Dispatch<React.SetStateAction<CommercialRole>>) => (
-    <div className="space-y-3 pt-2">
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Profilo</Label>
-          <SearchableSelect
-            value={role.profilo_id}
-            onValueChange={(v) => updateRole(setter, "profilo_id", v)}
-            placeholder="Seleziona..."
-            options={profiliCommerciali}
-          />
-      </div>
+    <div className="pt-2">
+      <Label className="text-xs">Profilo</Label>
+      <SearchableSelect
+        value={role.profilo_id}
+        onValueChange={(v) => updateRole(setter, "profilo_id", v)}
+        placeholder="Seleziona..."
+        options={profiliCommerciali}
+      />
     </div>
   );
 
