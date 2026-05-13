@@ -1915,6 +1915,7 @@ const TitoloDetail = () => {
             <FieldRow label="Agenzia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
+            <FieldRow label="Codice Rapporto" value={fmt((t as any).codice_rapporto)} />
             <FieldRow label="Ramo" value={fmt((t.ramo as any)?.gruppo_ramo?.descrizione)} />
             <FieldRow label="Sottoramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
