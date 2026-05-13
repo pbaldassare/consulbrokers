@@ -1040,20 +1040,83 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 </div>
               </div>
             </div>
-            <Accordion type="multiple" className="w-full">
-              <AccordionItem value="backoffice">
-                <AccordionTrigger className="text-sm py-2">Specialist</AccordionTrigger>
-                <AccordionContent>{renderCorrispondenteFields(backofficeRole, setBackofficeRole)}</AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="agente">
-                <AccordionTrigger className="text-sm py-2">Agente</AccordionTrigger>
-                <AccordionContent>{renderCorrispondenteFields(agente, setAgente)}</AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="produttore_sede">
-                <AccordionTrigger className="text-sm py-2">Produttore Sede</AccordionTrigger>
-                <AccordionContent>{renderCorrispondenteFields(produttoreSede, setProduttoreSede)}</AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            {/* Specialist: solo Profilo (no provvigioni, no brand) */}
+            <div className="rounded-md border p-4 mb-3">
+              <p className="text-sm font-medium mb-3">Specialist</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Profilo</Label>
+                  <SearchableSelect
+                    value={backofficeRole.profilo_id}
+                    onValueChange={(v) => updateRole(setBackofficeRole, "profilo_id", v)}
+                    placeholder="Seleziona Specialist..."
+                    options={profiliCommerciali}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sede (collegata allo Specialist) */}
+            <div className="rounded-md border p-4 mb-3">
+              <p className="text-sm font-medium mb-1">Sede</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Auto-compilata dallo Specialist selezionato, modificabile.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Sede / Ufficio</Label>
+                  <SearchableSelect
+                    value={ufficioClienteId}
+                    onValueChange={setUfficioClienteId}
+                    placeholder="— Seleziona sede —"
+                    options={(ufficiList || []).map((u: any) => ({
+                      value: u.id,
+                      label: `${u.codice_ufficio ? u.codice_ufficio + " - " : ""}${u.nome_ufficio}`,
+                    }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Produttore: profilo + % + brand; mandato come flag */}
+            <div className="rounded-md border p-4 mb-3">
+              <p className="text-sm font-medium mb-3">Produttore</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Profilo</Label>
+                  <SearchableSelect
+                    value={produttoreSede.profilo_id}
+                    onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
+                    placeholder="Seleziona Produttore..."
+                    options={profiliCommerciali}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">% Provvigione</Label>
+                  <Input
+                    value={produttoreSede.percentuale}
+                    onChange={(e) => updateRole(setProduttoreSede, "percentuale", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Società/Brand</Label>
+                  <Input
+                    value={produttoreSede.societa_brand}
+                    onChange={(e) => updateRole(setProduttoreSede, "societa_brand", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-4 pt-3 border-t">
+                <Switch
+                  checked={produttoreMandatoAttivo}
+                  onCheckedChange={setProduttoreMandatoAttivo}
+                />
+                <Label className="text-xs">Mandato attivo</Label>
+              </div>
+              {produttoreMandatoAttivo && renderCorrispondenteFields(produttoreSede, setProduttoreSede)}
+            </div>
           </div>
           </>
           )}
