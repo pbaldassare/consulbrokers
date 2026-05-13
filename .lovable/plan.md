@@ -1,54 +1,48 @@
-## Obiettivo
-1. Risolvere il bug per cui il search del cliente in `/portafoglio/immissione` non restituisce risultati.
-2. Uniformare graficamente la sezione "Cliente" allo standard usato negli altri punti di creazione (es. `TrattativeList`): un solo campo di ricerca unificato.
+## Problema individuato
 
-## Analisi bug
-Nella query `clienti-search-immissione` (riga 280) la `or(...)` su `ragione_sociale,cognome,nome,codice_fiscale,partita_iva` con pattern `%term%` fallisce silenziosamente in alcuni casi tipici:
-- Spazi nel termine (`baldassare paolo`) generano un `or` che PostgREST interpreta letteralmente, e l'errore viene ingoiato (`const { data } = await q;` senza gestire `error`).
-- Mancato debounce: ogni keystroke spara una query e i risultati si sovrappongono.
-- Nessuna `or` su `codice_ricerca` (presente nella tabella e usato nel lookup rapido).
+Nella pagina dettaglio cliente (`/archivi/clienti/:id`) ci sono due problemi concreti:
 
-## Fix
+- La sezione **Codici Commerciali (Rete)** usa ancora ruoli/etichette e campi legacy: `account_executive`, `agente`, `produttore_sede`, `% Provvigione`, `Società/Brand`, `Mandato`, date mandato e `Altro Broker`.
+- Il salvataggio dello **Specialist** non è coerente: una parte della pagina legge/scrive il ruolo `Backoffice`, mentre la sezione Codici Commerciali usa `backoffice`. Per questo alcuni dati sembrano non rimanere salvati o non ricompaiono dopo il refresh.
 
-### 1. `src/pages/ImmissionePolizzaPage.tsx`
+## Piano di intervento
 
-**a) Hardening della query (riga ~280)**
-- Aggiungere debounce 350ms su `clienteSearch` (regola di progetto).
-- Sanitizzare il termine: `term.replace(/[%,()]/g, " ").trim()`; se contiene spazi, splittare in token e applicare `.ilike("codice_ricerca", ...)` + `.or(...)` per il primo token, poi filtrare lato client per gli altri token su `ragione_sociale | cognome+nome`.
-- Estendere `or` a `codice_ricerca.ilike.${term}`.
-- Esporre `error` e loggarlo; restituire `[]` in caso di errore.
-- Mantenere `limit(50)`.
+1. **Rendere coerente la pagina anagrafica cliente con il flusso attuale di creazione cliente**
+   - Tenere in alto le assegnazioni realmente usate oggi:
+     - **Sede**
+     - **Gruppo Finanziario**
+     - **Specialist**
+     - **Produttore / Consul**, se presente
+   - Usare sempre la terminologia già decisa nel progetto: **Sede**, **Specialist**, **Consul**.
 
-**b) Layout sezione Cliente unificato (righe 697–829)**
-Riorganizzare in:
-```
-[ PolizzaSection "Cliente & Sede" ]
-  Riga 1 (grid 1fr auto):
-    - Label "Cliente *"
-    - SearchableSelect server-side (placeholder "Cerca per nome, CF, P.IVA o codice…")
-      con icona lente nell'input (via prop searchPlaceholder già presente)
-    - Bottone "Nuovo Cliente" (invariato)
-  Riga 2 (visibile solo se cliente selezionato): badge Gruppo Finanziario (invariato)
-  Riga 3 (grid 3 col): Sede * | Produttore | Specialist (invariati)
-```
-- **Rimuovere** completamente il blocco "Lookup rapido (Codice / CF / P.IVA)" (righe 771–785) e lo stato `codiceCliente` + relative query/effetti se non più usati altrove.
-- Verificare che `codiceCliente` non sia referenziato in altri effetti (es. eredità ufficio o autopopolazione AI); in tal caso reindirizzare gli usi al `selectedClienteId` già impostato dal SearchableSelect.
+2. **Pulire la sezione “Codici Commerciali (Rete)”**
+   - Rimuovere dalla UI i campi legacy non più utili:
+     - `% Provvigione`
+     - `Società/Brand`
+     - `Mandato`
+     - `Scadenza Mandato`
+     - `Data Disdetta`
+     - `Termine Proroga`
+     - `Altro Broker`
+     - `Nome Altro Broker`
+     - `Agente`
+     - `Produttore Sede` come dicitura legacy
+   - Lasciare solo una sezione semplice di assegnazione rete coerente con il nuovo modello.
 
-**c) UX**
-- Quando l'utente seleziona un cliente, popolare automaticamente `clienteSearch` con la label (già fatto in `onCreated`); applicare lo stesso comportamento in `onValueChange` per coerenza visiva del campo.
+3. **Correggere la persistenza nel database**
+   - Normalizzare il salvataggio dei ruoli commerciali usando gli stessi valori già presenti nei dati reali:
+     - `Backoffice` per Specialist
+     - `Produttore Sede` per il produttore/Consul esistente, ma mostrato in UI come **Consul**
+     - `AE` per Account Executive, se mantenuto come assegnazione essenziale
+   - Dopo ogni salvataggio invalidare e ricaricare le query corrette, così il dato salvato torna subito visibile senza refresh manuale.
+   - Non serve una migrazione DB: le colonne esistono già e la tabella ha già il vincolo unico su `cliente_id, ruolo`.
 
-### 2. Nessuna modifica al componente `SearchableSelect` (già supporta `searchValue` / `onSearchChange` / `searchPlaceholder` dal fix precedente).
+4. **Allineare anche il dialog “Nuovo Cliente” condiviso**
+   - Rimuovere i campi legacy dalla creazione cliente, così non ricompaiono in altri punti.
+   - Salvare solo i profili commerciali realmente usati e persistenti.
+   - Mantenere la Sede auto-compilata dallo Specialist ma sempre modificabile.
 
-### 3. Nessuna modifica DB / RLS.
-
-## Fuori scope
-- Sede / Produttore / Specialist: layout invariato (3 colonne come oggi).
-- Sezioni Contratto, Tecnico, Provvigioni: invariate.
-- Altri flussi (Rinnovo, Sospensione, Storno): invariati.
-
-## QA
-- Digitare "baldassare" → comparirà "baldassare paolo".
-- Digitare "BLDPLA74R21I449G" (CF) → match diretto.
-- Digitare "01890920703" (P.IVA) → match.
-- Digitare 1 carattere → "Digita almeno 2 caratteri".
-- Selezione cliente → badge gruppo finanziario + autoload Sede.
+5. **Verifica finale**
+   - Controllare che il cliente attuale mostri correttamente lo Specialist salvato.
+   - Verificare che il salvataggio di Sede/Gruppo/Specialist/Consul persista dopo invalidazione query/refresh.
+   - Verificare che non compaiano più i vecchi campi mandato/provvigione/brand nella pagina anagrafica cliente.
