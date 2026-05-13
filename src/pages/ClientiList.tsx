@@ -965,7 +965,7 @@ const ClientiList = () => {
                     <AccordionContent>{renderCorrispondenteFields(backofficeRole, setBackofficeRole)}</AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="produttore_sede">
-                    <AccordionTrigger className="text-sm py-2">Consul</AccordionTrigger>
+                    <AccordionTrigger className="text-sm py-2">Produttore</AccordionTrigger>
                     <AccordionContent>{renderCorrispondenteFields(produttoreSede, setProduttoreSede)}</AccordionContent>
                   </AccordionItem>
                 </Accordion>
