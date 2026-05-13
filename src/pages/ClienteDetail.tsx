@@ -20,6 +20,7 @@ import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3,
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
+import { DeleteWithImpactDialog } from "@/components/common/DeleteWithImpactDialog";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
