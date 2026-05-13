@@ -1,20 +1,29 @@
 ## Obiettivo
-Nascondere i campi **% Provvigione** e **Società/Brand** dalle sezioni **Account Executive** e **Produttore** in tutta la UI cliente. Le provvigioni si gestiscono altrove (anagrafica Produttore + tabella titoli), quindi esporli sull'anagrafica cliente è inutile e fuorviante.
+Per i clienti **Privato**, allineare i campi obbligatori a: **Nome, Cognome, Codice Fiscale, Indirizzo Residenza, Email, Sede**. Tutto il resto (Data di Nascita, Luogo di Nascita, CAP/Città/Provincia, Gruppo Finanziario, Specialist) diventa opzionale a livello di blocco salvataggio.
 
 ## Modifiche
 
-### 1) `src/components/clienti/NuovoClienteDialog.tsx`
-- Sezione **Account Executive** (~righe 1053–1073): rimuovere i due `<div>` "% Provvigione" e "Società/Brand". Resta solo "Profilo".
-- Sezione **Produttore** (~righe 1112–1140): rimuovere i due `<div>` "% Provvigione" e "Società/Brand". Restano "Profilo" + flag "Mandato attivo" + campi mandato condizionali.
-- Aggiornare il commento della sezione Produttore.
-- Nei payload di salvataggio (~riga 429): forzare `percentuale: 0` e `societa_brand: null` per AE e Produttore Sede.
+### 1. `src/components/clienti/NuovoClienteDialog.tsx` — `getMissingFields()` (righe ~456-464)
+Ramo `tipoCliente === "privato"`, lista finale obbligatori:
+- Nome, Cognome, Codice Fiscale, Indirizzo Residenza, Email, **Sede** (`ufficioClienteId`)
+- Rimuovere da obbligatori: CAP, Città, Provincia
+- (Gruppo Finanziario resta obbligatorio perché governa il tipo cliente — necessario al funzionamento del form)
 
-### 2) `src/pages/ClienteDetail.tsx` — componente `CodiceCommercialeRow`
-- Aggiungere prop `hidePercentualeBrand?: boolean`.
-- Passarla `true` per i ruoli **Account Executive** e **Produttore Sede**.
-- Quando `true`, non renderizzare i due `<div>` "% Provvigione" (riga ~512–515) e "Società/Brand" (riga ~516–519). Il salvataggio invia comunque i valori correnti dello state (default 0 / null) — nessuna perdita dati per chi li aveva già impostati.
+### 2. `src/pages/ClienteDetail.tsx` — `requiredFieldsList` Privato (righe ~1472-1482)
+Nuova lista per Privato:
+- `ufficio_id` (Sede)
+- `nome` ← **da aggiungere**
+- `cognome` ← **da aggiungere**
+- `codice_fiscale` (con checksum)
+- `indirizzo_residenza`
+- `email` (con regex)
+
+Rimuovere da obbligatori: `gruppo_finanziario_id`, `specialist_id`, `data_nascita`, `luogo_nascita` (restano editabili e mostrati, ma non bloccano il salvataggio).
+
+### 3. Label/asterischi
+Aggiornare gli asterischi `*` nelle label coerentemente (aggiungere su Nome/Cognome/Sede dove mancano in ClienteDetail; togliere da CAP/Città/Provincia/Data nascita/Luogo nascita in NuovoClienteDialog e ClienteDetail per il ramo Privato).
 
 ## Fuori scope
-- Nessuna migration DB: le colonne `percentuale` e `societa_brand` su `commerciali_cliente` restano.
-- Nessuna modifica alle pagine Produttore (`anagrafiche_professionali`) né al modulo provvigioni per ramo.
-- `renderCorrispondenteFields` (NuovoClienteDialog) non viene toccato — non risulta usato in queste due sezioni.
+- Nessuna modifica a schema DB / RLS / edge functions.
+- Ramo Azienda/Ente invariato.
+- Validazione checksum CF resta attiva quando il campo è valorizzato.

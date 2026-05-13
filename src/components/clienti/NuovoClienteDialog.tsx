@@ -454,13 +454,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     const missing: string[] = [];
     if (!gruppoFinanziarioId) missing.push("Gruppo Finanziario");
     if (tipoCliente === "privato") {
+      if (!ufficioClienteId) missing.push("Sede");
       if (!nome.trim()) missing.push("Nome");
       if (!cognome.trim()) missing.push("Cognome");
       if (!codiceFiscale.trim()) missing.push("Codice Fiscale");
       if (!indirizzoResidenza.trim()) missing.push("Indirizzo Residenza");
-      if (!capResidenza.trim()) missing.push("CAP");
-      if (!cittaResidenza.trim()) missing.push("Città");
-      if (!provinciaResidenza.trim()) missing.push("Provincia");
       if (!email.trim()) missing.push("Email");
     } else {
       if (!ragioneSociale.trim()) missing.push(tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale");
