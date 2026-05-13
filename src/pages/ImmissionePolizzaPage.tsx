@@ -888,12 +888,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedAccountExecutiveId}
               onValueChange={setSelectedAccountExecutiveId}
               placeholder="— Seleziona Account Executive —"
-              options={(commercialiList || [])
-                .filter((c: any) => c.ruolo === "account_executive" || c.ruolo === "executive")
-                .map((c: any) => ({
-                  value: c.id,
-                  label: `${c.cognome || ""} ${c.nome || ""}`.trim(),
-                }))}
+              options={aeAnagraficheList || []}
             />
           </div>
           <div className="space-y-1.5 min-w-0">
