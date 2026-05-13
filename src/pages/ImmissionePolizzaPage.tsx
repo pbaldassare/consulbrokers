@@ -142,6 +142,7 @@ const ImmissionePolizzaPage = () => {
     return () => clearTimeout(t);
   }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
+  const [selectedAccountExecutiveId, setSelectedAccountExecutiveId] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
   const [selectedBackofficeId, setSelectedBackofficeId] = useState("");
@@ -348,9 +349,9 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return [];
       const { data } = await supabase
         .from("codici_commerciali_cliente")
-        .select("profilo_id, ruolo")
+        .select("profilo_id, ruolo, profiles:profilo_id(id, nome, cognome)")
         .eq("cliente_id", selectedClienteId)
-        .in("ruolo", ["account_executive", "AE", "Backoffice"]);
+        .in("ruolo", ["account_executive", "AE", "Backoffice", "Produttore Sede"]);
       return data || [];
     },
     enabled: !!selectedClienteId,
@@ -390,15 +391,7 @@ const ImmissionePolizzaPage = () => {
         ? "Per i clienti di tipo Ente il CIG è obbligatorio"
         : null;
 
-  // Eredita AE e Backoffice dal cliente
-  useEffect(() => {
-    if (Array.isArray(clienteAE) && clienteAE.length > 0) {
-      const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
-      const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
-      if (ae?.profilo_id) setSelectedAE(ae.profilo_id as string);
-      if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
-    }
-  }, [clienteAE]);
+  // (eredità AE/Specialist/Produttore spostata sotto le query)
 
   // Default ufficio = ufficio dell'utente loggato
   useEffect(() => {
@@ -457,6 +450,27 @@ const ImmissionePolizzaPage = () => {
       return data || [];
     },
   });
+
+  // Eredita AE, Specialist e Produttore dal cliente
+  useEffect(() => {
+    if (!Array.isArray(clienteAE) || clienteAE.length === 0) return;
+    const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
+    const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
+    const prod = clienteAE.find((c: any) => c.ruolo === "Produttore Sede");
+    if (ae?.profilo_id) setSelectedAccountExecutiveId(ae.profilo_id as string);
+    if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+    const prodProfile: any = (prod as any)?.profiles;
+    if (prodProfile && Array.isArray(aeList) && aeList.length > 0 && !selectedAE) {
+      const target = `${prodProfile.cognome || ""} ${prodProfile.nome || ""}`.trim().toLowerCase();
+      if (target) {
+        const match = (aeList as any[]).find((a: any) => {
+          const label = (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`).trim().toLowerCase();
+          return label === target;
+        });
+        if (match?.id) setSelectedAE(match.id as string);
+      }
+    }
+  }, [clienteAE, aeList]);
 
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
@@ -599,6 +613,12 @@ const ImmissionePolizzaPage = () => {
           const ae = (aeList || []).find((a: any) => a.id === selectedAE);
           if (!ae) return null;
           return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
+        })(),
+        // Account Executive salvato come "COGNOME NOME" leggibile in titoli.ae_nome
+        ae_nome: (() => {
+          if (!selectedAccountExecutiveId) return null;
+          const a = (commercialiList || []).find((c: any) => c.id === selectedAccountExecutiveId);
+          return a ? `${(a as any).cognome || ""} ${(a as any).nome || ""}`.trim() : null;
         })(),
         // Backoffice (Specialist) salvato come "COGNOME NOME" leggibile in titoli.specialist
         ...(selectedBackofficeId ? {
@@ -805,11 +825,11 @@ const ImmissionePolizzaPage = () => {
         )}
 
         {/* Ufficio (Sede) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Sede (Ufficio) *</Label>
             <SearchableSelect
-              className="h-8 text-xs"
+              className="h-8 text-xs w-full"
               value={selectedUfficioId}
               onValueChange={setSelectedUfficioId}
               placeholder="— Seleziona sede —"
@@ -819,10 +839,25 @@ const ImmissionePolizzaPage = () => {
               }))}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 min-w-0">
+            <Label className="text-xs">Account Executive</Label>
+            <SearchableSelect
+              className="h-8 text-xs w-full"
+              value={selectedAccountExecutiveId}
+              onValueChange={setSelectedAccountExecutiveId}
+              placeholder="— Seleziona Account Executive —"
+              options={(commercialiList || [])
+                .filter((c: any) => c.ruolo === "account_executive" || c.ruolo === "executive")
+                .map((c: any) => ({
+                  value: c.id,
+                  label: `${c.cognome || ""} ${c.nome || ""}`.trim(),
+                }))}
+            />
+          </div>
+          <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Produttore</Label>
             <SearchableSelect
-              className="h-8 text-xs"
+              className="h-8 text-xs w-full"
               value={selectedAE}
               onValueChange={setSelectedAE}
               placeholder="— Seleziona produttore —"
@@ -832,10 +867,10 @@ const ImmissionePolizzaPage = () => {
               }))}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Specialist</Label>
             <SearchableSelect
-              className="h-8 text-xs"
+              className="h-8 text-xs w-full"
               value={selectedBackofficeId}
               onValueChange={setSelectedBackofficeId}
               placeholder="— Seleziona Specialist —"
