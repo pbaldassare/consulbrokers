@@ -1230,7 +1230,7 @@ const ImmissionePolizzaPage = () => {
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => {
-                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r, id: crypto.randomUUID() })));
+                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
                   setAddizionaliQuietanza(addizionali);
                   toast.success("Firma salvata e copiata in Quietanza");
                 }}
