@@ -17,6 +17,34 @@ interface FiscalCodeInputProps {
   disabled?: boolean;
   /** Notifica al parent se il valore corrente è valido (post normalizzazione). */
   onValidChange?: (valid: boolean) => void;
+  /** Per kind="cf16": filtra in input i caratteri non conformi alla posizione (LLLLLL NN L NN L NNN L). */
+  enforcePattern?: boolean;
+}
+
+// Pattern CF persona fisica: per ogni indice 0-15, true se serve LETTERA, false se CIFRA.
+const CF16_IS_LETTER = [
+  true, true, true, true, true, true, // 0-5: cognome+nome
+  false, false,                       // 6-7: anno
+  true,                               // 8: mese
+  false, false,                       // 9-10: giorno
+  true,                               // 11: provincia
+  false, false, false,                // 12-14: comune
+  true,                               // 15: controllo
+];
+
+function filterCF16(input: string): string {
+  let out = "";
+  for (const raw of input) {
+    if (out.length >= 16) break;
+    const ch = raw.toUpperCase();
+    const wantsLetter = CF16_IS_LETTER[out.length];
+    if (wantsLetter) {
+      if (/[A-Z]/.test(ch)) out += ch;
+    } else {
+      if (/[0-9]/.test(ch)) out += ch;
+    }
+  }
+  return out;
 }
 
 function runValidation(kind: FiscalKind, value: string) {
