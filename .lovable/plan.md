@@ -1,14 +1,18 @@
-## Piano
+## Obiettivo
+Rendere la "Sede di riferimento" un campo obbligatorio in fase di creazione cliente (per tutti i tipi: privato, azienda, ente) e garantirne il salvataggio.
 
-Rinominare ovunque l'etichetta UI **"Consul" → "Produttore"** nel modulo clienti, mantenendo invariato il dato salvato nel DB (ruolo `Produttore Sede`).
+## Stato attuale
+- Il dialog `NuovoClienteDialog.tsx` ha già il campo "Sede / Ufficio" (`ufficioClienteId`) salvato in `clienti.ufficio_id` (riga 469).
+- Auto-compilazione dallo Specialist selezionato (righe 366-379) — resta invariata, modificabile.
+- Validazione obbligatoria della Sede oggi è presente SOLO per tipo cliente "privato" (riga 418). Per azienda/ente non è bloccante.
 
-### File coinvolti
-- `src/components/clienti/NuovoClienteDialog.tsx` — il riquadro "Consul" + placeholder "Seleziona Consul..." → "Produttore" / "Seleziona Produttore...".
-- `src/pages/ClientiList.tsx` — l'AccordionTrigger "Consul" → "Produttore".
-- `src/pages/ClienteDetail.tsx` — array `ruoliCommerciali`: label `"Consul"` → `"Produttore"` (il `value` resta `"Produttore Sede"`).
-- `mem://index.md` (Core) e `mem://ui/terminology-conventions` — aggiornare la regola di terminologia: il ruolo è ora "Produttore" lato UI.
+## Modifica
+**File:** `src/components/clienti/NuovoClienteDialog.tsx`
 
-### Nessun cambiamento dati
-- Nessuna migrazione DB.
-- Nessuna modifica a `codici_commerciali_cliente.ruolo` (resta `Produttore Sede`).
-- Il valore selezionato continua a salvarsi come prima e a rileggersi correttamente nella scheda cliente.
+1. In `getMissingFields()` spostare il check `if (!ufficioClienteId) missing.push("Sede")` fuori dal ramo "privato" così è obbligatorio per tutti i tipi cliente.
+2. Aggiungere asterisco visivo "*" all'etichetta `Sede / Ufficio` nel blocco Sede (riga 990) per segnalare l'obbligatorietà.
+
+## Fuori scope
+- Nessuna modifica DB/RLS: `clienti.ufficio_id` esiste già e viene scritto.
+- Nessuna modifica al dettaglio cliente o alla lista.
+- Nessun cambio alla logica di auto-fill dallo Specialist.

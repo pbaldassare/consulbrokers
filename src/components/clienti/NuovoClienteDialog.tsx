@@ -414,8 +414,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const getMissingFields = (): string[] => {
     const missing: string[] = [];
     if (!gruppoFinanziarioId) missing.push("Gruppo Finanziario");
+    if (!ufficioClienteId) missing.push("Sede");
     if (tipoCliente === "privato") {
-      if (!ufficioClienteId) missing.push("Sede");
       if (!nome.trim()) missing.push("Nome");
       if (!cognome.trim()) missing.push("Cognome");
       if (!codiceFiscale.trim()) missing.push("Codice Fiscale");
@@ -987,7 +987,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Sede / Ufficio</Label>
+                  <Label className="text-xs">Sede / Ufficio *</Label>
                   <SearchableSelect
                     value={ufficioClienteId}
                     onValueChange={setUfficioClienteId}
