@@ -381,25 +381,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const insertCommercialRoles = async (clienteId: string) => {
     const rows: any[] = [];
 
-    // AE: completo
     if (ae.profilo_id) {
       rows.push({
         cliente_id: clienteId,
         profilo_id: ae.profilo_id,
         ruolo: "AE",
-        percentuale: null,
-        societa_brand: null,
-        mandato: ae.mandato || null,
-        data_acquisito: ae.data_acquisito || null,
-        scadenza_mandato: ae.scadenza_mandato || null,
-        data_disdetta: ae.data_disdetta || null,
-        termine_proroga: ae.termine_proroga || null,
-        altro_broker: ae.altro_broker,
-        altro_broker_nome: ae.altro_broker_nome || null,
       });
     }
 
-    // Specialist: solo profilo (no provvigioni / no mandato)
     if (backofficeRole.profilo_id) {
       rows.push({
         cliente_id: clienteId,
@@ -408,21 +397,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       });
     }
 
-    // Produttore: profilo + flag mandato (provvigioni gestite altrove)
     if (produttoreSede.profilo_id) {
       rows.push({
         cliente_id: clienteId,
         profilo_id: produttoreSede.profilo_id,
         ruolo: "Produttore Sede",
-        percentuale: null,
-        societa_brand: null,
-        mandato: produttoreMandatoAttivo ? (produttoreSede.mandato || null) : null,
-        data_acquisito: produttoreMandatoAttivo ? (produttoreSede.data_acquisito || null) : null,
-        scadenza_mandato: produttoreMandatoAttivo ? (produttoreSede.scadenza_mandato || null) : null,
-        data_disdetta: produttoreMandatoAttivo ? (produttoreSede.data_disdetta || null) : null,
-        termine_proroga: produttoreMandatoAttivo ? (produttoreSede.termine_proroga || null) : null,
-        altro_broker: produttoreMandatoAttivo ? produttoreSede.altro_broker : false,
-        altro_broker_nome: produttoreMandatoAttivo ? (produttoreSede.altro_broker_nome || null) : null,
       });
     }
 
