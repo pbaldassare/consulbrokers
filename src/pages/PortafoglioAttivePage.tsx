@@ -94,10 +94,7 @@ const PortafoglioAttivePage = () => {
           <h1 className="text-2xl font-bold text-foreground">Polizze Attive</h1>
           <p className="text-sm text-muted-foreground">Polizze in corso di validità</p>
         </div>
-        <Button onClick={() => navigate("/portafoglio/immissione")} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nuova Polizza
-        </Button>
+        <NuovaPolizzaButton />
       </div>
 
       <Card>
