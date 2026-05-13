@@ -913,8 +913,18 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">CIG/Rif.</Label>
-            <Input value={cigRif} onChange={(e) => setCigRif(e.target.value)} className="h-8 text-xs" />
+            <Label className="text-xs flex items-center gap-1">
+              CIG/Rif. {cigObbligatorio && <span className="text-destructive" title="Obbligatorio per Enti">*</span>}
+            </Label>
+            <Input
+              value={cigRif}
+              onChange={(e) => setCigRif(e.target.value)}
+              className={`h-8 text-xs ${cigObbligatorio && !cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+              title={cigObbligatorio ? "Obbligatorio per clienti di tipo Ente" : undefined}
+            />
+            {cigObbligatorio && !cigRif.trim() && (
+              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Vincolo</Label>
