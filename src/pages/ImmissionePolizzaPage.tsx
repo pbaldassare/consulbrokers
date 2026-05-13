@@ -1343,38 +1343,18 @@ const ImmissionePolizzaPage = () => {
           ))}
         </div>
 
-        {/* Additional fields */}
+        {/* Solo valuta — i dati di incasso/copertura vengono valorizzati nel flusso "Messa a Cassa" su TitoloDetail */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Fax Incasso</Label>
-            <RadioGroup value={faxIncasso} onValueChange={setFaxIncasso} className="flex gap-3 h-8 items-center">
-              <div className="flex items-center gap-1"><RadioGroupItem value="si" id="fax-si" /><Label htmlFor="fax-si" className="text-xs font-normal cursor-pointer">Sì</Label></div>
-              <div className="flex items-center gap-1"><RadioGroupItem value="no" id="fax-no" /><Label htmlFor="fax-no" className="text-xs font-normal cursor-pointer">No</Label></div>
-            </RadioGroup>
-          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Valuta</Label>
             <SearchableSelect className="h-8 text-xs" value={valuta} onValueChange={setValuta} placeholder="—"
               options={[{ value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }, { value: "GBP", label: "GBP" }]}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Copertura Da</Label>
-            <Input type="date" value={coperturaDa} onChange={(e) => setCoperturaDa(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Copertura N°</Label>
-            <Input value={coperturaNumero} onChange={(e) => setCoperturaNumero(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Data Incasso</Label>
-            <Input type="date" value={dataIncasso} onChange={(e) => setDataIncasso(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">N° Incasso</Label>
-            <Input value={numeroIncasso} onChange={(e) => setNumeroIncasso(e.target.value)} className="h-8 text-xs" />
-          </div>
         </div>
+        <p className="text-[11px] text-muted-foreground italic pt-1">
+          ℹ️ Fax/Copertura/Data Incasso vengono compilati nella <b>Messa a Cassa</b> dopo la creazione del titolo.
+        </p>
       </PolizzaSection>
 
       {/* PROVVIGIONI */}
