@@ -415,6 +415,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     const missing: string[] = [];
     if (!gruppoFinanziarioId) missing.push("Gruppo Finanziario");
     if (!ufficioClienteId) missing.push("Sede");
+    if (!backofficeRole.profilo_id) missing.push("Specialist");
     if (tipoCliente === "privato") {
       if (!nome.trim()) missing.push("Nome");
       if (!cognome.trim()) missing.push("Cognome");
