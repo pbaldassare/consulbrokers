@@ -614,6 +614,12 @@ const ImmissionePolizzaPage = () => {
           if (!ae) return null;
           return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
         })(),
+        // Account Executive salvato come "COGNOME NOME" leggibile in titoli.ae_nome
+        ae_nome: (() => {
+          if (!selectedAccountExecutiveId) return null;
+          const a = (commercialiList || []).find((c: any) => c.id === selectedAccountExecutiveId);
+          return a ? `${(a as any).cognome || ""} ${(a as any).nome || ""}`.trim() : null;
+        })(),
         // Backoffice (Specialist) salvato come "COGNOME NOME" leggibile in titoli.specialist
         ...(selectedBackofficeId ? {
           specialist: (() => {
