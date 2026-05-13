@@ -538,9 +538,9 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
-  // Gruppo ramo del ramo selezionato
+  // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
-  const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
+  const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === selectedGruppoRamoId);
 
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
