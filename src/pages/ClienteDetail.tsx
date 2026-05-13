@@ -1428,8 +1428,10 @@ export default function ClienteDetail() {
   })();
 
   // Validazione campi obbligatori
-  const isCFValid = (cf: string) => /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test((cf || "").toUpperCase());
-  const isPIVAValid = (p: string) => /^\d{11}$/.test(p || "");
+  // Validazione P.IVA/CF con checksum (lib/validatePIVA, lib/validateCF)
+  const isCFValid = (cf: string) => validateCFLib(cf, { allowPIVAFormat: false }).valid;
+  const isPIVAValid = (p: string) => validatePIVALib(p).valid;
+  const isCFAziendaValid = (cf: string) => validateCFLib(cf, { allowPIVAFormat: true }).valid;
 
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
   const emailOk = isEmailValid(ef.email || "");
