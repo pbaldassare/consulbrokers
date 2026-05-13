@@ -16,7 +16,7 @@ import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import {
   Sparkles, UploadCloud, Loader2, FileText, CheckCircle2, AlertTriangle,
-  UserPlus, ArrowLeft, ArrowRight, Trash2, Calculator,
+  UserPlus, ArrowLeft, ArrowRight, Trash2, Calculator, Info, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,7 +74,8 @@ type GruppoFinanziarioOpt = {
   tipo_soggetto: "privato" | "azienda" | "ente";
 };
 
-type ClienteCand = { id: string; label: string; cf?: string; piva?: string };
+type MatchType = "cf" | "piva" | "email" | "name";
+type ClienteCand = { id: string; label: string; cf?: string; piva?: string; email?: string; matchType: MatchType };
 type GruppoCompagniaCand = { id: string; label: string };
 type AgenziaCand = { id: string; label: string; gruppo_compagnia_id: string | null };
 type RamoCand = { gruppoRamoId: string; ramoId: string; label: string };
@@ -184,16 +185,28 @@ export function ImportNuovaPolizzaAIDialog({
   const lookupClienti = async (d: ParsedPolizzaData): Promise<ClienteCand[]> => {
     const cf = (d.contraente_codice_fiscale || "").replace(/\s+/g, "").toUpperCase();
     const piva = (d.contraente_partita_iva || "").replace(/\s+/g, "");
+    const email = (d.contraente_email || "").replace(/\s+/g, "").toLowerCase();
     const out: ClienteCand[] = [];
     const seen = new Set<string>();
-    if (cf || piva) {
+
+    const buildLabel = (c: any) =>
+      `${c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}${c.partita_iva ? ` — PIVA ${c.partita_iva}` : ""}`;
+
+    const classify = (c: any): MatchType => {
+      if (cf && (c.codice_fiscale || "").toUpperCase() === cf) return "cf";
+      if (piva && (c.partita_iva || "") === piva) return "piva";
+      if (email && (c.email || "").toLowerCase() === email) return "email";
+      return "name";
+    };
+
+    if (cf || piva || email) {
       const orParts: string[] = [];
-      // ilike (case-insensitive, exact pattern) tollera differenze di case nel DB
       if (cf) orParts.push(`codice_fiscale.ilike.${cf}`);
       if (piva) orParts.push(`partita_iva.ilike.${piva}`);
+      if (email) orParts.push(`email.ilike.${email}`);
       const { data: rows } = await supabase
         .from("clienti")
-        .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+        .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva, email")
         .or(orParts.join(","))
         .limit(5);
       const before = out.length;
@@ -202,15 +215,18 @@ export function ImportNuovaPolizzaAIDialog({
         seen.add(c.id);
         out.push({
           id: c.id,
-          label: `${c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}${c.partita_iva ? ` — PIVA ${c.partita_iva}` : ""}`,
+          label: buildLabel(c),
           cf: c.codice_fiscale,
           piva: c.partita_iva,
+          email: c.email,
+          matchType: classify(c),
         });
       });
       if (out.length === before) {
-        log("warn", `CF/P.IVA presenti (${[cf, piva].filter(Boolean).join(" / ")}) ma nessuna corrispondenza esatta — provo ricerca per nome`);
+        log("warn", `CF/P.IVA/Email presenti (${[cf, piva, email].filter(Boolean).join(" / ")}) ma nessuna corrispondenza esatta — provo ricerca per nome`);
       } else {
-        log("success", `Match esatto su CF/P.IVA: ${out[0].label}`);
+        const best = out[0];
+        log("success", `Match ESATTO su ${best.matchType.toUpperCase()}: ${best.label}`);
       }
     }
     if (out.length < 5) {
@@ -223,7 +239,7 @@ export function ImportNuovaPolizzaAIDialog({
             .join(",");
           const { data: rows } = await supabase
             .from("clienti")
-            .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+            .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva, email")
             .or(orFilter)
             .limit(10);
           (rows || []).forEach((c: any) => {
@@ -231,14 +247,19 @@ export function ImportNuovaPolizzaAIDialog({
             seen.add(c.id);
             out.push({
               id: c.id,
-              label: `${c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}${c.partita_iva ? ` — PIVA ${c.partita_iva}` : ""}`,
+              label: buildLabel(c),
               cf: c.codice_fiscale,
               piva: c.partita_iva,
+              email: c.email,
+              matchType: "name",
             });
           });
         }
       }
     }
+    // Ordina: cf > piva > email > name
+    const rank: Record<MatchType, number> = { cf: 0, piva: 1, email: 2, name: 3 };
+    out.sort((a, b) => rank[a.matchType] - rank[b.matchType]);
     return out;
   };
 
@@ -355,9 +376,12 @@ export function ImportNuovaPolizzaAIDialog({
       setPhase(80, "Ricerca cliente nel database…");
       const cli = await lookupClienti(parsed);
       setClienteCandidates(cli);
-      if (cli.length) {
-        log("success", `${cli.length} cliente/i candidato/i trovato/i`);
-        setSelectedClienteId(cli[0].id);
+      const exact = cli.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email");
+      if (exact) {
+        setSelectedClienteId(exact.id);
+      } else if (cli.length) {
+        log("warn", `Nessun match esatto — ${cli.length} candidato/i solo per nome`);
+        setSelectedClienteId(NEW_CLIENTE);
       } else {
         log("warn", "Nessun cliente trovato — andrà creato");
         setSelectedClienteId(NEW_CLIENTE);
@@ -498,6 +522,16 @@ export function ImportNuovaPolizzaAIDialog({
     [clienteCandidates],
   );
 
+  const bestMatch = useMemo(
+    () => clienteCandidates.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email") || null,
+    [clienteCandidates],
+  );
+  const matchLevel: "esatto" | "parziale" | "nessuno" = useMemo(() => {
+    if (bestMatch) return "esatto";
+    if (clienteCandidates.length > 0) return "parziale";
+    return "nessuno";
+  }, [bestMatch, clienteCandidates.length]);
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
@@ -613,6 +647,51 @@ export function ImportNuovaPolizzaAIDialog({
                   {clienteCandidates.length} candidato/i
                 </span>
               </div>
+
+              {/* Banner stato detection AI */}
+              {matchLevel === "esatto" && bestMatch && (
+                <div className="rounded border p-3 text-xs flex gap-2 items-start bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900 text-teal-800 dark:text-teal-200">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold">
+                      Cliente trovato nel database — match esatto su {bestMatch.matchType === "cf" ? "Codice Fiscale" : bestMatch.matchType === "piva" ? "Partita IVA" : "Email"}
+                    </div>
+                    <div className="text-[11px] opacity-90">{bestMatch.label}</div>
+                  </div>
+                  {selectedClienteId !== bestMatch.id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                      onClick={() => setSelectedClienteId(bestMatch.id)}
+                    >
+                      Usa cliente esistente
+                    </Button>
+                  )}
+                </div>
+              )}
+              {matchLevel === "parziale" && (
+                <div className="rounded border p-3 text-xs flex gap-2 items-start bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold">
+                      Possibile cliente esistente — match parziale solo sul nome
+                    </div>
+                    <div className="text-[11px] opacity-90">
+                      {clienteCandidates.length} candidato/i: scegli manualmente sotto, oppure crea un nuovo cliente.
+                    </div>
+                  </div>
+                </div>
+              )}
+              {matchLevel === "nessuno" && (
+                <div className="rounded border p-3 text-xs flex gap-2 items-start bg-muted/40 border-border text-muted-foreground">
+                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    Nessun cliente trovato nel database. Verrà creato un nuovo cliente con i dati estratti dal PDF.
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label className="text-xs">Match cliente</Label>
                 <SearchableSelect
