@@ -160,6 +160,7 @@ const ImmissionePolizzaPage = () => {
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedGruppoCompagniaId, setSelectedGruppoCompagniaId] = useState<string>("");
+  const [selectedRapportoId, setSelectedRapportoId] = useState<string>("");
   const [selectedRamo, setSelectedRamo] = useState("");
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
   const [prodottoNome, setProdottoNome] = useState("");
