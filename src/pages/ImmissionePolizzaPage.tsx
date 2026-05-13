@@ -593,6 +593,49 @@ const ImmissionePolizzaPage = () => {
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
+  // --- Frazionamento helpers + auto-calcolo Periodo ---
+  const FRAZIONAMENTO_OPTIONS = [
+    { value: "Mensile", label: "Mensile" },
+    { value: "Trimestrale", label: "Trimestrale" },
+    { value: "Quadrimestrale", label: "Quadrimestrale" },
+    { value: "Semestrale", label: "Semestrale" },
+    { value: "Annuale", label: "Annuale" },
+    { value: "Poliennale", label: "Poliennale" },
+  ];
+  const frazionamentoMesi = (f: string, anni: number): number => {
+    switch (f) {
+      case "Mensile": return 1;
+      case "Trimestrale": return 3;
+      case "Quadrimestrale": return 4;
+      case "Semestrale": return 6;
+      case "Poliennale": return Math.max(1, anni) * 12;
+      case "Annuale":
+      default: return 12;
+    }
+  };
+  const frazionamentoToRate = (f: string, anni: number): number => {
+    if (f === "Poliennale") return 1;
+    const m = frazionamentoMesi(f, anni);
+    return Math.max(1, Math.round(12 / m));
+  };
+  const addMonthsISO = (iso: string, months: number): string => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const dt = new Date(Date.UTC(y, m - 1 + months, d));
+    return dt.toISOString().slice(0, 10);
+  };
+  useEffect(() => {
+    if (!durataDa) return;
+    const anni = Math.max(1, parseInt(anniDurata) || 1);
+    const mesiGar = frazionamentoMesi(frazionamento, anni);
+    if (!durataATouched) setDurataA(addMonthsISO(durataDa, anni * 12));
+    if (!garanziaDaTouched) setGaranziaDa(durataDa);
+    if (!garanziaATouched) setGaranziaA(addMonthsISO(durataDa, mesiGar));
+    if (!dataCompetenzaTouched) setDataCompetenza(durataDa);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [durataDa, anniDurata, frazionamento]);
+
   // --- Handlers ---
 
   const handleConferma = () => {
