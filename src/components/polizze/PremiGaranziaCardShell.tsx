@@ -12,11 +12,14 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface GaranziaRow {
+  /** Codice del sottoramo (rami.codice) o codice garanzia legacy */
   codice: string | null;
   descrizione: string;
   netto: string;
   tasse: string;
   aliquotaTasse: number;
+  /** Id del sottoramo selezionato (rami.id). Usato per derivare titoli.ramo_id in immissione. */
+  sottoramoId?: string | null;
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
@@ -25,6 +28,7 @@ export const emptyGaranziaRow = (): GaranziaRow => ({
   netto: "",
   tasse: "",
   aliquotaTasse: 0,
+  sottoramoId: null,
 });
 
 export interface PremiGaranziaCardShellProps {
