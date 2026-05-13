@@ -415,6 +415,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     const missing: string[] = [];
     if (!gruppoFinanziarioId) missing.push("Gruppo Finanziario");
     if (!ufficioClienteId) missing.push("Sede");
+    if (!backofficeRole.profilo_id) missing.push("Specialist");
     if (tipoCliente === "privato") {
       if (!nome.trim()) missing.push("Nome");
       if (!cognome.trim()) missing.push("Cognome");
@@ -718,7 +719,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Cognome *</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} className={!cognome.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Codice Fiscale *</Label><FiscalCodeInput kind="cf16" required value={codiceFiscale} onChange={(val) => {
+                <div><Label>Codice Fiscale *</Label><FiscalCodeInput kind="cf16" enforcePattern required value={codiceFiscale} onChange={(val) => {
                   setCodiceFiscale(val);
                   if (val.length === 16) {
                     const parsed = parseCF(val);
@@ -729,6 +730,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                       if (info) {
                         if (!comuneNascita) setComuneNascita(info.comune);
                         if (!provinciaNascita) setProvinciaNascita(info.provincia);
+                        if (!luogoNascita) setLuogoNascita(`${info.comune} (${info.provincia})`);
                       }
                       toast.info("Dati estratti automaticamente dal Codice Fiscale");
                     }
@@ -737,6 +739,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
               <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
+              <div className="grid grid-cols-3 gap-4">
+                <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
+                <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
+              </div>
               <div><Label>Indirizzo Residenza *</Label><AddressAutocomplete value={indirizzoResidenza} onChange={setIndirizzoResidenza} onSelect={(c) => { setCapResidenza(c.cap); setCittaResidenza(c.citta); setProvinciaResidenza(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
                 <div><Label>CAP</Label><Input value={capResidenza} onChange={(e) => setCapResidenza(e.target.value)} maxLength={5} /></div>
@@ -799,6 +806,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     ]}
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
+                <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
               </div>
               <div><Label>Indirizzo Sede *</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
@@ -939,15 +951,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           </Accordion>
 
           <div className="border-t pt-4">
-            <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>
-            <div className="grid grid-cols-3 gap-4">
-              <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
-              <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
-              <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
-            </div>
-          </div>
-
-          <div className="border-t pt-4">
             <p className="text-sm font-medium text-foreground mb-3">Rete Commerciale</p>
             <div className="rounded-md border p-4 mb-3 bg-muted/30">
               <p className="text-sm font-medium mb-3">Account Executive</p>
@@ -964,11 +967,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
             {/* Specialist (DB ruolo "Backoffice") */}
-            <div className="rounded-md border p-4 mb-3">
-              <p className="text-sm font-medium mb-3">Specialist</p>
+            <div className={`rounded-md border p-4 mb-3 ${!backofficeRole.profilo_id ? "border-amber-400" : ""}`}>
+              <p className="text-sm font-medium mb-3">Specialist *</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-xs">Profilo</Label>
+                  <Label className="text-xs">Profilo *</Label>
                   <SearchableSelect
                     value={backofficeRole.profilo_id}
                     onValueChange={(v) => updateRole(setBackofficeRole, "profilo_id", v)}
@@ -980,8 +983,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             </div>
 
             {/* Sede (collegata allo Specialist) */}
-            <div className="rounded-md border p-4 mb-3">
-              <p className="text-sm font-medium mb-1">Sede</p>
+            <div className={`rounded-md border p-4 mb-3 ${!ufficioClienteId ? "border-amber-400" : ""}`}>
+              <p className="text-sm font-medium mb-1">Sede *</p>
               <p className="text-xs text-muted-foreground mb-3">
                 Auto-compilata dallo Specialist selezionato, modificabile.
               </p>
