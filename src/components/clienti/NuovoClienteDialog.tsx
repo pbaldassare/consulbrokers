@@ -281,6 +281,17 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     },
   });
 
+  const { data: ufficiList = [] } = useQuery({
+    queryKey: ["uffici_lookup_nuovo_cliente"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, codice_ufficio, nome_ufficio")
+        .order("nome_ufficio");
+      return data || [];
+    },
+  });
+
   const profiliCommerciali = profiliCommercialiRaw.map((p: any) => ({
     value: p.id,
     label: `${p.cognome || ""} ${p.nome || ""} (${p.ruolo})`.trim(),
