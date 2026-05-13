@@ -1460,7 +1460,7 @@ export default function ClienteDetail() {
         {
           field: "partita_iva",
           label: "Partita IVA o Codice Fiscale",
-          ok: isPIVAValid(ef.partita_iva || "") || isPIVAValid(ef.codice_fiscale_azienda || "") || isCFValid(ef.codice_fiscale_azienda || ""),
+          ok: isPIVAValid(ef.partita_iva || "") || isCFAziendaValid(ef.codice_fiscale_azienda || ""),
         },
         { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
         { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },
