@@ -346,6 +346,21 @@ const ImmissionePolizzaPage = () => {
     }
   }, [clienteDettaglio?.ufficio_id]);
 
+  // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori)
+  const tipoSoggetto: "privato" | "azienda" | "ente" | null = useMemo(() => {
+    const gf: any = (clienteDettaglio as any)?.gruppi_finanziari;
+    return (gf?.tipo_soggetto as any) ?? null;
+  }, [clienteDettaglio]);
+  const gruppoFinanziarioMancante = !!selectedClienteId && !tipoSoggetto;
+  const cigObbligatorio = tipoSoggetto === "ente";
+  const saveBlockReason = !selectedClienteId
+    ? "Seleziona prima un cliente"
+    : gruppoFinanziarioMancante
+      ? "Il cliente selezionato non ha un Gruppo Finanziario: aprilo nella scheda cliente e assegnalo prima di salvare la polizza"
+      : (cigObbligatorio && !cigRif.trim())
+        ? "Per i clienti di tipo Ente il CIG è obbligatorio"
+        : null;
+
   // Eredita AE e Backoffice dal cliente
   useEffect(() => {
     if (Array.isArray(clienteAE) && clienteAE.length > 0) {
