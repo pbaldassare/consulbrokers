@@ -30,28 +30,10 @@ import {
 
 interface CommercialRole {
   profilo_id: string;
-  percentuale: string;
-  societa_brand: string;
-  mandato: string;
-  data_acquisito: string;
-  scadenza_mandato: string;
-  data_disdetta: string;
-  termine_proroga: string;
-  altro_broker: boolean;
-  altro_broker_nome: string;
 }
 
 const emptyRole = (): CommercialRole => ({
   profilo_id: "",
-  percentuale: "",
-  societa_brand: "",
-  mandato: "",
-  data_acquisito: "",
-  scadenza_mandato: "",
-  data_disdetta: "",
-  termine_proroga: "",
-  altro_broker: false,
-  altro_broker_nome: "",
 });
 
 function DatiStatisticiCreate(props: any) {
@@ -235,7 +217,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
   const [backofficeRole, setBackofficeRole] = useState<CommercialRole>(emptyRole());
   const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
-  const [produttoreMandatoAttivo, setProduttoreMandatoAttivo] = useState(false);
+  
   const [ufficioClienteId, setUfficioClienteId] = useState<string>("");
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
@@ -399,25 +381,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const insertCommercialRoles = async (clienteId: string) => {
     const rows: any[] = [];
 
-    // AE: completo
     if (ae.profilo_id) {
       rows.push({
         cliente_id: clienteId,
         profilo_id: ae.profilo_id,
         ruolo: "AE",
-        percentuale: null,
-        societa_brand: null,
-        mandato: ae.mandato || null,
-        data_acquisito: ae.data_acquisito || null,
-        scadenza_mandato: ae.scadenza_mandato || null,
-        data_disdetta: ae.data_disdetta || null,
-        termine_proroga: ae.termine_proroga || null,
-        altro_broker: ae.altro_broker,
-        altro_broker_nome: ae.altro_broker_nome || null,
       });
     }
 
-    // Specialist: solo profilo (no provvigioni / no mandato)
     if (backofficeRole.profilo_id) {
       rows.push({
         cliente_id: clienteId,
@@ -426,21 +397,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       });
     }
 
-    // Produttore: profilo + flag mandato (provvigioni gestite altrove)
     if (produttoreSede.profilo_id) {
       rows.push({
         cliente_id: clienteId,
         profilo_id: produttoreSede.profilo_id,
         ruolo: "Produttore Sede",
-        percentuale: null,
-        societa_brand: null,
-        mandato: produttoreMandatoAttivo ? (produttoreSede.mandato || null) : null,
-        data_acquisito: produttoreMandatoAttivo ? (produttoreSede.data_acquisito || null) : null,
-        scadenza_mandato: produttoreMandatoAttivo ? (produttoreSede.scadenza_mandato || null) : null,
-        data_disdetta: produttoreMandatoAttivo ? (produttoreSede.data_disdetta || null) : null,
-        termine_proroga: produttoreMandatoAttivo ? (produttoreSede.termine_proroga || null) : null,
-        altro_broker: produttoreMandatoAttivo ? produttoreSede.altro_broker : false,
-        altro_broker_nome: produttoreMandatoAttivo ? (produttoreSede.altro_broker_nome || null) : null,
       });
     }
 
@@ -615,7 +576,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
     setAe(emptyRole()); setBackofficeRole(emptyRole()); setProduttoreSede(emptyRole());
-    setProduttoreMandatoAttivo(false); setUfficioClienteId("");
+    setUfficioClienteId("");
     setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
     setTipoSommario(""); setClienteNonCeduto(false); setAziendaSsnSx(false);
@@ -634,65 +595,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const updateRole = (setter: React.Dispatch<React.SetStateAction<CommercialRole>>, field: keyof CommercialRole, value: any) => {
     setter((prev) => ({ ...prev, [field]: value }));
   };
-
-  const renderCorrispondenteFields = (role: CommercialRole, setter: React.Dispatch<React.SetStateAction<CommercialRole>>) => (
-    <div className="space-y-3 pt-2">
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Profilo</Label>
-          <SearchableSelect
-            value={role.profilo_id}
-            onValueChange={(v) => updateRole(setter, "profilo_id", v)}
-            placeholder="Seleziona..."
-            options={profiliCommerciali}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">% Provvigione</Label>
-          <Input value={role.percentuale} onChange={(e) => updateRole(setter, "percentuale", e.target.value)} placeholder="0.00" />
-        </div>
-        <div>
-          <Label className="text-xs">Società/Brand</Label>
-          <Input value={role.societa_brand} onChange={(e) => updateRole(setter, "societa_brand", e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Mandato</Label>
-          <Input value={role.mandato} onChange={(e) => updateRole(setter, "mandato", e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Data Acquisizione</Label>
-          <Input type="date" value={role.data_acquisito} onChange={(e) => updateRole(setter, "data_acquisito", e.target.value)} />
-        </div>
-        <div />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Scadenza Mandato</Label>
-          <Input type="date" value={role.scadenza_mandato} onChange={(e) => updateRole(setter, "scadenza_mandato", e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Data Disdetta</Label>
-          <Input type="date" value={role.data_disdetta} onChange={(e) => updateRole(setter, "data_disdetta", e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Termine Proroga</Label>
-          <Input type="date" value={role.termine_proroga} onChange={(e) => updateRole(setter, "termine_proroga", e.target.value)} />
-        </div>
-        <div className="flex items-end gap-2">
-          <Switch checked={role.altro_broker} onCheckedChange={(v) => updateRole(setter, "altro_broker", v)} />
-          <Label className="text-xs">Altro Broker</Label>
-        </div>
-        {role.altro_broker && (
-          <div>
-            <Label className="text-xs">Nome Altro Broker</Label>
-            <Input value={role.altro_broker_nome} onChange={(e) => updateRole(setter, "altro_broker_nome", e.target.value)} />
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
@@ -1114,53 +1016,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t">
-                <Switch
-                  checked={produttoreMandatoAttivo}
-                  onCheckedChange={setProduttoreMandatoAttivo}
-                />
-                <Label className="text-xs">Mandato attivo</Label>
-              </div>
-              {produttoreMandatoAttivo && (
-                <div className="space-y-3 pt-3">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs">Mandato</Label>
-                      <Input value={produttoreSede.mandato} onChange={(e) => updateRole(setProduttoreSede, "mandato", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Data Acquisizione</Label>
-                      <Input type="date" value={produttoreSede.data_acquisito} onChange={(e) => updateRole(setProduttoreSede, "data_acquisito", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Scadenza Mandato</Label>
-                      <Input type="date" value={produttoreSede.scadenza_mandato} onChange={(e) => updateRole(setProduttoreSede, "scadenza_mandato", e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs">Data Disdetta</Label>
-                      <Input type="date" value={produttoreSede.data_disdetta} onChange={(e) => updateRole(setProduttoreSede, "data_disdetta", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Termine Proroga</Label>
-                      <Input type="date" value={produttoreSede.termine_proroga} onChange={(e) => updateRole(setProduttoreSede, "termine_proroga", e.target.value)} />
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <Switch checked={produttoreSede.altro_broker} onCheckedChange={(v) => updateRole(setProduttoreSede, "altro_broker", v)} />
-                      <Label className="text-xs">Altro Broker</Label>
-                    </div>
-                  </div>
-                  {produttoreSede.altro_broker && (
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label className="text-xs">Nome Altro Broker</Label>
-                        <Input value={produttoreSede.altro_broker_nome} onChange={(e) => updateRole(setProduttoreSede, "altro_broker_nome", e.target.value)} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
           </>
