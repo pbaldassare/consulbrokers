@@ -508,8 +508,8 @@ const ImmissionePolizzaPage = () => {
   const { data: gruppiCompagniaList } = useQuery({
     queryKey: ["gruppi-compagnia-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("gruppi_compagnia" as any).select("id, nome").order("nome");
-      return (data as any[]) || [];
+      const { data } = await supabase.from("gruppi_compagnia" as any).select("id, codice, descrizione").eq("attivo", true).order("descrizione");
+      return ((data as any[]) || []).map((g: any) => ({ id: g.id, codice: g.codice, nome: `${g.codice ? g.codice + " - " : ""}${g.descrizione || ""}` }));
     },
   });
 
