@@ -374,14 +374,18 @@ const tipiRelazione = [
   { value: "socio", label: "Socio" },
 ];
 
+/* ── Rete Commerciale Sub-component ──
+ * Allineato al flusso attuale di creazione cliente: solo assegnazione profilo
+ * per Account Executive (AE) e Consul (DB ruolo "Produttore Sede").
+ * Lo Specialist (DB ruolo "Backoffice") è gestito nella card "Assegnazioni Gestionali".
+ * Tutti i campi legacy (% provvigione, società/brand, mandato, scadenze, altro broker)
+ * sono stati rimossi dalla UI.
+ */
 const ruoliCommerciali = [
-  { value: "account_executive", label: "Account Executive" },
-  { value: "backoffice", label: "Specialist" },
-  { value: "agente", label: "Agente" },
-  { value: "produttore_sede", label: "Produttore Sede" },
+  { value: "AE", label: "Account Executive" },
+  { value: "Produttore Sede", label: "Consul" },
 ];
 
-/* ── Codici Commerciali Sub-component ── */
 function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
   const queryClient = useQueryClient();
 
@@ -390,21 +394,21 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("codici_commerciali_cliente" as any)
-        .select("*")
+        .select("id, ruolo, profilo_id")
         .eq("cliente_id", clienteId)
-        .order("ruolo");
+        .in("ruolo", ["AE", "Produttore Sede"]);
       if (error) throw error;
       return data as any[];
     },
   });
 
   const { data: profili = [] } = useQuery({
-    queryKey: ["profili_commerciali"],
+    queryKey: ["profili_commerciali_rete"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
         .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["produttore", "ufficio", "backoffice", "admin"])
+        .in("ruolo", ["produttore", "executive", "responsabile_sede", "produttore_sede", "account_executive", "admin"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
@@ -412,149 +416,49 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async ({ ruolo, profilo_id }: { ruolo: string; profilo_id: string | null }) => {
+      if (!profilo_id) {
+        const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+          .delete()
+          .eq("cliente_id", clienteId)
+          .eq("ruolo", ruolo);
+        if (error) throw error;
+        return;
+      }
       const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
-        .upsert(payload, { onConflict: "cliente_id,ruolo" });
+        .upsert({ cliente_id: clienteId, ruolo, profilo_id }, { onConflict: "cliente_id,ruolo" });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["codici_commerciali", clienteId] });
-      toast.success("Codice commerciale salvato");
+      toast.success("Assegnazione salvata");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message || "Errore salvataggio"),
   });
 
-  const getByRuolo = (ruolo: string) => codici.find((c: any) => c.ruolo === ruolo);
+  const getProfiloByRuolo = (ruolo: string) =>
+    codici.find((c: any) => c.ruolo === ruolo)?.profilo_id || "";
+
+  const profiliOptions = profili.map((p: any) => ({
+    value: p.id,
+    label: `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—",
+  }));
 
   return (
-    <div className="space-y-4">
-      {ruoliCommerciali.map((r) => {
-        const existing = getByRuolo(r.value);
-        return (
-          <CodiceCommercialeRow
-            key={r.value}
-            ruolo={r.value}
-            label={r.label}
-            existing={existing}
-            profili={profili}
-            clienteId={clienteId}
-            hidePercentualeBrand={r.value === "account_executive" || r.value === "produttore_sede"}
-            onSave={(payload: any) => upsertMutation.mutate(payload)}
-            saving={upsertMutation.isPending}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {ruoliCommerciali.map((r) => (
+        <div key={r.value} className="space-y-1">
+          <Label className="text-xs">{r.label}</Label>
+          <SearchableSelect
+            className="h-8 text-xs"
+            value={getProfiloByRuolo(r.value)}
+            onValueChange={(v) => upsertMutation.mutate({ ruolo: r.value, profilo_id: v || null })}
+            placeholder={`— Seleziona ${r.label} —`}
+            options={profiliOptions}
           />
-        );
-      })}
-    </div>
-  );
-}
-
-function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, hidePercentualeBrand, onSave, saving }: any) {
-  const [profiloId, setProfiloId] = useState(existing?.profilo_id || "");
-  const [percentuale, setPercentuale] = useState(existing?.percentuale?.toString() || "0");
-  const [societaBrand, setSocietaBrand] = useState(existing?.societa_brand || "");
-  const [mandato, setMandato] = useState(existing?.mandato || "");
-  const [dataAcquisito, setDataAcquisito] = useState(existing?.data_acquisito || "");
-  const [scadenzaMandato, setScadenzaMandato] = useState(existing?.scadenza_mandato || "");
-  const [dataDisdetta, setDataDisdetta] = useState(existing?.data_disdetta || "");
-  const [termineProroga, setTermineProroga] = useState(existing?.termine_proroga || "");
-  const [altroBroker, setAltroBroker] = useState(existing?.altro_broker || false);
-  const [altroBrokerNome, setAltroBrokerNome] = useState(existing?.altro_broker_nome || "");
-
-  useEffect(() => {
-    if (existing) {
-      setProfiloId(existing.profilo_id || "");
-      setPercentuale(existing.percentuale?.toString() || "0");
-      setSocietaBrand(existing.societa_brand || "");
-      setMandato(existing.mandato || "");
-      setDataAcquisito(existing.data_acquisito || "");
-      setScadenzaMandato(existing.scadenza_mandato || "");
-      setDataDisdetta(existing.data_disdetta || "");
-      setTermineProroga(existing.termine_proroga || "");
-      setAltroBroker(existing.altro_broker || false);
-      setAltroBrokerNome(existing.altro_broker_nome || "");
-    }
-  }, [existing]);
-
-  const handleSave = () => {
-    onSave({
-      ...(existing?.id ? { id: existing.id } : {}),
-      cliente_id: clienteId,
-      ruolo,
-      profilo_id: profiloId || null,
-      percentuale: parseFloat(percentuale) || 0,
-      societa_brand: societaBrand || null,
-      mandato: mandato || null,
-      data_acquisito: dataAcquisito || null,
-      scadenza_mandato: scadenzaMandato || null,
-      data_disdetta: dataDisdetta || null,
-      termine_proroga: termineProroga || null,
-      altro_broker: altroBroker,
-      altro_broker_nome: altroBrokerNome || null,
-    });
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="col-span-2">
-            <Label className="text-xs">Profilo</Label>
-            <SearchableSelect
-              className="h-8 text-xs"
-              value={profiloId}
-              onValueChange={setProfiloId}
-              placeholder="Seleziona profilo..."
-              options={profili.map((p: any) => ({ value: p.id, label: `${p.cognome} ${p.nome}` }))}
-            />
-          </div>
-          {!hidePercentualeBrand && (
-            <>
-              <div>
-                <Label className="text-xs">% Provvigione</Label>
-                <Input className="h-8 text-xs" type="number" step="0.01" value={percentuale} onChange={(e) => setPercentuale(e.target.value)} />
-              </div>
-              <div>
-                <Label className="text-xs">Società/Brand</Label>
-                <Input className="h-8 text-xs" value={societaBrand} onChange={(e) => setSocietaBrand(e.target.value)} />
-              </div>
-            </>
-          )}
-          <div>
-            <Label className="text-xs">Mandato</Label>
-            <Input className="h-8 text-xs" value={mandato} onChange={(e) => setMandato(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Data Acquisito</Label>
-            <Input className="h-8 text-xs" type="date" value={dataAcquisito} onChange={(e) => setDataAcquisito(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Scadenza Mandato</Label>
-            <Input className="h-8 text-xs" type="date" value={scadenzaMandato} onChange={(e) => setScadenzaMandato(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Data Disdetta</Label>
-            <Input className="h-8 text-xs" type="date" value={dataDisdetta} onChange={(e) => setDataDisdetta(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Termine Proroga</Label>
-            <Input className="h-8 text-xs" type="date" value={termineProroga} onChange={(e) => setTermineProroga(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-2 col-span-2">
-            <Switch checked={altroBroker} onCheckedChange={setAltroBroker} />
-            <Label className="text-xs">Altro Broker</Label>
-            {altroBroker && (
-              <Input className="h-8 text-xs flex-1" placeholder="Nome broker..." value={altroBrokerNome} onChange={(e) => setAltroBrokerNome(e.target.value)} />
-            )}
-          </div>
-          <div className="col-span-2 md:col-span-4 flex justify-end">
-            <Button size="sm" onClick={handleSave} disabled={saving}>Salva</Button>
-          </div>
         </div>
-      </CardContent>
-    </Card>
+      ))}
+    </div>
   );
 }
 
