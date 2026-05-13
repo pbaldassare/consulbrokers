@@ -48,7 +48,7 @@ const ImmissionePolizzaPage = () => {
       setSelectedClienteId(m.cliente.id);
     } else if (m.isNewCliente) {
       // Apre NuovoClienteDialog precompilato: l'utente DEVE selezionare Gruppo Finanziario
-      // (e Codice CUP per gli Enti) prima di poter salvare.
+      // (e Codice CIG per gli Enti) prima di poter salvare.
       const piva = (d.contraente_partita_iva || "").trim();
       const cf = (d.contraente_codice_fiscale || "").trim().toUpperCase();
       const nome = (d.contraente_nome || "").trim();
@@ -91,7 +91,7 @@ const ImmissionePolizzaPage = () => {
         provincia: d.contraente_provincia,
         nazione: d.contraente_nazione,
         gruppoFinanziarioId: m.gruppoFinanziarioId,
-        codiceCup: m.codiceCup,
+        codiceCig: m.codiceCig,
       };
       // Bumpiamo il nonce: il NuovoClienteDialog viene rimontato (key={nonce}),
       // garantendo stato pulito e applicazione deterministica del nuovo prefill.

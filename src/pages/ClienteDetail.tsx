@@ -1459,7 +1459,7 @@ export default function ClienteDetail() {
         },
         { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
         { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },
-        ...(isEnte ? [{ field: "codice_cup", label: "Codice CUP", ok: !!(ef.codice_cup || "").trim() }] : []),
+        ...(isEnte ? [{ field: "codice_cig", label: "Codice CIG", ok: !!(ef.codice_cig || "").trim() }] : []),
       ];
 
   const missingRequired = requiredFieldsList.filter((r) => !r.ok);
@@ -1863,10 +1863,10 @@ export default function ClienteDetail() {
                     <FieldInput label="CAP Sede" field="cap_sede" />
                     {isEnte && (
                       <FieldInput
-                        label="Codice CUP"
-                        field="codice_cup"
+                        label="Codice CIG"
+                        field="codice_cig"
                         required
-                        errorMessage="Codice CUP obbligatorio per Ente"
+                        errorMessage="Codice CIG obbligatorio per Ente"
                       />
                     )}
                   </>
