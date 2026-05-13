@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Loader2, MapPin } from "lucide-react";
+import { MAPS_SUGGESTION_ITEM_CLASS, MAPS_SUGGESTION_LIST_CLASS } from "@/lib/mapsTheme";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -550,12 +551,12 @@ const AddressAutocomplete = ({
         <MapPin className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
       )}
       {open && predictions.length > 0 && !disabled && (
-        <div className="absolute z-[70] mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+        <div className={MAPS_SUGGESTION_LIST_CLASS}>
           {predictions.map((prediction) => (
             <button
               key={prediction.place_id}
               type="button"
-              className="w-full px-3 py-2 text-left text-sm bg-popover text-popover-foreground hover:bg-muted/40 hover:ring-1 hover:ring-border hover:ring-inset focus:bg-muted/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+              className={MAPS_SUGGESTION_ITEM_CLASS}
               onMouseDown={(event) => {
                 event.preventDefault();
                 if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
