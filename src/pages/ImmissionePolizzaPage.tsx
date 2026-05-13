@@ -942,10 +942,17 @@ const ImmissionePolizzaPage = () => {
                 setSelectedGruppoCompagniaId(v);
                 // se l'agenzia attuale non appartiene al nuovo gruppo, resetta
                 const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia);
-                if (ag && ag.gruppo_compagnia_id !== v) setSelectedCompagnia("");
+                if (ag && v && ag.gruppo_compagnia_id !== v) setSelectedCompagnia("");
               }}
-              placeholder="— Seleziona compagnia —"
-              options={(gruppiCompagniaList || []).map((g: any) => ({ value: g.id, label: g.nome }))}
+              placeholder={
+                (gruppiCompagniaList || []).length === 0
+                  ? "Caricamento compagnie…"
+                  : "— Seleziona compagnia —"
+              }
+              options={(gruppiCompagniaList || []).map((g: any) => ({
+                value: g.id,
+                label: g.nome || g.codice || "—",
+              }))}
             />
           </div>
           <div className="space-y-1.5">
@@ -953,8 +960,13 @@ const ImmissionePolizzaPage = () => {
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
-              onValueChange={setSelectedCompagnia}
-              placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Prima scegli la compagnia"}
+              onValueChange={(v) => {
+                setSelectedCompagnia(v);
+                // Auto-sync della Compagnia (gruppo) quando si sceglie l'agenzia
+                const ag = (compagnieList || []).find((c: any) => c.id === v);
+                if (ag?.gruppo_compagnia_id) setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+              }}
+              placeholder="— Seleziona agenzia —"
               options={(compagnieList || [])
                 .filter((c: any) => !selectedGruppoCompagniaId || c.gruppo_compagnia_id === selectedGruppoCompagniaId)
                 .map((c: any) => {
