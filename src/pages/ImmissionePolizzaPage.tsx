@@ -589,6 +589,44 @@ const ImmissionePolizzaPage = () => {
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
+  // --- Auto-lookup % Commerciale Produttore in base al Ramo ---
+  // Sorgente: produttori_provvigioni_ramo (anagrafica_id + ramo_codice) → fallback anagrafiche_professionali.percentuale_base
+  useEffect(() => {
+    if (!selectedAE) return;
+    const ramoCodice = selectedRamoData?.codice;
+    let cancelled = false;
+    (async () => {
+      try {
+        let pct: number | null = null;
+        if (ramoCodice) {
+          const { data: ppr } = await supabase
+            .from("produttori_provvigioni_ramo" as any)
+            .select("percentuale_provvigione")
+            .eq("anagrafica_id", selectedAE)
+            .eq("ramo_codice", ramoCodice)
+            .maybeSingle();
+          if (ppr && (ppr as any).percentuale_provvigione != null) {
+            pct = Number((ppr as any).percentuale_provvigione);
+          }
+        }
+        if (pct == null) {
+          const { data: ap } = await supabase
+            .from("anagrafiche_professionali")
+            .select("percentuale_base")
+            .eq("id", selectedAE)
+            .maybeSingle();
+          if (ap?.percentuale_base != null) pct = Number(ap.percentuale_base);
+        }
+        if (!cancelled && pct != null && !Number.isNaN(pct)) {
+          setSelectedCommerciale(selectedAE);
+          setPercentualeCommerciale(String(pct));
+          setPercentualeCommercialeAuto(true);
+        }
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedAE, selectedRamoData?.codice]);
+
   // --- Frazionamento helpers + auto-calcolo Periodo ---
   const FRAZIONAMENTO_OPTIONS = [
     { value: "Mensile", label: "Mensile" },
