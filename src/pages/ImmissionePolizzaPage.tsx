@@ -98,9 +98,9 @@ const ImmissionePolizzaPage = () => {
       setAiClientePrefill(prefill);
       setNuovoClienteNonce((n) => n + 1);
       setNuovoClienteOpen(true);
-      if (cf) setCodiceCliente(cf);
+      if (cf) setAiCfLookup(cf);
     } else if (d.contraente_codice_fiscale) {
-      setCodiceCliente(d.contraente_codice_fiscale);
+      setAiCfLookup(d.contraente_codice_fiscale);
     }
     if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
     if (m.ramo) {
@@ -134,8 +134,13 @@ const ImmissionePolizzaPage = () => {
   };
 
   // Form state — Cliente
-  const [codiceCliente, setCodiceCliente] = useState("");
+  const [aiCfLookup, setAiCfLookup] = useState(""); // CF/P.IVA arrivato da import AI per auto-selezione
   const [clienteSearch, setClienteSearch] = useState("");
+  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 350);
+    return () => clearTimeout(t);
+  }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
@@ -262,38 +267,62 @@ const ImmissionePolizzaPage = () => {
   // --- Queries ---
 
   const { data: clienteData } = useQuery({
-    queryKey: ["cliente-lookup", codiceCliente],
+    queryKey: ["cliente-lookup", aiCfLookup],
     queryFn: async () => {
-      if (!codiceCliente || codiceCliente.length < 2) return null;
+      if (!aiCfLookup || aiCfLookup.length < 2) return null;
       const { data } = await supabase
         .from("clienti")
         .select("id, nome, cognome, ragione_sociale, codice_fiscale, tipo_cliente, gruppo_finanziario_id")
-        .or(`codice_fiscale.ilike.%${codiceCliente}%,partita_iva.ilike.%${codiceCliente}%,codice_ricerca.ilike.%${codiceCliente}%`)
+        .or(`codice_fiscale.ilike.%${aiCfLookup}%,partita_iva.ilike.%${aiCfLookup}%,codice_ricerca.ilike.%${aiCfLookup}%`)
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: codiceCliente.length >= 2,
+    enabled: aiCfLookup.length >= 2,
   });
 
-  // Ricerca server-side per il SearchableSelect cliente
+  // Ricerca server-side per il SearchableSelect cliente (multi-token, sanitizzata, debounced)
   const { data: clientiSearchResults } = useQuery({
-    queryKey: ["clienti-search-immissione", clienteSearch],
+    queryKey: ["clienti-search-immissione", debouncedClienteSearch],
     queryFn: async () => {
-      let q = supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
-        .eq("attivo", true)
-        .order("ragione_sociale", { nullsFirst: false })
-        .limit(50);
-      if (clienteSearch && clienteSearch.length >= 2) {
-        const term = `%${clienteSearch}%`;
-        q = q.or(
-          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term}`
-        );
+      const raw = (debouncedClienteSearch || "").replace(/[%,()]/g, " ").trim();
+      if (raw.length < 2) {
+        const { data, error } = await supabase
+          .from("clienti")
+          .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
+          .eq("attivo", true)
+          .order("ragione_sociale", { nullsFirst: false })
+          .limit(50);
+        if (error) { console.error("[clienti-search]", error); return []; }
+        return data || [];
       }
-      const { data } = await q;
-      return data || [];
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      const first = tokens[0];
+      const term = `%${first}%`;
+      const { data, error } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, codice_ricerca, tipo_cliente, ufficio_id")
+        .eq("attivo", true)
+        .or(
+          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term},codice_ricerca.ilike.${term}`
+        )
+        .order("ragione_sociale", { nullsFirst: false })
+        .limit(100);
+      if (error) { console.error("[clienti-search]", error); return []; }
+      const rest = tokens.slice(1).map((t) => t.toLowerCase());
+      const filtered = (data || []).filter((c: any) => {
+        if (rest.length === 0) return true;
+        const hay = [
+          c.ragione_sociale,
+          c.cognome,
+          c.nome,
+          c.codice_fiscale,
+          c.partita_iva,
+          c.codice_ricerca,
+        ].filter(Boolean).join(" ").toLowerCase();
+        return rest.every((t) => hay.includes(t));
+      });
+      return filtered.slice(0, 50);
     },
     staleTime: 1000 * 30,
   });
@@ -768,21 +797,12 @@ const ImmissionePolizzaPage = () => {
           );
         })()}
 
-        {/* Lookup veloce per codice/CF (legacy) */}
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[260px]">
-            <Label htmlFor="codice-cliente" className="text-xs">Lookup rapido (Codice / CF / P.IVA)</Label>
-            <div className="relative">
-              <Input id="codice-cliente" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="es. RSSMRA80A01..." className="h-8 text-xs" />
-              <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
-            </div>
-          </div>
-          {clienteDettaglio && (
-            <p className="text-sm text-foreground pb-1 font-medium">
-              ✓ {clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim()}
-            </p>
-          )}
-        </div>
+        {/* Conferma cliente selezionato */}
+        {clienteDettaglio && (
+          <p className="text-sm text-foreground font-medium">
+            ✓ {clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim()}
+          </p>
+        )}
 
         {/* Ufficio (Sede) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
