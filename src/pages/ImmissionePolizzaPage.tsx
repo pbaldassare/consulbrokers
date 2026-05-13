@@ -480,6 +480,14 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  const { data: gruppiCompagniaList } = useQuery({
+    queryKey: ["gruppi-compagnia-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase.from("gruppi_compagnia" as any).select("id, nome").order("nome");
+      return (data as any[]) || [];
+    },
+  });
+
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
