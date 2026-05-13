@@ -595,6 +595,20 @@ const ImmissionePolizzaPage = () => {
 
   const finalizzaPolizza = async () => {
     if (saving) return;
+    // Deriva ramo_id (sottoramo) dalla prima riga garanzia non vuota
+    const firstSottoramoId =
+      premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      null;
+    const ramoIdToSave = firstSottoramoId || selectedRamo || null;
+    if (!selectedGruppoRamoId) {
+      toast.error("Seleziona il Ramo");
+      return;
+    }
+    if (!ramoIdToSave) {
+      toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
+      return;
+    }
     setSaving(true);
     try {
       const payload: Record<string, any> = {
@@ -602,7 +616,7 @@ const ImmissionePolizzaPage = () => {
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
         compagnia_id: selectedCompagnia || null,
-        ramo_id: selectedRamo || null,
+        ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         
