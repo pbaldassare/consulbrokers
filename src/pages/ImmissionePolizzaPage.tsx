@@ -110,15 +110,16 @@ const ImmissionePolizzaPage = () => {
     }
     if (d.prodotto) setProdottoNome(d.prodotto);
     if (d.numero_polizza) setNumeroPolizza(d.numero_polizza);
-    if (d.decorrenza) setDurataDa(d.decorrenza);
-    if (d.scadenza) setDurataA(d.scadenza);
+    if (d.decorrenza) { setDurataDa(d.decorrenza); }
+    if (d.scadenza) { setDurataA(d.scadenza); setDurataATouched(true); }
     if (typeof d.tacito_rinnovo === "boolean") setTacitoRinnovo(d.tacito_rinnovo);
     if (d.frazionamento) {
       const fraz = d.frazionamento.toLowerCase();
       const map: Record<string, string> = {
-        annuale: "1", semestrale: "2", quadrimestrale: "3", trimestrale: "4", mensile: "12",
+        annuale: "Annuale", semestrale: "Semestrale", quadrimestrale: "Quadrimestrale",
+        trimestrale: "Trimestrale", mensile: "Mensile", poliennale: "Poliennale",
       };
-      if (map[fraz]) setRate(map[fraz]);
+      if (map[fraz]) setFrazionamento(map[fraz]);
     }
     if (d.premio_firma_netto != null || d.premio_firma_imposte != null) {
       setPremiFirmaRows([{ ...emptyGaranziaRow(), netto: d.premio_firma_netto != null ? String(d.premio_firma_netto) : "", tasse: d.premio_firma_imposte != null ? String(d.premio_firma_imposte) : "" }]);
