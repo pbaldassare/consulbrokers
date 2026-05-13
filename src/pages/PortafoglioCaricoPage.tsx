@@ -312,10 +312,7 @@ const PortafoglioCaricoPage = () => {
           <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button onClick={() => navigate("/portafoglio/immissione")} className="gap-2 ml-2">
-            <Plus className="h-4 w-4" />
-            Nuova Polizza
-          </Button>
+          <NuovaPolizzaButton className="ml-2" />
         </div>
       </div>
 
