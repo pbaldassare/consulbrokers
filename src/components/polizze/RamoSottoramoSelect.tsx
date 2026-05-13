@@ -16,6 +16,8 @@ interface Props {
   required?: boolean;
   /** Show only the sottoramo input when gruppo is missing (default true: show both). */
   hideLabels?: boolean;
+  /** Show only the Ramo (gruppo) select; sottoramo si compone nelle righe garanzia. */
+  gruppoOnly?: boolean;
 }
 
 export function RamoSottoramoSelect({
