@@ -623,13 +623,19 @@ const TitoloDetail = () => {
       const fields: (keyof typeof contrattoForm)[] = [
         "cig_rif", "vincolo_attivo",
         "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
-        "ufficio_id", "compagnia_id", "ramo_id",
+        "ufficio_id", "compagnia_id", "compagnia_rapporto_id", "ramo_id",
       ];
       fields.forEach((f) => {
         const oldV = (titolo as any)?.[f] ?? null;
         const newV = (contrattoForm[f] as any) || null;
         if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
       });
+
+      // Validazione: agenzia con 2+ rapporti richiede selezione
+      if (contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length >= 2 && !contrattoForm.compagnia_rapporto_id) {
+        throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+      }
+      const rapportoSel = (rapportiAgenziaEdit || []).find((r: any) => r.id === contrattoForm.compagnia_rapporto_id);
 
       const { error } = await supabase
         .from("titoli")
@@ -643,6 +649,8 @@ const TitoloDetail = () => {
           produttore_nome: contrattoForm.produttore_nome || null,
           ufficio_id: contrattoForm.ufficio_id || null,
           compagnia_id: contrattoForm.compagnia_id || null,
+          compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
+          codice_rapporto: rapportoSel?.codice_rapporto || null,
           ramo_id: contrattoForm.ramo_id || null,
         } as any)
         .eq("id", id!);
