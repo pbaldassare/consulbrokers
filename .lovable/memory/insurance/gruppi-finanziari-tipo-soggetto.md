@@ -6,7 +6,7 @@ type: feature
 
 ## Schema
 - `gruppi_finanziari.tipo_soggetto` text CHECK IN ('privato','azienda','ente')
-- `clienti.codice_cup` text (nullable a DB, obbligatorio lato form solo per ENTE)
+- `clienti.codice_cig` text (nullable a DB, obbligatorio lato form solo per ENTE)
 
 ## Derivazione automatica
 - **Nuovo Cliente** (`ClientiList.tsx`): in cima al modal il primo campo è **Gruppo Finanziario** (SearchableSelect). Selezionandolo, `tipoCliente` viene impostato automaticamente da `gruppo.tipo_soggetto` e mostrato come **badge read-only** con suffisso "(auto)". Non esiste più un selettore Tipo Cliente modificabile manualmente.
@@ -16,7 +16,7 @@ type: feature
 ## Campi per tipologia (ClienteDetail.tsx)
 - **PRIVATO**: nome, cognome, CF (16 char, validato e con auto-fill di sesso/data/luogo nascita via `parseCF`), data/luogo nascita, indirizzo residenza.
 - **AZIENDA**: ragione sociale, P.IVA, CF azienda (11 cifre → auto copia in P.IVA), forma giuridica, SDI, indirizzo sede.
-- **ENTE**: come azienda + **Codice CUP obbligatorio**.
+- **ENTE**: come azienda + **Codice CIG obbligatorio**.
 
 ## Clienti esistenti
 Nessuna modifica retroattiva ai dati. Le nuove regole si applicano solo a inserimenti/modifiche manuali.
