@@ -80,7 +80,7 @@ export function RamoSottoramoSelect({
   };
 
   return (
-    <div className={cn("grid gap-3", layout === "row" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
+    <div className={cn("grid gap-3", !gruppoOnly && layout === "row" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
       <div>
         {!hideLabels && (
           <Label className="text-xs">
@@ -95,20 +95,22 @@ export function RamoSottoramoSelect({
           disabled={disabled}
         />
       </div>
-      <div>
-        {!hideLabels && (
-          <Label className="text-xs">
-            Sottoramo {required && <span className="text-destructive">*</span>}
-          </Label>
-        )}
-        <SearchableSelect
-          options={sottorami}
-          value={ramoId || ""}
-          onValueChange={handleRamoChange}
-          placeholder={effectiveGruppo ? "— Seleziona sottoramo —" : "Tutti i sottorami"}
-          disabled={disabled}
-        />
-      </div>
+      {!gruppoOnly && (
+        <div>
+          {!hideLabels && (
+            <Label className="text-xs">
+              Sottoramo {required && <span className="text-destructive">*</span>}
+            </Label>
+          )}
+          <SearchableSelect
+            options={sottorami}
+            value={ramoId || ""}
+            onValueChange={handleRamoChange}
+            placeholder={effectiveGruppo ? "— Seleziona sottoramo —" : "Tutti i sottorami"}
+            disabled={disabled}
+          />
+        </div>
+      )}
     </div>
   );
 }
