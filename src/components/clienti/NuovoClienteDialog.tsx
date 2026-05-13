@@ -1001,16 +1001,16 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
 
-            {/* Consul (DB ruolo "Produttore Sede") */}
+            {/* Produttore (DB ruolo "Produttore Sede") */}
             <div className="rounded-md border p-4 mb-3">
-              <p className="text-sm font-medium mb-3">Consul</p>
+              <p className="text-sm font-medium mb-3">Produttore</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs">Profilo</Label>
                   <SearchableSelect
                     value={produttoreSede.profilo_id}
                     onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
-                    placeholder="Seleziona Consul..."
+                    placeholder="Seleziona Produttore..."
                     options={profiliCommerciali}
                   />
                 </div>
