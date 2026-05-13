@@ -5,7 +5,7 @@ import type { MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialo
 /**
  * Replica della logica di mapping "AI → NuovoClienteInitialData" usata in
  * `ImmissionePolizzaPage.handleAIImportApply` quando il cliente non esiste.
- * Verifica che i campi obbligatori (gruppo finanziario, CUP) NON vengano
+ * Verifica che i campi obbligatori (gruppo finanziario, CIG) NON vengano
  * mai preimpostati: devono essere completati dall'utente nel dialog.
  */
 function buildPrefill(m: MatchResult): NuovoClienteInitialData {
@@ -33,7 +33,7 @@ function buildPrefill(m: MatchResult): NuovoClienteInitialData {
 
 /**
  * Replica della logica di gating "Applica" del dialog AI:
- * isNewCliente richiede sempre Gruppo Finanziario; Enti richiedono anche CUP.
+ * isNewCliente richiede sempre Gruppo Finanziario; Enti richiedono anche CIG.
  */
 function canApplyAi(m: MatchResult): boolean {
   if (!m.isNewCliente) return true;
@@ -74,7 +74,7 @@ describe("AI import → NuovoClienteDialog prefill", () => {
     expect(p.ragioneSociale).toBeUndefined();
   });
 
-  it("non preimposta gruppo finanziario o codice CUP quando l'AI non li include (devono restare undefined)", () => {
+  it("non preimposta gruppo finanziario o codice CIG quando l'AI non li include (devono restare undefined)", () => {
     const p = buildPrefill({
       isNewCliente: true,
       data: { contraente_nome: "Comune di Varese", contraente_partita_iva: "00441340121" },
@@ -130,7 +130,7 @@ describe("AI import → gating Applica", () => {
     ).toBe(true);
   });
 
-  it("permette Applica quando Ente con CUP valorizzato", () => {
+  it("permette Applica quando Ente con CIG valorizzato", () => {
     expect(
       canApplyAi({
         isNewCliente: true,
