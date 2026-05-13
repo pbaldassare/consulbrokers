@@ -963,7 +963,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 </div>
               </div>
             </div>
-            {/* Specialist: solo Profilo (no provvigioni, no brand) */}
+            {/* Specialist (DB ruolo "Backoffice") */}
             <div className="rounded-md border p-4 mb-3">
               <p className="text-sm font-medium mb-3">Specialist</p>
               <div className="grid grid-cols-3 gap-3">
