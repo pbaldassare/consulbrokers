@@ -71,6 +71,7 @@ export function FiscalCodeInput({
   id,
   disabled,
   onValidChange,
+  enforcePattern,
 }: FiscalCodeInputProps) {
   const [touched, setTouched] = React.useState(false);
   const maxLength = kind === "piva" ? 11 : 16;
@@ -96,6 +97,7 @@ export function FiscalCodeInput({
         onChange={(e) => {
           let v = e.target.value.toUpperCase().replace(/\s+/g, "");
           if (kind === "piva") v = v.replace(/\D/g, "");
+          else if (kind === "cf16" && enforcePattern) v = filterCF16(v);
           onChange(v);
         }}
         onBlur={() => setTouched(true)}
