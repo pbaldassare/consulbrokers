@@ -647,6 +647,51 @@ export function ImportNuovaPolizzaAIDialog({
                   {clienteCandidates.length} candidato/i
                 </span>
               </div>
+
+              {/* Banner stato detection AI */}
+              {matchLevel === "esatto" && bestMatch && (
+                <div className="rounded border p-3 text-xs flex gap-2 items-start bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900 text-teal-800 dark:text-teal-200">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold">
+                      Cliente trovato nel database — match esatto su {bestMatch.matchType === "cf" ? "Codice Fiscale" : bestMatch.matchType === "piva" ? "Partita IVA" : "Email"}
+                    </div>
+                    <div className="text-[11px] opacity-90">{bestMatch.label}</div>
+                  </div>
+                  {selectedClienteId !== bestMatch.id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                      onClick={() => setSelectedClienteId(bestMatch.id)}
+                    >
+                      Usa cliente esistente
+                    </Button>
+                  )}
+                </div>
+              )}
+              {matchLevel === "parziale" && (
+                <div className="rounded border p-3 text-xs flex gap-2 items-start bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold">
+                      Possibile cliente esistente — match parziale solo sul nome
+                    </div>
+                    <div className="text-[11px] opacity-90">
+                      {clienteCandidates.length} candidato/i: scegli manualmente sotto, oppure crea un nuovo cliente.
+                    </div>
+                  </div>
+                </div>
+              )}
+              {matchLevel === "nessuno" && (
+                <div className="rounded border p-3 text-xs flex gap-2 items-start bg-muted/40 border-border text-muted-foreground">
+                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    Nessun cliente trovato nel database. Verrà creato un nuovo cliente con i dati estratti dal PDF.
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label className="text-xs">Match cliente</Label>
                 <SearchableSelect
