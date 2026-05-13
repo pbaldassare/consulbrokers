@@ -31,6 +31,7 @@ import { lookupComune, COMUNI_OPTIONS } from "@/lib/comuniItaliani";
 import { validatePIVA as validatePIVALib } from "@/lib/validatePIVA";
 import { validateCF as validateCFLib } from "@/lib/validateCF";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
