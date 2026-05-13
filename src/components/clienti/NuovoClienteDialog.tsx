@@ -1017,7 +1017,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </AccordionItem>
             </Accordion>
           </div>
-          </fieldset>
+          </>
           )}
         </div>
 
