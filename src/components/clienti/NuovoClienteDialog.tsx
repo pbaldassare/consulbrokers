@@ -20,6 +20,9 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { toast } from "sonner";
 import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { validatePIVA } from "@/lib/validatePIVA";
+import { validateCF } from "@/lib/validateCF";
 import {
   useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori,
   useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici,
