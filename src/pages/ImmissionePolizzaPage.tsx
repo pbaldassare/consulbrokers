@@ -98,9 +98,9 @@ const ImmissionePolizzaPage = () => {
       setAiClientePrefill(prefill);
       setNuovoClienteNonce((n) => n + 1);
       setNuovoClienteOpen(true);
-      if (cf) setCodiceCliente(cf);
+      if (cf) setAiCfLookup(cf);
     } else if (d.contraente_codice_fiscale) {
-      setCodiceCliente(d.contraente_codice_fiscale);
+      setAiCfLookup(d.contraente_codice_fiscale);
     }
     if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
     if (m.ramo) {
@@ -267,18 +267,18 @@ const ImmissionePolizzaPage = () => {
   // --- Queries ---
 
   const { data: clienteData } = useQuery({
-    queryKey: ["cliente-lookup", codiceCliente],
+    queryKey: ["cliente-lookup", aiCfLookup],
     queryFn: async () => {
-      if (!codiceCliente || codiceCliente.length < 2) return null;
+      if (!aiCfLookup || aiCfLookup.length < 2) return null;
       const { data } = await supabase
         .from("clienti")
         .select("id, nome, cognome, ragione_sociale, codice_fiscale, tipo_cliente, gruppo_finanziario_id")
-        .or(`codice_fiscale.ilike.%${codiceCliente}%,partita_iva.ilike.%${codiceCliente}%,codice_ricerca.ilike.%${codiceCliente}%`)
+        .or(`codice_fiscale.ilike.%${aiCfLookup}%,partita_iva.ilike.%${aiCfLookup}%,codice_ricerca.ilike.%${aiCfLookup}%`)
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: codiceCliente.length >= 2,
+    enabled: aiCfLookup.length >= 2,
   });
 
   // Ricerca server-side per il SearchableSelect cliente
@@ -778,7 +778,7 @@ const ImmissionePolizzaPage = () => {
           <div className="space-y-1.5 flex-1 max-w-[260px]">
             <Label htmlFor="codice-cliente" className="text-xs">Lookup rapido (Codice / CF / P.IVA)</Label>
             <div className="relative">
-              <Input id="codice-cliente" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="es. RSSMRA80A01..." className="h-8 text-xs" />
+              <Input id="codice-cliente" value={aiCfLookup} onChange={(e) => setAiCfLookup(e.target.value)} placeholder="es. RSSMRA80A01..." className="h-8 text-xs" />
               <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
             </div>
           </div>
