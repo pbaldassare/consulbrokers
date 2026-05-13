@@ -126,12 +126,29 @@ function FieldInput({
           {action}
         </div>
       )}
-      {!readOnly && (
-        <>
-          {showError && <p className="text-xs text-destructive mt-0.5">{errorMessage || "Campo obbligatorio"}</p>}
-          {!showError && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
-        </>
-      )}
+      {!readOnly && (() => {
+        const v = (ef[field] || "").toString();
+        let fiscalErr: string | undefined;
+        if (v) {
+          if (field === "codice_fiscale") {
+            const r = validateCFLib(v, { allowPIVAFormat: false });
+            if (!r.valid) fiscalErr = r.error;
+          } else if (field === "codice_fiscale_azienda") {
+            const r = validateCFLib(v, { allowPIVAFormat: true });
+            if (!r.valid) fiscalErr = r.error;
+          } else if (field === "partita_iva") {
+            const r = validatePIVALib(v);
+            if (!r.valid) fiscalErr = r.error;
+          }
+        }
+        return (
+          <>
+            {showError && <p className="text-xs text-destructive mt-0.5">{errorMessage || "Campo obbligatorio"}</p>}
+            {!showError && fiscalErr && <p className="text-xs text-destructive mt-0.5">{fiscalErr}</p>}
+            {!showError && !fiscalErr && warning && <p className="text-xs text-amber-600 mt-0.5">{warning}</p>}
+          </>
+        );
+      })()}
     </div>
   );
 }
