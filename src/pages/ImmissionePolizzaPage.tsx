@@ -349,9 +349,9 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return [];
       const { data } = await supabase
         .from("codici_commerciali_cliente")
-        .select("profilo_id, ruolo")
+        .select("profilo_id, ruolo, profiles:profilo_id(id, nome, cognome)")
         .eq("cliente_id", selectedClienteId)
-        .in("ruolo", ["account_executive", "AE", "Backoffice"]);
+        .in("ruolo", ["account_executive", "AE", "Backoffice", "Produttore Sede"]);
       return data || [];
     },
     enabled: !!selectedClienteId,
