@@ -236,7 +236,16 @@ export function PremiGaranziaCardShell({
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{lordoRow.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={lordoRow ? lordoRow.toFixed(2) : ""}
+                        onChange={(e) => handleLordoChange(idx, e.target.value)}
+                        className="h-8 text-right font-mono font-semibold ml-auto w-28"
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
