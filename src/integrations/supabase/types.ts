@@ -1364,6 +1364,7 @@ export type Database = {
         Row: {
           altro_broker: boolean | null
           altro_broker_nome: string | null
+          anagrafica_id: string | null
           cliente_id: string
           contatto: string | null
           created_at: string | null
@@ -1383,6 +1384,7 @@ export type Database = {
         Insert: {
           altro_broker?: boolean | null
           altro_broker_nome?: string | null
+          anagrafica_id?: string | null
           cliente_id: string
           contatto?: string | null
           created_at?: string | null
@@ -1402,6 +1404,7 @@ export type Database = {
         Update: {
           altro_broker?: boolean | null
           altro_broker_nome?: string | null
+          anagrafica_id?: string | null
           cliente_id?: string
           contatto?: string | null
           created_at?: string | null
@@ -1419,6 +1422,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "codici_commerciali_cliente_anagrafica_id_fkey"
+            columns: ["anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "codici_commerciali_cliente_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -6238,6 +6248,7 @@ export type Database = {
         Row: {
           addizionali: number | null
           addizionali_quietanza: number | null
+          ae_anagrafica_id: string | null
           ae_nome: string | null
           anagrafica_commerciale_id: string | null
           anni_durata: number | null
@@ -6334,6 +6345,7 @@ export type Database = {
         Insert: {
           addizionali?: number | null
           addizionali_quietanza?: number | null
+          ae_anagrafica_id?: string | null
           ae_nome?: string | null
           anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
@@ -6430,6 +6442,7 @@ export type Database = {
         Update: {
           addizionali?: number | null
           addizionali_quietanza?: number | null
+          ae_anagrafica_id?: string | null
           ae_nome?: string | null
           anagrafica_commerciale_id?: string | null
           anni_durata?: number | null
@@ -6524,6 +6537,13 @@ export type Database = {
           vincolo_attivo?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "titoli_ae_anagrafica_id_fkey"
+            columns: ["ae_anagrafica_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "titoli_anagrafica_commerciale_id_fkey"
             columns: ["anagrafica_commerciale_id"]

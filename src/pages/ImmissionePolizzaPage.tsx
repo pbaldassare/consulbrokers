@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/clienti/NuovoClienteDialog";
 import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
@@ -350,7 +351,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return [];
       const { data } = await supabase
         .from("codici_commerciali_cliente")
-        .select("profilo_id, ruolo, profiles:profilo_id(id, nome, cognome)")
+        .select("profilo_id, anagrafica_id, ruolo, profiles:profilo_id(id, nome, cognome)")
         .eq("cliente_id", selectedClienteId)
         .in("ruolo", ["account_executive", "AE", "Backoffice", "Produttore Sede"]);
       return data || [];
@@ -452,26 +453,49 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  // Account Executive: fonte canonica = anagrafiche_professionali (tipo='account_executive')
+  const { data: aeAnagraficheList } = useAccountExecutivesLookup();
+
   // Eredita AE, Specialist e Produttore dal cliente
   useEffect(() => {
     if (!Array.isArray(clienteAE) || clienteAE.length === 0) return;
     const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
     const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
     const prod = clienteAE.find((c: any) => c.ruolo === "Produttore Sede");
-    if (ae?.profilo_id) setSelectedAccountExecutiveId(ae.profilo_id as string);
-    if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
-    const prodProfile: any = (prod as any)?.profiles;
-    if (prodProfile && Array.isArray(aeList) && aeList.length > 0 && !selectedAE) {
-      const target = `${prodProfile.cognome || ""} ${prodProfile.nome || ""}`.trim().toLowerCase();
-      if (target) {
-        const match = (aeList as any[]).find((a: any) => {
-          const label = (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`).trim().toLowerCase();
-          return label === target;
-        });
-        if (match?.id) setSelectedAE(match.id as string);
+
+    // AE: prima prova anagrafica_id, poi fallback per nome verso aeAnagraficheList
+    if (ae?.anagrafica_id) {
+      setSelectedAccountExecutiveId(ae.anagrafica_id as string);
+    } else if (ae && Array.isArray(aeAnagraficheList) && aeAnagraficheList.length > 0 && !selectedAccountExecutiveId) {
+      const aeProfile: any = (ae as any).profiles;
+      if (aeProfile) {
+        const target = `${aeProfile.cognome || ""} ${aeProfile.nome || ""}`.trim().toLowerCase();
+        if (target) {
+          const match = aeAnagraficheList.find((a) => a.label.trim().toLowerCase() === target);
+          if (match?.value) setSelectedAccountExecutiveId(match.value);
+        }
       }
     }
-  }, [clienteAE, aeList]);
+
+    if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+
+    // Produttore: prima anagrafica_id, poi fallback per nome verso aeList (anagrafiche corrispondenti)
+    if (prod?.anagrafica_id) {
+      setSelectedAE(prod.anagrafica_id as string);
+    } else if (prod && Array.isArray(aeList) && aeList.length > 0 && !selectedAE) {
+      const prodProfile: any = (prod as any).profiles;
+      if (prodProfile) {
+        const target = `${prodProfile.cognome || ""} ${prodProfile.nome || ""}`.trim().toLowerCase();
+        if (target) {
+          const match = (aeList as any[]).find((a: any) => {
+            const label = (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`).trim().toLowerCase();
+            return label === target;
+          });
+          if (match?.id) setSelectedAE(match.id as string);
+        }
+      }
+    }
+  }, [clienteAE, aeList, aeAnagraficheList]);
 
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
@@ -624,19 +648,20 @@ const ImmissionePolizzaPage = () => {
         data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
-        // Produttore: salviamo il nome leggibile in produttore_nome (text).
-        // produttore_id resta NULL/legacy.
+        // Produttore: salviamo l'anagrafica + nome leggibile (produttore_id legacy resta NULL).
+        anagrafica_commerciale_id: selectedAE || null,
         produttore_nome: (() => {
           if (!selectedAE) return null;
           const ae = (aeList || []).find((a: any) => a.id === selectedAE);
           if (!ae) return null;
           return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
         })(),
-        // Account Executive salvato come "COGNOME NOME" leggibile in titoli.ae_nome
+        // Account Executive: anagrafica + nome leggibile.
+        ae_anagrafica_id: selectedAccountExecutiveId || null,
         ae_nome: (() => {
           if (!selectedAccountExecutiveId) return null;
-          const a = (commercialiList || []).find((c: any) => c.id === selectedAccountExecutiveId);
-          return a ? `${(a as any).cognome || ""} ${(a as any).nome || ""}`.trim() : null;
+          const a = (aeAnagraficheList || []).find((x) => x.value === selectedAccountExecutiveId);
+          return a ? a.label : null;
         })(),
         // Backoffice (Specialist) salvato come "COGNOME NOME" leggibile in titoli.specialist
         ...(selectedBackofficeId ? {
@@ -864,12 +889,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedAccountExecutiveId}
               onValueChange={setSelectedAccountExecutiveId}
               placeholder="— Seleziona Account Executive —"
-              options={(commercialiList || [])
-                .filter((c: any) => c.ruolo === "account_executive" || c.ruolo === "executive")
-                .map((c: any) => ({
-                  value: c.id,
-                  label: `${c.cognome || ""} ${c.nome || ""}`.trim(),
-                }))}
+              options={aeAnagraficheList || []}
             />
           </div>
           <div className="space-y-1.5 min-w-0">
