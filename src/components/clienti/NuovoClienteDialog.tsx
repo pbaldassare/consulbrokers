@@ -848,16 +848,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             <>
               <div><Label>{tipoCliente === "ente" ? "Denominazione Ente *" : "Ragione Sociale *"}</Label><Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} className={!ragioneSociale.trim() ? "border-amber-400" : undefined} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Partita IVA *</Label><Input value={partitaIva} className={!partitaIva.trim() ? "border-amber-400" : undefined} onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
+                <div><Label>Partita IVA *</Label><FiscalCodeInput kind="piva" required value={partitaIva} onChange={(val) => {
                   setPartitaIva(val);
                   if (val.length === 11 && /^\d{11}$/.test(val) && !codiceFiscaleAzienda) {
                     setCodiceFiscaleAzienda(val);
                     toast.info("Codice Fiscale copiato dalla Partita IVA");
                   }
-                }} maxLength={11} /></div>
-                <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente *" : "Azienda"}</Label><Input value={codiceFiscaleAzienda} className={tipoCliente === "ente" && !codiceFiscaleAzienda.trim() ? "border-amber-400" : undefined} onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
+                }} /></div>
+                <div><Label>Codice Fiscale {tipoCliente === "ente" ? "Ente *" : "Azienda"}</Label><FiscalCodeInput kind="cf-azienda" required={tipoCliente === "ente"} value={codiceFiscaleAzienda} onChange={(val) => {
                   setCodiceFiscaleAzienda(val);
                   if (val.length === 11 && /^\d{11}$/.test(val) && !partitaIva) {
                     setPartitaIva(val);
