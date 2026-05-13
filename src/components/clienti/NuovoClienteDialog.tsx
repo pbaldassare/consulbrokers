@@ -217,7 +217,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
   const [backofficeRole, setBackofficeRole] = useState<CommercialRole>(emptyRole());
   const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
-  const [produttoreMandatoAttivo, setProduttoreMandatoAttivo] = useState(false);
+  
   const [ufficioClienteId, setUfficioClienteId] = useState<string>("");
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
