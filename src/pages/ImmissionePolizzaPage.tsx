@@ -987,13 +987,20 @@ const ImmissionePolizzaPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5 md:col-span-2">
             <RamoSottoramoSelect
+              gruppoOnly
               gruppoRamoId={selectedGruppoRamoId}
-              ramoId={selectedRamo || null}
-              onChange={({ gruppoRamoId, ramoId }) => {
+              ramoId={null}
+              onChange={({ gruppoRamoId }) => {
                 setSelectedGruppoRamoId(gruppoRamoId);
-                setSelectedRamo(ramoId || "");
+                // Reset righe garanzia: i sottorami precedenti potrebbero non appartenere al nuovo gruppo
+                setPremiFirmaRows([emptyGaranziaRow()]);
+                setPremiQuietanzaRows([emptyGaranziaRow()]);
+                setSelectedRamo("");
               }}
             />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Il Sottoramo si seleziona riga per riga nelle Composizioni Premio sotto.
+            </p>
             {isRCA && (
               <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
                 <Info className="h-3 w-3" />
