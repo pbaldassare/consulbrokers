@@ -818,8 +818,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 <div><Label>Cognome *</Label><Input value={cognome} onChange={(e) => setCognome(e.target.value)} className={!cognome.trim() ? "border-amber-400" : undefined} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Codice Fiscale *</Label><Input value={codiceFiscale} className={!codiceFiscale.trim() ? "border-amber-400" : undefined} onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
+                <div><Label>Codice Fiscale *</Label><FiscalCodeInput kind="cf16" required value={codiceFiscale} onChange={(val) => {
                   setCodiceFiscale(val);
                   if (val.length === 16) {
                     const parsed = parseCF(val);
@@ -834,7 +833,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                       toast.info("Dati estratti automaticamente dal Codice Fiscale");
                     }
                   }
-                }} maxLength={16} /></div>
+                }} /></div>
                 <div><Label>Data di Nascita</Label><Input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} /></div>
               </div>
               <div><Label>Luogo di Nascita</Label><Input value={luogoNascita} onChange={(e) => setLuogoNascita(e.target.value)} /></div>
