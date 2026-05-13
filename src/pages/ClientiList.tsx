@@ -948,24 +948,14 @@ const ClientiList = () => {
                 {/* Account Executive - sempre visibile */}
                 <div className="rounded-md border p-4 mb-3 bg-muted/30">
                   <p className="text-sm font-medium mb-3">Account Executive</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs">Profilo</Label>
-                      <SearchableSelect
-                        value={ae.profilo_id}
-                        onValueChange={(v) => updateRole(setAe, "profilo_id", v)}
-                        placeholder="Seleziona AE..."
-                        options={profiliCommerciali}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">% Provvigione</Label>
-                      <Input value={ae.percentuale} onChange={(e) => updateRole(setAe, "percentuale", e.target.value)} placeholder="0.00" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Società/Brand</Label>
-                      <Input value={ae.societa_brand} onChange={(e) => updateRole(setAe, "societa_brand", e.target.value)} />
-                    </div>
+                  <div>
+                    <Label className="text-xs">Profilo</Label>
+                    <SearchableSelect
+                      value={ae.profilo_id}
+                      onValueChange={(v) => updateRole(setAe, "profilo_id", v)}
+                      placeholder="Seleziona AE..."
+                      options={profiliCommerciali}
+                    />
                   </div>
                 </div>
 
@@ -975,12 +965,8 @@ const ClientiList = () => {
                     <AccordionTrigger className="text-sm py-2">Specialist</AccordionTrigger>
                     <AccordionContent>{renderCorrispondenteFields(backofficeRole, setBackofficeRole)}</AccordionContent>
                   </AccordionItem>
-                  <AccordionItem value="agente">
-                    <AccordionTrigger className="text-sm py-2">Agente</AccordionTrigger>
-                    <AccordionContent>{renderCorrispondenteFields(agente, setAgente)}</AccordionContent>
-                  </AccordionItem>
                   <AccordionItem value="produttore_sede">
-                    <AccordionTrigger className="text-sm py-2">Produttore Sede</AccordionTrigger>
+                    <AccordionTrigger className="text-sm py-2">Consul</AccordionTrigger>
                     <AccordionContent>{renderCorrispondenteFields(produttoreSede, setProduttoreSede)}</AccordionContent>
                   </AccordionItem>
                 </Accordion>
