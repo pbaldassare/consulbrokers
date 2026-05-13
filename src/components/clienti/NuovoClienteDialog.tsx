@@ -490,6 +490,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         telefono: telefono || null,
         pec: pec || null,
         gruppo_finanziario_id: gruppoFinanziarioId || null,
+        ufficio_id: ufficioClienteId || null,
         codice_ricerca: codiceRicerca || null,
         titolo: titolo || null,
         stato_cliente: statoCliente || null,
