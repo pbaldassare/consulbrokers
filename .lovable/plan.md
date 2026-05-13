@@ -1,29 +1,60 @@
-## Cosa modificare in `src/pages/ImmissionePolizzaPage.tsx`
+# Unificazione entry point "Nuovo Cliente" e "Nuova Polizza"
 
-### 1. Compagnia Assicurativa + Agenzia di Riferimento (due campi separati)
+## Stato attuale (mappatura)
 
-Oggi nella sezione **Contratto** c'è un solo campo "Agenzia / Agenzia di rif." che mostra `compagnie` (di fatto le agenzie). Il pattern corretto a 2 livelli **esiste già** in `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx` (Gruppo Compagnia → Agenzia) e usa le tabelle `gruppi_compagnia` e `compagnie.gruppo_compagnia_id`.
+### Nuovo Cliente — 3 implementazioni diverse
+1. **`src/pages/ClientiList.tsx`** (linee 535–~1050): dialog inline **proprio**, ~500 righe di form duplicato (stati `nome`, `cognome`, `codiceFiscale`, `gruppoFinanziarioId`, scanner AI, tabs privato/azienda/ente, ecc.).
+2. **`src/components/clienti/NuovoClienteDialog.tsx`**: il componente "ufficiale" riutilizzabile (~1052 righe), già usato da:
+   - `ImmissionePolizzaPage.tsx` (creazione contestuale dalla nuova polizza)
+   - `ImportNuovaPolizzaAIDialog.tsx` (creazione da import AI)
 
-Lo replico in `ImmissionePolizzaPage`:
+→ **Doppione**: il form di `ClientiList` reimplementa quello che fa già `NuovoClienteDialog`.
 
-- Aggiungo stato `selectedGruppoCompagniaId` e caricamento di `gruppi_compagnia` (id, nome) tramite query React Query.
-- Sostituisco il blocco "Agenzia / Agenzia di rif." con due `SearchableSelect` affiancati (`col-span-1` ciascuno):
-  - **Compagnia Assicurativa** → opzioni da `gruppi_compagnia`. Al cambio resetta `selectedCompagnia` se non appartiene al gruppo.
-  - **Agenzia di Riferimento** → opzioni da `compagnieList` filtrate per `gruppo_compagnia_id === selectedGruppoCompagniaId`; disabilitato finché non è scelta la compagnia. Se l'utente non sceglie il gruppo, mostra comunque tutte (fallback) per non bloccare flussi legacy.
-- Auto-selezione: se viene scelta un'agenzia, popolo automaticamente `selectedGruppoCompagniaId` dal suo `gruppo_compagnia_id` (coerenza con l'AI dialog).
-- Salvataggio: nessun cambio schema. Continuiamo a persistere solo `compagnia_id` su `titoli` (il gruppo è derivabile via join). `gruppi_compagnia` è solo lookup UI.
+### Nuova Polizza — già quasi unificato
+Tutti i punti puntano a `/portafoglio/immissione` (con `?clienteId=` quando contestuale):
+- `PortafoglioAttivePage.tsx`, `PortafoglioStoricoPage.tsx`, `PortafoglioCaricoPage.tsx` → `navigate("/portafoglio/immissione")`
+- `ClienteDetail.tsx` → `navigate("/portafoglio/immissione?clienteId=...")`
+- `GestionePolizzePage.tsx` → action card che naviga a `/portafoglio/immissione`
 
-### 2. Visibilità testo Ramo / Sottoramo
+→ Già coerente, **nessun doppione**.
 
-Nello screenshot i due `SearchableSelect` di `RamoSottoramoSelect` mostrano testo troncato ("Seleziona r…", "Tutti i sottorami"). Il container li mette in `col-span-2` su una griglia a 4 colonne, quindi ognuno occupa ~150px.
+## Obiettivo
 
-Soluzioni (file `src/components/polizze/RamoSottoramoSelect.tsx` o wrapper in `ImmissionePolizzaPage`):
-- Allargo il blocco Ramo/Sottoramo a `col-span-4` (riga propria) così entrambi i select hanno spazio sufficiente, mantenendo il layout 50/50 interno.
-- In aggiunta verifico/forzo `min-w-0` + `truncate` sull'elemento di rendering del valore selezionato del `SearchableSelect` per evitare ellissi su label cortissime.
+Un solo componente per creare un cliente, un solo URL per creare una polizza.
 
-Risultato: Compagnia + Agenzia su una riga, Ramo + Sottoramo su una riga sotto (entrambi pienamente leggibili), poi Prodotto.
+## Modifiche
 
-### Out of scope
-- Nessuna modifica DB.
-- Nessuna modifica al flusso AI Import (già a posto) né al salvataggio backend.
-- Nessuna modifica alle altre pagine (TitoloDetail, Trattative) — possono essere allineate in un secondo momento se richiesto.
+### 1. `src/pages/ClientiList.tsx` — sostituire il dialog inline con `NuovoClienteDialog`
+
+- Rimuovere tutti gli stati locali del form (`nome`, `cognome`, `codiceFiscale`, `gruppoFinanziarioId`, `tipoCliente`, scanner AI, ecc.) e l'intero `<Dialog>` inline (linee ~535–~1050).
+- Sostituire con:
+  ```tsx
+  <NuovoClienteDialog
+    trigger={<Button><Plus className="w-4 h-4 mr-2" />Nuovo Cliente</Button>}
+    onCreated={(nuovoId) => {
+      refetch(); // refresh elenco clienti
+      navigate(`/clienti/${nuovoId}`); // (opzionale) redirect al dettaglio
+    }}
+  />
+  ```
+- Rimuovere import non più usati (scanner AI, tabs, query gruppi finanziari, ecc.) se non servono altrove nella pagina.
+- Comportamento atteso: identico (oggi il dialog inline fa le stesse cose), ma con un solo sorgente di verità.
+
+### 2. `src/pages/ImmissionePolizzaPage.tsx` — già a posto
+Continua a usare `NuovoClienteDialog` con prefill da AI. Nessuna modifica.
+
+### 3. Nuova Polizza — nessuna modifica
+Tutti i bottoni già convergono su `/portafoglio/immissione`. Confermato.
+
+## Fuori scope
+
+- Nessuna modifica a `NuovoClienteDialog` (logica interna invariata).
+- Nessuna modifica al backend / schema DB.
+- Nessuna modifica all'AI Import / matching cliente esistente (già fatto nei turn precedenti).
+- Nessun refactor del form di `ImmissionePolizzaPage`.
+
+## Risultato
+
+- **1 componente** per creare clienti: `NuovoClienteDialog` (usato in `ClientiList`, `ImmissionePolizzaPage`, `ImportNuovaPolizzaAIDialog`).
+- **1 route** per creare polizze: `/portafoglio/immissione[?clienteId=...]`.
+- ~500 righe di codice duplicato rimosse da `ClientiList.tsx`.
