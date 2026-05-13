@@ -525,50 +525,6 @@ const ClientiList = () => {
             placeholder="Seleziona..."
             options={profiliCommerciali}
           />
-        </div>
-        <div>
-          <Label className="text-xs">% Provvigione</Label>
-          <Input value={role.percentuale} onChange={(e) => updateRole(setter, "percentuale", e.target.value)} placeholder="0.00" />
-        </div>
-        <div>
-          <Label className="text-xs">Società/Brand</Label>
-          <Input value={role.societa_brand} onChange={(e) => updateRole(setter, "societa_brand", e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Mandato</Label>
-          <Input value={role.mandato} onChange={(e) => updateRole(setter, "mandato", e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Data Acquisizione</Label>
-          <Input type="date" value={role.data_acquisito} onChange={(e) => updateRole(setter, "data_acquisito", e.target.value)} />
-        </div>
-        <div />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs">Scadenza Mandato</Label>
-          <Input type="date" value={role.scadenza_mandato} onChange={(e) => updateRole(setter, "scadenza_mandato", e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Data Disdetta</Label>
-          <Input type="date" value={role.data_disdetta} onChange={(e) => updateRole(setter, "data_disdetta", e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Termine Proroga</Label>
-          <Input type="date" value={role.termine_proroga} onChange={(e) => updateRole(setter, "termine_proroga", e.target.value)} />
-        </div>
-        <div className="flex items-end gap-2">
-          <Switch checked={role.altro_broker} onCheckedChange={(v) => updateRole(setter, "altro_broker", v)} />
-          <Label className="text-xs">Altro Broker</Label>
-        </div>
-        {role.altro_broker && (
-          <div>
-            <Label className="text-xs">Nome Altro Broker</Label>
-            <Input value={role.altro_broker_nome} onChange={(e) => updateRole(setter, "altro_broker_nome", e.target.value)} />
-          </div>
-        )}
       </div>
     </div>
   );
