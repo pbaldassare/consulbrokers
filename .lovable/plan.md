@@ -1,29 +1,17 @@
-## Obiettivo
-Per i clienti **Privato**, allineare i campi obbligatori a: **Nome, Cognome, Codice Fiscale, Indirizzo Residenza, Email, Sede**. Tutto il resto (Data di Nascita, Luogo di Nascita, CAP/Città/Provincia, Gruppo Finanziario, Specialist) diventa opzionale a livello di blocco salvataggio.
+## Bug
+Riga 441 di `src/pages/ClienteDetail.tsx`:
+```ts
+hidePercentualeBrand={r.value === "Account Executive" || r.value === "Produttore Sede"}
+```
+`r.value` contiene gli enum `"account_executive"` / `"produttore_sede"` (definiti righe 378/381), non le label leggibili. Quindi la condizione è sempre `false` → in **Cliente Detail** i campi `% Provvigione` e `Società/Brand` continuano a vedersi sotto "Agente" e "Produttore Sede" (vedi screenshot).
 
-## Modifiche
+## Fix
+Una sola riga, in `src/pages/ClienteDetail.tsx` (riga 441):
+```ts
+hidePercentualeBrand={r.value === "account_executive" || r.value === "produttore_sede"}
+```
 
-### 1. `src/components/clienti/NuovoClienteDialog.tsx` — `getMissingFields()` (righe ~456-464)
-Ramo `tipoCliente === "privato"`, lista finale obbligatori:
-- Nome, Cognome, Codice Fiscale, Indirizzo Residenza, Email, **Sede** (`ufficioClienteId`)
-- Rimuovere da obbligatori: CAP, Città, Provincia
-- (Gruppo Finanziario resta obbligatorio perché governa il tipo cliente — necessario al funzionamento del form)
+Nessuna altra modifica. La logica condizionale dentro `CodiceCommercialeRow` (riga 513, `{!hidePercentualeBrand && (...)}`) è già corretta.
 
-### 2. `src/pages/ClienteDetail.tsx` — `requiredFieldsList` Privato (righe ~1472-1482)
-Nuova lista per Privato:
-- `ufficio_id` (Sede)
-- `nome` ← **da aggiungere**
-- `cognome` ← **da aggiungere**
-- `codice_fiscale` (con checksum)
-- `indirizzo_residenza`
-- `email` (con regex)
-
-Rimuovere da obbligatori: `gruppo_finanziario_id`, `specialist_id`, `data_nascita`, `luogo_nascita` (restano editabili e mostrati, ma non bloccano il salvataggio).
-
-### 3. Label/asterischi
-Aggiornare gli asterischi `*` nelle label coerentemente (aggiungere su Nome/Cognome/Sede dove mancano in ClienteDetail; togliere da CAP/Città/Provincia/Data nascita/Luogo nascita in NuovoClienteDialog e ClienteDetail per il ramo Privato).
-
-## Fuori scope
-- Nessuna modifica a schema DB / RLS / edge functions.
-- Ramo Azienda/Ente invariato.
-- Validazione checksum CF resta attiva quando il campo è valorizzato.
+## Verifica
+Aprire un cliente esistente → tab Dati Gestionali → sezioni "Agente" e "Produttore Sede" non devono più mostrare i campi `% Provvigione` e `Società/Brand`. La sezione "Specialist" resta invariata con tutti i campi.
