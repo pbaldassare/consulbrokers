@@ -160,6 +160,7 @@ const ImmissionePolizzaPage = () => {
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
   const [selectedGruppoCompagniaId, setSelectedGruppoCompagniaId] = useState<string>("");
+  const [selectedRapportoId, setSelectedRapportoId] = useState<string>("");
   const [selectedRamo, setSelectedRamo] = useState("");
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
   const [prodottoNome, setProdottoNome] = useState("");
@@ -540,6 +541,41 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
+  // Rapporti attivi per l'agenzia selezionata
+  const { data: rapportiAgenzia } = useQuery({
+    queryKey: ["compagnia_rapporti_attivi", selectedCompagnia],
+    enabled: !!selectedCompagnia,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("id, codice_rapporto, tipo_rapporto, attivo")
+        .eq("compagnia_id", selectedCompagnia)
+        .eq("attivo", true)
+        .order("codice_rapporto");
+      return (data as any[]) || [];
+    },
+  });
+
+  // Auto-seleziona il rapporto se ce n'è uno solo; resetta se l'attuale non appartiene più
+  useEffect(() => {
+    const list = rapportiAgenzia || [];
+    if (!selectedCompagnia) {
+      if (selectedRapportoId) setSelectedRapportoId("");
+      return;
+    }
+    if (list.length === 1) {
+      if (selectedRapportoId !== list[0].id) setSelectedRapportoId(list[0].id);
+    } else if (list.length === 0) {
+      if (selectedRapportoId) setSelectedRapportoId("");
+    } else {
+      // 2+ rapporti: se quello selezionato non è in lista, resetta
+      if (selectedRapportoId && !list.find((r: any) => r.id === selectedRapportoId)) {
+        setSelectedRapportoId("");
+      }
+    }
+  }, [rapportiAgenzia, selectedCompagnia]);
+
+
   // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === selectedGruppoRamoId);
@@ -691,6 +727,12 @@ const ImmissionePolizzaPage = () => {
       toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
       return;
     }
+    // Se l'agenzia ha 2+ rapporti attivi, l'utente deve sceglierne uno
+    if (selectedCompagnia && (rapportiAgenzia || []).length >= 2 && !selectedRapportoId) {
+      toast.error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+      return;
+    }
+    const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
     setSaving(true);
     try {
       const payload: Record<string, any> = {
@@ -698,6 +740,8 @@ const ImmissionePolizzaPage = () => {
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
         compagnia_id: selectedCompagnia || null,
+        compagnia_rapporto_id: selectedRapportoId || null,
+        codice_rapporto: rapportoSel?.codice_rapporto || null,
         ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
@@ -1082,6 +1126,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedCompagnia}
               onValueChange={(v) => {
                 setSelectedCompagnia(v);
+                setSelectedRapportoId(""); // reset, sarà rivalutato dall'effect
                 // Auto-sync della Compagnia (gruppo) quando si sceglie l'agenzia
                 const ag = (compagnieList || []).find((c: any) => c.id === v);
                 if (ag?.gruppo_compagnia_id) setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
@@ -1103,6 +1148,35 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
         </div>
+
+        {/* Rapporto Agenzia: visibile solo se l'agenzia ha rapporti attivi */}
+        {selectedCompagnia && (rapportiAgenzia || []).length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                Rapporto Agenzia {(rapportiAgenzia || []).length >= 2 && <span className="text-destructive">*</span>}
+              </Label>
+              {(rapportiAgenzia || []).length === 1 ? (
+                <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                  {(rapportiAgenzia as any[])[0].codice_rapporto || "—"}
+                  {(rapportiAgenzia as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenzia as any[])[0].tipo_rapporto}` : ""}
+                </div>
+              ) : (
+                <SearchableSelect
+                  className={`h-8 text-xs ${!selectedRapportoId ? "ring-1 ring-amber-500" : ""}`}
+                  value={selectedRapportoId}
+                  onValueChange={(v) => setSelectedRapportoId(v)}
+                  placeholder="— Seleziona rapporto —"
+                  options={(rapportiAgenzia as any[]).map((r) => ({
+                    value: r.id,
+                    label: r.codice_rapporto || "—",
+                    description: r.tipo_rapporto || undefined,
+                  }))}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5 md:col-span-2">

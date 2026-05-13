@@ -19,7 +19,7 @@ import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -471,9 +471,48 @@ const TitoloDetail = () => {
     produttore_nome: "",
     ufficio_id: "" as string | null,
     compagnia_id: "" as string | null,
+    compagnia_rapporto_id: "" as string | null,
     ramo_id: "" as string | null,
     gruppo_ramo_id: null as string | null,
   });
+
+  // Rapporti attivi per la compagnia selezionata in editing
+  const { data: rapportiAgenziaEdit = [] } = useQuery({
+    queryKey: ["compagnia_rapporti_attivi_edit", contrattoForm.compagnia_id],
+    enabled: editingContratto && !!contrattoForm.compagnia_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("id, codice_rapporto, tipo_rapporto, attivo")
+        .eq("compagnia_id", contrattoForm.compagnia_id as string)
+        .eq("attivo", true)
+        .order("codice_rapporto");
+      return (data as any[]) || [];
+    },
+  });
+
+  // Auto-seleziona rapporto se uno solo / reset se non più valido
+  useEffect(() => {
+    if (!editingContratto) return;
+    if (!contrattoForm.compagnia_id) {
+      if (contrattoForm.compagnia_rapporto_id) {
+        setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+      }
+      return;
+    }
+    const list = rapportiAgenziaEdit || [];
+    if (list.length === 1 && contrattoForm.compagnia_rapporto_id !== list[0].id) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: list[0].id }));
+    } else if (list.length === 0 && contrattoForm.compagnia_rapporto_id) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+    } else if (
+      list.length >= 2 &&
+      contrattoForm.compagnia_rapporto_id &&
+      !list.find((r: any) => r.id === contrattoForm.compagnia_rapporto_id)
+    ) {
+      setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: null }));
+    }
+  }, [rapportiAgenziaEdit, contrattoForm.compagnia_id, editingContratto]);
 
   const { data: produttoriOpts = [] } = useQuery({
     queryKey: ["produttori-anagrafiche"],
@@ -568,6 +607,7 @@ const TitoloDetail = () => {
         produttore_nome: (titolo as any).produttore_nome ?? "",
         ufficio_id: (titolo as any).ufficio_id ?? null,
         compagnia_id: (titolo as any).compagnia_id ?? null,
+        compagnia_rapporto_id: (titolo as any).compagnia_rapporto_id ?? null,
         ramo_id: (titolo as any).ramo_id ?? null,
         gruppo_ramo_id: ((titolo as any).ramo as any)?.gruppo_ramo_id ?? null,
       } as any);
@@ -583,13 +623,19 @@ const TitoloDetail = () => {
       const fields: (keyof typeof contrattoForm)[] = [
         "cig_rif", "vincolo_attivo",
         "descrizione_polizza", "prodotto_nome", "specialist", "produttore_nome",
-        "ufficio_id", "compagnia_id", "ramo_id",
+        "ufficio_id", "compagnia_id", "compagnia_rapporto_id", "ramo_id",
       ];
       fields.forEach((f) => {
         const oldV = (titolo as any)?.[f] ?? null;
         const newV = (contrattoForm[f] as any) || null;
         if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
       });
+
+      // Validazione: agenzia con 2+ rapporti richiede selezione
+      if (contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length >= 2 && !contrattoForm.compagnia_rapporto_id) {
+        throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+      }
+      const rapportoSel = (rapportiAgenziaEdit || []).find((r: any) => r.id === contrattoForm.compagnia_rapporto_id);
 
       const { error } = await supabase
         .from("titoli")
@@ -603,6 +649,8 @@ const TitoloDetail = () => {
           produttore_nome: contrattoForm.produttore_nome || null,
           ufficio_id: contrattoForm.ufficio_id || null,
           compagnia_id: contrattoForm.compagnia_id || null,
+          compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
+          codice_rapporto: rapportoSel?.codice_rapporto || null,
           ramo_id: contrattoForm.ramo_id || null,
         } as any)
         .eq("id", id!);
@@ -1867,6 +1915,7 @@ const TitoloDetail = () => {
             <FieldRow label="Agenzia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
+            <FieldRow label="Codice Rapporto" value={fmt((t as any).codice_rapporto)} />
             <FieldRow label="Ramo" value={fmt((t.ramo as any)?.gruppo_ramo?.descrizione)} />
             <FieldRow label="Sottoramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
             <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
@@ -1905,10 +1954,35 @@ const TitoloDetail = () => {
               <SearchableSelect
                 options={compagnieOpts}
                 value={contrattoForm.compagnia_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null, compagnia_rapporto_id: null }))}
                 placeholder="— Seleziona agenzia / agenzia —"
               />
             </div>
+            {contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Rapporto Agenzia {(rapportiAgenziaEdit || []).length >= 2 && <span className="text-destructive">*</span>}
+                </Label>
+                {(rapportiAgenziaEdit || []).length === 1 ? (
+                  <div className="h-9 px-2 flex items-center text-sm rounded-md border bg-muted/30">
+                    {(rapportiAgenziaEdit as any[])[0].codice_rapporto || "—"}
+                    {(rapportiAgenziaEdit as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenziaEdit as any[])[0].tipo_rapporto}` : ""}
+                  </div>
+                ) : (
+                  <SearchableSelect
+                    className={!contrattoForm.compagnia_rapporto_id ? "ring-1 ring-amber-500" : ""}
+                    value={contrattoForm.compagnia_rapporto_id || ""}
+                    onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
+                    placeholder="— Seleziona rapporto —"
+                    options={(rapportiAgenziaEdit as any[]).map((r) => ({
+                      value: r.id,
+                      label: r.codice_rapporto || "—",
+                      description: r.tipo_rapporto || undefined,
+                    }))}
+                  />
+                )}
+              </div>
+            )}
             <div className="space-y-1 col-span-2">
               <RamoSottoramoSelect
                 gruppoRamoId={(contrattoForm as any).gruppo_ramo_id || null}

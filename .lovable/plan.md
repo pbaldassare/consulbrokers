@@ -1,28 +1,41 @@
-# Fix prefill Luogo di Nascita da CF + colore hover suggerimenti Maps
+# Selezione Rapporto Agenzia in fase di emissione titolo
 
-## 1) Luogo di Nascita non si prefilla dal CF
+## Obiettivo
+Quando l'**Agenzia di Riferimento** scelta in immissione titolo ha **più di un rapporto attivo** in `compagnia_rapporti`, l'utente deve poter scegliere quale rapporto stiamo usando per quella polizza. Il **codice rapporto** deve essere salvato sul titolo e mostrato nell'anagrafica della polizza.
 
-In `NuovoClienteDialog.tsx` (cliente Privato) il prefill esiste già, ma è gated da `if (!luogoNascita)` (e idem `!comuneNascita` / `!provinciaNascita`). Il valore letto è quello di chiusura al momento del render: se l'utente apre il dialog con qualunque valore preesistente, o se il campo è già stato toccato da uno scan AI, il prefill non scatta. Inoltre questo guard rende la UX inaffidabile (l'utente non capisce perché a volte funziona e a volte no).
+## Verifica DB
+- `compagnia_rapporti` esiste già con: `id`, `compagnia_id`, `gruppo_compagnia_id`, `codice_rapporto`, `tipo_rapporto`, `attivo`, `rami_abilitati`, ecc. (memoria: "Rapporti agenzia-compagnia N:N").
+- `titoli` oggi ha solo `compagnia_id` → manca il riferimento al rapporto specifico.
+- Esempio reale: la compagnia `90a1b14…` ha 2 rapporti attivi → caso reale di ambiguità.
 
-**Cambio**: quando `parseCF(val)` ha successo e `lookupComune(codiceCatastale)` restituisce un comune, **sovrascrivere sempre** i campi derivati dal CF (sesso, data nascita, comune, provincia, luogoNascita = `"Comune (PR)"`). Il CF è la fonte di verità.
+## Migrazione DB
+Aggiungere a `titoli`:
+- `compagnia_rapporto_id uuid NULL REFERENCES compagnia_rapporti(id) ON DELETE SET NULL`
+- `codice_rapporto text NULL` (denormalizzato per visualizzazione veloce in liste/PDF)
+- Index su `compagnia_rapporto_id`.
 
-File: `src/components/clienti/NuovoClienteDialog.tsx`, blocco onChange del `FiscalCodeInput` per il privato (intorno alle righe 729-744).
+Nessun backfill: i titoli esistenti restano `NULL` (legacy, in TitoloDetail si potrà comunque editare a posteriori).
 
-## 2) Hover acquamarina sui suggerimenti Google Maps
+## ImmissionePolizzaPage
+1. Caricare `compagnia_rapporti` per `selectedCompagnia` (filtro `attivo=true`) con React Query.
+2. Logica:
+   - **0 rapporti** → nessun campo extra; salva `compagnia_rapporto_id=NULL`, `codice_rapporto=NULL`.
+   - **1 rapporto** → auto-selezionato in silenzio; salva id + `codice_rapporto` (mostra solo una riga read-only "Rapporto: COD - tipo").
+   - **≥ 2 rapporti** → mostra subito sotto "Agenzia di Riferimento" un nuovo `SearchableSelect` **"Rapporto Agenzia *"** (obbligatorio, bordo amber se vuoto) con opzioni `${codice_rapporto} - ${tipo_rapporto}`.
+3. Il salvataggio del titolo include `compagnia_rapporto_id` e `codice_rapporto`. Validazione blocca il salvataggio se l'agenzia ha ≥2 rapporti e l'utente non ha scelto.
+4. Quando si cambia agenzia → reset di `compagnia_rapporto_id`/`codice_rapporto`.
 
-In `AddressAutocomplete.tsx` (riga 558) i `<button>` dei suggerimenti usano `hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground` — nel tema corrente `accent` è il verde petrolio/teal del brand: l'effetto è invadente.
+## TitoloDetail (anagrafica polizza)
+- Read-only: aggiungere `FieldRow label="Codice Rapporto" value={t.codice_rapporto || "—"}` accanto a "Agenzia / Agenzia di rif.".
+- Edit Contratto: aggiungere `SearchableSelect` "Rapporto Agenzia" che si popola in base a `contrattoForm.compagnia_id` e segue le stesse regole (0/1/≥2). Salva `compagnia_rapporto_id` + `codice_rapporto` nel `update`.
 
-**Cambio richiesto dall'utente**: solo bordo sull'elemento sotto cursore/focus, senza riempire di colore. Sostituire le classi del `<button>` con uno schema "border-only":
+## "Valida per tutti i soggetti"
+Le altre pagine di lifecycle (Rinnovo, Duplicazione, Riattivazione, Sospensione, Storno, Appendici) creano nuovi titoli ereditando dal titolo origine: copieranno automaticamente `compagnia_rapporto_id` e `codice_rapporto` quando copiano `compagnia_id`. L'utente può comunque modificarli da TitoloDetail. Nessuna UI extra in queste pagine in questa iterazione (richiederebbero la stessa selezione condizionale; se serve si può aggiungere in un secondo giro).
 
-- bg ferma su `bg-popover` (default)
-- hover/focus → leggera evidenziazione neutra: `hover:bg-muted/40 focus:bg-muted/40` + `focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset`
-- aggiungere bordo sinistro/contorno on hover via `hover:ring-1 hover:ring-border hover:ring-inset` per "bordare" la riga selezionata
-
-Questo è l'unico componente che renderizza i suggerimenti Google Maps nel progetto (ricerca `rg` conferma: nessun altro file riusa il dropdown). Quindi il fix si applica una sola volta e copre tutti i form (clienti, polizze, compagnie, sedi, ecc.) come richiesto.
-
-File: `src/components/AddressAutocomplete.tsx`, riga 558 (className del `<button>` dentro il dropdown predizioni).
+## Memoria
+Aggiornare `mem://insurance/compagnia-rapporti-multipli` con la nuova relazione `titoli.compagnia_rapporto_id` e regola UX (0/1/≥2 rapporti).
 
 ## Out of scope
-- Nessuna modifica DB.
-- Nessun cambiamento al ClienteDetail (la sua logica CF è già aggressiva e funziona).
-- Nessuna modifica al tema/`--accent`: si interviene solo sulle classi del componente per non alterare gli altri usi del token `accent` nel resto dell'app.
+- Backfill dei titoli esistenti.
+- Cambi UX nelle pagine di lifecycle (solo eredità campo).
+- Validazione cross con `rami_abilitati` del rapporto (può essere step successivo).
