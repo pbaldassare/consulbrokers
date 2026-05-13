@@ -1899,7 +1899,7 @@ export default function ClienteDetail() {
 
             <AccordionItem value="commerciali" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /><span className="font-semibold">Codici Commerciali (Rete)</span></div>
+                <div className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /><span className="font-semibold">Rete Commerciale</span></div>
               </AccordionTrigger>
               <AccordionContent>
                 <CodiciCommercialiSection clienteId={id!} />
