@@ -123,6 +123,11 @@ const ProspectList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf16" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+        { label: "Codice Fiscale Azienda", value: form.codice_fiscale_azienda, kind: "cf-azienda" },
+      ]);
       const payload: Record<string, unknown> = {
         tipo_cliente: form.tipo_cliente,
         email: form.email || null, telefono: form.telefono || null,
