@@ -22,6 +22,9 @@ interface SearchableSelectProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  searchValue?: string;
+  onSearchChange?: (q: string) => void;
+  searchPlaceholder?: string;
 }
 
 export function SearchableSelect({
@@ -32,6 +35,9 @@ export function SearchableSelect({
   emptyText = "Nessun risultato.",
   className,
   disabled = false,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder = "Cerca...",
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -52,8 +58,12 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Cerca..." />
+        <Command shouldFilter={!onSearchChange}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={onSearchChange ? (searchValue ?? "") : undefined}
+            onValueChange={onSearchChange}
+          />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>

@@ -706,6 +706,9 @@ const ImmissionePolizzaPage = () => {
               value={selectedClienteId}
               onValueChange={(v) => setSelectedClienteId(v)}
               placeholder="— Cerca cliente per nome, CF o P.IVA —"
+              searchValue={clienteSearch}
+              onSearchChange={setClienteSearch}
+              searchPlaceholder="Cerca per nome, CF o P.IVA…"
               emptyText={clienteSearch.length < 2 ? "Digita almeno 2 caratteri" : "Nessun cliente trovato"}
               options={(clientiSearchResults || []).map((c: any) => ({
                 value: c.id,

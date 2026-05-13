@@ -1,17 +1,27 @@
-## Bug
-Riga 441 di `src/pages/ClienteDetail.tsx`:
-```ts
-hidePercentualeBrand={r.value === "Account Executive" || r.value === "Produttore Sede"}
-```
-`r.value` contiene gli enum `"account_executive"` / `"produttore_sede"` (definiti righe 378/381), non le label leggibili. Quindi la condizione è sempre `false` → in **Cliente Detail** i campi `% Provvigione` e `Società/Brand` continuano a vedersi sotto "Agente" e "Produttore Sede" (vedi screenshot).
+## Problema
+Nel select "Cliente esistente" di `/portafoglio/immissione` non funziona la ricerca: il `SearchableSelect` mostra l'input "Cerca..." ma filtra solo gli elementi già presenti, mentre la lookup è **server-side** (state `clienteSearch` → `clientiSearchResults`). Lo state `clienteSearch` non viene mai aggiornato dalla digitazione nel popover, quindi la lista resta quella iniziale e l'utente non vede nessun box di ricerca utile.
 
 ## Fix
-Una sola riga, in `src/pages/ClienteDetail.tsx` (riga 441):
-```ts
-hidePercentualeBrand={r.value === "account_executive" || r.value === "produttore_sede"}
+
+### 1. `src/components/SearchableSelect.tsx` — aggiungere modalità controllata della ricerca
+- Nuove props opzionali:
+  - `searchValue?: string`
+  - `onSearchChange?: (q: string) => void`
+  - `searchPlaceholder?: string` (default "Cerca...")
+- Se `onSearchChange` è definito:
+  - `<CommandInput value={searchValue} onValueChange={onSearchChange} />`
+  - `<Command shouldFilter={false}>` per disattivare il filtro client-side e mostrare esattamente le `options` ricevute (server-driven).
+- Comportamento attuale invariato quando le props non sono passate.
+
+### 2. `src/pages/ImmissionePolizzaPage.tsx` (riga ~704)
+Passare al `SearchableSelect` cliente:
+```tsx
+searchValue={clienteSearch}
+onSearchChange={setClienteSearch}
+searchPlaceholder="Cerca per nome, CF o P.IVA…"
 ```
+Nessun'altra modifica.
 
-Nessuna altra modifica. La logica condizionale dentro `CodiceCommercialeRow` (riga 513, `{!hidePercentualeBrand && (...)}`) è già corretta.
-
-## Verifica
-Aprire un cliente esistente → tab Dati Gestionali → sezioni "Agente" e "Produttore Sede" non devono più mostrare i campi `% Provvigione` e `Società/Brand`. La sezione "Specialist" resta invariata con tutti i campi.
+## Fuori scope
+- I select Sede / Produttore / Specialist hanno già lookup statiche con filtro client-side: restano come sono.
+- Nessuna modifica DB / RLS.
