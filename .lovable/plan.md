@@ -1,42 +1,43 @@
+# Automazione card "Periodo" in Immissione Polizza
+
 ## Obiettivo
 
-Rendere bidirezionali i calcoli nelle card "Premi per Garanzia — Firma/Quietanza": oggi si parte solo dal Premio Netto e si calcolano Tasse + Lordo. Voglio poter inserire anche il **Premio Lordo** e ottenere automaticamente Netto e Tasse usando l'aliquota del sottoramo.
+In `ImmissionePolizzaPage`, calcolare automaticamente Durata Da/A, Garanzia Da/A e Data Competenza in base alla data odierna, agli **Anni Durata** e al nuovo campo **Frazionamento** (ex "Rate"). I valori restano sempre editabili manualmente, e la scansione AI (`parse-polizza-completa`) continua a sovrascrivere i default quando porta dati propri.
 
-## Modifica
+## Regole di calcolo
 
-File unico: `src/components/polizze/PremiGaranziaCardShell.tsx`.
+Sia `inizio` la data di Durata Da (default = oggi alla creazione).
 
-### 1. Premio Lordo diventa editabile
+- **Durata Da** = oggi (default alla prima apertura del form, se vuota).
+- **Durata A** = `Durata Da + Anni Durata anni`.
+- **Garanzia Da** = `Durata Da`.
+- **Garanzia A** = `Garanzia Da + N mesi`, con N dipendente dal frazionamento:
+  - Mensile → 1
+  - Trimestrale → 3
+  - Quadrimestrale → 4
+  - Semestrale → 6
+  - Annuale → 12
+  - Poliennale → `Anni Durata × 12` (coincide con Durata A)
+- **Data Competenza** = `Durata Da` (inizio contratto).
 
-La cella "Premio Lordo" (riga 226) oggi è un `<span>` calcolato (`netto + tasse`). Diventa un `<Input type="number">` controllato dal valore corrente (`netto + tasse`).
+Ricalcolo automatico ad ogni cambio di Durata Da, Anni Durata o Frazionamento — purché l'utente non abbia modificato manualmente quel campo dopo l'auto-fill (vedi sotto).
 
-### 2. Nuovo handler `handleLordoChange(idx, value)`
+## Editabilità manuale (override)
 
-Logica:
-- `lordo = parseFloat(value) || 0`
-- `aliquota = r.aliquotaTasse || 0` (presa dal sottoramo selezionato)
-- Se `aliquota > 0`: `netto = lordo / (1 + aliquota/100)`, `tasse = lordo - netto`
-- Se `aliquota = 0` (nessun sottoramo): `netto = lordo`, `tasse = 0`
-- `updateRow(idx, { netto: netto.toFixed(2), tasse: tasse.toFixed(2) })`
+Per ogni campo derivato (Durata A, Garanzia Da, Garanzia A, Data Competenza) teniamo un flag `*Touched`. Se l'utente edita il campo, il flag diventa `true` e l'auto-ricalcolo non lo sovrascrive più. Il reset del form azzera i flag. La scansione AI imposta i campi e azzera i flag (i valori AI restano).
 
-### 3. Comportamento esistente preservato
+## Frazionamento — UI e DB
 
-- `handleNettoChange` (netto → tasse via aliquota) resta invariato.
-- Edit manuale del campo Tasse resta invariato (override).
-- Colonna "Aliquota %" continua a mostrare l'aliquota effettiva ricalcolata.
-- Totali, Addizionali, Provvigioni: nessun cambio.
+- Rinominare il campo "Rate" in **"Frazionamento"** e trasformarlo da `<Input number>` a `<SearchableSelect>` con opzioni: Mensile, Trimestrale, Quadrimestrale, Semestrale, Annuale, Poliennale. Default: **Annuale**.
+- Mappa AI esistente (mensile/trimestrale/semestrale/annuale → numero rate) viene rimpiazzata: l'AI imposta direttamente il valore testuale.
+- DB: aggiungere colonna `titoli.frazionamento text` (vincolata a quei 6 valori via CHECK). Manteniamo `titoli.rate integer` per retrocompatibilità, popolata in scrittura come 12/N (Poliennale → 1) per non rompere lookup esistenti che leggono `rate`.
 
-### 4. UX
+## File toccati
 
-- Input Lordo con stessa larghezza/stile degli altri (font mono, allineato a destra, h-8).
-- Su blur, riformatta a 2 decimali per coerenza visiva.
+- `src/pages/ImmissionePolizzaPage.tsx` — stato Frazionamento testuale, useEffect di auto-calcolo, flag touched, sostituzione input "Rate" con select, default `durataDa = today` all'avvio, salvataggio `frazionamento` in `insert(titoli)`.
+- Migration Supabase: `ALTER TABLE titoli ADD COLUMN frazionamento text` + CHECK constraint sui 6 valori.
 
-## Validazione
+## Fuori scope
 
-Sul preview (`/portafoglio/immissione`):
-1. Seleziono ramo + sottoramo EC CRISTALLI (aliquota 100%) → digito Lordo `244` → Netto deve diventare `122.00`, Tasse `122.00`.
-2. Sottoramo QA RC AUTO (aliquota 16%) → Lordo `141.52` → Netto `122.00`, Tasse `19.52`.
-3. Verifico inverso: cambio Netto a `200` → Tasse e Lordo si aggiornano come prima.
-4. Totali in fondo (Totale Netto / Tasse / Premio Lordo) restano coerenti.
-
-Nessun cambio a logiche di salvataggio o DB.
+- `TitoloDetail` (modifica polizza esistente): non toccato in questo step.
+- Logica di generazione rate/quietanze a partire dal frazionamento: non toccata.
