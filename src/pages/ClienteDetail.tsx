@@ -438,6 +438,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
             existing={existing}
             profili={profili}
             clienteId={clienteId}
+            hidePercentualeBrand={r.value === "Account Executive" || r.value === "Produttore Sede"}
             onSave={(payload: any) => upsertMutation.mutate(payload)}
             saving={upsertMutation.isPending}
           />
@@ -447,7 +448,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
   );
 }
 
-function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSave, saving }: any) {
+function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, hidePercentualeBrand, onSave, saving }: any) {
   const [profiloId, setProfiloId] = useState(existing?.profilo_id || "");
   const [percentuale, setPercentuale] = useState(existing?.percentuale?.toString() || "0");
   const [societaBrand, setSocietaBrand] = useState(existing?.societa_brand || "");
@@ -509,14 +510,18 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, onSa
               options={profili.map((p: any) => ({ value: p.id, label: `${p.cognome} ${p.nome}` }))}
             />
           </div>
-          <div>
-            <Label className="text-xs">% Provvigione</Label>
-            <Input className="h-8 text-xs" type="number" step="0.01" value={percentuale} onChange={(e) => setPercentuale(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Società/Brand</Label>
-            <Input className="h-8 text-xs" value={societaBrand} onChange={(e) => setSocietaBrand(e.target.value)} />
-          </div>
+          {!hidePercentualeBrand && (
+            <>
+              <div>
+                <Label className="text-xs">% Provvigione</Label>
+                <Input className="h-8 text-xs" type="number" step="0.01" value={percentuale} onChange={(e) => setPercentuale(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Società/Brand</Label>
+                <Input className="h-8 text-xs" value={societaBrand} onChange={(e) => setSocietaBrand(e.target.value)} />
+              </div>
+            </>
+          )}
           <div>
             <Label className="text-xs">Mandato</Label>
             <Input className="h-8 text-xs" value={mandato} onChange={(e) => setMandato(e.target.value)} />

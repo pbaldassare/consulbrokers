@@ -405,8 +405,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         cliente_id: clienteId,
         profilo_id: ae.profilo_id,
         ruolo: "AE",
-        percentuale: ae.percentuale ? parseFloat(ae.percentuale) : null,
-        societa_brand: ae.societa_brand || null,
+        percentuale: null,
+        societa_brand: null,
         mandato: ae.mandato || null,
         data_acquisito: ae.data_acquisito || null,
         scadenza_mandato: ae.scadenza_mandato || null,
@@ -426,14 +426,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       });
     }
 
-    // Produttore: % + brand; mandato solo se flag attivo
+    // Produttore: profilo + flag mandato (provvigioni gestite altrove)
     if (produttoreSede.profilo_id) {
       rows.push({
         cliente_id: clienteId,
         profilo_id: produttoreSede.profilo_id,
         ruolo: "Produttore Sede",
-        percentuale: produttoreSede.percentuale ? parseFloat(produttoreSede.percentuale) : null,
-        societa_brand: produttoreSede.societa_brand || null,
+        percentuale: null,
+        societa_brand: null,
         mandato: produttoreMandatoAttivo ? (produttoreSede.mandato || null) : null,
         data_acquisito: produttoreMandatoAttivo ? (produttoreSede.data_acquisito || null) : null,
         scadenza_mandato: produttoreMandatoAttivo ? (produttoreSede.scadenza_mandato || null) : null,
@@ -1061,14 +1061,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     options={profiliCommerciali}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs">% Provvigione</Label>
-                  <Input value={ae.percentuale} onChange={(e) => updateRole(setAe, "percentuale", e.target.value)} placeholder="0.00" />
-                </div>
-                <div>
-                  <Label className="text-xs">Società/Brand</Label>
-                  <Input value={ae.societa_brand} onChange={(e) => updateRole(setAe, "societa_brand", e.target.value)} />
-                </div>
               </div>
             </div>
             {/* Specialist: solo Profilo (no provvigioni, no brand) */}
@@ -1109,7 +1101,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
 
-            {/* Produttore: profilo + % + brand; mandato come flag */}
+            {/* Produttore: profilo + flag mandato (provvigioni gestite altrove) */}
             <div className="rounded-md border p-4 mb-3">
               <p className="text-sm font-medium mb-3">Produttore</p>
               <div className="grid grid-cols-3 gap-3">
@@ -1120,21 +1112,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
                     placeholder="Seleziona Produttore..."
                     options={profiliCommerciali}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">% Provvigione</Label>
-                  <Input
-                    value={produttoreSede.percentuale}
-                    onChange={(e) => updateRole(setProduttoreSede, "percentuale", e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Società/Brand</Label>
-                  <Input
-                    value={produttoreSede.societa_brand}
-                    onChange={(e) => updateRole(setProduttoreSede, "societa_brand", e.target.value)}
                   />
                 </div>
               </div>
