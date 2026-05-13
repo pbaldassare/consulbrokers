@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, UserCheck, Scale, Eye, Trash2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
