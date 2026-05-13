@@ -340,7 +340,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
         .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, ufficio_id, gruppo_finanziario_id, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
+        .select("id, nome, cognome, ragione_sociale, ufficio_id, gruppo_finanziario_id, provincia_residenza, provincia_sede, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
         .eq("id", selectedClienteId)
         .maybeSingle();
       return data as any;
