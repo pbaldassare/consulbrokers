@@ -181,20 +181,20 @@ export function PremiGaranziaCardShell({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <ShieldCheck className={cn("h-4 w-4 flex-shrink-0", isQuietanza ? "text-amber-700" : "text-teal-700")} />
-                        {gruppoRamoId && garanziaOptions.length > 0 ? (
+                        {gruppoRamoId ? (
                           <SearchableSelect
                             options={garanziaOptions}
-                            value={r.codice || ""}
+                            value={r.sottoramoId || ""}
                             onValueChange={(v) => handleGaranziaSelect(idx, v)}
-                            placeholder="Seleziona garanzia…"
-                            className="min-w-[180px]"
+                            placeholder={garanziaOptions.length ? "Seleziona sottoramo…" : "Caricamento…"}
+                            className="min-w-[220px]"
                           />
-                        ) : null}
-                        {(allowFreeText || !gruppoRamoId) && (
+                        ) : (
                           <Input
                             value={r.descrizione}
-                            onChange={(e) => updateRow(idx, { descrizione: e.target.value, codice: r.codice })}
-                            placeholder={r.codice ? "Descrizione" : "Sotto-garanzia (libera)"}
+                            onChange={(e) => updateRow(idx, { descrizione: e.target.value })}
+                            placeholder="Seleziona prima il Ramo"
+                            disabled
                             className="h-8 text-xs flex-1 min-w-[140px]"
                           />
                         )}
