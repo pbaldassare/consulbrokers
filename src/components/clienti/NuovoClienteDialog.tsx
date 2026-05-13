@@ -1061,14 +1061,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     options={profiliCommerciali}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs">% Provvigione</Label>
-                  <Input value={ae.percentuale} onChange={(e) => updateRole(setAe, "percentuale", e.target.value)} placeholder="0.00" />
-                </div>
-                <div>
-                  <Label className="text-xs">Società/Brand</Label>
-                  <Input value={ae.societa_brand} onChange={(e) => updateRole(setAe, "societa_brand", e.target.value)} />
-                </div>
               </div>
             </div>
             {/* Specialist: solo Profilo (no provvigioni, no brand) */}
