@@ -1,59 +1,27 @@
-## Obiettivo
+## Piano di correzione
 
-In **Immissione Polizza**, i campi **Account Executive** e **Produttore** devono attingere dalla pagina **Archivi → Anagrafiche Amministrative** (`anagrafiche_professionali`) e auto-popolarsi dal cliente selezionato. Sede e Specialist mantengono le fonti attuali (`uffici`, `profiles` ruolo `backoffice`).
+1. **Sbloccare la tendina “Compagnia Assicurativa”**
+   - Correggere la query in `ImmissionePolizzaPage`: `gruppi_compagnia` non ha la colonna `nome`, ma `codice` e `descrizione`.
+   - Mostrare le opzioni come `codice - descrizione` e ordinare per `codice`/`descrizione`.
+   - Questo risolve l’errore 400 attuale: `column gruppi_compagnia.nome does not exist`, che lascia vuota la compagnia e manda fuori sync il resto.
 
-**Importante**: gli elenchi di Produttore/Sede/AE/Specialist sono **identici per tutti i tipi cliente** (privato/azienda/ente). Il `tipo_soggetto` del Gruppo Finanziario governa solo i campi anagrafici del cliente, non queste tendine.
+2. **Rendere coerente l’applicazione dei dati AI compagnia/agenzia**
+   - Quando l’import AI seleziona un’agenzia (`compagnie.id`), impostare subito anche il relativo gruppo compagnia, senza aspettare effetti asincroni.
+   - Se l’AI trova il gruppo ma non può scegliere automaticamente l’agenzia perché ce ne sono più di una, lasciare il gruppo selezionato e obbligare la scelta manuale dell’agenzia, evitando salvataggi incompleti.
 
-## Stato attuale e problema
+3. **Migliorare il matching compagnia nell’import AI**
+   - In `ImportNuovaPolizzaAIDialog`, mantenere la query sui gruppi con `descrizione`, ma rendere il match più robusto anche rispetto a `codice` e alle denominazioni presenti in `compagnie.nome`.
+   - Se il PDF riporta un nome di agenzia/compagnia specifico, provare prima a trovare una `compagnie` attiva e da lì derivare `gruppo_compagnia_id`; altrimenti usare il fallback su `gruppi_compagnia`.
 
-- `anagrafiche_professionali` contiene già: 163 AE (`tipo='account_executive'`), 248 Produttori (`tipo='corrispondente'`), 146 Resp. Sede.
-- Oggi in Immissione le tendine AE e Produttore attingono in parte da `profiles`. Per il cliente "baldassare paolo" l'AE assegnato è un profilo `ruolo='backoffice'` → l'`id` è settato ma non compare tra le opzioni → tendina vuota.
-- Produttore tenta un match per nome verso anagrafiche → spesso fallisce → vuoto.
+4. **Stabilizzare ramo/sottoramo dopo la compagnia**
+   - Non cambiare la struttura `RamoSottoramoSelect` già corretta.
+   - Verificare che il sottoramo venga impostato solo quando esiste un `ramo_id` valido; se il match è ambiguo, lasciarlo manuale invece di preselezionare un ramo sbagliato.
 
-## Modifiche
+5. **CIG solo dove serve davvero**
+   - In immissione polizza, mantenere il campo come riferimento facoltativo, ma non renderlo obbligatorio per `privato` o `azienda`.
+   - Nel flusso “Nuovo Cliente” e nella revisione AI, confermare che il CIG venga richiesto solo se il Gruppo Finanziario classifica il cliente come `ente`.
+   - Rimuovere/aggiornare messaggi che possano far pensare che sia richiesto per aziende o persone fisiche.
 
-### 1. Schema (migrazione)
-
-- `titoli.ae_anagrafica_id uuid` (FK → `anagrafiche_professionali.id`, nullable). Affianca il legacy `commerciale_id`.
-- `codici_commerciali_cliente.anagrafica_id uuid` (FK → `anagrafiche_professionali.id`, nullable). Coesiste con `profilo_id`.
-
-Nessuna eliminazione di colonne legacy in questo step.
-
-### 2. Hook lookup canonici (`src/hooks`)
-
-- `useProduttoriLookup` (esistente, `tipo='corrispondente'`).
-- Nuovo `useAccountExecutivesLookup` (`tipo='account_executive'`, `attivo=true`).
-- Entrambi restano gli stessi a prescindere dal tipo cliente.
-
-### 3. Scheda Cliente (`src/pages/ClienteDetail.tsx` + tab commerciali)
-
-- Tendine "Account Executive" e "Produttore Sede": switch da profili a anagrafiche professionali.
-- Salvataggio: scrive `codici_commerciali_cliente.anagrafica_id`. `profilo_id` può rimanere NULL per le nuove righe AE/Produttore.
-- Specialist resta su `profiles` (ruolo `backoffice`).
-- Sede resta su `uffici`.
-
-### 4. Immissione Polizza (`src/pages/ImmissionePolizzaPage.tsx`)
-
-- **AE**: opzioni da `useAccountExecutivesLookup`.
-- **Produttore**: opzioni da `useProduttoriLookup` (rimuovere il match per nome).
-- **Specialist**: invariato.
-- **Sede**: invariata.
-- Eredità da cliente: leggi `codici_commerciali_cliente`; per ruoli `account_executive`/`AE` e `Produttore Sede` usa `anagrafica_id` come valore preselezionato. Se NULL, fallback al match per nome verso anagrafiche; se nessun match, mostra hint "Collega AE/Produttore all'Anagrafica Amministrativa nella scheda cliente".
-- Salvataggio:
-  - `titoli.ae_anagrafica_id` = AE selezionato.
-  - `titoli.anagrafica_commerciale_id` = Produttore selezionato (già così).
-  - `titoli.ae_nome` / `titoli.produttore_nome` continuano a essere popolati come testo leggibile.
-
-### 5. Wizard Import Polizza AI (`ImportNuovaPolizzaAIDialog.tsx`)
-
-Stessi due lookup canonici per AE e Produttore.
-
-## Out of scope
-
-- Migrazione massiva dei dati storici di `codici_commerciali_cliente` (linkare progressivamente in modifica scheda; eventuale script in task dedicato).
-- Pulizia colonne legacy (`commerciale_id`, `profilo_id` per AE/Produttore).
-
-## Memoria da aggiornare
-
-- Estendere `mem://insurance/produttori-lookup-source` includendo anche AE: fonte `anagrafiche_professionali` `tipo='account_executive'`; nuovo campo `titoli.ae_anagrafica_id`.
-- Nota in `mem://insurance/gruppi-finanziari-tipo-soggetto`: il `tipo_soggetto` non influenza le tendine Produttore/Sede/AE/Specialist.
+6. **Validazione finale**
+   - Controllare i network log: la richiesta a `gruppi_compagnia` deve tornare 200.
+   - Verificare in preview `/portafoglio/immissione` che la tendina compagnia si popoli, l’agenzia filtri correttamente e ramo/sottoramo restino coerenti.
