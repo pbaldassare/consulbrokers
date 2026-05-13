@@ -1126,6 +1126,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedCompagnia}
               onValueChange={(v) => {
                 setSelectedCompagnia(v);
+                setSelectedRapportoId(""); // reset, sarà rivalutato dall'effect
                 // Auto-sync della Compagnia (gruppo) quando si sceglie l'agenzia
                 const ag = (compagnieList || []).find((c: any) => c.id === v);
                 if (ag?.gruppo_compagnia_id) setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
@@ -1147,6 +1148,35 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
         </div>
+
+        {/* Rapporto Agenzia: visibile solo se l'agenzia ha rapporti attivi */}
+        {selectedCompagnia && (rapportiAgenzia || []).length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                Rapporto Agenzia {(rapportiAgenzia || []).length >= 2 && <span className="text-destructive">*</span>}
+              </Label>
+              {(rapportiAgenzia || []).length === 1 ? (
+                <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
+                  {(rapportiAgenzia as any[])[0].codice_rapporto || "—"}
+                  {(rapportiAgenzia as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenzia as any[])[0].tipo_rapporto}` : ""}
+                </div>
+              ) : (
+                <SearchableSelect
+                  className={`h-8 text-xs ${!selectedRapportoId ? "ring-1 ring-amber-500" : ""}`}
+                  value={selectedRapportoId}
+                  onValueChange={(v) => setSelectedRapportoId(v)}
+                  placeholder="— Seleziona rapporto —"
+                  options={(rapportiAgenzia as any[]).map((r) => ({
+                    value: r.id,
+                    label: r.codice_rapporto || "—",
+                    description: r.tipo_rapporto || undefined,
+                  }))}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5 md:col-span-2">
