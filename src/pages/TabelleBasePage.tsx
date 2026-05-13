@@ -353,6 +353,7 @@ const GruppiFinanziariTab = () => {
   const [nome, setNome] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [tipoSoggetto, setTipoSoggetto] = useState<TipoSoggetto>("azienda");
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["gruppi-finanziari"],
