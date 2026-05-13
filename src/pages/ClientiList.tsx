@@ -359,7 +359,6 @@ const ClientiList = () => {
     const roles: { ruolo: string; data: CommercialRole }[] = [
       { ruolo: "AE", data: ae },
       { ruolo: "Backoffice", data: backofficeRole },
-      { ruolo: "Agente", data: agente },
       { ruolo: "Produttore Sede", data: produttoreSede },
     ];
     const rows = roles
@@ -368,15 +367,6 @@ const ClientiList = () => {
         cliente_id: clienteId,
         profilo_id: r.data.profilo_id,
         ruolo: r.ruolo,
-        percentuale: r.data.percentuale ? parseFloat(r.data.percentuale) : null,
-        societa_brand: r.data.societa_brand || null,
-        mandato: r.data.mandato || null,
-        data_acquisito: r.data.data_acquisito || null,
-        scadenza_mandato: r.data.scadenza_mandato || null,
-        data_disdetta: r.data.data_disdetta || null,
-        termine_proroga: r.data.termine_proroga || null,
-        altro_broker: r.data.altro_broker,
-        altro_broker_nome: r.data.altro_broker_nome || null,
       }));
     if (rows.length > 0) {
       const { error } = await supabase.from("codici_commerciali_cliente").insert(rows as any);
