@@ -686,7 +686,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </p>
             </div>
           ) : (
-          <fieldset className="space-y-4 contents">
+          <>
           {tipoCliente === "privato" ? (
             <div className="flex flex-wrap gap-2">
               <AiDocumentScanner
