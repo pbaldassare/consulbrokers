@@ -20,6 +20,7 @@ import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3,
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
+import { DeleteWithImpactDialog } from "@/components/common/DeleteWithImpactDialog";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -1017,6 +1018,10 @@ export default function ClienteDetail() {
   const [tipoRelazione, setTipoRelazione] = useState("referente");
   const [noteRelazione, setNoteRelazione] = useState("");
   const [editMode, setEditMode] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { profile: currentProfile } = useAuth();
+  const isAdmin = currentProfile?.ruolo === "admin";
 
   const { data: cliente } = useQuery({
     queryKey: ["cliente", id],
@@ -1485,7 +1490,20 @@ export default function ClienteDetail() {
               </Button>
             </>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>Modifica</Button>
+              {isAdmin && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteOpen(true)}
+                  title="Elimina cliente (lo storico polizze/sinistri/documenti viene preservato)"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Elimina
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -1964,6 +1982,48 @@ export default function ClienteDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {(() => {
+        const _clienteName = cliente?.ragione_sociale || `${cliente?.nome || ""} ${cliente?.cognome || ""}`.trim() || "Cliente";
+        return (
+        <DeleteWithImpactDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          entityId={cliente?.id}
+          entityType="cliente"
+          entityName={_clienteName}
+          checks={[
+            { table: "titoli", column: "cliente_anagrafica_id", label: "Polizze (restano nello storico)", blocking: false },
+            { table: "sinistri", column: "cliente_anagrafica_id", label: "Sinistri (restano nello storico)", blocking: false },
+            { table: "documenti", column: "entita_id", label: "Documenti (restano nello storico)", blocking: false },
+            { table: "trattative", column: "cliente_id", label: "Trattative (eliminate in cascata)", blocking: false },
+            { table: "privacy_consensi", column: "cliente_id", label: "Consensi privacy (eliminati in cascata)", blocking: false },
+          ]}
+          extraNotes={
+            <div>
+              <span className="font-semibold">Nota:</span> polizze, sinistri e documenti collegati al cliente
+              <strong> non vengono eliminati</strong>: restano nei rispettivi archivi e mostreranno
+              "— Cliente rimosso —" al posto del nome.
+            </div>
+          }
+          isDeleting={isDeleting}
+          onConfirmDelete={async () => {
+            if (!cliente?.id) return;
+            setIsDeleting(true);
+            const { error } = await supabase.from("clienti").delete().eq("id", cliente.id);
+            setIsDeleting(false);
+            if (error) {
+              toast.error("Errore eliminazione: " + error.message);
+              return;
+            }
+            toast.success(`Cliente "${_clienteName}" eliminato. Storico preservato.`);
+            setDeleteOpen(false);
+            queryClient.invalidateQueries({ queryKey: ["clienti"] });
+            navigate("/archivi/clienti");
+          }}
+        />
+        );
+      })()}
     </div>
   );
 }
