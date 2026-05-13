@@ -28,6 +28,7 @@ export function RamoSottoramoSelect({
   layout = "row",
   required,
   hideLabels,
+  gruppoOnly,
 }: Props) {
   const { data: gruppi = [] } = useGruppiRamo();
   const { data: rami = [] } = useRamiAll();
