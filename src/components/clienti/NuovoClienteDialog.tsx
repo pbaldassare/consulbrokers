@@ -377,6 +377,22 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     });
   }, [backofficeProfileId]);
 
+  // Auto-fill Sede dal profilo dello Specialist selezionato (solo se Sede è vuota)
+  useEffect(() => {
+    const profId = backofficeRole.profilo_id;
+    if (!profId || ufficioClienteId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("ufficio_id")
+        .eq("id", profId)
+        .maybeSingle();
+      if (!cancelled && data?.ufficio_id) setUfficioClienteId(data.ufficio_id);
+    })();
+    return () => { cancelled = true; };
+  }, [backofficeRole.profilo_id, ufficioClienteId]);
+
   const insertCommercialRoles = async (clienteId: string) => {
     const rows: any[] = [];
 
