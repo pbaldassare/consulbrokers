@@ -30,28 +30,10 @@ import {
 
 interface CommercialRole {
   profilo_id: string;
-  percentuale: string;
-  societa_brand: string;
-  mandato: string;
-  data_acquisito: string;
-  scadenza_mandato: string;
-  data_disdetta: string;
-  termine_proroga: string;
-  altro_broker: boolean;
-  altro_broker_nome: string;
 }
 
 const emptyRole = (): CommercialRole => ({
   profilo_id: "",
-  percentuale: "",
-  societa_brand: "",
-  mandato: "",
-  data_acquisito: "",
-  scadenza_mandato: "",
-  data_disdetta: "",
-  termine_proroga: "",
-  altro_broker: false,
-  altro_broker_nome: "",
 });
 
 function DatiStatisticiCreate(props: any) {
