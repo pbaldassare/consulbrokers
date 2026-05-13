@@ -27,6 +27,7 @@ import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
   { value: "in_trattativa", label: "In Trattativa", color: "bg-kpi-yellow-bg text-kpi-yellow-text border-kpi-yellow-border" },
@@ -122,6 +123,11 @@ const ProspectList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf16" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+        { label: "Codice Fiscale Azienda", value: form.codice_fiscale_azienda, kind: "cf-azienda" },
+      ]);
       const payload: Record<string, unknown> = {
         tipo_cliente: form.tipo_cliente,
         email: form.email || null, telefono: form.telefono || null,

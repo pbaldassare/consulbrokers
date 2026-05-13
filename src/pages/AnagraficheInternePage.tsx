@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Briefcase, Users, UserCog, Building2, CalendarIcon, Trash2 } from "lucide-react";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -193,6 +194,10 @@ const AnagraficheInternePage = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+      ]);
       const resolvedUfficioId = isCorr
         ? (form.ufficio_id || null)
         : isProduttore
@@ -263,6 +268,10 @@ const AnagraficheInternePage = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessun record selezionato");
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+      ]);
       const resolvedUfficioId = isCorr
         ? (form.ufficio_id || null)
         : isProduttore

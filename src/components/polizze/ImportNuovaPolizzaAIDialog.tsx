@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { Label as UILabel } from "@/components/ui/label";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import {
   Sparkles, UploadCloud, Loader2, FileText, CheckCircle2, AlertTriangle,
@@ -473,6 +474,15 @@ export function ImportNuovaPolizzaAIDialog({
     }
     if (isNewCliente && cigRequired && !codiceCigNew.trim()) {
       toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
+      return;
+    }
+    try {
+      assertFiscalValid([
+        { label: "Codice Fiscale Contraente", value: data.contraente_codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA Contraente", value: data.contraente_partita_iva, kind: "piva" },
+      ]);
+    } catch (err: any) {
+      toast.error(err.message);
       return;
     }
     onApply(buildResult());

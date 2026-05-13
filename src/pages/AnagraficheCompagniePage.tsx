@@ -17,6 +17,7 @@ import { Plus, Search, UserCheck, Scale, Eye, Trash2 } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 
 const TIPI = [
   { value: "liquidatore", label: "Liquidatori", icon: UserCheck },
@@ -136,6 +137,10 @@ const AnagraficheCompagniePage = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+      ]);
       const resolvedUfficioId = isProduttore
         ? (form.ufficio_id || profile?.ufficio_id || null)
         : (profile?.ufficio_id || null);
@@ -204,6 +209,10 @@ const AnagraficheCompagniePage = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessun record selezionato");
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+      ]);
       const resolvedUfficioId = isProduttore
         ? (form.ufficio_id || profile?.ufficio_id || null)
         : (profile?.ufficio_id || null);

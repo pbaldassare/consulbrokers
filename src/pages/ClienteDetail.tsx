@@ -31,6 +31,7 @@ import { lookupComune, COMUNI_OPTIONS } from "@/lib/comuniItaliani";
 import { validatePIVA as validatePIVALib } from "@/lib/validatePIVA";
 import { validateCF as validateCFLib } from "@/lib/validateCF";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -1238,6 +1239,11 @@ export default function ClienteDetail() {
       if (missing.length > 0) {
         throw new Error("Campi obbligatori mancanti: " + missing.map((m) => m.label).join(", "));
       }
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: editFields.codice_fiscale, kind: "cf16" },
+        { label: "Partita IVA", value: editFields.partita_iva, kind: "piva" },
+        { label: "Codice Fiscale Azienda", value: editFields.codice_fiscale_azienda, kind: "cf-azienda" },
+      ]);
       const {
         id: _id, created_at, updated_at, user_id, ...rest
       } = editFields;
