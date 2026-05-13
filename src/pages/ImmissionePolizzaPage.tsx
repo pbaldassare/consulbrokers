@@ -797,21 +797,12 @@ const ImmissionePolizzaPage = () => {
           );
         })()}
 
-        {/* Lookup veloce per codice/CF (legacy) */}
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5 flex-1 max-w-[260px]">
-            <Label htmlFor="codice-cliente" className="text-xs">Lookup rapido (Codice / CF / P.IVA)</Label>
-            <div className="relative">
-              <Input id="codice-cliente" value={aiCfLookup} onChange={(e) => setAiCfLookup(e.target.value)} placeholder="es. RSSMRA80A01..." className="h-8 text-xs" />
-              <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
-            </div>
-          </div>
-          {clienteDettaglio && (
-            <p className="text-sm text-foreground pb-1 font-medium">
-              ✓ {clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim()}
-            </p>
-          )}
-        </div>
+        {/* Conferma cliente selezionato */}
+        {clienteDettaglio && (
+          <p className="text-sm text-foreground font-medium">
+            ✓ {clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim()}
+          </p>
+        )}
 
         {/* Ufficio (Sede) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
