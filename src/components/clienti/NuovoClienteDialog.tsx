@@ -126,7 +126,7 @@ export interface NuovoClienteInitialData {
   provincia?: string;
   nazione?: string;
   gruppoFinanziarioId?: string;
-  codiceCup?: string;
+  codiceCig?: string;
 }
 
 export interface NuovoClienteDialogProps {
@@ -162,7 +162,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [ragioneSociale, setRagioneSociale] = useState("");
   const [partitaIva, setPartitaIva] = useState("");
   const [codiceFiscaleAzienda, setCodiceFiscaleAzienda] = useState("");
-  const [codiceCup, setCodiceCup] = useState("");
+  const [codiceCig, setCodiceCig] = useState("");
   const [codiceSdi, setCodiceSdi] = useState("");
   const [formaGiuridica, setFormaGiuridica] = useState("");
   const [indirizzoSede, setIndirizzoSede] = useState("");
@@ -347,7 +347,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (initialData.cellulare) setCellulare(initialData.cellulare);
       if (initialData.nazione) setNazione(initialData.nazione);
       if (initialData.gruppoFinanziarioId) setGruppoFinanziarioId(initialData.gruppoFinanziarioId);
-      if (initialData.codiceCup) setCodiceCup(initialData.codiceCup);
+      if (initialData.codiceCig) setCodiceCig(initialData.codiceCig);
     }
   }, [open, initialData]);
 
@@ -463,7 +463,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (!ragioneSociale.trim()) missing.push(tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale");
       if (!partitaIva.trim()) missing.push("Partita IVA");
       if (tipoCliente === "ente" && !codiceFiscaleAzienda.trim()) missing.push("Codice Fiscale Ente");
-      if (tipoCliente === "ente" && !codiceCup.trim()) missing.push("Codice CUP");
+      if (tipoCliente === "ente" && !codiceCig.trim()) missing.push("Codice CIG");
       if (!indirizzoSede.trim()) missing.push("Indirizzo Sede");
       if (!capSede.trim()) missing.push("CAP");
       if (!cittaSede.trim()) missing.push("Città");
@@ -563,7 +563,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         payload.referente_telefono = referenteTelefono || null;
         payload.referente_email = referenteEmail || null;
         if (tipoCliente === "ente") {
-          payload.codice_cup = codiceCup || null;
+          payload.codice_cig = codiceCig || null;
         }
       }
       const { data, error } = await supabase.from("clienti").insert(payload as any).select("id, nome, cognome, ragione_sociale").single();
@@ -593,7 +593,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setNome(""); setCognome(""); setCodiceFiscale(""); setDataNascita("");
     setLuogoNascita(""); setIndirizzoResidenza(""); setCapResidenza("");
     setCittaResidenza(""); setProvinciaResidenza(""); setRagioneSociale("");
-    setPartitaIva(""); setCodiceFiscaleAzienda(""); setCodiceCup(""); setCodiceSdi("");
+    setPartitaIva(""); setCodiceFiscaleAzienda(""); setCodiceCig(""); setCodiceSdi("");
     setFormaGiuridica(""); setIndirizzoSede(""); setCapSede("");
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
@@ -700,8 +700,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   if (gf?.tipo_soggetto) {
                     const newTipo = gf.tipo_soggetto as "privato" | "azienda" | "ente";
                     setTipoCliente(newTipo);
-                    // Pulisci CUP se non è più Ente
-                    if (newTipo !== "ente") setCodiceCup("");
+                    // Pulisci CIG se non è più Ente
+                    if (newTipo !== "ente") setCodiceCig("");
                   }
                 }}
                 placeholder="— Cerca e seleziona gruppo finanziario —"
@@ -851,14 +851,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
               {tipoCliente === "ente" && (
                 <div>
-                  <Label>Codice CUP *</Label>
+                  <Label>Codice CIG *</Label>
                   <Input
-                    value={codiceCup}
-                    onChange={(e) => setCodiceCup(e.target.value.toUpperCase())}
-                    placeholder="Codice Unico di Progetto (obbligatorio)"
-                    className={!codiceCup.trim() ? "border-amber-400 focus-visible:ring-amber-400" : undefined}
+                    value={codiceCig}
+                    onChange={(e) => setCodiceCig(e.target.value.toUpperCase())}
+                    placeholder="Codice Identificativo Gara (obbligatorio)"
+                    className={!codiceCig.trim() ? "border-amber-400 focus-visible:ring-amber-400" : undefined}
                   />
-                  {!codiceCup.trim() && (
+                  {!codiceCig.trim() && (
                     <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                       Obbligatorio per gli Enti.
                     </p>
