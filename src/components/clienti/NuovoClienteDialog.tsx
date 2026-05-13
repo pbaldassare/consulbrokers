@@ -231,8 +231,9 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
 
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
   const [backofficeRole, setBackofficeRole] = useState<CommercialRole>(emptyRole());
-  const [agente, setAgente] = useState<CommercialRole>(emptyRole());
   const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
+  const [produttoreMandatoAttivo, setProduttoreMandatoAttivo] = useState(false);
+  const [ufficioClienteId, setUfficioClienteId] = useState<string>("");
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
     scannedFilesRef.current.push({ file, documentType });
@@ -276,6 +277,17 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         .select("id, nome, cognome, ruolo")
         .in("ruolo", ["admin", "produttore", "responsabile_sede", "produttore_sede", "executive", "backoffice"])
         .order("cognome");
+      return data || [];
+    },
+  });
+
+  const { data: ufficiList = [] } = useQuery({
+    queryKey: ["uffici_lookup_nuovo_cliente"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("uffici")
+        .select("id, codice_ufficio, nome_ufficio")
+        .order("nome_ufficio");
       return data || [];
     },
   });
@@ -365,29 +377,70 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     });
   }, [backofficeProfileId]);
 
+  // Auto-fill Sede dal profilo dello Specialist selezionato (solo se Sede è vuota)
+  useEffect(() => {
+    const profId = backofficeRole.profilo_id;
+    if (!profId || ufficioClienteId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("ufficio_id")
+        .eq("id", profId)
+        .maybeSingle();
+      if (!cancelled && data?.ufficio_id) setUfficioClienteId(data.ufficio_id);
+    })();
+    return () => { cancelled = true; };
+  }, [backofficeRole.profilo_id, ufficioClienteId]);
+
   const insertCommercialRoles = async (clienteId: string) => {
-    const roles = [
-      { ruolo: "AE", data: ae },
-      { ruolo: "Backoffice", data: backofficeRole },
-      { ruolo: "Agente", data: agente },
-      { ruolo: "Produttore Sede", data: produttoreSede },
-    ];
-    const rows = roles
-      .filter((r) => r.data.profilo_id)
-      .map((r) => ({
+    const rows: any[] = [];
+
+    // AE: completo
+    if (ae.profilo_id) {
+      rows.push({
         cliente_id: clienteId,
-        profilo_id: r.data.profilo_id,
-        ruolo: r.ruolo,
-        percentuale: r.data.percentuale ? parseFloat(r.data.percentuale) : null,
-        societa_brand: r.data.societa_brand || null,
-        mandato: r.data.mandato || null,
-        data_acquisito: r.data.data_acquisito || null,
-        scadenza_mandato: r.data.scadenza_mandato || null,
-        data_disdetta: r.data.data_disdetta || null,
-        termine_proroga: r.data.termine_proroga || null,
-        altro_broker: r.data.altro_broker,
-        altro_broker_nome: r.data.altro_broker_nome || null,
-      }));
+        profilo_id: ae.profilo_id,
+        ruolo: "AE",
+        percentuale: ae.percentuale ? parseFloat(ae.percentuale) : null,
+        societa_brand: ae.societa_brand || null,
+        mandato: ae.mandato || null,
+        data_acquisito: ae.data_acquisito || null,
+        scadenza_mandato: ae.scadenza_mandato || null,
+        data_disdetta: ae.data_disdetta || null,
+        termine_proroga: ae.termine_proroga || null,
+        altro_broker: ae.altro_broker,
+        altro_broker_nome: ae.altro_broker_nome || null,
+      });
+    }
+
+    // Specialist: solo profilo (no provvigioni / no mandato)
+    if (backofficeRole.profilo_id) {
+      rows.push({
+        cliente_id: clienteId,
+        profilo_id: backofficeRole.profilo_id,
+        ruolo: "Backoffice",
+      });
+    }
+
+    // Produttore: % + brand; mandato solo se flag attivo
+    if (produttoreSede.profilo_id) {
+      rows.push({
+        cliente_id: clienteId,
+        profilo_id: produttoreSede.profilo_id,
+        ruolo: "Produttore Sede",
+        percentuale: produttoreSede.percentuale ? parseFloat(produttoreSede.percentuale) : null,
+        societa_brand: produttoreSede.societa_brand || null,
+        mandato: produttoreMandatoAttivo ? (produttoreSede.mandato || null) : null,
+        data_acquisito: produttoreMandatoAttivo ? (produttoreSede.data_acquisito || null) : null,
+        scadenza_mandato: produttoreMandatoAttivo ? (produttoreSede.scadenza_mandato || null) : null,
+        data_disdetta: produttoreMandatoAttivo ? (produttoreSede.data_disdetta || null) : null,
+        termine_proroga: produttoreMandatoAttivo ? (produttoreSede.termine_proroga || null) : null,
+        altro_broker: produttoreMandatoAttivo ? produttoreSede.altro_broker : false,
+        altro_broker_nome: produttoreMandatoAttivo ? (produttoreSede.altro_broker_nome || null) : null,
+      });
+    }
+
     if (rows.length > 0) {
       const { error } = await supabase.from("codici_commerciali_cliente").insert(rows as any);
       if (error) console.error("Errore inserimento rete commerciale:", error);
@@ -437,6 +490,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         telefono: telefono || null,
         pec: pec || null,
         gruppo_finanziario_id: gruppoFinanziarioId || null,
+        ufficio_id: ufficioClienteId || null,
         codice_ricerca: codiceRicerca || null,
         titolo: titolo || null,
         stato_cliente: statoCliente || null,
@@ -545,7 +599,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
-    setAe(emptyRole()); setBackofficeRole(emptyRole()); setAgente(emptyRole()); setProduttoreSede(emptyRole());
+    setAe(emptyRole()); setBackofficeRole(emptyRole()); setProduttoreSede(emptyRole());
+    setProduttoreMandatoAttivo(false); setUfficioClienteId("");
     setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
     setTipoSommario(""); setClienteNonCeduto(false); setAziendaSsnSx(false);
@@ -1002,20 +1057,122 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 </div>
               </div>
             </div>
-            <Accordion type="multiple" className="w-full">
-              <AccordionItem value="backoffice">
-                <AccordionTrigger className="text-sm py-2">Specialist</AccordionTrigger>
-                <AccordionContent>{renderCorrispondenteFields(backofficeRole, setBackofficeRole)}</AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="agente">
-                <AccordionTrigger className="text-sm py-2">Agente</AccordionTrigger>
-                <AccordionContent>{renderCorrispondenteFields(agente, setAgente)}</AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="produttore_sede">
-                <AccordionTrigger className="text-sm py-2">Produttore Sede</AccordionTrigger>
-                <AccordionContent>{renderCorrispondenteFields(produttoreSede, setProduttoreSede)}</AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            {/* Specialist: solo Profilo (no provvigioni, no brand) */}
+            <div className="rounded-md border p-4 mb-3">
+              <p className="text-sm font-medium mb-3">Specialist</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Profilo</Label>
+                  <SearchableSelect
+                    value={backofficeRole.profilo_id}
+                    onValueChange={(v) => updateRole(setBackofficeRole, "profilo_id", v)}
+                    placeholder="Seleziona Specialist..."
+                    options={profiliCommerciali}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sede (collegata allo Specialist) */}
+            <div className="rounded-md border p-4 mb-3">
+              <p className="text-sm font-medium mb-1">Sede</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Auto-compilata dallo Specialist selezionato, modificabile.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Sede / Ufficio</Label>
+                  <SearchableSelect
+                    value={ufficioClienteId}
+                    onValueChange={setUfficioClienteId}
+                    placeholder="— Seleziona sede —"
+                    options={(ufficiList || []).map((u: any) => ({
+                      value: u.id,
+                      label: `${u.codice_ufficio ? u.codice_ufficio + " - " : ""}${u.nome_ufficio}`,
+                    }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Produttore: profilo + % + brand; mandato come flag */}
+            <div className="rounded-md border p-4 mb-3">
+              <p className="text-sm font-medium mb-3">Produttore</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Profilo</Label>
+                  <SearchableSelect
+                    value={produttoreSede.profilo_id}
+                    onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
+                    placeholder="Seleziona Produttore..."
+                    options={profiliCommerciali}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">% Provvigione</Label>
+                  <Input
+                    value={produttoreSede.percentuale}
+                    onChange={(e) => updateRole(setProduttoreSede, "percentuale", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Società/Brand</Label>
+                  <Input
+                    value={produttoreSede.societa_brand}
+                    onChange={(e) => updateRole(setProduttoreSede, "societa_brand", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-4 pt-3 border-t">
+                <Switch
+                  checked={produttoreMandatoAttivo}
+                  onCheckedChange={setProduttoreMandatoAttivo}
+                />
+                <Label className="text-xs">Mandato attivo</Label>
+              </div>
+              {produttoreMandatoAttivo && (
+                <div className="space-y-3 pt-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Mandato</Label>
+                      <Input value={produttoreSede.mandato} onChange={(e) => updateRole(setProduttoreSede, "mandato", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Data Acquisizione</Label>
+                      <Input type="date" value={produttoreSede.data_acquisito} onChange={(e) => updateRole(setProduttoreSede, "data_acquisito", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Scadenza Mandato</Label>
+                      <Input type="date" value={produttoreSede.scadenza_mandato} onChange={(e) => updateRole(setProduttoreSede, "scadenza_mandato", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Data Disdetta</Label>
+                      <Input type="date" value={produttoreSede.data_disdetta} onChange={(e) => updateRole(setProduttoreSede, "data_disdetta", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Termine Proroga</Label>
+                      <Input type="date" value={produttoreSede.termine_proroga} onChange={(e) => updateRole(setProduttoreSede, "termine_proroga", e.target.value)} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <Switch checked={produttoreSede.altro_broker} onCheckedChange={(v) => updateRole(setProduttoreSede, "altro_broker", v)} />
+                      <Label className="text-xs">Altro Broker</Label>
+                    </div>
+                  </div>
+                  {produttoreSede.altro_broker && (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Nome Altro Broker</Label>
+                        <Input value={produttoreSede.altro_broker_nome} onChange={(e) => updateRole(setProduttoreSede, "altro_broker_nome", e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           </>
           )}
