@@ -1471,11 +1471,16 @@ const ImmissionePolizzaPage = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">% Commerciale</Label>
+              <Label className="text-xs flex items-center gap-1.5">
+                % Commerciale
+                {percentualeCommercialeAuto && (
+                  <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
+                )}
+              </Label>
               <Input
                 type="number" step="1" min="0" max="100"
                 value={percentualeCommerciale}
-                onChange={(e) => setPercentualeCommerciale(e.target.value)}
+                onChange={(e) => { setPercentualeCommerciale(e.target.value); setPercentualeCommercialeAuto(false); }}
                 disabled={selectedCommerciale === "__sede__"}
                 className="h-8 text-xs font-mono"
               />
@@ -1485,15 +1490,20 @@ const ImmissionePolizzaPage = () => {
                 <Label className="text-xs text-muted-foreground">Split</Label>
                 <div className="text-[11px] font-mono space-y-0.5">
                   <p className="text-foreground">
-                    Comm: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * parseFloat(percentualeCommerciale || "0") / 100).toFixed(2)}
+                    Produttore: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * parseFloat(percentualeCommerciale || "0") / 100).toFixed(2)}
                   </p>
                   <p className="text-primary font-semibold">
-                    Sede: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * (100 - parseFloat(percentualeCommerciale || "0")) / 100).toFixed(2)}
+                    Consulbrokers SPA: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * (100 - parseFloat(percentualeCommerciale || "0")) / 100).toFixed(2)}
                   </p>
                 </div>
               </div>
             )}
           </div>
+          {percentualeCommercialeAuto && (
+            <p className="text-[10px] text-muted-foreground italic mt-2">
+              ℹ️ % auto-popolata da <b>Provvigioni per Ramo</b> del produttore. Modifica il valore per override.
+            </p>
+          )}
         </div>
       </PolizzaSection>
 
