@@ -475,6 +475,15 @@ export function ImportNuovaPolizzaAIDialog({
       toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
       return;
     }
+    try {
+      assertFiscalValid([
+        { label: "Codice Fiscale Contraente", value: data.contraente_codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA Contraente", value: data.contraente_partita_iva, kind: "piva" },
+      ]);
+    } catch (err: any) {
+      toast.error(err.message);
+      return;
+    }
     onApply(buildResult());
     onOpenChange(false);
     reset();
