@@ -1217,7 +1217,7 @@ const ImmissionePolizzaPage = () => {
         <div className="space-y-4">
           <PremiGaranziaCardShell
             tipoPremio="firma"
-            gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
+            gruppoRamoId={selectedGruppoRamoId}
             rows={premiFirmaRows}
             onRowsChange={setPremiFirmaRows}
             addizionali={addizionali}
@@ -1226,7 +1226,7 @@ const ImmissionePolizzaPage = () => {
           />
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
-            gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
+            gruppoRamoId={selectedGruppoRamoId}
             rows={premiQuietanzaRows}
             onRowsChange={setPremiQuietanzaRows}
             addizionali={addizionaliQuietanza}
