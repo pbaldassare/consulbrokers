@@ -438,7 +438,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
             existing={existing}
             profili={profili}
             clienteId={clienteId}
-            hidePercentualeBrand={r.value === "Account Executive" || r.value === "Produttore Sede"}
+            hidePercentualeBrand={r.value === "account_executive" || r.value === "produttore_sede"}
             onSave={(payload: any) => upsertMutation.mutate(payload)}
             saving={upsertMutation.isPending}
           />
