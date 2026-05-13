@@ -825,11 +825,11 @@ const ImmissionePolizzaPage = () => {
         )}
 
         {/* Ufficio (Sede) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Sede (Ufficio) *</Label>
             <SearchableSelect
-              className="h-8 text-xs"
+              className="h-8 text-xs w-full"
               value={selectedUfficioId}
               onValueChange={setSelectedUfficioId}
               placeholder="— Seleziona sede —"
@@ -839,10 +839,25 @@ const ImmissionePolizzaPage = () => {
               }))}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 min-w-0">
+            <Label className="text-xs">Account Executive</Label>
+            <SearchableSelect
+              className="h-8 text-xs w-full"
+              value={selectedAccountExecutiveId}
+              onValueChange={setSelectedAccountExecutiveId}
+              placeholder="— Seleziona Account Executive —"
+              options={(commercialiList || [])
+                .filter((c: any) => c.ruolo === "account_executive" || c.ruolo === "executive")
+                .map((c: any) => ({
+                  value: c.id,
+                  label: `${c.cognome || ""} ${c.nome || ""}`.trim(),
+                }))}
+            />
+          </div>
+          <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Produttore</Label>
             <SearchableSelect
-              className="h-8 text-xs"
+              className="h-8 text-xs w-full"
               value={selectedAE}
               onValueChange={setSelectedAE}
               placeholder="— Seleziona produttore —"
@@ -852,10 +867,10 @@ const ImmissionePolizzaPage = () => {
               }))}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Specialist</Label>
             <SearchableSelect
-              className="h-8 text-xs"
+              className="h-8 text-xs w-full"
               value={selectedBackofficeId}
               onValueChange={setSelectedBackofficeId}
               placeholder="— Seleziona Specialist —"
