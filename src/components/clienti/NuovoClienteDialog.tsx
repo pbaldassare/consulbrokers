@@ -676,6 +676,17 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             </div>
           </div>
 
+          {!gruppoFinanziarioId ? (
+            <div className="rounded-lg border border-dashed p-8 text-center bg-muted/20">
+              <p className="text-sm font-medium text-muted-foreground">
+                👆 Seleziona prima un <strong>Gruppo Finanziario</strong> qui sopra
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Determina il tipo cliente (Privato / Azienda / Ente) e quali campi sono obbligatori.
+              </p>
+            </div>
+          ) : (
+          <>
           {tipoCliente === "privato" ? (
             <div className="flex flex-wrap gap-2">
               <AiDocumentScanner
@@ -1006,7 +1017,10 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </AccordionItem>
             </Accordion>
           </div>
+          </>
+          )}
         </div>
+
         <DialogFooter className="flex-col items-stretch sm:flex-row sm:items-center gap-2">
           {(() => {
             const missing = getMissingFields();
