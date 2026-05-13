@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
+import { Label as UILabel } from "@/components/ui/label";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
 import {
   Sparkles, UploadCloud, Loader2, FileText, CheckCircle2, AlertTriangle,
