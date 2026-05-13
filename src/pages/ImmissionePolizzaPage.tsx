@@ -209,13 +209,9 @@ const ImmissionePolizzaPage = () => {
   const [pagDirettoCompagnia, setPagDirettoCompagnia] = useState(false);
   const [emissioneFee, setEmissioneFee] = useState(false);
   const [formatoElettronico, setFormatoElettronico] = useState(false);
-  const [faxIncasso, setFaxIncasso] = useState("no");
   const [cambio, setCambio] = useState("1");
-  // Copertura & Incasso
-  const [coperturaDa, setCoperturaDa] = useState("");
-  const [coperturaNumero, setCoperturaNumero] = useState("");
-  const [dataIncasso, setDataIncasso] = useState("");
-  const [numeroIncasso, setNumeroIncasso] = useState("");
+  // Flag: percentuale commerciale auto-popolata da produttori_provvigioni_ramo
+  const [percentualeCommercialeAuto, setPercentualeCommercialeAuto] = useState(false);
 
   // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
