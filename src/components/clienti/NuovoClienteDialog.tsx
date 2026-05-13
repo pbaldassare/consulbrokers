@@ -260,7 +260,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       const { data } = await supabase
         .from("profiles")
         .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["admin", "produttore", "responsabile_sede", "produttore_sede", "executive", "backoffice"])
+        .in("ruolo", ["admin", "produttore_sede", "backoffice", "account_executive"])
         .order("cognome");
       return data || [];
     },
