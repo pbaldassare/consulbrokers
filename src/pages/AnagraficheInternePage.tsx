@@ -268,6 +268,10 @@ const AnagraficheInternePage = () => {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessun record selezionato");
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+      ]);
       const resolvedUfficioId = isCorr
         ? (form.ufficio_id || null)
         : isProduttore
