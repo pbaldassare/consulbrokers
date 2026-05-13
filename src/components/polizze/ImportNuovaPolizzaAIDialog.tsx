@@ -522,6 +522,16 @@ export function ImportNuovaPolizzaAIDialog({
     [clienteCandidates],
   );
 
+  const bestMatch = useMemo(
+    () => clienteCandidates.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email") || null,
+    [clienteCandidates],
+  );
+  const matchLevel: "esatto" | "parziale" | "nessuno" = useMemo(() => {
+    if (bestMatch) return "esatto";
+    if (clienteCandidates.length > 0) return "parziale";
+    return "nessuno";
+  }, [bestMatch, clienteCandidates.length]);
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
