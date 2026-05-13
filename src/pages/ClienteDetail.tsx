@@ -1982,6 +1982,43 @@ export default function ClienteDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteWithImpactDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        entityId={cliente?.id}
+        entityType="cliente"
+        entityName={clienteName}
+        checks={[
+          { table: "titoli", column: "cliente_anagrafica_id", label: "Polizze (restano nello storico)", blocking: false },
+          { table: "sinistri", column: "cliente_anagrafica_id", label: "Sinistri (restano nello storico)", blocking: false },
+          { table: "documenti", column: "entita_id", label: "Documenti (restano nello storico)", blocking: false },
+          { table: "trattative", column: "cliente_id", label: "Trattative (eliminate in cascata)", blocking: false },
+          { table: "privacy_consensi", column: "cliente_id", label: "Consensi privacy (eliminati in cascata)", blocking: false },
+        ]}
+        extraNotes={
+          <div>
+            <span className="font-semibold">Nota:</span> polizze, sinistri e documenti collegati al cliente
+            <strong> non vengono eliminati</strong>: restano nei rispettivi archivi e mostreranno
+            "— Cliente rimosso —" al posto del nome.
+          </div>
+        }
+        isDeleting={isDeleting}
+        onConfirmDelete={async () => {
+          if (!cliente?.id) return;
+          setIsDeleting(true);
+          const { error } = await supabase.from("clienti").delete().eq("id", cliente.id);
+          setIsDeleting(false);
+          if (error) {
+            toast.error("Errore eliminazione: " + error.message);
+            return;
+          }
+          toast.success(`Cliente "${clienteName}" eliminato. Storico preservato.`);
+          setDeleteOpen(false);
+          queryClient.invalidateQueries({ queryKey: ["clienti"] });
+          navigate("/archivi/clienti");
+        }}
+      />
     </div>
   );
 }
