@@ -384,7 +384,7 @@ const tipiRelazione = [
  */
 const ruoliCommerciali = [
   { value: "AE", label: "Account Executive" },
-  { value: "Produttore Sede", label: "Consul" },
+  { value: "Produttore Sede", label: "Produttore" },
 ];
 
 function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
