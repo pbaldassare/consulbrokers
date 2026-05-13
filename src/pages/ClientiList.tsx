@@ -221,7 +221,6 @@ const ClientiList = () => {
   // Rete Commerciale state
   const [ae, setAe] = useState<CommercialRole>(emptyRole());
   const [backofficeRole, setBackofficeRole] = useState<CommercialRole>(emptyRole());
-  const [agente, setAgente] = useState<CommercialRole>(emptyRole());
   const [produttoreSede, setProduttoreSede] = useState<CommercialRole>(emptyRole());
 
   const handleFileReady = useCallback((file: File, documentType: DocumentType) => {
