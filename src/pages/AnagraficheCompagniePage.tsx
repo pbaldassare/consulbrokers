@@ -137,6 +137,10 @@ const AnagraficheCompagniePage = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      assertFiscalValid([
+        { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
+        { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
+      ]);
       const resolvedUfficioId = isProduttore
         ? (form.ufficio_id || profile?.ufficio_id || null)
         : (profile?.ufficio_id || null);
