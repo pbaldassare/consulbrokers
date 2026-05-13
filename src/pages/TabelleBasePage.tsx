@@ -539,6 +539,7 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [ordine, setOrdine] = useState(0);
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: [queryKey],
