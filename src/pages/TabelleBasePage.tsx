@@ -796,6 +796,7 @@ const RcaGaranzieTab = () => {
   const [descrizione, setDescrizione] = useState("");
   const [aliquota, setAliquota] = useState("0");
   const [gruppoRamoId, setGruppoRamoId] = useState<string>("");
+  const [search, setSearch] = useState("");
 
   const { data: gruppiRamo = [] } = useQuery({
     queryKey: ["gruppi-ramo-lookup"],
