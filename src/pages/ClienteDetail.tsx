@@ -384,7 +384,7 @@ const tipiRelazione = [
  */
 const ruoliCommerciali = [
   { value: "AE", label: "Account Executive" },
-  { value: "Produttore Sede", label: "Consul" },
+  { value: "Produttore Sede", label: "Produttore" },
 ];
 
 function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
@@ -1746,7 +1746,7 @@ export default function ClienteDetail() {
               </div>
               {!readOnly && (
                 <p className="text-[10px] text-muted-foreground mt-3">
-                  L'assegnazione di Account Executive e Consul si gestisce nella sezione "Rete Commerciale".
+                  L'assegnazione di Account Executive e Produttore si gestisce nella sezione "Rete Commerciale".
                 </p>
               )}
             </CardContent>
