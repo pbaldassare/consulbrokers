@@ -951,15 +951,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           </Accordion>
 
           <div className="border-t pt-4">
-            <p className="text-sm font-medium text-muted-foreground mb-3">Contatti</p>
-            <div className="grid grid-cols-3 gap-4">
-              <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
-              <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
-              <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
-            </div>
-          </div>
-
-          <div className="border-t pt-4">
             <p className="text-sm font-medium text-foreground mb-3">Rete Commerciale</p>
             <div className="rounded-md border p-4 mb-3 bg-muted/30">
               <p className="text-sm font-medium mb-3">Account Executive</p>
@@ -976,11 +967,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
             {/* Specialist (DB ruolo "Backoffice") */}
-            <div className="rounded-md border p-4 mb-3">
-              <p className="text-sm font-medium mb-3">Specialist</p>
+            <div className={`rounded-md border p-4 mb-3 ${!backofficeRole.profilo_id ? "border-amber-400" : ""}`}>
+              <p className="text-sm font-medium mb-3">Specialist *</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-xs">Profilo</Label>
+                  <Label className="text-xs">Profilo *</Label>
                   <SearchableSelect
                     value={backofficeRole.profilo_id}
                     onValueChange={(v) => updateRole(setBackofficeRole, "profilo_id", v)}
