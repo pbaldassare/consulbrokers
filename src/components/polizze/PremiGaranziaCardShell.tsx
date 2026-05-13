@@ -128,6 +128,19 @@ export function PremiGaranziaCardShell({
     });
   };
 
+  const handleLordoChange = (idx: number, value: string) => {
+    const r = rows[idx];
+    const lordo = parseFloat(value || "0") || 0;
+    const aliquota = r?.aliquotaTasse || 0;
+    if (aliquota > 0) {
+      const netto = lordo / (1 + aliquota / 100);
+      const tasse = lordo - netto;
+      updateRow(idx, { netto: netto.toFixed(2), tasse: tasse.toFixed(2) });
+    } else {
+      updateRow(idx, { netto: lordo.toFixed(2), tasse: "0.00" });
+    }
+  };
+
   return (
     <Card className={cn("border-l-4 shadow-sm", isQuietanza ? "border-l-amber-500" : "border-l-teal-600")}>
       <CardHeader
