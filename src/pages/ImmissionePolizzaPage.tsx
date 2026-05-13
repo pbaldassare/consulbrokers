@@ -451,6 +451,27 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  // Eredita AE, Specialist e Produttore dal cliente
+  useEffect(() => {
+    if (!Array.isArray(clienteAE) || clienteAE.length === 0) return;
+    const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
+    const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
+    const prod = clienteAE.find((c: any) => c.ruolo === "Produttore Sede");
+    if (ae?.profilo_id) setSelectedAccountExecutiveId(ae.profilo_id as string);
+    if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+    const prodProfile: any = (prod as any)?.profiles;
+    if (prodProfile && Array.isArray(aeList) && aeList.length > 0 && !selectedAE) {
+      const target = `${prodProfile.cognome || ""} ${prodProfile.nome || ""}`.trim().toLowerCase();
+      if (target) {
+        const match = (aeList as any[]).find((a: any) => {
+          const label = (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`).trim().toLowerCase();
+          return label === target;
+        });
+        if (match?.id) setSelectedAE(match.id as string);
+      }
+    }
+  }, [clienteAE, aeList]);
+
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
     queryFn: async () => {
