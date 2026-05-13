@@ -582,7 +582,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
     setEmail(""); setTelefono(""); setPec(""); setTipoCliente("privato");
     setGruppoFinanziarioId("");
-    setAe(emptyRole()); setBackofficeRole(emptyRole()); setAgente(emptyRole()); setProduttoreSede(emptyRole());
+    setAe(emptyRole()); setBackofficeRole(emptyRole()); setProduttoreSede(emptyRole());
+    setProduttoreMandatoAttivo(false); setUfficioClienteId("");
     setCodiceRicerca(""); setTitolo(""); setStatoCliente(""); setProspect("");
     setTipoPersona(""); setSesso(""); setComuneNascita(""); setProvinciaNascita("");
     setTipoSommario(""); setClienteNonCeduto(false); setAziendaSsnSx(false);
