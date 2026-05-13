@@ -27,6 +27,7 @@ import { parseCF } from "@/lib/parseCF";
 import { lookupComune } from "@/lib/comuniItaliani";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici } from "@/hooks/useLookupTables";
+import { assertFiscalValid } from "@/lib/assertFiscalValid";
 const STATI_PROSPECT = [
   { value: "nuovo", label: "Nuovo", color: "bg-kpi-blue-bg text-kpi-blue-text border-kpi-blue-border" },
   { value: "in_trattativa", label: "In Trattativa", color: "bg-kpi-yellow-bg text-kpi-yellow-text border-kpi-yellow-border" },
