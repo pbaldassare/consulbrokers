@@ -1010,7 +1010,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   <SearchableSelect
                     value={produttoreSede.profilo_id}
                     onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
-                    placeholder="Seleziona Produttore..."
+                    placeholder="Seleziona Consul..."
                     options={profiliCommerciali}
                   />
                 </div>
