@@ -1157,27 +1157,33 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Durata A</Label>
-            <Input type="date" value={durataA} onChange={(e) => setDurataA(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={durataA} onChange={(e) => { setDurataA(e.target.value); setDurataATouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Anni Durata</Label>
-            <Input type="number" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" />
+            <Input type="number" min="1" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Rate</Label>
-            <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} className="h-8 text-xs" />
+            <Label className="text-xs">Frazionamento</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={frazionamento}
+              onValueChange={(v) => setFrazionamento(v || "Annuale")}
+              options={FRAZIONAMENTO_OPTIONS}
+              placeholder="—"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Garanzia Da</Label>
-            <Input type="date" value={garanziaDa} onChange={(e) => setGaranziaDa(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={garanziaDa} onChange={(e) => { setGaranziaDa(e.target.value); setGaranziaDaTouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Garanzia A</Label>
-            <Input type="date" value={garanziaA} onChange={(e) => setGaranziaA(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={garanziaA} onChange={(e) => { setGaranziaA(e.target.value); setGaranziaATouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Data Competenza</Label>
-            <Input type="date" value={dataCompetenza} onChange={(e) => setDataCompetenza(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={dataCompetenza} onChange={(e) => { setDataCompetenza(e.target.value); setDataCompetenzaTouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Limite Mora</Label>
