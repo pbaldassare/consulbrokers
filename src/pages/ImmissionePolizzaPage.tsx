@@ -391,15 +391,7 @@ const ImmissionePolizzaPage = () => {
         ? "Per i clienti di tipo Ente il CIG è obbligatorio"
         : null;
 
-  // Eredita AE e Backoffice dal cliente
-  useEffect(() => {
-    if (Array.isArray(clienteAE) && clienteAE.length > 0) {
-      const ae = clienteAE.find((c: any) => c.ruolo === "account_executive" || c.ruolo === "AE");
-      const bo = clienteAE.find((c: any) => c.ruolo === "Backoffice");
-      if (ae?.profilo_id) setSelectedAE(ae.profilo_id as string);
-      if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
-    }
-  }, [clienteAE]);
+  // (eredità AE/Specialist/Produttore spostata sotto le query)
 
   // Default ufficio = ufficio dell'utente loggato
   useEffect(() => {
