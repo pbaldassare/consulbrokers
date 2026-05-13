@@ -1535,7 +1535,7 @@ export default function ClienteDetail() {
               {polizze.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-10">
                   <p className="text-muted-foreground">Nessuna polizza collegata a questo cliente</p>
-                  <NuovaPolizzaButton clienteId={id} variant="outline" label="+ Crea la prima polizza" />
+                  <NuovaPolizzaButton clienteId={id} variant="outline" label="Crea la prima polizza" />
                 </div>
               ) : (
                 <Table>
