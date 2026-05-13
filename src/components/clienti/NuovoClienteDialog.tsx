@@ -378,28 +378,53 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   }, [backofficeProfileId]);
 
   const insertCommercialRoles = async (clienteId: string) => {
-    const roles = [
-      { ruolo: "AE", data: ae },
-      { ruolo: "Backoffice", data: backofficeRole },
-      { ruolo: "Agente", data: agente },
-      { ruolo: "Produttore Sede", data: produttoreSede },
-    ];
-    const rows = roles
-      .filter((r) => r.data.profilo_id)
-      .map((r) => ({
+    const rows: any[] = [];
+
+    // AE: completo
+    if (ae.profilo_id) {
+      rows.push({
         cliente_id: clienteId,
-        profilo_id: r.data.profilo_id,
-        ruolo: r.ruolo,
-        percentuale: r.data.percentuale ? parseFloat(r.data.percentuale) : null,
-        societa_brand: r.data.societa_brand || null,
-        mandato: r.data.mandato || null,
-        data_acquisito: r.data.data_acquisito || null,
-        scadenza_mandato: r.data.scadenza_mandato || null,
-        data_disdetta: r.data.data_disdetta || null,
-        termine_proroga: r.data.termine_proroga || null,
-        altro_broker: r.data.altro_broker,
-        altro_broker_nome: r.data.altro_broker_nome || null,
-      }));
+        profilo_id: ae.profilo_id,
+        ruolo: "AE",
+        percentuale: ae.percentuale ? parseFloat(ae.percentuale) : null,
+        societa_brand: ae.societa_brand || null,
+        mandato: ae.mandato || null,
+        data_acquisito: ae.data_acquisito || null,
+        scadenza_mandato: ae.scadenza_mandato || null,
+        data_disdetta: ae.data_disdetta || null,
+        termine_proroga: ae.termine_proroga || null,
+        altro_broker: ae.altro_broker,
+        altro_broker_nome: ae.altro_broker_nome || null,
+      });
+    }
+
+    // Specialist: solo profilo (no provvigioni / no mandato)
+    if (backofficeRole.profilo_id) {
+      rows.push({
+        cliente_id: clienteId,
+        profilo_id: backofficeRole.profilo_id,
+        ruolo: "Backoffice",
+      });
+    }
+
+    // Produttore: % + brand; mandato solo se flag attivo
+    if (produttoreSede.profilo_id) {
+      rows.push({
+        cliente_id: clienteId,
+        profilo_id: produttoreSede.profilo_id,
+        ruolo: "Produttore Sede",
+        percentuale: produttoreSede.percentuale ? parseFloat(produttoreSede.percentuale) : null,
+        societa_brand: produttoreSede.societa_brand || null,
+        mandato: produttoreMandatoAttivo ? (produttoreSede.mandato || null) : null,
+        data_acquisito: produttoreMandatoAttivo ? (produttoreSede.data_acquisito || null) : null,
+        scadenza_mandato: produttoreMandatoAttivo ? (produttoreSede.scadenza_mandato || null) : null,
+        data_disdetta: produttoreMandatoAttivo ? (produttoreSede.data_disdetta || null) : null,
+        termine_proroga: produttoreMandatoAttivo ? (produttoreSede.termine_proroga || null) : null,
+        altro_broker: produttoreMandatoAttivo ? produttoreSede.altro_broker : false,
+        altro_broker_nome: produttoreMandatoAttivo ? (produttoreSede.altro_broker_nome || null) : null,
+      });
+    }
+
     if (rows.length > 0) {
       const { error } = await supabase.from("codici_commerciali_cliente").insert(rows as any);
       if (error) console.error("Errore inserimento rete commerciale:", error);
