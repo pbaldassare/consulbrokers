@@ -384,8 +384,8 @@ const tipiRelazione = [
  * sono stati rimossi dalla UI.
  */
 const ruoliCommerciali = [
-  { value: "AE", label: "Account Executive" },
-  { value: "Produttore Sede", label: "Produttore" },
+  { value: "AE", label: "Account Executive", tipo: "account_executive" },
+  { value: "Produttore Sede", label: "Produttore", tipo: "corrispondente" },
 ];
 
 function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
@@ -396,7 +396,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("codici_commerciali_cliente" as any)
-        .select("id, ruolo, profilo_id")
+        .select("id, ruolo, profilo_id, anagrafica_id")
         .eq("cliente_id", clienteId)
         .in("ruolo", ["AE", "Produttore Sede"]);
       if (error) throw error;
@@ -404,22 +404,22 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     },
   });
 
-  const { data: profili = [] } = useQuery({
-    queryKey: ["profili_commerciali_rete"],
+  // Anagrafiche Amministrative: fonte canonica per AE e Produttore.
+  const { data: anagraficheAll = [] } = useQuery({
+    queryKey: ["anagrafiche-ae-produttore"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["admin", "produttore_sede", "backoffice", "account_executive"])
-        .eq("attivo", true)
-        .order("cognome");
+        .from("anagrafiche_professionali")
+        .select("id, tipo, nome, cognome, ragione_sociale, sigla, codice")
+        .in("tipo", ["account_executive", "corrispondente"])
+        .eq("attivo", true);
       return data || [];
     },
   });
 
   const upsertMutation = useMutation({
-    mutationFn: async ({ ruolo, profilo_id }: { ruolo: string; profilo_id: string | null }) => {
-      if (!profilo_id) {
+    mutationFn: async ({ ruolo, anagrafica_id }: { ruolo: string; anagrafica_id: string | null }) => {
+      if (!anagrafica_id) {
         const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
           .delete()
           .eq("cliente_id", clienteId)
@@ -428,7 +428,10 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
         return;
       }
       const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
-        .upsert({ cliente_id: clienteId, ruolo, profilo_id }, { onConflict: "cliente_id,ruolo" });
+        .upsert(
+          { cliente_id: clienteId, ruolo, anagrafica_id, profilo_id: null },
+          { onConflict: "cliente_id,ruolo" },
+        );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -438,13 +441,22 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     onError: (err: any) => toast.error(err.message || "Errore salvataggio"),
   });
 
-  const getProfiloByRuolo = (ruolo: string) =>
-    codici.find((c: any) => c.ruolo === ruolo)?.profilo_id || "";
+  const getAnagraficaByRuolo = (ruolo: string) =>
+    codici.find((c: any) => c.ruolo === ruolo)?.anagrafica_id || "";
 
-  const profiliOptions = profili.map((p: any) => ({
-    value: p.id,
-    label: `${p.cognome ?? ""} ${p.nome ?? ""}`.trim() || "—",
-  }));
+  const buildOptions = (tipo: string) =>
+    (anagraficheAll as any[])
+      .filter((a) => a.tipo === tipo)
+      .map((a) => ({
+        value: a.id,
+        label:
+          (a.ragione_sociale && a.ragione_sociale.trim()) ||
+          `${a.cognome || ""} ${a.nome || ""}`.trim() ||
+          a.sigla ||
+          a.codice ||
+          "—",
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "it"));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -453,10 +465,10 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
           <Label className="text-xs">{r.label}</Label>
           <SearchableSelect
             className="h-8 text-xs"
-            value={getProfiloByRuolo(r.value)}
-            onValueChange={(v) => upsertMutation.mutate({ ruolo: r.value, profilo_id: v || null })}
+            value={getAnagraficaByRuolo(r.value)}
+            onValueChange={(v) => upsertMutation.mutate({ ruolo: r.value, anagrafica_id: v || null })}
             placeholder={`— Seleziona ${r.label} —`}
-            options={profiliOptions}
+            options={buildOptions(r.tipo)}
           />
         </div>
       ))}
