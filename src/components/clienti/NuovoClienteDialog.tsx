@@ -1101,7 +1101,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
 
-            {/* Produttore: profilo + % + brand; mandato come flag */}
+            {/* Produttore: profilo + flag mandato (provvigioni gestite altrove) */}
             <div className="rounded-md border p-4 mb-3">
               <p className="text-sm font-medium mb-3">Produttore</p>
               <div className="grid grid-cols-3 gap-3">
@@ -1112,21 +1112,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
                     placeholder="Seleziona Produttore..."
                     options={profiliCommerciali}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">% Provvigione</Label>
-                  <Input
-                    value={produttoreSede.percentuale}
-                    onChange={(e) => updateRole(setProduttoreSede, "percentuale", e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Società/Brand</Label>
-                  <Input
-                    value={produttoreSede.societa_brand}
-                    onChange={(e) => updateRole(setProduttoreSede, "societa_brand", e.target.value)}
                   />
                 </div>
               </div>
