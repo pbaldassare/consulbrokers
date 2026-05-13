@@ -185,16 +185,28 @@ export function ImportNuovaPolizzaAIDialog({
   const lookupClienti = async (d: ParsedPolizzaData): Promise<ClienteCand[]> => {
     const cf = (d.contraente_codice_fiscale || "").replace(/\s+/g, "").toUpperCase();
     const piva = (d.contraente_partita_iva || "").replace(/\s+/g, "");
+    const email = (d.contraente_email || "").replace(/\s+/g, "").toLowerCase();
     const out: ClienteCand[] = [];
     const seen = new Set<string>();
-    if (cf || piva) {
+
+    const buildLabel = (c: any) =>
+      `${c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}${c.partita_iva ? ` — PIVA ${c.partita_iva}` : ""}`;
+
+    const classify = (c: any): MatchType => {
+      if (cf && (c.codice_fiscale || "").toUpperCase() === cf) return "cf";
+      if (piva && (c.partita_iva || "") === piva) return "piva";
+      if (email && (c.email || "").toLowerCase() === email) return "email";
+      return "name";
+    };
+
+    if (cf || piva || email) {
       const orParts: string[] = [];
-      // ilike (case-insensitive, exact pattern) tollera differenze di case nel DB
       if (cf) orParts.push(`codice_fiscale.ilike.${cf}`);
       if (piva) orParts.push(`partita_iva.ilike.${piva}`);
+      if (email) orParts.push(`email.ilike.${email}`);
       const { data: rows } = await supabase
         .from("clienti")
-        .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+        .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva, email")
         .or(orParts.join(","))
         .limit(5);
       const before = out.length;
@@ -203,15 +215,18 @@ export function ImportNuovaPolizzaAIDialog({
         seen.add(c.id);
         out.push({
           id: c.id,
-          label: `${c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}${c.partita_iva ? ` — PIVA ${c.partita_iva}` : ""}`,
+          label: buildLabel(c),
           cf: c.codice_fiscale,
           piva: c.partita_iva,
+          email: c.email,
+          matchType: classify(c),
         });
       });
       if (out.length === before) {
-        log("warn", `CF/P.IVA presenti (${[cf, piva].filter(Boolean).join(" / ")}) ma nessuna corrispondenza esatta — provo ricerca per nome`);
+        log("warn", `CF/P.IVA/Email presenti (${[cf, piva, email].filter(Boolean).join(" / ")}) ma nessuna corrispondenza esatta — provo ricerca per nome`);
       } else {
-        log("success", `Match esatto su CF/P.IVA: ${out[0].label}`);
+        const best = out[0];
+        log("success", `Match ESATTO su ${best.matchType.toUpperCase()}: ${best.label}`);
       }
     }
     if (out.length < 5) {
@@ -224,7 +239,7 @@ export function ImportNuovaPolizzaAIDialog({
             .join(",");
           const { data: rows } = await supabase
             .from("clienti")
-            .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+            .select("id, ragione_sociale, cognome, nome, codice_fiscale, partita_iva, email")
             .or(orFilter)
             .limit(10);
           (rows || []).forEach((c: any) => {
@@ -232,14 +247,19 @@ export function ImportNuovaPolizzaAIDialog({
             seen.add(c.id);
             out.push({
               id: c.id,
-              label: `${c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim()}${c.codice_fiscale ? ` — CF ${c.codice_fiscale}` : ""}${c.partita_iva ? ` — PIVA ${c.partita_iva}` : ""}`,
+              label: buildLabel(c),
               cf: c.codice_fiscale,
               piva: c.partita_iva,
+              email: c.email,
+              matchType: "name",
             });
           });
         }
       }
     }
+    // Ordina: cf > piva > email > name
+    const rank: Record<MatchType, number> = { cf: 0, piva: 1, email: 2, name: 3 };
+    out.sort((a, b) => rank[a.matchType] - rank[b.matchType]);
     return out;
   };
 
