@@ -675,6 +675,7 @@ const RcaUsiTab = () => {
   const [editing, setEditing] = useState<any>(null);
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["rca-usi"],
