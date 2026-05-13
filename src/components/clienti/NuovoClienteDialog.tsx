@@ -426,14 +426,14 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       });
     }
 
-    // Produttore: % + brand; mandato solo se flag attivo
+    // Produttore: profilo + flag mandato (provvigioni gestite altrove)
     if (produttoreSede.profilo_id) {
       rows.push({
         cliente_id: clienteId,
         profilo_id: produttoreSede.profilo_id,
         ruolo: "Produttore Sede",
-        percentuale: produttoreSede.percentuale ? parseFloat(produttoreSede.percentuale) : null,
-        societa_brand: produttoreSede.societa_brand || null,
+        percentuale: null,
+        societa_brand: null,
         mandato: produttoreMandatoAttivo ? (produttoreSede.mandato || null) : null,
         data_acquisito: produttoreMandatoAttivo ? (produttoreSede.data_acquisito || null) : null,
         scadenza_mandato: produttoreMandatoAttivo ? (produttoreSede.scadenza_mandato || null) : null,
