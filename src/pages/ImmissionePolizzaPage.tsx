@@ -702,10 +702,9 @@ const ImmissionePolizzaPage = () => {
         provvigioni_quietanza: provvQuietanza || null,
         rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
         pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
-        formato_elettronico: formatoElettronico, fax_incasso: faxIncasso === "si",
+        formato_elettronico: formatoElettronico,
         cambio: parseFloat(cambio) || 1,
-        copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
-        data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
+        // Incasso/Copertura: NON valorizzati in immissione — verranno settati dal flusso "Messa a Cassa" su TitoloDetail.
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
         // Produttore: salviamo l'anagrafica + nome leggibile (produttore_id legacy resta NULL).
