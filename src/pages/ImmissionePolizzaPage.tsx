@@ -209,13 +209,9 @@ const ImmissionePolizzaPage = () => {
   const [pagDirettoCompagnia, setPagDirettoCompagnia] = useState(false);
   const [emissioneFee, setEmissioneFee] = useState(false);
   const [formatoElettronico, setFormatoElettronico] = useState(false);
-  const [faxIncasso, setFaxIncasso] = useState("no");
   const [cambio, setCambio] = useState("1");
-  // Copertura & Incasso
-  const [coperturaDa, setCoperturaDa] = useState("");
-  const [coperturaNumero, setCoperturaNumero] = useState("");
-  const [dataIncasso, setDataIncasso] = useState("");
-  const [numeroIncasso, setNumeroIncasso] = useState("");
+  // Flag: percentuale commerciale auto-popolata da produttori_provvigioni_ramo
+  const [percentualeCommercialeAuto, setPercentualeCommercialeAuto] = useState(false);
 
   // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
@@ -593,6 +589,43 @@ const ImmissionePolizzaPage = () => {
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
+  // --- Auto-lookup % Commerciale Produttore in base al Ramo ---
+  // Sorgente: produttori_provvigioni_ramo (anagrafica_id + ramo_codice) → fallback anagrafiche_professionali.percentuale_base
+  useEffect(() => {
+    if (!selectedAE) return;
+    const ramoCodice = selectedRamoData?.codice;
+    let cancelled = false;
+    (async () => {
+      try {
+        let pct: number | null = null;
+        if (ramoCodice) {
+          const { data: ppr } = await supabase
+            .from("produttori_provvigioni_ramo" as any)
+            .select("percentuale_provvigione")
+            .eq("anagrafica_id", selectedAE)
+            .eq("ramo_codice", ramoCodice)
+            .maybeSingle();
+          if (ppr && (ppr as any).percentuale_provvigione != null) {
+            pct = Number((ppr as any).percentuale_provvigione);
+          }
+        }
+        if (pct == null) {
+          const { data: ap } = await supabase
+            .from("anagrafiche_professionali")
+            .select("percentuale_base")
+            .eq("id", selectedAE)
+            .maybeSingle();
+          if (ap?.percentuale_base != null) pct = Number(ap.percentuale_base);
+        }
+        if (!cancelled && pct != null && !Number.isNaN(pct)) {
+          setPercentualeCommerciale(String(pct));
+          setPercentualeCommercialeAuto(true);
+        }
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedAE, selectedRamoData?.codice]);
+
   // --- Frazionamento helpers + auto-calcolo Periodo ---
   const FRAZIONAMENTO_OPTIONS = [
     { value: "Mensile", label: "Mensile" },
@@ -706,10 +739,9 @@ const ImmissionePolizzaPage = () => {
         provvigioni_quietanza: provvQuietanza || null,
         rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
         pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
-        formato_elettronico: formatoElettronico, fax_incasso: faxIncasso === "si",
+        formato_elettronico: formatoElettronico,
         cambio: parseFloat(cambio) || 1,
-        copertura_da: coperturaDa || null, copertura_numero: coperturaNumero || null,
-        data_incasso: dataIncasso || null, numero_incasso: numeroIncasso || null,
+        // Incasso/Copertura: NON valorizzati in immissione — verranno settati dal flusso "Messa a Cassa" su TitoloDetail.
         stato: "creato",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
         // Produttore: salviamo l'anagrafica + nome leggibile (produttore_id legacy resta NULL).
@@ -982,6 +1014,30 @@ const ImmissionePolizzaPage = () => {
               }))}
             />
           </div>
+        </div>
+      </PolizzaSection>
+
+      {/* TIPO — in cima perché determina i campi successivi */}
+      <PolizzaSection title="Tipo Polizza" icon={Tag}>
+        <div className="space-y-3">
+          <Label className="text-xs">Tipo Operazione</Label>
+          <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
+            {[
+              { value: "polizza", label: "Polizza" },
+              { value: "emittenda", label: "Emittenda" },
+              { value: "cp_nuova", label: "CP (Nuova)" },
+              { value: "cp_sost_rinn", label: "CP (Sost/Rinn)" },
+            ].map((opt) => (
+              <div key={opt.value} className="flex items-center gap-2">
+                <RadioGroupItem value={opt.value} id={`tipo-${opt.value}`} />
+                <Label htmlFor={`tipo-${opt.value}`} className="font-normal cursor-pointer text-xs">{opt.label}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Checkbox id="polizza-auto" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(v === true)} />
+          <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
         </div>
       </PolizzaSection>
 
@@ -1348,38 +1404,18 @@ const ImmissionePolizzaPage = () => {
           ))}
         </div>
 
-        {/* Additional fields */}
+        {/* Solo valuta — i dati di incasso/copertura vengono valorizzati nel flusso "Messa a Cassa" su TitoloDetail */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Fax Incasso</Label>
-            <RadioGroup value={faxIncasso} onValueChange={setFaxIncasso} className="flex gap-3 h-8 items-center">
-              <div className="flex items-center gap-1"><RadioGroupItem value="si" id="fax-si" /><Label htmlFor="fax-si" className="text-xs font-normal cursor-pointer">Sì</Label></div>
-              <div className="flex items-center gap-1"><RadioGroupItem value="no" id="fax-no" /><Label htmlFor="fax-no" className="text-xs font-normal cursor-pointer">No</Label></div>
-            </RadioGroup>
-          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Valuta</Label>
             <SearchableSelect className="h-8 text-xs" value={valuta} onValueChange={setValuta} placeholder="—"
               options={[{ value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }, { value: "GBP", label: "GBP" }]}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Copertura Da</Label>
-            <Input type="date" value={coperturaDa} onChange={(e) => setCoperturaDa(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Copertura N°</Label>
-            <Input value={coperturaNumero} onChange={(e) => setCoperturaNumero(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Data Incasso</Label>
-            <Input type="date" value={dataIncasso} onChange={(e) => setDataIncasso(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">N° Incasso</Label>
-            <Input value={numeroIncasso} onChange={(e) => setNumeroIncasso(e.target.value)} className="h-8 text-xs" />
-          </div>
         </div>
+        <p className="text-[11px] text-muted-foreground italic pt-1">
+          ℹ️ Fax/Copertura/Data Incasso vengono compilati nella <b>Messa a Cassa</b> dopo la creazione del titolo.
+        </p>
       </PolizzaSection>
 
       {/* PROVVIGIONI */}
@@ -1435,11 +1471,16 @@ const ImmissionePolizzaPage = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">% Commerciale</Label>
+              <Label className="text-xs flex items-center gap-1.5">
+                % Commerciale
+                {percentualeCommercialeAuto && (
+                  <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
+                )}
+              </Label>
               <Input
                 type="number" step="1" min="0" max="100"
                 value={percentualeCommerciale}
-                onChange={(e) => setPercentualeCommerciale(e.target.value)}
+                onChange={(e) => { setPercentualeCommerciale(e.target.value); setPercentualeCommercialeAuto(false); }}
                 disabled={selectedCommerciale === "__sede__"}
                 className="h-8 text-xs font-mono"
               />
@@ -1449,41 +1490,23 @@ const ImmissionePolizzaPage = () => {
                 <Label className="text-xs text-muted-foreground">Split</Label>
                 <div className="text-[11px] font-mono space-y-0.5">
                   <p className="text-foreground">
-                    Comm: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * parseFloat(percentualeCommerciale || "0") / 100).toFixed(2)}
+                    Produttore: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * parseFloat(percentualeCommerciale || "0") / 100).toFixed(2)}
                   </p>
                   <p className="text-primary font-semibold">
-                    Sede: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * (100 - parseFloat(percentualeCommerciale || "0")) / 100).toFixed(2)}
+                    Consulbrokers SPA: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * (100 - parseFloat(percentualeCommerciale || "0")) / 100).toFixed(2)}
                   </p>
                 </div>
               </div>
             )}
           </div>
+          {percentualeCommercialeAuto && (
+            <p className="text-[10px] text-muted-foreground italic mt-2">
+              ℹ️ % auto-popolata da <b>Provvigioni per Ramo</b> del produttore. Modifica il valore per override.
+            </p>
+          )}
         </div>
       </PolizzaSection>
 
-      {/* TIPO */}
-      <PolizzaSection title="Tipo" icon={Tag}>
-        <div className="space-y-3">
-          <Label className="text-xs">Tipo Operazione</Label>
-          <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
-            {[
-              { value: "polizza", label: "Polizza" },
-              { value: "emittenda", label: "Emittenda" },
-              { value: "cp_nuova", label: "CP (Nuova)" },
-              { value: "cp_sost_rinn", label: "CP (Sost/Rinn)" },
-            ].map((opt) => (
-              <div key={opt.value} className="flex items-center gap-2">
-                <RadioGroupItem value={opt.value} id={`tipo-${opt.value}`} />
-                <Label htmlFor={`tipo-${opt.value}`} className="font-normal cursor-pointer text-xs">{opt.label}</Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-        <div className="flex items-center gap-2 pt-1">
-          <Checkbox id="polizza-auto" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(v === true)} />
-          <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
-        </div>
-      </PolizzaSection>
 
       {/* === SEZIONI RCA AUTO === */}
       {isRCA && (
