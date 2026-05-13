@@ -510,14 +510,18 @@ function CodiceCommercialeRow({ ruolo, label, existing, profili, clienteId, hide
               options={profili.map((p: any) => ({ value: p.id, label: `${p.cognome} ${p.nome}` }))}
             />
           </div>
-          <div>
-            <Label className="text-xs">% Provvigione</Label>
-            <Input className="h-8 text-xs" type="number" step="0.01" value={percentuale} onChange={(e) => setPercentuale(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Società/Brand</Label>
-            <Input className="h-8 text-xs" value={societaBrand} onChange={(e) => setSocietaBrand(e.target.value)} />
-          </div>
+          {!hidePercentualeBrand && (
+            <>
+              <div>
+                <Label className="text-xs">% Provvigione</Label>
+                <Input className="h-8 text-xs" type="number" step="0.01" value={percentuale} onChange={(e) => setPercentuale(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Società/Brand</Label>
+                <Input className="h-8 text-xs" value={societaBrand} onChange={(e) => setSocietaBrand(e.target.value)} />
+              </div>
+            </>
+          )}
           <div>
             <Label className="text-xs">Mandato</Label>
             <Input className="h-8 text-xs" value={mandato} onChange={(e) => setMandato(e.target.value)} />
