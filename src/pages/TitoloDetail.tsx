@@ -1954,10 +1954,35 @@ const TitoloDetail = () => {
               <SearchableSelect
                 options={compagnieOpts}
                 value={contrattoForm.compagnia_id || ""}
-                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null }))}
+                onValueChange={(v) => setContrattoForm(p => ({ ...p, compagnia_id: v || null, compagnia_rapporto_id: null }))}
                 placeholder="— Seleziona agenzia / agenzia —"
               />
             </div>
+            {contrattoForm.compagnia_id && (rapportiAgenziaEdit || []).length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Rapporto Agenzia {(rapportiAgenziaEdit || []).length >= 2 && <span className="text-destructive">*</span>}
+                </Label>
+                {(rapportiAgenziaEdit || []).length === 1 ? (
+                  <div className="h-9 px-2 flex items-center text-sm rounded-md border bg-muted/30">
+                    {(rapportiAgenziaEdit as any[])[0].codice_rapporto || "—"}
+                    {(rapportiAgenziaEdit as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenziaEdit as any[])[0].tipo_rapporto}` : ""}
+                  </div>
+                ) : (
+                  <SearchableSelect
+                    className={!contrattoForm.compagnia_rapporto_id ? "ring-1 ring-amber-500" : ""}
+                    value={contrattoForm.compagnia_rapporto_id || ""}
+                    onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
+                    placeholder="— Seleziona rapporto —"
+                    options={(rapportiAgenziaEdit as any[]).map((r) => ({
+                      value: r.id,
+                      label: r.codice_rapporto || "—",
+                      description: r.tipo_rapporto || undefined,
+                    }))}
+                  />
+                )}
+              </div>
+            )}
             <div className="space-y-1 col-span-2">
               <RamoSottoramoSelect
                 gruppoRamoId={(contrattoForm as any).gruppo_ramo_id || null}
