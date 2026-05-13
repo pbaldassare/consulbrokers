@@ -65,14 +65,15 @@ export function PremiGaranziaCardShell({
   const add = parseFloat(addizionali || "0") || 0;
   const lordo = totNetto + totTasse + add;
 
-  // Catalogo garanzie filtrato per gruppo ramo del titolo
+  // Catalogo sottorami filtrato per gruppo ramo selezionato.
+  // I sottorami compongono le righe garanzia che formano il premio.
   const { data: catalogo = [] } = useQuery({
-    queryKey: ["garanzie-catalogo-shell", gruppoRamoId || "none"],
+    queryKey: ["sottorami-catalogo-shell", gruppoRamoId || "none"],
     enabled: !!gruppoRamoId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("rca_garanzie" as any)
-        .select("codice, descrizione, aliquota_tasse")
+        .from("rami")
+        .select("id, codice, descrizione, aliquota_tasse_ramo")
         .eq("attivo", true)
         .eq("gruppo_ramo_id", gruppoRamoId!)
         .order("codice");
@@ -80,13 +81,10 @@ export function PremiGaranziaCardShell({
     },
   });
 
-  const garanziaOptions = catalogo.map((g: any) => ({
-    value: g.codice as string,
-    label: `${g.codice} — ${g.descrizione}`,
+  const garanziaOptions = (catalogo as any[]).map((s: any) => ({
+    value: s.id as string,
+    label: `${s.codice} — ${s.descrizione}`,
   }));
-
-  // Quando il catalogo ha 0 o 1 voce, abilitiamo testo libero per consentire più sotto-garanzie
-  const allowFreeText = (catalogo as any[]).length <= 1;
 
   const updateRow = (idx: number, patch: Partial<GaranziaRow>) => {
     const next = rows.map((r, i) => (i === idx ? { ...r, ...patch } : r));
@@ -106,12 +104,13 @@ export function PremiGaranziaCardShell({
     onRowsChange(next.length ? next : [emptyGaranziaRow()]);
   };
 
-  const handleGaranziaSelect = (idx: number, codice: string) => {
-    const sel = (catalogo as any[]).find((g: any) => g.codice === codice);
+  const handleGaranziaSelect = (idx: number, sottoramoId: string) => {
+    const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
     if (!sel) return;
-    const aliquota = Number(sel.aliquota_tasse) || 0;
+    const aliquota = Number(sel.aliquota_tasse_ramo) || 0;
     const netto = parseFloat(rows[idx]?.netto || "0") || 0;
     updateRow(idx, {
+      sottoramoId: sel.id,
       codice: sel.codice,
       descrizione: sel.descrizione,
       aliquotaTasse: aliquota,
