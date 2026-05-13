@@ -167,6 +167,7 @@ const RamiTab = () => {
   const [gruppoId, setGruppoId] = useState("");
   const [aliquotaRamo, setAliquotaRamo] = useState("0");
   const [aliquotaArd, setAliquotaArd] = useState("0");
+  const [search, setSearch] = useState("");
 
   const { data: rami = [], isLoading } = useQuery({
     queryKey: ["rami-list"],
