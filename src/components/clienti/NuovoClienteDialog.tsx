@@ -1016,53 +1016,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t">
-                <Switch
-                  checked={produttoreMandatoAttivo}
-                  onCheckedChange={setProduttoreMandatoAttivo}
-                />
-                <Label className="text-xs">Mandato attivo</Label>
-              </div>
-              {produttoreMandatoAttivo && (
-                <div className="space-y-3 pt-3">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs">Mandato</Label>
-                      <Input value={produttoreSede.mandato} onChange={(e) => updateRole(setProduttoreSede, "mandato", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Data Acquisizione</Label>
-                      <Input type="date" value={produttoreSede.data_acquisito} onChange={(e) => updateRole(setProduttoreSede, "data_acquisito", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Scadenza Mandato</Label>
-                      <Input type="date" value={produttoreSede.scadenza_mandato} onChange={(e) => updateRole(setProduttoreSede, "scadenza_mandato", e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs">Data Disdetta</Label>
-                      <Input type="date" value={produttoreSede.data_disdetta} onChange={(e) => updateRole(setProduttoreSede, "data_disdetta", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Termine Proroga</Label>
-                      <Input type="date" value={produttoreSede.termine_proroga} onChange={(e) => updateRole(setProduttoreSede, "termine_proroga", e.target.value)} />
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <Switch checked={produttoreSede.altro_broker} onCheckedChange={(v) => updateRole(setProduttoreSede, "altro_broker", v)} />
-                      <Label className="text-xs">Altro Broker</Label>
-                    </div>
-                  </div>
-                  {produttoreSede.altro_broker && (
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label className="text-xs">Nome Altro Broker</Label>
-                        <Input value={produttoreSede.altro_broker_nome} onChange={(e) => updateRole(setProduttoreSede, "altro_broker_nome", e.target.value)} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
           </>
