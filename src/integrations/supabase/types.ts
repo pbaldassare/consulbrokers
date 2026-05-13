@@ -6258,10 +6258,12 @@ export type Database = {
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_id: string | null
+          codice_rapporto: string | null
           commerciale_id: string | null
           comp_assicurativa: string | null
           comp_contabile: string | null
           compagnia_id: string | null
+          compagnia_rapporto_id: string | null
           conferimento_gestito: boolean | null
           conto_incasso: string | null
           created_at: string | null
@@ -6356,10 +6358,12 @@ export type Database = {
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
+          codice_rapporto?: string | null
           commerciale_id?: string | null
           comp_assicurativa?: string | null
           comp_contabile?: string | null
           compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
           conferimento_gestito?: boolean | null
           conto_incasso?: string | null
           created_at?: string | null
@@ -6454,10 +6458,12 @@ export type Database = {
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
+          codice_rapporto?: string | null
           commerciale_id?: string | null
           comp_assicurativa?: string | null
           comp_contabile?: string | null
           compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
           conferimento_gestito?: boolean | null
           conto_incasso?: string | null
           created_at?: string | null
@@ -6580,6 +6586,13 @@ export type Database = {
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_compagnia_rapporto_id_fkey"
+            columns: ["compagnia_rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
             referencedColumns: ["id"]
           },
           {
