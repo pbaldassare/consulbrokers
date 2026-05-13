@@ -618,7 +618,6 @@ const ImmissionePolizzaPage = () => {
           if (ap?.percentuale_base != null) pct = Number(ap.percentuale_base);
         }
         if (!cancelled && pct != null && !Number.isNaN(pct)) {
-          setSelectedCommerciale(selectedAE);
           setPercentualeCommerciale(String(pct));
           setPercentualeCommercialeAuto(true);
         }
