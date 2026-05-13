@@ -408,7 +408,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
       const { data } = await supabase
         .from("profiles")
         .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["produttore", "executive", "responsabile_sede", "produttore_sede", "account_executive", "admin"])
+        .in("ruolo", ["admin", "produttore_sede", "backoffice", "account_executive"])
         .eq("attivo", true)
         .order("cognome");
       return data || [];
