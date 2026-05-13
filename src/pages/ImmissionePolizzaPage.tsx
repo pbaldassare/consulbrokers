@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -345,6 +345,21 @@ const ImmissionePolizzaPage = () => {
       setSelectedUfficioId(clienteDettaglio.ufficio_id);
     }
   }, [clienteDettaglio?.ufficio_id]);
+
+  // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori)
+  const tipoSoggetto: "privato" | "azienda" | "ente" | null = useMemo(() => {
+    const gf: any = (clienteDettaglio as any)?.gruppi_finanziari;
+    return (gf?.tipo_soggetto as any) ?? null;
+  }, [clienteDettaglio]);
+  const gruppoFinanziarioMancante = !!selectedClienteId && !tipoSoggetto;
+  const cigObbligatorio = tipoSoggetto === "ente";
+  const saveBlockReason = !selectedClienteId
+    ? "Seleziona prima un cliente"
+    : gruppoFinanziarioMancante
+      ? "Il cliente selezionato non ha un Gruppo Finanziario: aprilo nella scheda cliente e assegnalo prima di salvare la polizza"
+      : (cigObbligatorio && !cigRif.trim())
+        ? "Per i clienti di tipo Ente il CIG è obbligatorio"
+        : null;
 
   // Eredita AE e Backoffice dal cliente
   useEffect(() => {
@@ -898,8 +913,18 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">CIG/Rif.</Label>
-            <Input value={cigRif} onChange={(e) => setCigRif(e.target.value)} className="h-8 text-xs" />
+            <Label className="text-xs flex items-center gap-1">
+              CIG/Rif. {cigObbligatorio && <span className="text-destructive" title="Obbligatorio per Enti">*</span>}
+            </Label>
+            <Input
+              value={cigRif}
+              onChange={(e) => setCigRif(e.target.value)}
+              className={`h-8 text-xs ${cigObbligatorio && !cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+              title={cigObbligatorio ? "Obbligatorio per clienti di tipo Ente" : undefined}
+            />
+            {cigObbligatorio && !cigRif.trim() && (
+              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Vincolo</Label>
@@ -1377,9 +1402,22 @@ const ImmissionePolizzaPage = () => {
       )}
 
       {/* ACTIONS */}
-      <div className="flex justify-between pt-2">
-        <Button variant="secondary" onClick={() => navigate("/portafoglio/attive")}>Chiudi</Button>
-        <Button onClick={handleConferma} disabled={saving}>{saving ? "Salvataggio..." : "Conferma"}</Button>
+      <div className="flex flex-col gap-2 pt-2">
+        {saveBlockReason && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            ⚠ {saveBlockReason}
+          </div>
+        )}
+        <div className="flex justify-between">
+          <Button variant="secondary" onClick={() => navigate("/portafoglio/attive")}>Chiudi</Button>
+          <Button
+            onClick={handleConferma}
+            disabled={saving || !!saveBlockReason}
+            title={saveBlockReason || undefined}
+          >
+            {saving ? "Salvataggio..." : "Conferma"}
+          </Button>
+        </div>
       </div>
 
     </div>
