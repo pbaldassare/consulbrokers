@@ -157,6 +157,7 @@ const ImmissionePolizzaPage = () => {
 
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
+  const [selectedGruppoCompagniaId, setSelectedGruppoCompagniaId] = useState<string>("");
   const [selectedRamo, setSelectedRamo] = useState("");
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string | null>(null);
   const [prodottoNome, setProdottoNome] = useState("");
@@ -480,6 +481,14 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
+  const { data: gruppiCompagniaList } = useQuery({
+    queryKey: ["gruppi-compagnia-immissione"],
+    queryFn: async () => {
+      const { data } = await supabase.from("gruppi_compagnia" as any).select("id, nome").order("nome");
+      return (data as any[]) || [];
+    },
+  });
+
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
@@ -495,6 +504,15 @@ const ImmissionePolizzaPage = () => {
       return data || [];
     },
   });
+
+  // Sync gruppo compagnia quando cambia agenzia
+  useEffect(() => {
+    if (!selectedCompagnia) return;
+    const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia);
+    if (ag?.gruppo_compagnia_id && ag.gruppo_compagnia_id !== selectedGruppoCompagniaId) {
+      setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+    }
+  }, [selectedCompagnia, compagnieList]);
 
   // Gruppo ramo del ramo selezionato
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
@@ -894,28 +912,48 @@ const ImmissionePolizzaPage = () => {
           }}
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">Agenzia / Agenzia di rif.</Label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Compagnia Assicurativa</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedGruppoCompagniaId}
+              onValueChange={(v) => {
+                setSelectedGruppoCompagniaId(v);
+                // se l'agenzia attuale non appartiene al nuovo gruppo, resetta
+                const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia);
+                if (ag && ag.gruppo_compagnia_id !== v) setSelectedCompagnia("");
+              }}
+              placeholder="— Seleziona compagnia —"
+              options={(gruppiCompagniaList || []).map((g: any) => ({ value: g.id, label: g.nome }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Agenzia di Riferimento</Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
               onValueChange={setSelectedCompagnia}
-              placeholder="— Seleziona agenzia / agenzia —"
-              options={(compagnieList || []).map((c: any) => {
-                const gruppo = (c.gruppo_compagnia || "").trim();
-                const nome = c.nome || "";
-                const showGruppo = gruppo && gruppo.toLowerCase() !== nome.toLowerCase();
-                return {
-                  value: c.id,
-                  label: `${c.codice || ""} - ${nome}`,
-                  description: showGruppo ? `Gruppo: ${gruppo}` : undefined,
-                  searchText: gruppo,
-                };
-              })}
+              placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Prima scegli la compagnia"}
+              options={(compagnieList || [])
+                .filter((c: any) => !selectedGruppoCompagniaId || c.gruppo_compagnia_id === selectedGruppoCompagniaId)
+                .map((c: any) => {
+                  const gruppo = (c.gruppo_compagnia || "").trim();
+                  const nome = c.nome || "";
+                  const showGruppo = gruppo && gruppo.toLowerCase() !== nome.toLowerCase();
+                  return {
+                    value: c.id,
+                    label: `${c.codice || ""} - ${nome}`,
+                    description: showGruppo ? `Gruppo: ${gruppo}` : undefined,
+                    searchText: gruppo,
+                  };
+                })}
             />
           </div>
-          <div className="space-y-1.5 col-span-2">
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5 md:col-span-2">
             <RamoSottoramoSelect
               gruppoRamoId={selectedGruppoRamoId}
               ramoId={selectedRamo || null}
@@ -931,6 +969,9 @@ const ImmissionePolizzaPage = () => {
               </p>
             )}
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="space-y-1.5 col-span-2">
             <Label className="text-xs">Prodotto</Label>
             <Input
