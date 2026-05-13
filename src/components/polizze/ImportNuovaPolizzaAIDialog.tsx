@@ -376,9 +376,12 @@ export function ImportNuovaPolizzaAIDialog({
       setPhase(80, "Ricerca cliente nel database…");
       const cli = await lookupClienti(parsed);
       setClienteCandidates(cli);
-      if (cli.length) {
-        log("success", `${cli.length} cliente/i candidato/i trovato/i`);
-        setSelectedClienteId(cli[0].id);
+      const exact = cli.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email");
+      if (exact) {
+        setSelectedClienteId(exact.id);
+      } else if (cli.length) {
+        log("warn", `Nessun match esatto — ${cli.length} candidato/i solo per nome`);
+        setSelectedClienteId(NEW_CLIENTE);
       } else {
         log("warn", "Nessun cliente trovato — andrà creato");
         setSelectedClienteId(NEW_CLIENTE);
