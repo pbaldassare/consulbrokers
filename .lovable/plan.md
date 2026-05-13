@@ -1,21 +1,24 @@
-# Fix: mostrare l'aliquota di default del sottoramo
+# Search bar per ogni Tabella di Base
 
-## Problema
-In `PremiGaranziaCardShell` la colonna "Aliquota %" usa `aliquotaCalc = tasse/netto*100` (riga 174). Finché netto è vuoto, mostra `0.00` anche se il sottoramo selezionato (es. EC—CRISTALLI 22,25%) ha già caricato `aliquotaTasse` nello stato della riga. Risultato: l'utente crede che l'aliquota non sia stata presa.
+## Obiettivo
+Aggiungere a ciascuna tab di `/tabelle-base` un input "Cerca…" che filtra le righe della tabella in tempo reale (case-insensitive) sui campi testuali principali (codice, descrizione/nome, e altri campi visibili come tipo soggetto, gruppo ramo descrizione, ecc.).
 
-## Soluzione
-Cambiare la logica di display nella cella "Aliquota %":
+## Tabs interessate (16 sezioni in `src/pages/TabelleBasePage.tsx`)
+Gruppi Ramo, Rami, Usi RCA, Catalogo Garanzie, Gruppi Statistici, Gruppi Finanziari, Tipi Mandatario, Tipi Rinnovo, Indotti, Attività, Settori, Contratti, Fasce Fatturato, Fasce Dipendenti, Tipo Documento, Causali Cassa/Banca.
 
-- Se `netto > 0` → mostra `(tasse/netto)*100` (aliquota effettivamente applicata, utile per verificare override manuali sulle tasse).
-- Se `netto = 0` → mostra `r.aliquotaTasse` (aliquota di default dal sottoramo).
+## Pattern unico (applicato a ogni section component)
+1. Aggiungere `const [search, setSearch] = useState("")` nello state della section.
+2. Inserire sopra alla `<Table>` una riga con `<Input placeholder="Cerca…" value={search} onChange={...} className="max-w-xs" />` (con icona `Search` lucide a sinistra opzionale), accanto al pulsante "Nuovo …" già presente.
+3. Calcolare `filtered = items.filter(i => match(search, i))` dove `match` confronta lowercase con tutti i campi rilevanti della riga (codice, descrizione, nome, eventuali label join). Se `search` è vuoto, ritorna tutti.
+4. Rendere `filtered` invece di `items` nella `<TableBody>`. Il messaggio "Nessun elemento" diventa "Nessun risultato per la ricerca" quando `search` è valorizzato.
 
-Inoltre, all'auto-popolazione delle tasse alla selezione sottoramo (`handleGaranziaSelect` riga 117): se l'utente non ha ancora messo netto, le tasse restano "" — corretto. Nessuna altra modifica al calcolo.
+Nessun cambio di stato URL, nessuna paginazione, nessun debounce (le tabelle base sono piccole — max ~200 righe per Rami).
 
-## File
-- `src/components/polizze/PremiGaranziaCardShell.tsx` — solo la riga 174 e il rendering della cella riga 213-215.
+## File toccati
+- `src/pages/TabelleBasePage.tsx` (unico file).
 
 ## Validazione
-- Selezionare Ramo `ZQ - R.C.A.` poi sottoramo `EC - CRISTALLI` con netto vuoto → la colonna "Aliquota %" mostra `22.25`.
-- Inserire netto = 100 → tasse si popolano a 22,25 e colonna mostra `22.25`.
-- Editare manualmente le tasse a 30 con netto 100 → colonna mostra `30.00` (aliquota effettiva).
-- Cambiare sottoramo a uno con aliquota 0 (es. `BB - BBB`) → mostra `0.00`.
+- Aprire tab Rami, digitare `cri` → resta solo `EC — CRISTALLI` e simili.
+- Aprire tab Tipo Documento, digitare numero/codice → filtra correttamente.
+- Pulire l'input → riappare l'elenco intero.
+- Cambio tab → ogni tab ha il proprio input indipendente (state locale per section).

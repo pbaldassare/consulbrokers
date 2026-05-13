@@ -12,7 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, User, Building2, Landmark } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Building2, Landmark, Search } from "lucide-react";
+
+const matchSearch = (q: string, fields: (string | null | undefined | number)[]) => {
+  const s = (q || "").trim().toLowerCase();
+  if (!s) return true;
+  return fields.some((f) => String(f ?? "").toLowerCase().includes(s));
+};
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 
@@ -30,6 +36,7 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
   const [editing, setEditing] = useState<any>(null);
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: [queryKey],
@@ -87,9 +94,15 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">{title}</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -102,11 +115,11 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessun elemento inserito</TableCell></TableRow>
-            ) : items.map((item) => (
+            {(() => {
+              const filtered = items.filter((i: any) => matchSearch(search, [i.codice, i.descrizione]));
+              if (isLoading) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento inserito"}</TableCell></TableRow>);
+              return filtered.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
@@ -118,7 +131,8 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
@@ -153,6 +167,7 @@ const RamiTab = () => {
   const [gruppoId, setGruppoId] = useState("");
   const [aliquotaRamo, setAliquotaRamo] = useState("0");
   const [aliquotaArd, setAliquotaArd] = useState("0");
+  const [search, setSearch] = useState("");
 
   const { data: rami = [], isLoading } = useQuery({
     queryKey: ["rami-list"],
@@ -219,9 +234,15 @@ const RamiTab = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Rami</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo Ramo</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">Rami</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca codice, descrizione, gruppo…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo Ramo</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -237,11 +258,11 @@ const RamiTab = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : rami.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nessun ramo inserito</TableCell></TableRow>
-            ) : rami.map((r: any) => (
+            {(() => {
+              const filtered = (rami as any[]).filter((r: any) => matchSearch(search, [r.codice, r.descrizione, r.gruppi_ramo?.codice, r.gruppi_ramo?.descrizione]));
+              if (isLoading) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun ramo inserito"}</TableCell></TableRow>);
+              return filtered.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono font-semibold">{r.codice}</TableCell>
                 <TableCell>{r.descrizione}</TableCell>
@@ -262,7 +283,8 @@ const RamiTab = () => {
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
@@ -331,6 +353,7 @@ const GruppiFinanziariTab = () => {
   const [nome, setNome] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [tipoSoggetto, setTipoSoggetto] = useState<TipoSoggetto>("azienda");
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["gruppi-finanziari"],
@@ -399,9 +422,15 @@ const GruppiFinanziariTab = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Gruppi Finanziari</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">Gruppi Finanziari</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -416,11 +445,11 @@ const GruppiFinanziariTab = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
-            ) : items.map((item, idx) => (
+            {(() => {
+              const filtered = items.filter((i: any) => matchSearch(search, [i.codice, i.nome, i.descrizione, i.tipo_soggetto]));
+              if (isLoading) return (<TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento"}</TableCell></TableRow>);
+              return filtered.map((item: any, idx: number) => (
               <TableRow key={item.id} className={idx % 2 === 1 ? "bg-muted/30" : undefined}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell className="font-medium">{item.nome || "—"}</TableCell>
@@ -436,7 +465,8 @@ const GruppiFinanziariTab = () => {
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
@@ -509,6 +539,7 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [ordine, setOrdine] = useState(0);
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: [queryKey],
@@ -571,9 +602,15 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">{title}</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -587,11 +624,11 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nessun elemento inserito</TableCell></TableRow>
-            ) : items.map((item) => (
+            {(() => {
+              const filtered = items.filter((i: any) => matchSearch(search, [i.codice, i.descrizione, i.ordine]));
+              if (isLoading) return (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento inserito"}</TableCell></TableRow>);
+              return filtered.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="text-center font-mono">{item.ordine}</TableCell>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
@@ -604,7 +641,8 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
@@ -637,6 +675,7 @@ const RcaUsiTab = () => {
   const [editing, setEditing] = useState<any>(null);
   const [codice, setCodice] = useState("");
   const [descrizione, setDescrizione] = useState("");
+  const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["rca-usi"],
@@ -685,9 +724,15 @@ const RcaUsiTab = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Usi RCA</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">Usi RCA</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuovo</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -700,11 +745,11 @@ const RcaUsiTab = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
-            ) : items.map((item: any) => (
+            {(() => {
+              const filtered = (items as any[]).filter((i) => matchSearch(search, [i.codice, i.descrizione]));
+              if (isLoading) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento"}</TableCell></TableRow>);
+              return filtered.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
@@ -716,7 +761,8 @@ const RcaUsiTab = () => {
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
@@ -750,6 +796,7 @@ const RcaGaranzieTab = () => {
   const [descrizione, setDescrizione] = useState("");
   const [aliquota, setAliquota] = useState("0");
   const [gruppoRamoId, setGruppoRamoId] = useState<string>("");
+  const [search, setSearch] = useState("");
 
   const { data: gruppiRamo = [] } = useQuery({
     queryKey: ["gruppi-ramo-lookup"],
@@ -820,9 +867,15 @@ const RcaGaranzieTab = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Catalogo Garanzie</CardTitle>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuova</Button>
+      <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
+        <CardTitle className="text-lg whitespace-nowrap">Catalogo Garanzie</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca…" className="h-8 pl-7" />
+          </div>
+          <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Nuova</Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -837,11 +890,11 @@ const RcaGaranzieTab = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nessun elemento</TableCell></TableRow>
-            ) : items.map((item: any) => (
+            {(() => {
+              const filtered = (items as any[]).filter((i) => matchSearch(search, [i.codice, i.descrizione, i.gruppi_ramo?.codice, i.gruppi_ramo?.descrizione]));
+              if (isLoading) return (<TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
+              if (filtered.length === 0) return (<TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento"}</TableCell></TableRow>);
+              return filtered.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono font-semibold">{item.codice}</TableCell>
                 <TableCell>{item.descrizione}</TableCell>
@@ -857,7 +910,8 @@ const RcaGaranzieTab = () => {
                   <Button variant="ghost" size="icon" onClick={() => remove.mutate(item.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ));
+            })()}
           </TableBody>
         </Table>
 
