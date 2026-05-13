@@ -134,8 +134,12 @@ const ImmissionePolizzaPage = () => {
   };
 
   // Form state — Cliente
-  const [codiceCliente, setCodiceCliente] = useState("");
   const [clienteSearch, setClienteSearch] = useState("");
+  const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedClienteSearch(clienteSearch), 350);
+    return () => clearTimeout(t);
+  }, [clienteSearch]);
   const [selectedAE, setSelectedAE] = useState("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedUfficioId, setSelectedUfficioId] = useState("");
