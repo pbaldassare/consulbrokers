@@ -27,13 +27,17 @@ import {
   useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori,
   useLookupContratti, useLookupFasceFatturato, useLookupFasceDipendenti, useGruppiStatistici,
 } from "@/hooks/useLookupTables";
+import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 
 interface CommercialRole {
   profilo_id: string;
+  anagrafica_id: string;
 }
 
 const emptyRole = (): CommercialRole => ({
   profilo_id: "",
+  anagrafica_id: "",
 });
 
 function DatiStatisticiCreate(props: any) {
@@ -255,16 +259,19 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   });
 
   const { data: profiliCommercialiRaw = [] } = useQuery({
-    queryKey: ["profili_commerciali_lookup"],
+    queryKey: ["profili_commerciali_lookup_backoffice"],
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
         .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["admin", "produttore_sede", "backoffice", "account_executive"])
+        .eq("ruolo", "backoffice")
         .order("cognome");
       return data || [];
     },
   });
+
+  const { data: produttoriOpts = [] } = useProduttoriLookup();
+  const { data: aeOpts = [] } = useAccountExecutivesLookup();
 
   const { data: ufficiList = [] } = useQuery({
     queryKey: ["uffici_lookup_nuovo_cliente"],
