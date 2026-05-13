@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
+import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { logAttivita } from "@/lib/logAttivita";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
@@ -1528,17 +1529,13 @@ export default function ClienteDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Polizze del cliente</CardTitle>
-              <Button size="sm" onClick={() => navigate(`/portafoglio/immissione?clienteId=${id}`)}>
-                + Nuova Polizza
-              </Button>
+              <NuovaPolizzaButton clienteId={id} size="sm" />
             </CardHeader>
             <CardContent className="pt-2">
               {polizze.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-10">
                   <p className="text-muted-foreground">Nessuna polizza collegata a questo cliente</p>
-                  <Button variant="outline" onClick={() => navigate(`/portafoglio/immissione?clienteId=${id}`)}>
-                    + Crea la prima polizza
-                  </Button>
+                  <NuovaPolizzaButton clienteId={id} variant="outline" label="Crea la prima polizza" />
                 </div>
               ) : (
                 <Table>

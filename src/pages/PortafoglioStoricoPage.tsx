@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Archive, Search, Plus, Eye } from "lucide-react";
+import { Archive, Search, Eye } from "lucide-react";
+import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { RamoSottoramoFilter, expandRamoFilter } from "@/components/polizze/RamoSottoramoFilter";
@@ -101,10 +102,7 @@ const PortafoglioStoricoPage = () => {
           <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
           <p className="text-sm text-muted-foreground">Polizze scadute, sospese o con copertura terminata — sola consultazione</p>
         </div>
-        <Button onClick={() => navigate("/portafoglio/immissione")} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nuova Polizza
-        </Button>
+        <NuovaPolizzaButton />
       </div>
 
       <Card>

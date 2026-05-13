@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Plus, Hourglass } from "lucide-react";
+import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass } from "lucide-react";
+import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
@@ -311,10 +312,7 @@ const PortafoglioCaricoPage = () => {
           <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button onClick={() => navigate("/portafoglio/immissione")} className="gap-2 ml-2">
-            <Plus className="h-4 w-4" />
-            Nuova Polizza
-          </Button>
+          <NuovaPolizzaButton className="ml-2" />
         </div>
       </div>
 

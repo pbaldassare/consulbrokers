@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { Shield, Search, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Shield, Search } from "lucide-react";
+import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
@@ -94,10 +94,7 @@ const PortafoglioAttivePage = () => {
           <h1 className="text-2xl font-bold text-foreground">Polizze Attive</h1>
           <p className="text-sm text-muted-foreground">Polizze in corso di validità</p>
         </div>
-        <Button onClick={() => navigate("/portafoglio/immissione")} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nuova Polizza
-        </Button>
+        <NuovaPolizzaButton />
       </div>
 
       <Card>
