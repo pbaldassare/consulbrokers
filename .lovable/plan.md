@@ -1,60 +1,59 @@
-# Unificazione entry point "Nuovo Cliente" e "Nuova Polizza"
-
-## Stato attuale (mappatura)
-
-### Nuovo Cliente — 3 implementazioni diverse
-1. **`src/pages/ClientiList.tsx`** (linee 535–~1050): dialog inline **proprio**, ~500 righe di form duplicato (stati `nome`, `cognome`, `codiceFiscale`, `gruppoFinanziarioId`, scanner AI, tabs privato/azienda/ente, ecc.).
-2. **`src/components/clienti/NuovoClienteDialog.tsx`**: il componente "ufficiale" riutilizzabile (~1052 righe), già usato da:
-   - `ImmissionePolizzaPage.tsx` (creazione contestuale dalla nuova polizza)
-   - `ImportNuovaPolizzaAIDialog.tsx` (creazione da import AI)
-
-→ **Doppione**: il form di `ClientiList` reimplementa quello che fa già `NuovoClienteDialog`.
-
-### Nuova Polizza — già quasi unificato
-Tutti i punti puntano a `/portafoglio/immissione` (con `?clienteId=` quando contestuale):
-- `PortafoglioAttivePage.tsx`, `PortafoglioStoricoPage.tsx`, `PortafoglioCaricoPage.tsx` → `navigate("/portafoglio/immissione")`
-- `ClienteDetail.tsx` → `navigate("/portafoglio/immissione?clienteId=...")`
-- `GestionePolizzePage.tsx` → action card che naviga a `/portafoglio/immissione`
-
-→ Già coerente, **nessun doppione**.
-
 ## Obiettivo
 
-Un solo componente per creare un cliente, un solo URL per creare una polizza.
+In **Immissione Polizza**, i campi **Account Executive** e **Produttore** devono attingere dalla pagina **Archivi → Anagrafiche Amministrative** (`anagrafiche_professionali`) e auto-popolarsi dal cliente selezionato. Sede e Specialist mantengono le fonti attuali (`uffici`, `profiles` ruolo `backoffice`).
+
+**Importante**: gli elenchi di Produttore/Sede/AE/Specialist sono **identici per tutti i tipi cliente** (privato/azienda/ente). Il `tipo_soggetto` del Gruppo Finanziario governa solo i campi anagrafici del cliente, non queste tendine.
+
+## Stato attuale e problema
+
+- `anagrafiche_professionali` contiene già: 163 AE (`tipo='account_executive'`), 248 Produttori (`tipo='corrispondente'`), 146 Resp. Sede.
+- Oggi in Immissione le tendine AE e Produttore attingono in parte da `profiles`. Per il cliente "baldassare paolo" l'AE assegnato è un profilo `ruolo='backoffice'` → l'`id` è settato ma non compare tra le opzioni → tendina vuota.
+- Produttore tenta un match per nome verso anagrafiche → spesso fallisce → vuoto.
 
 ## Modifiche
 
-### 1. `src/pages/ClientiList.tsx` — sostituire il dialog inline con `NuovoClienteDialog`
+### 1. Schema (migrazione)
 
-- Rimuovere tutti gli stati locali del form (`nome`, `cognome`, `codiceFiscale`, `gruppoFinanziarioId`, `tipoCliente`, scanner AI, ecc.) e l'intero `<Dialog>` inline (linee ~535–~1050).
-- Sostituire con:
-  ```tsx
-  <NuovoClienteDialog
-    trigger={<Button><Plus className="w-4 h-4 mr-2" />Nuovo Cliente</Button>}
-    onCreated={(nuovoId) => {
-      refetch(); // refresh elenco clienti
-      navigate(`/clienti/${nuovoId}`); // (opzionale) redirect al dettaglio
-    }}
-  />
-  ```
-- Rimuovere import non più usati (scanner AI, tabs, query gruppi finanziari, ecc.) se non servono altrove nella pagina.
-- Comportamento atteso: identico (oggi il dialog inline fa le stesse cose), ma con un solo sorgente di verità.
+- `titoli.ae_anagrafica_id uuid` (FK → `anagrafiche_professionali.id`, nullable). Affianca il legacy `commerciale_id`.
+- `codici_commerciali_cliente.anagrafica_id uuid` (FK → `anagrafiche_professionali.id`, nullable). Coesiste con `profilo_id`.
 
-### 2. `src/pages/ImmissionePolizzaPage.tsx` — già a posto
-Continua a usare `NuovoClienteDialog` con prefill da AI. Nessuna modifica.
+Nessuna eliminazione di colonne legacy in questo step.
 
-### 3. Nuova Polizza — nessuna modifica
-Tutti i bottoni già convergono su `/portafoglio/immissione`. Confermato.
+### 2. Hook lookup canonici (`src/hooks`)
 
-## Fuori scope
+- `useProduttoriLookup` (esistente, `tipo='corrispondente'`).
+- Nuovo `useAccountExecutivesLookup` (`tipo='account_executive'`, `attivo=true`).
+- Entrambi restano gli stessi a prescindere dal tipo cliente.
 
-- Nessuna modifica a `NuovoClienteDialog` (logica interna invariata).
-- Nessuna modifica al backend / schema DB.
-- Nessuna modifica all'AI Import / matching cliente esistente (già fatto nei turn precedenti).
-- Nessun refactor del form di `ImmissionePolizzaPage`.
+### 3. Scheda Cliente (`src/pages/ClienteDetail.tsx` + tab commerciali)
 
-## Risultato
+- Tendine "Account Executive" e "Produttore Sede": switch da profili a anagrafiche professionali.
+- Salvataggio: scrive `codici_commerciali_cliente.anagrafica_id`. `profilo_id` può rimanere NULL per le nuove righe AE/Produttore.
+- Specialist resta su `profiles` (ruolo `backoffice`).
+- Sede resta su `uffici`.
 
-- **1 componente** per creare clienti: `NuovoClienteDialog` (usato in `ClientiList`, `ImmissionePolizzaPage`, `ImportNuovaPolizzaAIDialog`).
-- **1 route** per creare polizze: `/portafoglio/immissione[?clienteId=...]`.
-- ~500 righe di codice duplicato rimosse da `ClientiList.tsx`.
+### 4. Immissione Polizza (`src/pages/ImmissionePolizzaPage.tsx`)
+
+- **AE**: opzioni da `useAccountExecutivesLookup`.
+- **Produttore**: opzioni da `useProduttoriLookup` (rimuovere il match per nome).
+- **Specialist**: invariato.
+- **Sede**: invariata.
+- Eredità da cliente: leggi `codici_commerciali_cliente`; per ruoli `account_executive`/`AE` e `Produttore Sede` usa `anagrafica_id` come valore preselezionato. Se NULL, fallback al match per nome verso anagrafiche; se nessun match, mostra hint "Collega AE/Produttore all'Anagrafica Amministrativa nella scheda cliente".
+- Salvataggio:
+  - `titoli.ae_anagrafica_id` = AE selezionato.
+  - `titoli.anagrafica_commerciale_id` = Produttore selezionato (già così).
+  - `titoli.ae_nome` / `titoli.produttore_nome` continuano a essere popolati come testo leggibile.
+
+### 5. Wizard Import Polizza AI (`ImportNuovaPolizzaAIDialog.tsx`)
+
+Stessi due lookup canonici per AE e Produttore.
+
+## Out of scope
+
+- Migrazione massiva dei dati storici di `codici_commerciali_cliente` (linkare progressivamente in modifica scheda; eventuale script in task dedicato).
+- Pulizia colonne legacy (`commerciale_id`, `profilo_id` per AE/Produttore).
+
+## Memoria da aggiornare
+
+- Estendere `mem://insurance/produttori-lookup-source` includendo anche AE: fonte `anagrafiche_professionali` `tipo='account_executive'`; nuovo campo `titoli.ae_anagrafica_id`.
+- Nota in `mem://insurance/gruppi-finanziari-tipo-soggetto`: il `tipo_soggetto` non influenza le tendine Produttore/Sede/AE/Specialist.
