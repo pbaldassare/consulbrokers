@@ -483,9 +483,23 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     mutationFn: async () => {
       const missing = getMissingFields();
       if (missing.length > 0) throw new Error(`Campi obbligatori mancanti: ${missing.join(", ")}`);
-      if (tipoCliente === "privato" && codiceFiscale && codiceFiscale.length !== 16) {
-        throw new Error("Codice Fiscale deve essere di 16 caratteri");
+      // Validazione formato/checksum CF e P.IVA
+      const fiscalErrors: string[] = [];
+      if (tipoCliente === "privato" && codiceFiscale) {
+        const r = validateCF(codiceFiscale, { allowPIVAFormat: false });
+        if (!r.valid) fiscalErrors.push(`Codice Fiscale: ${r.error}`);
       }
+      if (tipoCliente !== "privato") {
+        if (partitaIva) {
+          const r = validatePIVA(partitaIva);
+          if (!r.valid) fiscalErrors.push(`Partita IVA: ${r.error}`);
+        }
+        if (codiceFiscaleAzienda) {
+          const r = validateCF(codiceFiscaleAzienda, { allowPIVAFormat: true });
+          if (!r.valid) fiscalErrors.push(`Codice Fiscale ${tipoCliente === "ente" ? "Ente" : "Azienda"}: ${r.error}`);
+        }
+      }
+      if (fiscalErrors.length > 0) throw new Error(fiscalErrors.join(" • "));
 
       const payload: Record<string, unknown> = {
         tipo_cliente: tipoCliente,
