@@ -1223,6 +1223,21 @@ const ImmissionePolizzaPage = () => {
             addizionali={addizionali}
             onAddizionaliChange={setAddizionali}
             provvigioni={provvFirma}
+            headerExtra={
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r, id: crypto.randomUUID() })));
+                  setAddizionaliQuietanza(addizionali);
+                  toast.success("Firma salvata e copiata in Quietanza");
+                }}
+              >
+                Salva e copia in Quietanza
+              </Button>
+            }
           />
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
