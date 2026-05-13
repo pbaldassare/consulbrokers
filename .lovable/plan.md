@@ -1,48 +1,20 @@
-## Problema individuato
+## Obiettivo
+Uniformare la terminologia "Consul" in tutto il modulo clienti e ripulire residui legacy.
 
-Nella pagina dettaglio cliente (`/archivi/clienti/:id`) ci sono due problemi concreti:
+## Modifiche
 
-- La sezione **Codici Commerciali (Rete)** usa ancora ruoli/etichette e campi legacy: `account_executive`, `agente`, `produttore_sede`, `% Provvigione`, `Società/Brand`, `Mandato`, date mandato e `Altro Broker`.
-- Il salvataggio dello **Specialist** non è coerente: una parte della pagina legge/scrive il ruolo `Backoffice`, mentre la sezione Codici Commerciali usa `backoffice`. Per questo alcuni dati sembrano non rimanere salvati o non ricompaiono dopo il refresh.
+### 1. `src/components/clienti/NuovoClienteDialog.tsx`
+- Sezione "Produttore" (riga ~1004) → rinominare label in **"Consul"** (placeholder `Seleziona Consul...`).
+- Aggiornare commenti residui (`{/* Produttore: ... */}`, `{/* Specialist: ... */}`) per coerenza.
+- Pulire la query `profili_commerciali_lookup` (riga 263) rimuovendo i ruoli legacy `responsabile_sede`, `executive`, `produttore` dal filtro `.in("ruolo", [...])`, mantenendo solo `admin`, `produttore_sede`, `backoffice`, `account_executive`.
 
-## Piano di intervento
+### 2. `src/pages/ClienteDetail.tsx`
+- Allineare la query `profili_commerciali_rete` (riga 411) allo stesso filtro pulito.
+- Già OK: label "Consul" presente, nessun campo legacy residuo.
 
-1. **Rendere coerente la pagina anagrafica cliente con il flusso attuale di creazione cliente**
-   - Tenere in alto le assegnazioni realmente usate oggi:
-     - **Sede**
-     - **Gruppo Finanziario**
-     - **Specialist**
-     - **Produttore / Consul**, se presente
-   - Usare sempre la terminologia già decisa nel progetto: **Sede**, **Specialist**, **Consul**.
+### 3. Verifica finale
+- `rg` su `mandato|brand|società|provvigione|altro_broker|scadenza_mandato|data_disdetta|termine_proroga` in `src/pages/ClienteDetail.tsx` e `src/components/clienti/` per confermare zero residui UI.
 
-2. **Pulire la sezione “Codici Commerciali (Rete)”**
-   - Rimuovere dalla UI i campi legacy non più utili:
-     - `% Provvigione`
-     - `Società/Brand`
-     - `Mandato`
-     - `Scadenza Mandato`
-     - `Data Disdetta`
-     - `Termine Proroga`
-     - `Altro Broker`
-     - `Nome Altro Broker`
-     - `Agente`
-     - `Produttore Sede` come dicitura legacy
-   - Lasciare solo una sezione semplice di assegnazione rete coerente con il nuovo modello.
-
-3. **Correggere la persistenza nel database**
-   - Normalizzare il salvataggio dei ruoli commerciali usando gli stessi valori già presenti nei dati reali:
-     - `Backoffice` per Specialist
-     - `Produttore Sede` per il produttore/Consul esistente, ma mostrato in UI come **Consul**
-     - `AE` per Account Executive, se mantenuto come assegnazione essenziale
-   - Dopo ogni salvataggio invalidare e ricaricare le query corrette, così il dato salvato torna subito visibile senza refresh manuale.
-   - Non serve una migrazione DB: le colonne esistono già e la tabella ha già il vincolo unico su `cliente_id, ruolo`.
-
-4. **Allineare anche il dialog “Nuovo Cliente” condiviso**
-   - Rimuovere i campi legacy dalla creazione cliente, così non ricompaiono in altri punti.
-   - Salvare solo i profili commerciali realmente usati e persistenti.
-   - Mantenere la Sede auto-compilata dallo Specialist ma sempre modificabile.
-
-5. **Verifica finale**
-   - Controllare che il cliente attuale mostri correttamente lo Specialist salvato.
-   - Verificare che il salvataggio di Sede/Gruppo/Specialist/Consul persista dopo invalidazione query/refresh.
-   - Verificare che non compaiano più i vecchi campi mandato/provvigione/brand nella pagina anagrafica cliente.
+## Fuori scope
+- Nessuna migrazione DB.
+- Logica di salvataggio invariata (già `profilo_id + ruolo`).

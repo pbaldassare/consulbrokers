@@ -260,7 +260,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       const { data } = await supabase
         .from("profiles")
         .select("id, nome, cognome, ruolo")
-        .in("ruolo", ["admin", "produttore", "responsabile_sede", "produttore_sede", "executive", "backoffice"])
+        .in("ruolo", ["admin", "produttore_sede", "backoffice", "account_executive"])
         .order("cognome");
       return data || [];
     },
@@ -963,7 +963,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                 </div>
               </div>
             </div>
-            {/* Specialist: solo Profilo (no provvigioni, no brand) */}
+            {/* Specialist (DB ruolo "Backoffice") */}
             <div className="rounded-md border p-4 mb-3">
               <p className="text-sm font-medium mb-3">Specialist</p>
               <div className="grid grid-cols-3 gap-3">
@@ -1001,16 +1001,16 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               </div>
             </div>
 
-            {/* Produttore: profilo + flag mandato (provvigioni gestite altrove) */}
+            {/* Consul (DB ruolo "Produttore Sede") */}
             <div className="rounded-md border p-4 mb-3">
-              <p className="text-sm font-medium mb-3">Produttore</p>
+              <p className="text-sm font-medium mb-3">Consul</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs">Profilo</Label>
                   <SearchableSelect
                     value={produttoreSede.profilo_id}
                     onValueChange={(v) => updateRole(setProduttoreSede, "profilo_id", v)}
-                    placeholder="Seleziona Produttore..."
+                    placeholder="Seleziona Consul..."
                     options={profiliCommerciali}
                   />
                 </div>
