@@ -134,6 +134,7 @@ const ImmissionePolizzaPage = () => {
   };
 
   // Form state — Cliente
+  const [aiCfLookup, setAiCfLookup] = useState(""); // CF/P.IVA arrivato da import AI per auto-selezione
   const [clienteSearch, setClienteSearch] = useState("");
   const [debouncedClienteSearch, setDebouncedClienteSearch] = useState("");
   useEffect(() => {
