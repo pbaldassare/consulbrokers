@@ -541,6 +541,41 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
+  // Rapporti attivi per l'agenzia selezionata
+  const { data: rapportiAgenzia } = useQuery({
+    queryKey: ["compagnia_rapporti_attivi", selectedCompagnia],
+    enabled: !!selectedCompagnia,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("id, codice_rapporto, tipo_rapporto, attivo")
+        .eq("compagnia_id", selectedCompagnia)
+        .eq("attivo", true)
+        .order("codice_rapporto");
+      return (data as any[]) || [];
+    },
+  });
+
+  // Auto-seleziona il rapporto se ce n'è uno solo; resetta se l'attuale non appartiene più
+  useEffect(() => {
+    const list = rapportiAgenzia || [];
+    if (!selectedCompagnia) {
+      if (selectedRapportoId) setSelectedRapportoId("");
+      return;
+    }
+    if (list.length === 1) {
+      if (selectedRapportoId !== list[0].id) setSelectedRapportoId(list[0].id);
+    } else if (list.length === 0) {
+      if (selectedRapportoId) setSelectedRapportoId("");
+    } else {
+      // 2+ rapporti: se quello selezionato non è in lista, resetta
+      if (selectedRapportoId && !list.find((r: any) => r.id === selectedRapportoId)) {
+        setSelectedRapportoId("");
+      }
+    }
+  }, [rapportiAgenzia, selectedCompagnia]);
+
+
   // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
   const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === selectedGruppoRamoId);
