@@ -723,6 +723,33 @@ const ImmissionePolizzaPage = () => {
           />
         </div>
 
+        {/* Badge Gruppo Finanziario del cliente selezionato */}
+        {clienteDettaglio && (() => {
+          const gf: any = (clienteDettaglio as any).gruppi_finanziari;
+          if (!gf) {
+            return (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs flex items-center gap-2">
+                <span className="text-destructive font-medium">⚠ Gruppo finanziario mancante</span>
+                <span className="text-muted-foreground">— Apri la scheda cliente per assegnarlo (determina i campi obbligatori).</span>
+              </div>
+            );
+          }
+          const tipo = gf.tipo_soggetto as string;
+          const cls =
+            tipo === "privato" ? "border-blue-500 text-blue-700 bg-blue-50 dark:bg-blue-950/30" :
+            tipo === "azienda" ? "border-emerald-600 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30" :
+            "border-amber-600 text-amber-700 bg-amber-50 dark:bg-amber-950/30";
+          const label = tipo === "privato" ? "Privato" : tipo === "azienda" ? "Azienda" : "Ente";
+          return (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Gruppo Finanziario:</span>
+              <span className={`inline-flex items-center rounded-md border px-2 py-0.5 font-medium ${cls}`}>
+                {label} · {gf.codice} {gf.nome}
+              </span>
+            </div>
+          );
+        })()}
+
         {/* Lookup veloce per codice/CF (legacy) */}
         <div className="flex items-end gap-3">
           <div className="space-y-1.5 flex-1 max-w-[260px]">
