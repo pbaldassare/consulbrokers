@@ -1436,29 +1436,6 @@ const ImmissionePolizzaPage = () => {
         </div>
       </PolizzaSection>
 
-      {/* TIPO */}
-      <PolizzaSection title="Tipo" icon={Tag}>
-        <div className="space-y-3">
-          <Label className="text-xs">Tipo Operazione</Label>
-          <RadioGroup value={tipoOperazione} onValueChange={setTipoOperazione} className="flex flex-wrap gap-4">
-            {[
-              { value: "polizza", label: "Polizza" },
-              { value: "emittenda", label: "Emittenda" },
-              { value: "cp_nuova", label: "CP (Nuova)" },
-              { value: "cp_sost_rinn", label: "CP (Sost/Rinn)" },
-            ].map((opt) => (
-              <div key={opt.value} className="flex items-center gap-2">
-                <RadioGroupItem value={opt.value} id={`tipo-${opt.value}`} />
-                <Label htmlFor={`tipo-${opt.value}`} className="font-normal cursor-pointer text-xs">{opt.label}</Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-        <div className="flex items-center gap-2 pt-1">
-          <Checkbox id="polizza-auto" checked={polizzaAuto} onCheckedChange={(v) => setPolizzaAuto(v === true)} />
-          <Label htmlFor="polizza-auto" className="font-normal cursor-pointer text-xs">Polizza Auto</Label>
-        </div>
-      </PolizzaSection>
 
       {/* === SEZIONI RCA AUTO === */}
       {isRCA && (
