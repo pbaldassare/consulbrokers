@@ -1,22 +1,60 @@
-Problema individuato: la schermata carica correttamente i dati reali da Supabase (`compagnie` e `gruppi_compagnia`), ma la UI attuale separa “Compagnia Assicurativa” come gruppo e “Agenzia di Riferimento” come singola compagnia/agenzia. Questo genera confusione e, quando il gruppo non viene risolto o la ricerca non trova il testo atteso, sembra che la compagnia non venga presa. Inoltre nei log recenti c’è stato un 400 su `gruppi_compagnia.nome`: lo schema reale usa `descrizione`, non `nome`.
+# Sottoramo come riga garanzia (non più campo singolo)
 
-Piano di correzione:
+## Obiettivo
 
-1. Rendere robusta la tendina “Compagnia Assicurativa”
-   - Usare sempre i record da `gruppi_compagnia` con campi reali `id`, `codice`, `descrizione`.
-   - Mostrare label chiare basate su `descrizione` e `codice`, non su una colonna `nome` inesistente.
-   - Gestire esplicitamente errori di query con `toast`/fallback vuoto invece di fallire silenziosamente.
+Cambiare il modello UI per cui il **Sottoramo** non è più un campo accanto al Ramo, ma diventa la **prima colonna delle righe garanzia** nelle card "Composizione Premio Firma" e "Quietanza". Il Ramo (gruppo) resta unico per polizza e fa da filtro per i sottorami selezionabili nelle righe.
 
-2. Rendere coerente la cascata Compagnia → Agenzia
-   - Quando viene scelta una compagnia/gruppo assicurativo, filtrare le agenzie di riferimento tramite `compagnie.gruppo_compagnia_id`.
-   - Quando viene scelta un’agenzia, sincronizzare automaticamente la compagnia/gruppo assicurativo associato.
-   - Non svuotare inutilmente la scelta dell’agenzia se il gruppo è già coerente.
+## Esempio confermato
 
-3. Migliorare la ricerca nelle tendine
-   - Aggiornare `SearchableSelect` per usare valori univoci internamente e testo di ricerca separato, evitando problemi di `cmdk` con label duplicate o ricerca che mostra “Nessun risultato” pur avendo opzioni.
-   - Mantenere compatibile il componente con tutti gli usi esistenti.
+Polizza Auto:
+- **Ramo** = `ZQ - R.C.A.` (gruppo)
+- Composizione Premio Firma:
+  - Riga 1 → Sottoramo `PI - R.C. AUTOVEICOLI` → netto + tasse + lordo
+  - Riga 2 → Sottoramo `ARD - Auto Rischi Diversi` → ...
+  - Riga 3 → Sottoramo `CR - Cristalli` → ...
+  - Riga 4 → Sottoramo `AS - Assistenza` → ...
+- Premio Firma totale = somma lordi righe; idem Quietanza.
 
-4. Validazione finale
-   - Verificare che la pagina `/portafoglio/immissione` non faccia più richieste a `gruppi_compagnia.nome`.
-   - Verificare che “Compagnia Assicurativa” mostri risultati e che, dopo la selezione, “Agenzia di Riferimento” venga popolata correttamente.
-   - Verificare che il payload di salvataggio continui a salvare `compagnia_id` dalla singola agenzia selezionata, come previsto dal database.
+## Cambi UI
+
+### `ImmissionePolizzaPage.tsx`
+1. Card **Contratto**: rimuovere il selettore "Sottoramo". Resta solo "Ramo" (gruppi_ramo) con `SearchableSelect`.
+2. Le righe garanzia in `PremiGaranziaCardShell` (Firma e Quietanza) cambiano la cella "Voce":
+   - Diventa `SearchableSelect` di **Sottorami** (`rami` filtrati per `gruppo_ramo_id = selectedRamoId`).
+   - Label: `codice - descrizione`.
+   - Quando il Ramo non è selezionato, le righe sono disabilitate con messaggio "Seleziona prima il Ramo".
+3. Cambio Ramo → reset righe garanzia (sottorami non più validi per il nuovo gruppo).
+4. Tasse riga: default da `rami.aliquota_tasse_ramo` del sottoramo selezionato (override manuale possibile).
+
+### `TitoloDetail.tsx` (modifica polizza esistente)
+Stessa logica: rimuovere il campo "Sottoramo" singolo dal blocco contratto; spostarlo nelle righe `VociRcaCard` (Firma + Quietanza) come selettore di sottoramo filtrato per gruppo.
+
+## Cambi dati
+
+### Salvataggio
+- `titoli.ramo_id` → ora punta al **gruppo ramo** (`gruppi_ramo.id`). Confermato dall'utente.
+- I sottorami vivono solo sulle righe voci premio.
+
+### Schema
+1. Nuova FK su `titoli.ramo_id`: prima puntava a `rami.id`, ora deve puntare a `gruppi_ramo.id`. Migrazione dati:
+   - Per ogni `titoli.ramo_id` esistente, rimpiazzare con il `gruppo_ramo_id` del relativo `rami`.
+   - Drop FK vecchia, crea nuova FK su `gruppi_ramo`.
+2. Tabella righe voci premio (es. `titoli_voci_premio` o equivalente attuale usata da `PremiGaranziaCardShell`):
+   - Aggiungere colonna `sottoramo_id uuid references rami(id)` (nullable per retrocompatibilità).
+   - Per voci esistenti agganciate a `rca_garanzie`, lasciare il legame come fallback.
+3. Vista `v_portafoglio_titoli`: ricreare derivando `gruppo_ramo` direttamente da `titoli.ramo_id → gruppi_ramo`, e `sottorami` aggregati dalle righe voci premio.
+4. Report/filtri esistenti che filtravano per `ramo_id` come sottoramo: aggiornati a filtrare via righe voci premio (oppure via gruppo).
+
+## Componenti riusabili
+- Estendere `useRami(gruppoRamoId)` (già esiste) per popolare il selettore riga.
+- Nuovo componente `SottoramoSelectCell` riutilizzato da Firma + Quietanza + TitoloDetail.
+
+## Validazione
+- `/portafoglio/immissione`: verificare che il campo Sottoramo non appare più nel blocco Contratto e che ogni riga garanzia mostra il selettore sottoramo filtrato.
+- Polizza Auto demo: aggiungere riga PI + ARD + Cristalli e confermare somma premio.
+- Polizza esistente: aprire `TitoloDetail`, vedere righe popolate con sottoramo derivato.
+- Salvataggio: `titoli.ramo_id` contiene un `gruppi_ramo.id` valido; righe voci premio contengono `sottoramo_id` valorizzato.
+
+## Rischi
+- Migrazione dati `titoli.ramo_id`: serve backfill 1-a-1; titoli orfani (ramo senza gruppo) vanno mappati o segnalati.
+- Report e RPC che oggi joinano `titoli.ramo_id → rami` vanno aggiornati a `gruppi_ramo`. Da censire prima della migration (memory `Ramo / Sottoramo coordinato` va aggiornata).

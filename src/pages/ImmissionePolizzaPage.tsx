@@ -538,9 +538,9 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
-  // Gruppo ramo del ramo selezionato
+  // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
-  const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === (selectedRamoData as any)?.gruppo_ramo_id);
+  const selectedGruppoRamo = gruppiRamo?.find((g) => g.id === selectedGruppoRamoId);
 
   // Detect RCA: gruppo ramo contiene "RCA" o "Auto" oppure checkbox polizzaAuto
   const isRCA = polizzaAuto || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("RCA") || (selectedGruppoRamo?.descrizione || "").toUpperCase().includes("AUTO");
@@ -595,6 +595,20 @@ const ImmissionePolizzaPage = () => {
 
   const finalizzaPolizza = async () => {
     if (saving) return;
+    // Deriva ramo_id (sottoramo) dalla prima riga garanzia non vuota
+    const firstSottoramoId =
+      premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+      null;
+    const ramoIdToSave = firstSottoramoId || selectedRamo || null;
+    if (!selectedGruppoRamoId) {
+      toast.error("Seleziona il Ramo");
+      return;
+    }
+    if (!ramoIdToSave) {
+      toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
+      return;
+    }
     setSaving(true);
     try {
       const payload: Record<string, any> = {
@@ -602,7 +616,7 @@ const ImmissionePolizzaPage = () => {
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
         compagnia_id: selectedCompagnia || null,
-        ramo_id: selectedRamo || null,
+        ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         
@@ -987,13 +1001,20 @@ const ImmissionePolizzaPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5 md:col-span-2">
             <RamoSottoramoSelect
+              gruppoOnly
               gruppoRamoId={selectedGruppoRamoId}
-              ramoId={selectedRamo || null}
-              onChange={({ gruppoRamoId, ramoId }) => {
+              ramoId={null}
+              onChange={({ gruppoRamoId }) => {
                 setSelectedGruppoRamoId(gruppoRamoId);
-                setSelectedRamo(ramoId || "");
+                // Reset righe garanzia: i sottorami precedenti potrebbero non appartenere al nuovo gruppo
+                setPremiFirmaRows([emptyGaranziaRow()]);
+                setPremiQuietanzaRows([emptyGaranziaRow()]);
+                setSelectedRamo("");
               }}
             />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Il Sottoramo si seleziona riga per riga nelle Composizioni Premio sotto.
+            </p>
             {isRCA && (
               <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
                 <Info className="h-3 w-3" />
@@ -1196,7 +1217,7 @@ const ImmissionePolizzaPage = () => {
         <div className="space-y-4">
           <PremiGaranziaCardShell
             tipoPremio="firma"
-            gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
+            gruppoRamoId={selectedGruppoRamoId}
             rows={premiFirmaRows}
             onRowsChange={setPremiFirmaRows}
             addizionali={addizionali}
@@ -1205,7 +1226,7 @@ const ImmissionePolizzaPage = () => {
           />
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
-            gruppoRamoId={(selectedRamoData as any)?.gruppo_ramo_id || null}
+            gruppoRamoId={selectedGruppoRamoId}
             rows={premiQuietanzaRows}
             onRowsChange={setPremiQuietanzaRows}
             addizionali={addizionaliQuietanza}
