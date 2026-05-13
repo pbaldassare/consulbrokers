@@ -110,15 +110,16 @@ const ImmissionePolizzaPage = () => {
     }
     if (d.prodotto) setProdottoNome(d.prodotto);
     if (d.numero_polizza) setNumeroPolizza(d.numero_polizza);
-    if (d.decorrenza) setDurataDa(d.decorrenza);
-    if (d.scadenza) setDurataA(d.scadenza);
+    if (d.decorrenza) { setDurataDa(d.decorrenza); }
+    if (d.scadenza) { setDurataA(d.scadenza); setDurataATouched(true); }
     if (typeof d.tacito_rinnovo === "boolean") setTacitoRinnovo(d.tacito_rinnovo);
     if (d.frazionamento) {
       const fraz = d.frazionamento.toLowerCase();
       const map: Record<string, string> = {
-        annuale: "1", semestrale: "2", quadrimestrale: "3", trimestrale: "4", mensile: "12",
+        annuale: "Annuale", semestrale: "Semestrale", quadrimestrale: "Quadrimestrale",
+        trimestrale: "Trimestrale", mensile: "Mensile", poliennale: "Poliennale",
       };
-      if (map[fraz]) setRate(map[fraz]);
+      if (map[fraz]) setFrazionamento(map[fraz]);
     }
     if (d.premio_firma_netto != null || d.premio_firma_imposte != null) {
       setPremiFirmaRows([{ ...emptyGaranziaRow(), netto: d.premio_firma_netto != null ? String(d.premio_firma_netto) : "", tasse: d.premio_firma_imposte != null ? String(d.premio_firma_imposte) : "" }]);
@@ -170,15 +171,20 @@ const ImmissionePolizzaPage = () => {
   const [descrizionePolizza, setDescrizionePolizza] = useState("");
 
   // Periodo
-  const [durataDa, setDurataDa] = useState("");
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [durataDa, setDurataDa] = useState(todayISO);
   const [durataA, setDurataA] = useState("");
+  const [durataATouched, setDurataATouched] = useState(false);
   const [anniDurata, setAnniDurata] = useState("1");
   const [tacitoRinnovo, setTacitoRinnovo] = useState(true);
-  const [rate, setRate] = useState("1");
+  const [frazionamento, setFrazionamento] = useState<string>("Annuale");
   const [moraGiorni, setMoraGiorni] = useState("15");
   const [garanziaDa, setGaranziaDa] = useState("");
+  const [garanziaDaTouched, setGaranziaDaTouched] = useState(false);
   const [garanziaA, setGaranziaA] = useState("");
+  const [garanziaATouched, setGaranziaATouched] = useState(false);
   const [dataCompetenza, setDataCompetenza] = useState("");
+  const [dataCompetenzaTouched, setDataCompetenzaTouched] = useState(false);
   const [limiteMora, setLimiteMora] = useState("");
   const [disdettaMesi, setDisdettaMesi] = useState("");
 
@@ -587,6 +593,49 @@ const ImmissionePolizzaPage = () => {
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
+  // --- Frazionamento helpers + auto-calcolo Periodo ---
+  const FRAZIONAMENTO_OPTIONS = [
+    { value: "Mensile", label: "Mensile" },
+    { value: "Trimestrale", label: "Trimestrale" },
+    { value: "Quadrimestrale", label: "Quadrimestrale" },
+    { value: "Semestrale", label: "Semestrale" },
+    { value: "Annuale", label: "Annuale" },
+    { value: "Poliennale", label: "Poliennale" },
+  ];
+  const frazionamentoMesi = (f: string, anni: number): number => {
+    switch (f) {
+      case "Mensile": return 1;
+      case "Trimestrale": return 3;
+      case "Quadrimestrale": return 4;
+      case "Semestrale": return 6;
+      case "Poliennale": return Math.max(1, anni) * 12;
+      case "Annuale":
+      default: return 12;
+    }
+  };
+  const frazionamentoToRate = (f: string, anni: number): number => {
+    if (f === "Poliennale") return 1;
+    const m = frazionamentoMesi(f, anni);
+    return Math.max(1, Math.round(12 / m));
+  };
+  const addMonthsISO = (iso: string, months: number): string => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const dt = new Date(Date.UTC(y, m - 1 + months, d));
+    return dt.toISOString().slice(0, 10);
+  };
+  useEffect(() => {
+    if (!durataDa) return;
+    const anni = Math.max(1, parseInt(anniDurata) || 1);
+    const mesiGar = frazionamentoMesi(frazionamento, anni);
+    if (!durataATouched) setDurataA(addMonthsISO(durataDa, anni * 12));
+    if (!garanziaDaTouched) setGaranziaDa(durataDa);
+    if (!garanziaATouched) setGaranziaA(addMonthsISO(durataDa, mesiGar));
+    if (!dataCompetenzaTouched) setDataCompetenza(durataDa);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [durataDa, anniDurata, frazionamento]);
+
   // --- Handlers ---
 
   const handleConferma = () => {
@@ -629,7 +678,8 @@ const ImmissionePolizzaPage = () => {
         anni_durata: parseInt(anniDurata) || 1,
         tacito_rinnovo: tacitoRinnovo,
         periodicita,
-        rate: parseInt(rate) || 1,
+        rate: frazionamentoToRate(frazionamento, parseInt(anniDurata) || 1),
+        frazionamento,
         mora_giorni: parseInt(moraGiorni) || 15,
         premio_netto: premioNetto ? parseFloat(premioNetto) : null,
         addizionali: addizionali ? parseFloat(addizionali) : 0,
@@ -1107,27 +1157,33 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Durata A</Label>
-            <Input type="date" value={durataA} onChange={(e) => setDurataA(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={durataA} onChange={(e) => { setDurataA(e.target.value); setDurataATouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Anni Durata</Label>
-            <Input type="number" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" />
+            <Input type="number" min="1" value={anniDurata} onChange={(e) => setAnniDurata(e.target.value)} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Rate</Label>
-            <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} className="h-8 text-xs" />
+            <Label className="text-xs">Frazionamento</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={frazionamento}
+              onValueChange={(v) => setFrazionamento(v || "Annuale")}
+              options={FRAZIONAMENTO_OPTIONS}
+              placeholder="—"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Garanzia Da</Label>
-            <Input type="date" value={garanziaDa} onChange={(e) => setGaranziaDa(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={garanziaDa} onChange={(e) => { setGaranziaDa(e.target.value); setGaranziaDaTouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Garanzia A</Label>
-            <Input type="date" value={garanziaA} onChange={(e) => setGaranziaA(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={garanziaA} onChange={(e) => { setGaranziaA(e.target.value); setGaranziaATouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Data Competenza</Label>
-            <Input type="date" value={dataCompetenza} onChange={(e) => setDataCompetenza(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={dataCompetenza} onChange={(e) => { setDataCompetenza(e.target.value); setDataCompetenzaTouched(true); }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Limite Mora</Label>

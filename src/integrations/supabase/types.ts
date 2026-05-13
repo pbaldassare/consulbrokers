@@ -6282,6 +6282,7 @@ export type Database = {
           filiale: string | null
           fondi_ricevuti: boolean | null
           formato_elettronico: boolean | null
+          frazionamento: string | null
           garanzia_a: string | null
           garanzia_da: string | null
           giorni_presentazione: number | null
@@ -6379,6 +6380,7 @@ export type Database = {
           filiale?: string | null
           fondi_ricevuti?: boolean | null
           formato_elettronico?: boolean | null
+          frazionamento?: string | null
           garanzia_a?: string | null
           garanzia_da?: string | null
           giorni_presentazione?: number | null
@@ -6476,6 +6478,7 @@ export type Database = {
           filiale?: string | null
           fondi_ricevuti?: boolean | null
           formato_elettronico?: boolean | null
+          frazionamento?: string | null
           garanzia_a?: string | null
           garanzia_da?: string | null
           giorni_presentazione?: number | null
