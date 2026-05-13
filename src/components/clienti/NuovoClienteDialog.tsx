@@ -807,6 +807,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={!email.trim() ? "border-amber-400" : undefined} /></div>
+                <div><Label>Telefono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
+                <div><Label>PEC</Label><Input type="email" value={pec} onChange={(e) => setPec(e.target.value)} /></div>
+              </div>
               <div><Label>Indirizzo Sede *</Label><AddressAutocomplete value={indirizzoSede} onChange={setIndirizzoSede} onSelect={(c) => { setCapSede(c.cap); setCittaSede(c.citta); setProvinciaSede(c.provincia); }} /></div>
               <div className="grid grid-cols-3 gap-4">
                 <div><Label>CAP *</Label><Input value={capSede} onChange={(e) => setCapSede(e.target.value)} maxLength={5} className={!capSede.trim() ? "border-amber-400" : undefined} /></div>
