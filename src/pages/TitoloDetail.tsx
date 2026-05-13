@@ -607,6 +607,7 @@ const TitoloDetail = () => {
         produttore_nome: (titolo as any).produttore_nome ?? "",
         ufficio_id: (titolo as any).ufficio_id ?? null,
         compagnia_id: (titolo as any).compagnia_id ?? null,
+        compagnia_rapporto_id: (titolo as any).compagnia_rapporto_id ?? null,
         ramo_id: (titolo as any).ramo_id ?? null,
         gruppo_ramo_id: ((titolo as any).ramo as any)?.gruppo_ramo_id ?? null,
       } as any);
