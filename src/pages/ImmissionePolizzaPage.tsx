@@ -281,24 +281,48 @@ const ImmissionePolizzaPage = () => {
     enabled: aiCfLookup.length >= 2,
   });
 
-  // Ricerca server-side per il SearchableSelect cliente
+  // Ricerca server-side per il SearchableSelect cliente (multi-token, sanitizzata, debounced)
   const { data: clientiSearchResults } = useQuery({
-    queryKey: ["clienti-search-immissione", clienteSearch],
+    queryKey: ["clienti-search-immissione", debouncedClienteSearch],
     queryFn: async () => {
-      let q = supabase
-        .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
-        .eq("attivo", true)
-        .order("ragione_sociale", { nullsFirst: false })
-        .limit(50);
-      if (clienteSearch && clienteSearch.length >= 2) {
-        const term = `%${clienteSearch}%`;
-        q = q.or(
-          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term}`
-        );
+      const raw = (debouncedClienteSearch || "").replace(/[%,()]/g, " ").trim();
+      if (raw.length < 2) {
+        const { data, error } = await supabase
+          .from("clienti")
+          .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id")
+          .eq("attivo", true)
+          .order("ragione_sociale", { nullsFirst: false })
+          .limit(50);
+        if (error) { console.error("[clienti-search]", error); return []; }
+        return data || [];
       }
-      const { data } = await q;
-      return data || [];
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      const first = tokens[0];
+      const term = `%${first}%`;
+      const { data, error } = await supabase
+        .from("clienti")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, codice_ricerca, tipo_cliente, ufficio_id")
+        .eq("attivo", true)
+        .or(
+          `ragione_sociale.ilike.${term},cognome.ilike.${term},nome.ilike.${term},codice_fiscale.ilike.${term},partita_iva.ilike.${term},codice_ricerca.ilike.${term}`
+        )
+        .order("ragione_sociale", { nullsFirst: false })
+        .limit(100);
+      if (error) { console.error("[clienti-search]", error); return []; }
+      const rest = tokens.slice(1).map((t) => t.toLowerCase());
+      const filtered = (data || []).filter((c: any) => {
+        if (rest.length === 0) return true;
+        const hay = [
+          c.ragione_sociale,
+          c.cognome,
+          c.nome,
+          c.codice_fiscale,
+          c.partita_iva,
+          c.codice_ricerca,
+        ].filter(Boolean).join(" ").toLowerCase();
+        return rest.every((t) => hay.includes(t));
+      });
+      return filtered.slice(0, 50);
     },
     staleTime: 1000 * 30,
   });
