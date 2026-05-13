@@ -853,8 +853,7 @@ const AnagraficheInternePage = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => {
-              const val = e.target.value.toUpperCase();
+            <div><Label>Codice Fiscale</Label><FiscalCodeInput kind="cf-azienda" value={form.codice_fiscale || ""} onChange={(val) => {
               const updates: any = { ...form, codice_fiscale: val };
               if (val.length === 11 && /^\d{11}$/.test(val) && !form.partita_iva) {
                 updates.partita_iva = val;
@@ -862,7 +861,7 @@ const AnagraficheInternePage = () => {
               }
               setForm(updates);
             }} /></div>
-            <div><Label>Partita IVA</Label><Input value={form.partita_iva} onChange={(e) => setForm({ ...form, partita_iva: e.target.value.toUpperCase() })} /></div>
+            <div><Label>Partita IVA</Label><FiscalCodeInput kind="piva" value={form.partita_iva || ""} onChange={(val) => setForm({ ...form, partita_iva: val })} /></div>
             <div><Label>N° Albo</Label><Input value={form.albo_numero} onChange={(e) => setForm({ ...form, albo_numero: e.target.value })} /></div>
             <div><Label>Specializzazione</Label><Input value={form.specializzazione} onChange={(e) => setForm({ ...form, specializzazione: e.target.value })} /></div>
           </div>
