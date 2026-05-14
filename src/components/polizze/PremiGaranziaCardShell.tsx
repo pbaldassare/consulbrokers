@@ -240,7 +240,6 @@ export function PremiGaranziaCardShell({
               <TableRow className="bg-muted/50">
                 <TableHead className="w-[34%]">Voce</TableHead>
                 <TableHead className="text-right">Premio Netto</TableHead>
-                <TableHead className="text-right w-[160px]">Tasse / IPT + SSN €</TableHead>
                 <TableHead className="text-right">Tasse €</TableHead>
                 <TableHead className="text-right">Premio Lordo</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
