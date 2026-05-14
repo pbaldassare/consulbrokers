@@ -157,12 +157,13 @@ const StoricoRimessePage = () => {
             <TableHead className="w-[40px]"></TableHead>
             <TableHead>Agenzia</TableHead>
             <TableHead>Data Pagamento</TableHead>
-            <TableHead>IBAN</TableHead>
+            <TableHead>Conto Mittente</TableHead>
+            <TableHead>IBAN Destinazione</TableHead>
             <TableHead className="text-right">Totale</TableHead>
             <TableHead className="text-right">Pagato</TableHead>
             <TableHead>Stato</TableHead>
             <TableHead>Note</TableHead>
-            <TableHead className="w-[80px]">Azioni</TableHead>
+            <TableHead className="w-[110px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
