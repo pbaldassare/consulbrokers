@@ -1085,14 +1085,8 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                 </Command>
               </PopoverContent>
             </Popover>
-            {!useAutoTaxFormula && (
-              <Button
-                variant="outline" size="sm" className="gap-1"
-                onClick={() => addMut.mutate({ codice: `LIB-${Date.now().toString(36).slice(-4).toUpperCase()}`, descrizione: "Nuova garanzia", aliquota_tasse: ALIQ_DEFAULT })}
-              >
-                <Plus className="h-4 w-4" /> Voce libera
-              </Button>
-            )}
+            {/* "Voce libera" rimossa: le voci si aggiungono solo dal catalogo sottorami,
+                in continuità con la pagina di immissione polizza. */}
           </div>
 
           {/* Totali */}
