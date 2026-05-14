@@ -32,7 +32,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
+
 import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
@@ -116,7 +116,7 @@ const TitoloDetail = () => {
   const [annullaLoading, setAnnullaLoading] = useState(false);
 
   // --- Rinnovo dialog state ---
-  const [rinnovoDialogOpen, setRinnovoDialogOpen] = useState(false);
+  
 
   // --- Conferimento Gestito dialog state ---
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
@@ -1437,13 +1437,6 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <Copy className="w-4 h-4 mr-1" /> Duplicazione
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setRinnovoDialogOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <RefreshCw className="w-4 h-4 mr-1" /> Rinnovo
-            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
             </Button>
@@ -1832,7 +1825,7 @@ const TitoloDetail = () => {
       </Dialog>
 
       {/* Dialog Rinnovo Polizza */}
-      <RinnovoTitoloDialog open={rinnovoDialogOpen} onOpenChange={setRinnovoDialogOpen} titolo={t} />
+      
 
       {/* Dialog Garantito */}
       <Dialog open={conferimentoDialogOpen} onOpenChange={setConferimentoDialogOpen}>
