@@ -319,6 +319,7 @@ const ContabilitaUfficio = () => {
                     <TableHead className="text-right">Premio Lordo</TableHead>
                     <TableHead className="text-right">Provvigioni</TableHead>
                     <TableHead className="text-right">Da Rimettere</TableHead>
+                    <TableHead className="text-right w-[150px]">Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -333,6 +334,13 @@ const ContabilitaUfficio = () => {
                         <TableCell className="text-right font-mono">€ {g.premio_lordo.toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono">€ {g.provvigioni.toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono font-semibold">€ {g.da_rimettere.toFixed(2)}</TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Anteprima PDF agenzia" disabled={busy} onClick={() => handleAnteprima({ type: "agenzia", gruppo: g })}><Eye className="w-3.5 h-3.5" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Stampa PDF agenzia" disabled={busy} onClick={() => handleStampa({ type: "agenzia", gruppo: g })}><Printer className="w-3.5 h-3.5" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Salva PDF agenzia" disabled={busy} onClick={() => handleSalva({ type: "agenzia", gruppo: g })}><Save className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                       {expanded[g.compagnia_id] && (
                         <TableRow key={`${g.compagnia_id}-detail`}>
