@@ -414,7 +414,7 @@ export function PremiGaranziaCardShell({
                   <Label className="text-[10px] uppercase text-muted-foreground">Totale Provvigione (€)</Label>
                   <Input
                     type="number" step="0.01" min="0"
-                    value={totProv ? totProv.toFixed(2) : ""}
+                    value={totProv.toFixed(2)}
                     onChange={(e) => handleTotChange(e.target.value)}
                     disabled={!editable || totNetto <= 0}
                     className="h-8 text-sm font-mono font-bold"
