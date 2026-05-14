@@ -377,6 +377,35 @@ const ECCompagniaContabPage = () => {
     onError: (e: any) => toast.error(e.message || "Errore nella creazione della rimessa"),
   });
 
+  const mettiInPagamentoMutation = useMutation({
+    mutationFn: async ({ compagniaId, titoliIds, note }: { compagniaId: string; titoliIds?: string[]; note: string }) => {
+      const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
+        body: {
+          action: "metti_in_pagamento",
+          compagnia_id: compagniaId,
+          ufficio_id: profile?.ufficio_id || null,
+          created_by: user?.id || null,
+          data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
+          data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
+          titoli_ids: titoliIds || undefined,
+          note: note || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-in-pagamento"] });
+      setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
+      setPagaDialog((prev) => ({ ...prev, open: false }));
+      toast.success(`Rimessa preparata — ${data.titoli_count} titoli inclusi`);
+      navigate("/contabilita/ec-agenzia/in-pagamento");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore"),
+  });
+
   const handleOpenPagaDialog = (compagniaId: string, daRimettere: number, titoli: TitoloDetail[]) => {
     const selected = selectedTitoli[compagniaId];
     const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
