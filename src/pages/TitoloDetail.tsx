@@ -2680,7 +2680,6 @@ const TitoloDetail = () => {
               <VociRcaCard
                 tipoPremio="firma"
                 titolo={_isAuto ? undefined : `Premi per Garanzia — Firma${_ramo?.descrizione ? ` (${_ramo.descrizione})` : ""}`}
-                mostraCampiCapitaleRata={!_isAuto}
                 mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
                 useAutoTaxFormula={_isAuto}
                 aliquotaDefault={_aliqRamo}
@@ -2725,7 +2724,6 @@ const TitoloDetail = () => {
               <VociRcaCard
                 tipoPremio="quietanza"
                 titolo={_isAuto ? undefined : `Premi per Garanzia — Quietanza${_ramo?.descrizione ? ` (${_ramo.descrizione})` : ""}`}
-                mostraCampiCapitaleRata={!_isAuto}
                 mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
                 useAutoTaxFormula={_isAuto}
                 aliquotaDefault={_aliqRamo}
