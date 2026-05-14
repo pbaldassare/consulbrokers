@@ -120,17 +120,33 @@ export function PremiGaranziaCardShell({
 
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
-    const netto = parseFloat(value || "0") || 0;
+    if (value === "") {
+      updateRow(idx, { netto: "", tasse: "" });
+      return;
+    }
+    const netto = parseFloat(value);
     const aliquota = r?.aliquotaTasse || 0;
     updateRow(idx, {
       netto: value,
-      tasse: aliquota > 0 ? ((netto * aliquota) / 100).toFixed(2) : r?.tasse || "",
+      tasse: aliquota > 0 && !isNaN(netto) ? ((netto * aliquota) / 100).toFixed(2) : r?.tasse || "",
     });
+  };
+
+  const handleTasseChange = (idx: number, value: string) => {
+    // Override manuale delle tasse: lascia il netto invariato; il Lordo si ricalcola
+    // automaticamente dalla somma netto+tasse nel render. L'aliquota mostrata diventa
+    // quella effettiva (tax/netto*100).
+    updateRow(idx, { tasse: value });
   };
 
   const handleLordoChange = (idx: number, value: string) => {
     const r = rows[idx];
-    const lordo = parseFloat(value || "0") || 0;
+    if (value === "") {
+      updateRow(idx, { netto: "", tasse: "" });
+      return;
+    }
+    const lordo = parseFloat(value);
+    if (isNaN(lordo)) return;
     const aliquota = r?.aliquotaTasse || 0;
     if (aliquota > 0) {
       const netto = lordo / (1 + aliquota / 100);
