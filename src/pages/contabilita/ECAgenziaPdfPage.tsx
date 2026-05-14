@@ -90,15 +90,17 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Sede mittente (dall'utente loggato) — usata come default
+  // Sede mittente: SEMPRE Napoli (tutti i pagamenti rimesse partono da lì).
+  // L'utente può comunque sovrascrivere selezionando un'altra sede dal dropdown sotto.
   const { data: sede } = useQuery({
-    queryKey: ["ec-pdf-sede", profile?.ufficio_id],
-    enabled: !!profile?.ufficio_id,
+    queryKey: ["ec-pdf-sede-napoli"],
     queryFn: async () => {
       const { data } = await supabase
         .from("uffici")
         .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
-        .eq("id", profile!.ufficio_id!)
+        .or("nome_ufficio.ilike.%napoli%,citta.ilike.%napoli%")
+        .eq("attivo", true)
+        .limit(1)
         .maybeSingle();
       return data as any;
     },
