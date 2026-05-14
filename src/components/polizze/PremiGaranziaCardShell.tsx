@@ -77,6 +77,8 @@ export function PremiGaranziaCardShell({
   produttoreLabel,
   percentualeCommerciale,
   produttoreIsSede,
+  ramoLabel,
+  percentualeCommercialeAuto,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
