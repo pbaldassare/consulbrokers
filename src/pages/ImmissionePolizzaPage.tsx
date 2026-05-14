@@ -1411,7 +1411,9 @@ const ImmissionePolizzaPage = () => {
               percentualeAgenziaAuto: percentualeCommercialeAuto,
               produttoreLabel,
               percentualeCommerciale,
+              percentualeCommercialeAuto,
               produttoreIsSede: isSede,
+              ramoLabel: selectedRamoData?.descrizione || null,
             };
             return (
               <>
