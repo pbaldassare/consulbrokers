@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a, titoli_ids, iban_utilizzato, importo_pagato, note } = await req.json();
+    const { action, rimessa_id, compagnia_id, ufficio_id, created_by, data_da, data_a, titoli_ids, iban_utilizzato, importo_pagato, note, conto_bancario_mittente_id, pdf_url } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
