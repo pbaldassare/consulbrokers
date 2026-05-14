@@ -116,7 +116,7 @@ const TitoloDetail = () => {
   const [annullaLoading, setAnnullaLoading] = useState(false);
 
   // --- Rinnovo dialog state ---
-  const [rinnovoDialogOpen, setRinnovoDialogOpen] = useState(false);
+  
 
   // --- Conferimento Gestito dialog state ---
   const [conferimentoDialogOpen, setConferimentoDialogOpen] = useState(false);
