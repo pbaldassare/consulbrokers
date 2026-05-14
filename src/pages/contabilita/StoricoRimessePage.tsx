@@ -46,7 +46,7 @@ const StoricoRimessePage = () => {
     queryFn: async () => {
       let query = supabase
         .from("rimessa_premi")
-        .select("*, agenzie(nome, codice)", { count: "exact" })
+        .select("*, agenzie(nome, codice), conti_bancari!conto_bancario_mittente_id(etichetta, banca, iban, intestato_a)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
