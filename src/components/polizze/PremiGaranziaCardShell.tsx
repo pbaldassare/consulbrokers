@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Car, ShieldCheck, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
-import { isRcaPrincipaleCodice, SSN_PCT } from "@/lib/rcaPrincipaleCodes";
+import { isRcaPrincipaleCodice, SSN_PCT, IPT_RCA_PCT } from "@/lib/rcaPrincipaleCodes";
 
 export interface GaranziaRow {
   /** Codice del sottoramo (rami.codice) o codice garanzia legacy */
@@ -53,8 +53,6 @@ export interface PremiGaranziaCardShellProps {
   headerExtra?: ReactNode;
   /** Mostra badge "Sincronizzata" sulla Quietanza quando è uno specchio della Firma */
   sincronizzata?: boolean;
-  /** Provincia del cliente (sigla, es. "MI") per leggere l'aliquota provinciale RCA */
-  provinciaCliente?: string | null;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -69,69 +67,11 @@ export function PremiGaranziaCardShell({
   provvigioni,
   headerExtra,
   sincronizzata,
-  provinciaCliente,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
 
-  // Aliquota provinciale RCA (default 16%) — letta da aliquote_provinciali_rca
-  const [aliquotaProv, setAliquotaProv] = useState<number>(16);
-  useEffect(() => {
-    if (!provinciaCliente) {
-      console.info("[RCA] provincia cliente non disponibile, uso default 16%");
-      return;
-    }
-    const prov = String(provinciaCliente).toUpperCase();
-    supabase
-      .from("aliquote_provinciali_rca" as any)
-      .select("aliquota_pct")
-      .eq("provincia", prov)
-      .maybeSingle()
-      .then(({ data, error }: any) => {
-        if (error) {
-          console.warn("[RCA] errore lookup aliquote_provinciali_rca", error);
-          return;
-        }
-        const a = Number(data?.aliquota_pct);
-        if (Number.isFinite(a) && a > 0) {
-          console.info(`[RCA] provincia=${prov} aliquota=${a}%`);
-          setAliquotaProv(a);
-        } else {
-          console.info(`[RCA] provincia=${prov} senza aliquota, uso default 16%`);
-        }
-      });
-  }, [provinciaCliente]);
-
-  // Auto-ricalcolo righe RCA principale già marcate ma con IPT/SSN vuoti (es. ripristino bozza)
-  useEffect(() => {
-    let dirty = false;
-    const next = rows.map((r) => {
-      if (!r.isRcaPrincipale) return r;
-      const netto = parseFloat(r.netto || "0") || 0;
-      const hasImposta = r.imposta != null && r.imposta !== "";
-      const hasSsn = r.ssn != null && r.ssn !== "";
-      if (netto > 0 && (!hasImposta || !hasSsn)) {
-        const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
-        const imposta = round2(netto * (aliqProv / 100));
-        const ssn = round2(netto * (SSN_PCT / 100));
-        dirty = true;
-        return {
-          ...r,
-          imposta: imposta.toFixed(2),
-          ssn: ssn.toFixed(2),
-          tasse: (imposta + ssn).toFixed(2),
-          aliquotaProvinciale: aliqProv,
-        };
-      }
-      return r;
-    });
-    if (dirty) onRowsChange(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aliquotaProv]);
-
-  // Totali: IPT/SSN delle righe RCA principale NON vengono inclusi nel Premio Lordo
-  // (richiesta: tasse/SSN della RCA principale non si riportano sul lordo).
-  // Per le righe non-RCA il lordo include le tasse normalmente.
+  // Totali: tasse SEMPRE incluse nel Premio Lordo (anche RCA principale).
   const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totTasse = rows.reduce((s, r) => {
     if (r.isRcaPrincipale) {
@@ -139,12 +79,8 @@ export function PremiGaranziaCardShell({
     }
     return s + (parseFloat(r.tasse || "0") || 0);
   }, 0);
-  const totTasseLordo = rows.reduce((s, r) => {
-    if (r.isRcaPrincipale) return s; // escluse dal lordo
-    return s + (parseFloat(r.tasse || "0") || 0);
-  }, 0);
   const add = parseFloat(addizionali || "0") || 0;
-  const lordo = totNetto + totTasseLordo + add;
+  const lordo = totNetto + totTasse + add;
 
   const { data: catalogo = [] } = useQuery({
     queryKey: ["sottorami-catalogo-shell", gruppoRamoId || "none"],
@@ -192,7 +128,7 @@ export function PremiGaranziaCardShell({
     const netto = parseFloat(rows[idx]?.netto || "0") || 0;
 
     if (isRca) {
-      const imposta = round2(netto * (aliquotaProv / 100));
+      const imposta = round2(netto * (IPT_RCA_PCT / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
         sottoramoId: sel.id,
@@ -200,7 +136,7 @@ export function PremiGaranziaCardShell({
         descrizione: sel.descrizione,
         aliquotaTasse: aliquota,
         isRcaPrincipale: true,
-        aliquotaProvinciale: aliquotaProv,
+        aliquotaProvinciale: IPT_RCA_PCT,
         imposta: imposta.toFixed(2),
         ssn: ssn.toFixed(2),
         tasse: (imposta + ssn).toFixed(2),
@@ -225,15 +161,14 @@ export function PremiGaranziaCardShell({
     const r = rows[idx];
     const netto = parseFloat(value || "0") || 0;
     if (r?.isRcaPrincipale) {
-      const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
-      const imposta = round2(netto * (aliqProv / 100));
+      const imposta = round2(netto * (IPT_RCA_PCT / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
         netto: value,
         imposta: imposta.toFixed(2),
         ssn: ssn.toFixed(2),
         tasse: (imposta + ssn).toFixed(2),
-        aliquotaProvinciale: aliqProv,
+        aliquotaProvinciale: IPT_RCA_PCT,
       });
       return;
     }
@@ -248,17 +183,17 @@ export function PremiGaranziaCardShell({
     const r = rows[idx];
     const lordoVal = parseFloat(value || "0") || 0;
     if (r?.isRcaPrincipale) {
-      // Per RCA principale: lordo = netto (IPT/SSN non concorrono al lordo)
-      const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
-      const netto = lordoVal;
-      const imposta = round2(netto * (aliqProv / 100));
+      // Per RCA principale: lordo = netto + IPT(16%) + SSN(10,5%) → factor 1,265
+      const factor = 1 + IPT_RCA_PCT / 100 + SSN_PCT / 100;
+      const netto = lordoVal / factor;
+      const imposta = round2(netto * (IPT_RCA_PCT / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
         netto: netto.toFixed(2),
         imposta: imposta.toFixed(2),
         ssn: ssn.toFixed(2),
         tasse: (imposta + ssn).toFixed(2),
-        aliquotaProvinciale: aliqProv,
+        aliquotaProvinciale: IPT_RCA_PCT,
       });
       return;
     }
@@ -270,20 +205,6 @@ export function PremiGaranziaCardShell({
     } else {
       updateRow(idx, { netto: lordoVal.toFixed(2), tasse: "0.00" });
     }
-  };
-
-  const handleImpostaChange = (idx: number, value: string) => {
-    const r = rows[idx];
-    const imposta = parseFloat(value || "0") || 0;
-    const ssn = parseFloat(r?.ssn || "0") || 0;
-    updateRow(idx, { imposta: value, tasse: round2(imposta + ssn).toFixed(2) });
-  };
-
-  const handleSsnChange = (idx: number, value: string) => {
-    const r = rows[idx];
-    const ssn = parseFloat(value || "0") || 0;
-    const imposta = parseFloat(r?.imposta || "0") || 0;
-    updateRow(idx, { ssn: value, tasse: round2(imposta + ssn).toFixed(2) });
   };
 
   return (
@@ -319,7 +240,6 @@ export function PremiGaranziaCardShell({
               <TableRow className="bg-muted/50">
                 <TableHead className="w-[34%]">Voce</TableHead>
                 <TableHead className="text-right">Premio Netto</TableHead>
-                <TableHead className="text-right w-[160px]">Tasse / IPT + SSN €</TableHead>
                 <TableHead className="text-right">Tasse €</TableHead>
                 <TableHead className="text-right">Premio Lordo</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
@@ -331,9 +251,11 @@ export function PremiGaranziaCardShell({
                 const tax = r.isRcaPrincipale
                   ? (parseFloat(r.imposta || "0") || 0) + (parseFloat(r.ssn || "0") || 0)
                   : parseFloat(r.tasse || "0") || 0;
-                const aliquotaCalc = netto > 0 ? (tax / netto) * 100 : (r.aliquotaTasse || 0);
-                // Per RCA principale, il lordo di riga = netto (IPT/SSN non si riportano sul lordo)
-                const lordoRow = r.isRcaPrincipale ? netto : netto + tax;
+                // Tasse incluse sempre nel lordo (anche RCA: IPT 16% + SSN 10,5%)
+                const lordoRow = netto + tax;
+                const tasseTitle = r.isRcaPrincipale
+                  ? `IPT ${IPT_RCA_PCT}% + SSN ${SSN_PCT}%`
+                  : `Aliquota ${(r.aliquotaTasse || 0).toFixed(2)}%`;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
@@ -377,50 +299,12 @@ export function PremiGaranziaCardShell({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.isRcaPrincipale ? (
-                        <div className="flex flex-col gap-1 items-end">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground w-8 text-right">IPT</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              inputMode="decimal"
-                              value={r.imposta ?? ""}
-                              onChange={(e) => handleImpostaChange(idx, e.target.value)}
-                              className="h-7 text-right font-mono w-20"
-                              title={`Aliquota provinciale ${(r.aliquotaProvinciale ?? aliquotaProv).toFixed(2)}%`}
-                            />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground w-8 text-right">SSN</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              inputMode="decimal"
-                              value={r.ssn ?? ""}
-                              onChange={(e) => handleSsnChange(idx, e.target.value)}
-                              className="h-7 text-right font-mono w-20"
-                              title={`SSN ${SSN_PCT}%`}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-mono">{aliquotaCalc.toFixed(2)}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {r.isRcaPrincipale ? (
-                        <span className="text-xs font-mono">{tax.toFixed(2)}</span>
-                      ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          inputMode="decimal"
-                          value={r.tasse}
-                          onChange={(e) => updateRow(idx, { tasse: e.target.value })}
-                          className="h-8 text-right font-mono ml-auto w-24"
-                        />
-                      )}
+                      <span
+                        className="text-xs font-mono text-muted-foreground"
+                        title={tasseTitle}
+                      >
+                        {tax.toFixed(2)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
