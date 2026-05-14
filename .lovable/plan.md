@@ -1,29 +1,29 @@
-# Fix salvataggio polizza: colonna `percentuale_provvigione` inesistente
+# Fix INSERT titolo: stato "creato" non valido
 
 ## Problema
 
-Al click su "Conferma" l'INSERT su `titoli` fallisce con:
+Errore al "Conferma":
+> new row for relation "titoli" violates check constraint "titoli_stato_check"
 
-> Could not find the 'percentuale_provvigione' column of 'titoli' in the schema cache
+Il check su `titoli.stato` ammette solo: `attivo`, `sospeso`, `scaduto`, `incassato`, `annullato`, `in_attesa_rinnovo`.
 
-In `src/pages/ImmissionePolizzaPage.tsx` riga **767** il payload contiene:
+In `src/pages/ImmissionePolizzaPage.tsx` riga **789** il payload INSERT usa `stato: "creato"`, valore non valido. Il primo movimento (riga 837) usa già `"attivo"`, coerente con la convenzione.
 
-```ts
-percentuale_provvigione: percentualeProvvigione ? parseFloat(percentualeProvvigione) : null,
-```
-
-Ma la tabella `titoli` non ha tale colonna (verificato su DB: esistono solo `percentuale_commerciale`, `percentuale_riparto`, `provvigioni_firma`, `provvigioni_quietanza`).
-
-Il valore `percentualeProvvigione` (% Agenzia su netto) è già usato per calcolare gli importi assoluti `provvFirma` / `provvQuietanza` salvati in `provvigioni_firma` / `provvigioni_quietanza`. Non serve persisterla.
+Memory `policy-states` conferma: gli stati ammessi sono attivo/sospeso/scaduto/incassato (più i due aggiunti).
 
 ## Fix
 
 File: `src/pages/ImmissionePolizzaPage.tsx`
 
-1. Rimuovere la riga 767 dal payload INSERT.
-2. Verifico anche eventuali altri usi della stessa stringa nel file: il blocco lookup (righe 638-655) interroga `produttori_provvigioni_ramo.percentuale_provvigione` — colonna esistente in **quella** tabella, va lasciata invariata.
+Sostituire la riga 789:
+```diff
+- stato: "creato",
++ stato: "attivo",
+```
+
+Il commento già presente alla riga 788 chiarisce che incasso/copertura sono settati dopo via "Messa a Cassa", quindi `attivo` (= polizza emessa, non ancora incassata) è il valore corretto in immissione.
 
 ## Out of scope
 
-- Nessuna modifica a schema DB.
-- Nessuna modifica al componente `PremiGaranziaCardShell`.
+- Nessuna modifica DB / schema / constraint.
+- Nessuna altra logica del salvataggio.
