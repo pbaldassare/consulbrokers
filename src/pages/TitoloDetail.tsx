@@ -782,6 +782,7 @@ const TitoloDetail = () => {
         payload[f] = newV;
       });
 
+      assertSameTitolo(id, (titolo as any)?.id, "savePeriodoMutation");
       const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
       if (error) throw error;
 
