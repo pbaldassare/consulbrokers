@@ -617,25 +617,7 @@ const ECCompagniaContabPage = () => {
         </Table>
       </div>
 
-      {/* AlertDialog pre-conferma (Livello 1) */}
-      <AlertDialog open={preConfirm.open} onOpenChange={(open) => setPreConfirm((prev) => ({ ...prev, open }))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Conferma Rimessa</AlertDialogTitle>
-            <AlertDialogDescription>
-              Stai per creare una rimessa per <strong>{preConfirm.compagniaNome}</strong> con <strong>{preConfirm.titoliCount}</strong> titoli per un totale di <strong>{fmt(preConfirm.importo)}</strong>.
-              <br /><br />
-              Vuoi procedere con il pagamento?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePreConfirmProceed}>Procedi</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Dialog Paga Rimessa (Livello 2) */}
+      {/* Dialog Conferma & Paga Rimessa (unico step) */}
       <Dialog open={pagaDialog.open} onOpenChange={(open) => setPagaDialog((prev) => ({ ...prev, open }))}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
