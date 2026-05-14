@@ -22,6 +22,10 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
+import { validateIban } from "@/lib/validateIban";
+
+const formatIbanMask = (s: string) =>
+  (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
 
 interface Filters {
   compagnia_id: string | null;
@@ -401,6 +405,8 @@ const ECCompagniaContabPage = () => {
       toast.error("Selezionare il conto Consulbrokers da cui parte il pagamento");
       return;
     }
+    const ibanCheck = validateIban(pagaDialog.iban);
+    if (!ibanCheck.valid) { toast.error(ibanCheck.error || "IBAN destinazione non valido"); return; }
     creaRimessaMutation.mutate({
       compagniaId: pagaDialog.compagniaId,
       titoliIds: pagaDialog.titoliIds,
