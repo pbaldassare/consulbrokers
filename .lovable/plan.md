@@ -1,56 +1,65 @@
-## Problemi rilevati (con esempi concreti dalla polizza 122222)
+## Diagnosi
 
-1. **Garanzie non salvate completamente in immissione**  
-   In `ImmissionePolizzaPage.finalizzaPolizza` il filtro `buildPremiInsert` scarta le righe con `netto=0 && tasse=0`. La polizza in DB ha **1 sola riga quietanza** (`DIA — 1.122,00`) e **zero righe firma**, anche se le card mostravano entrambe. Causa: la riga firma aveva sottoramo selezionato ma importi a 0 → scartata.
+Le voci **CONT. GENERALE** e **FATTURAPA** che vedi nella sidebar **NON sono più presenti** in `src/components/AppSidebar.tsx` (verificato — la sidebar attuale ha: Home, Assistente IA, Area CFO, Trattative, Bandi Pubblici, Chat, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche).
 
-2. **Sezione "Importi" su TitoloDetail mostra ancora i campi legacy** (`premio_netto`, `addizionali`, `tasse`, `premio_lordo`, `premio_netto_quietanza`, ecc. + `VociRcaCard` che usa `rca_garanzie`). Nel nuovo modello la verità è `premi_garanzia_polizza` con `tipo_premio` firma/quietanza e `garanzia`=codice sottoramo. Risultato: l'utente vede `Premio Netto —`, `Tasse —` mentre i veri dati sono nella tabella `premi_garanzia_polizza`.
+Quello che vedi nello screenshot è una **build precedente cache-ata nel browser** (badge "Previewing last saved version"). Tuttavia in repo restano **artefatti legacy** che continuano a evocarle. Pulizia necessaria:
 
-3. **Sezione "Periodo" mostra "Rate" come numero (1, 2, 4, 6, 12)** invece di **Frazionamento testuale** (Mensile/Trimestrale/Quadrimestrale/Semestrale/Annuale/Poliennale). La colonna `titoli.frazionamento` (text) esiste già e viene scritta in immissione, ma TitoloDetail la ignora.
+### Artefatti legacy da rimuovere
 
-4. **`tipo_rinnovo` legacy**: la verità UI è `titoli.tacito_rinnovo` (memory già documentata) — verificare nessun residuo.
+1. **`src/pages/contGenerale/`** — 7 pagine orfane (mai importate dalle route): `ClientiContabPage.tsx`, `DichiarativiCUPage.tsx`, `ElabAnnualiPage.tsx`, `ElabPeriodichePage.tsx`, `PianoDeiContiPage.tsx`, `PrimanotaGeneralePage.tsx`, `ScadenziarioPage.tsx`.
+2. **`src/routes/sistema.tsx` linee 49-52, 53-54, 56-57** — redirect orfani per percorsi rimossi (`/cont-generale`, `/fatturapa`, `/prodotti`, `/categorie`, `/banca-import`, `/fornitori`). Tengo solo i redirect che proteggono link esterni recenti; tutto il resto va via.
+3. **`src/pages/SitemapPage.tsx` linee 247-261** — sezione "Contabilità Generale" elenca 9 pagine inesistenti (Piano dei Conti, Primanota Generale, Scadenziario, Clienti Contabilità, Elaborazioni Periodiche/Annuali, Dichiarativi CU, Fornitori, Import Bancario). Da eliminare.
 
-5. **Polizze vecchie**: alcune avranno `frazionamento=NULL` ma `rate` valorizzato → derivare frazionamento al volo da `rate` per la sola visualizzazione (1→Annuale, 2→Semestrale, 3→Quadrimestrale, 4→Trimestrale, 12→Mensile, altri→Poliennale se >12 mesi durata, fallback "Annuale"). Errori residui non bloccano (richiesto dall'utente).
+### Azione lato browser
+
+Dopo il deploy, l'utente deve fare **hard refresh** (Cmd/Ctrl+Shift+R) per scaricare la nuova build. Esiste già un `service-worker.js` "kill-switch" che si auto-disinstalla, quindi al primo refresh la cache viene svuotata automaticamente.
 
 ---
 
 ## Modifiche
 
-### A. Fix salvataggio garanzie (`src/pages/ImmissionePolizzaPage.tsx`)
-- In `buildPremiInsert`: cambiare filtro da `(codice||descrizione) && (netto||tasse)` a **`(sottoramoId || codice || descrizione)`**. Salvare anche righe con importi a 0 se hanno un sottoramo selezionato.
-- Aggiungere campo `aliquota_tasse_pct` nel payload se la colonna esiste (verifico in fase impl); altrimenti niente.
+### A. Cancellare cartella legacy
+- `rm -rf src/pages/contGenerale/` (7 file)
 
-### B. TitoloDetail — Sezione "Periodo" (src/pages/TitoloDetail.tsx ~2094-2228)
-- **Visualizzazione**: sostituire `FieldRow label="Rate"` con `FieldRow label="Frazionamento" value={t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata)}`.
-- **Editing**: sostituire input numerico "Rate annuali" con `Select` di Frazionamento (stessi 6 valori usati in immissione). Al salvataggio scrivere sia `frazionamento` (testo) sia `rate` (derivato via `frazionamentoToRate`).
-- Aggiungere `frazionamento` al `periodoForm` state e al `savePeriodoMutation`.
-- Estrarre helper `frazionamentoMesi/frazionamentoToRate/derivaFrazionamentoDaRate` in `src/lib/frazionamento.ts` riusato da entrambe le pagine.
+### B. `src/routes/sistema.tsx`
+Rimuovere i redirect orfani (linee 49-57):
+```diff
+- <Route path="/cont-generale" element={<Navigate to="/contabilita" replace />} />
+- <Route path="/cont-generale/*" element={<Navigate to="/contabilita" replace />} />
+- <Route path="/fatturapa" element={<Navigate to="/contabilita" replace />} />
+- <Route path="/fatturapa/*" element={<Navigate to="/contabilita" replace />} />
+- <Route path="/prodotti" element={<Navigate to="/compagnie" replace />} />
+- <Route path="/categorie" element={<Navigate to="/compagnie" replace />} />
+- <Route path="/banca-import" element={<Navigate to="/contabilita" replace />} />
+- <Route path="/fornitori" element={<Navigate to="/contabilita" replace />} />
+```
+Mantengo `/portafoglio/gestione-polizze` → `/portafoglio/attive` (rinominato di recente, link interni potrebbero esistere).
 
-### C. TitoloDetail — Sezione "Importi" (src/pages/TitoloDetail.tsx ~2569-2820+)
-- **Rimuovere** dalla view i FieldRow legacy: `Premio Netto`, `Addizionali`, `Tasse`, `Premio Lordo`, e i corrispondenti gemelli `_quietanza`. Sostituirli con una **tabella riepilogo per riga garanzia** letta da `premi_garanzia_polizza` (group by `tipo_premio`), con totali calcolati.
-- **Mantenere**: split provvigioni (`renderSplitImporti`) Firma + Quietanza, valuta, indicizzata, rimborso (campi tuttora utili).
-- **Sostituire `VociRcaCard`** con `PremiGaranziaCardShell` (le due card Firma/Quietanza identiche all'immissione) per editing inline. Riusiamo lo stesso componente → garantisce parità grafica e di campi.
-- L'`editingImporti` mutation viene semplificata: aggiorna solo provvigioni/valuta/indicizzata/rimborso su `titoli`; le righe garanzia sono salvate dal `PremiGaranziaCardShell` direttamente in `premi_garanzia_polizza` (debounced UPDATE/INSERT/DELETE come già avviene in card analoghe).
-- Mirroring trigger `sync_quietanza_da_firma` resta valido.
+### C. `src/pages/SitemapPage.tsx`
+Rimuovere blocco "Contabilità Generale" (linee 247-261).
 
-### D. Allineamento polizze vecchie (no migrazione DB obbligatoria)
-- Backfill **opzionale** (read-only safe): UPDATE `titoli SET frazionamento = CASE rate WHEN 1 THEN 'Annuale' WHEN 2 THEN 'Semestrale' WHEN 3 THEN 'Quadrimestrale' WHEN 4 THEN 'Trimestrale' WHEN 12 THEN 'Mensile' ELSE 'Annuale' END WHERE frazionamento IS NULL AND rate IS NOT NULL`. Eseguito una tantum via migration.
-- Non si tocca `premi_garanzia_polizza` storica: le card sull'esistente mostreranno solo le righe presenti (nessun crash).
+### D. Verifica audit
+Eseguire grep finale per assicurarsi che nessun import o link punti più a:
+- `contGenerale/`
+- `/cont-generale`
+- `/fatturapa`
+- `Piano dei Conti`, `Dichiarativi CU`, `Scadenziario`
 
 ### E. Memory
-- Aggiornare `mem://insurance/policy-financial-structure-expansion` per riflettere che TitoloDetail usa `PremiGaranziaCardShell` e non più `VociRcaCard` legacy.
+Aggiungere `mem://navigation/legacy-pages-removed` come constraint:
+> Le pagine "Contabilità Generale", "FatturaPA", "Fornitori", "Banca Import", "Prodotti/Categorie standalone" sono state rimosse dalla piattaforma. Non re-introdurle. La contabilità generale è confluita nella sezione "Contabilità" unificata.
 
 ---
 
 ## File toccati
+- `src/pages/contGenerale/*` (DELETE)
+- `src/routes/sistema.tsx` (cleanup redirects)
+- `src/pages/SitemapPage.tsx` (rimozione sezione)
+- `mem://navigation/legacy-pages-removed` (NEW)
+- `mem://index.md` (aggiunta riferimento)
 
-- `src/pages/ImmissionePolizzaPage.tsx` (filtro garanzie)
-- `src/pages/TitoloDetail.tsx` (Periodo + Importi)
-- `src/lib/frazionamento.ts` (nuovo helper condiviso)
-- Migration SQL: backfill `titoli.frazionamento`
-- `mem://insurance/policy-financial-structure-expansion` (update)
-
-## Esempio concreto post-fix per polizza 122222
-- "Periodo" mostrerà: Frazionamento = **Annuale** (derivato da `rate=1` o dal valore salvato).
-- "Importi" mostrerà 2 card identiche all'immissione: card Firma vuota (la riga non era stata salvata → ora editabile inline e re-inseribile), card Quietanza con riga `DIA — 1.122,00 €` modificabile.
-- Spariscono i FieldRow `Premio Netto —`, `Tasse —` ecc. che confondevano.
-- Provvigioni split (INTERFIDI 40% / Consulbrokers 60%) restano invariate.
+## Esempio concreto
+Dopo le modifiche e hard-refresh:
+- Sidebar: nessuna voce "CONT. GENERALE" / "FATTURAPA" (già il caso ora ma confermato dal cleanup).
+- Sitemap (`/sitemap`): l'area "Contabilità Generale" sparisce; restano solo "Contabilità" (operativa) e "Estrazioni & Stampe".
+- Visitando `/cont-generale` o `/fatturapa` → 404 (pulito), invece del redirect fantasma.
