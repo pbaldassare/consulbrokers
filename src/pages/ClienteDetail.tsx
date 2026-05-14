@@ -17,7 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles } from "lucide-react";
+import { ArrowLeft, User, Building2, Plus, Link2, FileText, Settings, BarChart3, Users, Wallet, AlertTriangle, Trash2, Globe, Key, ExternalLink, Check, ChevronsUpDown, Sparkles, ChevronRight, ChevronDown } from "lucide-react";
+import { groupTitoliByPolizza } from "@/lib/quietanze";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
@@ -1020,6 +1021,73 @@ Consulbrokers S.r.l.`;
   );
 }
 
+function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: (to: string) => void }) {
+  const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
+  const fmtNum = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "—");
+  const stateBadge = (stato: string) => (
+    <Badge variant={stato === "incassato" ? "default" : stato === "stornato" ? "destructive" : "secondary"}>{stato}</Badge>
+  );
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-8"></TableHead>
+          <TableHead>N. Polizza</TableHead>
+          <TableHead>Tipo</TableHead>
+          <TableHead>Prodotto</TableHead>
+          <TableHead>Agenzia</TableHead>
+          <TableHead>Rate</TableHead>
+          <TableHead>Premio €</TableHead>
+          <TableHead>Incassato €</TableHead>
+          <TableHead>Stato</TableHead>
+          <TableHead>Data Incasso</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {catene.map((c) => {
+          const head = c.madre || c.all[0];
+          const hasRate = c.rate.length > 0;
+          const isOpen = !!expanded[c.numero];
+          return (
+            <>
+              <TableRow key={c.numero} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${head.id}`)}>
+                <TableCell onClick={(e) => { e.stopPropagation(); if (hasRate) toggle(c.numero); }}>
+                  {hasRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
+                </TableCell>
+                <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
+                <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
+                <TableCell>{head.prodotti?.nome_prodotto || "—"}</TableCell>
+                <TableCell>{head.prodotti?.compagnie?.nome || "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{c.rate.length > 0 ? `1 + ${c.rate.length}` : "1"}</TableCell>
+                <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
+                <TableCell className="font-mono">{fmtNum(head.importo_incassato)}</TableCell>
+                <TableCell>{stateBadge(head.stato)}</TableCell>
+                <TableCell>{head.data_incasso || "—"}</TableCell>
+              </TableRow>
+              {isOpen && c.rate.map((r, i) => (
+                <TableRow key={r.id} className="cursor-pointer bg-muted/20 hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
+                  <TableCell></TableCell>
+                  <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
+                  <TableCell><Badge variant="secondary">Rata {i + 2}</Badge></TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{r.garanzia_da || "—"} → {r.garanzia_a || "—"}</TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                  <TableCell className="font-mono">{fmtNum(r.importo_incassato)}</TableCell>
+                  <TableCell>{stateBadge(r.stato)}</TableCell>
+                  <TableCell>{r.data_incasso || "—"}</TableCell>
+                </TableRow>
+              ))}
+            </>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
 
 export default function ClienteDetail() {
   const { id } = useParams();
@@ -1190,7 +1258,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, compagnie(nome))")
+        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, sostituisce_polizza, garanzia_da, garanzia_a, created_at, prodotti(nome_prodotto, compagnie(nome))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -1556,34 +1624,7 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>N. Polizza</TableHead>
-                      <TableHead>Prodotto</TableHead>
-                      <TableHead>Agenzia</TableHead>
-                      <TableHead>Premio €</TableHead>
-                      <TableHead>Incassato €</TableHead>
-                      <TableHead>Stato</TableHead>
-                      <TableHead>Data Incasso</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {polizze.map((p: any) => (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${p.id}`)}>
-                        <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
-                        <TableCell>{p.prodotti?.nome_prodotto || "—"}</TableCell>
-                        <TableCell>{p.prodotti?.compagnie?.nome || "—"}</TableCell>
-                        <TableCell className="font-mono">{p.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
-                        <TableCell className="font-mono">{p.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={p.stato === "incassato" ? "default" : p.stato === "stornato" ? "destructive" : "secondary"}>{p.stato}</Badge>
-                        </TableCell>
-                        <TableCell>{p.data_incasso || "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <PolizzeClienteTable polizze={polizze as any[]} navigate={navigate} />
               )}
             </CardContent>
           </Card>

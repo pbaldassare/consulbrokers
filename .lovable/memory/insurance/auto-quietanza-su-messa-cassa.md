@@ -20,3 +20,16 @@ Trigger `trg_genera_quietanza_su_messa_cassa` (AFTER UPDATE OF stato ON titoli, 
 La nuova quietanza compare automaticamente nel **Carico del Mese** del periodo target (es. annuale 14/05/2026 → quietanza 14/05/2027 in Carico 05/2027).
 
 ⚠️ Convenzione: `data_scadenza` della nuova quietanza = **decorrenza** (`garanzia_da`/`durata_da`), NON `garanzia_a`. Il "Carico del Mese" filtra per `data_scadenza` = mese in cui la rata va incassata, quindi deve coincidere col mese di rinnovo.
+
+## Distinzione UI Polizza vs Quietanze
+
+Nel modello una "polizza" utente = catena di record `titoli` con stesso `numero_titolo`:
+- **Polizza originale** (madre): `sostituisce_polizza IS NULL`
+- **Quietanze / Rate successive**: `sostituisce_polizza` valorizzato (= numero_titolo origine)
+
+Helper condiviso: `src/lib/quietanze.ts` (`groupTitoliByPolizza`, `isQuietanza`, `getRataIndex`, `tipoLabel`).
+
+UI:
+- **ClienteDetail → tab Polizze**: tabella raggruppata per `numero_titolo`. La madre è la riga principale (badge "Polizza"); le quietanze sono righe figlie espandibili (chevron) con badge "Rata N" e periodo `garanzia_da → garanzia_a`. Colonna "Rate" mostra `1 + N`.
+- **TitoloDetail header**: badge accanto al titolo `Polizza originale` se madre, altrimenti `Quietanza · dal gg/mm/aaaa al gg/mm/aaaa` (tooltip mostra il `sostituisce_polizza`).
+
