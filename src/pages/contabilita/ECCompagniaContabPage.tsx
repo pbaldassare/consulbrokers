@@ -278,6 +278,8 @@ const ECCompagniaContabPage = () => {
       compagniaId,
       compagniaNome: comp?.nome || "N/D",
       iban: comp?.iban || "",
+      contoMittenteId: contoMittenteDefault?.id || null,
+      ibanMittente: contoMittenteDefault?.iban || "",
       importoTotale: preConfirm.importo,
       importoPagato: preConfirm.importo.toFixed(2),
       note: "",
