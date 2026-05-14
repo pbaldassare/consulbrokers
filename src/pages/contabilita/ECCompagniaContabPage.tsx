@@ -778,8 +778,10 @@ const ECCompagniaContabPage = () => {
                 );
               })()}
             </div>
-
-            {/* Sezione importi */}
+            )}
+            {!isAgenzia && (
+            /* Sezione importi (solo flusso pagamento immediato) */
+            <>
             {(() => {
               const importoNum = parseFloat(pagaDialog.importoPagato);
               const importoInvalid = pagaDialog.importoPagato.trim() === "" || isNaN(importoNum) || importoNum <= 0;
