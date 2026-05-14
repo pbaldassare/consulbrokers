@@ -196,11 +196,12 @@ export function PremiGaranziaCardShell({
         aliquotaTasse: aliquota,
         isRcaPrincipale: true,
         aliquotaProvinciale: aliquotaProv,
-        imposta: netto > 0 ? imposta.toFixed(2) : "",
-        ssn: netto > 0 ? ssn.toFixed(2) : "",
-        tasse: netto > 0 ? (imposta + ssn).toFixed(2) : "",
+        imposta: imposta.toFixed(2),
+        ssn: ssn.toFixed(2),
+        tasse: (imposta + ssn).toFixed(2),
       });
     } else {
+      const aliqEffettiva = aliquota || rows[idx]?.aliquotaTasse || 0;
       updateRow(idx, {
         sottoramoId: sel.id,
         codice,
@@ -210,7 +211,7 @@ export function PremiGaranziaCardShell({
         imposta: undefined,
         ssn: undefined,
         aliquotaProvinciale: undefined,
-        tasse: netto > 0 && aliquota > 0 ? ((netto * aliquota) / 100).toFixed(2) : rows[idx]?.tasse || "",
+        tasse: netto > 0 && aliqEffettiva > 0 ? ((netto * aliqEffettiva) / 100).toFixed(2) : rows[idx]?.tasse || "",
       });
     }
   };
