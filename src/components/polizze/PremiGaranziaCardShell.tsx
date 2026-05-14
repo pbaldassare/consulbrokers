@@ -128,7 +128,7 @@ export function PremiGaranziaCardShell({
     const netto = parseFloat(rows[idx]?.netto || "0") || 0;
 
     if (isRca) {
-      const imposta = round2(netto * (aliquotaProv / 100));
+      const imposta = round2(netto * (IPT_RCA_PCT / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
         sottoramoId: sel.id,
@@ -136,7 +136,7 @@ export function PremiGaranziaCardShell({
         descrizione: sel.descrizione,
         aliquotaTasse: aliquota,
         isRcaPrincipale: true,
-        aliquotaProvinciale: aliquotaProv,
+        aliquotaProvinciale: IPT_RCA_PCT,
         imposta: imposta.toFixed(2),
         ssn: ssn.toFixed(2),
         tasse: (imposta + ssn).toFixed(2),
@@ -161,15 +161,14 @@ export function PremiGaranziaCardShell({
     const r = rows[idx];
     const netto = parseFloat(value || "0") || 0;
     if (r?.isRcaPrincipale) {
-      const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
-      const imposta = round2(netto * (aliqProv / 100));
+      const imposta = round2(netto * (IPT_RCA_PCT / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
         netto: value,
         imposta: imposta.toFixed(2),
         ssn: ssn.toFixed(2),
         tasse: (imposta + ssn).toFixed(2),
-        aliquotaProvinciale: aliqProv,
+        aliquotaProvinciale: IPT_RCA_PCT,
       });
       return;
     }
@@ -184,17 +183,17 @@ export function PremiGaranziaCardShell({
     const r = rows[idx];
     const lordoVal = parseFloat(value || "0") || 0;
     if (r?.isRcaPrincipale) {
-      // Per RCA principale: lordo = netto (IPT/SSN non concorrono al lordo)
-      const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
-      const netto = lordoVal;
-      const imposta = round2(netto * (aliqProv / 100));
+      // Per RCA principale: lordo = netto + IPT(16%) + SSN(10,5%) → factor 1,265
+      const factor = 1 + IPT_RCA_PCT / 100 + SSN_PCT / 100;
+      const netto = lordoVal / factor;
+      const imposta = round2(netto * (IPT_RCA_PCT / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
         netto: netto.toFixed(2),
         imposta: imposta.toFixed(2),
         ssn: ssn.toFixed(2),
         tasse: (imposta + ssn).toFixed(2),
-        aliquotaProvinciale: aliqProv,
+        aliquotaProvinciale: IPT_RCA_PCT,
       });
       return;
     }
@@ -206,20 +205,6 @@ export function PremiGaranziaCardShell({
     } else {
       updateRow(idx, { netto: lordoVal.toFixed(2), tasse: "0.00" });
     }
-  };
-
-  const handleImpostaChange = (idx: number, value: string) => {
-    const r = rows[idx];
-    const imposta = parseFloat(value || "0") || 0;
-    const ssn = parseFloat(r?.ssn || "0") || 0;
-    updateRow(idx, { imposta: value, tasse: round2(imposta + ssn).toFixed(2) });
-  };
-
-  const handleSsnChange = (idx: number, value: string) => {
-    const r = rows[idx];
-    const ssn = parseFloat(value || "0") || 0;
-    const imposta = parseFloat(r?.imposta || "0") || 0;
-    updateRow(idx, { ssn: value, tasse: round2(imposta + ssn).toFixed(2) });
   };
 
   return (
