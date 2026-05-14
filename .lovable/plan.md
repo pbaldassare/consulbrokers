@@ -1,34 +1,47 @@
+# Provvigioni visibili dentro le card Firma e Quietanza
+
 ## Obiettivo
+Portare il calcolo provvigioni dentro le card "Premi per Garanzia – Firma" e "– Quietanza" (oggi mostrano solo `Provvigioni Firma/Quietanza: €X` come riga finale anonima). Devono comparire graficamente:
 
-Sulla scheda Cliente (`/archivi/clienti/:id`), tab **Polizze**, l'utente vuole poter creare una nuova polizza direttamente da qui — anche quando la lista è vuota, come nello screenshot ("Nessuna polizza collegata a questo cliente").
+- **Totale provvigione agenzia** (€) — derivato da `% Provvigione Agenzia × Premio Netto`, **editabile** (override sia in % sia in €).
+- **Ripartizione**:
+  - **Produttore** (nome + €) — calcolato con `% commerciale` auto-popolata dalla tabella `produttori_provvigioni_ramo` (lookup `anagrafica_id + ramo_codice` → fallback `percentuale_base`).
+  - **Consulbrokers SPA** (€) — il differenziale (100 − % commerciale).
 
-## Stato attuale
+Identico in entrambe le card, con i valori di Firma calcolati su `premioNettoFirma` e Quietanza su `premioNettoQuietanza`.
 
-In `src/pages/ClienteDetail.tsx` il `<NuovaPolizzaButton clienteId={id} />` è già presente sia nell'header della card Polizze (riga 1544, `size="sm"`) sia nello stato vuoto (riga 1550, `variant="outline"`, label "Crea la prima polizza"). Nello screenshot però NON appaiono — probabilmente per cache/preview non aggiornato o per un problema di rendering nello stato vuoto.
+## Cosa cambia (UI)
 
-## Intervento
-
-1. **Rendere il CTA inequivocabile nello stato vuoto**: sostituire la `<div>` minimale con un blocco più visibile (icona + titolo "Nessuna polizza collegata" + sottotesto + bottone primario "Nuova Polizza" pieno, non outline). Così anche con cache vecchia il bottone è impossibile da non vedere.
-
-2. **Header card Polizze**: mantenere il `NuovaPolizzaButton size="sm"` in alto a destra come scorciatoia, sempre presente (anche con polizze esistenti).
-
-3. **Coerenza cross-soggetto**: replicare lo stesso pattern (header + empty state) sulle pagine analoghe per gli altri soggetti dove ha senso creare una polizza dal dettaglio:
-   - `src/pages/ProspectDetail.tsx` — solo se il prospect è già convertibile/cliente (skip se non rilevante);
-   - eventuali tab Polizze nelle schede Compagnia/Sede sono fuori scopo (la polizza nasce sempre dal cliente).
-
-   Conferma rapida: lo applichiamo solo a Cliente e Prospect convertito, non a Compagnie/Sedi.
-
-4. Nessuna modifica a `NuovaPolizzaButton` né alla logica di immissione: usa già `clienteId` querystring per pre-selezionare il cliente in `ImmissionePolizzaPage`.
-
-## File toccati
+`src/components/polizze/PremiGaranziaCardShell.tsx`
+- Sostituisce l'attuale footer monoriga "Provvigioni Firma/Quietanza" con un blocco strutturato:
 
 ```text
-src/pages/ClienteDetail.tsx        (empty state restyle Polizze)
-src/pages/ProspectDetail.tsx       (se presente tab Polizze, allineamento)
+┌───────────────────────────────────────────────────────────┐
+│ PROVVIGIONI FIRMA                                         │
+│ ┌──────────────┬──────────────┐                           │
+│ │ % Agenzia    │ Totale (€)   │  ← entrambi editabili,    │
+│ │ [ 12.50  ]   │ [ 125.00 ]   │     bidirezionali         │
+│ └──────────────┴──────────────┘                           │
+│ Ripartizione:                                             │
+│  • Mario Rossi (Produttore, 70%)        €  87,50          │
+│  • Consulbrokers SPA (differenziale)    €  37,50          │
+└───────────────────────────────────────────────────────────┘
 ```
 
-## Fuori scopo
+- Nuove props: `percentualeAgenzia`, `onPercentualeAgenziaChange`, `produttoreLabel`, `percentualeCommerciale`, `produttoreIsSede` (per nascondere lo split quando 100% Sede).
+- Editing del **Totale (€)** → ricalcola `% agenzia` come `totale / premioNetto * 100` (override manuale).
+- Lo split si aggiorna in tempo reale.
 
-- Permessi/RoleGuard sul bottone (oggi visibile a chiunque acceda al dettaglio cliente — invariato).
-- Logica di creazione polizza (`ImmissionePolizzaPage`).
-- Tab Polizze su Compagnia/Sede.
+`src/pages/ImmissionePolizzaPage.tsx`
+- Passa le nuove props a entrambe le card (stesso valore di `percentualeProvvigione` e `percentualeCommerciale`, label produttore preso da `commercialiList`).
+- La sezione **"Provvigioni"** in fondo viene **alleggerita**: rimane solo la **selezione del Commerciale/Sede** (perché serve scegliere il produttore prima di vedere lo split). I campi `% Agenzia`, `% Commerciale`, importi e split duplicati vengono rimossi da lì — sono ora nelle card.
+- Il flag `auto` (auto-popolata da Provvigioni per Ramo) si sposta accanto al campo `% Agenzia` dentro la card.
+
+## Fuori scope
+- Logica DB / edge function `calcola-provvigioni` (resta invariata).
+- Caso "commerciale = admin" / `solo_statistico` (gestito a backend, non cambia).
+- Card RCA, Firma/Quietanza addizionali, totali generali.
+
+## Domande prima di implementare
+1. **Sezione Provvigioni in fondo**: la riduco al solo selettore Commerciale (come proposto) o la elimino del tutto spostando anche il select Commerciale dentro la card Firma?
+2. **Editing del totale €**: se l'utente edita il totale in Firma, lo propaghiamo anche a Quietanza (oggi `% agenzia` è unica) o teniamo le due card indipendenti con due % distinte?
