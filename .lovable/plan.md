@@ -1,27 +1,12 @@
-## Problema
+## Obiettivo
 
-Nel tab **Polizze** del cliente (`/archivi/clienti/:id`) compare sempre `Polizze (0)` anche quando il cliente ha titoli collegati (es. Paolo Baldassare ha 4 titoli con `cliente_anagrafica_id` corretto).
+Nascondere il bottone **Rinnovo** dalla card Operazioni del dettaglio titolo, dato che il rinnovo è ora gestito automaticamente dalla quietanza generata su messa a cassa.
 
-## Causa
+## Modifica
 
-In `src/pages/ClienteDetail.tsx` (riga 1193) la query usa una relazione inesistente:
-
-```ts
-.select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, agenzie(nome))")
-```
-
-PostgREST risponde **400** con:
-```
-Could not find a relationship between 'prodotti' and 'agenzie'... Perhaps you meant 'compagnie'.
-```
-
-I dati ci sono lato DB, è solo la query a fallire.
-
-## Fix
-
-Sostituire `agenzie(nome)` con `compagnie(nome)` nella select del tab Polizze cliente. Verificare che la cella della tabella che renderizza il nome agenzia legga il campo corretto (eventualmente aggiornare la chiave usata in JSX).
+In `src/pages/TitoloDetail.tsx` (righe 1440–1446) rimuovere il `<Button>` "Rinnovo" e il relativo trigger `setRinnovoDialogOpen(true)`. Lasciare montato il `RinnovoTitoloDialog` non serve: rimuovo anche state `rinnovoDialogOpen`, l'import di `RinnovoTitoloDialog` e l'istanza JSX del dialog se non più referenziata altrove.
 
 ## Verifica
 
-- Aprire `/archivi/clienti/0cfddc67-bffb-4685-a259-86bcd4261f5b` → tab **Polizze** mostra `Polizze (4)` con la lista dei titoli.
-- Nessun 400 in network per `cliente_anagrafica_id=eq.0cfddc67…`.
+- Aprire `/titoli/01047f9e-...` → la card Operazioni non mostra più "Rinnovo".
+- Build pulita, nessun import inutilizzato.
