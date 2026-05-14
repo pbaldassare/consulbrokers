@@ -695,7 +695,6 @@ const ECCompagniaContabPage = () => {
 
           <div className="space-y-5 py-1">
             {!isAgenzia && (
-            /* Sezione bonifico (solo flusso pagamento immediato) */
             <div className="rounded-lg border bg-card p-4 space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Coordinate bonifico
