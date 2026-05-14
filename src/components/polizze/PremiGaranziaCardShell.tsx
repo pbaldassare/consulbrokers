@@ -400,25 +400,25 @@ export function PremiGaranziaCardShell({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-[10px] uppercase text-muted-foreground">% Agenzia</Label>
-                  <Input
-                    type="number" step="0.01" min="0" max="100"
-                    value={percentualeAgenzia ?? ""}
-                    onChange={(e) => onPercentualeAgenziaChange?.(e.target.value)}
-                    disabled={!editable}
-                    className="h-8 text-xs font-mono"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase text-muted-foreground">Totale Provvigione (€)</Label>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold">Totale Provvigione (€)</Label>
                   <Input
                     type="number" step="0.01" min="0"
                     value={totProv.toFixed(2)}
                     onChange={(e) => handleTotChange(e.target.value)}
                     disabled={!editable || totNetto <= 0}
-                    className="h-8 text-sm font-mono font-bold"
+                    className="h-9 text-base font-mono font-bold"
                     placeholder="0,00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase text-muted-foreground">% Agenzia (su netto)</Label>
+                  <Input
+                    type="number" step="0.01" min="0" max="100"
+                    value={percentualeAgenzia ?? ""}
+                    onChange={(e) => onPercentualeAgenziaChange?.(e.target.value)}
+                    disabled={!editable}
+                    className="h-9 text-xs font-mono"
+                    placeholder="0.00"
                   />
                 </div>
               </div>
@@ -467,7 +467,7 @@ export function PremiGaranziaCardShell({
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <span className="text-base shrink-0">🏢</span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-primary truncate">Consulbrokers SPA</p>
+                            <p className="text-xs font-semibold text-primary truncate">Sede</p>
                             <p className="text-[10px] text-muted-foreground">Differenziale agenzia</p>
                           </div>
                         </div>
