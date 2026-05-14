@@ -27,7 +27,7 @@ interface Filters {
   periodo_dal: Date | null;
   periodo_al: Date | null;
   tipo_pagamento: string | null;
-  modalita_incasso: string | null;
+  
 }
 
 interface TitoloDetail {
