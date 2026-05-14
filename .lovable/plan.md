@@ -1,55 +1,41 @@
-# Fix Tasse: aliquota fissa da DB + SSN aggiuntivo per RCA
+# Selezione Rapporto Agenzia in fase di emissione titolo
 
-## Errore attuale
-Per le righe RCA principale (QA, PI, QC, QN…) il codice usa `IPT_RCA_PCT = 16` hardcoded e ignora `rami.aliquota_tasse_ramo`. Per le voci accessorie l'aliquota da DB è già usata, ma se l'utente cambia il netto l'utente percepisce le tasse "che si modificano" perché ricalcoliamo ogni volta.
+## Obiettivo
+Quando l'**Agenzia di Riferimento** scelta in immissione titolo ha **più di un rapporto attivo** in `compagnia_rapporti`, l'utente deve poter scegliere quale rapporto stiamo usando per quella polizza. Il **codice rapporto** deve essere salvato sul titolo e mostrato nell'anagrafica della polizza.
 
-In realtà la regola corretta richiesta è: **l'aliquota tasse di ogni sottoramo è fissa e proviene dal DB (`rami.aliquota_tasse_ramo`)**. Per i sottorami RCA principali (set `RCA_PRINCIPALE_CODES`) si aggiunge **SSN 10,5%** sul netto, **distinto** dalla quota IPT ma **sommato** nel campo Tasse.
+## Verifica DB
+- `compagnia_rapporti` esiste già con: `id`, `compagnia_id`, `gruppo_compagnia_id`, `codice_rapporto`, `tipo_rapporto`, `attivo`, `rami_abilitati`, ecc. (memoria: "Rapporti agenzia-compagnia N:N").
+- `titoli` oggi ha solo `compagnia_id` → manca il riferimento al rapporto specifico.
+- Esempio reale: la compagnia `90a1b14…` ha 2 rapporti attivi → caso reale di ambiguità.
 
-DB conferma: QA/PI/QC/QF/QG/QR/QU/QN/QT = 16%, QAC/DAB/QB = 12,5%, DN = 7,5%, PJ = 0%. L'aliquota va presa da lì, **non** hardcoded.
+## Migrazione DB
+Aggiungere a `titoli`:
+- `compagnia_rapporto_id uuid NULL REFERENCES compagnia_rapporti(id) ON DELETE SET NULL`
+- `codice_rapporto text NULL` (denormalizzato per visualizzazione veloce in liste/PDF)
+- Index su `compagnia_rapporto_id`.
 
-## Modifiche
+Nessun backfill: i titoli esistenti restano `NULL` (legacy, in TitoloDetail si potrà comunque editare a posteriori).
 
-### `src/lib/rcaPrincipaleCodes.ts`
-- Mantieni `SSN_PCT = 10.5`.
-- **Rimuovi** `IPT_RCA_PCT` (non più usato; l'IPT è `rami.aliquota_tasse_ramo`).
+## ImmissionePolizzaPage
+1. Caricare `compagnia_rapporti` per `selectedCompagnia` (filtro `attivo=true`) con React Query.
+2. Logica:
+   - **0 rapporti** → nessun campo extra; salva `compagnia_rapporto_id=NULL`, `codice_rapporto=NULL`.
+   - **1 rapporto** → auto-selezionato in silenzio; salva id + `codice_rapporto` (mostra solo una riga read-only "Rapporto: COD - tipo").
+   - **≥ 2 rapporti** → mostra subito sotto "Agenzia di Riferimento" un nuovo `SearchableSelect` **"Rapporto Agenzia *"** (obbligatorio, bordo amber se vuoto) con opzioni `${codice_rapporto} - ${tipo_rapporto}`.
+3. Il salvataggio del titolo include `compagnia_rapporto_id` e `codice_rapporto`. Validazione blocca il salvataggio se l'agenzia ha ≥2 rapporti e l'utente non ha scelto.
+4. Quando si cambia agenzia → reset di `compagnia_rapporto_id`/`codice_rapporto`.
 
-### `src/components/polizze/PremiGaranziaCardShell.tsx`
-Regola unica per tutte le righe:
-```
-ipt   = round2(netto × aliquotaTasse / 100)            // da DB, fissa per sottoramo
-ssn   = isRcaPrincipale ? round2(netto × 10.5 / 100) : 0
-tasse = ipt + ssn
-lordo = netto + tasse
-```
+## TitoloDetail (anagrafica polizza)
+- Read-only: aggiungere `FieldRow label="Codice Rapporto" value={t.codice_rapporto || "—"}` accanto a "Agenzia / Agenzia di rif.".
+- Edit Contratto: aggiungere `SearchableSelect` "Rapporto Agenzia" che si popola in base a `contrattoForm.compagnia_id` e segue le stesse regole (0/1/≥2). Salva `compagnia_rapporto_id` + `codice_rapporto` nel `update`.
 
-1. **`handleGaranziaSelect`**: salva `aliquotaTasse = sel.aliquota_tasse_ramo` (sempre, anche RCA). Per RCA imposta `isRcaPrincipale=true`, `aliquotaProvinciale = aliquotaTasse` (per persistenza). Calcola `imposta`, `ssn` (solo se RCA), `tasse`.
-2. **`handleNettoChange`**: ricalcola `imposta = netto × aliquotaTasse%`, `ssn = isRca ? netto × 10.5% : 0`, `tasse = imposta + ssn`. **Non cambia mai l'aliquota** (resta quella DB).
-3. **`handleLordoChange`**:
-   - RCA: `factor = 1 + (aliquotaTasse + 10.5)/100` ⇒ `netto = lordo/factor`, ricalcola.
-   - Non-RCA: `factor = 1 + aliquotaTasse/100` ⇒ `netto = lordo/factor`.
-4. **Colonna Tasse** (read-only): mostra `imposta + ssn`. Tooltip:
-   - RCA: `"IPT {aliquotaTasse}% + SSN 10,5%"`
-   - Non-RCA: `"Aliquota {aliquotaTasse}%"`
-5. **Totali**: `totTasse = Σ (imposta||tasse) + Σ ssn`. `lordo = totNetto + totTasse + addizionali`.
-6. **Lordo riga** = `netto + tasse` (sempre incluso, già corretto).
+## "Valida per tutti i soggetti"
+Le altre pagine di lifecycle (Rinnovo, Duplicazione, Riattivazione, Sospensione, Storno, Appendici) creano nuovi titoli ereditando dal titolo origine: copieranno automaticamente `compagnia_rapporto_id` e `codice_rapporto` quando copiano `compagnia_id`. L'utente può comunque modificarli da TitoloDetail. Nessuna UI extra in queste pagine in questa iterazione (richiederebbero la stessa selezione condizionale; se serve si può aggiungere in un secondo giro).
 
-### `src/pages/ImmissionePolizzaPage.tsx`
-- `aliquota_tasse_pct` salvato = `r.aliquotaTasse` (DB), **non più 16 hardcoded**.
-- `imposta_provinciale` = `r.imposta`, `ssn` = `r.ssn` (solo RCA).
-- Totali invariati: `tasseNum = Σ parseFloat(r.tasse)`.
+## Memoria
+Aggiornare `mem://insurance/compagnia-rapporti-multipli` con la nuova relazione `titoli.compagnia_rapporto_id` e regola UX (0/1/≥2 rapporti).
 
-### `.lovable/memory/insurance/rca-voci-composizione-premio.md`
-- "IPT 16% fissa" → "IPT = `rami.aliquota_tasse_ramo` (DB, fissa per sottoramo)".
-- SSN 10,5% solo per `RCA_PRINCIPALE_CODES`, sommato a IPT nel campo Tasse, distinto in DB (`ssn`).
-- Esempio: QA netto 1000 → IPT 160 (16%) + SSN 105 (10,5%) = Tasse 265, Lordo 1265.
-- QAC netto 1000 → IPT 125 (12,5% da DB) + SSN 105 = Tasse 230, Lordo 1230.
-
-## Verifica
-1. QA, netto 1000 → Tasse 265,00 (160 + 105), Lordo 1265,00. Tooltip "IPT 16% + SSN 10,5%".
-2. QAC, netto 1000 → Tasse 230,00 (125 + 105), Lordo 1230,00.
-3. QB (no RCA), netto 1000 → Tasse 125,00, Lordo 1125,00.
-4. Cambio Lordo a 1265 su QA → Netto torna 1000.
-5. L'aliquota DB non si modifica mai cambiando netto/lordo.
-
-## Fuori scope
-`VociRcaCard` post-creazione, RLS, trigger, mirror Quietanza.
+## Out of scope
+- Backfill dei titoli esistenti.
+- Cambi UX nelle pagine di lifecycle (solo eredità campo).
+- Validazione cross con `rami_abilitati` del rapporto (può essere step successivo).
