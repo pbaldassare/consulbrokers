@@ -385,7 +385,7 @@ const ECCompagniaContabPage = () => {
       open: true,
       compagniaId,
       compagniaNome: comp?.nome || "N/D",
-      iban: comp?.iban || "",
+      iban: formatIbanMask(comp?.iban || ""),
       contoMittenteId: contoMittenteDefault?.id || null,
       ibanMittente: contoMittenteDefault?.iban || "",
       importoTotale: daRimettere,
