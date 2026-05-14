@@ -580,11 +580,13 @@ const ECCompagniaContabPage = () => {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs gap-1"
-                            disabled={creaRimessaMutation.isPending}
+                            disabled={creaRimessaMutation.isPending || mettiInPagamentoMutation.isPending}
                             onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere, r.titoli)}
                           >
-                            <CreditCard className="h-3 w-3" />
-                            {selectedCount > 0 ? `Paga (${selectedCount})` : "Paga Rimessa"}
+                            {isAgenzia ? <Send className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
+                            {isAgenzia
+                              ? (selectedCount > 0 ? `Metti in pagamento (${selectedCount})` : "Metti in pagamento")
+                              : (selectedCount > 0 ? `Paga (${selectedCount})` : "Paga Rimessa")}
                           </Button>
                         )}
                       </div>
