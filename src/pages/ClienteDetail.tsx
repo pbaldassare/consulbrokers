@@ -1557,34 +1557,7 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>N. Polizza</TableHead>
-                      <TableHead>Prodotto</TableHead>
-                      <TableHead>Agenzia</TableHead>
-                      <TableHead>Premio €</TableHead>
-                      <TableHead>Incassato €</TableHead>
-                      <TableHead>Stato</TableHead>
-                      <TableHead>Data Incasso</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {polizze.map((p: any) => (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${p.id}`)}>
-                        <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
-                        <TableCell>{p.prodotti?.nome_prodotto || "—"}</TableCell>
-                        <TableCell>{p.prodotti?.compagnie?.nome || "—"}</TableCell>
-                        <TableCell className="font-mono">{p.premio_lordo?.toFixed(2) ?? "—"}</TableCell>
-                        <TableCell className="font-mono">{p.importo_incassato?.toFixed(2) ?? "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant={p.stato === "incassato" ? "default" : p.stato === "stornato" ? "destructive" : "secondary"}>{p.stato}</Badge>
-                        </TableCell>
-                        <TableCell>{p.data_incasso || "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <PolizzeClienteTable polizze={polizze as any[]} navigate={navigate} />
               )}
             </CardContent>
           </Card>
