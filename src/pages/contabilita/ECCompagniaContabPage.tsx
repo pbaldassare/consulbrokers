@@ -225,8 +225,105 @@ const ECCompagniaContabPage = () => {
     },
   });
 
+  const generateAndStorePdf = async (
+    rimessaId: string,
+    compagniaId: string,
+    titoliIds: string[] | undefined,
+    importoPagato: number,
+    note: string,
+    contoMittente: any,
+    ibanDestinazione: string,
+  ) => {
+    try {
+      // Sede Napoli
+      const { data: sedeNapoli } = await supabase
+        .from("uffici")
+        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
+        .or("nome_ufficio.ilike.%napoli%,citta.ilike.%napoli%")
+        .eq("attivo", true)
+        .limit(1)
+        .maybeSingle();
+
+      // Compagnia full
+      const { data: compFull } = await supabase
+        .from("compagnie")
+        .select("nome, indirizzo, cap, comune, provincia, codice_fiscale, partita_iva, intestato_a")
+        .eq("id", compagniaId)
+        .maybeSingle();
+
+      // Titoli con cliente, data
+      let tq = supabase
+        .from("titoli")
+        .select("id, numero_titolo, premio_lordo, importo_incassato, data_messa_cassa, clienti(ragione_sociale, nome, cognome)")
+        .eq("compagnia_id", compagniaId)
+        .eq("stato", "incassato");
+      if (titoliIds && titoliIds.length) tq = tq.in("id", titoliIds);
+      const { data: titoliRows } = await tq;
+
+      const titoli = (titoliRows || []).map((t: any) => {
+        const c = t.clienti;
+        const cliente = c?.ragione_sociale || `${c?.cognome || ""} ${c?.nome || ""}`.trim() || "—";
+        return {
+          numero_titolo: t.numero_titolo || "—",
+          cliente,
+          premio_lordo: Number(t.premio_lordo) || 0,
+          importo_incassato: Number(t.importo_incassato) || 0,
+          importo_rimessa: Number(t.importo_incassato) || 0,
+          data_messa_cassa: t.data_messa_cassa,
+        };
+      });
+
+      const pdfData: RimessaPdfData = {
+        numeroRimessa: rimessaId.slice(0, 8).toUpperCase(),
+        dataDocumento: format(new Date(), "dd/MM/yyyy"),
+        sedeNome: sedeNapoli?.nome_ufficio || "Sede di Napoli",
+        sedeIndirizzo: sedeNapoli?.indirizzo || "Via Mergellina, 2",
+        sedeCap: sedeNapoli?.cap || "80122",
+        sedeCitta: sedeNapoli?.citta || "Napoli",
+        sedeProvincia: sedeNapoli?.provincia || "NA",
+        sedeEmail: sedeNapoli?.email || undefined,
+        sedeTelefono: sedeNapoli?.telefono || undefined,
+        contoMittenteEtichetta: contoMittente?.etichetta || "",
+        contoMittenteIban: contoMittente?.iban || "",
+        contoMittenteIntestatoA: contoMittente?.intestato_a || "",
+        contoMittenteBanca: contoMittente?.banca || undefined,
+        agenziaNome: compFull?.nome || "",
+        agenziaIndirizzo: compFull?.indirizzo || undefined,
+        agenziaCap: compFull?.cap || undefined,
+        agenziaCitta: compFull?.comune || undefined,
+        agenziaProvincia: compFull?.provincia || undefined,
+        agenziaCF: compFull?.codice_fiscale || undefined,
+        agenziaPIVA: compFull?.partita_iva || undefined,
+        ibanDestinazione: ibanDestinazione || undefined,
+        intestatoADestinazione: compFull?.intestato_a || undefined,
+        titoli,
+        importoPagato,
+        note: note || undefined,
+      };
+
+      const bytes = await buildRimessaPdf(pdfData);
+      const path = `${rimessaId}.pdf`;
+      const { error: upErr } = await supabase.storage
+        .from("rimesse-pdf")
+        .upload(path, new Blob([bytes as BlobPart], { type: "application/pdf" }), { upsert: true, contentType: "application/pdf" });
+      if (upErr) throw upErr;
+
+      const { data: signed } = await supabase.storage.from("rimesse-pdf").createSignedUrl(path, 60 * 60 * 24 * 365);
+      const url = signed?.signedUrl || path;
+
+      await supabase.from("rimessa_premi").update({ pdf_url: url } as any).eq("id", rimessaId);
+
+      // Apri il PDF
+      const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+      window.open(blobUrl, "_blank");
+    } catch (err: any) {
+      console.error("[generateAndStorePdf]", err);
+      toast.error("Rimessa salvata ma errore generazione PDF: " + (err.message || ""));
+    }
+  };
+
   const creaRimessaMutation = useMutation({
-    mutationFn: async ({ compagniaId, titoliIds, iban, importoPagato, note }: { compagniaId: string; titoliIds?: string[]; iban: string; importoPagato: number; note: string }) => {
+    mutationFn: async ({ compagniaId, titoliIds, ibanMittente, contoMittenteId, importoPagato, note }: { compagniaId: string; titoliIds?: string[]; ibanMittente: string; contoMittenteId: string; importoPagato: number; note: string }) => {
       const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
         body: {
           action: "crea",
@@ -236,7 +333,8 @@ const ECCompagniaContabPage = () => {
           data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
           data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
           titoli_ids: titoliIds || undefined,
-          iban_utilizzato: iban,
+          iban_utilizzato: ibanMittente,
+          conto_bancario_mittente_id: contoMittenteId,
           importo_pagato: importoPagato,
           note: note || undefined,
         },
@@ -245,9 +343,24 @@ const ECCompagniaContabPage = () => {
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
+      const rimessaId = data?.rimessa?.id;
+      const conto = contiMittente.find((c: any) => c.id === variables.contoMittenteId);
+      // Genera e salva PDF prima di navigare
+      if (rimessaId && conto) {
+        await generateAndStorePdf(
+          rimessaId,
+          variables.compagniaId,
+          variables.titoliIds,
+          variables.importoPagato,
+          variables.note,
+          conto,
+          pagaDialog.iban,
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
       queryClient.invalidateQueries({ queryKey: ["rimessa_premi"] });
+      queryClient.invalidateQueries({ queryKey: ["storico-rimesse"] });
       setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
       setPagaDialog((prev) => ({ ...prev, open: false }));
       toast.success(`Rimessa pagata — ${data.titoli_count} titoli inclusi`);
@@ -262,23 +375,6 @@ const ECCompagniaContabPage = () => {
     const count = titoliIds ? titoliIds.length : titoli.length;
     const comp = compagnie?.find((c) => c.id === compagniaId);
 
-    // Show pre-confirmation AlertDialog first
-    setPreConfirm({
-      open: true,
-      compagniaId,
-      compagniaNome: comp?.nome || "N/D",
-      titoliCount: count,
-      importo: daRimettere,
-    });
-  };
-
-  const handlePreConfirmProceed = () => {
-    const compagniaId = preConfirm.compagniaId;
-    const selected = selectedTitoli[compagniaId];
-    const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
-    const comp = compagnie?.find((c) => c.id === compagniaId);
-
-    setPreConfirm((prev) => ({ ...prev, open: false }));
     setPagaDialog({
       open: true,
       compagniaId,
@@ -286,24 +382,19 @@ const ECCompagniaContabPage = () => {
       iban: comp?.iban || "",
       contoMittenteId: contoMittenteDefault?.id || null,
       ibanMittente: contoMittenteDefault?.iban || "",
-      importoTotale: preConfirm.importo,
-      importoPagato: preConfirm.importo.toFixed(2),
+      importoTotale: daRimettere,
+      importoPagato: daRimettere.toFixed(2),
       note: "",
       titoliIds,
-      titoliCount: preConfirm.titoliCount,
+      titoliCount: count,
+      titoli,
     });
   };
 
   const handleConfermaPagamento = () => {
     const importo = parseFloat(pagaDialog.importoPagato);
-    if (isNaN(importo) || importo <= 0) {
-      toast.error("Inserire un importo valido");
-      return;
-    }
-    if (importo > pagaDialog.importoTotale) {
-      toast.error("L'importo pagato non può superare l'importo da rimettere");
-      return;
-    }
+    if (isNaN(importo) || importo <= 0) { toast.error("Inserire un importo valido"); return; }
+    if (importo > pagaDialog.importoTotale) { toast.error("L'importo pagato non può superare l'importo da rimettere"); return; }
     if (!pagaDialog.contoMittenteId || !pagaDialog.ibanMittente) {
       toast.error("Selezionare il conto Consulbrokers da cui parte il pagamento");
       return;
@@ -311,7 +402,8 @@ const ECCompagniaContabPage = () => {
     creaRimessaMutation.mutate({
       compagniaId: pagaDialog.compagniaId,
       titoliIds: pagaDialog.titoliIds,
-      iban: pagaDialog.ibanMittente,
+      ibanMittente: pagaDialog.ibanMittente,
+      contoMittenteId: pagaDialog.contoMittenteId,
       importoPagato: importo,
       note: pagaDialog.note,
     });
