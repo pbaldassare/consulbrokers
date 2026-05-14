@@ -1,59 +1,72 @@
-## Obiettivo
+## Problemi rilevati
 
-Finché una polizza **non è messa a cassa** (`data_messa_cassa IS NULL` e `stato ≠ 'incassato'`), la pagina dettaglio titolo deve comportarsi come la **continuazione della creazione**: stessi componenti, stesso layout, stessa logica di validazione di `ImmissionePolizzaPage`. Eliminare le card legacy con campi liberi (voce libera, sottoramo nel form, doppio editor importi).
+Sulla pagina `/titoli/:id` (file `src/pages/TitoloDetail.tsx`), per i rami **non-auto** (es. "ANIMALI DOMESTICI" del titolo corrente), succedono due cose sbagliate:
 
-Quando la polizza è messa a cassa → tutto torna read-only (come oggi).
+### 1. Card duplicate
 
-## Cambiamenti
+Vengono renderizzate **due volte** le stesse card Firma + Quietanza:
 
-### 1. Sostituire `SectionCollapsible` con `PolizzaSection`
-File: `src/pages/TitoloDetail.tsx`. Le sezioni Cliente & Sede, Tipo Polizza, Contratto, Periodo, Regolazione, Importi, Provvigioni Commerciale, Dati Veicolo, Dati Conducente usano lo stesso wrapper `PolizzaSection` (icona + titolo + collapsible) di immissione. Look identico.
+- **Set A** — dentro la sezione **"Importi"** (`TitoloDetail.tsx` righe 2680 e 2723): `<VociRcaCard tipoPremio="firma" />` + `<VociRcaCard tipoPremio="quietanza" />`, con titolo di default *"Composizione Premio RCA — Firma/Quietanza"* (anche per rami non-RCA → label sbagliata).
+- **Set B** — sezione standalone **"Premi per Garanzia"** (righe 3019-3113): le stesse due `VociRcaCard` con `titolo="Premi per Garanzia — Firma/Quietanza"` e `mostraCampiCapitaleRata`.
 
-### 2. Sezione **Contratto** — riusare il blocco di immissione
-- Rimuovere il selettore `RamoSottoramoSelect` "ramo + sottoramo" → in modifica resta **solo Ramo** (gruppo) come in immissione (`gruppoOnly`). Il sottoramo si sceglie riga per riga nelle card Premio (memoria `sottoramo-as-garanzia-row`).
-- Cambio Ramo → reset righe garanzia (stesso comportamento immissione).
-- Stessi campi editabili: Prodotto (testo libero), Specialist, Produttore, Sede, CIG, Vincolo, Descrizione + rapporto agenzia se plurimo.
+Entrambi i set puntano a `titoloId={t.id}` e allo stesso `tipo_premio`, quindi leggono e scrivono sulle stesse righe di `premi_garanzia_polizza`. Risultato: due card uguali in pagina + race condition (entrambi gli effetti realtime e gli `onTotaliChange` sparano `update titoli` in parallelo, causando flicker e potenziali sovrascritture).
 
-### 3. Sezione **Periodo** — uniformare
-- Stessa griglia di immissione: Durata Da/A, Anni Durata, Frazionamento (testo, da `FRAZIONAMENTI`), Garanzia Da/A, Data Competenza/Scadenza, Limite Mora, GG Mora, Tacito Rinnovo (boolean), Disdetta mesi, Valuta, Indicizzata, Rimborso, Pag. Diretto Comp., Formato Elettronico.
-- Spostare Valuta/Indicizzata/Rimborso fuori da "Importi" (oggi sono in Importi-edit) e tenerle qui come in immissione. Eliminare il blocco "Valuta + flag" duplicato dalla sezione Importi.
+### 2. Colonna "Voce" mostrata vuota
 
-### 4. Sezione **Importi** — adottare `PremiGaranziaCardShell`
-- **Rimuovere** `VociRcaCard` (Firma + Quietanza) dalla sezione Importi del dettaglio.
-- **Sostituire** con due `PremiGaranziaCardShell` (Firma + Quietanza), gli stessi di immissione, con:
-  - colonna "Voce" = `SearchableSelect` di **sottorami** (`rami` filtrati per `gruppo_ramo_id` selezionato in Contratto). **Niente più voce libera.**
-  - mirroring Firma → Quietanza con flag `quietanza_personalizzata` (memoria `rca-voci-composizione-premio`).
-  - per rami auto/natanti: prima riga è `RC Auto/Natanti/Corpi` non rimovibile + calcolo IPT/SSN.
-  - persistenza: scrivere/aggiornare/cancellare righe in `premi_garanzia_polizza` direttamente (debounced) come fa immissione al submit. Totali (`titoli.premio_netto/tasse/premio_lordo` e `_quietanza`) ricalcolati dal trigger DB esistente (o da `onTotaliChange`).
-- Eliminare lo stato `editingImporti`, `importiForm`, `saveImportiMutation` e tutti i campi/somme inline duplicati.
-- Resta visibile (read-only) il riepilogo Netto/Tasse/Lordo Firma/Quietanza + provvigioni + split.
-- Pulsante **Importa con AI** (`ImportPolizzaAiButton`) come in immissione, accanto alle card.
+Verifica DB sul titolo corrente (`4f71899a-…`): le righe esistono con `garanzia="MB"` e `garanzia="Malattia"`, `firma=111` e `firma=120`. Lato UI i valori numerici si vedono correttamente, ma la cella **"Voce"** mostra il placeholder "Nome ga…" → l'input riceve stringa vuota.
 
-### 5. Sezione **Provvigioni — Commerciale**
-Allineare al layout di immissione (`PolizzaSection title="Provvigioni — Commerciale"`), stessi campi e split.
+Causa: `VociRcaCard.tsx` riga 685 usa `<Input defaultValue={v.garanzia ?? ""} />` (uncontrolled). Con due istanze montate sullo stesso `titoloId`/`tipo_premio` si invalidano a vicenda via realtime (`invalidateBoth` riga 211) e in alcuni cicli di refetch il `key={`gar-${v.id}-${v.garanzia ?? ""}`}` non basta a forzare il rimount in tempo, lasciando il defaultValue al primo valore disponibile (vuoto, durante uno stato intermedio del refetch).
 
-### 6. Dati Veicolo / Conducente (rami auto)
-Riusare gli stessi componenti di immissione (`PolizzaSection` + form fields) condizionati a `isRamoAuto`.
+## Fix
 
-### 7. Lock messa-a-cassa
-Definire `const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato"`.
-- Nascondere tutti i pulsanti "Modifica" delle sezioni quando `isLocked`.
-- `PremiGaranziaCardShell` riceve prop `readOnly={isLocked}` (verificare che il componente supporti già il flag; in caso aggiungerlo).
-- Mostrare un banner sopra la pagina: *"Polizza messa a cassa — modifiche bloccate. Per riaprirla usa Annulla Messa a Cassa."*
+### 1. `src/pages/TitoloDetail.tsx` — eliminare il blocco duplicato
 
-### 8. Sezioni che restano invariate
-Header titolo, badge stato, pulsanti operazioni (Messa a Cassa, Sospensione, Riattivazione, Rinnovo, Storno, Appendici), tab Movimenti, tab Documenti, tab Chat, tab Log Attività, tab Sinistri.
+Rimuovere completamente la sezione standalone `<SectionCollapsible title="Premi per Garanzia">` (righe **3019-3113**, incluso il wrapping `{!isRamoAuto(...) && (...)}`).
+
+Le due card che restano dentro **Importi** (righe 2680 e 2723) coprono sia il caso auto che non-auto tramite il flag `_isAuto`. Per allinearle al comportamento della sezione rimossa:
+
+- aggiungere `mostraCampiCapitaleRata` quando `_isAuto === false` (parità funzionale con la versione standalone),
+- passare `titolo={…}` esplicito così non compare "Composizione Premio RCA" per rami non-RCA. Esempio:
+  - Firma: `titolo={_isAuto ? "Composizione Premio RCA — Firma" : `Premi per Garanzia — Firma (${_ramo?.descrizione || "—"})`}`
+  - Quietanza: analoga con "Quietanza".
+
+Nessun'altra modifica logica: gli `onTotaliChange` / `onProvvigioniChange` / `onAddizionaliChange` già presenti restano gli unici handler.
+
+### 2. `src/components/polizze/VociRcaCard.tsx` — input "Voce" controllato
+
+Sostituire l'`Input` uncontrolled per la garanzia (righe **683-695**) con una versione **controlled** basata su `draftVoci`:
+
+```tsx
+<Input
+  value={draftVoci[v.id]?.garanzia ?? v.garanzia ?? ""}
+  onChange={(e) => setDraft(v.id, { garanzia: e.target.value } as any)}
+  onBlur={(e) => {
+    const val = e.target.value.trim();
+    clearDraft(v.id, ["garanzia"] as any);
+    if (!val || val === v.garanzia) return;
+    upsertMut.mutate({ id: v.id, garanzia: val } as any);
+  }}
+  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+  className="h-8 max-w-[220px]"
+  placeholder="Nome garanzia"
+/>
+```
+
+In questo modo:
+- l'input riflette sempre il valore del record dopo qualunque refetch realtime (niente più placeholder fantasma),
+- la digitazione utente passa per `draftVoci` (stesso pattern già usato per `firma`, `tasse`, `lordo`), e viene committata sul blur,
+- non serve più la `key` artificiale per forzare il rimount.
+
+Aggiungere il supporto a `garanzia` nel tipo di `setDraft/clearDraft` se necessario (l'estensione è `Partial<Voce>`).
+
+## Cosa non cambia
+
+- DB / migration: nessuna modifica.
+- Logica di calcolo IPT/SSN, sync Quietanza ↔ Firma, addizionali, provvigioni: invariate.
+- Lock messa-a-cassa, banner ambra, pulsanti operazioni: invariati.
+- Sezione **Importi** (Valuta, Indicizzata, Rimborso, riepilogo Netto/Tasse/Lordo, ImportPolizzaAiButton): invariata.
 
 ## File toccati
 
-- `src/pages/TitoloDetail.tsx` — refactor principale (sostituzione wrapper + sezioni Contratto/Periodo/Importi/Provvigioni).
-- `src/components/polizze/PremiGaranziaCardShell.tsx` — verificare/aggiungere prop `readOnly` e prop di persistenza diretta (`titoloId` per scrivere su `premi_garanzia_polizza` invece che gestire solo state in-memory).
-- `src/components/titolo/TitoloTabs.tsx` — nessuna modifica funzionale (solo eventuale pulizia visiva).
-- `mem://insurance/titolo-detail-allineato-immissione` — nuova memoria che documenta l'allineamento e il lock messa-a-cassa.
-- `mem://insurance/rca-voci-composizione-premio` — aggiornare nota: in TitoloDetail si usa ora `PremiGaranziaCardShell` (non più `VociRcaCard`).
-
-## Non in scope
-
-- Cambi DB / migration.
-- Logica operazioni polizza (rinnovo, storno, sospensione, messa a cassa) — restano com'è.
-- Tab non legate al corpo polizza.
+- `src/pages/TitoloDetail.tsx` — eliminate righe 3019-3113; aggiunti `titolo` + `mostraCampiCapitaleRata` (per non-auto) alle due `VociRcaCard` dentro Importi.
+- `src/components/polizze/VociRcaCard.tsx` — input "Voce" controllato (righe 683-695).
