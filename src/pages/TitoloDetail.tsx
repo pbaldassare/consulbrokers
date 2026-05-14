@@ -396,6 +396,7 @@ const TitoloDetail = () => {
         const sel = (anagraficheComm as any[]).find((a: any) => a.value === primary.anagrafica_commerciale_id);
         nomeLeggibile = sel?.label || null;
       }
+      assertSameTitolo(id, (titolo as any)?.id, "saveCommMutation");
       const { error: tErr } = await supabase
         .from("titoli")
         .update({
