@@ -1025,6 +1025,50 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
+  const { profile } = useAuth();
+  const isAdmin = profile?.ruolo === "admin";
+  const queryClient = useQueryClient();
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const isLocked = (t: any) =>
+    t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
+
+  const deleteIds = async (ids: string[], label: string) => {
+    if (ids.length === 0) return;
+    setDeleting(ids[0]);
+    const { error } = await supabase.from("titoli").delete().in("id", ids);
+    setDeleting(null);
+    if (error) {
+      toast.error(`Errore eliminazione ${label}: ${error.message}`);
+      return;
+    }
+    toast.success(`${label} eliminata`);
+    queryClient.invalidateQueries({ queryKey: ["polizze_cliente"] });
+  };
+
+  const handleDeleteMadre = async (c: any) => {
+    const head = c.madre || c.all[0];
+    if (isLocked(head) || c.rate.some((r: any) => isLocked(r))) {
+      toast.error("Polizza/quietanza messa a cassa o stornata: non eliminabile");
+      return;
+    }
+    const n = c.rate.length;
+    const msg = n > 0
+      ? `Eliminare la polizza N. ${head.numero_titolo} e tutte le sue ${n} quietanze?`
+      : `Eliminare la polizza N. ${head.numero_titolo}?`;
+    if (!window.confirm(msg)) return;
+    const ids = [head.id, ...c.rate.map((r: any) => r.id)];
+    await deleteIds(ids, "Polizza");
+  };
+
+  const handleDeleteRata = async (r: any) => {
+    if (isLocked(r)) {
+      toast.error("Quietanza messa a cassa o stornata: non eliminabile");
+      return;
+    }
+    if (!window.confirm(`Eliminare la quietanza N. ${r.numero_titolo}?`)) return;
+    await deleteIds([r.id], "Quietanza");
+  };
   const fmtNum = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "—");
   const stateVariant = (stato: string): "default" | "secondary" | "destructive" | "outline" => {
     if (stato === "incassato") return "default";
