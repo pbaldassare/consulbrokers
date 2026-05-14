@@ -1190,7 +1190,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, compagnie(nome))")
+        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, sostituisce_polizza, garanzia_da, garanzia_a, created_at, prodotti(nome_prodotto, compagnie(nome))")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
