@@ -1,65 +1,69 @@
-## Diagnosi
 
-Le voci **CONT. GENERALE** e **FATTURAPA** che vedi nella sidebar **NON sono più presenti** in `src/components/AppSidebar.tsx` (verificato — la sidebar attuale ha: Home, Assistente IA, Area CFO, Trattative, Bandi Pubblici, Chat, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche).
+## Obiettivo
 
-Quello che vedi nello screenshot è una **build precedente cache-ata nel browser** (badge "Previewing last saved version"). Tuttavia in repo restano **artefatti legacy** che continuano a evocarle. Pulizia necessaria:
+Quando confermi l'immissione polizza, la **scheda dettaglio titolo** deve mostrare gli stessi campi e la stessa grafica del form di immissione (le card "Composizione Premio Firma/Quietanza", frazionamento testuale, Ramo+Sottoramo coordinati), non più le vecchie sezioni "Importi" con `premio_netto / addizionali / tasse / lordo` editabili a mano e i numeri 1/2/3 sul frazionamento. E le operazioni (Messa a Cassa, Sospensione, Rinnovo, Storno, Appendici) devono restare funzionanti partendo dalla nuova vista.
 
-### Artefatti legacy da rimuovere
+## Cosa cambia in `src/pages/TitoloDetail.tsx`
 
-1. **`src/pages/contGenerale/`** — 7 pagine orfane (mai importate dalle route): `ClientiContabPage.tsx`, `DichiarativiCUPage.tsx`, `ElabAnnualiPage.tsx`, `ElabPeriodichePage.tsx`, `PianoDeiContiPage.tsx`, `PrimanotaGeneralePage.tsx`, `ScadenziarioPage.tsx`.
-2. **`src/routes/sistema.tsx` linee 49-52, 53-54, 56-57** — redirect orfani per percorsi rimossi (`/cont-generale`, `/fatturapa`, `/prodotti`, `/categorie`, `/banca-import`, `/fornitori`). Tengo solo i redirect che proteggono link esterni recenti; tutto il resto va via.
-3. **`src/pages/SitemapPage.tsx` linee 247-261** — sezione "Contabilità Generale" elenca 9 pagine inesistenti (Piano dei Conti, Primanota Generale, Scadenziario, Clienti Contabilità, Elaborazioni Periodiche/Annuali, Dichiarativi CU, Fornitori, Import Bancario). Da eliminare.
+### 1. Sezione "Importi" — semplificare drasticamente
+Oggi (righe ~2579–2750) c'è un editor inline che duplica i totali (Netto Firma / Addizionali / Tasse / Lordo / Provvigioni / Netto Quietanza / Addizionali Q. / Tasse Q. / Provvigioni Q.). Questi valori sono ora **derivati** dalle righe in `premi_garanzia_polizza` (mirroring DB Firma → Quietanza già attivo) e dalle card `VociRcaCard`.
 
-### Azione lato browser
+Nuova sezione "Importi" ridotta a:
+- **Riepilogo totali read-only** (Netto/Tasse/Lordo Firma + idem Quietanza) calcolati dalle righe garanzia.
+- **Valuta / Cambio** (modificabili).
+- **Flag**: Indicizzata, Rimborso, No Calcolo Tasse, Pag. Diretto Agenzia, Emissione Fee, Formato Elettronico (allineati all'immissione).
+- Split provvigioni Firma/Quietanza già presente — invariato.
+- Eliminare il blocco editor con `editingImporti` / `startEditImporti` / `saveImportiMutation` per i campi premio: i premi si modificano **solo** dalle card Composizione (già implementato con debounced UPDATE).
 
-Dopo il deploy, l'utente deve fare **hard refresh** (Cmd/Ctrl+Shift+R) per scaricare la nuova build. Esiste già un `service-worker.js` "kill-switch" che si auto-disinstalla, quindi al primo refresh la cache viene svuotata automaticamente.
+I campi DB `premio_netto / addizionali / tasse / premio_lordo / premio_netto_quietanza / addizionali_quietanza / tasse_quietanza` continuano ad essere scritti in automatico dalle card / mirror trigger — nessuna modifica al DB.
 
----
+### 2. Sezione "Periodo" — pulizia
+- Rimuovere la `FieldRow "Rate"` numerica dalla vista read-only (riga ~2123 area): ora è derivata dal frazionamento testuale e ridondante.
+- In edit mode rimuovere l'input "Rate" libero; mostrare solo il `Select` Frazionamento (Mensile/Trimestrale/Quadrimestrale/Semestrale/Annuale/Poliennale) — il `rate` viene calcolato via `frazionamentoToRate()` al salvataggio (già fatto a riga 754).
+- Verificare che la vista read-only usi `derivaFrazionamentoDaRate` come fallback per polizze legacy (già a riga 2123, OK).
 
-## Modifiche
+### 3. Ramo / Sottoramo
+La modifica contratto in TitoloDetail usa già `RamoSottoramoSelect` legacy (vedi memoria `ramo-sottoramo-coordinated-selection`). Allinearla al pattern di immissione **non è obbligatorio** per questa richiesta; lo lasciamo invariato per non toccare la logica di salvataggio sottoramo-per-riga (richiederebbe refactor delle card già funzionanti). Aggiungere però una **nota visibile** sotto la card Composizione: "Il Sottoramo si imposta riga per riga nelle card Premio".
 
-### A. Cancellare cartella legacy
-- `rm -rf src/pages/contGenerale/` (7 file)
+### 4. Card "FatturaPA" / "Cont. Generale" residue
+Audit rapido di TitoloDetail e TitoloTabs alla ricerca di sezioni residue legacy (FatturaPA, Fido Credito, Tipo Sommario, etc.). Se trovate, rimuovere coerentemente con `mem://navigation/legacy-pages-removed`.
 
-### B. `src/routes/sistema.tsx`
-Rimuovere i redirect orfani (linee 49-57):
-```diff
-- <Route path="/cont-generale" element={<Navigate to="/contabilita" replace />} />
-- <Route path="/cont-generale/*" element={<Navigate to="/contabilita" replace />} />
-- <Route path="/fatturapa" element={<Navigate to="/contabilita" replace />} />
-- <Route path="/fatturapa/*" element={<Navigate to="/contabilita" replace />} />
-- <Route path="/prodotti" element={<Navigate to="/compagnie" replace />} />
-- <Route path="/categorie" element={<Navigate to="/compagnie" replace />} />
-- <Route path="/banca-import" element={<Navigate to="/contabilita" replace />} />
-- <Route path="/fornitori" element={<Navigate to="/contabilita" replace />} />
-```
-Mantengo `/portafoglio/gestione-polizze` → `/portafoglio/attive` (rinominato di recente, link interni potrebbero esistere).
-
-### C. `src/pages/SitemapPage.tsx`
-Rimuovere blocco "Contabilità Generale" (linee 247-261).
-
-### D. Verifica audit
-Eseguire grep finale per assicurarsi che nessun import o link punti più a:
-- `contGenerale/`
-- `/cont-generale`
-- `/fatturapa`
-- `Piano dei Conti`, `Dichiarativi CU`, `Scadenziario`
-
-### E. Memory
-Aggiungere `mem://navigation/legacy-pages-removed` come constraint:
-> Le pagine "Contabilità Generale", "FatturaPA", "Fornitori", "Banca Import", "Prodotti/Categorie standalone" sono state rimosse dalla piattaforma. Non re-introdurle. La contabilità generale è confluita nella sezione "Contabilità" unificata.
-
----
+## Cosa NON cambia
+- Schema DB (nessuna migration).
+- Mirror Firma → Quietanza (`sync_quietanza_da_firma`).
+- Operazioni polizza: Messa a Cassa, Sospensione/Riattivazione, Rinnovo, Storno, Appendici — restano collegate ai bottoni esistenti nell'header del dettaglio.
+- `ImmissionePolizzaPage` — già nuova, nessuna modifica.
 
 ## File toccati
-- `src/pages/contGenerale/*` (DELETE)
-- `src/routes/sistema.tsx` (cleanup redirects)
-- `src/pages/SitemapPage.tsx` (rimozione sezione)
-- `mem://navigation/legacy-pages-removed` (NEW)
-- `mem://index.md` (aggiunta riferimento)
+- `src/pages/TitoloDetail.tsx` — refactor sezione Importi + pulizia Periodo (riduzione ~200 righe).
+- `src/components/titolo/TitoloTabs.tsx` — solo se contiene tab/card legacy (da verificare in fase build).
+- `mem://insurance/titolo-detail-allineato-immissione` (nuovo) — fissa il principio "TitoloDetail rispecchia ImmissionePolizzaPage; i premi si editano solo dalle card Composizione".
 
-## Esempio concreto
-Dopo le modifiche e hard-refresh:
-- Sidebar: nessuna voce "CONT. GENERALE" / "FATTURAPA" (già il caso ora ma confermato dal cleanup).
-- Sitemap (`/sitemap`): l'area "Contabilità Generale" sparisce; restano solo "Contabilità" (operativa) e "Estrazioni & Stampe".
-- Visitando `/cont-generale` o `/fatturapa` → 404 (pulito), invece del redirect fantasma.
+## Esempio concreto del risultato (cosa vedrai dopo Conferma)
+
+Polizza appena salvata, ramo ZQ — R.C.A.:
+
+```text
+[Periodo]                                     [✏︎ Modifica]
+Decorrenza  01/06/2026     Scadenza  01/06/2027
+Frazionamento  Semestrale  Tacito Rinnovo  Sì
+Mora 30 gg  Disdetta 2 mesi
+
+[Importi]                                     (read-only riepilogo)
+Firma     Netto € 350,00  Tasse € 73,50  Lordo € 423,50
+Quietanza Netto € 350,00  Tasse € 73,50  Lordo € 423,50
+Valuta EUR · Indicizzata ☐ · Rimborso ☐ · No Calc. Tasse ☐ …
+
+[Composizione Premio — Firma]   (editabile, card teal)
+PI · R.C. AUTOVEICOLI         Netto 300,00  IPT 12,5%  SSN 10,5%  Lordo 369,00
+RV01 · Furto/Incendio         Netto  50,00  Tasse 13,5%          Lordo  56,75
+[+ Aggiungi voce]
+
+[Composizione Premio — Quietanza]  (card amber, mirror automatico)
+…stesse righe, modificabili → flag "personalizzata"
+
+[Provvigioni — Commerciale]  Sede 100% — 40% (€ 134,40)
+[Split per produttore]       INTERFIDI 40% · Sede 60%
+```
+
+Operazioni accessibili dall'header: **Messa a Cassa · Sospendi · Rinnova · Storna · Appendici** (invariate).
