@@ -1,32 +1,34 @@
-# Incassi e Coperture — Anteprima / Stampa / Salva PDF
+## Cosa cambia
 
-Allinea la pagina `/contabilita` (componente `ContabilitaUfficio`) al pattern già usato in `ECAgenziaPdfPage`: tre bottoni in alto a destra + dialog di anteprima.
+### 1. Pagina E/C Produttori — semplificazione (`ECProduttoriContabPage.tsx`)
+- **Rimuovo** la KPI "N. Produttori" (restano solo Totale Lordo e Totale Provvigioni).
+- **Rimuovo** il radio `Con E/C` / `Tutti` (era un doppione: di default mostro **solo i produttori con movimenti**).
+- **Rimuovo** il blocco "Parametri di Stampa" (Descrizione Periodo, Data E/C, Data Valuta) e il filtro "Data limite incassi": parametri inutili.
+- **Aggiungo** filtro a badge **Mese corrente** / **Mese scorso** (toggle, default = Mese corrente). Il periodo viene calcolato automaticamente sui titoli `messi a cassa` di quel mese.
+- Resta il `SearchableSelect` produttore + bottone Esporta CSV.
 
-## Cosa contiene il PDF
+### 2. Eliminazione pagina intermedia (`ECProduttorePdfPage.tsx`)
+- Il bottone "E/C PDF" sulla riga della tabella **NON** naviga più a `/contabilita/ec-produttore/pdf`.
+- Genera direttamente l'anteprima PDF in un dialog con i 3 bottoni `[Anteprima] [Stampa] [Salva in archivio]`, in linea con il pattern usato in Incassi e Coperture.
+- I dati statici del PDF (numero rendiconto, data, periodo, % RA, sede mittente) vengono presi automaticamente:
+  - **Periodo** = etichetta del badge attivo (es. "Maggio 2026")
+  - **Data rendiconto** = oggi
+  - **Numero rendiconto** = progressivo automatico (1 fisso per ora)
+  - **% RA** = `anagrafiche_professionali.percentuale_ra` del produttore
+  - **Sede mittente** = ufficio dell'utente loggato (`profile.ufficio_id`)
+- La pagina `ECProduttorePdfPage.tsx` e la rotta `/contabilita/ec-produttore/pdf` vengono **eliminate**.
 
-Header riepilogo (mese selezionato + filtro agenzia se attivo) e poi:
-- KPI riga: Titoli a Cassa, Premio Lordo, Provvigioni, Da Rimettere
-- Tabella "Riepilogo Messa a Cassa" raggruppata per Agenzia con totali
-- Per ogni agenzia, dettaglio titoli (numero, cliente, premio, provvigioni, netto, tipo pagamento, tipo incasso)
-- Footer con totali generali
+### 3. PDF — filtro corretto (`ec-produttore-pdf.ts` + query)
+Il PDF deve contenere **solo**:
+- Titoli con `data_messa_cassa NOT NULL` (no in attesa di cassa, no stornati)
+- `data_messa_cassa` dentro il mese del filtro (corrente o scorso)
+- Solo le righe `provvigioni_generate` dove l'attribuzione è al produttore selezionato:
+  - `tipo_destinatario = 'commerciale'` AND (`anagrafica_commerciale_id = produttoreId` OR fallback `user_id = produttoreId`)
+  - escluse righe `solo_statistico = true` e righe `tipo_destinatario IN ('admin','sede')`
 
-## File da creare
-
-**`src/lib/incassi-coperture-pdf.ts`** — generatore PDF con `pdf-lib`, stessa impostazione visiva di `ec-agenzia-pdf.ts` (A4, font Helvetica, palette teal/headerBg, righe alternate). Espone:
-```ts
-buildIncassiCoperturePdf(data: IncassiCopertureData): Promise<Uint8Array>
-```
-con `IncassiCopertureData` = `{ meseLabel, sedeNome, gruppi: GruppoCompagnia[], totali, generatoIl }`.
-
-## Modifiche a `src/pages/ContabilitaUfficio.tsx`
-
-- Stato `busy`, `previewBytes`.
-- Funzioni `handleAnteprima` / `handleStampa` / `handleSalva` copiate dal pattern di `ECAgenziaPdfPage` (download locale + upload su `documenti_generali`).
-- `handleSalva`: archivia su bucket `documenti_generali` con `entita_tipo='sede'` e `entita_id = profile.ufficio_id` (categoria `Incassi e Coperture`); se l'utente non ha sede assegnata fallback a solo download. Log via `logAttivita`.
-- `nomeFile` = `Incassi_Coperture_<YYYY-MM>.pdf`.
-- Toolbar in alto: a destra del titolo aggiungo `[Anteprima] [Stampa] [Salva PDF]` (Button `outline/outline/default`).
-- Dialog `<PdfPreview data={previewBytes} />` come in `ECAgenziaPdfPage`.
+Nessuna modifica grafica al PDF — solo al dataset.
 
 ## Out of scope
 - Nessuna modifica DB.
-- Nessuna modifica al calcolo dei dati: il PDF usa lo stesso `filtered` e `totaliCassa` già in pagina.
+- Nessuna modifica al layout/visual del PDF.
+- Logica analoga (E/C Clienti, E/C Agenzie) NON toccata in questo round.
