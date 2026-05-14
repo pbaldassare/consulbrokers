@@ -652,7 +652,7 @@ const TitoloDetail = () => {
         throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
       }
       const rapportoSel = (rapportiAgenziaEdit || []).find((r: any) => r.id === contrattoForm.compagnia_rapporto_id);
-
+      assertSameTitolo(id, (titolo as any)?.id, "saveContrattoMutation");
       const { error } = await supabase
         .from("titoli")
         .update({
