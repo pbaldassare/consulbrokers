@@ -1093,6 +1093,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           <TableHead>Premio €</TableHead>
           <TableHead>Stato</TableHead>
           <TableHead>Data Incasso</TableHead>
+          {isAdmin && <TableHead className="w-12"></TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
