@@ -57,7 +57,9 @@ interface PagaRimessaState {
   open: boolean;
   compagniaId: string;
   compagniaNome: string;
-  iban: string;
+  iban: string; // IBAN destinazione (agenzia/compagnia) — informativo
+  contoMittenteId: string | null; // Conto Consulbrokers da cui parte il pagamento
+  ibanMittente: string; // IBAN del conto Consulbrokers selezionato (= iban_utilizzato)
   importoTotale: number;
   importoPagato: string;
   note: string;
@@ -85,12 +87,29 @@ const ECCompagniaContabPage = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
-    open: false, compagniaId: "", compagniaNome: "", iban: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0,
+    open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0,
   });
   const [preConfirm, setPreConfirm] = useState<PreConfirmState>({
     open: false, compagniaId: "", compagniaNome: "", titoliCount: 0, importo: 0,
   });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
+
+  // Conti correnti Consulbrokers (tipo 'generico') — sorgente del bonifico verso l'agenzia
+  const { data: contiMittente = [] } = useQuery({
+    queryKey: ["conti-bancari-generico"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conti_bancari" as any)
+        .select("id, etichetta, iban, intestato_a, banca, is_default")
+        .eq("tipo", "generico")
+        .eq("attivo", true)
+        .order("is_default", { ascending: false })
+        .order("etichetta");
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+  const contoMittenteDefault = contiMittente.find((c: any) => c.is_default) || contiMittente[0] || null;
 
   const toggleExpand = (compagniaId: string) => {
     setExpandedRows((prev) => {
@@ -276,6 +295,8 @@ const ECCompagniaContabPage = () => {
       compagniaId,
       compagniaNome: comp?.nome || "N/D",
       iban: comp?.iban || "",
+      contoMittenteId: contoMittenteDefault?.id || null,
+      ibanMittente: contoMittenteDefault?.iban || "",
       importoTotale: preConfirm.importo,
       importoPagato: preConfirm.importo.toFixed(2),
       note: "",
@@ -294,10 +315,14 @@ const ECCompagniaContabPage = () => {
       toast.error("L'importo pagato non può superare l'importo da rimettere");
       return;
     }
+    if (!pagaDialog.contoMittenteId || !pagaDialog.ibanMittente) {
+      toast.error("Selezionare il conto Consulbrokers da cui parte il pagamento");
+      return;
+    }
     creaRimessaMutation.mutate({
       compagniaId: pagaDialog.compagniaId,
       titoliIds: pagaDialog.titoliIds,
-      iban: pagaDialog.iban,
+      iban: pagaDialog.ibanMittente,
       importoPagato: importo,
       note: pagaDialog.note,
     });
@@ -543,13 +568,42 @@ const ECCompagniaContabPage = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>IBAN Agenzia</Label>
+              <Label>Conto Consulbrokers (mittente)</Label>
+              <select
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={pagaDialog.contoMittenteId || ""}
+                onChange={(e) => {
+                  const id = e.target.value || null;
+                  const c = contiMittente.find((x: any) => x.id === id);
+                  setPagaDialog((prev) => ({
+                    ...prev,
+                    contoMittenteId: id,
+                    ibanMittente: c?.iban || "",
+                  }));
+                }}
+              >
+                <option value="">— Seleziona conto —</option>
+                {contiMittente.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.etichetta}{c.is_default ? " ⭐" : ""} — {c.iban}
+                  </option>
+                ))}
+              </select>
+              {pagaDialog.ibanMittente && (
+                <p className="text-xs text-muted-foreground font-mono">IBAN: {pagaDialog.ibanMittente}</p>
+              )}
+              {contiMittente.length === 0 && (
+                <p className="text-xs text-amber-600">Nessun conto Consulbrokers (tipo "generico") configurato. Aggiungili in Anagrafiche → Conti bancari.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>IBAN Agenzia (destinazione)</Label>
               <Input
                 value={pagaDialog.iban}
                 onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
-                placeholder="Inserisci IBAN"
+                placeholder="IBAN di destinazione"
               />
-                {!pagaDialog.iban && (
+              {!pagaDialog.iban && (
                 <p className="text-xs text-amber-600">IBAN non trovato per questa compagnia. Inserirlo manualmente.</p>
               )}
             </div>
