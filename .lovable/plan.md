@@ -1,41 +1,48 @@
-# Quietanze non visibili nel "Carico del Mese"
+# Polizza vs Quietanze — organizzazione UI
 
-## Diagnosi
+Oggi nella tabella "Polizze del cliente" appaiono righe duplicate (es. 4554333 due volte) perché il trigger genera una **quietanza successiva** che è un nuovo record `titoli` con `sostituisce_polizza` valorizzato. L'utente non distingue cosa è polizza madre e cosa è rata.
 
-La polizza 122 (Interfidi, Sede Napoli) è stata messa a cassa il 14/05/2026. Il trigger `genera_quietanza_su_messa_cassa` ha correttamente creato la quietanza successiva (riga 1, sostituisce 122/0).
+## Modello dati (già esistente, non si tocca)
 
-Però la nuova quietanza è stata salvata con:
-- `garanzia_da = 2027-05-14`
-- `garanzia_a  = 2028-05-14`
-- `data_scadenza = 2028-05-14`  ← problema
+- `titoli.sostituisce_polizza` (text) → se NULL: **polizza originale** (madre). Se valorizzato: **quietanza successiva** (rata) che sostituisce un titolo precedente.
+- `titoli.garanzia_da / garanzia_a` → periodo di copertura della singola rata.
+- Una "polizza" (concetto utente) = catena di titoli con stesso `numero_titolo`, ordinata per `garanzia_da`.
 
-La pagina **Carico del Mese** filtra per `data_scadenza` nel mese visualizzato. Quindi la quietanza "appare" solo a Maggio **2028**, non a Maggio 2027 — contrariamente a quanto dichiarato nella memoria `auto-quietanza-su-messa-cassa` («annuale 14/05/2026 → quietanza 14/05/2027 in Carico 05/2027»).
+## Modifiche UI (nessuna modifica DB)
 
-Convenzione corretta: la quietanza deve essere "in carico" nel mese in cui scade il pagamento, ovvero alla **decorrenza** (`garanzia_da` / `durata_da`), non alla fine del periodo coperto.
+### 1. ClienteDetail → tab "Polizze del cliente"
+Raggruppare per `numero_titolo`. Mostrare **una riga per polizza madre** (la più recente attiva o l'originale) con:
+- colonna "Rate" che mostra il count di quietanze (es. `1/4`, `2/4`)
+- riga espandibile (chevron) che apre le quietanze figlie (sub-table indentata)
+- badge `Polizza` vs `Quietanza` per chiarezza
+- la madre resta cliccabile → `/titoli/{id-madre}`; ogni rata cliccabile → `/titoli/{id-rata}`
 
-## Fix
+### 2. TitoloDetail (header)
+Sopra il numero polizza, aggiungere un breadcrumb-rata:
+- Se `sostituisce_polizza IS NULL`: badge **"Polizza originale"** + lista cronologica delle quietanze successive (link rapidi).
+- Se `sostituisce_polizza` valorizzato: badge **"Quietanza N (dal gg/mm/aaaa al gg/mm/aaaa)"** + link "← Vai alla polizza originale" e navigazione "← Rata precedente / Rata successiva →".
 
-### 1. Trigger DB (`genera_quietanza_su_messa_cassa`)
-Modificare la INSERT (riga 132 attuale): cambiare l'ordine `durata_da, durata_a, data_scadenza, data_competenza` da
-```
-v_new_da, v_new_a, v_new_a, v_new_da
-```
-a
-```
-v_new_da, v_new_a, v_new_da, v_new_da
-```
-Così `data_scadenza` della nuova quietanza coincide con la sua decorrenza (= mese di carico).
+Aggiungere una piccola sezione "Storico rate" (collassabile) con tabella: N°, Periodo, Stato, Premio, Data incasso.
 
-### 2. Backfill quietanze già generate
-Per le quietanze esistenti create da questo trigger (identificabili da `sostituisce_polizza IS NOT NULL` AND `stato='attivo'` AND `data_scadenza = garanzia_a`), allineare `data_scadenza := garanzia_da`. Caso noto: titolo `e194f418-617e-41d8-8638-836635481b24` (numero 122 riga 1) → `data_scadenza` da 2028-05-14 a 2027-05-14.
+### 3. Portafoglio (Attive / Carico del Mese / Storico)
+- Aggiungere colonna **"Tipo"** con badge: `Polizza` (madre) / `Rata N` (quietanza).
+- Filtro toggle in toolbar: `[Tutto] [Solo polizze] [Solo rate]` (default: Tutto).
 
-### 3. Aggiornare la memoria
-Aggiungere nota in `auto-quietanza-su-messa-cassa.md`: «`data_scadenza` della nuova quietanza = decorrenza (`garanzia_da`), non fine periodo, per coerenza con Carico del Mese».
+### 4. Convenzioni terminologiche (memory)
+- **Polizza** = titolo madre (`sostituisce_polizza IS NULL`)
+- **Quietanza** / **Rata** = titolo successivo (`sostituisce_polizza` valorizzato)
+Aggiornare `mem://insurance/auto-quietanza-su-messa-cassa.md` con questa distinzione e le convenzioni UI sopra.
 
-## Verifica
+## Dettagli tecnici
 
-Dopo migration: navigare a `/portafoglio/carico` con `Maggio 2027` → la quietanza 122/1 (Interfidi, € 138,47) deve comparire nella tabella, con totale premio aggiornato.
+- Helper condiviso `src/lib/quietanze.ts`:
+  - `groupTitoliByPolizza(titoli)` → `{ madre, rate[] }[]`
+  - `getRataIndex(titolo, catena)` → numero progressivo
+  - `isQuietanza(titolo)` → boolean
+- Query in `ClienteDetail`: aggiungere `sostituisce_polizza, garanzia_da, garanzia_a` al select esistente di `polizze`, poi raggruppare lato client.
+- Nessuna modifica al backend / edge functions / migration.
 
 ## Out of scope
-
-Non si tocca la pagina (`PortafoglioCaricoPage.tsx`), né il calcolo provvigioni, né le righe già messe a cassa.
+- Modifica trigger DB (già fatto nel turno precedente).
+- Aggregazione provvigioni (resta per-titolo).
+- Pagina "Storico rate" stand-alone (per ora solo sezione dentro TitoloDetail).
