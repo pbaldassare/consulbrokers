@@ -1,57 +1,55 @@
-## Problema
+# Fix Tasse: aliquota fissa da DB + SSN aggiuntivo per RCA
 
-Nelle ultime iterazioni ho introdotto due errori che vanno corretti:
+## Errore attuale
+Per le righe RCA principale (QA, PI, QC, QN…) il codice usa `IPT_RCA_PCT = 16` hardcoded e ignora `rami.aliquota_tasse_ramo`. Per le voci accessorie l'aliquota da DB è già usata, ma se l'utente cambia il netto l'utente percepisce le tasse "che si modificano" perché ricalcoliamo ogni volta.
 
-1. La colonna "Tasse" è stata trasformata in input editabile separato dalla colonna IPT/SSN, creando due colonne sovrapposte e confuse ("Tasse / IPT + SSN €" e "Tasse €").
-2. Per le righe RCA principale (es. **QA — R.C. AUTO**) IPT e SSN sono stati esclusi dal Premio Lordo, mentre devono concorrere al lordo come per qualsiasi altra voce.
+In realtà la regola corretta richiesta è: **l'aliquota tasse di ogni sottoramo è fissa e proviene dal DB (`rami.aliquota_tasse_ramo`)**. Per i sottorami RCA principali (set `RCA_PRINCIPALE_CODES`) si aggiunge **SSN 10,5%** sul netto, **distinto** dalla quota IPT ma **sommato** nel campo Tasse.
 
-## Comportamento corretto richiesto
-
-- **Tasse**: campo **fisso, calcolato, non editabile** (sola lettura).
-- **Premio Lordo di riga** = `Premio Netto + Tasse` (sempre, anche RCA).
-- **Ramo QA — R.C. AUTO** (e altri RCA principale): `Tasse = Netto × 16%  +  Netto × 10,5%` (IPT 16% fissa + SSN 10,5%). Niente lookup provinciale, niente input separati IPT/SSN nella tabella.
-- **Voci accessorie**: `Tasse = Netto × aliquota_tasse_ramo%` (come oggi).
-- **Totali card**: `Totale Tasse = Σ tasse di riga`; `Premio Lordo = Σ Netto + Σ Tasse + Addizionali`.
+DB conferma: QA/PI/QC/QF/QG/QR/QU/QN/QT = 16%, QAC/DAB/QB = 12,5%, DN = 7,5%, PJ = 0%. L'aliquota va presa da lì, **non** hardcoded.
 
 ## Modifiche
 
+### `src/lib/rcaPrincipaleCodes.ts`
+- Mantieni `SSN_PCT = 10.5`.
+- **Rimuovi** `IPT_RCA_PCT` (non più usato; l'IPT è `rami.aliquota_tasse_ramo`).
+
 ### `src/components/polizze/PremiGaranziaCardShell.tsx`
-1. **Header tabella**: rimuovere la colonna duplicata. Restano: Voce | Premio Netto | **Tasse €** (read-only) | Premio Lordo | azioni.
-2. **Cella Tasse di riga**: sempre testo read-only (`<span>` con valore calcolato), nessun input IPT/SSN inline e nessun input "Tasse" editabile.
-3. **Calcolo riga RCA principale**: `tasse = round2(netto × 16%) + round2(netto × 10,5%)`. Aliquota fissa **16%** (cost. `IPT_RCA_PCT = 16`), nessuna query a `aliquote_provinciali_rca`, rimuovere `useEffect` di lookup, `provinciaCliente`, stato `aliquotaProv`.
-4. **`handleNettoChange`** (RCA): ricalcola `imposta = netto*16%`, `ssn = netto*10.5%`, `tasse = imposta+ssn`. Mantiene i campi `imposta`/`ssn`/`aliquotaProvinciale=16` solo per persistenza DB.
-5. **`handleLordoChange`** (RCA): `factor = 1 + 16/100 + 10.5/100 = 1.265`; `netto = lordo / factor`; ricalcola imposta/ssn/tasse coerenti. Per non-RCA invariato.
-6. **`handleGaranziaSelect`** (RCA): inizializza con `aliquotaProvinciale = 16`, IPT/SSN su netto corrente.
-7. **Totali**: rimuovere `totTasseLordo`. `lordo = totNetto + totTasse + add` (sempre, anche con righe RCA).
-8. **Rimuovere** `handleImpostaChange`, `handleSsnChange` e relativi handler/override IPT/SSN inline.
-9. Rimuovere prop `provinciaCliente` da `PremiGaranziaCardShellProps`.
+Regola unica per tutte le righe:
+```
+ipt   = round2(netto × aliquotaTasse / 100)            // da DB, fissa per sottoramo
+ssn   = isRcaPrincipale ? round2(netto × 10.5 / 100) : 0
+tasse = ipt + ssn
+lordo = netto + tasse
+```
+
+1. **`handleGaranziaSelect`**: salva `aliquotaTasse = sel.aliquota_tasse_ramo` (sempre, anche RCA). Per RCA imposta `isRcaPrincipale=true`, `aliquotaProvinciale = aliquotaTasse` (per persistenza). Calcola `imposta`, `ssn` (solo se RCA), `tasse`.
+2. **`handleNettoChange`**: ricalcola `imposta = netto × aliquotaTasse%`, `ssn = isRca ? netto × 10.5% : 0`, `tasse = imposta + ssn`. **Non cambia mai l'aliquota** (resta quella DB).
+3. **`handleLordoChange`**:
+   - RCA: `factor = 1 + (aliquotaTasse + 10.5)/100` ⇒ `netto = lordo/factor`, ricalcola.
+   - Non-RCA: `factor = 1 + aliquotaTasse/100` ⇒ `netto = lordo/factor`.
+4. **Colonna Tasse** (read-only): mostra `imposta + ssn`. Tooltip:
+   - RCA: `"IPT {aliquotaTasse}% + SSN 10,5%"`
+   - Non-RCA: `"Aliquota {aliquotaTasse}%"`
+5. **Totali**: `totTasse = Σ (imposta||tasse) + Σ ssn`. `lordo = totNetto + totTasse + addizionali`.
+6. **Lordo riga** = `netto + tasse` (sempre incluso, già corretto).
 
 ### `src/pages/ImmissionePolizzaPage.tsx`
-1. Rimuovere helper `sumTasseLordo`. Tornare a:
-   - `tasseNum = Σ parseFloat(r.tasse)` su `premiFirmaRows`
-   - `tasseQNum = Σ parseFloat(r.tasse)` su `premiQuietanzaRows`
-   - `totFirma = premioNettoNum + addizionali + tasseNum`
-   - `totQuietanza = premioNettoQNum + addizionaliQuietanza + tasseQNum`
-2. Salvataggio `premi_garanzia_polizza`: invariato (`is_rca_principale`, `imposta_provinciale`, `ssn`, `aliquota_tasse_pct = 16` per RCA).
-3. Rimuovere passaggio prop `provinciaCliente` ai due `PremiGaranziaCardShell`.
-
-### `src/lib/rcaPrincipaleCodes.ts`
-Aggiungere `export const IPT_RCA_PCT = 16;` accanto a `SSN_PCT = 10.5`.
+- `aliquota_tasse_pct` salvato = `r.aliquotaTasse` (DB), **non più 16 hardcoded**.
+- `imposta_provinciale` = `r.imposta`, `ssn` = `r.ssn` (solo RCA).
+- Totali invariati: `tasseNum = Σ parseFloat(r.tasse)`.
 
 ### `.lovable/memory/insurance/rca-voci-composizione-premio.md`
-Aggiornare la sezione "Calcolo" e "Immissione Polizza":
-- IPT fissa 16% (non più lookup provinciale) in fase Immissione.
-- IPT/SSN concorrono al Premio Lordo: `lordo = netto + IPT + SSN` per riga RCA.
-- Tasse di riga sempre read-only nella card di Immissione.
-- Rimuovere nota "tasse RCA non si riportano sul lordo" introdotta erroneamente.
+- "IPT 16% fissa" → "IPT = `rami.aliquota_tasse_ramo` (DB, fissa per sottoramo)".
+- SSN 10,5% solo per `RCA_PRINCIPALE_CODES`, sommato a IPT nel campo Tasse, distinto in DB (`ssn`).
+- Esempio: QA netto 1000 → IPT 160 (16%) + SSN 105 (10,5%) = Tasse 265, Lordo 1265.
+- QAC netto 1000 → IPT 125 (12,5% da DB) + SSN 105 = Tasse 230, Lordo 1230.
+
+## Verifica
+1. QA, netto 1000 → Tasse 265,00 (160 + 105), Lordo 1265,00. Tooltip "IPT 16% + SSN 10,5%".
+2. QAC, netto 1000 → Tasse 230,00 (125 + 105), Lordo 1230,00.
+3. QB (no RCA), netto 1000 → Tasse 125,00, Lordo 1125,00.
+4. Cambio Lordo a 1265 su QA → Netto torna 1000.
+5. L'aliquota DB non si modifica mai cambiando netto/lordo.
 
 ## Fuori scope
-- `VociRcaCard` di `TitoloDetail` (post-creazione) resta com'è.
-- Nessuna modifica DB, RLS, trigger, mirror Quietanza.
-- Nessuna modifica a Rinnovo / Duplicazione / Sospensione / Riattivazione.
-
-## Verifica UI
-1. Su `/portafoglio/immissione`, ramo Auto, sottoramo QA: imposto Netto = 1000 → Tasse mostra **265,00** (160 IPT + 105 SSN), Premio Lordo riga = **1.265,00**, Totale Tasse = 265,00, Premio Lordo card = 1.265,00 + addizionali.
-2. Modifica Premio Lordo riga a 1265 → Netto torna 1000.
-3. Voce accessoria DRA — A.R.D con netto 100 e aliquota 13,5% → tasse 13,50 read-only, lordo 113,50.
-4. Nessun input editabile nella colonna Tasse.
+`VociRcaCard` post-creazione, RLS, trigger, mirror Quietanza.

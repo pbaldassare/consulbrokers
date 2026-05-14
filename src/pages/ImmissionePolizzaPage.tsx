@@ -887,9 +887,7 @@ const ImmissionePolizzaPage = () => {
             is_rca_principale: r.isRcaPrincipale === true,
             imposta_provinciale: r.isRcaPrincipale ? (parseFloat(r.imposta || "0") || 0) : null,
             ssn: r.isRcaPrincipale ? (parseFloat(r.ssn || "0") || 0) : null,
-            aliquota_tasse_pct: r.isRcaPrincipale
-              ? (r.aliquotaProvinciale ?? 16)
-              : (r.aliquotaTasse || null),
+            aliquota_tasse_pct: r.aliquotaTasse || null,
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
