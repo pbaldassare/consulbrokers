@@ -682,6 +682,7 @@ const TitoloDetail = () => {
     durata_a: "" as string,
     anni_durata: "" as string,
     rate: "" as string,
+    frazionamento: "Annuale" as string,
     garanzia_da: "" as string,
     garanzia_a: "" as string,
     data_competenza: "" as string,
