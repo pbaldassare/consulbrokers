@@ -764,7 +764,7 @@ const ImmissionePolizzaPage = () => {
         premio_lordo: totFirma || null,
         valuta,
         provvigioni_firma: provvFirma || null,
-        percentuale_provvigione: percentualeProvvigione ? parseFloat(percentualeProvvigione) : null,
+        
         commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
         percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
         garanzia_da: garanziaDa || null,
