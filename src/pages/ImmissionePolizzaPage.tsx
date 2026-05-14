@@ -1438,7 +1438,7 @@ const ImmissionePolizzaPage = () => {
           <PremiGaranziaCardShell
             tipoPremio="quietanza"
             gruppoRamoId={selectedGruppoRamoId}
-            provinciaCliente={(clienteDettaglio as any)?.provincia_residenza || (clienteDettaglio as any)?.provincia_sede || null}
+            
             rows={premiQuietanzaRows}
             onRowsChange={setPremiQuietanzaRows}
             addizionali={addizionaliQuietanza}
