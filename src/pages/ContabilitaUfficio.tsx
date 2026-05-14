@@ -6,10 +6,16 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, FileText, Coins, Receipt, Hash, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, FileText, Coins, Receipt, Hash, Search, Eye, Printer, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAttivita } from "@/lib/logAttivita";
+import { buildIncassiCoperturePdf, type IncassiCoperturaGruppo } from "@/lib/incassi-coperture-pdf";
+import PdfPreview from "@/components/PdfPreview";
 
 type TitoloCassa = {
   id: string;
@@ -99,11 +105,123 @@ const ContabilitaUfficio = () => {
     return c.ragione_sociale || `${c.cognome || ""} ${c.nome || ""}`.trim() || "—";
   };
 
+  // ===== PDF: Anteprima / Stampa / Salva =====
+  const { profile } = useAuth() as any;
+  const [busy, setBusy] = useState(false);
+  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
+
+  const buildPdfData = () => {
+    const tipoPagLabel = (tp: string | null | undefined) =>
+      tp === "contanti" ? "Contanti" : tp === "pos" || tp === "carta_credito" ? "POS" : tp === "bonifico" ? "Bonifico" : "—";
+    const tipoIncassoLabel = (t: TitoloCassa) =>
+      t.conferimento_gestito ? (t.fondi_ricevuti ? "Cop. Garantita" : "In Attesa Fondi") : "Incasso diretto";
+
+    const gruppi: IncassiCoperturaGruppo[] = filtered.map((g) => ({
+      agenzia: g.nome,
+      count: g.count,
+      premio_lordo: g.premio_lordo,
+      provvigioni: g.provvigioni,
+      da_rimettere: g.da_rimettere,
+      titoli: g.titoli.map((t) => {
+        const lordo = t.premio_lordo || 0;
+        const provv = (t.provvigioni_firma || 0) + (t.provvigioni_quietanza || 0);
+        return {
+          numero_titolo: t.numero_titolo,
+          cliente: clienteDisplay(t),
+          premio_lordo: lordo,
+          provvigioni: provv,
+          netto: lordo - provv,
+          tipo_pagamento: tipoPagLabel(t.tipo_pagamento),
+          tipo_incasso: tipoIncassoLabel(t),
+        };
+      }),
+    }));
+    return {
+      meseLabel,
+      sedeNome: profile?.ufficio?.nome_ufficio || profile?.nome_ufficio || "Sede",
+      generatoIl: format(new Date(), "dd/MM/yyyy HH:mm"),
+      filtroAgenzia: searchTerm || undefined,
+      gruppi,
+      totali: totaliCassa,
+    };
+  };
+
+  const fileName = () => `Incassi_Coperture_${format(meseCorrente, "yyyy-MM")}.pdf`;
+
+  const handleAnteprima = async () => {
+    try { setBusy(true); setPreviewBytes(await buildIncassiCoperturePdf(buildPdfData())); }
+    catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
+    finally { setBusy(false); }
+  };
+
+  const handleStampa = async () => {
+    try {
+      setBusy(true);
+      const bytes = await buildIncassiCoperturePdf(buildPdfData());
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+      const w = window.open(url, "_blank");
+      if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
+    } catch (e: any) { toast.error("Errore stampa: " + (e?.message || e)); }
+    finally { setBusy(false); }
+  };
+
+  const handleSalva = async () => {
+    try {
+      setBusy(true);
+      const bytes = await buildIncassiCoperturePdf(buildPdfData());
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+      const name = fileName();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+      const ufficioId = profile?.ufficio_id || null;
+      if (ufficioId) {
+        const path = `${ufficioId}/incassi_coperture/${Date.now()}_${name}`;
+        const { error: upErr } = await supabase.storage
+          .from("documenti_generali")
+          .upload(path, blob, { contentType: "application/pdf", upsert: false });
+        if (upErr) throw upErr;
+        const { data: u } = await supabase.auth.getUser();
+        const { error: dbErr } = await supabase.from("documenti").insert({
+          nome_file: name,
+          path_storage: path,
+          bucket_name: "documenti_generali",
+          entita_tipo: "sede",
+          entita_id: ufficioId,
+          categoria: "Incassi e Coperture",
+          visibile_al_cliente: false,
+          caricato_da: u?.user?.id ?? null,
+        } as any);
+        if (dbErr) throw dbErr;
+        await logAttivita({
+          azione: "stampa_incassi_coperture",
+          entita_tipo: "sede",
+          entita_id: ufficioId,
+          dettagli_json: { mese: format(meseCorrente, "yyyy-MM"), titoli: totaliCassa.count },
+        });
+        toast.success("PDF salvato e archiviato");
+      } else {
+        toast.success("PDF generato");
+      }
+    } catch (e: any) { toast.error("Errore salvataggio: " + (e?.message || e)); }
+    finally { setBusy(false); }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Incassi e Coperture</h1>
-        <p className="text-muted-foreground">Riepilogo consultivo delle polizze messe a cassa</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Incassi e Coperture</h1>
+          <p className="text-muted-foreground">Riepilogo consultivo delle polizze messe a cassa</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleAnteprima} disabled={busy}><Eye className="w-4 h-4 mr-1" />Anteprima</Button>
+          <Button variant="outline" size="sm" onClick={handleStampa} disabled={busy}><Printer className="w-4 h-4 mr-1" />Stampa</Button>
+          <Button size="sm" onClick={handleSalva} disabled={busy}><Save className="w-4 h-4 mr-1" />Salva PDF</Button>
+        </div>
       </div>
 
       {/* KPI */}
@@ -268,6 +386,15 @@ const ContabilitaUfficio = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!previewBytes} onOpenChange={(o) => { if (!o) setPreviewBytes(null); }}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-4 pt-3">
+            <DialogTitle>Anteprima Incassi e Coperture — {meseLabel}</DialogTitle>
+          </DialogHeader>
+          <PdfPreview data={previewBytes} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

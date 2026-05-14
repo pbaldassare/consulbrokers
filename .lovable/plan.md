@@ -1,48 +1,32 @@
-# Polizza vs Quietanze — organizzazione UI
+# Incassi e Coperture — Anteprima / Stampa / Salva PDF
 
-Oggi nella tabella "Polizze del cliente" appaiono righe duplicate (es. 4554333 due volte) perché il trigger genera una **quietanza successiva** che è un nuovo record `titoli` con `sostituisce_polizza` valorizzato. L'utente non distingue cosa è polizza madre e cosa è rata.
+Allinea la pagina `/contabilita` (componente `ContabilitaUfficio`) al pattern già usato in `ECAgenziaPdfPage`: tre bottoni in alto a destra + dialog di anteprima.
 
-## Modello dati (già esistente, non si tocca)
+## Cosa contiene il PDF
 
-- `titoli.sostituisce_polizza` (text) → se NULL: **polizza originale** (madre). Se valorizzato: **quietanza successiva** (rata) che sostituisce un titolo precedente.
-- `titoli.garanzia_da / garanzia_a` → periodo di copertura della singola rata.
-- Una "polizza" (concetto utente) = catena di titoli con stesso `numero_titolo`, ordinata per `garanzia_da`.
+Header riepilogo (mese selezionato + filtro agenzia se attivo) e poi:
+- KPI riga: Titoli a Cassa, Premio Lordo, Provvigioni, Da Rimettere
+- Tabella "Riepilogo Messa a Cassa" raggruppata per Agenzia con totali
+- Per ogni agenzia, dettaglio titoli (numero, cliente, premio, provvigioni, netto, tipo pagamento, tipo incasso)
+- Footer con totali generali
 
-## Modifiche UI (nessuna modifica DB)
+## File da creare
 
-### 1. ClienteDetail → tab "Polizze del cliente"
-Raggruppare per `numero_titolo`. Mostrare **una riga per polizza madre** (la più recente attiva o l'originale) con:
-- colonna "Rate" che mostra il count di quietanze (es. `1/4`, `2/4`)
-- riga espandibile (chevron) che apre le quietanze figlie (sub-table indentata)
-- badge `Polizza` vs `Quietanza` per chiarezza
-- la madre resta cliccabile → `/titoli/{id-madre}`; ogni rata cliccabile → `/titoli/{id-rata}`
+**`src/lib/incassi-coperture-pdf.ts`** — generatore PDF con `pdf-lib`, stessa impostazione visiva di `ec-agenzia-pdf.ts` (A4, font Helvetica, palette teal/headerBg, righe alternate). Espone:
+```ts
+buildIncassiCoperturePdf(data: IncassiCopertureData): Promise<Uint8Array>
+```
+con `IncassiCopertureData` = `{ meseLabel, sedeNome, gruppi: GruppoCompagnia[], totali, generatoIl }`.
 
-### 2. TitoloDetail (header)
-Sopra il numero polizza, aggiungere un breadcrumb-rata:
-- Se `sostituisce_polizza IS NULL`: badge **"Polizza originale"** + lista cronologica delle quietanze successive (link rapidi).
-- Se `sostituisce_polizza` valorizzato: badge **"Quietanza N (dal gg/mm/aaaa al gg/mm/aaaa)"** + link "← Vai alla polizza originale" e navigazione "← Rata precedente / Rata successiva →".
+## Modifiche a `src/pages/ContabilitaUfficio.tsx`
 
-Aggiungere una piccola sezione "Storico rate" (collassabile) con tabella: N°, Periodo, Stato, Premio, Data incasso.
-
-### 3. Portafoglio (Attive / Carico del Mese / Storico)
-- Aggiungere colonna **"Tipo"** con badge: `Polizza` (madre) / `Rata N` (quietanza).
-- Filtro toggle in toolbar: `[Tutto] [Solo polizze] [Solo rate]` (default: Tutto).
-
-### 4. Convenzioni terminologiche (memory)
-- **Polizza** = titolo madre (`sostituisce_polizza IS NULL`)
-- **Quietanza** / **Rata** = titolo successivo (`sostituisce_polizza` valorizzato)
-Aggiornare `mem://insurance/auto-quietanza-su-messa-cassa.md` con questa distinzione e le convenzioni UI sopra.
-
-## Dettagli tecnici
-
-- Helper condiviso `src/lib/quietanze.ts`:
-  - `groupTitoliByPolizza(titoli)` → `{ madre, rate[] }[]`
-  - `getRataIndex(titolo, catena)` → numero progressivo
-  - `isQuietanza(titolo)` → boolean
-- Query in `ClienteDetail`: aggiungere `sostituisce_polizza, garanzia_da, garanzia_a` al select esistente di `polizze`, poi raggruppare lato client.
-- Nessuna modifica al backend / edge functions / migration.
+- Stato `busy`, `previewBytes`.
+- Funzioni `handleAnteprima` / `handleStampa` / `handleSalva` copiate dal pattern di `ECAgenziaPdfPage` (download locale + upload su `documenti_generali`).
+- `handleSalva`: archivia su bucket `documenti_generali` con `entita_tipo='sede'` e `entita_id = profile.ufficio_id` (categoria `Incassi e Coperture`); se l'utente non ha sede assegnata fallback a solo download. Log via `logAttivita`.
+- `nomeFile` = `Incassi_Coperture_<YYYY-MM>.pdf`.
+- Toolbar in alto: a destra del titolo aggiungo `[Anteprima] [Stampa] [Salva PDF]` (Button `outline/outline/default`).
+- Dialog `<PdfPreview data={previewBytes} />` come in `ECAgenziaPdfPage`.
 
 ## Out of scope
-- Modifica trigger DB (già fatto nel turno precedente).
-- Aggregazione provvigioni (resta per-titolo).
-- Pagina "Storico rate" stand-alone (per ora solo sezione dentro TitoloDetail).
+- Nessuna modifica DB.
+- Nessuna modifica al calcolo dei dati: il PDF usa lo stesso `filtered` e `totaliCassa` già in pagina.
