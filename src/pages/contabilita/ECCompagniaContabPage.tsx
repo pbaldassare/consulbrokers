@@ -840,6 +840,8 @@ const ECCompagniaContabPage = () => {
                 </>
               );
             })()}
+            </>
+            )}
 
             <div className="space-y-2">
               <Label>Note (opzionale)</Label>
