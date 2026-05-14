@@ -888,7 +888,7 @@ const ImmissionePolizzaPage = () => {
             imposta_provinciale: r.isRcaPrincipale ? (parseFloat(r.imposta || "0") || 0) : null,
             ssn: r.isRcaPrincipale ? (parseFloat(r.ssn || "0") || 0) : null,
             aliquota_tasse_pct: r.isRcaPrincipale
-              ? (r.aliquotaProvinciale ?? null)
+              ? (r.aliquotaProvinciale ?? 16)
               : (r.aliquotaTasse || null),
           }));
       const premiPayload = [
@@ -1407,6 +1407,11 @@ const ImmissionePolizzaPage = () => {
       <PolizzaSection title="Importi" icon={DollarSign}>
 
         {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
+        {(() => {
+          const _provCli = (clienteDettaglio as any)?.provincia_residenza || (clienteDettaglio as any)?.provincia_sede || null;
+          console.info("[Immissione] provinciaCliente =", _provCli);
+          return null;
+        })()}
         <div className="space-y-4">
           <PremiGaranziaCardShell
             tipoPremio="firma"
