@@ -248,7 +248,7 @@ export function PremiGaranziaCardShell({
                         step="0.01"
                         inputMode="decimal"
                         value={r.tasse}
-                        onChange={(e) => updateRow(idx, { tasse: e.target.value })}
+                        onChange={(e) => handleTasseChange(idx, e.target.value)}
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
