@@ -1,41 +1,41 @@
-## Stato attuale
+# Quietanze non visibili nel "Carico del Mese"
 
-Sulla polizza messa a cassa **122** (Interfidi, Sede Napoli, premio 138,47 €, prov. quietanza 11,00 €) la `calcola-provvigioni` ha effettivamente scritto in `provvigioni_generate`:
+## Diagnosi
 
-- riga **commerciale 40%** = 4,40 €  → produttore Interfidi
-- riga **admin 60%** = 6,60 €  → quota Consul/Sede
+La polizza 122 (Interfidi, Sede Napoli) è stata messa a cassa il 14/05/2026. Il trigger `genera_quietanza_su_messa_cassa` ha correttamente creato la quietanza successiva (riga 1, sostituisce 122/0).
 
-Quindi i numeri ci sono. Ma:
+Però la nuova quietanza è stata salvata con:
+- `garanzia_da = 2027-05-14`
+- `garanzia_a  = 2028-05-14`
+- `data_scadenza = 2028-05-14`  ← problema
 
-### Problema 1 — E/C Produttori mostra 0,00
+La pagina **Carico del Mese** filtra per `data_scadenza` nel mese visualizzato. Quindi la quietanza "appare" solo a Maggio **2028**, non a Maggio 2027 — contrariamente a quanto dichiarato nella memoria `auto-quietanza-su-messa-cassa` («annuale 14/05/2026 → quietanza 14/05/2027 in Carico 05/2027»).
 
-`src/pages/contabilita/ECProduttoriContabPage.tsx` (riga 76) raggruppa per `user_id`:
+Convenzione corretta: la quietanza deve essere "in carico" nel mese in cui scade il pagamento, ovvero alla **decorrenza** (`garanzia_da` / `durata_da`), non alla fine del periodo coperto.
 
-```ts
-if (p.user_id && grouped[p.user_id]) { ... }
+## Fix
+
+### 1. Trigger DB (`genera_quietanza_su_messa_cassa`)
+Modificare la INSERT (riga 132 attuale): cambiare l'ordine `durata_da, durata_a, data_scadenza, data_competenza` da
 ```
+v_new_da, v_new_a, v_new_a, v_new_da
+```
+a
+```
+v_new_da, v_new_a, v_new_da, v_new_da
+```
+Così `data_scadenza` della nuova quietanza coincide con la sua decorrenza (= mese di carico).
 
-I produttori-anagrafica (Interfidi) **non hanno `user_id`**: il loro identificativo è `anagrafica_commerciale_id`, che però **non viene salvato** nella tabella `provvigioni_generate` (lo schema ha solo `titolo_id, user_id, percentuale, importo_provvigione, tipo_destinatario, solo_statistico, pagata`).
+### 2. Backfill quietanze già generate
+Per le quietanze esistenti create da questo trigger (identificabili da `sostituisce_polizza IS NOT NULL` AND `stato='attivo'` AND `data_scadenza = garanzia_a`), allineare `data_scadenza := garanzia_da`. Caso noto: titolo `e194f418-617e-41d8-8638-836635481b24` (numero 122 riga 1) → `data_scadenza` da 2028-05-14 a 2027-05-14.
 
-Risultato: la riga 4,40 € rimane "orfana" e il totale resta 0.
-
-### Problema 2 — E/C Sede
-
-Non esiste oggi una pagina E/C Sede. La quota Sede coincide oggi con la riga `admin/Consul` (residuo) ed è già scritta come 6,60 €, ma non è esposta in alcuna UI dedicata.
-
-## Fix proposto
-
-### A. Attribuzione produttore (anagrafica)
-
-1. **Migration**: aggiungere colonna `anagrafica_commerciale_id uuid NULL REFERENCES anagrafiche_professionali(id) ON DELETE SET NULL` su `provvigioni_generate` + indice.
-2. **Edge `calcola-provvigioni`**: nelle righe `commerciale` salvare anche `anagrafica_commerciale_id: s.anagrafica_commerciale_id`. Backfill della polizza 122 (e di eventuali altre già messe a cassa con stessa pattern) tramite UPDATE collegato a `titoli_split_commerciali` o, se mancanti split, `titoli.anagrafica_commerciale_id`.
-3. **`ECProduttoriContabPage`**: cambiare la query per selezionare anche `anagrafica_commerciale_id` e raggruppare prima su `anagrafica_commerciale_id`, poi fallback su `user_id`. Aggiornare anche lo storico (`ECProduttoriStoricoPage`) se segue la stessa logica.
-
-### B. Sede (out of scope adesso)
-
-Confermo che la quota Sede oggi è la riga `admin` (6,60 €). Se ti serve un E/C Sede dedicato (totali per `ufficio_id` derivati da `titoli`), lo aggiungo in un secondo step — fammi sapere.
+### 3. Aggiornare la memoria
+Aggiungere nota in `auto-quietanza-su-messa-cassa.md`: «`data_scadenza` della nuova quietanza = decorrenza (`garanzia_da`), non fine periodo, per coerenza con Carico del Mese».
 
 ## Verifica
 
-- Apertura `/contabilita/ec-produttori` filtrato su INTERFIDI SRL → totale provvigioni `4,40 €`, lordo `138,47 €`.
-- Provvigione su pol. 122 in `provvigioni_generate` con `anagrafica_commerciale_id = cbe0e599-...`.
+Dopo migration: navigare a `/portafoglio/carico` con `Maggio 2027` → la quietanza 122/1 (Interfidi, € 138,47) deve comparire nella tabella, con totale premio aggiornato.
+
+## Out of scope
+
+Non si tocca la pagina (`PortafoglioCaricoPage.tsx`), né il calcolo provvigioni, né le righe già messe a cassa.
