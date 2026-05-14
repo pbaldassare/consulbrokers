@@ -392,7 +392,7 @@ const ECCompagniaContabPage = () => {
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo dal</Label><DatePicker value={filters.periodo_dal} onChange={(d) => set({ periodo_dal: d })} placeholder="Dal" /></div>
           <div className="space-y-1"><Label className="text-xs text-muted-foreground">Periodo al</Label><DatePicker value={filters.periodo_al} onChange={(d) => set({ periodo_al: d })} placeholder="Al" /></div>
           <FilterSearchableSelect value={filters.tipo_pagamento} onValueChange={(v) => set({ tipo_pagamento: v })} options={[{ value: "contanti", label: "Contanti" }, { value: "pos", label: "POS" }, { value: "bonifico", label: "Bonifico" }]} placeholder="Tipo Pagamento" allLabel="Tutti i pagamenti" className="w-[180px]" />
-          <FilterSearchableSelect value={filters.modalita_incasso} onValueChange={(v) => set({ modalita_incasso: v })} options={[{ value: "diretto", label: "Incasso Diretto" }, { value: "gestito", label: "Copertura Garantita" }, { value: "attesa_fondi", label: "In Attesa Fondi" }]} placeholder="Modalità" allLabel="Tutte le modalità" className="w-[200px]" />
+          
         </div>
       </div>
 
