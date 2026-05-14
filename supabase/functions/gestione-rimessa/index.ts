@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
           importo_pagato: Math.round(totalePagato * 100) / 100,
           stato: "pagata",
           iban_utilizzato: iban_utilizzato || null,
+          conto_bancario_mittente_id: conto_bancario_mittente_id || null,
           data_pagamento_rimessa: now,
           note: note || null,
         })
