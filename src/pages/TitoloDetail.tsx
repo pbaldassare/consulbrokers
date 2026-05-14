@@ -2679,6 +2679,8 @@ const TitoloDetail = () => {
             <div className="space-y-4">
               <VociRcaCard
                 tipoPremio="firma"
+                titolo={_isAuto ? undefined : `Premi per Garanzia — Firma${_ramo?.descrizione ? ` (${_ramo.descrizione})` : ""}`}
+                mostraCampiCapitaleRata={!_isAuto}
                 mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
                 useAutoTaxFormula={_isAuto}
                 aliquotaDefault={_aliqRamo}
