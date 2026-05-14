@@ -31,7 +31,7 @@ const STATO_COLORS: Record<string, string> = {
 const ENTITY_ROUTES: Record<string, string> = {
   titolo: "/titoli",
   sinistro: "/sinistri",
-  rimessa: "/rimessa-premi",
+  rimessa: "/contabilita/storico-rimesse",
   cliente: "/prospect",
 };
 

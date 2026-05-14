@@ -39,7 +39,7 @@ const PRIORITA_COLORS: Record<string, string> = {
 const ENTITA_ROUTES: Record<string, string> = {
   sinistro: "/sinistri",
   titolo: "/titoli",
-  rimessa: "/rimessa-premi",
+  rimessa: "/contabilita/storico-rimesse",
   prospect: "/prospect",
 };
 
