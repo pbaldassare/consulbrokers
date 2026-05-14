@@ -223,7 +223,7 @@ export function PremiGaranziaCardShell({
                 // Tasse incluse sempre nel lordo (anche RCA: IPT 16% + SSN 10,5%)
                 const lordoRow = netto + tax;
                 const tasseTitle = r.isRcaPrincipale
-                  ? `IPT ${IPT_RCA_PCT}% + SSN ${SSN_PCT}%`
+                  ? `IPT ${(r.aliquotaTasse || 0).toFixed(2)}% + SSN ${SSN_PCT}%`
                   : `Aliquota ${(r.aliquotaTasse || 0).toFixed(2)}%`;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
