@@ -1211,11 +1211,44 @@ const TitoloDetail = () => {
       if (nuovoStato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
       }
+      // Cerca quietanza generata automaticamente dal trigger DB
+      let quietanzaGenerata: { id: string; data_decorrenza: string | null; data_scadenza: string | null } | null = null;
+      if (nuovoStato === "incassato" && titolo?.numero_titolo) {
+        const { data: succ } = await supabase
+          .from("titoli")
+          .select("id, durata_da, data_scadenza")
+          .eq("sostituisce_polizza", titolo.numero_titolo)
+          .eq("sostituisce_riga", titolo.riga ?? 0)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (succ) {
+          quietanzaGenerata = { id: succ.id, data_decorrenza: (succ as any).durata_da, data_scadenza: (succ as any).data_scadenza };
+        }
+      }
+      return { quietanzaGenerata };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["titolo", id] });
       queryClient.invalidateQueries({ queryKey: ["provvigioni", id] });
+      queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       toast.success("Stato aggiornato");
+      if (res?.quietanzaGenerata) {
+        const d = res.quietanzaGenerata.data_decorrenza
+          ? new Date(res.quietanzaGenerata.data_decorrenza).toLocaleDateString("it-IT")
+          : "";
+        toast.success(
+          `Quietanza successiva generata${d ? ` con decorrenza ${d}` : ""}`,
+          {
+            description: "Compare nel Carico del Mese del periodo target.",
+            action: {
+              label: "Apri",
+              onClick: () => navigate(`/titoli/${res.quietanzaGenerata!.id}`),
+            },
+            duration: 8000,
+          }
+        );
+      }
       setCassaDialogOpen(false);
       setConferimentoDialogOpen(false);
     },
