@@ -872,7 +872,7 @@ const ImmissionePolizzaPage = () => {
       // Premi garanzia (Firma + Quietanza) — vale per qualunque ramo
       const buildPremiInsert = (rows: GaranziaRow[], tipo: "firma" | "quietanza") =>
         rows
-          .filter((r) => (r.codice || r.descrizione.trim()) && (parseFloat(r.netto || "0") || parseFloat(r.tasse || "0")))
+          .filter((r) => !!(r.sottoramoId || r.codice || r.descrizione.trim()))
           .map((r, idx) => ({
             titolo_id: newTitolo.id,
             tipo_premio: tipo,
