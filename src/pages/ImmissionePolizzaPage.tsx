@@ -1407,6 +1407,11 @@ const ImmissionePolizzaPage = () => {
       <PolizzaSection title="Importi" icon={DollarSign}>
 
         {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
+        {(() => {
+          const _provCli = (clienteDettaglio as any)?.provincia_residenza || (clienteDettaglio as any)?.provincia_sede || null;
+          console.info("[Immissione] provinciaCliente =", _provCli);
+          return null;
+        })()}
         <div className="space-y-4">
           <PremiGaranziaCardShell
             tipoPremio="firma"
