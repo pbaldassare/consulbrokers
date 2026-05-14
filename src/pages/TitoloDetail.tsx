@@ -1351,6 +1351,18 @@ const TitoloDetail = () => {
   // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
 
+  // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
+  const isQuietanzaCorrente = isQuietanzaTitolo(t);
+  const catene = catenaTitoli && catenaTitoli.length > 0
+    ? groupTitoliByPolizza(catenaTitoli as any[])
+    : [];
+  const catenaCorrente = catene.find((c) => (c.all || []).some((x) => x.id === t.id));
+  const rataIndex = catenaCorrente
+    ? (catenaCorrente.all.findIndex((x) => x.id === t.id) + 1)
+    : 0;
+  const totRate = catenaCorrente ? catenaCorrente.all.length : 1;
+  const madre = catenaCorrente?.madre || null;
+
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
