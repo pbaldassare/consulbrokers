@@ -1401,64 +1401,82 @@ const ImmissionePolizzaPage = () => {
 
         {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
         <div className="space-y-4">
-          <PremiGaranziaCardShell
-            tipoPremio="firma"
-            gruppoRamoId={selectedGruppoRamoId}
-            rows={premiFirmaRows}
-            onRowsChange={setPremiFirmaRows}
-            addizionali={addizionali}
-            onAddizionaliChange={setAddizionali}
-            provvigioni={provvFirma}
-            headerExtra={
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
-                  setAddizionaliQuietanza(addizionali);
-                  toast.success("Firma salvata e copiata in Quietanza");
-                }}
-              >
-                Salva e copia in Quietanza
-              </Button>
-            }
-          />
-          <PremiGaranziaCardShell
-            tipoPremio="quietanza"
-            gruppoRamoId={selectedGruppoRamoId}
-            rows={premiQuietanzaRows}
-            onRowsChange={setPremiQuietanzaRows}
-            addizionali={addizionaliQuietanza}
-            onAddizionaliChange={setAddizionaliQuietanza}
-            provvigioni={provvQuietanza}
-            headerExtra={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
-                  setAddizionaliQuietanza(addizionali);
-                }}
-              >
-                Sincronizza da Firma
-              </Button>
-            }
-            sincronizzata={
-              premiQuietanzaRows.length === premiFirmaRows.length &&
-              premiQuietanzaRows.every((r, i) =>
-                r.netto === premiFirmaRows[i]?.netto &&
-                r.tasse === premiFirmaRows[i]?.tasse &&
-                (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
-                r.descrizione === premiFirmaRows[i]?.descrizione,
-              ) &&
-              addizionaliQuietanza === addizionali
-            }
-          />
-
+          {(() => {
+            const isSede = selectedCommerciale === "__sede__";
+            const prod = (commercialiList || []).find((c: any) => c.id === selectedCommerciale);
+            const produttoreLabel = isSede ? null : (prod ? `${prod.cognome} ${prod.nome}` : null);
+            const commonProvvProps = {
+              percentualeAgenzia: percentualeProvvigione,
+              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeCommercialeAuto(false); },
+              percentualeAgenziaAuto: percentualeCommercialeAuto,
+              produttoreLabel,
+              percentualeCommerciale,
+              produttoreIsSede: isSede,
+            };
+            return (
+              <>
+                <PremiGaranziaCardShell
+                  tipoPremio="firma"
+                  gruppoRamoId={selectedGruppoRamoId}
+                  rows={premiFirmaRows}
+                  onRowsChange={setPremiFirmaRows}
+                  addizionali={addizionali}
+                  onAddizionaliChange={setAddizionali}
+                  provvigioni={provvFirma}
+                  {...commonProvvProps}
+                  headerExtra={
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                        setAddizionaliQuietanza(addizionali);
+                        toast.success("Firma salvata e copiata in Quietanza");
+                      }}
+                    >
+                      Salva e copia in Quietanza
+                    </Button>
+                  }
+                />
+                <PremiGaranziaCardShell
+                  tipoPremio="quietanza"
+                  gruppoRamoId={selectedGruppoRamoId}
+                  rows={premiQuietanzaRows}
+                  onRowsChange={setPremiQuietanzaRows}
+                  addizionali={addizionaliQuietanza}
+                  onAddizionaliChange={setAddizionaliQuietanza}
+                  provvigioni={provvQuietanza}
+                  {...commonProvvProps}
+                  headerExtra={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                        setAddizionaliQuietanza(addizionali);
+                      }}
+                    >
+                      Sincronizza da Firma
+                    </Button>
+                  }
+                  sincronizzata={
+                    premiQuietanzaRows.length === premiFirmaRows.length &&
+                    premiQuietanzaRows.every((r, i) =>
+                      r.netto === premiFirmaRows[i]?.netto &&
+                      r.tasse === premiFirmaRows[i]?.tasse &&
+                      (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
+                      r.descrizione === premiFirmaRows[i]?.descrizione,
+                    ) &&
+                    addizionaliQuietanza === addizionali
+                  }
+                />
+              </>
+            );
+          })()}
         </div>
 
         {/* Flags row */}
