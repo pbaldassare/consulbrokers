@@ -174,7 +174,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Cruscotto del Giorno", path: "/contabilita/cruscotto", icon: LayoutDashboard, hideForRoles: ["ufficio"] },
         { label: "Incassi e Coperture", path: "/contabilita", icon: Landmark },
-        { label: "Distinta Giornaliera", path: "/contabilita/distinta-giornaliera", icon: CheckSquare, hideForRoles: ["ufficio"] },
+        
         { label: "E/C Clienti", path: "/contabilita/ec-clienti", icon: Users },
         { label: "E/C Agenzie", path: "/contabilita/ec-agenzia", icon: Building2, hideForRoles: ["ufficio"] },
         { label: "Storico E/C Agenzie", path: "/contabilita/ec-agenzia/storico", icon: Archive, hideForRoles: ["ufficio"] },
