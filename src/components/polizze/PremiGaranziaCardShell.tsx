@@ -55,6 +55,10 @@ export interface PremiGaranziaCardShellProps {
   percentualeCommerciale?: string;
   /** True se il commerciale è la Sede (split nascosto) */
   produttoreIsSede?: boolean;
+  /** Etichetta del ramo (es. "RC Generale") da mostrare nella ripartizione */
+  ramoLabel?: string | null;
+  /** True se la % Commerciale è stata letta dal DB (produttori_provvigioni_ramo / percentuale_base) */
+  percentualeCommercialeAuto?: boolean;
 }
 
 export function PremiGaranziaCardShell({
@@ -73,6 +77,8 @@ export function PremiGaranziaCardShell({
   produttoreLabel,
   percentualeCommerciale,
   produttoreIsSede,
+  ramoLabel,
+  percentualeCommercialeAuto,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
@@ -356,8 +362,8 @@ export function PremiGaranziaCardShell({
 
         {/* Provvigioni footer */}
         {(() => {
-          const pctAg = parseFloat(percentualeAgenzia || "0") || 0;
           const pctComm = produttoreIsSede ? 100 : (parseFloat(percentualeCommerciale || "0") || 0);
+          const pctCB = Math.max(0, 100 - pctComm);
           const totProv = provvigioni;
           const quotaProd = totProv * pctComm / 100;
           const quotaCB = totProv - quotaProd;
@@ -370,6 +376,7 @@ export function PremiGaranziaCardShell({
             const newPct = (n / totNetto) * 100;
             onPercentualeAgenziaChange!(newPct.toFixed(4));
           };
+          const showSplit = !!produttoreLabel || !!produttoreIsSede;
           return (
             <div
               className={cn(
@@ -407,37 +414,73 @@ export function PremiGaranziaCardShell({
                   <Label className="text-[10px] uppercase text-muted-foreground">Totale Provvigione (€)</Label>
                   <Input
                     type="number" step="0.01" min="0"
-                    value={editable && totNetto > 0 ? totProv.toFixed(2) : totProv.toFixed(2)}
+                    value={totProv ? totProv.toFixed(2) : ""}
                     onChange={(e) => handleTotChange(e.target.value)}
                     disabled={!editable || totNetto <= 0}
-                    className="h-8 text-xs font-mono font-semibold"
+                    className="h-8 text-sm font-mono font-bold"
+                    placeholder="0,00"
                   />
                 </div>
               </div>
 
-              {(produttoreLabel || produttoreIsSede) && totProv > 0 && (
-                <div className="rounded-md border border-border/60 bg-background/60 px-2.5 py-2 space-y-1">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Ripartizione</p>
+              {showSplit && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                    Ripartizione Provvigione
+                  </p>
                   {produttoreIsSede ? (
-                    <div className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="text-foreground">🏢 Sede (100%)</span>
-                      <span className="font-semibold">€ {totProv.toFixed(2)}</span>
+                    <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🏢</span>
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">Sede</p>
+                          <p className="text-[10px] text-muted-foreground">100% — nessuna ripartizione</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-mono font-bold text-foreground">€ {totProv.toFixed(2)}</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex items-center justify-between text-[11px] font-mono">
-                        <span className="text-foreground truncate pr-2">
-                          {produttoreLabel} <span className="text-muted-foreground">({pctComm}%)</span>
-                        </span>
-                        <span className="font-semibold">€ {quotaProd.toFixed(2)}</span>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {/* Produttore */}
+                      <div className="rounded-md border border-border bg-background px-3 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-base shrink-0">👤</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-foreground truncate">{produttoreLabel}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {percentualeCommercialeAuto ? "Da Provvigioni Ramo" : "Manuale"}
+                              {ramoLabel ? ` · ${ramoLabel}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 pl-2">
+                          <span className="inline-flex items-center rounded-sm bg-foreground/10 text-foreground px-1.5 py-0.5 text-[10px] font-bold font-mono">
+                            {pctComm}%
+                          </span>
+                          <span className="text-sm font-mono font-bold text-foreground tabular-nums w-20 text-right">
+                            € {quotaProd.toFixed(2)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] font-mono">
-                        <span className="text-primary">
-                          Consulbrokers SPA <span className="text-muted-foreground">(differenziale {(100 - pctComm)}%)</span>
-                        </span>
-                        <span className="font-semibold text-primary">€ {quotaCB.toFixed(2)}</span>
+                      {/* Consulbrokers */}
+                      <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-base shrink-0">🏢</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-primary truncate">Consulbrokers SPA</p>
+                            <p className="text-[10px] text-muted-foreground">Differenziale agenzia</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 pl-2">
+                          <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-bold font-mono">
+                            {pctCB}%
+                          </span>
+                          <span className="text-sm font-mono font-bold text-primary tabular-nums w-20 text-right">
+                            € {quotaCB.toFixed(2)}
+                          </span>
+                        </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
