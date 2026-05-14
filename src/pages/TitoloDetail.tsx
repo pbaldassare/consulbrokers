@@ -2187,16 +2187,18 @@ const TitoloDetail = () => {
             </div>
 
             <div>
-              <Label className="text-xs">Rate annuali</Label>
-              <Input
-                type="number"
-                value={periodoForm.rate}
-                onChange={(e) => setPeriodoForm(p => ({ ...p, rate: e.target.value }))}
-                placeholder="1, 2, 4, 6, 12"
-              />
-              {periodoForm.rate && ![1, 2, 4, 6, 12].includes(Number(periodoForm.rate)) && (
-                <span className="text-[10px] text-yellow-600">Valore non standard</span>
-              )}
+              <Label className="text-xs">Frazionamento</Label>
+              <Select
+                value={periodoForm.frazionamento || "Annuale"}
+                onValueChange={(v) => setPeriodoForm(p => ({ ...p, frazionamento: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                <SelectContent>
+                  {FRAZIONAMENTI.map(f => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
