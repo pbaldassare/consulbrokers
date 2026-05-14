@@ -331,7 +331,7 @@ const ECCompagniaContabPage = () => {
   const totProvv = rows.reduce((s, r) => s + r.provvigioni, 0);
   const totDaRimettere = totLordo - totProvv;
   const fmt = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento || filters.modalita_incasso;
+  const hasFilters = filters.compagnia_id || filters.ufficio_id || filters.produttore_id || filters.periodo_dal || filters.periodo_al || filters.tipo_pagamento;
 
   const formatDateRange = (min: string | null, max: string | null) => {
     if (!min) return "—";
