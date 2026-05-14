@@ -207,7 +207,7 @@ const sezioni = [
       { nome: "Duplicazione Polizza", desc: "Copia polizza esistente come base per nuova emissione", ruoli: ["admin", "ufficio"] },
       { nome: "Conferma Emittende", desc: "Conferma emissione polizze in attesa di validazione", ruoli: ["admin", "ufficio"] },
       { nome: "Titoli", desc: "Gestione titoli di incasso (quietanze, ricevute) collegati alle polizze", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "Rimessa Premi", desc: "Gestione rimesse premi alle agenzie con scadenze e saldi", ruoli: ["admin", "ufficio"] },
+      
     ],
   },
   {
@@ -321,7 +321,7 @@ const permessiJson = [
   
   { chiave: "impostazioni", descrizione: "Configurazione sistema e gestione utenti", sezioni: "Sistema (tutte le sotto-pagine)" },
   { chiave: "provvigioni", descrizione: "Gestione provvigioni sede e pagamenti", sezioni: "Provvigioni Sede, Pagamenti Provvigioni" },
-  { chiave: "rimessa_premi", descrizione: "Gestione rimessa premi alle agenzie", sezioni: "Rimessa Premi (lista e dettaglio)" },
+  
 ];
 
 const roleBadgeColor: Record<string, string> = {

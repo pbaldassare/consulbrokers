@@ -58,7 +58,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "stampa-primanota": "Stampa Primanota",
   "check-primanota": "Check Primanota",
   "stampa-sospesi": "Stampa Sospesi",
-  "rimessa-premi": "Rimessa Premi",
+  
   "anomalie-ko": "Anomalie KO",
   "note-restituzione": "Note Restituzione",
   "spedizioni": "Spedizioni",
