@@ -44,6 +44,17 @@ export interface PremiGaranziaCardShellProps {
   headerExtra?: ReactNode;
   /** Mostra badge "Sincronizzata" sulla Quietanza quando è uno specchio della Firma */
   sincronizzata?: boolean;
+  /** % Provvigione Agenzia (string, controllata) — editabile inline */
+  percentualeAgenzia?: string;
+  onPercentualeAgenziaChange?: (v: string) => void;
+  /** Flag visivo "auto-popolata da Provvigioni per Ramo" */
+  percentualeAgenziaAuto?: boolean;
+  /** Etichetta del produttore (es. "Mario Rossi") o null se Sede 100% */
+  produttoreLabel?: string | null;
+  /** % spettante al commerciale (string). Se 100 o sede → no split */
+  percentualeCommerciale?: string;
+  /** True se il commerciale è la Sede (split nascosto) */
+  produttoreIsSede?: boolean;
 }
 
 export function PremiGaranziaCardShell({
@@ -56,6 +67,12 @@ export function PremiGaranziaCardShell({
   provvigioni,
   headerExtra,
   sincronizzata,
+  percentualeAgenzia,
+  onPercentualeAgenziaChange,
+  percentualeAgenziaAuto,
+  produttoreLabel,
+  percentualeCommerciale,
+  produttoreIsSede,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
