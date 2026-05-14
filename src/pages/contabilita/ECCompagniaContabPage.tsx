@@ -429,6 +429,15 @@ const ECCompagniaContabPage = () => {
   };
 
   const handleConfermaPagamento = () => {
+    if (isAgenzia) {
+      // Flusso a 3 stadi: solo crea bozza in_pagamento
+      mettiInPagamentoMutation.mutate({
+        compagniaId: pagaDialog.compagniaId,
+        titoliIds: pagaDialog.titoliIds,
+        note: pagaDialog.note,
+      });
+      return;
+    }
     const importo = parseFloat(pagaDialog.importoPagato);
     if (isNaN(importo) || importo <= 0) { toast.error("Inserire un importo valido"); return; }
     if (importo > pagaDialog.importoTotale) { toast.error("L'importo pagato non può superare l'importo da rimettere"); return; }
