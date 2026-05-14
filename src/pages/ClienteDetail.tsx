@@ -1026,9 +1026,17 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
   const fmtNum = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "—");
-  const stateBadge = (stato: string) => (
-    <Badge variant={stato === "incassato" ? "default" : stato === "stornato" ? "destructive" : "secondary"}>{stato}</Badge>
-  );
+  const stateVariant = (stato: string): "default" | "secondary" | "destructive" | "outline" => {
+    if (stato === "incassato") return "default";
+    if (stato === "stornato") return "destructive";
+    if (stato === "sospeso" || stato === "scaduto") return "outline";
+    return "secondary";
+  };
+  const stateLabel = (ruolo: string, stato: string, n?: number) => {
+    const base = ruolo === "madre" ? "Polizza" : `Quietanza ${n ?? ""}`.trim();
+    const suffix = stato && stato !== "attivo" ? ` · ${stato}` : "";
+    return `${base}${suffix}`;
+  };
   return (
     <Table>
       <TableHeader>
@@ -1036,9 +1044,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           <TableHead className="w-8"></TableHead>
           <TableHead>N. Polizza</TableHead>
           <TableHead>Tipo</TableHead>
-          <TableHead>Prodotto</TableHead>
+          <TableHead>Gruppo Ramo</TableHead>
           <TableHead>Agenzia</TableHead>
-          <TableHead>Rate</TableHead>
           <TableHead>Premio €</TableHead>
           <TableHead>Incassato €</TableHead>
           <TableHead>Stato</TableHead>
@@ -1050,6 +1057,8 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
           const head = c.madre || c.all[0];
           const hasRate = c.rate.length > 0;
           const isOpen = !!expanded[c.numero];
+          const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
+          const agenzia = head.compagnia_diretta?.nome || "—";
           return (
             <>
               <TableRow key={c.numero} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${head.id}`)}>
@@ -1058,25 +1067,23 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                 </TableCell>
                 <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
                 <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
-                <TableCell>{head.prodotti?.nome_prodotto || "—"}</TableCell>
-                <TableCell>{head.prodotti?.compagnie?.nome || "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{c.rate.length > 0 ? `1 + ${c.rate.length}` : "1"}</TableCell>
+                <TableCell>{gruppoRamo}</TableCell>
+                <TableCell>{agenzia}</TableCell>
                 <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
                 <TableCell className="font-mono">{fmtNum(head.importo_incassato)}</TableCell>
-                <TableCell>{stateBadge(head.stato)}</TableCell>
+                <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
                 <TableCell>{head.data_incasso || "—"}</TableCell>
               </TableRow>
               {isOpen && c.rate.map((r, i) => (
                 <TableRow key={r.id} className="cursor-pointer bg-muted/20 hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
                   <TableCell></TableCell>
                   <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
-                  <TableCell><Badge variant="secondary">Rata {i + 2}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{r.garanzia_da || "—"} → {r.garanzia_a || "—"}</TableCell>
-                  <TableCell></TableCell>
-                  <TableCell></TableCell>
+                  <TableCell><Badge variant="secondary">Quietanza {i + 2}</Badge></TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.importo_incassato)}</TableCell>
-                  <TableCell>{stateBadge(r.stato)}</TableCell>
+                  <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
                   <TableCell>{r.data_incasso || "—"}</TableCell>
                 </TableRow>
               ))}
@@ -1258,7 +1265,7 @@ export default function ClienteDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, sostituisce_polizza, garanzia_da, garanzia_a, created_at, prodotti(nome_prodotto, compagnie(nome))")
+        .select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, sostituisce_polizza, garanzia_da, garanzia_a, created_at, ramo:rami!titoli_ramo_id_fkey(id, descrizione, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, descrizione)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome)")
         .eq("cliente_anagrafica_id", id!)
         .order("created_at", { ascending: false });
       if (error) throw error;
