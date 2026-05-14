@@ -701,8 +701,8 @@ const ECCompagniaContabPage = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPagaDialog((prev) => ({ ...prev, open: false }))}>Annulla</Button>
             <Button onClick={handleConfermaPagamento} disabled={creaRimessaMutation.isPending}>
-              <CreditCard className="h-4 w-4 mr-2" />
-              {creaRimessaMutation.isPending ? "Pagamento..." : "Conferma Pagamento"}
+              <FileText className="h-4 w-4 mr-2" />
+              {creaRimessaMutation.isPending ? "Generazione..." : "Conferma e Genera PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>
