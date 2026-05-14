@@ -76,7 +76,7 @@ interface PreConfirmState {
 }
 
 const defaultFilters: Filters = {
-  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null, modalita_incasso: null,
+  compagnia_id: null, ufficio_id: null, produttore_id: null, periodo_dal: null, periodo_al: null, tipo_pagamento: null,
 };
 
 const ECCompagniaContabPage = () => {
