@@ -22,6 +22,10 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
+import { validateIban } from "@/lib/validateIban";
+
+const formatIbanMask = (s: string) =>
+  (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})/g, "$1 ").trim();
 
 interface Filters {
   compagnia_id: string | null;
@@ -381,7 +385,7 @@ const ECCompagniaContabPage = () => {
       open: true,
       compagniaId,
       compagniaNome: comp?.nome || "N/D",
-      iban: comp?.iban || "",
+      iban: formatIbanMask(comp?.iban || ""),
       contoMittenteId: contoMittenteDefault?.id || null,
       ibanMittente: contoMittenteDefault?.iban || "",
       importoTotale: daRimettere,
@@ -401,6 +405,8 @@ const ECCompagniaContabPage = () => {
       toast.error("Selezionare il conto Consulbrokers da cui parte il pagamento");
       return;
     }
+    const ibanCheck = validateIban(pagaDialog.iban);
+    if (!ibanCheck.valid) { toast.error(ibanCheck.error || "IBAN destinazione non valido"); return; }
     creaRimessaMutation.mutate({
       compagniaId: pagaDialog.compagniaId,
       titoliIds: pagaDialog.titoliIds,
@@ -686,64 +692,107 @@ const ECCompagniaContabPage = () => {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label>IBAN Agenzia (destinazione)</Label>
-                <div className="relative">
-                  <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={pagaDialog.iban}
-                    onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
-                    placeholder="IBAN di destinazione"
-                    className="pl-9 font-mono"
-                  />
-                </div>
-                {!pagaDialog.iban && (
-                  <Alert variant="default" className="py-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      IBAN non trovato per questa compagnia. Inserirlo manualmente.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
+              {(() => {
+                const ibanCheck = validateIban(pagaDialog.iban);
+                const showError = pagaDialog.iban.trim().length > 0 && !ibanCheck.valid;
+                return (
+                  <div className="space-y-2">
+                    <Label>IBAN Agenzia (destinazione)</Label>
+                    <div className="relative">
+                      <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={pagaDialog.iban}
+                        onChange={(e) =>
+                          setPagaDialog((prev) => ({ ...prev, iban: formatIbanMask(e.target.value) }))
+                        }
+                        placeholder="IT60 X054 2811 1010 0000 0123 456"
+                        maxLength={42}
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        className={cn(
+                          "pl-9 font-mono tracking-wider",
+                          showError && "border-destructive focus-visible:ring-destructive"
+                        )}
+                      />
+                    </div>
+                    {!pagaDialog.iban.trim() ? (
+                      <Alert variant="default" className="py-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          IBAN non trovato per questa compagnia. Inserirlo manualmente.
+                        </AlertDescription>
+                      </Alert>
+                    ) : showError ? (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {ibanCheck.error}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">IBAN valido ✓</p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Sezione importi */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Da rimettere
-                </Label>
-                <p className="text-xl font-bold text-primary leading-tight">
-                  {fmt(pagaDialog.importoTotale)}
-                </p>
-              </div>
-              <div className="rounded-lg border bg-card p-3 space-y-1">
-                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Da pagare
-                </Label>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={pagaDialog.importoTotale}
-                    value={pagaDialog.importoPagato}
-                    onChange={(e) => setPagaDialog((prev) => ({ ...prev, importoPagato: e.target.value }))}
-                    className="h-8 pr-7 text-base font-semibold"
-                  />
-                  <Euro className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-              </div>
-            </div>
-            {parseFloat(pagaDialog.importoPagato) < pagaDialog.importoTotale && parseFloat(pagaDialog.importoPagato) > 0 && (
-              <Alert variant="default" className="py-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  Pagamento parziale — rimarranno <span className="font-semibold">{fmt(pagaDialog.importoTotale - parseFloat(pagaDialog.importoPagato))}</span> da pagare.
-                </AlertDescription>
-              </Alert>
-            )}
+            {(() => {
+              const importoNum = parseFloat(pagaDialog.importoPagato);
+              const importoInvalid = pagaDialog.importoPagato.trim() === "" || isNaN(importoNum) || importoNum <= 0;
+              const importoOver = !isNaN(importoNum) && importoNum > pagaDialog.importoTotale;
+              const importoError = importoInvalid
+                ? "Inserire un importo maggiore di 0"
+                : importoOver
+                  ? `Massimo consentito ${fmt(pagaDialog.importoTotale)}`
+                  : null;
+              const isParziale = !importoError && importoNum < pagaDialog.importoTotale;
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Da rimettere
+                      </Label>
+                      <p className="text-xl font-bold text-primary leading-tight">
+                        {fmt(pagaDialog.importoTotale)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-3 space-y-1">
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Da pagare
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          max={pagaDialog.importoTotale}
+                          value={pagaDialog.importoPagato}
+                          onChange={(e) => setPagaDialog((prev) => ({ ...prev, importoPagato: e.target.value }))}
+                          className={cn(
+                            "h-8 pr-7 text-base font-semibold",
+                            importoError && "border-destructive focus-visible:ring-destructive"
+                          )}
+                        />
+                        <Euro className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                  {importoError ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> {importoError}
+                    </p>
+                  ) : isParziale ? (
+                    <Alert variant="default" className="py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Pagamento parziale — rimarranno{" "}
+                        <span className="font-semibold">{fmt(pagaDialog.importoTotale - importoNum)}</span> da pagare.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </>
+              );
+            })()}
 
             <div className="space-y-2">
               <Label>Note (opzionale)</Label>
@@ -761,13 +810,22 @@ const ECCompagniaContabPage = () => {
             <Button variant="outline" onClick={() => setPagaDialog((prev) => ({ ...prev, open: false }))}>
               Annulla
             </Button>
-            <Button onClick={handleConfermaPagamento} disabled={creaRimessaMutation.isPending}>
-              {creaRimessaMutation.isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generazione...</>
-              ) : (
-                <><FileText className="h-4 w-4 mr-2" /> Conferma e Genera PDF</>
-              )}
-            </Button>
+            {(() => {
+              const importoNum = parseFloat(pagaDialog.importoPagato);
+              const importoOk = !isNaN(importoNum) && importoNum > 0 && importoNum <= pagaDialog.importoTotale;
+              const ibanOk = validateIban(pagaDialog.iban).valid;
+              const contoOk = !!pagaDialog.contoMittenteId && !!pagaDialog.ibanMittente;
+              const canSubmit = importoOk && ibanOk && contoOk && !creaRimessaMutation.isPending;
+              return (
+                <Button onClick={handleConfermaPagamento} disabled={!canSubmit}>
+                  {creaRimessaMutation.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generazione...</>
+                  ) : (
+                    <><FileText className="h-4 w-4 mr-2" /> Conferma e Genera PDF</>
+                  )}
+                </Button>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
