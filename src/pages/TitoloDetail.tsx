@@ -1423,6 +1423,100 @@ const TitoloDetail = () => {
         </div>
       )}
 
+      {/* Banner scope quietanza: ogni rata è indipendente */}
+      {totRate > 1 && (
+        isQuietanzaCorrente ? (
+          <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong>Stai modificando la Rata {rataIndex} di {totRate}</strong>
+              {t.garanzia_da ? <> · periodo {t.garanzia_da}{t.garanzia_a ? ` → ${t.garanzia_a}` : ""}</> : null}.
+              <span className="ml-1">Le modifiche valgono solo per questa quietanza, non per la polizza madre o le altre rate.</span>
+              {madre && madre.id !== t.id && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-1 h-auto text-sky-700 dark:text-sky-300"
+                  onClick={() => navigate(`/titoli/${madre.id}`)}
+                >
+                  Vai alla polizza madre
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong>Polizza madre</strong> — questa polizza ha {totRate - 1} {totRate - 1 === 1 ? "rata" : "rate"} successive.
+              Ogni quietanza ha premi e dati propri: le modifiche su questa pagina valgono solo per la madre.
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Pannello "Quietanze di questa polizza" */}
+      {totRate > 1 && catenaCorrente && (
+        <Collapsible defaultOpen={false}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="pb-2 cursor-pointer hover:bg-muted/40">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <List className="w-4 h-4" /> Quietanze di questa polizza ({totRate})
+                  <ChevronDown className="w-4 h-4 ml-auto text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-20">Tipo</TableHead>
+                      <TableHead>Periodo</TableHead>
+                      <TableHead className="text-right">Premio Lordo</TableHead>
+                      <TableHead>Stato</TableHead>
+                      <TableHead>Messa a Cassa</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {catenaCorrente.all.map((r: any, i: number) => {
+                      const isCurrent = r.id === t.id;
+                      return (
+                        <TableRow
+                          key={r.id}
+                          className={cn("cursor-pointer", isCurrent ? "bg-primary/10 hover:bg-primary/15 font-semibold" : "hover:bg-muted/40")}
+                          onClick={() => !isCurrent && navigate(`/titoli/${r.id}`)}
+                        >
+                          <TableCell>
+                            {i === 0 && !r.sostituisce_polizza ? (
+                              <Badge variant="outline">Polizza</Badge>
+                            ) : (
+                              <Badge variant="secondary">Rata {i + 1}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {r.garanzia_da || "—"} {r.garanzia_a ? `→ ${r.garanzia_a}` : ""}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">{fmtEuro(r.premio_lordo)}</TableCell>
+                          <TableCell>
+                            <Badge variant={r.stato === "incassato" ? "default" : r.stato === "stornato" ? "destructive" : "secondary"}>{r.stato}</Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">{r.data_messa_cassa || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Ogni rata è un record indipendente: cliccala per aprirla. Salvataggi e modifiche valgono solo per la rata aperta.
+                </p>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
       {t.stato === "in_attesa_rinnovo" && (
         <Card className="border-orange-400 bg-orange-50/50">
