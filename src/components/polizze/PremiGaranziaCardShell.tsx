@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -368,14 +368,34 @@ export function PremiGaranziaCardShell({
           const quotaProd = totProv * pctComm / 100;
           const quotaCB = totProv - quotaProd;
           const editable = !!onPercentualeAgenziaChange;
-          const handleTotChange = (v: string) => {
+          const [totFocus, setTotFocus] = useState(false);
+          const [totDraft, setTotDraft] = useState("");
+          const [pctFocus, setPctFocus] = useState(false);
+          const [pctDraft, setPctDraft] = useState("");
+
+          const totDisplay = totFocus ? totDraft : totProv.toFixed(2);
+          const pctDisplay = pctFocus
+            ? pctDraft
+            : (percentualeAgenzia ?? "");
+
+          const commitTot = (raw: string) => {
             if (!editable) return;
-            if (v === "") { onPercentualeAgenziaChange!(""); return; }
-            const n = parseFloat(v);
+            const s = (raw ?? "").trim().replace(",", ".");
+            if (s === "") { onPercentualeAgenziaChange!(""); return; }
+            const n = parseFloat(s);
             if (isNaN(n) || totNetto <= 0) return;
             const newPct = (n / totNetto) * 100;
             onPercentualeAgenziaChange!(newPct.toFixed(4));
           };
+          const commitPct = (raw: string) => {
+            if (!editable) return;
+            const s = (raw ?? "").trim().replace(",", ".");
+            if (s === "") { onPercentualeAgenziaChange!(""); return; }
+            const n = parseFloat(s);
+            if (isNaN(n)) return;
+            onPercentualeAgenziaChange!(String(n));
+          };
+
           const showSplit = !!produttoreLabel || !!produttoreIsSede;
           return (
             <div
@@ -402,23 +422,44 @@ export function PremiGaranziaCardShell({
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold">Totale Provvigione (€)</Label>
                   <Input
-                    type="number" step="0.01" min="0"
-                    value={totProv.toFixed(2)}
-                    onChange={(e) => handleTotChange(e.target.value)}
-                    disabled={!editable || totNetto <= 0}
+                    type="text"
+                    inputMode="decimal"
+                    value={totDisplay}
+                    onFocus={() => {
+                      setTotDraft(totProv ? String(totProv) : "");
+                      setTotFocus(true);
+                    }}
+                    onChange={(e) => setTotDraft(e.target.value)}
+                    onBlur={(e) => { setTotFocus(false); commitTot(e.target.value); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
+                    disabled={!editable}
                     className="h-9 text-base font-mono font-bold"
                     placeholder="0,00"
                   />
+                  {editable && totNetto <= 0 && (
+                    <p className="text-[10px] text-muted-foreground italic">Inserire prima un Netto</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-muted-foreground">% Agenzia (su netto)</Label>
                   <Input
-                    type="number" step="0.01" min="0" max="100"
-                    value={percentualeAgenzia ?? ""}
-                    onChange={(e) => onPercentualeAgenziaChange?.(e.target.value)}
+                    type="text"
+                    inputMode="decimal"
+                    value={pctDisplay}
+                    onFocus={() => {
+                      setPctDraft(percentualeAgenzia ?? "");
+                      setPctFocus(true);
+                    }}
+                    onChange={(e) => setPctDraft(e.target.value)}
+                    onBlur={(e) => { setPctFocus(false); commitPct(e.target.value); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
                     disabled={!editable}
                     className="h-9 text-xs font-mono"
-                    placeholder="0.00"
+                    placeholder="0,00"
                   />
                 </div>
               </div>
