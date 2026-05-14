@@ -245,21 +245,6 @@ const sezioni = [
     ],
   },
   {
-    area: "Contabilità Generale",
-    icon: Landmark,
-    pagine: [
-      { nome: "Piano dei Conti", desc: "Struttura gerarchica conti e centri di costo", ruoli: ["admin", "cfo"] },
-      { nome: "Primanota Generale", desc: "Registrazione movimenti contabili generali", ruoli: ["admin", "cfo"] },
-      { nome: "Scadenziario", desc: "Scadenze pagamenti fornitori e incassi attesi", ruoli: ["admin", "cfo"] },
-      { nome: "Clienti Contabilità", desc: "Anagrafica clienti ai fini della contabilità generale", ruoli: ["admin", "cfo"] },
-      { nome: "Elaborazioni Periodiche", desc: "Bilancini, situazioni patrimoniali ed economiche periodiche", ruoli: ["admin", "cfo"] },
-      { nome: "Elaborazioni Annuali", desc: "Bilancio annuale e chiusura esercizio", ruoli: ["admin", "cfo"] },
-      { nome: "Dichiarativi CU", desc: "Generazione Certificazioni Uniche per collaboratori", ruoli: ["admin", "cfo"] },
-      { nome: "Fornitori", desc: "Anagrafica fornitori con dati fiscali e contabili", ruoli: ["admin", "cfo"] },
-      { nome: "Import Bancario", desc: "Importazione e riconciliazione movimenti bancari", ruoli: ["admin", "cfo"] },
-    ],
-  },
-  {
     area: "Estrazioni & Stampe",
     icon: Package,
     pagine: [
