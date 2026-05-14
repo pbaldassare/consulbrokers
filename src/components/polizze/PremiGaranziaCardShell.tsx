@@ -467,7 +467,7 @@ export function PremiGaranziaCardShell({
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <span className="text-base shrink-0">🏢</span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-primary truncate">Consulbrokers SPA</p>
+                            <p className="text-xs font-semibold text-primary truncate">Sede</p>
                             <p className="text-[10px] text-muted-foreground">Differenziale agenzia</p>
                           </div>
                         </div>
