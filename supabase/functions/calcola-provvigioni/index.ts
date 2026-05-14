@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
         rows.push({
           titolo_id,
           user_id: s.commerciale_user_id || null,
+          anagrafica_commerciale_id: s.anagrafica_commerciale_id || null,
           percentuale: s.percentuale,
           importo_provvigione: importo,
           tipo_destinatario: "commerciale",

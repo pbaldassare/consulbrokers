@@ -58,7 +58,7 @@ const ECProduttoriContabPage = () => {
     queryFn: async () => {
       const { data: provvigioni, error } = await supabase
         .from("provvigioni_generate")
-        .select("user_id, importo_provvigione, titolo_id, titoli!provvigioni_generate_titolo_id_fkey(premio_lordo, data_incasso, produttore_id)");
+        .select("user_id, anagrafica_commerciale_id, importo_provvigione, titolo_id, titoli!provvigioni_generate_titolo_id_fkey(premio_lordo, data_incasso, produttore_id, anagrafica_commerciale_id)");
       if (error) throw error;
 
       const prods = anagrafiche || [];
@@ -73,9 +73,12 @@ const ECProduttoriContabPage = () => {
         const tit = p.titoli as any;
         if (!tit) continue;
         if (filters.data_limite_incassi && tit.data_incasso && new Date(tit.data_incasso) > filters.data_limite_incassi) continue;
-        if (p.user_id && grouped[p.user_id]) {
-          grouped[p.user_id].lordo += Number(tit.premio_lordo) || 0;
-          grouped[p.user_id].provvigioni += Number(p.importo_provvigione) || 0;
+        // Attribuzione: prima per anagrafica_commerciale_id (riga o titolo), poi fallback user_id
+        const anagId = p.anagrafica_commerciale_id || tit.anagrafica_commerciale_id || null;
+        const key = (anagId && grouped[anagId]) ? anagId : (p.user_id && grouped[p.user_id]) ? p.user_id : null;
+        if (key) {
+          grouped[key].lordo += Number(tit.premio_lordo) || 0;
+          grouped[key].provvigioni += Number(p.importo_provvigione) || 0;
         }
       }
 

@@ -5150,6 +5150,7 @@ export type Database = {
       }
       provvigioni_generate: {
         Row: {
+          anagrafica_commerciale_id: string | null
           calcolata_il: string | null
           id: string
           importo_provvigione: number | null
@@ -5161,6 +5162,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          anagrafica_commerciale_id?: string | null
           calcolata_il?: string | null
           id?: string
           importo_provvigione?: number | null
@@ -5172,6 +5174,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          anagrafica_commerciale_id?: string | null
           calcolata_il?: string | null
           id?: string
           importo_provvigione?: number | null
@@ -5183,6 +5186,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "provvigioni_generate_anagrafica_commerciale_id_fkey"
+            columns: ["anagrafica_commerciale_id"]
+            isOneToOne: false
+            referencedRelation: "anagrafiche_professionali"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "provvigioni_generate_titolo_id_fkey"
             columns: ["titolo_id"]
