@@ -682,10 +682,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                           {v.is_rca_principale && <ShieldCheck className="h-4 w-4 text-teal-700" />}
                           {!useAutoTaxFormula && !v.is_rca_principale ? (
                             <Input
-                              defaultValue={v.garanzia ?? ""}
-                              key={`gar-${v.id}-${v.garanzia ?? ""}`}
+                              value={(draftVoci[v.id]?.garanzia as string | undefined) ?? v.garanzia ?? ""}
+                              onChange={(e) => setDraft(v.id, { garanzia: e.target.value } as any)}
                               onBlur={(e) => {
                                 const val = e.target.value.trim();
+                                clearDraft(v.id, ["garanzia"] as any);
                                 if (!val || val === v.garanzia) return;
                                 upsertMut.mutate({ id: v.id, garanzia: val } as any);
                               }}
