@@ -252,9 +252,11 @@ export function PremiGaranziaCardShell({
                 const tax = r.isRcaPrincipale
                   ? (parseFloat(r.imposta || "0") || 0) + (parseFloat(r.ssn || "0") || 0)
                   : parseFloat(r.tasse || "0") || 0;
-                const aliquotaCalc = netto > 0 ? (tax / netto) * 100 : (r.aliquotaTasse || 0);
-                // Per RCA principale, il lordo di riga = netto (IPT/SSN non si riportano sul lordo)
-                const lordoRow = r.isRcaPrincipale ? netto : netto + tax;
+                // Tasse incluse sempre nel lordo (anche RCA: IPT 16% + SSN 10,5%)
+                const lordoRow = netto + tax;
+                const tasseTitle = r.isRcaPrincipale
+                  ? `IPT ${IPT_RCA_PCT}% + SSN ${SSN_PCT}%`
+                  : `Aliquota ${(r.aliquotaTasse || 0).toFixed(2)}%`;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
@@ -298,50 +300,12 @@ export function PremiGaranziaCardShell({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.isRcaPrincipale ? (
-                        <div className="flex flex-col gap-1 items-end">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground w-8 text-right">IPT</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              inputMode="decimal"
-                              value={r.imposta ?? ""}
-                              onChange={(e) => handleImpostaChange(idx, e.target.value)}
-                              className="h-7 text-right font-mono w-20"
-                              title={`Aliquota provinciale ${(r.aliquotaProvinciale ?? aliquotaProv).toFixed(2)}%`}
-                            />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground w-8 text-right">SSN</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              inputMode="decimal"
-                              value={r.ssn ?? ""}
-                              onChange={(e) => handleSsnChange(idx, e.target.value)}
-                              className="h-7 text-right font-mono w-20"
-                              title={`SSN ${SSN_PCT}%`}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-mono">{aliquotaCalc.toFixed(2)}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {r.isRcaPrincipale ? (
-                        <span className="text-xs font-mono">{tax.toFixed(2)}</span>
-                      ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          inputMode="decimal"
-                          value={r.tasse}
-                          onChange={(e) => updateRow(idx, { tasse: e.target.value })}
-                          className="h-8 text-right font-mono ml-auto w-24"
-                        />
-                      )}
+                      <span
+                        className="text-xs font-mono text-muted-foreground"
+                        title={tasseTitle}
+                      >
+                        {tax.toFixed(2)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
