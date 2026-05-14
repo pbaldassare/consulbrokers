@@ -1545,9 +1545,15 @@ export default function ClienteDetail() {
             </CardHeader>
             <CardContent className="pt-2">
               {polizze.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-10">
-                  <p className="text-muted-foreground">Nessuna polizza collegata a questo cliente</p>
-                  <NuovaPolizzaButton clienteId={id} variant="outline" label="Crea la prima polizza" />
+                <div className="flex flex-col items-center gap-4 py-12 border-2 border-dashed border-border rounded-lg bg-muted/20">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileText className="w-7 h-7 text-primary" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="font-semibold text-foreground">Nessuna polizza collegata</p>
+                    <p className="text-sm text-muted-foreground">Crea la prima polizza per questo cliente</p>
+                  </div>
+                  <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
                 <Table>
