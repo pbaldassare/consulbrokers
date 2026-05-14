@@ -987,6 +987,7 @@ const TitoloDetail = () => {
       // (qui non c'è premio_lordo_quietanza nello schema, ma teniamo il flag per il toast)
       if (syncedQuietanza) autoFixes.push("Quietanza allineata alla Firma");
 
+      assertSameTitolo(id, (titolo as any)?.id, "saveImportiMutation");
       const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
       if (error) throw error;
 
