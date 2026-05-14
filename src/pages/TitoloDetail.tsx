@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -682,6 +683,7 @@ const TitoloDetail = () => {
     durata_a: "" as string,
     anni_durata: "" as string,
     rate: "" as string,
+    frazionamento: "Annuale" as string,
     garanzia_da: "" as string,
     garanzia_a: "" as string,
     data_competenza: "" as string,
@@ -700,6 +702,7 @@ const TitoloDetail = () => {
         durata_a: t.durata_a ?? "",
         anni_durata: t.anni_durata != null ? String(t.anni_durata) : "",
         rate: t.rate != null ? String(t.rate) : "",
+        frazionamento: t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata),
         garanzia_da: t.garanzia_da ?? "",
         garanzia_a: t.garanzia_a ?? "",
         data_competenza: t.data_competenza ?? "",
@@ -740,11 +743,16 @@ const TitoloDetail = () => {
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
       const fields: (keyof typeof periodoForm)[] = [
-        "durata_da", "durata_a", "anni_durata", "rate", "garanzia_da", "garanzia_a",
+        "durata_da", "durata_a", "anni_durata", "rate", "frazionamento", "garanzia_da", "garanzia_a",
         "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "disdetta_mesi",
       ];
       const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
       const booleanFields = new Set(["tacito_rinnovo"]);
+      // Sincronizza rate <- frazionamento (verità UI = frazionamento testuale)
+      if (periodoForm.frazionamento) {
+        const anni = Number(periodoForm.anni_durata) || 1;
+        periodoForm.rate = String(frazionamentoToRate(periodoForm.frazionamento, anni));
+      }
       const payload: Record<string, any> = {};
       fields.forEach((f) => {
         const raw = periodoForm[f];
@@ -2112,7 +2120,7 @@ const TitoloDetail = () => {
             <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
             <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
             <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
-            <FieldRow label="Rate" value={fmt(t.rate)} />
+            <FieldRow label="Frazionamento" value={(t as any).frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata)} />
             <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
             <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
             <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
@@ -2179,16 +2187,18 @@ const TitoloDetail = () => {
             </div>
 
             <div>
-              <Label className="text-xs">Rate annuali</Label>
-              <Input
-                type="number"
-                value={periodoForm.rate}
-                onChange={(e) => setPeriodoForm(p => ({ ...p, rate: e.target.value }))}
-                placeholder="1, 2, 4, 6, 12"
-              />
-              {periodoForm.rate && ![1, 2, 4, 6, 12].includes(Number(periodoForm.rate)) && (
-                <span className="text-[10px] text-yellow-600">Valore non standard</span>
-              )}
+              <Label className="text-xs">Frazionamento</Label>
+              <Select
+                value={periodoForm.frazionamento || "Annuale"}
+                onValueChange={(v) => setPeriodoForm(p => ({ ...p, frazionamento: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                <SelectContent>
+                  {FRAZIONAMENTI.map(f => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -2584,32 +2594,19 @@ const TitoloDetail = () => {
 
         {!editingImporti ? (
           <>
-            {!isRamoAuto((t as any).ramo) ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio alla firma odierno</h4>
-                  <div className="space-y-0">
-                    <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto)} />
-                    <FieldRow label="Addizionali" value={fmtEuro(t.addizionali)} />
-                    <FieldRow label="Tasse" value={fmtEuro(t.tasse)} />
-                    <FieldRow label="Premio Lordo" value={fmtEuro(t.premio_lordo)} />
-                    <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
-                  </div>
-                  {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio prossima quietanza</h4>
-                  <div className="space-y-0">
-                    <FieldRow label="Premio Netto" value={fmtEuro(t.premio_netto_quietanza)} />
-                    <FieldRow label="Addizionali" value={fmtEuro(t.addizionali_quietanza)} />
-                    <FieldRow label="Tasse" value={fmtEuro(t.tasse_quietanza)} />
-                    <FieldRow label="Totale" value={fmtEuro(t.premio_netto_quietanza != null && t.addizionali_quietanza != null && t.tasse_quietanza != null ? t.premio_netto_quietanza + t.addizionali_quietanza + t.tasse_quietanza : null)} />
-                    <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
-                  </div>
-                  {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
-                </div>
+            {/* Riepilogo provvigioni split — i premi/tasse sono mostrati nelle card "Composizione" sotto. */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Provvigioni alla firma</h4>
+                <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                {renderSplitImporti("Split", sFirma, "teal")}
               </div>
-            ) : null}
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Provvigioni quietanza</h4>
+                <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                {renderSplitImporti("Split", sQui, "amber")}
+              </div>
+            </div>
           </>
         ) : (
           <div className="space-y-4">
