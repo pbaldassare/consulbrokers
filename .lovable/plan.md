@@ -1,19 +1,27 @@
-## Piano di intervento
+## Problema
 
-1. **Rendere il dettaglio una vera continuazione della creazione**
-   - Nella sezione **Importi** di `TitoloDetail`, mantenere solo le card Firma/Quietanza utili finché la polizza non è messa a cassa.
-   - Rimuovere dalle card del dettaglio i campi extra non presenti in creazione: **Capitale**, **Tasso ‰**, **Rata**, **Annuo**.
-   - Lasciare i campi coerenti con `PremiGaranziaCardShell` usato in `ImmissionePolizzaPage`: **Voce**, **Premio Netto**, **Aliquota %**, **Tasse**, **Premio Lordo**, azione rimozione, **Addizionali**, totali e provvigioni.
+Nel tab **Polizze** del cliente (`/archivi/clienti/:id`) compare sempre `Polizze (0)` anche quando il cliente ha titoli collegati (es. Paolo Baldassare ha 4 titoli con `cliente_anagrafica_id` corretto).
 
-2. **Allineare grafica e contenuti delle card**
-   - Sistemare `VociRcaCard` per usare larghezze colonne stabili e coerenti con la card di creazione.
-   - Evitare che la colonna **Voce** venga tagliata: campo più largo, testo leggibile, input/select con `min-width` corretti e overflow orizzontale ordinato.
-   - Uniformare padding, header, righe zebra, totali e footer provvigioni per non avere spacing “schiacciato” o disordinato.
+## Causa
 
-3. **Mantenere la logica di modifica finché non è messa a cassa**
-   - Lasciare editabili le righe premio quando la polizza non è bloccata.
-   - Non modificare le operazioni esistenti: messa a cassa, annulla messa a cassa, incasso, rinnovo, storno, sospensione/riattivazione.
-   - Non toccare database o migrazioni.
+In `src/pages/ClienteDetail.tsx` (riga 1193) la query usa una relazione inesistente:
 
-4. **Verifica finale**
-   - Controllare che su `/titoli/7f2880c0-f486-4e34-b309-b12b8fbf1cfe` le card non mostrino più campi inutili e che le voci non risultino tagliate nella viewport attuale.
+```ts
+.select("id, numero_titolo, stato, premio_lordo, importo_incassato, data_incasso, prodotti(nome_prodotto, agenzie(nome))")
+```
+
+PostgREST risponde **400** con:
+```
+Could not find a relationship between 'prodotti' and 'agenzie'... Perhaps you meant 'compagnie'.
+```
+
+I dati ci sono lato DB, è solo la query a fallire.
+
+## Fix
+
+Sostituire `agenzie(nome)` con `compagnie(nome)` nella select del tab Polizze cliente. Verificare che la cella della tabella che renderizza il nome agenzia legga il campo corretto (eventualmente aggiornare la chiave usata in JSX).
+
+## Verifica
+
+- Aprire `/archivi/clienti/0cfddc67-bffb-4685-a259-86bcd4261f5b` → tab **Polizze** mostra `Polizze (4)` con la lista dei titoli.
+- Nessun 400 in network per `cliente_anagrafica_id=eq.0cfddc67…`.
