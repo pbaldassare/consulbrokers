@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Users, Search } from "lucide-react";
 import ServerPagination from "@/components/ServerPagination";
 import { NuovoClienteDialog } from "@/components/clienti/NuovoClienteDialog";
@@ -18,8 +17,7 @@ const ClientiList = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"denominazione" | "created_at">("denominazione");
-  const { page, setPage, pageSize, range } = useServerPagination(25, [debouncedSearch, sortBy]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [debouncedSearch]);
 
   // Debounce search input
   useEffect(() => {
@@ -30,11 +28,8 @@ const ClientiList = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset page when sort changes
-  useEffect(() => { setPage(0); }, [sortBy]);
-
   const { data: clientiResult, isLoading } = useQuery({
-    queryKey: ["clienti", debouncedSearch, sortBy, page],
+    queryKey: ["clienti", debouncedSearch, page],
     queryFn: async () => {
       let query = supabase
         .from("clienti")
@@ -48,12 +43,8 @@ const ClientiList = () => {
         );
       }
 
-      if (sortBy === "denominazione") {
-        query = query.order("cognome", { ascending: true, nullsFirst: false })
-                     .order("ragione_sociale", { ascending: true, nullsFirst: false });
-      } else {
-        query = query.order("created_at", { ascending: false });
-      }
+      query = query.order("cognome", { ascending: true, nullsFirst: false })
+                   .order("ragione_sociale", { ascending: true, nullsFirst: false });
 
       query = query.range(range.from, range.to);
 
@@ -102,15 +93,6 @@ const ClientiList = () => {
               Clienti ({totalCount})
             </CardTitle>
             <div className="flex items-center gap-3">
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="denominazione">Nome A-Z</SelectItem>
-                  <SelectItem value="created_at">Data creazione ↓</SelectItem>
-                </SelectContent>
-              </Select>
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
