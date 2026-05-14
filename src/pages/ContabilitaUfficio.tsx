@@ -409,6 +409,7 @@ const ContabilitaUfficio = () => {
                     <TableCell className="text-right font-mono font-bold">€ {totaliCassa.provvigioni.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono font-bold">€ {totaliCassa.da_rimettere.toFixed(2)}</TableCell>
                     <TableCell />
+                  </TableRow>
                 </TableFooter>
               </Table>
             )}
