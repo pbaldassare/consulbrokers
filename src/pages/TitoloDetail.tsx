@@ -701,6 +701,7 @@ const TitoloDetail = () => {
         durata_a: t.durata_a ?? "",
         anni_durata: t.anni_durata != null ? String(t.anni_durata) : "",
         rate: t.rate != null ? String(t.rate) : "",
+        frazionamento: t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata),
         garanzia_da: t.garanzia_da ?? "",
         garanzia_a: t.garanzia_a ?? "",
         data_competenza: t.data_competenza ?? "",
