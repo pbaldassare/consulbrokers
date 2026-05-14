@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Send, Filter, RotateCcw, ChevronDown, ChevronRight, CreditCard, Building2, Undo2 } from "lucide-react";
+import { Send, Filter, RotateCcw, ChevronDown, ChevronRight, CreditCard, Building2, Undo2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ const StoricoRimessePage = () => {
     queryFn: async () => {
       let query = supabase
         .from("rimessa_premi")
-        .select("*, agenzie(nome, codice)", { count: "exact" })
+        .select("*, agenzie(nome, codice), conti_bancari!conto_bancario_mittente_id(etichetta, banca, iban, intestato_a)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -157,23 +157,25 @@ const StoricoRimessePage = () => {
             <TableHead className="w-[40px]"></TableHead>
             <TableHead>Agenzia</TableHead>
             <TableHead>Data Pagamento</TableHead>
-            <TableHead>IBAN</TableHead>
+            <TableHead>Conto Mittente</TableHead>
+            <TableHead>IBAN Destinazione</TableHead>
             <TableHead className="text-right">Totale</TableHead>
             <TableHead className="text-right">Pagato</TableHead>
             <TableHead>Stato</TableHead>
             <TableHead>Note</TableHead>
-            <TableHead className="w-[80px]">Azioni</TableHead>
+            <TableHead className="w-[110px]">Azioni</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Caricamento...</TableCell></TableRow>
             ) : rimesse.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nessuna rimessa trovata</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessuna rimessa trovata</TableCell></TableRow>
             ) : rimesse.map((r: any) => {
               const isExpanded = expandedRows.has(r.id);
               const dettagli = dettagliMap?.[r.id] || [];
               const isParziale = Number(r.importo_pagato) < Number(r.totale_importi);
               const isAnnullata = r.stato === "annullata";
+              const conto = (r as any).conti_bancari;
               return (
                 <>
                   <TableRow key={r.id} className={cn("cursor-pointer", isAnnullata && "opacity-60")} onClick={() => toggleExpand(r.id)}>
@@ -182,6 +184,14 @@ const StoricoRimessePage = () => {
                     </TableCell>
                     <TableCell className="font-medium">{(r as any).compagnie?.nome || "N/D"}</TableCell>
                     <TableCell>{r.data_pagamento_rimessa ? format(new Date(r.data_pagamento_rimessa), "dd/MM/yyyy") : "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {conto ? (
+                        <div>
+                          <div className="font-medium">{conto.etichetta}</div>
+                          {conto.banca && <div className="text-muted-foreground">{conto.banca}</div>}
+                        </div>
+                      ) : "—"}
+                    </TableCell>
                     <TableCell className="text-xs font-mono">{r.iban_utilizzato || "—"}</TableCell>
                     <TableCell className="text-right">{fmt(Number(r.totale_importi) || 0)}</TableCell>
                     <TableCell className={cn("text-right font-semibold", isParziale ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400")}>
@@ -198,23 +208,36 @@ const StoricoRimessePage = () => {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{r.note || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      {!isAnnullata && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setAnnullaTarget(r)}
-                          title="Annulla rimessa"
-                        >
-                          <Undo2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <div className="flex gap-1">
+                        {(r as any).pdf_url && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => window.open((r as any).pdf_url, "_blank")}
+                            title="Scarica PDF"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!isAnnullata && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setAnnullaTarget(r)}
+                            title="Annulla rimessa"
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                   {isExpanded && (
                     <TableRow key={`${r.id}-detail`} className="bg-muted/30 hover:bg-muted/30">
                       <TableCell></TableCell>
-                      <TableCell colSpan={8}>
+                      <TableCell colSpan={9}>
                         <div className="py-2">
                           <p className="text-xs font-medium text-muted-foreground mb-2">{dettagli.length} titoli inclusi</p>
                           <Table>

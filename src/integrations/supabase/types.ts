@@ -5510,6 +5510,7 @@ export type Database = {
           api_endpoint: string | null
           api_response: string | null
           compagnia_id: string | null
+          conto_bancario_mittente_id: string | null
           created_at: string | null
           created_by: string | null
           data_creazione: string | null
@@ -5519,6 +5520,7 @@ export type Database = {
           importo_pagato: number | null
           n_titoli: number | null
           note: string | null
+          pdf_url: string | null
           stato: string
           totale_importi: number | null
           totale_provvigioni: number | null
@@ -5530,6 +5532,7 @@ export type Database = {
           api_endpoint?: string | null
           api_response?: string | null
           compagnia_id?: string | null
+          conto_bancario_mittente_id?: string | null
           created_at?: string | null
           created_by?: string | null
           data_creazione?: string | null
@@ -5539,6 +5542,7 @@ export type Database = {
           importo_pagato?: number | null
           n_titoli?: number | null
           note?: string | null
+          pdf_url?: string | null
           stato?: string
           totale_importi?: number | null
           totale_provvigioni?: number | null
@@ -5550,6 +5554,7 @@ export type Database = {
           api_endpoint?: string | null
           api_response?: string | null
           compagnia_id?: string | null
+          conto_bancario_mittente_id?: string | null
           created_at?: string | null
           created_by?: string | null
           data_creazione?: string | null
@@ -5559,6 +5564,7 @@ export type Database = {
           importo_pagato?: number | null
           n_titoli?: number | null
           note?: string | null
+          pdf_url?: string | null
           stato?: string
           totale_importi?: number | null
           totale_provvigioni?: number | null
@@ -5572,6 +5578,13 @@ export type Database = {
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_premi_conto_bancario_mittente_id_fkey"
+            columns: ["conto_bancario_mittente_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
             referencedColumns: ["id"]
           },
           {
