@@ -858,6 +858,18 @@ const ECCompagniaContabPage = () => {
               Annulla
             </Button>
             {(() => {
+              if (isAgenzia) {
+                const isPending = mettiInPagamentoMutation.isPending;
+                return (
+                  <Button onClick={handleConfermaPagamento} disabled={isPending || pagaDialog.titoliCount === 0}>
+                    {isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Preparazione...</>
+                    ) : (
+                      <><Send className="h-4 w-4 mr-2" /> Metti in pagamento</>
+                    )}
+                  </Button>
+                );
+              }
               const importoNum = parseFloat(pagaDialog.importoPagato);
               const importoOk = !isNaN(importoNum) && importoNum > 0 && importoNum <= pagaDialog.importoTotale;
               const ibanOk = validateIban(pagaDialog.iban).valid;
