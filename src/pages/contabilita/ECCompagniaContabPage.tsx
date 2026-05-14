@@ -81,6 +81,8 @@ const defaultFilters: Filters = {
 
 const ECCompagniaContabPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAgenzia = location.pathname.startsWith("/contabilita/ec-agenzia");
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
