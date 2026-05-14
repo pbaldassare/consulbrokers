@@ -1116,6 +1116,21 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                 <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
                 <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
                 <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
+                {isAdmin && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      disabled={deleting === head.id || isLocked(head)}
+                      title={isLocked(head) ? "Polizza bloccata (messa a cassa/stornata)" : "Elimina polizza e quietanze"}
+                      onClick={() => handleDeleteMadre(c)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
               {isOpen && c.rate.map((r, i) => (
                 <TableRow key={r.id} className="cursor-pointer bg-muted/20 hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
@@ -1127,6 +1142,21 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
                   <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
                   <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
+                  {isAdmin && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        disabled={deleting === r.id || isLocked(r)}
+                        title={isLocked(r) ? "Quietanza bloccata (messa a cassa/stornata)" : "Elimina quietanza"}
+                        onClick={() => handleDeleteRata(r)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </>
