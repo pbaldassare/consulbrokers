@@ -644,7 +644,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[28%]">Voce</TableHead>
+                  <TableHead className={mostraCampiCapitaleRata ? "w-[24%] min-w-[200px]" : "w-[40%] min-w-[240px]"}>Voce</TableHead>
                   <TableHead className="text-right">Premio Netto</TableHead>
                   <TableHead className="text-right w-[110px]">Aliquota %</TableHead>
                   <TableHead className="text-right">Premio Lordo</TableHead>
@@ -691,7 +691,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                                 upsertMut.mutate({ id: v.id, garanzia: val } as any);
                               }}
                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              className="h-8 max-w-[220px]"
+                              className="h-8 w-full min-w-[200px]"
                               placeholder="Nome garanzia"
                             />
                           ) : (
