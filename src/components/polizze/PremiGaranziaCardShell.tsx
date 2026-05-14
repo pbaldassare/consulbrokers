@@ -129,8 +129,9 @@ export function PremiGaranziaCardShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aliquotaProv]);
 
-  // Totali: per le righe RCA principale, il "lordo" è netto + IPT + SSN.
-  // Per le altre, lordo = netto + tasse.
+  // Totali: IPT/SSN delle righe RCA principale NON vengono inclusi nel Premio Lordo
+  // (richiesta: tasse/SSN della RCA principale non si riportano sul lordo).
+  // Per le righe non-RCA il lordo include le tasse normalmente.
   const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totTasse = rows.reduce((s, r) => {
     if (r.isRcaPrincipale) {
@@ -138,8 +139,12 @@ export function PremiGaranziaCardShell({
     }
     return s + (parseFloat(r.tasse || "0") || 0);
   }, 0);
+  const totTasseLordo = rows.reduce((s, r) => {
+    if (r.isRcaPrincipale) return s; // escluse dal lordo
+    return s + (parseFloat(r.tasse || "0") || 0);
+  }, 0);
   const add = parseFloat(addizionali || "0") || 0;
-  const lordo = totNetto + totTasse + add;
+  const lordo = totNetto + totTasseLordo + add;
 
   const { data: catalogo = [] } = useQuery({
     queryKey: ["sottorami-catalogo-shell", gruppoRamoId || "none"],
@@ -243,9 +248,9 @@ export function PremiGaranziaCardShell({
     const r = rows[idx];
     const lordoVal = parseFloat(value || "0") || 0;
     if (r?.isRcaPrincipale) {
+      // Per RCA principale: lordo = netto (IPT/SSN non concorrono al lordo)
       const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
-      const factor = 1 + aliqProv / 100 + SSN_PCT / 100;
-      const netto = factor > 0 ? lordoVal / factor : lordoVal;
+      const netto = lordoVal;
       const imposta = round2(netto * (aliqProv / 100));
       const ssn = round2(netto * (SSN_PCT / 100));
       updateRow(idx, {
@@ -327,7 +332,8 @@ export function PremiGaranziaCardShell({
                   ? (parseFloat(r.imposta || "0") || 0) + (parseFloat(r.ssn || "0") || 0)
                   : parseFloat(r.tasse || "0") || 0;
                 const aliquotaCalc = netto > 0 ? (tax / netto) * 100 : (r.aliquotaTasse || 0);
-                const lordoRow = netto + tax;
+                // Per RCA principale, il lordo di riga = netto (IPT/SSN non si riportano sul lordo)
+                const lordoRow = r.isRcaPrincipale ? netto : netto + tax;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
