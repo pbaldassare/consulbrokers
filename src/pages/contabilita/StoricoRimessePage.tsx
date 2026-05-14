@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Send, Filter, RotateCcw, ChevronDown, ChevronRight, CreditCard, Building2, Undo2 } from "lucide-react";
+import { Send, Filter, RotateCcw, ChevronDown, ChevronRight, CreditCard, Building2, Undo2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
