@@ -23,3 +23,6 @@ export const isRcaPrincipaleCodice = (codice?: string | null): boolean => {
 
 /** Aliquota fissa SSN in % */
 export const SSN_PCT = 10.5;
+
+/** Aliquota fissa IPT RCA Auto in % (Immissione Polizza) */
+export const IPT_RCA_PCT = 16;
