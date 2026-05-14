@@ -37,6 +37,17 @@ import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
+import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
+
+// Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
+// Lanciare quindi rifiuta qualsiasi update se l'id passato non coincide con il titolo caricato.
+function assertSameTitolo(id: string | undefined, titoloId: string | undefined, ctx: string) {
+  if (!id || !titoloId || id !== titoloId) {
+    const msg = `[TitoloDetail] Scope violation in ${ctx}: id=${id} titoloId=${titoloId}`;
+    console.error(msg);
+    throw new Error("Scope record incoerente: ricarica la pagina e riprova.");
+  }
+}
 
 
 const fmt = (v: any) => v ?? "—";
