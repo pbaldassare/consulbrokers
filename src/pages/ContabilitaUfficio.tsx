@@ -6,10 +6,16 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, FileText, Coins, Receipt, Hash, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Package, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, FileText, Coins, Receipt, Hash, Search, Eye, Printer, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAttivita } from "@/lib/logAttivita";
+import { buildIncassiCoperturePdf, type IncassiCoperturaGruppo } from "@/lib/incassi-coperture-pdf";
+import PdfPreview from "@/components/PdfPreview";
 
 type TitoloCassa = {
   id: string;
