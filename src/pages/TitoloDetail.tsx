@@ -1437,13 +1437,6 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <Copy className="w-4 h-4 mr-1" /> Duplicazione
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setRinnovoDialogOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <RefreshCw className="w-4 h-4 mr-1" /> Rinnovo
-            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
             </Button>
