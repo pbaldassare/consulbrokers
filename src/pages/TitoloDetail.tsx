@@ -2724,6 +2724,8 @@ const TitoloDetail = () => {
               {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
               <VociRcaCard
                 tipoPremio="quietanza"
+                titolo={_isAuto ? undefined : `Premi per Garanzia — Quietanza${_ramo?.descrizione ? ` (${_ramo.descrizione})` : ""}`}
+                mostraCampiCapitaleRata={!_isAuto}
                 mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
                 useAutoTaxFormula={_isAuto}
                 aliquotaDefault={_aliqRamo}
