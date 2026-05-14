@@ -57,7 +57,9 @@ interface PagaRimessaState {
   open: boolean;
   compagniaId: string;
   compagniaNome: string;
-  iban: string;
+  iban: string; // IBAN destinazione (agenzia/compagnia) — informativo
+  contoMittenteId: string | null; // Conto Consulbrokers da cui parte il pagamento
+  ibanMittente: string; // IBAN del conto Consulbrokers selezionato (= iban_utilizzato)
   importoTotale: number;
   importoPagato: string;
   note: string;
