@@ -353,25 +353,95 @@ export function PremiGaranziaCardShell({
         </div>
 
         {/* Provvigioni footer */}
-        <div
-          className={cn(
-            "flex items-center justify-between gap-3 px-3 py-2 border-t",
-            isQuietanza ? "bg-amber-50/30 dark:bg-amber-950/10" : "bg-teal-50/30 dark:bg-teal-950/10",
-          )}
-        >
-          <div>
-            <p
+        {(() => {
+          const pctAg = parseFloat(percentualeAgenzia || "0") || 0;
+          const pctComm = produttoreIsSede ? 100 : (parseFloat(percentualeCommerciale || "0") || 0);
+          const totProv = provvigioni;
+          const quotaProd = totProv * pctComm / 100;
+          const quotaCB = totProv - quotaProd;
+          const editable = !!onPercentualeAgenziaChange;
+          const handleTotChange = (v: string) => {
+            if (!editable) return;
+            if (v === "") { onPercentualeAgenziaChange!(""); return; }
+            const n = parseFloat(v);
+            if (isNaN(n) || totNetto <= 0) return;
+            const newPct = (n / totNetto) * 100;
+            onPercentualeAgenziaChange!(newPct.toFixed(4));
+          };
+          return (
+            <div
               className={cn(
-                "text-xs font-bold uppercase",
-                isQuietanza ? "text-amber-800 dark:text-amber-200" : "text-teal-800 dark:text-teal-200",
+                "border-t px-3 py-3 space-y-3",
+                isQuietanza ? "bg-amber-50/30 dark:bg-amber-950/10" : "bg-teal-50/30 dark:bg-teal-950/10",
               )}
             >
-              Provvigioni {isQuietanza ? "Quietanza" : "Firma"}
-            </p>
-            <p className="text-[10px] text-muted-foreground">Importo dovuto al commerciale (€)</p>
-          </div>
-          <div className="text-sm font-mono font-semibold">{provvigioni.toFixed(2)}</div>
-        </div>
+              <div className="flex items-center justify-between">
+                <p
+                  className={cn(
+                    "text-xs font-bold uppercase flex items-center gap-2",
+                    isQuietanza ? "text-amber-800 dark:text-amber-200" : "text-teal-800 dark:text-teal-200",
+                  )}
+                >
+                  Provvigioni {isQuietanza ? "Quietanza" : "Firma"}
+                  {percentualeAgenziaAuto && (
+                    <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase text-muted-foreground">% Agenzia</Label>
+                  <Input
+                    type="number" step="0.01" min="0" max="100"
+                    value={percentualeAgenzia ?? ""}
+                    onChange={(e) => onPercentualeAgenziaChange?.(e.target.value)}
+                    disabled={!editable}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase text-muted-foreground">Totale Provvigione (€)</Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={editable && totNetto > 0 ? totProv.toFixed(2) : totProv.toFixed(2)}
+                    onChange={(e) => handleTotChange(e.target.value)}
+                    disabled={!editable || totNetto <= 0}
+                    className="h-8 text-xs font-mono font-semibold"
+                  />
+                </div>
+              </div>
+
+              {(produttoreLabel || produttoreIsSede) && totProv > 0 && (
+                <div className="rounded-md border border-border/60 bg-background/60 px-2.5 py-2 space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Ripartizione</p>
+                  {produttoreIsSede ? (
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-foreground">🏢 Sede (100%)</span>
+                      <span className="font-semibold">€ {totProv.toFixed(2)}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-foreground truncate pr-2">
+                          {produttoreLabel} <span className="text-muted-foreground">({pctComm}%)</span>
+                        </span>
+                        <span className="font-semibold">€ {quotaProd.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-primary">
+                          Consulbrokers SPA <span className="text-muted-foreground">(differenziale {(100 - pctComm)}%)</span>
+                        </span>
+                        <span className="font-semibold text-primary">€ {quotaCB.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
