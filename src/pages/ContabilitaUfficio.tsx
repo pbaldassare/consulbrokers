@@ -110,13 +110,17 @@ const ContabilitaUfficio = () => {
   const [busy, setBusy] = useState(false);
   const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
 
-  const buildPdfData = () => {
+  type Scope = { type: "globale" } | { type: "agenzia"; gruppo: GruppoCompagnia };
+
+  const buildPdfData = (scope: Scope) => {
     const tipoPagLabel = (tp: string | null | undefined) =>
       tp === "contanti" ? "Contanti" : tp === "pos" || tp === "carta_credito" ? "POS" : tp === "bonifico" ? "Bonifico" : "—";
     const tipoIncassoLabel = (t: TitoloCassa) =>
       t.conferimento_gestito ? (t.fondi_ricevuti ? "Cop. Garantita" : "In Attesa Fondi") : "Incasso diretto";
 
-    const gruppi: IncassiCoperturaGruppo[] = filtered.map((g) => ({
+    const sourceGruppi: GruppoCompagnia[] = scope.type === "agenzia" ? [scope.gruppo] : filtered;
+
+    const gruppi: IncassiCoperturaGruppo[] = sourceGruppi.map((g) => ({
       agenzia: g.nome,
       count: g.count,
       premio_lordo: g.premio_lordo,
@@ -136,28 +140,42 @@ const ContabilitaUfficio = () => {
         };
       }),
     }));
+
+    const totali = scope.type === "agenzia"
+      ? { count: scope.gruppo.count, premio_lordo: scope.gruppo.premio_lordo, provvigioni: scope.gruppo.provvigioni, da_rimettere: scope.gruppo.da_rimettere }
+      : totaliCassa;
+
+    const filtroAgenzia = scope.type === "agenzia" ? scope.gruppo.nome : (searchTerm || undefined);
+
     return {
       meseLabel,
       sedeNome: profile?.ufficio?.nome_ufficio || profile?.nome_ufficio || "Sede",
       generatoIl: format(new Date(), "dd/MM/yyyy HH:mm"),
-      filtroAgenzia: searchTerm || undefined,
+      filtroAgenzia,
       gruppi,
-      totali: totaliCassa,
+      totali,
     };
   };
 
-  const fileName = () => `Incassi_Coperture_${format(meseCorrente, "yyyy-MM")}.pdf`;
+  const fileName = (scope: Scope) => {
+    const ym = format(meseCorrente, "yyyy-MM");
+    if (scope.type === "agenzia") {
+      const slug = scope.gruppo.nome.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+      return `Incassi_Coperture_${slug}_${ym}.pdf`;
+    }
+    return `Incassi_Coperture_${ym}.pdf`;
+  };
 
-  const handleAnteprima = async () => {
-    try { setBusy(true); setPreviewBytes(await buildIncassiCoperturePdf(buildPdfData())); }
+  const handleAnteprima = async (scope: Scope = { type: "globale" }) => {
+    try { setBusy(true); setPreviewBytes(await buildIncassiCoperturePdf(buildPdfData(scope))); }
     catch (e: any) { toast.error("Errore anteprima: " + (e?.message || e)); }
     finally { setBusy(false); }
   };
 
-  const handleStampa = async () => {
+  const handleStampa = async (scope: Scope = { type: "globale" }) => {
     try {
       setBusy(true);
-      const bytes = await buildIncassiCoperturePdf(buildPdfData());
+      const bytes = await buildIncassiCoperturePdf(buildPdfData(scope));
       const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
       const w = window.open(url, "_blank");
       if (w) w.addEventListener("load", () => { try { w.print(); } catch {} });
@@ -165,21 +183,24 @@ const ContabilitaUfficio = () => {
     finally { setBusy(false); }
   };
 
-  const handleSalva = async () => {
+  const handleSalva = async (scope: Scope = { type: "globale" }) => {
     try {
       setBusy(true);
-      const bytes = await buildIncassiCoperturePdf(buildPdfData());
+      const bytes = await buildIncassiCoperturePdf(buildPdfData(scope));
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      const name = fileName();
+      const name = fileName(scope);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = name;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-      const ufficioId = profile?.ufficio_id || null;
-      if (ufficioId) {
-        const path = `${ufficioId}/incassi_coperture/${Date.now()}_${name}`;
+      const isAgenzia = scope.type === "agenzia";
+      const entitaTipo = isAgenzia ? "compagnia" : "sede";
+      const entitaId = isAgenzia ? scope.gruppo.compagnia_id : (profile?.ufficio_id || null);
+
+      if (entitaId) {
+        const path = `${entitaTipo}/${entitaId}/incassi_coperture/${Date.now()}_${name}`;
         const { error: upErr } = await supabase.storage
           .from("documenti_generali")
           .upload(path, blob, { contentType: "application/pdf", upsert: false });
@@ -189,8 +210,8 @@ const ContabilitaUfficio = () => {
           nome_file: name,
           path_storage: path,
           bucket_name: "documenti_generali",
-          entita_tipo: "sede",
-          entita_id: ufficioId,
+          entita_tipo: entitaTipo,
+          entita_id: entitaId,
           categoria: "Incassi e Coperture",
           visibile_al_cliente: false,
           caricato_da: u?.user?.id ?? null,
@@ -198,11 +219,11 @@ const ContabilitaUfficio = () => {
         if (dbErr) throw dbErr;
         await logAttivita({
           azione: "stampa_incassi_coperture",
-          entita_tipo: "sede",
-          entita_id: ufficioId,
-          dettagli_json: { mese: format(meseCorrente, "yyyy-MM"), titoli: totaliCassa.count },
+          entita_tipo: entitaTipo,
+          entita_id: entitaId,
+          dettagli_json: { mese: format(meseCorrente, "yyyy-MM"), titoli: isAgenzia ? scope.gruppo.count : totaliCassa.count, agenzia: isAgenzia ? scope.gruppo.nome : undefined },
         });
-        toast.success("PDF salvato e archiviato");
+        toast.success(isAgenzia ? `PDF agenzia "${scope.gruppo.nome}" salvato` : "PDF salvato e archiviato");
       } else {
         toast.success("PDF generato");
       }
