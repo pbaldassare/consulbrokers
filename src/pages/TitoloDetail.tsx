@@ -438,6 +438,7 @@ const TitoloDetail = () => {
 
   const saveRegMutation = useMutation({
     mutationFn: async () => {
+      assertSameTitolo(id, (titolo as any)?.id, "saveRegMutation");
       const { error } = await supabase
         .from("titoli")
         .update({
