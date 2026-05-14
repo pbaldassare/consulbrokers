@@ -19,6 +19,7 @@ import { DatePicker } from "@/components/contabilita/DatePicker";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
 
 interface Filters {
   compagnia_id: string | null;
