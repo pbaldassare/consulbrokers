@@ -611,9 +611,6 @@ const ImmissionePolizzaPage = () => {
   // --- Computed: derive scalars from row arrays ---
   const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse") =>
     arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
-  // Tasse che concorrono al lordo: per le righe RCA principale, IPT/SSN NON si riportano sul lordo
-  const sumTasseLordo = (arr: GaranziaRow[]) =>
-    arr.reduce((s, r) => (r.isRcaPrincipale ? s : s + (parseFloat(r.tasse || "0") || 0)), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
   const tasseNum = sumNum(premiFirmaRows, "tasse");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
@@ -623,8 +620,8 @@ const ImmissionePolizzaPage = () => {
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
 
-  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + sumTasseLordo(premiFirmaRows);
-  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + sumTasseLordo(premiQuietanzaRows);
+  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum;
+  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
 
