@@ -94,6 +94,23 @@ const ECCompagniaContabPage = () => {
   });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
+  // Conti correnti Consulbrokers (tipo 'generico') — sorgente del bonifico verso l'agenzia
+  const { data: contiMittente = [] } = useQuery({
+    queryKey: ["conti-bancari-generico"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conti_bancari" as any)
+        .select("id, etichetta, iban, intestato_a, banca, is_default")
+        .eq("tipo", "generico")
+        .eq("attivo", true)
+        .order("is_default", { ascending: false })
+        .order("etichetta");
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+  const contoMittenteDefault = contiMittente.find((c: any) => c.is_default) || contiMittente[0] || null;
+
   const toggleExpand = (compagniaId: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
