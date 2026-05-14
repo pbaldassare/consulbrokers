@@ -21,8 +21,5 @@ export const isRcaPrincipaleCodice = (codice?: string | null): boolean => {
   return false;
 };
 
-/** Aliquota fissa SSN in % */
+/** Aliquota fissa SSN in % (sommata sopra l'IPT da DB per i sottorami RCA principali) */
 export const SSN_PCT = 10.5;
-
-/** Aliquota fissa IPT RCA Auto in % (Immissione Polizza) */
-export const IPT_RCA_PCT = 16;
