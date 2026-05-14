@@ -197,9 +197,7 @@ const ECCompagniaContabPage = () => {
         if (filters.tipo_pagamento && (t as any).tipo_pagamento !== filters.tipo_pagamento) continue;
         const isGestito = !!(t as any).conferimento_gestito;
         const fondiOk = (t as any).fondi_ricevuti !== false;
-        if (filters.modalita_incasso === "diretto" && isGestito) continue;
-        if (filters.modalita_incasso === "gestito" && !isGestito) continue;
-        if (filters.modalita_incasso === "attesa_fondi" && (!isGestito || fondiOk)) continue;
+        void isGestito; void fondiOk;
         const comp = (t as any).compagnie;
         if (!grouped[cId]) {
           grouped[cId] = {
