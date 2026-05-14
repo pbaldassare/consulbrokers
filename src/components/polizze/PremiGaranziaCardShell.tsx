@@ -217,7 +217,9 @@ export function PremiGaranziaCardShell({
               {rows.map((r, idx) => {
                 const netto = parseFloat(r.netto || "0") || 0;
                 const tax = parseFloat(r.tasse || "0") || 0;
-                const aliquotaCalc = netto > 0 ? (tax / netto) * 100 : (r.aliquotaTasse || 0);
+                // L'aliquota è fissa: viene dal DB (ramo/sottoramo) e non si ricalcola
+                // dai valori immessi. Sono netto/tasse/lordo a muoversi in base all'aliquota.
+                const aliquotaFissa = r.aliquotaTasse || 0;
                 const lordoRow = netto + tax;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
@@ -257,7 +259,7 @@ export function PremiGaranziaCardShell({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="text-xs text-muted-foreground font-mono">{aliquotaCalc.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{aliquotaFissa.toFixed(2)}</span>
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
