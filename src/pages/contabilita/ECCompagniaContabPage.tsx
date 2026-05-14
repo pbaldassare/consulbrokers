@@ -58,22 +58,15 @@ interface PagaRimessaState {
   open: boolean;
   compagniaId: string;
   compagniaNome: string;
-  iban: string; // IBAN destinazione (agenzia/compagnia) — informativo
-  contoMittenteId: string | null; // Conto Consulbrokers da cui parte il pagamento
-  ibanMittente: string; // IBAN del conto Consulbrokers selezionato (= iban_utilizzato)
+  iban: string; // IBAN destinazione (agenzia)
+  contoMittenteId: string | null;
+  ibanMittente: string;
   importoTotale: number;
   importoPagato: string;
   note: string;
   titoliIds?: string[];
   titoliCount: number;
-}
-
-interface PreConfirmState {
-  open: boolean;
-  compagniaId: string;
-  compagniaNome: string;
-  titoliCount: number;
-  importo: number;
+  titoli: TitoloDetail[];
 }
 
 const defaultFilters: Filters = {
@@ -88,10 +81,7 @@ const ECCompagniaContabPage = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTitoli, setSelectedTitoli] = useState<Record<string, Set<string>>>({});
   const [pagaDialog, setPagaDialog] = useState<PagaRimessaState>({
-    open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0,
-  });
-  const [preConfirm, setPreConfirm] = useState<PreConfirmState>({
-    open: false, compagniaId: "", compagniaNome: "", titoliCount: 0, importo: 0,
+    open: false, compagniaId: "", compagniaNome: "", iban: "", contoMittenteId: null, ibanMittente: "", importoTotale: 0, importoPagato: "", note: "", titoliCount: 0, titoli: [],
   });
   const set = (partial: Partial<Filters>) => setFilters((f) => ({ ...f, ...partial }));
 
