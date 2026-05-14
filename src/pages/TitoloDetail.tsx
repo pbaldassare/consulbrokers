@@ -955,7 +955,10 @@ const TitoloDetail = () => {
       // === Sincronizzazione Firma → Quietanza ===
       // Se l'utente ha modificato un campo Firma e il corrispondente Quietanza non è stato toccato
       // (cioè è rimasto uguale al valore in DB), propaghiamo il nuovo valore Firma anche alla Quietanza.
-      const syncPairs: Array<[string, string]> = [
+      // ATTENZIONE: la sync vale SOLO sulla polizza madre. Su una rata (quietanza) i campi Firma
+      // sono lo storico della firma originale e non devono propagare nulla.
+      const isQuietanzaRow = isQuietanzaTitolo(titolo as any);
+      const syncPairs: Array<[string, string]> = isQuietanzaRow ? [] : [
         ["premio_netto", "premio_netto_quietanza"],
         ["tasse", "tasse_quietanza"],
         ["addizionali", "addizionali_quietanza"],
