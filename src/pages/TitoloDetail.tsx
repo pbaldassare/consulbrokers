@@ -37,6 +37,17 @@ import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
+import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
+
+// Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
+// Lanciare quindi rifiuta qualsiasi update se l'id passato non coincide con il titolo caricato.
+function assertSameTitolo(id: string | undefined, titoloId: string | undefined, ctx: string) {
+  if (!id || !titoloId || id !== titoloId) {
+    const msg = `[TitoloDetail] Scope violation in ${ctx}: id=${id} titoloId=${titoloId}`;
+    console.error(msg);
+    throw new Error("Scope record incoerente: ricarica la pagina e riprova.");
+  }
+}
 
 
 const fmt = (v: any) => v ?? "—";
@@ -230,6 +241,21 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // Catena polizza: madre + tutte le quietanze sorelle (per banner + pannello "Quietanze")
+  const numeroTitolo = (titolo as any)?.numero_titolo || null;
+  const { data: catenaTitoli = [] } = useQuery({
+    queryKey: ["catena-titoli", numeroTitolo],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at")
+        .eq("numero_titolo", numeroTitolo!)
+        .order("garanzia_da", { ascending: true, nullsFirst: true });
+      return (data as any[]) || [];
+    },
+    enabled: !!numeroTitolo,
+  });
+
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -370,6 +396,7 @@ const TitoloDetail = () => {
         const sel = (anagraficheComm as any[]).find((a: any) => a.value === primary.anagrafica_commerciale_id);
         nomeLeggibile = sel?.label || null;
       }
+      assertSameTitolo(id, (titolo as any)?.id, "saveCommMutation");
       const { error: tErr } = await supabase
         .from("titoli")
         .update({
@@ -411,6 +438,7 @@ const TitoloDetail = () => {
 
   const saveRegMutation = useMutation({
     mutationFn: async () => {
+      assertSameTitolo(id, (titolo as any)?.id, "saveRegMutation");
       const { error } = await supabase
         .from("titoli")
         .update({
@@ -624,7 +652,7 @@ const TitoloDetail = () => {
         throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
       }
       const rapportoSel = (rapportiAgenziaEdit || []).find((r: any) => r.id === contrattoForm.compagnia_rapporto_id);
-
+      assertSameTitolo(id, (titolo as any)?.id, "saveContrattoMutation");
       const { error } = await supabase
         .from("titoli")
         .update({
@@ -754,6 +782,7 @@ const TitoloDetail = () => {
         payload[f] = newV;
       });
 
+      assertSameTitolo(id, (titolo as any)?.id, "savePeriodoMutation");
       const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
       if (error) throw error;
 
@@ -929,7 +958,10 @@ const TitoloDetail = () => {
       // === Sincronizzazione Firma → Quietanza ===
       // Se l'utente ha modificato un campo Firma e il corrispondente Quietanza non è stato toccato
       // (cioè è rimasto uguale al valore in DB), propaghiamo il nuovo valore Firma anche alla Quietanza.
-      const syncPairs: Array<[string, string]> = [
+      // ATTENZIONE: la sync vale SOLO sulla polizza madre. Su una rata (quietanza) i campi Firma
+      // sono lo storico della firma originale e non devono propagare nulla.
+      const isQuietanzaRow = isQuietanzaTitolo(titolo as any);
+      const syncPairs: Array<[string, string]> = isQuietanzaRow ? [] : [
         ["premio_netto", "premio_netto_quietanza"],
         ["tasse", "tasse_quietanza"],
         ["addizionali", "addizionali_quietanza"],
@@ -955,6 +987,7 @@ const TitoloDetail = () => {
       // (qui non c'è premio_lordo_quietanza nello schema, ma teniamo il flag per il toast)
       if (syncedQuietanza) autoFixes.push("Quietanza allineata alla Firma");
 
+      assertSameTitolo(id, (titolo as any)?.id, "saveImportiMutation");
       const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
       if (error) throw error;
 
@@ -1318,6 +1351,18 @@ const TitoloDetail = () => {
   // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
   const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
 
+  // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
+  const isQuietanzaCorrente = isQuietanzaTitolo(t);
+  const catene = catenaTitoli && catenaTitoli.length > 0
+    ? groupTitoliByPolizza(catenaTitoli as any[])
+    : [];
+  const catenaCorrente = catene.find((c) => (c.all || []).some((x) => x.id === t.id));
+  const rataIndex = catenaCorrente
+    ? (catenaCorrente.all.findIndex((x) => x.id === t.id) + 1)
+    : 0;
+  const totRate = catenaCorrente ? catenaCorrente.all.length : 1;
+  const madre = catenaCorrente?.madre || null;
+
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
@@ -1376,6 +1421,100 @@ const TitoloDetail = () => {
             {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
           </span>
         </div>
+      )}
+
+      {/* Banner scope quietanza: ogni rata è indipendente */}
+      {totRate > 1 && (
+        isQuietanzaCorrente ? (
+          <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong>Stai modificando la Rata {rataIndex} di {totRate}</strong>
+              {t.garanzia_da ? <> · periodo {t.garanzia_da}{t.garanzia_a ? ` → ${t.garanzia_a}` : ""}</> : null}.
+              <span className="ml-1">Le modifiche valgono solo per questa quietanza, non per la polizza madre o le altre rate.</span>
+              {madre && madre.id !== t.id && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-1 h-auto text-sky-700 dark:text-sky-300"
+                  onClick={() => navigate(`/titoli/${madre.id}`)}
+                >
+                  Vai alla polizza madre
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong>Polizza madre</strong> — questa polizza ha {totRate - 1} {totRate - 1 === 1 ? "rata" : "rate"} successive.
+              Ogni quietanza ha premi e dati propri: le modifiche su questa pagina valgono solo per la madre.
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Pannello "Quietanze di questa polizza" */}
+      {totRate > 1 && catenaCorrente && (
+        <Collapsible defaultOpen={false}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="pb-2 cursor-pointer hover:bg-muted/40">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <List className="w-4 h-4" /> Quietanze di questa polizza ({totRate})
+                  <ChevronDown className="w-4 h-4 ml-auto text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-20">Tipo</TableHead>
+                      <TableHead>Periodo</TableHead>
+                      <TableHead className="text-right">Premio Lordo</TableHead>
+                      <TableHead>Stato</TableHead>
+                      <TableHead>Messa a Cassa</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {catenaCorrente.all.map((r: any, i: number) => {
+                      const isCurrent = r.id === t.id;
+                      return (
+                        <TableRow
+                          key={r.id}
+                          className={cn("cursor-pointer", isCurrent ? "bg-primary/10 hover:bg-primary/15 font-semibold" : "hover:bg-muted/40")}
+                          onClick={() => !isCurrent && navigate(`/titoli/${r.id}`)}
+                        >
+                          <TableCell>
+                            {i === 0 && !r.sostituisce_polizza ? (
+                              <Badge variant="outline">Polizza</Badge>
+                            ) : (
+                              <Badge variant="secondary">Rata {i + 1}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {r.garanzia_da || "—"} {r.garanzia_a ? `→ ${r.garanzia_a}` : ""}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">{fmtEuro(r.premio_lordo)}</TableCell>
+                          <TableCell>
+                            <Badge variant={r.stato === "incassato" ? "default" : r.stato === "stornato" ? "destructive" : "secondary"}>{r.stato}</Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">{r.data_messa_cassa || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Ogni rata è un record indipendente: cliccala per aprirla. Salvataggi e modifiche valgono solo per la rata aperta.
+                </p>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       )}
 
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
