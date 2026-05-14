@@ -77,16 +77,57 @@ export function PremiGaranziaCardShell({
   // Aliquota provinciale RCA (default 16%) — letta da aliquote_provinciali_rca
   const [aliquotaProv, setAliquotaProv] = useState<number>(16);
   useEffect(() => {
-    if (!provinciaCliente) return;
+    if (!provinciaCliente) {
+      console.info("[RCA] provincia cliente non disponibile, uso default 16%");
+      return;
+    }
+    const prov = String(provinciaCliente).toUpperCase();
     supabase
       .from("aliquote_provinciali_rca" as any)
       .select("aliquota_pct")
-      .eq("provincia", String(provinciaCliente).toUpperCase())
+      .eq("provincia", prov)
       .maybeSingle()
-      .then(({ data }: any) => {
-        if (data?.aliquota_pct) setAliquotaProv(Number(data.aliquota_pct));
+      .then(({ data, error }: any) => {
+        if (error) {
+          console.warn("[RCA] errore lookup aliquote_provinciali_rca", error);
+          return;
+        }
+        const a = Number(data?.aliquota_pct);
+        if (Number.isFinite(a) && a > 0) {
+          console.info(`[RCA] provincia=${prov} aliquota=${a}%`);
+          setAliquotaProv(a);
+        } else {
+          console.info(`[RCA] provincia=${prov} senza aliquota, uso default 16%`);
+        }
       });
   }, [provinciaCliente]);
+
+  // Auto-ricalcolo righe RCA principale già marcate ma con IPT/SSN vuoti (es. ripristino bozza)
+  useEffect(() => {
+    let dirty = false;
+    const next = rows.map((r) => {
+      if (!r.isRcaPrincipale) return r;
+      const netto = parseFloat(r.netto || "0") || 0;
+      const hasImposta = r.imposta != null && r.imposta !== "";
+      const hasSsn = r.ssn != null && r.ssn !== "";
+      if (netto > 0 && (!hasImposta || !hasSsn)) {
+        const aliqProv = r.aliquotaProvinciale ?? aliquotaProv;
+        const imposta = round2(netto * (aliqProv / 100));
+        const ssn = round2(netto * (SSN_PCT / 100));
+        dirty = true;
+        return {
+          ...r,
+          imposta: imposta.toFixed(2),
+          ssn: ssn.toFixed(2),
+          tasse: (imposta + ssn).toFixed(2),
+          aliquotaProvinciale: aliqProv,
+        };
+      }
+      return r;
+    });
+    if (dirty) onRowsChange(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aliquotaProv]);
 
   // Totali: per le righe RCA principale, il "lordo" è netto + IPT + SSN.
   // Per le altre, lordo = netto + tasse.
