@@ -786,7 +786,7 @@ const ImmissionePolizzaPage = () => {
         formato_elettronico: formatoElettronico,
         cambio: parseFloat(cambio) || 1,
         // Incasso/Copertura: NON valorizzati in immissione — verranno settati dal flusso "Messa a Cassa" su TitoloDetail.
-        stato: "creato",
+        stato: "attivo",
         ufficio_id: selectedUfficioId || profile?.ufficio_id || null,
         // Produttore: salviamo l'anagrafica + nome leggibile (produttore_id legacy resta NULL).
         anagrafica_commerciale_id: selectedAE || null,
