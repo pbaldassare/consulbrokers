@@ -315,10 +315,14 @@ const ECCompagniaContabPage = () => {
       toast.error("L'importo pagato non può superare l'importo da rimettere");
       return;
     }
+    if (!pagaDialog.contoMittenteId || !pagaDialog.ibanMittente) {
+      toast.error("Selezionare il conto Consulbrokers da cui parte il pagamento");
+      return;
+    }
     creaRimessaMutation.mutate({
       compagniaId: pagaDialog.compagniaId,
       titoliIds: pagaDialog.titoliIds,
-      iban: pagaDialog.iban,
+      iban: pagaDialog.ibanMittente,
       importoPagato: importo,
       note: pagaDialog.note,
     });
