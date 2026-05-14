@@ -81,6 +81,10 @@ export function PremiGaranziaCardShell({
   percentualeCommercialeAuto,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
+  const [totFocus, setTotFocus] = useState(false);
+  const [totDraft, setTotDraft] = useState("");
+  const [pctFocus, setPctFocus] = useState(false);
+  const [pctDraft, setPctDraft] = useState("");
   const titolo = isQuietanza ? "Premi per Garanzia — Quietanza" : "Premi per Garanzia — Firma";
 
   const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
@@ -368,10 +372,6 @@ export function PremiGaranziaCardShell({
           const quotaProd = totProv * pctComm / 100;
           const quotaCB = totProv - quotaProd;
           const editable = !!onPercentualeAgenziaChange;
-          const [totFocus, setTotFocus] = useState(false);
-          const [totDraft, setTotDraft] = useState("");
-          const [pctFocus, setPctFocus] = useState(false);
-          const [pctDraft, setPctDraft] = useState("");
 
           const totDisplay = totFocus ? totDraft : totProv.toFixed(2);
           const pctDisplay = pctFocus
