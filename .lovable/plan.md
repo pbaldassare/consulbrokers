@@ -1,18 +1,9 @@
-## Isolamento quietanze (rate) — implementato
+# Rimuovi filtro "Modalità Incasso" da E/C Agenzie
 
-### File modificati
-- `src/pages/TitoloDetail.tsx`
-  - Helper `assertSameTitolo(id, titoloId, ctx)` aggiunto: throw se discrepanza tra id route e titolo caricato.
-  - Chiamato in: `saveCommMutation`, `saveRegMutation`, `saveContrattoMutation`, `savePeriodoMutation`, `saveImportiMutation`.
-  - Sync **Firma → Quietanza** in `saveImportiMutation` ora disattivata se `isQuietanza(t)` (sulla rata i campi firma sono storico, non vanno propagati).
-  - Nuova query `["catena-titoli", numero_titolo]` carica tutti i record con stesso numero per costruire la catena.
-  - Banner "scope" sky sotto l'header quando catena > 1: testo dedicato per madre vs rata, con link "Vai alla polizza madre".
-  - Pannello collapsible "Quietanze di questa polizza": tabella di tutte le rate, evidenzia la corrente, click apre `/titoli/:id`.
+File: `src/pages/contabilita/ECCompagniaContabPage.tsx`
 
-- `mem://insurance/quietanza-isolation` — nuovo memo con regole di isolamento.
-- `mem://index.md` — riferimento aggiunto.
+- Rimuovo il `FilterSearchableSelect` "Tutte le modalità" (riga 395).
+- Rimuovo il campo `modalita_incasso` dall'interfaccia `Filters` e dal `defaultFilters`.
+- Rimuovo i filtri logici alle righe 200-202 e dal check `hasFilters` (riga 336).
 
-### Verifiche fatte
-- Tutte le mutation `titoli` usano `.eq("id", id!)` (audit completo via ripgrep).
-- `premi_garanzia_polizza` scoped per `titolo_id` + `tipo_premio`.
-- Nessun trigger DB propaga modifiche tra rate (verificato `pg_trigger`).
+Lascio invariata la colonna "Modalità Incasso" nella tabella di dettaglio espansa (riga 485) — è solo informativa e l'utente ha chiesto di togliere il filtro, non la colonna. Confermi o tolgo anche quella?
