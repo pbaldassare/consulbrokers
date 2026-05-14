@@ -1325,6 +1325,17 @@ const TitoloDetail = () => {
         )}
       </div>
 
+      {/* Banner di blocco: la polizza è chiusa lato cassa, le modifiche dirette sono inibite */}
+      {isLocked && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>
+            <strong>Polizza {t.stato === "stornato" ? "stornata" : "messa a cassa"}</strong> — modifiche dirette bloccate.
+            {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
+          </span>
+        </div>
+      )}
+
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
       {t.stato === "in_attesa_rinnovo" && (
         <Card className="border-orange-400 bg-orange-50/50">
