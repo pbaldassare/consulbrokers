@@ -568,13 +568,42 @@ const ECCompagniaContabPage = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>IBAN Agenzia</Label>
+              <Label>Conto Consulbrokers (mittente)</Label>
+              <select
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={pagaDialog.contoMittenteId || ""}
+                onChange={(e) => {
+                  const id = e.target.value || null;
+                  const c = contiMittente.find((x: any) => x.id === id);
+                  setPagaDialog((prev) => ({
+                    ...prev,
+                    contoMittenteId: id,
+                    ibanMittente: c?.iban || "",
+                  }));
+                }}
+              >
+                <option value="">— Seleziona conto —</option>
+                {contiMittente.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.etichetta}{c.is_default ? " ⭐" : ""} — {c.iban}
+                  </option>
+                ))}
+              </select>
+              {pagaDialog.ibanMittente && (
+                <p className="text-xs text-muted-foreground font-mono">IBAN: {pagaDialog.ibanMittente}</p>
+              )}
+              {contiMittente.length === 0 && (
+                <p className="text-xs text-amber-600">Nessun conto Consulbrokers (tipo "generico") configurato. Aggiungili in Anagrafiche → Conti bancari.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>IBAN Agenzia (destinazione)</Label>
               <Input
                 value={pagaDialog.iban}
                 onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
-                placeholder="Inserisci IBAN"
+                placeholder="IBAN di destinazione"
               />
-                {!pagaDialog.iban && (
+              {!pagaDialog.iban && (
                 <p className="text-xs text-amber-600">IBAN non trovato per questa compagnia. Inserirlo manualmente.</p>
               )}
             </div>
