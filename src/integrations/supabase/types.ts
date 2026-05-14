@@ -5514,7 +5514,9 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           data_creazione: string | null
+          data_messa_in_pagamento: string | null
           data_pagamento_rimessa: string | null
+          flusso_xml_id: string | null
           iban_utilizzato: string | null
           id: string
           importo_pagato: number | null
@@ -5536,7 +5538,9 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data_creazione?: string | null
+          data_messa_in_pagamento?: string | null
           data_pagamento_rimessa?: string | null
+          flusso_xml_id?: string | null
           iban_utilizzato?: string | null
           id?: string
           importo_pagato?: number | null
@@ -5558,7 +5562,9 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data_creazione?: string | null
+          data_messa_in_pagamento?: string | null
           data_pagamento_rimessa?: string | null
+          flusso_xml_id?: string | null
           iban_utilizzato?: string | null
           id?: string
           importo_pagato?: number | null
@@ -5592,6 +5598,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rimessa_premi_flusso_xml_id_fkey"
+            columns: ["flusso_xml_id"]
+            isOneToOne: false
+            referencedRelation: "documenti"
             referencedColumns: ["id"]
           },
           {

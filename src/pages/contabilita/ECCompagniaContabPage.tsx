@@ -18,7 +18,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
 import { DatePicker } from "@/components/contabilita/DatePicker";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildRimessaPdf, type RimessaPdfData } from "@/lib/rimessa-pdf";
@@ -81,6 +81,8 @@ const defaultFilters: Filters = {
 
 const ECCompagniaContabPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAgenzia = location.pathname.startsWith("/contabilita/ec-agenzia");
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const [filters, setFilters] = useState<Filters>({ ...defaultFilters });
@@ -375,6 +377,35 @@ const ECCompagniaContabPage = () => {
     onError: (e: any) => toast.error(e.message || "Errore nella creazione della rimessa"),
   });
 
+  const mettiInPagamentoMutation = useMutation({
+    mutationFn: async ({ compagniaId, titoliIds, note }: { compagniaId: string; titoliIds?: string[]; note: string }) => {
+      const { data, error } = await supabase.functions.invoke("gestione-rimessa", {
+        body: {
+          action: "metti_in_pagamento",
+          compagnia_id: compagniaId,
+          ufficio_id: profile?.ufficio_id || null,
+          created_by: user?.id || null,
+          data_da: filters.periodo_dal ? format(filters.periodo_dal, "yyyy-MM-dd") : undefined,
+          data_a: filters.periodo_al ? format(filters.periodo_al, "yyyy-MM-dd") : undefined,
+          titoli_ids: titoliIds || undefined,
+          note: note || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["ec-agenzia-contab"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-in-pagamento"] });
+      setSelectedTitoli((prev) => ({ ...prev, [variables.compagniaId]: new Set() }));
+      setPagaDialog((prev) => ({ ...prev, open: false }));
+      toast.success(`Rimessa preparata — ${data.titoli_count} titoli inclusi`);
+      navigate("/contabilita/ec-agenzia/in-pagamento");
+    },
+    onError: (e: any) => toast.error(e.message || "Errore"),
+  });
+
   const handleOpenPagaDialog = (compagniaId: string, daRimettere: number, titoli: TitoloDetail[]) => {
     const selected = selectedTitoli[compagniaId];
     const titoliIds = selected && selected.size > 0 ? Array.from(selected) : undefined;
@@ -398,6 +429,15 @@ const ECCompagniaContabPage = () => {
   };
 
   const handleConfermaPagamento = () => {
+    if (isAgenzia) {
+      // Flusso a 3 stadi: solo crea bozza in_pagamento
+      mettiInPagamentoMutation.mutate({
+        compagniaId: pagaDialog.compagniaId,
+        titoliIds: pagaDialog.titoliIds,
+        note: pagaDialog.note,
+      });
+      return;
+    }
     const importo = parseFloat(pagaDialog.importoPagato);
     if (isNaN(importo) || importo <= 0) { toast.error("Inserire un importo valido"); return; }
     if (importo > pagaDialog.importoTotale) { toast.error("L'importo pagato non può superare l'importo da rimettere"); return; }
@@ -540,11 +580,13 @@ const ECCompagniaContabPage = () => {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs gap-1"
-                            disabled={creaRimessaMutation.isPending}
+                            disabled={creaRimessaMutation.isPending || mettiInPagamentoMutation.isPending}
                             onClick={() => handleOpenPagaDialog(r.compagnia_id, daRimettere, r.titoli)}
                           >
-                            <CreditCard className="h-3 w-3" />
-                            {selectedCount > 0 ? `Paga (${selectedCount})` : "Paga Rimessa"}
+                            {isAgenzia ? <Send className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
+                            {isAgenzia
+                              ? (selectedCount > 0 ? `Metti in pagamento (${selectedCount})` : "Metti in pagamento")
+                              : (selectedCount > 0 ? `Paga (${selectedCount})` : "Paga Rimessa")}
                           </Button>
                         )}
                       </div>
@@ -631,12 +673,14 @@ const ECCompagniaContabPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <CreditCard className="h-5 w-5" />
+                {isAgenzia ? <Send className="h-5 w-5" /> : <CreditCard className="h-5 w-5" />}
               </span>
-              Conferma Rimessa & Genera PDF
+              {isAgenzia ? "Metti in pagamento" : "Conferma Rimessa & Genera PDF"}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Conferma il pagamento della rimessa e genera il PDF della distinta.
+              {isAgenzia
+                ? "Crea una bozza di rimessa che potrai gestire dalla pagina Agenzie in Pagamento."
+                : "Conferma il pagamento della rimessa e genera il PDF della distinta."}
             </DialogDescription>
           </DialogHeader>
 
@@ -650,7 +694,7 @@ const ECCompagniaContabPage = () => {
           </div>
 
           <div className="space-y-5 py-1">
-            {/* Sezione bonifico */}
+            {!isAgenzia && (
             <div className="rounded-lg border bg-card p-4 space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Coordinate bonifico
@@ -733,8 +777,9 @@ const ECCompagniaContabPage = () => {
                 );
               })()}
             </div>
-
-            {/* Sezione importi */}
+            )}
+            {!isAgenzia && (
+            <>
             {(() => {
               const importoNum = parseFloat(pagaDialog.importoPagato);
               const importoInvalid = pagaDialog.importoPagato.trim() === "" || isNaN(importoNum) || importoNum <= 0;
@@ -793,6 +838,8 @@ const ECCompagniaContabPage = () => {
                 </>
               );
             })()}
+            </>
+            )}
 
             <div className="space-y-2">
               <Label>Note (opzionale)</Label>
@@ -811,6 +858,18 @@ const ECCompagniaContabPage = () => {
               Annulla
             </Button>
             {(() => {
+              if (isAgenzia) {
+                const isPending = mettiInPagamentoMutation.isPending;
+                return (
+                  <Button onClick={handleConfermaPagamento} disabled={isPending || pagaDialog.titoliCount === 0}>
+                    {isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Preparazione...</>
+                    ) : (
+                      <><Send className="h-4 w-4 mr-2" /> Metti in pagamento</>
+                    )}
+                  </Button>
+                );
+              }
               const importoNum = parseFloat(pagaDialog.importoPagato);
               const importoOk = !isNaN(importoNum) && importoNum > 0 && importoNum <= pagaDialog.importoTotale;
               const ibanOk = validateIban(pagaDialog.iban).valid;
