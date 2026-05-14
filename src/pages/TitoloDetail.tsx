@@ -241,6 +241,21 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // Catena polizza: madre + tutte le quietanze sorelle (per banner + pannello "Quietanze")
+  const numeroTitolo = (titolo as any)?.numero_titolo || null;
+  const { data: catenaTitoli = [] } = useQuery({
+    queryKey: ["catena-titoli", numeroTitolo],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at")
+        .eq("numero_titolo", numeroTitolo!)
+        .order("garanzia_da", { ascending: true, nullsFirst: true });
+      return (data as any[]) || [];
+    },
+    enabled: !!numeroTitolo,
+  });
+
   // --- Cassa dialog state ---
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
