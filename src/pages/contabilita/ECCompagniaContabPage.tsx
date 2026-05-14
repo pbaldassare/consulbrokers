@@ -673,12 +673,14 @@ const ECCompagniaContabPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <CreditCard className="h-5 w-5" />
+                {isAgenzia ? <Send className="h-5 w-5" /> : <CreditCard className="h-5 w-5" />}
               </span>
-              Conferma Rimessa & Genera PDF
+              {isAgenzia ? "Metti in pagamento" : "Conferma Rimessa & Genera PDF"}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Conferma il pagamento della rimessa e genera il PDF della distinta.
+              {isAgenzia
+                ? "Crea una bozza di rimessa che potrai gestire dalla pagina Agenzie in Pagamento."
+                : "Conferma il pagamento della rimessa e genera il PDF della distinta."}
             </DialogDescription>
           </DialogHeader>
 
