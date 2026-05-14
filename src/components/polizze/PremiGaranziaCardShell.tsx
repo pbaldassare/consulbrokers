@@ -259,7 +259,7 @@ export function PremiGaranziaCardShell({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="text-xs text-muted-foreground font-mono">{aliquotaCalc.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{aliquotaFissa.toFixed(2)}</span>
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
