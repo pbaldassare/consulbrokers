@@ -182,8 +182,6 @@ const sidebarEntries: SidebarEntry[] = [
         { label: "Storico Rimesse", path: "/contabilita/storico-rimesse", icon: Send },
         { label: "E/C Produttori", path: "/contabilita/ec-produttori", icon: Percent },
         { label: "Storico E/C Produttori", path: "/contabilita/ec-produttore/storico", icon: Archive },
-        { label: "Stampa Primanota", path: "/contabilita/stampa-primanota", icon: Printer },
-        { label: "Check Primanota", path: "/contabilita/check-primanota", icon: ListChecks, hideForRoles: ["ufficio"] },
         { label: "Stampa Sospesi", path: "/contabilita/stampa-sospesi", icon: FileOutput },
       ],
     },
