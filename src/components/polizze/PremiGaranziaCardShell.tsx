@@ -10,7 +10,7 @@ import { Car, ShieldCheck, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { supabase } from "@/integrations/supabase/client";
-import { isRcaPrincipaleCodice, SSN_PCT, IPT_RCA_PCT } from "@/lib/rcaPrincipaleCodes";
+import { isRcaPrincipaleCodice, SSN_PCT } from "@/lib/rcaPrincipaleCodes";
 
 export interface GaranziaRow {
   /** Codice del sottoramo (rami.codice) o codice garanzia legacy */
