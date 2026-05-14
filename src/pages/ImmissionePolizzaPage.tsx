@@ -1401,64 +1401,82 @@ const ImmissionePolizzaPage = () => {
 
         {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
         <div className="space-y-4">
-          <PremiGaranziaCardShell
-            tipoPremio="firma"
-            gruppoRamoId={selectedGruppoRamoId}
-            rows={premiFirmaRows}
-            onRowsChange={setPremiFirmaRows}
-            addizionali={addizionali}
-            onAddizionaliChange={setAddizionali}
-            provvigioni={provvFirma}
-            headerExtra={
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
-                  setAddizionaliQuietanza(addizionali);
-                  toast.success("Firma salvata e copiata in Quietanza");
-                }}
-              >
-                Salva e copia in Quietanza
-              </Button>
-            }
-          />
-          <PremiGaranziaCardShell
-            tipoPremio="quietanza"
-            gruppoRamoId={selectedGruppoRamoId}
-            rows={premiQuietanzaRows}
-            onRowsChange={setPremiQuietanzaRows}
-            addizionali={addizionaliQuietanza}
-            onAddizionaliChange={setAddizionaliQuietanza}
-            provvigioni={provvQuietanza}
-            headerExtra={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
-                  setAddizionaliQuietanza(addizionali);
-                }}
-              >
-                Sincronizza da Firma
-              </Button>
-            }
-            sincronizzata={
-              premiQuietanzaRows.length === premiFirmaRows.length &&
-              premiQuietanzaRows.every((r, i) =>
-                r.netto === premiFirmaRows[i]?.netto &&
-                r.tasse === premiFirmaRows[i]?.tasse &&
-                (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
-                r.descrizione === premiFirmaRows[i]?.descrizione,
-              ) &&
-              addizionaliQuietanza === addizionali
-            }
-          />
-
+          {(() => {
+            const isSede = selectedCommerciale === "__sede__";
+            const prod = (commercialiList || []).find((c: any) => c.id === selectedCommerciale);
+            const produttoreLabel = isSede ? null : (prod ? `${prod.cognome} ${prod.nome}` : null);
+            const commonProvvProps = {
+              percentualeAgenzia: percentualeProvvigione,
+              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeCommercialeAuto(false); },
+              percentualeAgenziaAuto: percentualeCommercialeAuto,
+              produttoreLabel,
+              percentualeCommerciale,
+              produttoreIsSede: isSede,
+            };
+            return (
+              <>
+                <PremiGaranziaCardShell
+                  tipoPremio="firma"
+                  gruppoRamoId={selectedGruppoRamoId}
+                  rows={premiFirmaRows}
+                  onRowsChange={setPremiFirmaRows}
+                  addizionali={addizionali}
+                  onAddizionaliChange={setAddizionali}
+                  provvigioni={provvFirma}
+                  {...commonProvvProps}
+                  headerExtra={
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                        setAddizionaliQuietanza(addizionali);
+                        toast.success("Firma salvata e copiata in Quietanza");
+                      }}
+                    >
+                      Salva e copia in Quietanza
+                    </Button>
+                  }
+                />
+                <PremiGaranziaCardShell
+                  tipoPremio="quietanza"
+                  gruppoRamoId={selectedGruppoRamoId}
+                  rows={premiQuietanzaRows}
+                  onRowsChange={setPremiQuietanzaRows}
+                  addizionali={addizionaliQuietanza}
+                  onAddizionaliChange={setAddizionaliQuietanza}
+                  provvigioni={provvQuietanza}
+                  {...commonProvvProps}
+                  headerExtra={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setPremiQuietanzaRows(premiFirmaRows.map((r) => ({ ...r })));
+                        setAddizionaliQuietanza(addizionali);
+                      }}
+                    >
+                      Sincronizza da Firma
+                    </Button>
+                  }
+                  sincronizzata={
+                    premiQuietanzaRows.length === premiFirmaRows.length &&
+                    premiQuietanzaRows.every((r, i) =>
+                      r.netto === premiFirmaRows[i]?.netto &&
+                      r.tasse === premiFirmaRows[i]?.tasse &&
+                      (r.codice || "") === (premiFirmaRows[i]?.codice || "") &&
+                      r.descrizione === premiFirmaRows[i]?.descrizione,
+                    ) &&
+                    addizionaliQuietanza === addizionali
+                  }
+                />
+              </>
+            );
+          })()}
         </div>
 
         {/* Flags row */}
@@ -1492,93 +1510,48 @@ const ImmissionePolizzaPage = () => {
         </p>
       </PolizzaSection>
 
-      {/* PROVVIGIONI */}
-      <PolizzaSection title="Provvigioni" icon={Percent}>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
+      {/* PROVVIGIONI — solo selezione Commerciale (% Agenzia, totale e ripartizione sono nelle card Firma/Quietanza) */}
+      <PolizzaSection title="Provvigioni — Commerciale" icon={Percent}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <div className="space-y-1.5 col-span-2">
+            <Label className="text-xs">Commerciale</Label>
+            <SearchableSelect
+              className="h-8 text-xs"
+              value={selectedCommerciale}
+              onValueChange={(v) => {
+                setSelectedCommerciale(v);
+                if (v === "__sede__") setPercentualeCommerciale("100");
+              }}
+              placeholder="— Seleziona —"
+              options={[
+                { value: "__sede__", label: "🏢 Sede (100%)" },
+                ...(commercialiList || []).map((c) => ({
+                  value: c.id,
+                  label: `${c.cognome} ${c.nome} (${c.ruolo})`,
+                })),
+              ]}
+            />
+          </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">% Provvigione Agenzia</Label>
+            <Label className="text-xs flex items-center gap-1.5">
+              % Commerciale
+              {percentualeCommercialeAuto && (
+                <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
+              )}
+            </Label>
             <Input
-              type="number" step="0.01" min="0" max="100"
-              value={percentualeProvvigione}
-              onChange={(e) => setPercentualeProvvigione(e.target.value)}
-              placeholder={selectedCompagnia ? "Inserisci %" : "Seleziona agenzia"}
-              disabled={!selectedCompagnia}
+              type="number" step="1" min="0" max="100"
+              value={percentualeCommerciale}
+              onChange={(e) => { setPercentualeCommerciale(e.target.value); setPercentualeCommercialeAuto(false); }}
+              disabled={selectedCommerciale === "__sede__"}
               className="h-8 text-xs font-mono"
             />
           </div>
-          <div className="flex items-center gap-2 pb-1">
-            {!selectedCompagnia && (
-              <span className="text-[10px] text-muted-foreground">Seleziona una agenzia</span>
-            )}
-          </div>
-          {premioNetto && percentualeProvvigione && (
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Importo Provv. Agenzia</Label>
-              <p className="text-sm font-mono font-semibold text-foreground">
-                € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione)) / 100).toFixed(2)}
-              </p>
-            </div>
-          )}
         </div>
-
-        {/* Commerciale */}
-        <div className="border-t border-border pt-4 mt-2">
-          <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Ripartizione Commerciale</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-            <div className="space-y-1.5 col-span-2">
-              <Label className="text-xs">Commerciale</Label>
-              <SearchableSelect
-                className="h-8 text-xs"
-                value={selectedCommerciale}
-                onValueChange={(v) => {
-                  setSelectedCommerciale(v);
-                  if (v === "__sede__") setPercentualeCommerciale("100");
-                }}
-                placeholder="— Seleziona —"
-                options={[
-                  { value: "__sede__", label: "🏢 Sede (100%)" },
-                  ...(commercialiList || []).map((c) => ({
-                    value: c.id,
-                    label: `${c.cognome} ${c.nome} (${c.ruolo})`,
-                  })),
-                ]}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs flex items-center gap-1.5">
-                % Commerciale
-                {percentualeCommercialeAuto && (
-                  <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
-                )}
-              </Label>
-              <Input
-                type="number" step="1" min="0" max="100"
-                value={percentualeCommerciale}
-                onChange={(e) => { setPercentualeCommerciale(e.target.value); setPercentualeCommercialeAuto(false); }}
-                disabled={selectedCommerciale === "__sede__"}
-                className="h-8 text-xs font-mono"
-              />
-            </div>
-            {premioNetto && percentualeProvvigione && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Split</Label>
-                <div className="text-[11px] font-mono space-y-0.5">
-                  <p className="text-foreground">
-                    Produttore: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * parseFloat(percentualeCommerciale || "0") / 100).toFixed(2)}
-                  </p>
-                  <p className="text-primary font-semibold">
-                    Consulbrokers SPA: € {((parseFloat(premioNetto) * parseFloat(percentualeProvvigione) / 100) * (100 - parseFloat(percentualeCommerciale || "0")) / 100).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          {percentualeCommercialeAuto && (
-            <p className="text-[10px] text-muted-foreground italic mt-2">
-              ℹ️ % auto-popolata da <b>Provvigioni per Ramo</b> del produttore. Modifica il valore per override.
-            </p>
-          )}
-        </div>
+        <p className="text-[10px] text-muted-foreground italic mt-2">
+          ℹ️ % e importo provvigione sono modificabili direttamente nelle card <b>Firma</b> e <b>Quietanza</b>.
+          {percentualeCommercialeAuto && <> La % Commerciale è auto-popolata da <b>Provvigioni per Ramo</b> del produttore.</>}
+        </p>
       </PolizzaSection>
 
 
