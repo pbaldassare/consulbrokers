@@ -2,7 +2,7 @@ import { Route } from "react-router-dom";
 import PlaceholderPage from "@/components/PlaceholderPage";
 import ContabilitaUfficio from "@/pages/ContabilitaUfficio";
 import CruscottoGiornaliero from "@/pages/contabilita/CruscottoGiornaliero";
-import DistintaGiornaliera from "@/pages/contabilita/DistintaGiornaliera";
+
 
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
@@ -25,7 +25,7 @@ export const contabilitaRoutes = (
     {/* CONTABILITÀ UFFICIO */}
     <Route path="/contabilita" element={<ContabilitaUfficio />} />
     <Route path="/contabilita/cruscotto" element={<CruscottoGiornaliero />} />
-    <Route path="/contabilita/distinta-giornaliera" element={<DistintaGiornaliera />} />
+    
     <Route path="/contabilita/ec-clienti" element={<ECClientiContabPage />} />
     <Route path="/contabilita/ec-compagnia" element={<ECCompagniaContabPage />} />
     <Route path="/contabilita/ec-agenzia" element={<ECCompagniaContabPage />} />

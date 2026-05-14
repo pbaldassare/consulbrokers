@@ -233,7 +233,7 @@ const sezioni = [
     pagine: [
       { nome: "Contabilità Ufficio", desc: "Pannello principale contabilità della sede con riepilogo movimenti", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "Cruscotto Giornaliero", desc: "Situazione contabile del giorno con incassi e sospesi", ruoli: ["admin", "ufficio", "contabilita"] },
-      { nome: "Distinta Giornaliera", desc: "Distinta di cassa giornaliera con dettaglio operazioni e chiusura", ruoli: ["admin", "ufficio", "contabilita"] },
+      
       { nome: "Quadratura Premi", desc: "Verifica corrispondenza tra premi incassati e premi dovuti", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "Chiusura Contabile", desc: "Chiusura periodo contabile con generazione report", ruoli: ["admin", "ufficio", "contabilita"] },
       { nome: "E/C Clienti", desc: "Estratto conto per singolo cliente con saldo e movimenti", ruoli: ["admin", "ufficio", "contabilita"] },
