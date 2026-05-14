@@ -1324,7 +1324,16 @@ const TitoloDetail = () => {
       <div className="flex items-start gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/carico")}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
+            {t.sostituisce_polizza ? (
+              <Badge variant="secondary" title={`Sostituisce ${t.sostituisce_polizza}`}>
+                Quietanza{t.garanzia_da ? ` · dal ${t.garanzia_da}${t.garanzia_a ? ` al ${t.garanzia_a}` : ""}` : ""}
+              </Badge>
+            ) : (
+              <Badge variant="outline">Polizza originale</Badge>
+            )}
+          </div>
           <p className="text-muted-foreground text-sm">{(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             <div className="flex items-center gap-1.5">
