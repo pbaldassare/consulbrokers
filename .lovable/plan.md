@@ -1,41 +1,41 @@
-# Selezione Rapporto Agenzia in fase di emissione titolo
 
 ## Obiettivo
-Quando l'**Agenzia di Riferimento** scelta in immissione titolo ha **più di un rapporto attivo** in `compagnia_rapporti`, l'utente deve poter scegliere quale rapporto stiamo usando per quella polizza. Il **codice rapporto** deve essere salvato sul titolo e mostrato nell'anagrafica della polizza.
 
-## Verifica DB
-- `compagnia_rapporti` esiste già con: `id`, `compagnia_id`, `gruppo_compagnia_id`, `codice_rapporto`, `tipo_rapporto`, `attivo`, `rami_abilitati`, ecc. (memoria: "Rapporti agenzia-compagnia N:N").
-- `titoli` oggi ha solo `compagnia_id` → manca il riferimento al rapporto specifico.
-- Esempio reale: la compagnia `90a1b14…` ha 2 rapporti attivi → caso reale di ambiguità.
+Nelle card "Premi per Garanzia — Firma/Quietanza" l'utente deve poter digitare indifferentemente **Premio Netto** o **Premio Lordo** su ciascuna riga garanzia. L'altro valore viene ricalcolato automaticamente tramite l'aliquota di tassa del sottoramo, e le Tasse sono il delta. I totali in basso (Totale Netto, Totale Tasse, Premio Lordo) restano la somma delle righe e si aggiornano in tempo reale.
 
-## Migrazione DB
-Aggiungere a `titoli`:
-- `compagnia_rapporto_id uuid NULL REFERENCES compagnia_rapporti(id) ON DELETE SET NULL`
-- `codice_rapporto text NULL` (denormalizzato per visualizzazione veloce in liste/PDF)
-- Index su `compagnia_rapporto_id`.
+## Comportamento per riga
 
-Nessun backfill: i titoli esistenti restano `NULL` (legacy, in TitoloDetail si potrà comunque editare a posteriori).
+Ogni riga ha tre input numerici indipendentemente editabili: **Netto**, **Tasse**, **Lordo**. La regola di propagazione è:
 
-## ImmissionePolizzaPage
-1. Caricare `compagnia_rapporti` per `selectedCompagnia` (filtro `attivo=true`) con React Query.
-2. Logica:
-   - **0 rapporti** → nessun campo extra; salva `compagnia_rapporto_id=NULL`, `codice_rapporto=NULL`.
-   - **1 rapporto** → auto-selezionato in silenzio; salva id + `codice_rapporto` (mostra solo una riga read-only "Rapporto: COD - tipo").
-   - **≥ 2 rapporti** → mostra subito sotto "Agenzia di Riferimento" un nuovo `SearchableSelect` **"Rapporto Agenzia *"** (obbligatorio, bordo amber se vuoto) con opzioni `${codice_rapporto} - ${tipo_rapporto}`.
-3. Il salvataggio del titolo include `compagnia_rapporto_id` e `codice_rapporto`. Validazione blocca il salvataggio se l'agenzia ha ≥2 rapporti e l'utente non ha scelto.
-4. Quando si cambia agenzia → reset di `compagnia_rapporto_id`/`codice_rapporto`.
+- **Modifico Netto** → Tasse = `Netto × aliquota%`, Lordo = `Netto + Tasse`.
+- **Modifico Lordo** → Netto = `Lordo / (1 + aliquota%/100)`, Tasse = `Lordo − Netto`.
+- **Modifico Tasse** (override manuale, oggi non ricalcola) → Lordo = `Netto + Tasse`; aliquota mostrata diventa quella effettiva.
+- Se il sottoramo non ha aliquota (= 0) e l'utente edita Lordo: Netto = Lordo, Tasse = 0.
 
-## TitoloDetail (anagrafica polizza)
-- Read-only: aggiungere `FieldRow label="Codice Rapporto" value={t.codice_rapporto || "—"}` accanto a "Agenzia / Agenzia di rif.".
-- Edit Contratto: aggiungere `SearchableSelect` "Rapporto Agenzia" che si popola in base a `contrattoForm.compagnia_id` e segue le stesse regole (0/1/≥2). Salva `compagnia_rapporto_id` + `codice_rapporto` nel `update`.
+Arrotondamento sempre a 2 decimali. Se il campo viene svuotato (`""`), gli altri tornano vuoti senza forzare 0.
 
-## "Valida per tutti i soggetti"
-Le altre pagine di lifecycle (Rinnovo, Duplicazione, Riattivazione, Sospensione, Storno, Appendici) creano nuovi titoli ereditando dal titolo origine: copieranno automaticamente `compagnia_rapporto_id` e `codice_rapporto` quando copiano `compagnia_id`. L'utente può comunque modificarli da TitoloDetail. Nessuna UI extra in queste pagine in questa iterazione (richiederebbero la stessa selezione condizionale; se serve si può aggiungere in un secondo giro).
+## Totali in basso
 
-## Memoria
-Aggiornare `mem://insurance/compagnia-rapporti-multipli` con la nuova relazione `titoli.compagnia_rapporto_id` e regola UX (0/1/≥2 rapporti).
+Restano calcolati come somma delle righe (read‑only), perché la richiesta è "ogni riga ha il suo lordo/netto, poi il totale viene automatico". Le Addizionali rimangono l'unico input modificabile del riepilogo e concorrono al Premio Lordo totale.
 
-## Out of scope
-- Backfill dei titoli esistenti.
-- Cambi UX nelle pagine di lifecycle (solo eredità campo).
-- Validazione cross con `rami_abilitati` del rapporto (può essere step successivo).
+## File toccati
+
+```text
+src/components/polizze/PremiGaranziaCardShell.tsx
+```
+
+Unico componente da modificare — è già usato sia in Firma sia in Quietanza, sia nella pagina Immissione che (via `Sincronizza da Firma`) nella Quietanza, quindi la modifica si propaga ovunque senza altri interventi.
+
+### Dettagli tecnici
+
+1. Estendere `handleNettoChange` perché aggiorni anche un eventuale recalc se l'aliquota è 0.
+2. `handleLordoChange` esiste già: agganciarlo all'input Lordo della riga (verifica che funzioni con valori vuoti / `NaN`).
+3. Sostituire l'input Tasse `onChange` semplice con un handler `handleTasseChange(idx, value)` che lascia Netto invariato e ricalcola solo Lordo (via somma); l'aliquota visualizzata diverrà quella effettiva (`tax/netto*100`), già implementata nella riga `aliquotaCalc`.
+4. Mantenere il valore visualizzato dei tre input come stringa libera (no `toFixed` distruttivo durante la digitazione): solo l'`onBlur` normalizza a 2 decimali.
+5. Non sono richieste modifiche al DB né al payload di `ImmissionePolizzaPage.tsx`: il totale `premio_lordo` salvato è già la somma delle righe.
+
+## Fuori scopo
+
+- Editing dei totali aggregati (Totale Netto / Premio Lordo) — confermato che restano calcolati.
+- Modifiche al modello dati o alle migration.
+- Card RCA `VociRcaCard` — ha già la sua logica dedicata e non è stata segnalata.
