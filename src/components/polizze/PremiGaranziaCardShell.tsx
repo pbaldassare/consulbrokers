@@ -55,6 +55,10 @@ export interface PremiGaranziaCardShellProps {
   percentualeCommerciale?: string;
   /** True se il commerciale è la Sede (split nascosto) */
   produttoreIsSede?: boolean;
+  /** Etichetta del ramo (es. "RC Generale") da mostrare nella ripartizione */
+  ramoLabel?: string | null;
+  /** True se la % Commerciale è stata letta dal DB (produttori_provvigioni_ramo / percentuale_base) */
+  percentualeCommercialeAuto?: boolean;
 }
 
 export function PremiGaranziaCardShell({
