@@ -2120,7 +2120,7 @@ const TitoloDetail = () => {
             <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
             <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
             <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
-            <FieldRow label="Rate" value={fmt(t.rate)} />
+            <FieldRow label="Frazionamento" value={(t as any).frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata)} />
             <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
             <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
             <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
