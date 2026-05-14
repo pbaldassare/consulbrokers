@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText } from "lucide-react";
+import { Download, Building2, TrendingUp, Percent, Scale, Filter, RotateCcw, Send, ChevronRight, ChevronDown, CreditCard, FileText, AlertCircle, Loader2, Landmark, Euro } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { FilterSearchableSelect } from "@/components/contabilita/FilterSearchableSelect";
@@ -619,90 +621,152 @@ const ECCompagniaContabPage = () => {
 
       {/* Dialog Conferma & Paga Rimessa (unico step) */}
       <Dialog open={pagaDialog.open} onOpenChange={(open) => setPagaDialog((prev) => ({ ...prev, open }))}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CreditCard className="h-5 w-5" />
+              </span>
               Conferma Rimessa & Genera PDF
             </DialogTitle>
-            <DialogDescription>
-              {pagaDialog.compagniaNome} — {pagaDialog.titoliCount} titoli per {fmt(pagaDialog.importoTotale)}
+            <DialogDescription className="sr-only">
+              Conferma il pagamento della rimessa e genera il PDF della distinta.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Conto Consulbrokers (mittente)</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={pagaDialog.contoMittenteId || ""}
-                onChange={(e) => {
-                  const id = e.target.value || null;
-                  const c = contiMittente.find((x: any) => x.id === id);
-                  setPagaDialog((prev) => ({
-                    ...prev,
-                    contoMittenteId: id,
-                    ibanMittente: c?.iban || "",
-                  }));
-                }}
-              >
-                <option value="">— Seleziona conto —</option>
-                {contiMittente.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.etichetta}{c.is_default ? " ⭐" : ""} — {c.iban}
-                  </option>
-                ))}
-              </select>
-              {pagaDialog.ibanMittente && (
-                <p className="text-xs text-muted-foreground font-mono">IBAN: {pagaDialog.ibanMittente}</p>
-              )}
-              {contiMittente.length === 0 && (
-                <p className="text-xs text-amber-600">Nessun conto Consulbrokers (tipo "generico") configurato. Aggiungili in Anagrafiche → Conti bancari.</p>
-              )}
+
+          {/* Riepilogo compagnia */}
+          <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold truncate">{pagaDialog.compagniaNome}</span>
+              <Badge variant="secondary" className="shrink-0">{pagaDialog.titoliCount} titoli</Badge>
             </div>
-            <div className="space-y-2">
-              <Label>IBAN Agenzia (destinazione)</Label>
-              <Input
-                value={pagaDialog.iban}
-                onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
-                placeholder="IBAN di destinazione"
-              />
-              {!pagaDialog.iban && (
-                <p className="text-xs text-amber-600">IBAN non trovato per questa compagnia. Inserirlo manualmente.</p>
-              )}
+            <span className="font-semibold text-primary shrink-0">{fmt(pagaDialog.importoTotale)}</span>
+          </div>
+
+          <div className="space-y-5 py-1">
+            {/* Sezione bonifico */}
+            <div className="rounded-lg border bg-card p-4 space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Coordinate bonifico
+              </h3>
+
+              <div className="space-y-2">
+                <Label>Conto Consulbrokers (mittente)</Label>
+                <SearchableSelect
+                  options={contiMittente.map((c: any) => ({
+                    value: c.id,
+                    label: `${c.etichetta}${c.is_default ? " ⭐" : ""}`,
+                    description: c.iban,
+                    searchText: c.iban,
+                  }))}
+                  value={pagaDialog.contoMittenteId || ""}
+                  onValueChange={(id) => {
+                    const c = contiMittente.find((x: any) => x.id === id);
+                    setPagaDialog((prev) => ({
+                      ...prev,
+                      contoMittenteId: id || null,
+                      ibanMittente: c?.iban || "",
+                    }));
+                  }}
+                  placeholder="— Seleziona conto —"
+                  searchPlaceholder="Cerca conto o IBAN..."
+                />
+                {pagaDialog.ibanMittente && (
+                  <p className="text-xs font-mono text-muted-foreground pl-1">
+                    <span className="opacity-70">IBAN:</span> {pagaDialog.ibanMittente}
+                  </p>
+                )}
+                {contiMittente.length === 0 && (
+                  <Alert variant="default" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Nessun conto Consulbrokers (tipo "generico") configurato. Aggiungili in Anagrafiche → Conti bancari.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>IBAN Agenzia (destinazione)</Label>
+                <div className="relative">
+                  <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={pagaDialog.iban}
+                    onChange={(e) => setPagaDialog((prev) => ({ ...prev, iban: e.target.value }))}
+                    placeholder="IBAN di destinazione"
+                    className="pl-9 font-mono"
+                  />
+                </div>
+                {!pagaDialog.iban && (
+                  <Alert variant="default" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      IBAN non trovato per questa compagnia. Inserirlo manualmente.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Importo da Rimettere</Label>
-              <p className="text-sm text-muted-foreground">{fmt(pagaDialog.importoTotale)}</p>
+
+            {/* Sezione importi */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Da rimettere
+                </Label>
+                <p className="text-xl font-bold text-primary leading-tight">
+                  {fmt(pagaDialog.importoTotale)}
+                </p>
+              </div>
+              <div className="rounded-lg border bg-card p-3 space-y-1">
+                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Da pagare
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={pagaDialog.importoTotale}
+                    value={pagaDialog.importoPagato}
+                    onChange={(e) => setPagaDialog((prev) => ({ ...prev, importoPagato: e.target.value }))}
+                    className="h-8 pr-7 text-base font-semibold"
+                  />
+                  <Euro className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Importo da Pagare</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={pagaDialog.importoTotale}
-                value={pagaDialog.importoPagato}
-                onChange={(e) => setPagaDialog((prev) => ({ ...prev, importoPagato: e.target.value }))}
-              />
-              {parseFloat(pagaDialog.importoPagato) < pagaDialog.importoTotale && parseFloat(pagaDialog.importoPagato) > 0 && (
-                <p className="text-xs text-amber-600">Pagamento parziale — rimarranno {fmt(pagaDialog.importoTotale - parseFloat(pagaDialog.importoPagato))} da pagare</p>
-              )}
-            </div>
+            {parseFloat(pagaDialog.importoPagato) < pagaDialog.importoTotale && parseFloat(pagaDialog.importoPagato) > 0 && (
+              <Alert variant="default" className="py-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  Pagamento parziale — rimarranno <span className="font-semibold">{fmt(pagaDialog.importoTotale - parseFloat(pagaDialog.importoPagato))}</span> da pagare.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label>Note (opzionale)</Label>
               <Textarea
                 value={pagaDialog.note}
                 onChange={(e) => setPagaDialog((prev) => ({ ...prev, note: e.target.value }))}
-                placeholder="Note sul pagamento..."
-                rows={2}
+                placeholder="Es. Bonifico mensile periodo..."
+                rows={3}
+                className="resize-none"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPagaDialog((prev) => ({ ...prev, open: false }))}>Annulla</Button>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPagaDialog((prev) => ({ ...prev, open: false }))}>
+              Annulla
+            </Button>
             <Button onClick={handleConfermaPagamento} disabled={creaRimessaMutation.isPending}>
-              <FileText className="h-4 w-4 mr-2" />
-              {creaRimessaMutation.isPending ? "Generazione..." : "Conferma e Genera PDF"}
+              {creaRimessaMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generazione...</>
+              ) : (
+                <><FileText className="h-4 w-4 mr-2" /> Conferma e Genera PDF</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
