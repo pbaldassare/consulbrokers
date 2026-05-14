@@ -7,6 +7,7 @@ import CruscottoGiornaliero from "@/pages/contabilita/CruscottoGiornaliero";
 import ECClientiContabPage from "@/pages/contabilita/ECClientiContabPage";
 import ECCompagniaContabPage from "@/pages/contabilita/ECCompagniaContabPage";
 import ECAgenziaPdfPage from "@/pages/contabilita/ECAgenziaPdfPage";
+import AgenzieInPagamentoPage from "@/pages/contabilita/AgenzieInPagamentoPage";
 import ECClientePdfPage from "@/pages/contabilita/ECClientePdfPage";
 import ECAgenzieStoricoPage from "@/pages/contabilita/ECAgenzieStoricoPage";
 import ECClientiStoricoPage from "@/pages/contabilita/ECClientiStoricoPage";
