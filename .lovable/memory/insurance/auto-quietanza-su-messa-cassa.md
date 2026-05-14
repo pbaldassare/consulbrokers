@@ -18,3 +18,5 @@ Trigger `trg_genera_quietanza_su_messa_cassa` (AFTER UPDATE OF stato ON titoli, 
 - `sostituisce_polizza/sostituisce_riga` = origine.
 
 La nuova quietanza compare automaticamente nel **Carico del Mese** del periodo target (es. annuale 14/05/2026 → quietanza 14/05/2027 in Carico 05/2027).
+
+⚠️ Convenzione: `data_scadenza` della nuova quietanza = **decorrenza** (`garanzia_da`/`durata_da`), NON `garanzia_a`. Il "Carico del Mese" filtra per `data_scadenza` = mese in cui la rata va incassata, quindi deve coincidere col mese di rinnovo.
