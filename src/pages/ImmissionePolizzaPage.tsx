@@ -1402,9 +1402,16 @@ const ImmissionePolizzaPage = () => {
         {/* Card stile TitoloDetail: Premi per Garanzia — Firma + Quietanza */}
         <div className="space-y-4">
           {(() => {
-            const isSede = selectedCommerciale === "__sede__";
-            const prod = (commercialiList || []).find((c: any) => c.id === selectedCommerciale);
-            const produttoreLabel = isSede ? null : (prod ? `${prod.cognome} ${prod.nome}` : null);
+            // Sorgente preferita: il Produttore selezionato (selectedAE) — già usato per il lookup % Provvigione Ramo.
+            // Fallback: selettore Commerciale (legacy). Solo se nessuno dei due è valorizzato → Sede 100%.
+            const ae = (aeList || []).find((a: any) => a.id === selectedAE);
+            const aeLabel = ae
+              ? (ae.ragione_sociale?.trim() || `${ae.cognome || ""} ${ae.nome || ""}`.trim())
+              : null;
+            const commLegacy = (commercialiList || []).find((c: any) => c.id === selectedCommerciale);
+            const commLabel = commLegacy ? `${commLegacy.cognome} ${commLegacy.nome}` : null;
+            const produttoreLabel = aeLabel || commLabel;
+            const isSede = !produttoreLabel;
             const commonProvvProps = {
               percentualeAgenzia: percentualeProvvigione,
               onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeCommercialeAuto(false); },
