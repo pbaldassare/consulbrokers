@@ -1280,6 +1280,11 @@ const TitoloDetail = () => {
   // Mostra "Messa a Cassa" solo se mai incassata, oppure se poliennale attiva (rate residue)
   const showMessaACassa = !t.data_messa_cassa || (isPoliennale && t.stato === "attivo");
 
+  // Lock generale: una polizza messa a cassa o stornata non è più una "bozza"
+  // di creazione e non si può modificare inline. Operazioni dedicate
+  // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
+  const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
+
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
