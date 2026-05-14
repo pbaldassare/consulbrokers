@@ -2593,138 +2593,48 @@ const TitoloDetail = () => {
         </div>
 
         {!editingImporti ? (
-          <>
-            {/* Riepilogo provvigioni split — i premi/tasse sono mostrati nelle card "Composizione" sotto. */}
+          <div className="space-y-4">
+            {/* Riepilogo totali Firma / Quietanza calcolati dalle righe garanzia (read-only) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Provvigioni alla firma</h4>
-                <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
-                {renderSplitImporti("Split", sFirma, "teal")}
+              <div className="rounded-md border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 p-3">
+                <h4 className="text-xs font-bold uppercase mb-2 text-teal-800 dark:text-teal-200">Premio alla Firma</h4>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro(t.premio_netto)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro(t.tasse)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro(t.premio_lordo)}</div></div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-teal-200 dark:border-teal-900">
+                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                  {renderSplitImporti("Split", sFirma, "teal")}
+                </div>
               </div>
-              <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Provvigioni quietanza</h4>
-                <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
-                {renderSplitImporti("Split", sQui, "amber")}
+              <div className="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                <h4 className="text-xs font-bold uppercase mb-2 text-amber-800 dark:text-amber-200">Premio alla Quietanza</h4>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro((t as any).premio_netto_quietanza)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro((t as any).tasse_quietanza)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro((Number((t as any).premio_netto_quietanza) || 0) + (Number((t as any).tasse_quietanza) || 0))}</div></div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900">
+                  <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                  {renderSplitImporti("Split", sQui, "amber")}
+                </div>
               </div>
             </div>
-          </>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
+              <span>Valuta: <strong className="text-foreground">{t.valuta || "EUR"}</strong></span>
+              <span>Indicizzata: <strong className="text-foreground">{t.indicizzata ? "Sì" : "No"}</strong></span>
+              <span>Rimborso: <strong className="text-foreground">{t.rimborso ? "Sì" : "No"}</strong></span>
+              <span>Pag. Diretto Comp.: <strong className="text-foreground">{t.pag_diretto_compagnia ? "Sì" : "No"}</strong></span>
+              <span>Formato Elettronico: <strong className="text-foreground">{t.formato_elettronico ? "Sì" : "No"}</strong></span>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
-            {isRamoAuto((t as any).ramo) && (
-              <div className="text-xs px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200">
-                ℹ️ Per le polizze <strong>RCA Auto</strong> i premi (Netto/Tasse/Lordo) sono calcolati automaticamente dalle voci di garanzia. Qui modifichi solo le provvigioni e i flag.
-              </div>
-            )}
-            {!isRamoAuto((t as any).ramo) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* FIRMA */}
-              <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio alla firma odierno</h4>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-xs">Premio Netto (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.premio_netto}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setImportiForm((prev) => ({
-                          ...prev,
-                          premio_netto: v,
-                          ...(lordoFirmaTouched ? {} : { premio_lordo: recalcLordoFirma(v, prev.addizionali, prev.tasse) }),
-                        }));
-                      }} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Addizionali (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.addizionali}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setImportiForm((prev) => ({
-                          ...prev,
-                          addizionali: v,
-                          ...(lordoFirmaTouched ? {} : { premio_lordo: recalcLordoFirma(prev.premio_netto, v, prev.tasse) }),
-                        }));
-                      }} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Tasse (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.tasse}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setImportiForm((prev) => ({
-                          ...prev,
-                          tasse: v,
-                          ...(lordoFirmaTouched ? {} : { premio_lordo: recalcLordoFirma(prev.premio_netto, prev.addizionali, v) }),
-                        }));
-                      }} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Premio Lordo (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.premio_lordo}
-                      onChange={(e) => {
-                        setLordoFirmaTouched(true);
-                        setImportiForm({ ...importiForm, premio_lordo: e.target.value });
-                      }} />
-                    {!lordoFirmaTouched ? (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Aggiornato automaticamente da Netto + Addizionali + Tasse
-                      </p>
-                    ) : suggestedLordoFirma != null && Math.abs((parseFloat(importiForm.premio_lordo) || 0) - suggestedLordoFirma) > 0.01 ? (
-                      <button type="button"
-                        className="text-[11px] text-amber-600 hover:text-amber-700 mt-0.5 text-left"
-                        onClick={() => {
-                          setLordoFirmaTouched(false);
-                          setImportiForm({ ...importiForm, premio_lordo: suggestedLordoFirma.toFixed(2) });
-                        }}>
-                        ⚠ Valore manuale ≠ calcolato ({fmtEuro(suggestedLordoFirma)}) — clicca per riallineare
-                      </button>
-                    ) : null}
-                  </div>
-                  <div>
-                    <Label className="text-xs">Provvigioni (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.provvigioni_firma}
-                      onChange={(e) => setImportiForm({ ...importiForm, provvigioni_firma: e.target.value })} />
-                  </div>
-                </div>
-              </div>
-
-              {/* QUIETANZA */}
-              <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase mb-2">Premio prossima quietanza</h4>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-xs">Premio Netto (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.premio_netto_quietanza}
-                      onChange={(e) => setImportiForm({ ...importiForm, premio_netto_quietanza: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Addizionali (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.addizionali_quietanza}
-                      onChange={(e) => setImportiForm({ ...importiForm, addizionali_quietanza: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Tasse (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.tasse_quietanza}
-                      onChange={(e) => setImportiForm({ ...importiForm, tasse_quietanza: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Totale (calcolato)</Label>
-                    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted text-sm font-mono">
-                      {fmtEuro(suggestedLordoQuietanza)}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Provvigioni (€)</Label>
-                    <Input type="number" step="0.01" value={importiForm.provvigioni_quietanza}
-                      onChange={(e) => setImportiForm({ ...importiForm, provvigioni_quietanza: e.target.value })} />
-                  </div>
-                </div>
-              </div>
+            <div className="text-xs px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200">
+              ℹ️ I premi (Netto / Tasse / Lordo) si modificano <strong>solo</strong> dalle card <strong>Composizione Premio — Firma / Quietanza</strong> qui sotto. Qui imposti valuta e flag.
             </div>
-            )}
-
-
-            {/* VALUTA & FLAGS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs">Valuta</Label>
                 <SearchableSelect
@@ -2744,10 +2654,6 @@ const TitoloDetail = () => {
                   onCheckedChange={(c) => setImportiForm({ ...importiForm, rimborso: c })} />
                 <Label className="text-xs">Rimborso</Label>
               </div>
-            </div>
-
-            <div className="text-xs text-muted-foreground pt-2 border-t">
-              <strong>Read-only:</strong> Pag. Diretto Agenzia, Formato Elettronico, Incassato, Data Incasso (gestiti da Messa a Cassa / configurazione prodotto)
             </div>
           </div>
         )}
