@@ -239,9 +239,9 @@ const ContabilitaUfficio = () => {
           <p className="text-muted-foreground">Riepilogo consultivo delle polizze messe a cassa</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleAnteprima} disabled={busy}><Eye className="w-4 h-4 mr-1" />Anteprima</Button>
-          <Button variant="outline" size="sm" onClick={handleStampa} disabled={busy}><Printer className="w-4 h-4 mr-1" />Stampa</Button>
-          <Button size="sm" onClick={handleSalva} disabled={busy}><Save className="w-4 h-4 mr-1" />Salva PDF</Button>
+          <Button variant="outline" size="sm" onClick={() => handleAnteprima()} disabled={busy}><Eye className="w-4 h-4 mr-1" />Anteprima</Button>
+          <Button variant="outline" size="sm" onClick={() => handleStampa()} disabled={busy}><Printer className="w-4 h-4 mr-1" />Stampa</Button>
+          <Button size="sm" onClick={() => handleSalva()} disabled={busy}><Save className="w-4 h-4 mr-1" />Salva PDF</Button>
         </div>
       </div>
 
