@@ -779,7 +779,6 @@ const ECCompagniaContabPage = () => {
             </div>
             )}
             {!isAgenzia && (
-            /* Sezione importi (solo flusso pagamento immediato) */
             <>
             {(() => {
               const importoNum = parseFloat(pagaDialog.importoPagato);
