@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
 import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 
 
@@ -94,27 +95,13 @@ const FieldRow = React.forwardRef<HTMLDivElement, { label: string; value: React.
 ));
 FieldRow.displayName = "FieldRow";
 
-const SectionCollapsible = ({ title, icon: Icon, children, defaultOpen = true }: { title: string; icon: any; children: React.ReactNode; defaultOpen?: boolean }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="rounded-lg border border-border border-l-4 border-l-teal-600 bg-card shadow-sm overflow-hidden">
-        <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center gap-2 px-4 py-3 bg-teal-50/60 dark:bg-teal-950/20 border-b border-border hover:bg-teal-100/60 dark:hover:bg-teal-900/30 transition-colors">
-            <Icon className="w-4 h-4 text-teal-700 dark:text-teal-300" />
-            <span className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100">{title}</span>
-            <ChevronDown className={`w-4 h-4 ml-auto text-teal-700/70 dark:text-teal-300/70 transition-transform ${open ? "rotate-180" : ""}`} />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="p-4">
-            {children}
-          </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
-  );
-};
+// Wrapper allineato alla pagina di immissione: stesso look-and-feel.
+// Mantiene l'API legacy (title/icon/children/defaultOpen) ma delega a PolizzaSection.
+const SectionCollapsible = ({ title, icon: Icon, children, defaultOpen = true }: { title: string; icon: any; children: React.ReactNode; defaultOpen?: boolean }) => (
+  <PolizzaSection title={title} icon={Icon} defaultOpen={defaultOpen}>
+    {children}
+  </PolizzaSection>
+);
 
 const TitoloDetail = () => {
   // v2 - regolazione editabile
@@ -1293,6 +1280,11 @@ const TitoloDetail = () => {
   // Mostra "Messa a Cassa" solo se mai incassata, oppure se poliennale attiva (rate residue)
   const showMessaACassa = !t.data_messa_cassa || (isPoliennale && t.stato === "attivo");
 
+  // Lock generale: una polizza messa a cassa o stornata non è più una "bozza"
+  // di creazione e non si può modificare inline. Operazioni dedicate
+  // (Annulla Messa a Cassa, Storno, Rinnovo) restano disponibili.
+  const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
+
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
@@ -1332,6 +1324,17 @@ const TitoloDetail = () => {
           </Badge>
         )}
       </div>
+
+      {/* Banner di blocco: la polizza è chiusa lato cassa, le modifiche dirette sono inibite */}
+      {isLocked && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>
+            <strong>Polizza {t.stato === "stornato" ? "stornata" : "messa a cassa"}</strong> — modifiche dirette bloccate.
+            {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
+          </span>
+        </div>
+      )}
 
       {/* Card dedicata: rinnovo in attesa di messa a cassa della polizza precedente */}
       {t.stato === "in_attesa_rinnovo" && (
@@ -1905,7 +1908,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Contratto" icon={FileText}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingContratto ? (
-            <Button variant="ghost" size="sm" onClick={startEditContratto}>
+            <Button variant="ghost" size="sm" onClick={startEditContratto} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2102,7 +2105,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Periodo" icon={Calendar}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingPeriodo ? (
-            <Button variant="ghost" size="sm" onClick={startEditPeriodo}>
+            <Button variant="ghost" size="sm" onClick={startEditPeriodo} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2241,7 +2244,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Regolazione" icon={Shield} defaultOpen={false}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingReg ? (
-            <Button variant="ghost" size="sm" onClick={startEditReg}>
+            <Button variant="ghost" size="sm" onClick={startEditReg} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2497,7 +2500,7 @@ const TitoloDetail = () => {
                 </div>
               );
             })()}
-            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm}>
+            <Button size="sm" variant="outline" className="mt-3" onClick={startEditComm} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-3 h-3 mr-1" /> Modifica
             </Button>
           </>
@@ -2579,7 +2582,7 @@ const TitoloDetail = () => {
       <SectionCollapsible title="Importi" icon={DollarSign}>
         <div className="flex justify-end mb-2 gap-2">
           {!editingImporti ? (
-            <Button variant="ghost" size="sm" onClick={startEditImporti}>
+            <Button variant="ghost" size="sm" onClick={startEditImporti} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> Modifica
             </Button>
           ) : (
@@ -2879,7 +2882,7 @@ const TitoloDetail = () => {
           </div>
           <div className="flex gap-2">
           {!editingVeicolo ? (
-            <Button variant="ghost" size="sm" onClick={startEditVeicolo}>
+            <Button variant="ghost" size="sm" onClick={startEditVeicolo} disabled={isLocked} title={isLocked ? "Polizza messa a cassa: modifiche bloccate" : undefined}>
               <Pencil className="w-4 h-4 mr-1" /> {veicolo ? "Modifica" : "Aggiungi"}
             </Button>
           ) : (
