@@ -1,72 +1,65 @@
 ## Obiettivo
 
-Nel form Immissione Polizza, rendere le sezioni **Provvigioni Firma** e **Provvigioni Quietanza** dentro le card colorate (teal/amber) molto più chiare visivamente, con:
-- auto-lookup della **% del Produttore** dal DB (`produttori_provvigioni_ramo` per anagrafica + ramo, fallback `anagrafiche_professionali.percentuale_base`)
-- **Consulbrokers SPA** mostrata come differenziale automatico
-- **Totale Provvigione (€)** sempre **modificabile** (sblocca % Agenzia)
-- **% Agenzia** modificabile (la fonte reale del totale)
+Migliorare la sezione **Provvigioni Firma** e **Provvigioni Quietanza** dentro le card colorate dell'Immissione Polizza:
 
-## Stato attuale (cosa c'è già e cosa manca)
+1. Mostrare il **nome reale del produttore** (es. "Interfidi") nella ripartizione, non "Sede" quando in realtà un produttore è selezionato.
+2. Caricare la **% Produttore** dal DB per quel ramo (es. Interfidi 40% sul ramo X) → quando l'utente digita 100 € di provvigione totale, il sistema mostra **40 € a Interfidi** e **60 € alla Sede** (differenziale).
+3. Rinominare la riga differenziale da "Consulbrokers SPA" → **"Sede"**.
+4. Permettere di **digitare direttamente il Totale Provvigione (€)** sbloccando lo split senza dover passare per la % Agenzia (già presente, da consolidare visivamente).
+5. Replicare lo stesso comportamento sia nella card **Firma** (verde teal) sia nella card **Quietanza** (ambra).
 
-Già presente in `src/pages/ImmissionePolizzaPage.tsx`:
-- Hook `useEffect` (righe 630-663) che, dato `selectedAE` (Produttore, es. *Interfin*) + `selectedRamoData.codice`, legge `produttori_provvigioni_ramo.percentuale_provvigione` e popola `percentualeCommerciale` con badge `auto`.
-- Card `PremiGaranziaCardShell` riceve `percentualeAgenzia`, `percentualeCommerciale`, `produttoreLabel`, `produttoreIsSede` e calcola `quotaProd` / `quotaCB`.
+## Causa del bug visivo attuale
 
-Cosa non va (vedi screenshot utente):
-1. Il blocco "Ripartizione" (Produttore + Consulbrokers) appare **solo se `totProv > 0`** → con % Agenzia 0 sparisce e l'utente non capisce nulla.
-2. Il **nome del produttore** e la **% letta dal DB** non sono evidenziati: non si vede "Interfin = X% (da Provvigioni Ramo)".
-3. La sezione separata **"Provvigioni — Commerciale"** in fondo (righe 1513-1555) duplica le informazioni e crea confusione: utente la vuole **dentro** la card Firma/Quietanza.
-4. Layout attuale: % Agenzia + Totale Provvigione su 2 colonne, ripartizione sotto come nota → da rendere molto più "graficamente" forte.
+Nello screenshot l'utente seleziona Interfidi come Produttore (selettore AE), ma le card mostrano **"Sede 100%"** perché:
+
+- `useEffect` di auto-lookup `produttori_provvigioni_ramo` è agganciato a `selectedAE` (Account Executive).
+- La label produttore + flag "isSede" passati alle card vengono invece da `selectedCommerciale`, che parte da `__sede__` di default → la card crede sempre che il commerciale sia la Sede.
 
 ## Modifiche
 
-### 1. `src/components/polizze/PremiGaranziaCardShell.tsx` — Footer provvigioni
+### 1. `src/pages/ImmissionePolizzaPage.tsx`
 
-Ristrutturare il footer (righe ~357-446) in 3 blocchi visivi impilati:
+- Quando l'utente seleziona un **Produttore (AE)**, propagare la stessa selezione anche al **Commerciale** (se ancora `__sede__`), così la card mostra subito nome + split.
+- In alternativa: derivare `produttoreLabel` e `produttoreIsSede` dal **Produttore (AE) selezionato** quando `selectedCommerciale === "__sede__"`, leggendo il nome da `aeList`. Così:
+   - Se è selezionato un AE produttore → label = "Interfidi", isSede = false.
+   - Solo se nessun AE è selezionato → isSede = true.
+- Rimuovere la sezione "Provvigioni — Commerciale" duplicata (righe 1515-1557): tutto vive nelle card. Lasciare solo un selettore Commerciale compatto se serve, altrimenti rimuoverlo del tutto e usare l'AE come fonte unica.
+
+### 2. `src/components/polizze/PremiGaranziaCardShell.tsx`
+
+Footer provvigioni (righe 363-489) — restyle:
 
 ```text
-┌─ PROVVIGIONI FIRMA ──────────────────── [auto] ─┐
-│  ┌────────────────┬──────────────────────────┐  │
-│  │ % AGENZIA      │ TOTALE PROVVIGIONE (€)   │  │
-│  │ [  12.50  ]    │ [    137,45    ]   ✏️    │  │
-│  └────────────────┴──────────────────────────┘  │
-│                                                  │
-│  RIPARTIZIONE  (sempre visibile se produttore)   │
-│  ┌──────────────────────────────────────────┐   │
-│  │ 👤 Interfin SRL              68%  91,87€ │   │
-│  │    (da Provvigioni Ramo  ──  RC Generale)│   │
-│  ├──────────────────────────────────────────┤   │
-│  │ 🏢 Consulbrokers SPA   diff 32%  45,58€  │   │
-│  └──────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────┘
+PROVVIGIONI FIRMA                                   [auto da Provvigioni Ramo]
+┌──────────────────────────┬──────────────────────────────────┐
+│ TOTALE PROVVIGIONE (€) ✏ │ % AGENZIA (su netto)            │
+│ [   100,00   ]            │ [   12,50  ]                    │
+└──────────────────────────┴──────────────────────────────────┘
+
+RIPARTIZIONE
+┌────────────────────────────────────────────────────────────┐
+│ 👤  Interfidi                          40 %     €  40,00  │
+│     RC Generale · da Provvigioni Ramo                       │
+├────────────────────────────────────────────────────────────┤
+│ 🏢  Sede                               60 %     €  60,00  │
+│     Differenziale                                           │
+└────────────────────────────────────────────────────────────┘
 ```
 
-Dettagli:
-- Mostrare il blocco **Ripartizione sempre** che ci sia un produttore selezionato (anche con `totProv = 0`), con importi a `0,00 €` quando non c'è premio.
-- Riga produttore: icona persona, label produttore, badge `% Produttore` con tooltip "Da produttori_provvigioni_ramo (ramo X)" + importo a destra in mono bold.
-- Riga Consulbrokers: icona azienda, label "Consulbrokers SPA", badge `Differenziale (100 - %Prod)%` + importo.
-- Caso `produttoreIsSede`: una sola riga "🏢 Sede 100%" con importo intero.
-- Background distinto: card produttore con sfondo neutro chiaro, card Consulbrokers con accent `bg-primary/5 border-primary/30`.
-- Mantenere `Input` Totale Provvigione (€) editabile che ricalcola % Agenzia (logica `handleTotChange` già presente).
-- Quando l'utente modifica % Agenzia o Totale → rimuove badge `auto` su Totale (continua a esserci su % Commerciale).
+Dettagli implementativi:
+- Sostituire la label "Consulbrokers SPA" con **"Sede"** nella riga differenziale (mantenendo lo stile primary).
+- Invertire l'ordine visivo nei due campi: prima "Totale Provvigione (€)" più grande/evidente, poi "% Agenzia" come campo secondario — entrambi continuano a essere bidirezionali (logica `handleTotChange` già presente).
+- Quando `produttoreLabel` esiste e non è sede, il blocco ripartizione resta visibile anche con `totProv = 0` (già fatto), ma deve aggiornarsi live appena l'utente digita nel Totale Provvigione.
+- Caso `produttoreIsSede`: rimane riga unica "🏢 Sede 100%".
+- Aggiungere un piccolo badge `% Produttore` accanto al nome con tooltip "Da produttori_provvigioni_ramo · ramo {codice}".
 
-Aggiungere prop opzionale `ramoLabel?: string` per mostrare il ramo nella riga produttore.
+### 3. Comportamento auto-lookup (già esistente, nessun cambio funzionale)
 
-### 2. `src/pages/ImmissionePolizzaPage.tsx`
-
-- Passare `ramoLabel={selectedRamoData?.descrizione}` a entrambe le card.
-- **Eliminare** la sezione `PolizzaSection title="Provvigioni — Commerciale"` (righe 1513-1555). Il selettore Commerciale + % Commerciale viene spostato come piccola riga sopra il footer provvigioni dentro la card Firma (read-only nella Quietanza, mostra solo il nome). In alternativa più semplice: lasciare il selettore Commerciale in una mini-section ridotta (solo dropdown commerciale) e mostrare % + ripartizione esclusivamente dentro le card.
-  - Scelgo opzione semplice: ridurre la sezione a **solo dropdown "Commerciale"** + nota; % e ripartizione vivono dentro le card.
-
-### 3. Comportamento auto-lookup
-
-Nessun cambio funzionale richiesto: l'`useEffect` esistente è corretto. Aggiungiamo solo:
-- log toast quando si auto-popola: `toast.info("% Produttore caricata da Provvigioni Ramo")` (una volta per cambio ramo/produttore).
-- Se non trovata né `produttori_provvigioni_ramo` né `percentuale_base`, mostrare nella riga produttore badge `manuale` invece di `auto`.
+- `useEffect` su `selectedAE + selectedRamoData.codice` → popola `percentualeCommerciale` con badge `auto`. Confermato OK.
+- Aggiungere fallback: se l'utente seleziona un produttore ma non c'è ancora una % nel DB né in `percentuale_base`, mostrare badge `manuale` e lasciare il campo a 0 modificabile.
 
 ## Note tecniche
 
-- Tutte le classi colore via token semantici (`bg-primary/5`, `text-muted-foreground`, `border-border`, `bg-amber-*` già esistenti per quietanza). Nessun colore hardcoded nuovo.
-- `percentualeCommerciale` resta lo stato unico per la quota produttore (condiviso Firma/Quietanza).
-- Il **Totale Provvigione** resta calcolato da `premioNetto * %Agenzia / 100` ma editabile (handler già presente).
-- File toccati: `PremiGaranziaCardShell.tsx`, `ImmissionePolizzaPage.tsx`. Nessuna migrazione DB.
+- File toccati: `src/pages/ImmissionePolizzaPage.tsx`, `src/components/polizze/PremiGaranziaCardShell.tsx`. Nessuna migrazione DB.
+- Tutti i colori via token semantici (`bg-primary/5`, `border-border`, `bg-amber-*`, `bg-teal-*` già esistenti).
+- Il nome "Sede" mostrato nella ripartizione rappresenta la quota agenzia residuale (Consulbrokers / sede dell'utente loggato).
