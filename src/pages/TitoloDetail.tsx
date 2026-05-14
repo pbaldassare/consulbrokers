@@ -743,11 +743,16 @@ const TitoloDetail = () => {
       const before: Record<string, any> = {};
       const after: Record<string, any> = {};
       const fields: (keyof typeof periodoForm)[] = [
-        "durata_da", "durata_a", "anni_durata", "rate", "garanzia_da", "garanzia_a",
+        "durata_da", "durata_a", "anni_durata", "rate", "frazionamento", "garanzia_da", "garanzia_a",
         "data_competenza", "data_scadenza", "limite_mora", "mora_giorni", "tacito_rinnovo", "disdetta_mesi",
       ];
       const numericFields = new Set(["anni_durata", "rate", "mora_giorni", "disdetta_mesi"]);
       const booleanFields = new Set(["tacito_rinnovo"]);
+      // Sincronizza rate <- frazionamento (verità UI = frazionamento testuale)
+      if (periodoForm.frazionamento) {
+        const anni = Number(periodoForm.anni_durata) || 1;
+        periodoForm.rate = String(frazionamentoToRate(periodoForm.frazionamento, anni));
+      }
       const payload: Record<string, any> = {};
       fields.forEach((f) => {
         const raw = periodoForm[f];
