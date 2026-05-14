@@ -623,10 +623,10 @@ const ECCompagniaContabPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
-              Paga Rimessa all'Agenzia
+              Conferma Rimessa & Genera PDF
             </DialogTitle>
             <DialogDescription>
-              {pagaDialog.compagniaNome} — {pagaDialog.titoliCount} titoli
+              {pagaDialog.compagniaNome} — {pagaDialog.titoliCount} titoli per {fmt(pagaDialog.importoTotale)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
