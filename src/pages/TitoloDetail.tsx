@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { RinnovoTitoloDialog } from "@/components/polizze/RinnovoTitoloDialog";
 import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
+import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 
 
