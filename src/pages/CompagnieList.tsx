@@ -115,6 +115,16 @@ interface CompagniaForm {
   bic: string;
   citta_banca: string;
   conto_bancario_id: string | null;
+  // Mini-form conto bancario dell'agenzia (record in conti_bancari)
+  conto_etichetta: string;
+  conto_banca: string;
+  conto_iban: string;
+  conto_intestato_a: string;
+  conto_bic: string;
+  conto_abi: string;
+  conto_cab: string;
+  conto_note: string;
+  conto_is_default: boolean;
   aut_incasso_118: boolean;
   tipo_copertura: string;
   ra_ec_negativi: boolean;
