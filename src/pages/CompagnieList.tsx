@@ -119,6 +119,7 @@ interface CompagniaForm {
 }
 
 const emptyForm: CompagniaForm = {
+  tipo: "agenzia",
   nome: "", nome_sede: "", codice: "", nome_segue: "", indirizzo: "", cap: "", comune: "", provincia: "",
   nazione: "ITALIA", stato: "Attivo", telefono: "", fax: "", cellulare: "", note: "",
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
