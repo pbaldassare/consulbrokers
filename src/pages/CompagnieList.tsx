@@ -69,7 +69,13 @@ const TIPI_COPERTURA = ["Deposito a copertura", "Scambio conferme", "Conferma so
 
 // ── Types ──
 
-const TIPI_AGENZIA = ["agenzia", "broker", "direzione"];
+const TIPI_AGENZIA = ["agenzia", "broker", "direzione", "plurimandataria"];
+const TIPI_LABEL: Record<string, string> = {
+  agenzia: "Agenzia",
+  broker: "Broker",
+  direzione: "Direzione",
+  plurimandataria: "Plurimandataria",
+};
 
 interface CompagniaForm {
   tipo: string;
