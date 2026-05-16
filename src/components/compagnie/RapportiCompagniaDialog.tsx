@@ -458,6 +458,38 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             </div>
 
             <div className="border-t pt-3 space-y-3">
+              <Label className="text-sm font-medium">Sede del rapporto (presso la Compagnia partner)</Label>
+              <Input
+                placeholder="Denominazione (es. Agenzia Nobis Torino Centro)"
+                value={form.sede_denominazione}
+                onChange={(e) => setForm((p) => ({ ...p, sede_denominazione: e.target.value }))}
+              />
+              <Input
+                placeholder="Indirizzo (es. Via Moncalieri 12)"
+                value={form.sede_indirizzo}
+                onChange={(e) => setForm((p) => ({ ...p, sede_indirizzo: e.target.value }))}
+              />
+              <div className="grid grid-cols-[100px_1fr_80px] gap-3">
+                <Input
+                  placeholder="CAP"
+                  value={form.sede_cap}
+                  onChange={(e) => setForm((p) => ({ ...p, sede_cap: e.target.value }))}
+                />
+                <Input
+                  placeholder="Città"
+                  value={form.sede_citta}
+                  onChange={(e) => setForm((p) => ({ ...p, sede_citta: e.target.value }))}
+                />
+                <Input
+                  placeholder="Prov."
+                  maxLength={2}
+                  value={form.sede_provincia}
+                  onChange={(e) => setForm((p) => ({ ...p, sede_provincia: e.target.value.toUpperCase() }))}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-3 space-y-3">
               <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
               <div className="grid grid-cols-3 gap-3">
                 <Input
