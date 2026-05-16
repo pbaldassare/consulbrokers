@@ -159,6 +159,25 @@ export default function ProvvigioniRapportiTab() {
 
   return (
     <div className="space-y-4">
+      {/* Catena di risoluzione */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-start gap-3">
+            <Percent className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div className="space-y-1 text-sm">
+              <p className="font-medium">Catena di risoluzione della % provvigione</p>
+              <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-0.5">
+                <li>Match esatto <b>Rapporto + Ramo + Sottoramo</b> (es. Allianz Direzione → AUTO → RCA)</li>
+                <li>Default di <b>Ramo</b> sul rapporto (es. Allianz Direzione → AUTO senza sottoramo)</li>
+                <li><b>% globale del rapporto</b> (campo su <code>compagnia_rapporti</code>)</li>
+                <li>Default per <b>Tipo rapporto + Ramo/Sottoramo</b> (es. Broker → CASA = 18%)</li>
+                <li>Se nessuna regola → <b>0%</b> + warning in fase di immissione polizza</li>
+              </ol>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Default tipo rapporto */}
       <Accordion type="single" collapsible>
         <AccordionItem value="def">
