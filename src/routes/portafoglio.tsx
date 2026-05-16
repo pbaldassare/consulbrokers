@@ -60,5 +60,6 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/documentale" element={<DocumentalePage />} />
     <Route path="/provvigioni-maturate" element={<ProvvigioniMaturatePage />} />
     <Route path="/provvigioni-sede" element={<ProvvigioniSedePage />} />
+    <Route path="/provvigioni-compagnie-ramo" element={<ProvvigioniCompagnieRamoPage />} />
   </>
 );
