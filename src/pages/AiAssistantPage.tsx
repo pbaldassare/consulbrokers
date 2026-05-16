@@ -180,7 +180,11 @@ const AiAssistantPage = () => {
     setIsThinking(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
-        body: { messages: history, conversation_id: convId },
+        body: {
+          messages: history,
+          conversation_id: convId,
+          entity_context: entityContext ?? undefined,
+        },
       });
       if (error) {
         const msg = (error as any).message ?? "Errore IA";
