@@ -1154,15 +1154,24 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Compagnia Assicurativa</Label>
+            <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedGruppoCompagniaId}
               onValueChange={(v) => {
                 setSelectedGruppoCompagniaId(v);
-                // se l'agenzia attuale non appartiene al nuovo gruppo, resetta
-                const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia);
-                if (ag && v && ag.gruppo_compagnia_id !== v) setSelectedCompagnia("");
+                // resetta agenzia/rapporto se non più coerenti
+                const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia) as any;
+                if (ag && v) {
+                  const tipo = (ag.tipo || "").toLowerCase();
+                  if ((tipo === "agenzia" || tipo === "direzione") && ag.gruppo_compagnia_id !== v) {
+                    setSelectedCompagnia("");
+                    setSelectedRapportoId("");
+                  } else if (tipo === "broker" || tipo === "plurimandataria") {
+                    // l'agenzia broker/pluri resta valida solo se ha rapporti col nuovo gruppo: la verifica sarà fatta al cambio rapporto
+                    setSelectedRapportoId("");
+                  }
+                }
               }}
               placeholder={
                 (gruppiCompagniaList || []).length === 0
@@ -1176,45 +1185,62 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Agenzia di Riferimento</Label>
+            <Label className="text-xs">Agenzia di Riferimento <span className="text-destructive">*</span></Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
+              disabled={!selectedGruppoCompagniaId}
               onValueChange={(v) => {
                 setSelectedCompagnia(v);
-                setSelectedRapportoId(""); // reset, sarà rivalutato dall'effect
-                // Auto-sync della Compagnia (gruppo) quando si sceglie l'agenzia
-                const ag = (compagnieList || []).find((c: any) => c.id === v);
-                if (ag?.gruppo_compagnia_id) setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+                setSelectedRapportoId("");
+                const ag = (compagnieList || []).find((c: any) => c.id === v) as any;
+                const tipo = (ag?.tipo || "").toLowerCase();
+                // per agenzia/direzione auto-sync della compagnia madre
+                if ((tipo === "agenzia" || tipo === "direzione") && ag?.gruppo_compagnia_id) {
+                  setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+                }
               }}
-              placeholder="— Seleziona agenzia —"
+              placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Seleziona prima la Compagnia"}
               options={(compagnieList || [])
-                .filter((c: any) => !selectedGruppoCompagniaId || c.gruppo_compagnia_id === selectedGruppoCompagniaId)
+                .filter((c: any) => {
+                  if (!selectedGruppoCompagniaId) return false;
+                  const tipo = (c.tipo || "").toLowerCase();
+                  if (tipo === "agenzia" || tipo === "direzione") {
+                    return c.gruppo_compagnia_id === selectedGruppoCompagniaId;
+                  }
+                  if (tipo === "broker" || tipo === "plurimandataria") {
+                    return (brokerPluriPerGruppo || []).includes(c.id);
+                  }
+                  return false;
+                })
                 .map((c: any) => {
-                  const gruppo = (c.gruppo_compagnia || "").trim();
-                  const nome = c.nome || "";
-                  const showGruppo = gruppo && gruppo.toLowerCase() !== nome.toLowerCase();
+                  const tipo = (c.tipo || "").toLowerCase();
+                  const tipoLabel = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : "";
                   return {
                     value: c.id,
-                    label: `${c.codice || ""} - ${nome}`,
-                    description: showGruppo ? `Gruppo: ${gruppo}` : undefined,
-                    searchText: gruppo,
+                    label: `${c.codice || ""} - ${c.nome || ""}`,
+                    description: tipoLabel,
+                    searchText: `${c.tipo || ""} ${c.gruppo_compagnia || ""}`,
                   };
                 })}
             />
           </div>
         </div>
 
-        {/* Rapporto Agenzia: visibile solo se l'agenzia ha rapporti attivi */}
-        {selectedCompagnia && (rapportiAgenzia || []).length > 0 && (
+        {/* Rapporto Agenzia: visibile solo per broker / plurimandataria */}
+        {isBrokerLike && selectedCompagnia && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">
-                Rapporto Agenzia {(rapportiAgenzia || []).length >= 2 && <span className="text-destructive">*</span>}
+                Rapporto Agenzia <span className="text-destructive">*</span>
               </Label>
-              {(rapportiAgenzia || []).length === 1 ? (
+              {(rapportiAgenzia || []).length === 0 ? (
+                <div className="h-8 px-2 flex items-center text-xs rounded-md border border-destructive/50 bg-destructive/5 text-destructive">
+                  Nessun rapporto attivo con questa compagnia
+                </div>
+              ) : (rapportiAgenzia || []).length === 1 ? (
                 <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
-                  {(rapportiAgenzia as any[])[0].codice_rapporto || "—"}
+                  {(rapportiAgenzia as any[])[0].nome_rapporto || (rapportiAgenzia as any[])[0].codice_rapporto || "—"}
                   {(rapportiAgenzia as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenzia as any[])[0].tipo_rapporto}` : ""}
                 </div>
               ) : (
@@ -1225,8 +1251,8 @@ const ImmissionePolizzaPage = () => {
                   placeholder="— Seleziona rapporto —"
                   options={(rapportiAgenzia as any[]).map((r) => ({
                     value: r.id,
-                    label: r.codice_rapporto || "—",
-                    description: r.tipo_rapporto || undefined,
+                    label: r.nome_rapporto || r.codice_rapporto || "—",
+                    description: [r.tipo_rapporto, r.codice_rapporto].filter(Boolean).join(" · ") || undefined,
                   }))}
                 />
               )}
