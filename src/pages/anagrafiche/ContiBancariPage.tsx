@@ -203,7 +203,7 @@ export default function ContiBancariPage() {
         .eq("tipo", form.tipo!)
         .eq("attiva", true)
         .order("nome");
-      return (data || []) as Array<{ id: string; nome: string; codice: string | null }>;
+      return ((data || []) as unknown) as Array<{ id: string; nome: string; codice: string | null }>;
     },
   });
 
