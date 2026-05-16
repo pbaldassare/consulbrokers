@@ -265,13 +265,17 @@ async function persistContoAgenzia(
   if (iban && iban.startsWith("IT") && iban.length !== 27) {
     throw new Error(`IBAN italiano non valido (${iban.length} caratteri, attesi 27).`);
   }
+  const intestatario = form.conto_intestato_a?.trim() || form.nome?.trim() || "";
+  if (iban && !intestatario) {
+    throw new Error("Specifica l'intestatario del conto bancario (o la ragione sociale dell'agenzia).");
+  }
   const payload: any = {
     tipo: "agenzia",
     compagnia_id: compagniaId,
     etichetta: form.conto_etichetta?.trim() || form.conto_banca?.trim() || "Conto agenzia",
-    banca: form.conto_banca?.trim() || null,
+    banca: form.conto_banca?.trim() || "Banca da definire",
     iban: iban || null,
-    intestato_a: form.conto_intestato_a?.trim() || null,
+    intestato_a: intestatario || null,
     bic: form.conto_bic?.trim() || null,
     codice_abi: form.conto_abi?.trim() || null,
     codice_cab: form.conto_cab?.trim() || null,
@@ -1379,11 +1383,16 @@ const CompagnieList = () => {
         .single();
       if (error) throw error;
       const newId = created?.id;
-      if (newId) {
+      if (!newId) return;
+      try {
         const contoId = await persistContoAgenzia(newId, form);
         if (contoId) {
           await supabase.from("compagnie").update({ conto_bancario_id: contoId }).eq("id", newId);
         }
+      } catch (e) {
+        // Rollback: libera codice univoco e non lascia agenzia orfana senza conto
+        await supabase.from("compagnie").delete().eq("id", newId);
+        throw e;
       }
     },
     onSuccess: () => {
@@ -1392,11 +1401,16 @@ const CompagnieList = () => {
       setForm(emptyForm);
       toast.success("Agenzia creata con successo");
     },
-    onError: (err: any) => toast.error(
-      err?.message?.toLowerCase()?.includes("idx_compagnie_codice_unique") || err?.code === "23505"
-        ? `Codice "${form.codice}" già usato da un'altra agenzia`
-        : err?.message || "Errore nella creazione"
-    ),
+    onError: (err: any) => {
+      const msg = (err?.message || "").toLowerCase();
+      if (msg.includes("idx_compagnie_codice_unique") || msg.includes("compagnie_codice_unique") || err?.code === "23505") {
+        toast.error(`Codice "${form.codice}" già usato da un'altra agenzia`);
+      } else if (msg.includes("intestato_a")) {
+        toast.error("Manca l'intestatario del conto bancario");
+      } else {
+        toast.error(err?.message || "Errore nella creazione");
+      }
+    },
   });
 
   const updateMutation = useMutation({
