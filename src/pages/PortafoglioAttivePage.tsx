@@ -137,6 +137,16 @@ const PortafoglioAttivePage = () => {
             setPage(0);
           }}
         />
+        <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="polizze">Solo polizze</SelectItem>
+            <SelectItem value="quietanze">Solo quietanze</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-2 ml-auto">
           <Switch
             id="escludi-mese"
@@ -160,6 +170,7 @@ const PortafoglioAttivePage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
@@ -178,6 +189,11 @@ const PortafoglioAttivePage = () => {
                 {polizze.map((p: any) => (
                   <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
                     <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                    <TableCell>
+                      {p.sostituisce_polizza
+                        ? <Badge variant="secondary">Quietanza</Badge>
+                        : <Badge variant="default">Polizza</Badge>}
+                    </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>
