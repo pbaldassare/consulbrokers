@@ -1862,14 +1862,24 @@ export default function ClienteDetail() {
             <CardHeader><CardTitle className="text-base">Scansione AI Documenti</CardTitle></CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {isPrivato ? (
-                  <>
-                    <AiDocumentScanner documentType="carta_identita" onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Carta d'Identità" />
-                    <AiDocumentScanner documentType="tessera_sanitaria" onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Tessera Sanitaria" />
-                  </>
-                ) : (
-                  <AiDocumentScanner documentType="visura_camerale" onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Visura Camerale" />
-                )}
+                {(() => {
+                  const entityContext = cliente
+                    ? {
+                        entityType: "cliente" as const,
+                        scopeHint: buildClienteScopeHint(cliente),
+                        expectedCF: cliente.codice_fiscale ?? null,
+                        expectedPIVA: cliente.partita_iva ?? null,
+                      }
+                    : undefined;
+                  return isPrivato ? (
+                    <>
+                      <AiDocumentScanner documentType="carta_identita" entityContext={entityContext} onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Carta d'Identità" />
+                      <AiDocumentScanner documentType="tessera_sanitaria" entityContext={entityContext} onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Tessera Sanitaria" />
+                    </>
+                  ) : (
+                    <AiDocumentScanner documentType="visura_camerale" entityContext={entityContext} onFileReady={handleScanUpload} onExtracted={() => {}} label="Scansiona Visura Camerale" />
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

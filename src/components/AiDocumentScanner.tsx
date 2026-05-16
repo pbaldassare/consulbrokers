@@ -18,15 +18,28 @@ const DOC_LABELS: Record<DocumentType, string> = {
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
+export interface AiScannerEntityContext {
+  entityType: "cliente" | "prospect" | "sinistro" | "polizza" | "compagnia" | "trattativa";
+  scopeHint?: string;
+  expectedCF?: string | null;
+  expectedPIVA?: string | null;
+}
+
 interface AiDocumentScannerProps {
   documentType: DocumentType;
   onExtracted: (data: Record<string, unknown>) => void;
   onFileReady?: (file: File, documentType: DocumentType) => void;
+  /**
+   * Contesto entità per estrazione mirata: l'AI viene istruita a privilegiare
+   * dati coerenti con questa entità (CF/P.IVA), ma restituisce comunque ciò
+   * che legge dal documento — l'utente conferma poi in un AiPrefilledForm.
+   */
+  entityContext?: AiScannerEntityContext;
   label?: string;
   className?: string;
 }
 
-const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, className = "" }: AiDocumentScannerProps) => {
+const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityContext, label, className = "" }: AiDocumentScannerProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -57,6 +70,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, clas
           file_base64: base64,
           tipo_documento: documentType,
           mime_type: file.type,
+          entity_context: entityContext ?? null,
         },
       });
 
@@ -76,7 +90,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, label, clas
     } finally {
       setIsProcessing(false);
     }
-  }, [documentType, onExtracted, toast]);
+  }, [documentType, onExtracted, onFileReady, entityContext]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
