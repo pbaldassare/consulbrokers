@@ -144,6 +144,8 @@ const emptyForm: CompagniaForm = {
   gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
   iban: "", codice_abi: "", codice_cab: "", intestato_a: "", bic: "", citta_banca: "",
   conto_bancario_id: null,
+  conto_etichetta: "", conto_banca: "", conto_iban: "", conto_intestato_a: "",
+  conto_bic: "", conto_abi: "", conto_cab: "", conto_note: "", conto_is_default: true,
   aut_incasso_118: false, tipo_copertura: "", ra_ec_negativi: false,
   allegato_excel_avvisi: false, allegato_excel_ec: false, firma_digitale: "No", escluso_all4: false,
 };
