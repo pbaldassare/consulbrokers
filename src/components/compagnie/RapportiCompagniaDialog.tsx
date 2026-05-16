@@ -129,6 +129,66 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     staleTime: 1000 * 60 * 30,
   });
 
+  // Load conto bancario fields when editing a rapporto with linked account
+  useEffect(() => {
+    if (!formOpen || !form.id || !form.conto_bancario_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("conti_bancari" as any)
+        .select("etichetta, banca, iban, intestato_a, bic, abi, cab, note")
+        .eq("id", form.conto_bancario_id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const d = data as any;
+      setForm((p) => ({
+        ...p,
+        conto_etichetta: d.etichetta || "",
+        conto_banca: d.banca || "",
+        conto_iban: d.iban || "",
+        conto_intestato_a: d.intestato_a || "",
+        conto_bic: d.bic || "",
+        conto_abi: d.abi || "",
+        conto_cab: d.cab || "",
+        conto_note: d.note || "",
+      }));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formOpen, form.id]);
+
+  const persistContoRapporto = async (currentContoId: string | null): Promise<string | null> => {
+    const iban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+    if (!iban) return null;
+    if (iban.startsWith("IT") && iban.length !== 27) {
+      throw new Error("IBAN italiano deve avere 27 caratteri");
+    }
+    const intestato = (form.conto_intestato_a || form.nome_rapporto || compagniaNome || "").trim();
+    if (!intestato) throw new Error("Specifica l'intestatario del conto");
+    const banca = (form.conto_banca || "Banca da definire").trim();
+    const etichetta = (form.conto_etichetta || form.nome_rapporto || "Conto rapporto").trim();
+    const payload: any = {
+      tipo: "agenzia",
+      etichetta,
+      banca,
+      iban,
+      intestato_a: intestato,
+      bic: form.conto_bic || null,
+      abi: form.conto_abi || null,
+      cab: form.conto_cab || null,
+      note: form.conto_note || null,
+      attivo: true,
+    };
+    if (currentContoId) {
+      const { error } = await supabase.from("conti_bancari" as any).update(payload).eq("id", currentContoId);
+      if (error) throw error;
+      return currentContoId;
+    }
+    const { data, error } = await supabase.from("conti_bancari" as any).insert(payload).select("id").single();
+    if (error) throw error;
+    return (data as any).id as string;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!compagniaId) throw new Error("Agenzia non valida");
@@ -137,7 +197,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       if (form.sede_indirizzo && (!form.sede_citta || !form.sede_provincia)) {
         throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
       }
-      const payload: any = {
+
+      const ibanFilled = !!(form.conto_iban || "").replace(/\s+/g, "").trim();
+      const basePayload: any = {
         compagnia_id: compagniaId,
         nome_rapporto: form.nome_rapporto.trim(),
         gruppo_compagnia_id: form.gruppo_compagnia_id,
@@ -150,7 +212,6 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         data_fine: form.data_fine || null,
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
-        conto_bancario_id: form.conto_bancario_id || null,
         sede_denominazione: form.sede_denominazione || null,
         sede_indirizzo: form.sede_indirizzo || null,
         sede_cap: form.sede_cap || null,
@@ -161,12 +222,37 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         telefono_referente: form.telefono_referente || null,
         note: form.note || null,
       };
+
       if (form.id) {
-        const { error } = await supabase.from("compagnia_rapporti" as any).update(payload).eq("id", form.id);
+        // UPDATE rapporto + sync conto
+        const contoId = await persistContoRapporto(form.conto_bancario_id);
+        const { error } = await supabase
+          .from("compagnia_rapporti" as any)
+          .update({ ...basePayload, conto_bancario_id: ibanFilled ? contoId : null })
+          .eq("id", form.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("compagnia_rapporti" as any).insert(payload);
-        if (error) throw error;
+        // INSERT rapporto, poi conto, poi link; rollback se conto fallisce
+        const { data: created, error: insErr } = await supabase
+          .from("compagnia_rapporti" as any)
+          .insert({ ...basePayload, conto_bancario_id: null })
+          .select("id")
+          .single();
+        if (insErr) throw insErr;
+        const newId = (created as any).id as string;
+        try {
+          if (ibanFilled) {
+            const contoId = await persistContoRapporto(null);
+            const { error: upErr } = await supabase
+              .from("compagnia_rapporti" as any)
+              .update({ conto_bancario_id: contoId })
+              .eq("id", newId);
+            if (upErr) throw upErr;
+          }
+        } catch (e) {
+          await supabase.from("compagnia_rapporti" as any).delete().eq("id", newId);
+          throw e;
+        }
       }
     },
     onSuccess: () => {
@@ -178,7 +264,11 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       setForm(emptyForm);
       toast.success("Rapporto salvato");
     },
-    onError: (e: any) => toast.error(e.message || "Errore nel salvataggio"),
+    onError: (e: any) => {
+      const msg = e?.message || "";
+      if (msg.includes("intestato_a")) toast.error("Manca l'intestatario del conto bancario");
+      else toast.error(msg || "Errore nel salvataggio");
+    },
   });
 
   const closeMutation = useMutation({
