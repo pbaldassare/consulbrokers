@@ -509,8 +509,23 @@ const ImmissionePolizzaPage = () => {
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id, tipo").eq("attiva", true).order("nome");
       return data || [];
+    },
+  });
+
+  // Broker/Plurimandatarie che hanno un rapporto attivo con la compagnia (gruppo) scelta
+  const { data: brokerPluriPerGruppo } = useQuery({
+    queryKey: ["broker_pluri_per_gruppo", selectedGruppoCompagniaId],
+    enabled: !!selectedGruppoCompagniaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("compagnia_id")
+        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
+        .eq("attivo", true);
+      const ids = Array.from(new Set(((data as any[]) || []).map((r) => r.compagnia_id).filter(Boolean)));
+      return ids as string[];
     },
   });
 
@@ -547,39 +562,40 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
-  // Rapporti attivi per l'agenzia selezionata
+  // Tipo dell'agenzia selezionata
+  const selectedAgenzia = (compagnieList || []).find((c: any) => c.id === selectedCompagnia) as any;
+  const tipoAgenzia = (selectedAgenzia?.tipo || "").toLowerCase();
+  const isBrokerLike = tipoAgenzia === "broker" || tipoAgenzia === "plurimandataria";
+
+  // Rapporti per l'agenzia selezionata, filtrati per gruppo compagnia
   const { data: rapportiAgenzia } = useQuery({
-    queryKey: ["compagnia_rapporti_attivi", selectedCompagnia],
-    enabled: !!selectedCompagnia,
+    queryKey: ["compagnia_rapporti_attivi", selectedCompagnia, selectedGruppoCompagniaId],
+    enabled: !!selectedCompagnia && isBrokerLike && !!selectedGruppoCompagniaId,
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnia_rapporti" as any)
-        .select("id, codice_rapporto, tipo_rapporto, attivo")
+        .select("id, codice_rapporto, nome_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
         .eq("compagnia_id", selectedCompagnia)
+        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
         .eq("attivo", true)
         .order("codice_rapporto");
       return (data as any[]) || [];
     },
   });
 
-  // Auto-seleziona il rapporto se ce n'è uno solo; resetta se l'attuale non appartiene più
+  // Auto-seleziona rapporto se broker/pluri con 1 solo rapporto coerente
   useEffect(() => {
-    const list = rapportiAgenzia || [];
-    if (!selectedCompagnia) {
+    if (!isBrokerLike || !selectedCompagnia) {
       if (selectedRapportoId) setSelectedRapportoId("");
       return;
     }
+    const list = rapportiAgenzia || [];
     if (list.length === 1) {
       if (selectedRapportoId !== list[0].id) setSelectedRapportoId(list[0].id);
-    } else if (list.length === 0) {
-      if (selectedRapportoId) setSelectedRapportoId("");
-    } else {
-      // 2+ rapporti: se quello selezionato non è in lista, resetta
-      if (selectedRapportoId && !list.find((r: any) => r.id === selectedRapportoId)) {
-        setSelectedRapportoId("");
-      }
+    } else if (selectedRapportoId && !list.find((r: any) => r.id === selectedRapportoId)) {
+      setSelectedRapportoId("");
     }
-  }, [rapportiAgenzia, selectedCompagnia]);
+  }, [rapportiAgenzia, selectedCompagnia, isBrokerLike]);
 
 
   // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
@@ -750,9 +766,16 @@ const ImmissionePolizzaPage = () => {
       toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
       return;
     }
-    // Se l'agenzia ha 2+ rapporti attivi, l'utente deve sceglierne uno
-    if (selectedCompagnia && (rapportiAgenzia || []).length >= 2 && !selectedRapportoId) {
-      toast.error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+    if (!selectedGruppoCompagniaId) {
+      toast.error("Seleziona la Compagnia Assicurativa");
+      return;
+    }
+    if (!selectedCompagnia) {
+      toast.error("Seleziona l'Agenzia di Riferimento");
+      return;
+    }
+    if (isBrokerLike && !selectedRapportoId) {
+      toast.error("Seleziona il Rapporto Agenzia");
       return;
     }
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
@@ -762,9 +785,10 @@ const ImmissionePolizzaPage = () => {
         numero_titolo: numeroPolizza || null,
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
+        gruppo_compagnia_id: selectedGruppoCompagniaId || null,
         compagnia_id: selectedCompagnia || null,
-        compagnia_rapporto_id: selectedRapportoId || null,
-        codice_rapporto: rapportoSel?.codice_rapporto || null,
+        compagnia_rapporto_id: isBrokerLike ? (selectedRapportoId || null) : null,
+        codice_rapporto: isBrokerLike ? (rapportoSel?.codice_rapporto || null) : null,
         ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
@@ -1130,15 +1154,24 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Compagnia Assicurativa</Label>
+            <Label className="text-xs">Compagnia Assicurativa <span className="text-destructive">*</span></Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedGruppoCompagniaId}
               onValueChange={(v) => {
                 setSelectedGruppoCompagniaId(v);
-                // se l'agenzia attuale non appartiene al nuovo gruppo, resetta
-                const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia);
-                if (ag && v && ag.gruppo_compagnia_id !== v) setSelectedCompagnia("");
+                // resetta agenzia/rapporto se non più coerenti
+                const ag = (compagnieList || []).find((c: any) => c.id === selectedCompagnia) as any;
+                if (ag && v) {
+                  const tipo = (ag.tipo || "").toLowerCase();
+                  if ((tipo === "agenzia" || tipo === "direzione") && ag.gruppo_compagnia_id !== v) {
+                    setSelectedCompagnia("");
+                    setSelectedRapportoId("");
+                  } else if (tipo === "broker" || tipo === "plurimandataria") {
+                    // l'agenzia broker/pluri resta valida solo se ha rapporti col nuovo gruppo: la verifica sarà fatta al cambio rapporto
+                    setSelectedRapportoId("");
+                  }
+                }
               }}
               placeholder={
                 (gruppiCompagniaList || []).length === 0
@@ -1152,45 +1185,62 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Agenzia di Riferimento</Label>
+            <Label className="text-xs">Agenzia di Riferimento <span className="text-destructive">*</span></Label>
             <SearchableSelect
               className="h-8 text-xs"
               value={selectedCompagnia}
+              disabled={!selectedGruppoCompagniaId}
               onValueChange={(v) => {
                 setSelectedCompagnia(v);
-                setSelectedRapportoId(""); // reset, sarà rivalutato dall'effect
-                // Auto-sync della Compagnia (gruppo) quando si sceglie l'agenzia
-                const ag = (compagnieList || []).find((c: any) => c.id === v);
-                if (ag?.gruppo_compagnia_id) setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+                setSelectedRapportoId("");
+                const ag = (compagnieList || []).find((c: any) => c.id === v) as any;
+                const tipo = (ag?.tipo || "").toLowerCase();
+                // per agenzia/direzione auto-sync della compagnia madre
+                if ((tipo === "agenzia" || tipo === "direzione") && ag?.gruppo_compagnia_id) {
+                  setSelectedGruppoCompagniaId(ag.gruppo_compagnia_id);
+                }
               }}
-              placeholder="— Seleziona agenzia —"
+              placeholder={selectedGruppoCompagniaId ? "— Seleziona agenzia —" : "Seleziona prima la Compagnia"}
               options={(compagnieList || [])
-                .filter((c: any) => !selectedGruppoCompagniaId || c.gruppo_compagnia_id === selectedGruppoCompagniaId)
+                .filter((c: any) => {
+                  if (!selectedGruppoCompagniaId) return false;
+                  const tipo = (c.tipo || "").toLowerCase();
+                  if (tipo === "agenzia" || tipo === "direzione") {
+                    return c.gruppo_compagnia_id === selectedGruppoCompagniaId;
+                  }
+                  if (tipo === "broker" || tipo === "plurimandataria") {
+                    return (brokerPluriPerGruppo || []).includes(c.id);
+                  }
+                  return false;
+                })
                 .map((c: any) => {
-                  const gruppo = (c.gruppo_compagnia || "").trim();
-                  const nome = c.nome || "";
-                  const showGruppo = gruppo && gruppo.toLowerCase() !== nome.toLowerCase();
+                  const tipo = (c.tipo || "").toLowerCase();
+                  const tipoLabel = tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1) : "";
                   return {
                     value: c.id,
-                    label: `${c.codice || ""} - ${nome}`,
-                    description: showGruppo ? `Gruppo: ${gruppo}` : undefined,
-                    searchText: gruppo,
+                    label: `${c.codice || ""} - ${c.nome || ""}`,
+                    description: tipoLabel,
+                    searchText: `${c.tipo || ""} ${c.gruppo_compagnia || ""}`,
                   };
                 })}
             />
           </div>
         </div>
 
-        {/* Rapporto Agenzia: visibile solo se l'agenzia ha rapporti attivi */}
-        {selectedCompagnia && (rapportiAgenzia || []).length > 0 && (
+        {/* Rapporto Agenzia: visibile solo per broker / plurimandataria */}
+        {isBrokerLike && selectedCompagnia && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">
-                Rapporto Agenzia {(rapportiAgenzia || []).length >= 2 && <span className="text-destructive">*</span>}
+                Rapporto Agenzia <span className="text-destructive">*</span>
               </Label>
-              {(rapportiAgenzia || []).length === 1 ? (
+              {(rapportiAgenzia || []).length === 0 ? (
+                <div className="h-8 px-2 flex items-center text-xs rounded-md border border-destructive/50 bg-destructive/5 text-destructive">
+                  Nessun rapporto attivo con questa compagnia
+                </div>
+              ) : (rapportiAgenzia || []).length === 1 ? (
                 <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
-                  {(rapportiAgenzia as any[])[0].codice_rapporto || "—"}
+                  {(rapportiAgenzia as any[])[0].nome_rapporto || (rapportiAgenzia as any[])[0].codice_rapporto || "—"}
                   {(rapportiAgenzia as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenzia as any[])[0].tipo_rapporto}` : ""}
                 </div>
               ) : (
@@ -1201,8 +1251,8 @@ const ImmissionePolizzaPage = () => {
                   placeholder="— Seleziona rapporto —"
                   options={(rapportiAgenzia as any[]).map((r) => ({
                     value: r.id,
-                    label: r.codice_rapporto || "—",
-                    description: r.tipo_rapporto || undefined,
+                    label: r.nome_rapporto || r.codice_rapporto || "—",
+                    description: [r.tipo_rapporto, r.codice_rapporto].filter(Boolean).join(" · ") || undefined,
                   }))}
                 />
               )}
