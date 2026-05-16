@@ -1253,11 +1253,19 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
           <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">N° Polizza</Label>
+            <Label className="text-xs">N° Polizza <span className="text-destructive">*</span></Label>
             <div className="relative">
-              <Input value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" className="h-8 text-xs" />
+              <Input
+                value={numeroPolizza}
+                onChange={(e) => setNumeroPolizza(e.target.value)}
+                placeholder="N° polizza"
+                className={`h-8 text-xs ${!numeroPolizza.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+              />
               <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
             </div>
+            {!numeroPolizza.trim() && (
+              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Riga</Label>
