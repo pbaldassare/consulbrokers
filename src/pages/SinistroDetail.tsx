@@ -134,6 +134,15 @@ export default function SinistroDetail() {
       : `${sinistro.clienti.cognome || ""} ${sinistro.clienti.nome || ""}`.trim()
     : "—";
 
+  // Contesto AI per gli scanner di sinistro: include CF/P.IVA del cliente
+  // collegato così l'AI sa a chi appartengono perizie e referti.
+  const sinistroAiContext = {
+    entityType: "sinistro" as const,
+    scopeHint: `Sinistro ${sinistro.numero_sinistro ?? id} — ${clienteNome}`,
+    expectedCF: (sinistro.clienti as any)?.codice_fiscale ?? null,
+    expectedPIVA: (sinistro.clienti as any)?.partita_iva ?? null,
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
