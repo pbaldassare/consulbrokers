@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_compagnie_cleanup_20260516: {
+        Row: {
+          archived_at: string
+          payload: Json | null
+          source_table: string | null
+        }
+        Insert: {
+          archived_at?: string
+          payload?: Json | null
+          source_table?: string | null
+        }
+        Update: {
+          archived_at?: string
+          payload?: Json | null
+          source_table?: string | null
+        }
+        Relationships: []
+      }
       ai_chat_conversazioni: {
         Row: {
           created_at: string
@@ -1581,6 +1599,7 @@ export type Database = {
           ra_ec_negativi: boolean | null
           stato: string | null
           telefono: string | null
+          tipo: string
           tipo_copertura: string | null
           tipo_mandatario: string | null
           tipo_pagamento: string | null
@@ -1630,6 +1649,7 @@ export type Database = {
           ra_ec_negativi?: boolean | null
           stato?: string | null
           telefono?: string | null
+          tipo?: string
           tipo_copertura?: string | null
           tipo_mandatario?: string | null
           tipo_pagamento?: string | null
@@ -1679,6 +1699,7 @@ export type Database = {
           ra_ec_negativi?: boolean | null
           stato?: string | null
           telefono?: string | null
+          tipo?: string
           tipo_copertura?: string | null
           tipo_mandatario?: string | null
           tipo_pagamento?: string | null
