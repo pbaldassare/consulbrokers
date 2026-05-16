@@ -193,6 +193,8 @@ function dbToForm(c: any): CompagniaForm {
     bic: c.bic || "",
     citta_banca: c.citta_banca || "",
     conto_bancario_id: c.conto_bancario_id || null,
+    conto_etichetta: "", conto_banca: "", conto_iban: "", conto_intestato_a: "",
+    conto_bic: "", conto_abi: "", conto_cab: "", conto_note: "", conto_is_default: true,
     aut_incasso_118: c.aut_incasso_118 ?? false,
     tipo_copertura: c.tipo_copertura || "",
     ra_ec_negativi: c.ra_ec_negativi ?? false,
