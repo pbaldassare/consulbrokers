@@ -557,17 +557,57 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Conto bancario dedicato</Label>
-              <ContoBancarioSelect
-                value={form.conto_bancario_id}
-                onChange={(id) => setForm((p) => ({ ...p, conto_bancario_id: id }))}
-                tipi={["agenzia", "generico"]}
-                placeholder="Usa il conto della Compagnia Assicurativa"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Se valorizzato, sostituisce l'IBAN della Compagnia Assicurativa per questo specifico rapporto. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-sm font-medium">Conto bancario del rapporto</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Inserisci l'IBAN dell'agenzia per questo rapporto. Se lasci vuoto, verrà usato l'IBAN della Compagnia Assicurativa.
               </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="Etichetta (es. Conto Nobis Torino)"
+                  value={form.conto_etichetta}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_etichetta: e.target.value }))}
+                />
+                <Input
+                  placeholder="Banca (es. Intesa Sanpaolo)"
+                  value={form.conto_banca}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
+                />
+              </div>
+              <Input
+                placeholder="IBAN"
+                value={form.conto_iban}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
+                }
+              />
+              <Input
+                placeholder="Intestato a (default: nome rapporto)"
+                value={form.conto_intestato_a}
+                onChange={(e) => setForm((p) => ({ ...p, conto_intestato_a: e.target.value }))}
+              />
+              <div className="grid grid-cols-3 gap-3">
+                <Input
+                  placeholder="BIC (opz.)"
+                  value={form.conto_bic}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_bic: e.target.value.toUpperCase() }))}
+                />
+                <Input
+                  placeholder="ABI (opz.)"
+                  value={form.conto_abi}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_abi: e.target.value }))}
+                />
+                <Input
+                  placeholder="CAB (opz.)"
+                  value={form.conto_cab}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_cab: e.target.value }))}
+                />
+              </div>
+              <Input
+                placeholder="Note conto (opz.)"
+                value={form.conto_note}
+                onChange={(e) => setForm((p) => ({ ...p, conto_note: e.target.value }))}
+              />
             </div>
 
             <div className="border-t pt-3 space-y-3">
