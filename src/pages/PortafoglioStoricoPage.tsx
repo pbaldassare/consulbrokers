@@ -22,9 +22,10 @@ const PortafoglioStoricoPage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [filtroStato, setFiltroStato] = useState("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const { data: ramiAll = [] } = useRamiAll();
   const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroCompagnia, filtroGruppoRamo, filtroRamo, filtroStato, filtroTipo]);
 
   const today = format(new Date(), "yyyy-MM-dd");
 
@@ -52,14 +53,16 @@ const PortafoglioStoricoPage = () => {
     }
     if (filtroCompagnia !== "tutte") q = q.eq("compagnia_id", filtroCompagnia);
     if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
+    if (filtroTipo === "polizze") q = q.is("sostituisce_polizza", null);
+    else if (filtroTipo === "quietanze") q = q.not("sostituisce_polizza", "is", null);
     return q;
   };
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, page, today],
+    queryKey: ["portafoglio-storico", search, filtroCompagnia, filterRamoIds, filtroStato, filtroTipo, page, today],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_sospensione, limite_riattivazione, cliente_anagrafica_id, sostituisce_polizza",
         { count: "exact" }
       );
       q = buildFilter(q);
