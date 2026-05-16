@@ -23,6 +23,9 @@ interface Props {
 }
 
 const TIPI_RAPPORTO = [
+  "Agenzia",
+  "Direzione",
+  "Broker",
   "Mandato diretto",
   "Mandato principale",
   "Sub-agenzia",
@@ -33,6 +36,7 @@ const TIPI_RAPPORTO = [
 
 interface RapportoForm {
   id?: string;
+  nome_rapporto: string;
   gruppo_compagnia_id: string;
   codice_rapporto: string;
   tipo_rapporto: string;
@@ -42,6 +46,11 @@ interface RapportoForm {
   attivo: boolean;
   percentuale_provvigione: string;
   conto_bancario_id: string | null;
+  sede_denominazione: string;
+  sede_indirizzo: string;
+  sede_cap: string;
+  sede_citta: string;
+  sede_provincia: string;
   referente_compagnia: string;
   email_referente: string;
   telefono_referente: string;
@@ -49,15 +58,21 @@ interface RapportoForm {
 }
 
 const emptyForm: RapportoForm = {
+  nome_rapporto: "",
   gruppo_compagnia_id: "",
   codice_rapporto: "",
-  tipo_rapporto: "Mandato diretto",
+  tipo_rapporto: "Agenzia",
   rami_abilitati: "",
   data_inizio: new Date().toISOString().slice(0, 10),
   data_fine: "",
   attivo: true,
   percentuale_provvigione: "",
   conto_bancario_id: null,
+  sede_denominazione: "",
+  sede_indirizzo: "",
+  sede_cap: "",
+  sede_citta: "",
+  sede_provincia: "",
   referente_compagnia: "",
   email_referente: "",
   telefono_referente: "",
@@ -103,8 +118,13 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     mutationFn: async () => {
       if (!compagniaId) throw new Error("Agenzia non valida");
       if (!form.gruppo_compagnia_id) throw new Error("Seleziona la Compagnia Assicurativa");
+      if (!form.nome_rapporto.trim()) throw new Error("Inserisci il nome del rapporto");
+      if (form.sede_indirizzo && (!form.sede_citta || !form.sede_provincia)) {
+        throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
+      }
       const payload: any = {
         compagnia_id: compagniaId,
+        nome_rapporto: form.nome_rapporto.trim(),
         gruppo_compagnia_id: form.gruppo_compagnia_id,
         codice_rapporto: form.codice_rapporto || null,
         tipo_rapporto: form.tipo_rapporto || null,
@@ -116,6 +136,11 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
         conto_bancario_id: form.conto_bancario_id || null,
+        sede_denominazione: form.sede_denominazione || null,
+        sede_indirizzo: form.sede_indirizzo || null,
+        sede_cap: form.sede_cap || null,
+        sede_citta: form.sede_citta || null,
+        sede_provincia: form.sede_provincia ? form.sede_provincia.toUpperCase().slice(0, 2) : null,
         referente_compagnia: form.referente_compagnia || null,
         email_referente: form.email_referente || null,
         telefono_referente: form.telefono_referente || null,
@@ -178,15 +203,21 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const openEdit = (r: any) => {
     setForm({
       id: r.id,
+      nome_rapporto: r.nome_rapporto || "",
       gruppo_compagnia_id: r.gruppo_compagnia_id || "",
       codice_rapporto: r.codice_rapporto || "",
-      tipo_rapporto: r.tipo_rapporto || "Mandato diretto",
+      tipo_rapporto: r.tipo_rapporto || "Agenzia",
       rami_abilitati: Array.isArray(r.rami_abilitati) ? r.rami_abilitati.join(", ") : "",
       data_inizio: r.data_inizio || "",
       data_fine: r.data_fine || "",
       attivo: r.attivo ?? true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
       conto_bancario_id: r.conto_bancario_id || null,
+      sede_denominazione: r.sede_denominazione || "",
+      sede_indirizzo: r.sede_indirizzo || "",
+      sede_cap: r.sede_cap || "",
+      sede_citta: r.sede_citta || "",
+      sede_provincia: r.sede_provincia || "",
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
       telefono_referente: r.telefono_referente || "",
