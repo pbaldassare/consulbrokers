@@ -47,6 +47,11 @@ const AiAssistantPage = () => {
   const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Contesto entità impostato dalla pagina chiamante (es. "Chiedi all'AI"
+  // da ClienteDetail). Viene letto e rimosso una sola volta al mount.
+  const consumedCtx = useConsumedAiEntityContext();
+  const [entityContext, setEntityContext] = useState<AiEntityContext | null>(consumedCtx);
+
   // Conversations list
   const { data: conversations = [] } = useQuery({
     queryKey: ["ai-conversations", user?.id],
