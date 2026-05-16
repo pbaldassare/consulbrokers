@@ -142,10 +142,30 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { file_base64, tipo_documento, mime_type } = await req.json();
+    const { file_base64, tipo_documento, mime_type, entity_context } = await req.json();
 
     if (!file_base64 || !tipo_documento) {
       throw new Error("file_base64 e tipo_documento sono obbligatori");
+    }
+
+    // Costruisce un blocco "contesto entità" che istruisce l'AI a privilegiare
+    // i dati coerenti con l'entità corrente (es. CF/P.IVA del cliente di destinazione).
+    // Non scarta i dati letti dal documento: se discordanti, vengono comunque restituiti
+    // e l'utente li conferma/modifica nel form (pattern AiPrefilledForm).
+    let entityContextBlock = "";
+    if (entity_context && typeof entity_context === "object") {
+      const { entityType, scopeHint, expectedCF, expectedPIVA } = entity_context as Record<string, unknown>;
+      const lines: string[] = [];
+      if (scopeHint) lines.push(`- Entità corrente: ${entityType ?? "?"} → ${scopeHint}`);
+      if (expectedCF) lines.push(`- Codice fiscale atteso: ${expectedCF}`);
+      if (expectedPIVA) lines.push(`- Partita IVA attesa: ${expectedPIVA}`);
+      if (lines.length > 0) {
+        entityContextBlock =
+          `\n\nCONTESTO ENTITÀ ATTIVA (precompilazione mirata):\n${lines.join("\n")}\n` +
+          `Se i dati letti dal documento corrispondono all'entità sopra indicata, estraili normalmente. ` +
+          `Se invece il documento sembra appartenere a un soggetto diverso, estrai comunque i dati ` +
+          `realmente presenti nel documento (sarà l'utente a confermare o scartare).`;
+      }
     }
 
     const schema = TOOL_SCHEMAS[tipo_documento];
