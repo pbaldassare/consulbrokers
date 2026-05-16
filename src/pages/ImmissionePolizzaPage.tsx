@@ -562,39 +562,40 @@ const ImmissionePolizzaPage = () => {
     }
   }, [selectedCompagnia, compagnieList]);
 
-  // Rapporti attivi per l'agenzia selezionata
+  // Tipo dell'agenzia selezionata
+  const selectedAgenzia = (compagnieList || []).find((c: any) => c.id === selectedCompagnia) as any;
+  const tipoAgenzia = (selectedAgenzia?.tipo || "").toLowerCase();
+  const isBrokerLike = tipoAgenzia === "broker" || tipoAgenzia === "plurimandataria";
+
+  // Rapporti per l'agenzia selezionata, filtrati per gruppo compagnia
   const { data: rapportiAgenzia } = useQuery({
-    queryKey: ["compagnia_rapporti_attivi", selectedCompagnia],
-    enabled: !!selectedCompagnia,
+    queryKey: ["compagnia_rapporti_attivi", selectedCompagnia, selectedGruppoCompagniaId],
+    enabled: !!selectedCompagnia && isBrokerLike && !!selectedGruppoCompagniaId,
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnia_rapporti" as any)
-        .select("id, codice_rapporto, tipo_rapporto, attivo")
+        .select("id, codice_rapporto, nome_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
         .eq("compagnia_id", selectedCompagnia)
+        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
         .eq("attivo", true)
         .order("codice_rapporto");
       return (data as any[]) || [];
     },
   });
 
-  // Auto-seleziona il rapporto se ce n'è uno solo; resetta se l'attuale non appartiene più
+  // Auto-seleziona rapporto se broker/pluri con 1 solo rapporto coerente
   useEffect(() => {
-    const list = rapportiAgenzia || [];
-    if (!selectedCompagnia) {
+    if (!isBrokerLike || !selectedCompagnia) {
       if (selectedRapportoId) setSelectedRapportoId("");
       return;
     }
+    const list = rapportiAgenzia || [];
     if (list.length === 1) {
       if (selectedRapportoId !== list[0].id) setSelectedRapportoId(list[0].id);
-    } else if (list.length === 0) {
-      if (selectedRapportoId) setSelectedRapportoId("");
-    } else {
-      // 2+ rapporti: se quello selezionato non è in lista, resetta
-      if (selectedRapportoId && !list.find((r: any) => r.id === selectedRapportoId)) {
-        setSelectedRapportoId("");
-      }
+    } else if (selectedRapportoId && !list.find((r: any) => r.id === selectedRapportoId)) {
+      setSelectedRapportoId("");
     }
-  }, [rapportiAgenzia, selectedCompagnia]);
+  }, [rapportiAgenzia, selectedCompagnia, isBrokerLike]);
 
 
   // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
