@@ -396,9 +396,11 @@ const ImmissionePolizzaPage = () => {
     ? "Seleziona prima un cliente"
     : gruppoFinanziarioMancante
       ? "Il cliente selezionato non ha un Gruppo Finanziario: aprilo nella scheda cliente e assegnalo prima di salvare la polizza"
-      : (cigObbligatorio && !cigRif.trim())
-        ? "Per i clienti di tipo Ente il CIG è obbligatorio"
-        : null;
+      : !numeroPolizza.trim()
+        ? "Il N° Polizza è obbligatorio"
+        : (cigObbligatorio && !cigRif.trim())
+          ? "Per i clienti di tipo Ente il CIG è obbligatorio"
+          : null;
 
   // (eredità AE/Specialist/Produttore spostata sotto le query)
 
