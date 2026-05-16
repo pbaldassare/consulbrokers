@@ -1372,8 +1372,19 @@ const CompagnieList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("compagnie").insert(formToPayload(form) as any);
+      const { data: created, error } = await supabase
+        .from("compagnie")
+        .insert(formToPayload(form) as any)
+        .select("id")
+        .single();
       if (error) throw error;
+      const newId = created?.id;
+      if (newId) {
+        const contoId = await persistContoAgenzia(newId, form);
+        if (contoId) {
+          await supabase.from("compagnie").update({ conto_bancario_id: contoId }).eq("id", newId);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agenzie"] });
@@ -1393,6 +1404,10 @@ const CompagnieList = () => {
       if (!editId) return;
       const { error } = await supabase.from("compagnie").update(formToPayload(form) as any).eq("id", editId);
       if (error) throw error;
+      const contoId = await persistContoAgenzia(editId, form);
+      if (contoId && contoId !== form.conto_bancario_id) {
+        await supabase.from("compagnie").update({ conto_bancario_id: contoId }).eq("id", editId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agenzie"] });
