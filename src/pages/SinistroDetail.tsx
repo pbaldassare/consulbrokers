@@ -48,7 +48,7 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)")
+        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
@@ -133,6 +133,15 @@ export default function SinistroDetail() {
       ? sinistro.clienti.ragione_sociale
       : `${sinistro.clienti.cognome || ""} ${sinistro.clienti.nome || ""}`.trim()
     : "—";
+
+  // Contesto AI per gli scanner di sinistro: include CF/P.IVA del cliente
+  // collegato così l'AI sa a chi appartengono perizie e referti.
+  const sinistroAiContext = {
+    entityType: "sinistro" as const,
+    scopeHint: `Sinistro ${sinistro.numero_sinistro ?? id} — ${clienteNome}`,
+    expectedCF: (sinistro.clienti as any)?.codice_fiscale ?? null,
+    expectedPIVA: (sinistro.clienti as any)?.partita_iva ?? null,
+  };
 
   return (
     <div className="space-y-6">
@@ -309,10 +318,7 @@ export default function SinistroDetail() {
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="perizia"
-                    entityContext={{
-                      entityType: "sinistro",
-                      scopeHint: `Sinistro ${(sinistro as any).numero_sinistro ?? id} — ${clienteNome}`,
-                    }}
+                    entityContext={sinistroAiContext}
                     onFileReady={async (file) => {
                       try {
                         const { data: { user } } = await supabase.auth.getUser();
@@ -338,10 +344,7 @@ export default function SinistroDetail() {
                   />
                   <AiDocumentScanner
                     documentType="referto_medico"
-                    entityContext={{
-                      entityType: "sinistro",
-                      scopeHint: `Sinistro ${(sinistro as any).numero_sinistro ?? id} — ${clienteNome}`,
-                    }}
+                    entityContext={sinistroAiContext}
                     onFileReady={async (file) => {
                       try {
                         const { data: { user } } = await supabase.auth.getUser();
