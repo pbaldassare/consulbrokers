@@ -973,6 +973,7 @@ const TitoloDetail = () => {
         ["tasse", "tasse_quietanza"],
         ["addizionali", "addizionali_quietanza"],
         ["provvigioni_firma", "provvigioni_quietanza"],
+        ["brokeraggio_firma", "brokeraggio_quietanza"],
       ];
       let syncedQuietanza = false;
       syncPairs.forEach(([firmaKey, quietKey]) => {
