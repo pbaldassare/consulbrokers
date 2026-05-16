@@ -1101,65 +1101,64 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
     return `${base}${suffix}`;
   };
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-8"></TableHead>
-          <TableHead>N. Polizza</TableHead>
-          <TableHead>Tipo</TableHead>
-          <TableHead>Gruppo Ramo</TableHead>
-          <TableHead>Agenzia</TableHead>
-          <TableHead>Premio €</TableHead>
-          <TableHead>Stato</TableHead>
-          <TableHead>Data Incasso</TableHead>
-          {isAdmin && <TableHead className="w-12"></TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {catene.map((c) => {
-          const head = c.madre || c.all[0];
-          const hasRate = c.rate.length > 0;
-          const isOpen = !!expanded[c.numero];
-          const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
-          const agenzia = head.compagnia_diretta?.nome || "—";
-          return (
-            <>
-              <TableRow key={c.numero} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${head.id}`)}>
-                <TableCell onClick={(e) => { e.stopPropagation(); if (hasRate) toggle(c.numero); }}>
-                  {hasRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
+    <div className="space-y-3">
+      {/* Toolbar: filtro Tipo + mini-KPI */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Tipo:</span>
+          <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
+            <SelectTrigger className="h-8 w-[210px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+              <SelectItem value="polizze">Solo polizze</SelectItem>
+              <SelectItem value="quietanze">Solo quietanze</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{allPol.length}</span> polizze ·{" "}
+          <span className="font-medium text-foreground">{allQuiet.length}</span> quietanze · totale premio{" "}
+          <span className="font-mono font-medium text-foreground">€ {totPremio.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8"></TableHead>
+            <TableHead>N. Polizza</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Gruppo Ramo</TableHead>
+            <TableHead>Agenzia</TableHead>
+            <TableHead>Premio €</TableHead>
+            <TableHead>Stato</TableHead>
+            <TableHead>Data Incasso</TableHead>
+            {isAdmin && <TableHead className="w-12"></TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtroTipo === "quietanze" ? (
+            flatQuietanze.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-sm text-muted-foreground py-6">
+                  Nessuna quietanza presente
                 </TableCell>
-                <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
-                <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
-                <TableCell>{gruppoRamo}</TableCell>
-                <TableCell>{agenzia}</TableCell>
-                <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
-                <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
-                <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
-                {isAdmin && (
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      disabled={deleting === head.id || isLocked(head)}
-                      title={isLocked(head) ? "Polizza bloccata (messa a cassa/stornata)" : "Elimina polizza e quietanze"}
-                      onClick={() => handleDeleteMadre(c)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                )}
               </TableRow>
-              {isOpen && c.rate.map((r, i) => (
-                <TableRow key={r.id} className="cursor-pointer bg-muted/20 hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
+            ) : (
+              flatQuietanze.map(({ rata: r, madreNum, idx }) => (
+                <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
                   <TableCell></TableCell>
-                  <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
-                  <TableCell><Badge variant="secondary">Quietanza {i + 2}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {r.numero_titolo || "—"}
+                    {madreNum && <div className="text-[10px] text-muted-foreground">polizza {madreNum}</div>}
+                  </TableCell>
+                  <TableCell><Badge variant="secondary">Quietanza {idx}</Badge></TableCell>
+                  <TableCell>{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                  <TableCell>{r.compagnia_diretta?.nome || "—"}</TableCell>
                   <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
-                  <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
+                  <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, idx)}</Badge></TableCell>
                   <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
                   {isAdmin && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1177,12 +1176,79 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
                     </TableCell>
                   )}
                 </TableRow>
-              ))}
-            </>
-          );
-        })}
-      </TableBody>
-    </Table>
+              ))
+            )
+          ) : (
+            catene.map((c) => {
+              const head = c.madre || c.all[0];
+              const hasRate = c.rate.length > 0;
+              const showRate = filtroTipo === "tutti" && hasRate;
+              const isOpen = !!expanded[c.numero];
+              const gruppoRamo = head.ramo?.gruppo_ramo?.descrizione || "—";
+              const agenzia = head.compagnia_diretta?.nome || "—";
+              return (
+                <>
+                  <TableRow key={c.numero} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/titoli/${head.id}`)}>
+                    <TableCell onClick={(e) => { e.stopPropagation(); if (showRate) toggle(c.numero); }}>
+                      {showRate ? (isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
+                    </TableCell>
+                    <TableCell className="font-medium">{head.numero_titolo || "—"}</TableCell>
+                    <TableCell><Badge variant="outline">Polizza</Badge></TableCell>
+                    <TableCell>{gruppoRamo}</TableCell>
+                    <TableCell>{agenzia}</TableCell>
+                    <TableCell className="font-mono">{fmtNum(head.premio_lordo)}</TableCell>
+                    <TableCell><Badge variant={stateVariant(head.stato)}>{stateLabel("madre", head.stato)}</Badge></TableCell>
+                    <TableCell>{head.data_messa_cassa || head.data_incasso || "—"}</TableCell>
+                    {isAdmin && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          disabled={deleting === head.id || isLocked(head)}
+                          title={isLocked(head) ? "Polizza bloccata (messa a cassa/stornata)" : "Elimina polizza e quietanze"}
+                          onClick={() => handleDeleteMadre(c)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                  {showRate && isOpen && c.rate.map((r, i) => (
+                    <TableRow key={r.id} className="cursor-pointer bg-muted/20 hover:bg-muted/40" onClick={() => navigate(`/titoli/${r.id}`)}>
+                      <TableCell></TableCell>
+                      <TableCell className="pl-8 font-mono text-xs text-muted-foreground">↳ {r.numero_titolo || "—"}</TableCell>
+                      <TableCell><Badge variant="secondary">Quietanza {i + 2}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{r.ramo?.gruppo_ramo?.descrizione || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{r.compagnia_diretta?.nome || "—"}</TableCell>
+                      <TableCell className="font-mono">{fmtNum(r.premio_lordo)}</TableCell>
+                      <TableCell><Badge variant={stateVariant(r.stato)}>{stateLabel("rata", r.stato, i + 2)}</Badge></TableCell>
+                      <TableCell>{r.data_messa_cassa || r.data_incasso || "—"}</TableCell>
+                      {isAdmin && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={deleting === r.id || isLocked(r)}
+                            title={isLocked(r) ? "Quietanza bloccata (messa a cassa/stornata)" : "Elimina quietanza"}
+                            onClick={() => handleDeleteRata(r)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
