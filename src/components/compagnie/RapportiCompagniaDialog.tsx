@@ -23,6 +23,9 @@ interface Props {
 }
 
 const TIPI_RAPPORTO = [
+  "Agenzia",
+  "Direzione",
+  "Broker",
   "Mandato diretto",
   "Mandato principale",
   "Sub-agenzia",
@@ -33,6 +36,7 @@ const TIPI_RAPPORTO = [
 
 interface RapportoForm {
   id?: string;
+  nome_rapporto: string;
   gruppo_compagnia_id: string;
   codice_rapporto: string;
   tipo_rapporto: string;
@@ -42,6 +46,11 @@ interface RapportoForm {
   attivo: boolean;
   percentuale_provvigione: string;
   conto_bancario_id: string | null;
+  sede_denominazione: string;
+  sede_indirizzo: string;
+  sede_cap: string;
+  sede_citta: string;
+  sede_provincia: string;
   referente_compagnia: string;
   email_referente: string;
   telefono_referente: string;
@@ -49,15 +58,21 @@ interface RapportoForm {
 }
 
 const emptyForm: RapportoForm = {
+  nome_rapporto: "",
   gruppo_compagnia_id: "",
   codice_rapporto: "",
-  tipo_rapporto: "Mandato diretto",
+  tipo_rapporto: "Agenzia",
   rami_abilitati: "",
   data_inizio: new Date().toISOString().slice(0, 10),
   data_fine: "",
   attivo: true,
   percentuale_provvigione: "",
   conto_bancario_id: null,
+  sede_denominazione: "",
+  sede_indirizzo: "",
+  sede_cap: "",
+  sede_citta: "",
+  sede_provincia: "",
   referente_compagnia: "",
   email_referente: "",
   telefono_referente: "",
@@ -103,8 +118,13 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     mutationFn: async () => {
       if (!compagniaId) throw new Error("Agenzia non valida");
       if (!form.gruppo_compagnia_id) throw new Error("Seleziona la Compagnia Assicurativa");
+      if (!form.nome_rapporto.trim()) throw new Error("Inserisci il nome del rapporto");
+      if (form.sede_indirizzo && (!form.sede_citta || !form.sede_provincia)) {
+        throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
+      }
       const payload: any = {
         compagnia_id: compagniaId,
+        nome_rapporto: form.nome_rapporto.trim(),
         gruppo_compagnia_id: form.gruppo_compagnia_id,
         codice_rapporto: form.codice_rapporto || null,
         tipo_rapporto: form.tipo_rapporto || null,
@@ -116,6 +136,11 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
         conto_bancario_id: form.conto_bancario_id || null,
+        sede_denominazione: form.sede_denominazione || null,
+        sede_indirizzo: form.sede_indirizzo || null,
+        sede_cap: form.sede_cap || null,
+        sede_citta: form.sede_citta || null,
+        sede_provincia: form.sede_provincia ? form.sede_provincia.toUpperCase().slice(0, 2) : null,
         referente_compagnia: form.referente_compagnia || null,
         email_referente: form.email_referente || null,
         telefono_referente: form.telefono_referente || null,
@@ -178,15 +203,21 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const openEdit = (r: any) => {
     setForm({
       id: r.id,
+      nome_rapporto: r.nome_rapporto || "",
       gruppo_compagnia_id: r.gruppo_compagnia_id || "",
       codice_rapporto: r.codice_rapporto || "",
-      tipo_rapporto: r.tipo_rapporto || "Mandato diretto",
+      tipo_rapporto: r.tipo_rapporto || "Agenzia",
       rami_abilitati: Array.isArray(r.rami_abilitati) ? r.rami_abilitati.join(", ") : "",
       data_inizio: r.data_inizio || "",
       data_fine: r.data_fine || "",
       attivo: r.attivo ?? true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
       conto_bancario_id: r.conto_bancario_id || null,
+      sede_denominazione: r.sede_denominazione || "",
+      sede_indirizzo: r.sede_indirizzo || "",
+      sede_cap: r.sede_cap || "",
+      sede_citta: r.sede_citta || "",
+      sede_provincia: r.sede_provincia || "",
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
       telefono_referente: r.telefono_referente || "",
@@ -237,9 +268,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Compagnia Assicurativa</TableHead>
-                        <TableHead>Codice</TableHead>
+                        <TableHead>Nome rapporto</TableHead>
                         <TableHead>Tipo</TableHead>
+                        <TableHead>Sede</TableHead>
+                        <TableHead>Codice</TableHead>
                         <TableHead>Rami</TableHead>
                         <TableHead>Inizio</TableHead>
                         <TableHead>Fine</TableHead>
@@ -252,11 +284,26 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                       {(rapporti as any[]).map((r, idx) => (
                         <TableRow key={r.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
                           <TableCell className="font-medium">
-                            {r.gruppi_compagnia?.descrizione || "—"}
+                            <div>{r.nome_rapporto || "—"}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {r.gruppi_compagnia?.descrizione || ""}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{r.tipo_rapporto || "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            {r.sede_denominazione || r.sede_citta ? (
+                              <>
+                                <div>{r.sede_denominazione || "—"}</div>
+                                <div className="text-muted-foreground">
+                                  {[r.sede_citta, r.sede_provincia].filter(Boolean).join(" ")}
+                                </div>
+                              </>
+                            ) : (
+                              "—"
+                            )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">{r.codice_rapporto || "—"}</TableCell>
-                          <TableCell className="text-sm">{r.tipo_rapporto || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
                             {Array.isArray(r.rami_abilitati) && r.rami_abilitati.length
                               ? r.rami_abilitati.join(", ")
                               : "—"}
@@ -316,6 +363,16 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             <DialogTitle>{form.id ? "Modifica Rapporto" : "Nuovo Rapporto"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nome del rapporto *</Label>
+              <Input
+                value={form.nome_rapporto}
+                onChange={(e) => setForm((p) => ({ ...p, nome_rapporto: e.target.value }))}
+                placeholder="es. Nobis – Agenzia Torino Centro"
+              />
+              <p className="text-[11px] text-muted-foreground">Etichetta libera che identifica univocamente questo rapporto.</p>
+            </div>
+
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Compagnia Assicurativa *</Label>
               <SearchableSelect
@@ -401,6 +458,38 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             </div>
 
             <div className="border-t pt-3 space-y-3">
+              <Label className="text-sm font-medium">Sede del rapporto (presso la Compagnia partner)</Label>
+              <Input
+                placeholder="Denominazione (es. Agenzia Nobis Torino Centro)"
+                value={form.sede_denominazione}
+                onChange={(e) => setForm((p) => ({ ...p, sede_denominazione: e.target.value }))}
+              />
+              <Input
+                placeholder="Indirizzo (es. Via Moncalieri 12)"
+                value={form.sede_indirizzo}
+                onChange={(e) => setForm((p) => ({ ...p, sede_indirizzo: e.target.value }))}
+              />
+              <div className="grid grid-cols-[100px_1fr_80px] gap-3">
+                <Input
+                  placeholder="CAP"
+                  value={form.sede_cap}
+                  onChange={(e) => setForm((p) => ({ ...p, sede_cap: e.target.value }))}
+                />
+                <Input
+                  placeholder="Città"
+                  value={form.sede_citta}
+                  onChange={(e) => setForm((p) => ({ ...p, sede_citta: e.target.value }))}
+                />
+                <Input
+                  placeholder="Prov."
+                  maxLength={2}
+                  value={form.sede_provincia}
+                  onChange={(e) => setForm((p) => ({ ...p, sede_provincia: e.target.value.toUpperCase() }))}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-3 space-y-3">
               <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
               <div className="grid grid-cols-3 gap-3">
                 <Input
@@ -434,7 +523,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={!form.gruppo_compagnia_id || saveMutation.isPending}
+                disabled={!form.gruppo_compagnia_id || !form.nome_rapporto.trim() || saveMutation.isPending}
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
               </Button>
