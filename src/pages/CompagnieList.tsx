@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Networ
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
-import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
+
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -115,6 +115,16 @@ interface CompagniaForm {
   bic: string;
   citta_banca: string;
   conto_bancario_id: string | null;
+  // Mini-form conto bancario dell'agenzia (record in conti_bancari)
+  conto_etichetta: string;
+  conto_banca: string;
+  conto_iban: string;
+  conto_intestato_a: string;
+  conto_bic: string;
+  conto_abi: string;
+  conto_cab: string;
+  conto_note: string;
+  conto_is_default: boolean;
   aut_incasso_118: boolean;
   tipo_copertura: string;
   ra_ec_negativi: boolean;
@@ -134,6 +144,8 @@ const emptyForm: CompagniaForm = {
   gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
   iban: "", codice_abi: "", codice_cab: "", intestato_a: "", bic: "", citta_banca: "",
   conto_bancario_id: null,
+  conto_etichetta: "", conto_banca: "", conto_iban: "", conto_intestato_a: "",
+  conto_bic: "", conto_abi: "", conto_cab: "", conto_note: "", conto_is_default: true,
   aut_incasso_118: false, tipo_copertura: "", ra_ec_negativi: false,
   allegato_excel_avvisi: false, allegato_excel_ec: false, firma_digitale: "No", escluso_all4: false,
 };
@@ -181,6 +193,8 @@ function dbToForm(c: any): CompagniaForm {
     bic: c.bic || "",
     citta_banca: c.citta_banca || "",
     conto_bancario_id: c.conto_bancario_id || null,
+    conto_etichetta: "", conto_banca: "", conto_iban: "", conto_intestato_a: "",
+    conto_bic: "", conto_abi: "", conto_cab: "", conto_note: "", conto_is_default: true,
     aut_incasso_118: c.aut_incasso_118 ?? false,
     tipo_copertura: c.tipo_copertura || "",
     ra_ec_negativi: c.ra_ec_negativi ?? false,
@@ -240,7 +254,48 @@ function formToPayload(form: CompagniaForm) {
   };
 }
 
-// ── Dialog Form Component ──
+// Crea o aggiorna il conto bancario dell'agenzia in conti_bancari. Ritorna l'id (o null se no-op).
+async function persistContoAgenzia(
+  compagniaId: string,
+  form: CompagniaForm,
+): Promise<string | null> {
+  const iban = (form.conto_iban || "").trim().toUpperCase();
+  // No-op se né IBAN né record esistente
+  if (!iban && !form.conto_bancario_id) return null;
+  if (iban && iban.startsWith("IT") && iban.length !== 27) {
+    throw new Error(`IBAN italiano non valido (${iban.length} caratteri, attesi 27).`);
+  }
+  const payload: any = {
+    tipo: "agenzia",
+    compagnia_id: compagniaId,
+    etichetta: form.conto_etichetta?.trim() || form.conto_banca?.trim() || "Conto agenzia",
+    banca: form.conto_banca?.trim() || null,
+    iban: iban || null,
+    intestato_a: form.conto_intestato_a?.trim() || null,
+    bic: form.conto_bic?.trim() || null,
+    codice_abi: form.conto_abi?.trim() || null,
+    codice_cab: form.conto_cab?.trim() || null,
+    note: form.conto_note?.trim() || null,
+    is_default: !!form.conto_is_default,
+    attivo: true,
+  };
+  if (form.conto_bancario_id) {
+    const { error } = await supabase
+      .from("conti_bancari")
+      .update(payload)
+      .eq("id", form.conto_bancario_id);
+    if (error) throw error;
+    return form.conto_bancario_id;
+  }
+  if (!iban) return null;
+  const { data, error } = await supabase
+    .from("conti_bancari")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data?.id || null;
+}
 
 function ProvvigioniTabContent({ compagniaId }: { compagniaId: string | null }) {
   const queryClient = useQueryClient();
@@ -433,6 +488,37 @@ function CompagniaFormDialog({
     staleTime: 1000 * 60 * 30,
   });
 
+  // Carica il conto bancario dell'agenzia esistente (edit mode)
+  useEffect(() => {
+    if (!compagniaId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("conti_bancari")
+        .select("id, etichetta, banca, iban, intestato_a, bic, codice_abi, codice_cab, note, is_default")
+        .eq("compagnia_id", compagniaId)
+        .is("rapporto_id", null)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (cancelled || !data || data.length === 0) return;
+      const c: any = data[0];
+      setForm((prev) => ({
+        ...prev,
+        conto_bancario_id: c.id,
+        conto_etichetta: c.etichetta || "",
+        conto_banca: c.banca || "",
+        conto_iban: c.iban || "",
+        conto_intestato_a: c.intestato_a || "",
+        conto_bic: c.bic || "",
+        conto_abi: c.codice_abi || "",
+        conto_cab: c.codice_cab || "",
+        conto_note: c.note || "",
+        conto_is_default: c.is_default ?? true,
+      }));
+    })();
+    return () => { cancelled = true; };
+  }, [compagniaId, setForm]);
   const renderField = (label: string, field: keyof CompagniaForm, placeholder?: string, className?: string) => (
     <div className={`space-y-1 ${className || ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -626,23 +712,48 @@ function CompagniaFormDialog({
           </div>
 
           <div className="border-b pb-2 pt-3">
-            <Label className="text-sm font-medium text-foreground">Coordinate bancarie</Label>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Conto bancario</Label>
-            <ContoBancarioSelect
-              value={form.conto_bancario_id}
-              onChange={(id) => setField("conto_bancario_id", id)}
-              tipi={["agenzia", "generico"]}
-              placeholder="Seleziona dal registro Conti Bancari…"
-            />
+            <Label className="text-sm font-medium text-foreground">Conto bancario dell'agenzia</Label>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Default per rimesse premi. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
+              {form.conto_bancario_id
+                ? "Conto già registrato per questa agenzia. Modifica i campi e salva per aggiornarlo."
+                : "Inserisci qui le coordinate del conto della nuova agenzia. Al salvataggio verrà creato in Anagrafiche → Conti Bancari."}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {renderField("IBAN (alternativo)", "iban", "IT60X0542811101000000123456")}
-            {renderField("Intestato a", "intestato_a")}
+            {renderField("Etichetta conto", "conto_etichetta", "es. Conto principale")}
+            {renderField("Banca", "conto_banca", "es. Intesa Sanpaolo")}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">IBAN</Label>
+            <Input
+              value={form.conto_iban}
+              onChange={(e) => setField("conto_iban", e.target.value.toUpperCase().replace(/\s/g, ""))}
+              placeholder="IT60X0542811101000000123456"
+              maxLength={34}
+              className={form.conto_iban && form.conto_iban.startsWith("IT") && form.conto_iban.length !== 27 ? "border-destructive" : ""}
+            />
+            {form.conto_iban && form.conto_iban.startsWith("IT") && form.conto_iban.length !== 27 && (
+              <p className="text-[11px] text-destructive">IBAN italiano deve essere di 27 caratteri (attuali: {form.conto_iban.length}).</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {renderField("Intestato a", "conto_intestato_a", "Ragione sociale titolare")}
+            {renderField("BIC / SWIFT (opz.)", "conto_bic")}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {renderField("ABI (opz.)", "conto_abi")}
+            {renderField("CAB (opz.)", "conto_cab")}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Predefinito</Label>
+              <div className="flex items-center gap-2 h-10">
+                <Switch checked={form.conto_is_default} onCheckedChange={(v) => setField("conto_is_default", v)} />
+                <span className="text-xs text-muted-foreground">Default rimesse premi</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Note conto (opz.)</Label>
+            <Textarea value={form.conto_note} onChange={(e) => setField("conto_note", e.target.value)} rows={2} />
           </div>
         </TabsContent>
       </Tabs>
@@ -1261,8 +1372,19 @@ const CompagnieList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("compagnie").insert(formToPayload(form) as any);
+      const { data: created, error } = await supabase
+        .from("compagnie")
+        .insert(formToPayload(form) as any)
+        .select("id")
+        .single();
       if (error) throw error;
+      const newId = created?.id;
+      if (newId) {
+        const contoId = await persistContoAgenzia(newId, form);
+        if (contoId) {
+          await supabase.from("compagnie").update({ conto_bancario_id: contoId }).eq("id", newId);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agenzie"] });
@@ -1282,6 +1404,10 @@ const CompagnieList = () => {
       if (!editId) return;
       const { error } = await supabase.from("compagnie").update(formToPayload(form) as any).eq("id", editId);
       if (error) throw error;
+      const contoId = await persistContoAgenzia(editId, form);
+      if (contoId && contoId !== form.conto_bancario_id) {
+        await supabase.from("compagnie").update({ conto_bancario_id: contoId }).eq("id", editId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agenzie"] });
