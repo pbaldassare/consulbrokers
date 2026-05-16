@@ -265,13 +265,17 @@ async function persistContoAgenzia(
   if (iban && iban.startsWith("IT") && iban.length !== 27) {
     throw new Error(`IBAN italiano non valido (${iban.length} caratteri, attesi 27).`);
   }
+  const intestatario = form.conto_intestato_a?.trim() || form.nome?.trim() || "";
+  if (iban && !intestatario) {
+    throw new Error("Specifica l'intestatario del conto bancario (o la ragione sociale dell'agenzia).");
+  }
   const payload: any = {
     tipo: "agenzia",
     compagnia_id: compagniaId,
     etichetta: form.conto_etichetta?.trim() || form.conto_banca?.trim() || "Conto agenzia",
-    banca: form.conto_banca?.trim() || null,
+    banca: form.conto_banca?.trim() || "Banca da definire",
     iban: iban || null,
-    intestato_a: form.conto_intestato_a?.trim() || null,
+    intestato_a: intestatario || null,
     bic: form.conto_bic?.trim() || null,
     codice_abi: form.conto_abi?.trim() || null,
     codice_cab: form.conto_cab?.trim() || null,
