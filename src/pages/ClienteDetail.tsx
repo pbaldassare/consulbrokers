@@ -1024,11 +1024,30 @@ Consulbrokers S.r.l.`;
 function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: (to: string) => void }) {
   const catene = useMemo(() => groupTitoliByPolizza(polizze), [polizze]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const toggle = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
   const { profile } = useAuth();
   const isAdmin = profile?.ruolo === "admin";
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Conteggi & totali
+  const allQuiet = useMemo(() => (polizze as any[]).filter((p) => !!p.sostituisce_polizza), [polizze]);
+  const allPol = useMemo(() => (polizze as any[]).filter((p) => !p.sostituisce_polizza), [polizze]);
+  const totPremio = useMemo(
+    () => (polizze as any[]).reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    [polizze]
+  );
+
+  // Flat quietanze con riferimento alla madre (per vista "Solo quietanze")
+  const flatQuietanze = useMemo(() => {
+    const out: { rata: any; madreNum: string | null; idx: number }[] = [];
+    catene.forEach((c) => {
+      const madreNum = (c.madre || c.all[0])?.numero_titolo || null;
+      c.rate.forEach((r, i) => out.push({ rata: r, madreNum, idx: i + 2 }));
+    });
+    return out;
+  }, [catene]);
 
   const isLocked = (t: any) =>
     t?.stato === "incassato" || t?.stato === "stornato" || !!t?.data_messa_cassa;
