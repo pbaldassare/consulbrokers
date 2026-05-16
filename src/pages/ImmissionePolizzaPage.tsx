@@ -628,6 +628,8 @@ const ImmissionePolizzaPage = () => {
   const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
+  const brokFirma = percentualeBrokeraggio ? (premioNettoNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
+  const brokQuietanza = percentualeBrokeraggio ? (premioNettoQNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
 
   // --- Auto-lookup % Commerciale Produttore in base al Ramo ---
   // Sorgente: produttori_provvigioni_ramo (anagrafica_id + ramo_codice) → fallback anagrafiche_professionali.percentuale_base
