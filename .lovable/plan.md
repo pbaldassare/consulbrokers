@@ -1,34 +1,40 @@
-## Stato attuale nella scheda Cliente → Polizze del cliente
+## Quota di Brokeraggio in Polizza
 
-La tabella `PolizzeClienteTable` (in `src/pages/ClienteDetail.tsx`) usa già `groupTitoliByPolizza`:
-- Le **polizze madri** sono le righe principali (badge "Polizza")
-- Le **quietanze** sono dentro l'expand della madre (badge "Quietanza N", riga rientrata con ↳)
+### Mappatura
+- **Sorgente %**: `anagrafiche_professionali.percentuale_consulenza` (oggi etichettato "% Provv. Consulenza" sul produttore)
+- **Logica analoga** a `provvigioni_firma` / `provvigioni_quietanza` ma calcolata con la `percentuale_consulenza` del Produttore selezionato in polizza
 
-Però **non c'è coerenza** con quanto fatto nelle pagine portafoglio (Carico/Attive/Storico):
-- Il contatore tab dice "Polizze (5)" ma somma madri + quietanze → fuorviante.
-- Non c'è un filtro Tipo per vedere solo polizze o solo quietanze "appiattite".
-- Le quietanze si vedono solo aprendo l'expand.
+### 1. Database — nuova migration
+Aggiungo su `public.titoli` due colonne `numeric` (mirror del pattern esistente per le provvigioni):
+- `brokeraggio_firma numeric` — importo € sulla rata di firma
+- `brokeraggio_quietanza numeric` — importo € sulla quietanza
+- `percentuale_brokeraggio numeric` — % usata per il calcolo (snapshot, editabile)
 
-## Cosa propongo
+Nessun trigger né vincolo: campi liberi come le provvigioni.
 
-### 1. Tab counter separato
-Cambio il label da `Polizze (5)` a **`Polizze (4) · Quietanze (1)`** — conteggio reale dei due tipi nella query già caricata.
+### 2. ImmissionePolizzaPage
+- Aggiungo state `percentualeBrokeraggio` + `percentualeBrokeraggioAuto`
+- Nello stesso `useEffect` che oggi auto-popola `percentuale_commerciale` dal Produttore (`percentuale_base`), aggiungo lookup di `percentuale_consulenza` → setta default %
+- Calcolo `brokFirma = premio_netto × % / 100` e `brokQuietanza = premio_netto_quietanza × % / 100`
+- Nuovo input `% Brokeraggio` accanto a `% Commerciale` nella card provvigioni
+- Persisto i 3 nuovi campi nel `payload` di `finalizzaPolizza`
 
-### 2. Filtro Tipo sopra la tabella
-Stesso pattern delle pagine portafoglio:
-```
-Tipo: [ Polizze + Quietanze ▾ ]  →  Polizze + Quietanze | Solo polizze | Solo quietanze
-```
-- **Polizze + Quietanze** (default) → comportamento attuale: madri con expand
-- **Solo polizze** → solo le madri, niente expand
-- **Solo quietanze** → tabella appiattita di sole quietanze (ognuna su riga propria, con riferimento alla polizza madre)
+### 3. TitoloDetail
+- Aggiungo `brokeraggio_firma` / `brokeraggio_quietanza` al form `importiForm` e alla `select(...)` della query titolo
+- Due nuovi `EditableEuroField` analoghi a quelli delle provvigioni: uno nella card Firma, uno nella card Quietanza, entrambi `readOnly` quando polizza/rata è messa a cassa o stornata (rispetta `isLocked`)
+- Mostra `% brokeraggio` come campo % editabile accanto a `% commerciale`
 
-### 3. KPI mini-riepilogo opzionale
-Sopra la tabella, una riga sottile: `4 polizze · 1 quietanza · totale premio €X`. Niente card pesanti, solo testo informativo.
+### 4. UI/etichetta
+- Label utente: **"Brokeraggio"** (importo) e **"% Brokeraggio"** (percentuale)
+- Tooltip: "Quota di brokeraggio del Produttore — default da % Provv. Consulenza"
 
-### 4. Cosa NON cambia
-- Logica DELETE admin (cestino) invariata
-- `groupTitoliByPolizza` invariato
-- Niente migration
+### 5. Cosa NON cambia
+- Provvigioni firma/quietanza esistenti restano identiche
+- Split commerciali (`titoli_split_commerciali`), riparto e logica messa a cassa invariati
+- Nessun impatto su rendiconti/E-C già esistenti (la nuova quota non entra automaticamente nei report finché non lo chiedi esplicitamente)
 
-Confermi?
+### Domande aperte (rispondi in chat, non blocca il piano)
+- Va replicato anche nei rendiconti E/C agenzia e nelle provvigioni Sede? Per ora **no**, solo polizza.
+- Tipologia calcolo: `premio_netto × %` (default scelto), confermi?
+
+Confermi così?

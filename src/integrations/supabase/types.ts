@@ -6290,6 +6290,8 @@ export type Database = {
           anni_durata: number | null
           appendice: string | null
           banca_pagamento: string | null
+          brokeraggio_firma: number | null
+          brokeraggio_quietanza: number | null
           cambio: number | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
@@ -6337,6 +6339,7 @@ export type Database = {
           note: string | null
           numero_titolo: string | null
           pag_diretto_compagnia: boolean | null
+          percentuale_brokeraggio: number | null
           percentuale_commerciale: number | null
           percentuale_riparto: number | null
           periodicita: string | null
@@ -6390,6 +6393,8 @@ export type Database = {
           anni_durata?: number | null
           appendice?: string | null
           banca_pagamento?: string | null
+          brokeraggio_firma?: number | null
+          brokeraggio_quietanza?: number | null
           cambio?: number | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
@@ -6437,6 +6442,7 @@ export type Database = {
           note?: string | null
           numero_titolo?: string | null
           pag_diretto_compagnia?: boolean | null
+          percentuale_brokeraggio?: number | null
           percentuale_commerciale?: number | null
           percentuale_riparto?: number | null
           periodicita?: string | null
@@ -6490,6 +6496,8 @@ export type Database = {
           anni_durata?: number | null
           appendice?: string | null
           banca_pagamento?: string | null
+          brokeraggio_firma?: number | null
+          brokeraggio_quietanza?: number | null
           cambio?: number | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
@@ -6537,6 +6545,7 @@ export type Database = {
           note?: string | null
           numero_titolo?: string | null
           pag_diretto_compagnia?: boolean | null
+          percentuale_brokeraggio?: number | null
           percentuale_commerciale?: number | null
           percentuale_riparto?: number | null
           periodicita?: string | null
