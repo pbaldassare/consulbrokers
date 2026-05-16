@@ -1185,6 +1185,7 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
+  const [filterTipo, setFilterTipo] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
   const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
@@ -1298,7 +1299,8 @@ const CompagnieList = () => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
     const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri);
-    return matchNome && matchCodice && matchPluri;
+    const matchTipo = filterTipo === "all" || c.tipo === filterTipo;
+    return matchNome && matchCodice && matchPluri && matchTipo;
   });
 
   const pluriCount = compagnie.filter((c: any) => (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri).length;
@@ -1384,19 +1386,21 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
                   <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Filtro rapido</Label>
-                  <Button
-                    variant={onlyPluri ? "default" : "outline"}
-                    onClick={() => setOnlyPluri((v) => !v)}
-                    className="gap-2"
-                    title="Mostra solo agenzie da riassegnare"
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    Solo Plurimandatario {pluriCount > 0 && <Badge variant="secondary">{pluriCount}</Badge>}
-                  </Button>
+                <div className="space-y-1 w-44">
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "all", label: "Tutti" },
+                      { value: "agenzia", label: "Agenzia" },
+                      { value: "broker", label: "Broker" },
+                      { value: "direzione", label: "Direzione" },
+                    ]}
+                    value={filterTipo}
+                    onValueChange={setFilterTipo}
+                    placeholder="Filtra per tipo..."
+                  />
                 </div>
-                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setOnlyPluri(false); }}>Reset</Button>
+                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setFilterTipo("all"); setOnlyPluri(false); }}>Reset</Button>
               </div>
             </CardContent>
           </Card>
@@ -1415,11 +1419,10 @@ const CompagnieList = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Codice</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Sede</TableHead>
-                      <TableHead>Agenzia</TableHead>
+                      <TableHead>Ragione sociale</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Compagnia madre</TableHead>
                       <TableHead>Comune</TableHead>
-                      <TableHead>Prov</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead className="text-center">Rapporti</TableHead>
                       <TableHead>Attiva</TableHead>
@@ -1429,28 +1432,22 @@ const CompagnieList = () => {
                   <TableBody>
                     {filteredAnagrafica.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
-                      const isPluri = grp?.is_pluri;
                       const rc = (rapportiCounts as any)[c.id] || { tot: 0, attivi: 0 };
                       return (
                         <TableRow
                           key={c.id}
-                          className={`cursor-pointer hover:bg-muted/50 ${isPluri ? "bg-accent/30" : ""}`}
+                          className="cursor-pointer hover:bg-muted/50"
                           onClick={() => openEdit(c)}
                         >
                           <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
                           <TableCell className="font-medium">{c.nome}</TableCell>
-                          <TableCell>{c.nome_sede || "—"}</TableCell>
                           <TableCell>
-                            {isPluri ? (
-                              <Badge variant="outline" className="gap-1 border-primary/40 bg-accent/40 text-foreground">
-                                <AlertTriangle className="w-3 h-3" />Plurimandatario
-                              </Badge>
-                            ) : (
-                              <span>{grp?.descrizione || c.gruppo_compagnia || "—"}</span>
-                            )}
+                            <Badge variant="outline" className="capitalize">
+                              {c.tipo || "agenzia"}
+                            </Badge>
                           </TableCell>
+                          <TableCell>{grp?.descrizione || "—"}</TableCell>
                           <TableCell>{c.comune || "—"}</TableCell>
-                          <TableCell>{c.provincia || "—"}</TableCell>
                           <TableCell>
                             <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
                               {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
@@ -1462,7 +1459,7 @@ const CompagnieList = () => {
                               size="sm"
                               className="gap-1 h-7"
                               onClick={() => setRapportiTarget({ id: c.id, nome: c.nome })}
-                              title="Gestisci rapporti con agenzie"
+                              title="Gestisci rapporti con compagnie"
                             >
                               <Network className="w-3.5 h-3.5" />
                               {rc.attivi}{rc.tot > rc.attivi ? `/${rc.tot}` : ""}
@@ -1486,7 +1483,7 @@ const CompagnieList = () => {
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna agenzia trovata — clicca "Nuova Agenzia" per crearne una</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
