@@ -33,6 +33,7 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [filtroStato, setFiltroStato] = useState("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -68,13 +69,19 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
+
+  const applyTipoFilter = (q: any) => {
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    return q;
+  };
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
+    queryKey: ["portafoglio-carico", search, filtroStato, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
         { count: "exact" }
       ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
@@ -83,6 +90,7 @@ const PortafoglioCaricoPage = () => {
       }
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
+      q = applyTipoFilter(q);
 
       const { data, count } = await q
         .order(sortField, { ascending: sortDirection === "asc" })
@@ -97,19 +105,29 @@ const PortafoglioCaricoPage = () => {
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
+      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo, sostituisce_polizza")
         .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
-      
+
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
       const { data } = await q;
-      return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
+      const rows = (data || []) as any[];
+      const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
+      const polizzeRows = rows.filter((r) => !r.sostituisce_polizza);
+      const quietanzeRows = rows.filter((r) => !!r.sostituisce_polizza);
+      return {
+        totale: sumAll,
+        polizzeCount: polizzeRows.length,
+        polizzeTotale: polizzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+        quietanzeCount: quietanzeRows.length,
+        quietanzeTotale: quietanzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+      };
     },
   });
-  const totalePremio = totaleData ?? 0;
+  const totalePremio = totaleData?.totale ?? 0;
 
   // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
   const { data: pendingRinnovi } = useQuery({
