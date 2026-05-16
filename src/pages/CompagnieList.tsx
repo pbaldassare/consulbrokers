@@ -640,23 +640,48 @@ function CompagniaFormDialog({
           </div>
 
           <div className="border-b pb-2 pt-3">
-            <Label className="text-sm font-medium text-foreground">Coordinate bancarie</Label>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Conto bancario</Label>
-            <ContoBancarioSelect
-              value={form.conto_bancario_id}
-              onChange={(id) => setField("conto_bancario_id", id)}
-              tipi={["agenzia", "generico"]}
-              placeholder="Seleziona dal registro Conti Bancari…"
-            />
+            <Label className="text-sm font-medium text-foreground">Conto bancario dell'agenzia</Label>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Default per rimesse premi. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
+              {form.conto_bancario_id
+                ? "Conto già registrato per questa agenzia. Modifica i campi e salva per aggiornarlo."
+                : "Inserisci qui le coordinate del conto della nuova agenzia. Al salvataggio verrà creato in Anagrafiche → Conti Bancari."}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {renderField("IBAN (alternativo)", "iban", "IT60X0542811101000000123456")}
-            {renderField("Intestato a", "intestato_a")}
+            {renderField("Etichetta conto", "conto_etichetta", "es. Conto principale")}
+            {renderField("Banca", "conto_banca", "es. Intesa Sanpaolo")}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">IBAN</Label>
+            <Input
+              value={form.conto_iban}
+              onChange={(e) => setField("conto_iban", e.target.value.toUpperCase().replace(/\s/g, ""))}
+              placeholder="IT60X0542811101000000123456"
+              maxLength={34}
+              className={form.conto_iban && form.conto_iban.startsWith("IT") && form.conto_iban.length !== 27 ? "border-destructive" : ""}
+            />
+            {form.conto_iban && form.conto_iban.startsWith("IT") && form.conto_iban.length !== 27 && (
+              <p className="text-[11px] text-destructive">IBAN italiano deve essere di 27 caratteri (attuali: {form.conto_iban.length}).</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {renderField("Intestato a", "conto_intestato_a", "Ragione sociale titolare")}
+            {renderField("BIC / SWIFT (opz.)", "conto_bic")}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {renderField("ABI (opz.)", "conto_abi")}
+            {renderField("CAB (opz.)", "conto_cab")}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Predefinito</Label>
+              <div className="flex items-center gap-2 h-10">
+                <Switch checked={form.conto_is_default} onCheckedChange={(v) => setField("conto_is_default", v)} />
+                <span className="text-xs text-muted-foreground">Default rimesse premi</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Note conto (opz.)</Label>
+            <Textarea value={form.conto_note} onChange={(e) => setField("conto_note", e.target.value)} rows={2} />
           </div>
         </TabsContent>
       </Tabs>
