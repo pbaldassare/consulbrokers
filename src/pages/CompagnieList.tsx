@@ -1536,12 +1536,11 @@ const CompagnieList = () => {
           <TabsTrigger value="anagrafica" className="gap-2">
             <Building2 className="w-4 h-4" />Agenzie
           </TabsTrigger>
+          <TabsTrigger value="provvigioni" className="gap-2">
+            <Percent className="w-4 h-4" />Provvigioni
+          </TabsTrigger>
           <TabsTrigger value="import-provvigioni" className="gap-2">
             <Brain className="w-4 h-4" />Import Provvigioni IA
-          </TabsTrigger>
-          <TabsTrigger value="agenzie-rif" className="gap-2" disabled>
-            <Network className="w-4 h-4" />Agenzie di riferimento
-            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">Prossimamente</Badge>
           </TabsTrigger>
         </TabsList>
 
