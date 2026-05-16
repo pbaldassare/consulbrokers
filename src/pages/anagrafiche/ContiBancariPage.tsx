@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Banknote, Plus, Pencil, Star, Trash2 } from "lucide-react";
+import { Banknote, Plus, Pencil, Star, Trash2, Search, Building2, Briefcase, Landmark, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import ServerPagination from "@/components/ServerPagination";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { validateIban } from "@/lib/validateIban";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
@@ -37,10 +39,22 @@ interface ContoBancario {
 
 const TIPI = [
   { value: "incasso_clienti", label: "Incasso clienti" },
-  { value: "agenzia", label: "Agenzia" },
   { value: "provvigioni", label: "Provvigioni" },
   { value: "generico", label: "Generico" },
+  { value: "compagnia", label: "Compagnia" },
+  { value: "agenzia", label: "Agenzia" },
 ];
+
+type CategoriaKey = "consul" | "compagnie" | "agenzie" | "all";
+
+const CATEGORIE: Record<CategoriaKey, { label: string; icon: React.ComponentType<any>; tipi: string[] | null; defaultTipo: string }> = {
+  consul: { label: "Consulbrokers", icon: Briefcase, tipi: ["incasso_clienti", "provvigioni", "generico"], defaultTipo: "incasso_clienti" },
+  compagnie: { label: "Compagnie", icon: Building2, tipi: ["compagnia"], defaultTipo: "compagnia" },
+  agenzie: { label: "Agenzie", icon: Landmark, tipi: ["agenzia"], defaultTipo: "agenzia" },
+  all: { label: "Tutti", icon: List, tipi: null, defaultTipo: "incasso_clienti" },
+};
+
+const PAGE_SIZE = 25;
 
 const emptyForm: Partial<ContoBancario> = {
   etichetta: "",
@@ -65,23 +79,73 @@ const maskIban = (iban: string) => {
 
 export default function ContiBancariPage() {
   const qc = useQueryClient();
-  const [filtroTipo, setFiltroTipo] = useState<string>("all");
+  const [categoria, setCategoria] = useState<CategoriaKey>("consul");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const [soloAttivi, setSoloAttivi] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<Partial<ContoBancario>>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ContoBancario | null>(null);
 
-  const { data: conti = [], isLoading } = useQuery({
-    queryKey: ["conti_bancari_admin", filtroTipo, soloAttivi],
+  // Debounce ricerca 350ms
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset paginazione quando cambio tab o filtro attivi
+  useEffect(() => { setPage(0); }, [categoria, soloAttivi]);
+
+  // Conteggi per tab
+  const { data: counts } = useQuery({
+    queryKey: ["conti_bancari_counts", soloAttivi],
     queryFn: async () => {
-      let q = supabase.from("conti_bancari" as any).select("*");
-      if (filtroTipo !== "all") q = q.eq("tipo", filtroTipo);
+      const fetchCount = async (tipi: string[] | null) => {
+        let q = supabase.from("conti_bancari" as any).select("id", { count: "exact", head: true });
+        if (soloAttivi) q = q.eq("attivo", true);
+        if (tipi) q = q.in("tipo", tipi);
+        const { count, error } = await q;
+        if (error) throw error;
+        return count || 0;
+      };
+      const [consul, compagnie, agenzie, all] = await Promise.all([
+        fetchCount(CATEGORIE.consul.tipi),
+        fetchCount(CATEGORIE.compagnie.tipi),
+        fetchCount(CATEGORIE.agenzie.tipi),
+        fetchCount(null),
+      ]);
+      return { consul, compagnie, agenzie, all };
+    },
+    staleTime: 60_000,
+  });
+
+  const tipiCorrenti = CATEGORIE[categoria].tipi;
+
+  const { data: result, isLoading } = useQuery({
+    queryKey: ["conti_bancari_admin", categoria, search, page, soloAttivi],
+    queryFn: async () => {
+      let q = supabase.from("conti_bancari" as any).select("*", { count: "exact" });
+      if (tipiCorrenti) q = q.in("tipo", tipiCorrenti);
       if (soloAttivi) q = q.eq("attivo", true);
-      const { data, error } = await q.order("tipo").order("is_default", { ascending: false }).order("etichetta");
+      if (search) {
+        const s = search.replace(/[%,]/g, "");
+        q = q.or(`etichetta.ilike.%${s}%,iban.ilike.%${s}%,intestato_a.ilike.%${s}%,banca.ilike.%${s}%`);
+      }
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error, count } = await q
+        .order("tipo")
+        .order("is_default", { ascending: false })
+        .order("etichetta")
+        .range(from, to);
       if (error) throw error;
-      return (data || []) as unknown as ContoBancario[];
+      return { rows: (data || []) as unknown as ContoBancario[], total: count || 0 };
     },
   });
+
+  const conti = result?.rows || [];
+  const total = result?.total || 0;
 
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici_for_conti"],
@@ -108,7 +172,6 @@ export default function ContiBancariPage() {
         attivo: payload.attivo ?? true,
         note: payload.note?.trim() || null,
       };
-      // Se sto impostando is_default=true, prima azzero il default attuale dello stesso tipo
       if (data.is_default) {
         await supabase.from("conti_bancari" as any).update({ is_default: false }).eq("tipo", data.tipo).eq("is_default", true);
       }
@@ -122,6 +185,7 @@ export default function ContiBancariPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["conti_bancari_admin"] });
+      qc.invalidateQueries({ queryKey: ["conti_bancari_counts"] });
       qc.invalidateQueries({ queryKey: ["conti_bancari"] });
       toast.success("Conto bancario salvato");
       setDialogOpen(false);
@@ -137,6 +201,7 @@ export default function ContiBancariPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["conti_bancari_admin"] });
+      qc.invalidateQueries({ queryKey: ["conti_bancari_counts"] });
       qc.invalidateQueries({ queryKey: ["conti_bancari"] });
       toast.success("Conto eliminato");
       setDeleteTarget(null);
@@ -158,7 +223,10 @@ export default function ContiBancariPage() {
     onError: (e: any) => toast.error(e.message || "Errore"),
   });
 
-  const openNew = () => { setForm(emptyForm); setDialogOpen(true); };
+  const openNew = () => {
+    setForm({ ...emptyForm, tipo: CATEGORIE[categoria].defaultTipo });
+    setDialogOpen(true);
+  };
   const openEdit = (c: ContoBancario) => { setForm(c); setDialogOpen(true); };
 
   const ibanValidation = validateIban(form.iban || "");
@@ -175,86 +243,116 @@ export default function ContiBancariPage() {
     upsert.mutate({ ...form, iban: ibanValidation.normalized });
   };
 
+  const mostraDefault = categoria === "consul" || categoria === "all";
+
+  const tabBadge = (n: number | undefined) =>
+    typeof n === "number" ? <span className="ml-1.5 text-xs opacity-70">({n})</span> : null;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Banknote className="w-6 h-6 text-primary" /> Conti Bancari
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Registro unico degli IBAN aziendali. Il conto contrassegnato come <Star className="inline w-3 h-3 fill-primary text-primary" /> è quello usato di default per il proprio tipo.
+            Registro unico degli IBAN. <Star className="inline w-3 h-3 fill-primary text-primary" /> indica il conto di default per tipo (catena IBAN cliente: Specialist → Sede → Default Consulbrokers).
           </p>
         </div>
         <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Nuovo Conto</Button>
       </div>
 
+      <Tabs value={categoria} onValueChange={(v) => setCategoria(v as CategoriaKey)}>
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsTrigger value="consul"><Briefcase className="w-4 h-4 mr-1.5" />Consulbrokers{tabBadge(counts?.consul)}</TabsTrigger>
+          <TabsTrigger value="compagnie"><Building2 className="w-4 h-4 mr-1.5" />Compagnie{tabBadge(counts?.compagnie)}</TabsTrigger>
+          <TabsTrigger value="agenzie"><Landmark className="w-4 h-4 mr-1.5" />Agenzie{tabBadge(counts?.agenzie)}</TabsTrigger>
+          <TabsTrigger value="all"><List className="w-4 h-4 mr-1.5" />Tutti{tabBadge(counts?.all)}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-4">
-            <span>Filtri</span>
-            <div className="flex items-center gap-2">
-              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-                <SelectTrigger className="w-[200px] h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti i tipi</SelectItem>
-                  {TIPI.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
-                <Switch checked={soloAttivi} onCheckedChange={setSoloAttivi} /> Solo attivi
-              </Label>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[260px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Cerca per etichetta, IBAN, intestatario, banca…"
+                className="pl-9"
+              />
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+            <Label className="flex items-center gap-2 text-sm font-normal cursor-pointer whitespace-nowrap">
+              <Switch checked={soloAttivi} onCheckedChange={setSoloAttivi} /> Solo attivi
+            </Label>
+          </div>
+
           {isLoading ? (
             <p className="text-muted-foreground text-center py-8">Caricamento...</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Default</TableHead>
-                  <TableHead>Etichetta</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>IBAN</TableHead>
-                  <TableHead>Intestato a</TableHead>
-                  <TableHead>Banca</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {conti.map((c, i) => (
-                  <TableRow key={c.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
-                    <TableCell>
-                      {c.is_default ? (
-                        <Badge className="gap-1"><Star className="w-3 h-3 fill-current" /> Default</Badge>
-                      ) : (
-                        <Button variant="ghost" size="sm" onClick={() => setAsDefault.mutate(c)} title="Imposta come default">
-                          <Star className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{c.etichetta}</TableCell>
-                    <TableCell><Badge variant="secondary">{TIPI.find(t => t.value === c.tipo)?.label || c.tipo}</Badge></TableCell>
-                    <TableCell className="font-mono text-xs">{maskIban(c.iban)}</TableCell>
-                    <TableCell className="text-sm">{c.intestato_a}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{c.banca || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={c.attivo ? "default" : "secondary"}>{c.attivo ? "Attivo" : "Disattivo"}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(c)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {mostraDefault && <TableHead className="w-[80px]">Default</TableHead>}
+                    <TableHead>Etichetta</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>IBAN</TableHead>
+                    <TableHead>Intestato a</TableHead>
+                    <TableHead>Banca</TableHead>
+                    <TableHead>Stato</TableHead>
+                    <TableHead className="text-right">Azioni</TableHead>
                   </TableRow>
-                ))}
-                {conti.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nessun conto trovato</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {conti.map((c, i) => (
+                    <TableRow key={c.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
+                      {mostraDefault && (
+                        <TableCell>
+                          {c.is_default ? (
+                            <Badge className="gap-1"><Star className="w-3 h-3 fill-current" /> Default</Badge>
+                          ) : (
+                            <Button variant="ghost" size="sm" onClick={() => setAsDefault.mutate(c)} title="Imposta come default">
+                              <Star className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                      <TableCell className="font-medium">{c.etichetta}</TableCell>
+                      <TableCell><Badge variant="secondary">{TIPI.find(t => t.value === c.tipo)?.label || c.tipo}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs">{maskIban(c.iban)}</TableCell>
+                      <TableCell className="text-sm">{c.intestato_a}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{c.banca || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={c.attivo ? "default" : "secondary"}>{c.attivo ? "Attivo" : "Disattivo"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(c)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {conti.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={mostraDefault ? 8 : 7} className="text-center text-muted-foreground py-10">
+                        {search ? (
+                          <>Nessun conto trovato per "<span className="font-medium">{search}</span>"</>
+                        ) : (
+                          <div className="space-y-3">
+                            <p>Nessun conto in questa categoria.</p>
+                            <Button size="sm" variant="outline" onClick={openNew}>
+                              <Plus className="w-4 h-4 mr-2" /> Nuovo conto {CATEGORIE[categoria].label}
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+            </>
           )}
         </CardContent>
       </Card>
