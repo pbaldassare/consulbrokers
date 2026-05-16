@@ -213,6 +213,7 @@ const sidebarEntries: SidebarEntry[] = [
       children: [
         { label: "Provvigioni Consul", path: "/provvigioni-sede", icon: Landmark },
         { label: "Provvigioni Maturate", path: "/provvigioni-maturate", icon: TrendingUp },
+        { label: "Provvigioni Compagnie/Ramo", path: "/provvigioni-compagnie-ramo", icon: Percent },
         { label: "Pagamenti Provvigioni", path: "/pagamenti-provvigioni", icon: DollarSign },
       ],
     },
