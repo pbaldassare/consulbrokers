@@ -654,10 +654,25 @@ const ImmissionePolizzaPage = () => {
         if (pct == null) {
           const { data: ap } = await supabase
             .from("anagrafiche_professionali")
-            .select("percentuale_base")
+            .select("percentuale_base, percentuale_consulenza")
             .eq("id", selectedAE)
             .maybeSingle();
           if (ap?.percentuale_base != null) pct = Number(ap.percentuale_base);
+          if (!cancelled && ap?.percentuale_consulenza != null) {
+            setPercentualeBrokeraggio(String(Number(ap.percentuale_consulenza)));
+            setPercentualeBrokeraggioAuto(true);
+          }
+        } else {
+          // % commerciale presa dal ramo: leggo comunque la consulenza base del produttore
+          const { data: ap2 } = await supabase
+            .from("anagrafiche_professionali")
+            .select("percentuale_consulenza")
+            .eq("id", selectedAE)
+            .maybeSingle();
+          if (!cancelled && ap2?.percentuale_consulenza != null) {
+            setPercentualeBrokeraggio(String(Number(ap2.percentuale_consulenza)));
+            setPercentualeBrokeraggioAuto(true);
+          }
         }
         if (!cancelled && pct != null && !Number.isNaN(pct)) {
           setPercentualeCommerciale(String(pct));
