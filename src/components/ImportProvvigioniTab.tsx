@@ -136,6 +136,18 @@ const ImportProvvigioniTab = () => {
 
     setSaving(true);
     try {
+      // Risolvi/crea il rapporto unico per agenzia/direzione. Per broker/plurimandataria
+      // l'import non è supportato (serve sapere quale rapporto) e la RPC ritorna errore.
+      const { data: rapportoId, error: rappErr } = await supabase.rpc(
+        "ensure_default_rapporto" as any,
+        { _compagnia_id: selectedCompagnia },
+      );
+      if (rappErr) throw new Error(
+        rappErr.message?.includes("esplicitamente")
+          ? "Import non disponibile: per broker/plurimandataria configura le provvigioni dalla pagina Provvigioni Compagnie/Ramo scegliendo il rapporto."
+          : `Errore risoluzione rapporto: ${rappErr.message}`,
+      );
+
       for (let i = 0; i < righe.length; i++) {
         const riga = righe[i];
         if (riga.salvata) continue;
@@ -156,14 +168,15 @@ const ImportProvvigioniTab = () => {
 
         if (!categoriaId) throw new Error(`Nessuna categoria per riga "${riga.nome_originale}"`);
 
-        // Upsert into provvigioni_compagnia_ramo
+        // Upsert into provvigioni_compagnia_ramo per (rapporto, categoria)
         const { error: provErr } = await supabase.from("provvigioni_compagnia_ramo").upsert(
           {
-            compagnia_id: selectedCompagnia,
+            compagnia_rapporto_id: rapportoId as string,
             categoria_id: categoriaId,
-            percentuale: riga.percentuale,
-          },
-          { onConflict: "compagnia_id,categoria_id" }
+            percentuale_provvigione: riga.percentuale,
+            attiva: true,
+          } as any,
+          { onConflict: "compagnia_rapporto_id,categoria_id" },
         );
         if (provErr) throw new Error(`Errore salvataggio provvigione: ${provErr.message}`);
 
@@ -171,7 +184,7 @@ const ImportProvvigioniTab = () => {
       }
 
       queryClient.invalidateQueries({ queryKey: ["categorie_prodotto"] });
-      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo"] });
+      queryClient.invalidateQueries({ queryKey: ["provvigioni_compagnia_ramo_all"] });
       toast.success("Provvigioni salvate con successo!");
     } catch (err: any) {
       console.error(err);
