@@ -1575,7 +1575,7 @@ export type Database = {
           fax: string | null
           firma_digitale: string | null
           gruppo_compagnia: string | null
-          gruppo_compagnia_id: string
+          gruppo_compagnia_id: string | null
           gruppo_statistico: string | null
           iban: string | null
           id: string
@@ -1625,7 +1625,7 @@ export type Database = {
           fax?: string | null
           firma_digitale?: string | null
           gruppo_compagnia?: string | null
-          gruppo_compagnia_id: string
+          gruppo_compagnia_id?: string | null
           gruppo_statistico?: string | null
           iban?: string | null
           id?: string
@@ -1675,7 +1675,7 @@ export type Database = {
           fax?: string | null
           firma_digitale?: string | null
           gruppo_compagnia?: string | null
-          gruppo_compagnia_id?: string
+          gruppo_compagnia_id?: string | null
           gruppo_statistico?: string | null
           iban?: string | null
           id?: string
