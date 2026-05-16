@@ -1,91 +1,55 @@
-## Ho capito così — confermami con 2 esempi
+## Conto bancario inline per ogni Rapporto (no select)
 
-Un **Broker** o una **Plurimandataria** (es. *Etisicura S.r.l.*) non lavora con una sola compagnia: ha **N rapporti** in essere, ciascuno dei quali è un "contratto di collaborazione" con una specifica **Compagnia Assicurativa** e con una **specifica sede/agenzia** di quella compagnia, con il proprio IBAN.
+Stesso pattern usato per l'agenzia in `CompagnieList`: niente più dropdown, ma campi inline che vengono persistiti in `conti_bancari` e collegati al rapporto.
 
-Ogni rapporto è quindi un'entità autonoma con:
+### Modifiche a `RapportiCompagniaDialog.tsx`
 
-1. **Nome del rapporto** (etichetta libera, es. *"Nobis – Agenzia Torino Centro"*)
-2. **Tipologia** (Mandato diretto / Agenzia / Direzione / Broker / Sub-agenzia / Coverholder / Convenzione)
-3. **Compagnia Assicurativa** di riferimento (gruppo madre, es. *Nobis Assicurazioni*)
-4. **Sede operativa del rapporto** (denominazione agenzia + indirizzo, CAP, città, provincia — es. *"Agenzia Nobis Torino – Via Moncalieri 12, 10133 Torino TO"*)
-5. **Conto bancario dedicato** (IBAN su cui transita la liquidità di quel rapporto)
-6. **Referente in compagnia** (nome / email / telefono — già presente)
-7. Codice rapporto, rami abilitati, date inizio/fine, % provvigione, note (già presenti)
+**Rimuovo** `ContoBancarioSelect` dal form.
 
----
+**Aggiungo** al form (sostituendo l'attuale campo "Conto bancario dedicato"):
 
-### Esempio 1 — Broker "Etisicura S.r.l."
-
-| Campo | Rapporto A | Rapporto B |
+| Campo | Tipo | Note |
 |---|---|---|
-| Nome rapporto | Nobis – Agenzia Torino Centro | Generali – Direzione Milano |
-| Tipologia | Agenzia | Mandato diretto |
-| Compagnia | Nobis Assicurazioni | Generali Italia |
-| Sede del rapporto | Via Moncalieri 12, 10133 Torino TO | Piazza Cordusio 2, 20123 Milano MI |
-| IBAN dedicato | IT60 X054 2811 1010 0000 0123 456 | IT12 A030 6909 6061 0000 0000 789 |
-| Referente | Marco Rossi · m.rossi@nobis.it · 011-555123 | Laura Bianchi · l.bianchi@generali.it |
-| Rami abilitati | RCA, Property | Vita, Infortuni |
-| % Provv. | 15% | 12,5% |
+| Etichetta conto | text | es. "Conto Nobis Torino" |
+| Banca | text | es. "Intesa Sanpaolo" |
+| IBAN | text | uppercase, no spazi, validazione IT 27 char |
+| Intestato a | text | fallback automatico = `nome_rapporto` o "Compagnia + sede" |
+| BIC | text (opz.) | |
+| ABI · CAB | text (opz.) | |
+| Note conto | text (opz.) | |
 
-→ Quando emetto una polizza Nobis per un cliente di Etisicura, il sistema sa che l'IBAN per il versamento premi è quello di **Torino**, non quello di Milano.
+### Persistenza
 
-### Esempio 2 — Plurimandataria "Assicura Insieme Snc"
+Helper `persistContoRapporto(rapportoNomeFallback, form)`:
+- Se IBAN vuoto → ritorna `null` (nessun conto, fallback al conto della compagnia madre).
+- Se IBAN valorizzato:
+  - Validazione: `intestato_a` derivato (form → `nome_rapporto` → ragione sociale agenzia). Banca fallback "Banca da definire".
+  - `INSERT` (creazione nuovo rapporto) o `UPDATE` (modifica) sulla riga `conti_bancari` con `tipo='agenzia'`.
+  - Ritorna l'`id` del conto.
 
-| Campo | Rapporto A | Rapporto B | Rapporto C |
-|---|---|---|---|
-| Nome rapporto | UnipolSai – Mandato Bologna | Allianz – Sub-agenzia Modena | Cattolica – Conv. broker |
-| Tipologia | Mandato principale | Sub-agenzia | Convenzione broker |
-| Compagnia | UnipolSai | Allianz | Cattolica |
-| Sede | Via Indipendenza 8, 40121 BO | Corso Canalgrande 33, 41121 MO | Lungadige Cangrande 16, 37126 VR |
-| IBAN dedicato | IT… UnipolSai BO | IT… Allianz MO | IT… Cattolica VR |
-
----
-
-## Cosa propongo di costruire
-
-### 1. Schema DB — `compagnia_rapporti` (campi nuovi)
-
+`saveMutation`:
 ```text
-nome_rapporto        text            -- etichetta libera mostrata in tabella e select
-sede_denominazione   text            -- es. "Agenzia Torino Centro"
-sede_indirizzo       text
-sede_cap             text
-sede_citta           text
-sede_provincia       text(2)
+1. Validazione form (nome_rapporto, gruppo_compagnia_id, IBAN se presente)
+2. INSERT/UPDATE su compagnia_rapporti (senza conto_bancario_id se nuovo)
+3. try { contoId = persistContoRapporto(...) ; UPDATE compagnia_rapporti SET conto_bancario_id }
+   catch (errore conto) { DELETE rapporto appena creato → rollback ; rethrow }
 ```
 
-(Restano invariati: `gruppo_compagnia_id`, `tipo_rapporto`, `conto_bancario_id`, `codice_rapporto`, `rami_abilitati`, date, `percentuale_provvigione`, referente, note, `attivo`.)
+In edit, se l'utente svuota l'IBAN, mettere `conto_bancario_id=null` (il record `conti_bancari` resta — non lo elimino per non rompere riferimenti storici, ma non è più collegato).
 
-### 2. Tipologia rapporto — estendo la lista
+### Caricamento in edit
 
-Oggi: *Mandato diretto · Mandato principale · Sub-agenzia · Convenzione broker · Coverholder · Altro*
-Aggiungo: ***Agenzia · Direzione · Broker***.
+`useEffect` quando si apre `openEdit(r)`: se `r.conto_bancario_id` è valorizzato, fetch da `conti_bancari` e popola i campi (`etichetta`, `banca`, `iban`, `intestato_a`, `bic`, `abi`, `cab`, `note`).
 
-### 3. UI — `RapportiCompagniaDialog.tsx`
+### UI tabella rapporti
 
-- In testa al form: nuovo campo **Nome del rapporto** (obbligatorio, identificativo umano).
-- Nuovo blocco **Sede del rapporto** (denominazione + AddressAutocomplete che popola indirizzo/CAP/città/provincia).
-- Tabella: prima colonna diventa **Nome rapporto** (con sotto, piccolo, la compagnia); aggiunta colonna **Sede** (città + provincia) e colonna **IBAN** (ultime 4 cifre del conto collegato).
-- Il conto bancario dedicato resta come oggi (select con tipi `agenzia` / `generico`); se vuoto, fallback all'IBAN dell'agenzia madre.
+Aggiungo colonna **IBAN** (ultime 4 cifre del conto collegato) tramite join `conti_bancari!conto_bancario_id(iban, etichetta)`.
 
-### 4. Validazioni
+### File toccati
 
-- `nome_rapporto` obbligatorio.
-- `gruppo_compagnia_id` obbligatorio (già oggi).
-- Se `sede_indirizzo` è valorizzato, `sede_citta` e `sede_provincia` diventano obbligatori.
-- Nessun unique su `(compagnia_id, gruppo_compagnia_id)`: si possono avere più rapporti con la stessa compagnia ma su sedi diverse (è esattamente il caso d'uso).
-
-### 5. Impatto altrove
-
-- I conteggi e badge in `CompagnieList` (tab Plurimandataria/Broker) continuano a leggere `compagnia_rapporti.count`: nessuna modifica necessaria.
-- L'IBAN proposto per i versamenti di una polizza intermediata da broker/plurimandataria dovrà, in un secondo step, risolversi prima dal `conto_bancario_id` del rapporto, poi dal conto dell'agenzia madre. Lo segnalo ma non lo tocco in questa iterazione (richiede ragionare su dove la polizza dichiara "quale rapporto" sta usando).
+- `src/components/compagnie/RapportiCompagniaDialog.tsx` (unico file).
+- Nessuna migration DB necessaria (la tabella `conti_bancari` esiste già, `compagnia_rapporti.conto_bancario_id` esiste già).
 
 ---
 
-**Confermi che ho interpretato bene?** In particolare:
-
-- Va bene "Nome del rapporto" come etichetta libera, o preferisci derivarlo automaticamente da *"{Compagnia} – {Città sede}"*?
-- La **Sede del rapporto** è sempre la sede *della compagnia partner* (agenzia Nobis Torino), giusto? Non una sede del broker.
-- Tipologia: tieni l'elenco esteso che ho proposto o vuoi un set diverso?
-
-Appena confermi, procedo con migration + UI in un colpo solo.
+Confermi?
