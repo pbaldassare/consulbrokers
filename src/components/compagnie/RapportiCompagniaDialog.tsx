@@ -268,9 +268,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Compagnia Assicurativa</TableHead>
-                        <TableHead>Codice</TableHead>
+                        <TableHead>Nome rapporto</TableHead>
                         <TableHead>Tipo</TableHead>
+                        <TableHead>Sede</TableHead>
+                        <TableHead>Codice</TableHead>
                         <TableHead>Rami</TableHead>
                         <TableHead>Inizio</TableHead>
                         <TableHead>Fine</TableHead>
@@ -283,11 +284,26 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                       {(rapporti as any[]).map((r, idx) => (
                         <TableRow key={r.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
                           <TableCell className="font-medium">
-                            {r.gruppi_compagnia?.descrizione || "—"}
+                            <div>{r.nome_rapporto || "—"}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {r.gruppi_compagnia?.descrizione || ""}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{r.tipo_rapporto || "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            {r.sede_denominazione || r.sede_citta ? (
+                              <>
+                                <div>{r.sede_denominazione || "—"}</div>
+                                <div className="text-muted-foreground">
+                                  {[r.sede_citta, r.sede_provincia].filter(Boolean).join(" ")}
+                                </div>
+                              </>
+                            ) : (
+                              "—"
+                            )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">{r.codice_rapporto || "—"}</TableCell>
-                          <TableCell className="text-sm">{r.tipo_rapporto || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
                             {Array.isArray(r.rami_abilitati) && r.rami_abilitati.length
                               ? r.rami_abilitati.join(", ")
                               : "—"}
