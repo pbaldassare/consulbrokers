@@ -1,73 +1,135 @@
-# Riconfigurazione sezione "Contratto" — Immissione Polizza
 
-Allineiamo la sezione **Contratto** in `src/pages/ImmissionePolizzaPage.tsx` (e a cascata `TitoloDetail`) al nuovo modello `compagnie` + `compagnia_rapporti` introdotto con la form pulita del 16/05/2026.
+# Piano: Gestione Provvigioni Compagnie centralizzata in /compagnie
 
-## Modello di riferimento
+## Obiettivo
+Spostare e ristrutturare la gestione delle % provvigione che **Direzioni / Agenzie / Broker / Plurimandatarie** riconoscono a **Consulbrokers** dentro la sezione `/compagnie` (stessa pagina dove gestiamo le agenzie e i loro rapporti). La % deve essere granulare per **Rapporto × Ramo × Sottoramo**, così quando si inserisce una polizza il sistema trova subito la % corretta.
 
-Tre campi nella card Contratto, in quest'ordine:
+## Cosa cambia rispetto a oggi
+Oggi `provvigioni_compagnia_ramo` ha chiave `(compagnia_rapporto_id, categoria_id)` — cioè una sola % per "categoria prodotto". Troppo grossolano: Allianz Direzione su ramo AUTO ha % diverse tra RCA, ARD, Cristalli, Assistenza, Infortuni Conducente, ecc.
 
-1. **Compagnia Assicurativa** → `gruppi_compagnia` (la compagnia madre, es. NOBIS, AIG). Sempre obbligatoria.
-2. **Agenzia di Riferimento** → record di `compagnie` (tipo `agenzia` · `direzione` · `broker` · `plurimandataria`). Sempre obbligatoria.
-3. **Rapporto Agenzia** → record di `compagnia_rapporti`. Mostrato **solo** se l'agenzia è `broker` o `plurimandataria`. In quel caso obbligatorio.
+Nuovo modello: **una riga per ogni Sottoramo** (`rami.id`) del rapporto, con possibilità di una **riga "default ramo"** (`gruppo_ramo_id`, sottoramo NULL) usata come fallback.
 
-### Regola condizionale (driver: `compagnie.tipo`)
+## Esempi concreti
 
-| Tipo agenzia | Rapporto |
-|---|---|
-| `agenzia` | Nascosto. Il legame con la compagnia madre è già univoco via `compagnie.gruppo_compagnia_id`. |
-| `direzione` | Nascosto. Idem. |
-| `broker` | Visibile, obbligatorio. Lista da `compagnia_rapporti` filtrata per `compagnia_id` = agenzia scelta **AND** `gruppo_compagnia_id` = compagnia scelta. |
-| `plurimandataria` | Idem broker. |
+**Esempio 1 — Allianz Direzione (rapporto unico)**
+```
+Rapporto: "Allianz Direzione Livorno"
+  Ramo AUTO (default ramo)        → 8%   [fallback per nuovi sottorami]
+    Sottoramo RCA Auto            → 10%
+    Sottoramo ARD                 → 18%
+    Sottoramo Cristalli           → 22%
+    Sottoramo Assistenza          → 25%
+  Ramo INFORTUNI
+    Sottoramo Inf. Conducente     → 20%
+```
 
-## Filtro lista Agenzie
+**Esempio 2 — Etisicura Broker (più rapporti con la stessa madre Nobis)**
+```
+Rapporto: "Nobis – Convenzione Etisicura A"
+  Ramo RAMI ELEMENTARI / Casa     → 22%
+Rapporto: "Nobis – Convenzione Etisicura B"
+  Ramo RAMI ELEMENTARI / Casa     → 18%   (condizioni economiche diverse)
+```
+Quando si emette la polizza si sceglie **quale rapporto** → % corretta automatica.
 
-Quando la Compagnia Assicurativa è scelta, il dropdown "Agenzia di Riferimento" mostra:
+## Struttura tabelle
 
-- **agenzie / direzioni** con `gruppo_compagnia_id` = compagnia scelta;
-- **broker / plurimandatarie** che hanno almeno un record in `compagnia_rapporti` con `gruppo_compagnia_id` = compagnia scelta e `attivo = true`.
+### 1. Ristrutturazione `provvigioni_compagnia_ramo`
+Aggiungere colonne:
+- `gruppo_ramo_id` uuid → `gruppi_ramo(id)` (Ramo, es. AUTO)
+- `ramo_id` uuid NULL → `rami(id)` (Sottoramo; NULL = "default del ramo")
+- Mantenere `compagnia_rapporto_id` (chiave principale)
+- Deprecare `categoria_id` (resta per back-compat, popolata via trigger se serve)
+- Unique parziale: `(compagnia_rapporto_id, gruppo_ramo_id, ramo_id)` con `attiva = true` (NULLS NOT DISTINCT così "default ramo" è unico)
 
-Se la Compagnia non è ancora scelta, l'Agenzia è disabilitata (placeholder "Seleziona prima la Compagnia"). Quando si cambia la Compagnia, l'Agenzia e il Rapporto vengono resettati se non più coerenti.
+### 2. Default globale (livello tipo rapporto)
+Nuova tabella `provvigioni_default_tipo` opzionale:
+- `tipo_rapporto` (Direzione/Agenzia/Broker/Plurimandataria)
+- `gruppo_ramo_id`, `ramo_id` NULL, `percentuale`
+- Usata come **ultimo fallback** quando il rapporto non ha una sua %.
 
-Quando si sceglie un'Agenzia di tipo `agenzia`/`direzione`, viene fatto **auto-sync** della Compagnia (come oggi) leggendo `compagnie.gruppo_compagnia_id`.
+### 3. Catena di risoluzione (ordine lookup)
+Quando si salva una riga di polizza per `(compagnia_rapporto_id, ramo_id)`:
+1. match esatto `(rapporto, gruppo_ramo, ramo)` 
+2. default ramo `(rapporto, gruppo_ramo, NULL)`
+3. `percentuale_provvigione` sul `compagnia_rapporti` (% globale rapporto, già esistente)
+4. default tipo `(tipo_rapporto, gruppo_ramo, NULL)`
+5. 0 + warning UI
 
-## Persistenza su `titoli`
+Esposta come RPC `risolvi_provvigione_compagnia(rapporto_id, ramo_id)` → numeric. Usata da `ImmissionePolizzaPage` per pre-popolare il campo % di ogni riga garanzia.
 
-Al submit vengono valorizzati:
+## UI in /compagnie
 
-- `gruppo_compagnia_id` ← Compagnia Assicurativa
-- `compagnia_id` ← Agenzia di Riferimento
-- `compagnia_rapporto_id` ← Rapporto (NULL per `agenzia`/`direzione`)
-- `codice_rapporto` ← `compagnia_rapporti.codice_rapporto` (NULL per `agenzia`/`direzione`)
+Nella pagina `/compagnie` la tab oggi placeholder **"Agenzie di riferimento – Prossimamente"** diventa **"Provvigioni"**. La pagina autonoma `/provvigioni-compagnie-ramo` viene rimossa dalla sidebar (redirect alla tab).
 
-Validazione blocking prima del salvataggio:
-- Compagnia mancante → errore.
-- Agenzia mancante → errore.
-- Agenzia broker/plurimandataria senza rapporto scelto → errore "Selezionare il rapporto agenzia".
+Layout tab Provvigioni:
+- **Selettore Rapporto** in alto (searchable, mostra Compagnia madre + nome rapporto + tipo). Se l'agenzia ha 1 solo rapporto si seleziona da sola.
+- **Pannello default globali tipo rapporto** (collassabile, in alto): griglia Tipo × Ramo con %.
+- **Matrice rapporto selezionato**: 
+  - Righe = Sottorami del Ramo
+  - Raggruppate per Ramo con riga "Default ramo" in cima
+  - Colonna unica `%` con inline edit
+  - Badge "ereditato" quando la riga manca e usa fallback
+- Pulsanti azione:
+  - **Aggiungi tutti i sottorami** del catalogo (popola le righe vuote a 0 o al default ramo)
+  - **Copia da altro rapporto** (select rapporto sorgente → clona tutte le righe)
+  - **Incolla da CSV/Excel**: textarea che accetta `gruppo_ramo;sottoramo;%` o solo `sottoramo;%` (resolver per nome con fuzzy). Anteprima righe → conferma → upsert.
+  - **Import AI da PDF/foto**: bottone che apre dialog con upload + Gemini 2.5 Flash (riusa `parse-provvigioni-pdf` adattata) → output strutturato `[{gruppo_ramo, sottoramo, percentuale}]` → stesso flusso anteprima dell'incolla.
+  - **Export CSV** del rapporto corrente.
 
-## Pulizie da fare
+## Impatti su altri schermi
 
-- Rimuovere il filtro corrente "se ci sono 0 rapporti mostra niente" per agenzie/direzioni — già implicito perché non hanno rapporti.
-- Rimuovere il vecchio comportamento "auto-seleziona se 1 rapporto" per agenzie/direzioni (per loro il selettore non appare proprio); resta valido per broker/plurimandatarie con 1 solo rapporto coerente (lo si mostra in sola lettura come oggi).
-- La query `compagnieList` deve includere `tipo` (e `gruppo_compagnia_id` come oggi).
-- La query `rapportiAgenzia` aggiunge il filtro `.eq("gruppo_compagnia_id", selectedGruppoCompagniaId)`.
+- `ImmissionePolizzaPage` / `TitoloDetail` — la card Premio per ogni sottoramo: il campo `% provvigione` viene pre-popolato via `risolvi_provvigione_compagnia` (con badge "auto" e possibilità override manuale).
+- `ImportProvvigioniTab` (oggi in `CompagnieList`) — resta come canale di import massivo per i rendiconti pagati dalle compagnie, ma il **maintenance UI delle %** non sta più lì.
+- Sidebar: rimuovere voce "Provvigioni Compagnie/Ramo" sotto gruppo Provvigioni (rimane solo dentro /compagnie).
 
-## Dettagli tecnici
+## Migrazione dati
 
-File toccati:
-- `src/pages/ImmissionePolizzaPage.tsx`
-  - `compagnieList` SELECT aggiunge `tipo`.
-  - `rapportiAgenzia` SELECT aggiunge `gruppo_compagnia_id` + filtro per gruppo.
-  - Nuovo derivato `agenzieFiltrate` che applica le regole sopra (usando una query ausiliaria `rapportiPerGruppo` che ritorna `distinct compagnia_id` da `compagnia_rapporti` per la compagnia scelta, così posso includere broker/plurimand. anche se non hanno `gruppo_compagnia_id` sulla `compagnie`).
-  - UI: i due `SearchableSelect` Compagnia + Agenzia restano nella stessa griglia; il blocco "Rapporto Agenzia" appare condizionato a `tipoAgenzia in (broker, plurimandataria)`.
-  - `handleSave` aggiorna i campi su `titoli` e blocca con `toast.error` se manca un required.
-- `src/pages/TitoloDetail.tsx` (sezione `PolizzaSection` riusata): stessa logica, edit mode legge `tipo` dell'agenzia e mostra/nasconde il rapporto coerentemente.
-- Nessuna migration DB: i campi su `titoli` (`gruppo_compagnia_id`, `compagnia_id`, `compagnia_rapporto_id`, `codice_rapporto`) esistono già.
+1. Backfill colonna `gruppo_ramo_id` su `provvigioni_compagnia_ramo`: per ogni riga con `categoria_id` si tenta match su `categorie_prodotto.nome` → `gruppi_ramo.descrizione/codice`. Match non risolti restano `NULL` con `attiva=false` e log in `log_attivita` per revisione manuale.
+2. `ramo_id` resta NULL ⇒ trattata come "default ramo" → comportamento identico a oggi finché non si raffina.
+3. Nessuna perdita dati: vecchio `categoria_id` non viene droppato.
 
-## Esempio concreto
+## Sezione tecnica
 
-1. Compagnia = **NOBIS**.
-2. Lista Agenzia mostra:
-   - `RE233 - Agenzia Torino Moncalieri` (tipo `agenzia`, gruppo Nobis)
-   - `Etisicura` (tipo `broker`, ha rapporto attivo con Nobis)
-3. Scelgo `RE233` → rapporto nascosto, salvo con `compagnia_rapporto_id = NULL`.
-4. Scelgo `Etisicura` → appare select Rapporto con i suoi rapporti Nobis (es. "Nobis – Torino centro", "Nobis – Milano"). Devo sceglierne uno per salvare.
+**Migrazione SQL** (proposta):
+```sql
+ALTER TABLE provvigioni_compagnia_ramo
+  ADD COLUMN gruppo_ramo_id uuid REFERENCES gruppi_ramo(id),
+  ADD COLUMN ramo_id uuid REFERENCES rami(id);
+
+CREATE UNIQUE INDEX provv_rapporto_ramo_unique
+  ON provvigioni_compagnia_ramo (compagnia_rapporto_id, gruppo_ramo_id, ramo_id)
+  NULLS NOT DISTINCT
+  WHERE attiva = true;
+
+CREATE TABLE provvigioni_default_tipo (
+  id uuid PK default gen_random_uuid(),
+  tipo_rapporto text NOT NULL,
+  gruppo_ramo_id uuid REFERENCES gruppi_ramo(id),
+  ramo_id uuid REFERENCES rami(id),
+  percentuale numeric NOT NULL,
+  attiva boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
+-- RPC risolutore
+CREATE FUNCTION risolvi_provvigione_compagnia(_rapporto uuid, _ramo uuid)
+RETURNS numeric ...
+```
+
+**Frontend nuovi file**:
+- `src/components/compagnie/ProvvigioniRapportoTab.tsx` (matrice + azioni)
+- `src/components/compagnie/PasteProvvigioniDialog.tsx` (incolla CSV)
+- `src/components/compagnie/AiImportProvvigioniDialog.tsx` (upload PDF + AI)
+- `src/components/compagnie/CopiaProvvigioniDialog.tsx`
+- `src/hooks/useProvvigioniMatrix.ts` (fetch + upsert)
+
+**Edge function**:
+- Generalizzare `parse-provvigioni-pdf` per accettare modalità `tariffario` (output `{gruppo_ramo, sottoramo, %}`) oltre alla modalità rendiconto esistente.
+
+**Memoria progetto**: aggiornare `mem://features/provvigioni-compagnie-ramo-page` con il nuovo modello e creare `mem://insurance/provvigione-resolution-chain`.
+
+## Conferme richieste prima di implementare
+1. OK ad aggiungere `gruppo_ramo_id` + `ramo_id` su `provvigioni_compagnia_ramo` mantenendo `categoria_id` come legacy?
+2. Spostare la pagina dentro la tab di /compagnie e rimuovere voce sidebar dedicata: confermi?
+3. Catena di risoluzione proposta (sottoramo → default ramo → % rapporto → default tipo) va bene o vuoi un ordine diverso?

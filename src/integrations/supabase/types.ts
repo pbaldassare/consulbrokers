@@ -5394,8 +5394,10 @@ export type Database = {
           compagnia_id: string | null
           compagnia_rapporto_id: string | null
           created_at: string | null
+          gruppo_ramo_id: string | null
           id: string
           percentuale_provvigione: number
+          ramo_id: string | null
         }
         Insert: {
           attiva?: boolean | null
@@ -5403,8 +5405,10 @@ export type Database = {
           compagnia_id?: string | null
           compagnia_rapporto_id?: string | null
           created_at?: string | null
+          gruppo_ramo_id?: string | null
           id?: string
           percentuale_provvigione?: number
+          ramo_id?: string | null
         }
         Update: {
           attiva?: boolean | null
@@ -5412,8 +5416,10 @@ export type Database = {
           compagnia_id?: string | null
           compagnia_rapporto_id?: string | null
           created_at?: string | null
+          gruppo_ramo_id?: string | null
           id?: string
           percentuale_provvigione?: number
+          ramo_id?: string | null
         }
         Relationships: [
           {
@@ -5435,6 +5441,82 @@ export type Database = {
             columns: ["compagnia_rapporto_id"]
             isOneToOne: false
             referencedRelation: "compagnia_rapporti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_compagnia_ramo_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_compagnia_ramo_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+          {
+            foreignKeyName: "provvigioni_compagnia_ramo_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provvigioni_default_tipo: {
+        Row: {
+          attiva: boolean
+          created_at: string
+          gruppo_ramo_id: string | null
+          id: string
+          percentuale: number
+          ramo_id: string | null
+          tipo_rapporto: string
+          updated_at: string
+        }
+        Insert: {
+          attiva?: boolean
+          created_at?: string
+          gruppo_ramo_id?: string | null
+          id?: string
+          percentuale?: number
+          ramo_id?: string | null
+          tipo_rapporto: string
+          updated_at?: string
+        }
+        Update: {
+          attiva?: boolean
+          created_at?: string
+          gruppo_ramo_id?: string | null
+          id?: string
+          percentuale?: number
+          ramo_id?: string | null
+          tipo_rapporto?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provvigioni_default_tipo_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_default_tipo_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+          {
+            foreignKeyName: "provvigioni_default_tipo_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
             referencedColumns: ["id"]
           },
         ]
@@ -8234,6 +8316,13 @@ export type Database = {
           _ufficio_id?: string
         }
         Returns: Json
+      }
+      risolvi_provvigione_compagnia: {
+        Args: { _ramo_id: string; _rapporto_id: string }
+        Returns: {
+          percentuale: number
+          source: string
+        }[]
       }
       run_data_quality_checks: { Args: never; Returns: Json }
       segna_eventi_sinistri_scaduti: { Args: never; Returns: Json }
