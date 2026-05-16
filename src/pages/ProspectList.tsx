@@ -250,6 +250,11 @@ const ProspectList = () => {
               {form.tipo_cliente === "privato" ? (
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner documentType="carta_identita" onFileReady={handleFileReady}
+                    entityContext={(form.codice_fiscale || form.nome || form.cognome) ? {
+                      entityType: "prospect",
+                      scopeHint: `Nuovo prospect ${(form.cognome || "").trim()} ${(form.nome || "").trim()}`.trim() || "Nuovo prospect",
+                      expectedCF: form.codice_fiscale || null,
+                    } : undefined}
                     onExtracted={(data) => {
                       if (data.nome) set("nome", data.nome);
                       if (data.cognome) set("cognome", data.cognome);
@@ -262,6 +267,11 @@ const ProspectList = () => {
                       if (data.provincia) set("provincia_residenza", (data.provincia as string).toUpperCase());
                     }} />
                   <AiDocumentScanner documentType="tessera_sanitaria" onFileReady={handleFileReady}
+                    entityContext={(form.codice_fiscale || form.nome || form.cognome) ? {
+                      entityType: "prospect",
+                      scopeHint: `Nuovo prospect ${(form.cognome || "").trim()} ${(form.nome || "").trim()}`.trim() || "Nuovo prospect",
+                      expectedCF: form.codice_fiscale || null,
+                    } : undefined}
                     onExtracted={(data) => {
                       if (data.codice_fiscale) set("codice_fiscale", (data.codice_fiscale as string).toUpperCase());
                       if (data.nome) set("nome", data.nome);
