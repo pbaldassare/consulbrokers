@@ -1580,6 +1580,38 @@ const ImmissionePolizzaPage = () => {
               className="h-8 text-xs font-mono"
             />
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              % Brokeraggio
+              {percentualeBrokeraggioAuto && (
+                <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
+              )}
+            </Label>
+            <Input
+              type="number" step="0.01" min="0" max="100"
+              value={percentualeBrokeraggio}
+              onChange={(e) => { setPercentualeBrokeraggio(e.target.value); setPercentualeBrokeraggioAuto(false); }}
+              placeholder="0,00"
+              className="h-8 text-xs font-mono"
+              title="Quota di brokeraggio del Produttore — default da % Provv. Consulenza"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Brokeraggio Firma €</Label>
+            <Input
+              type="text" readOnly tabIndex={-1}
+              value={brokFirma ? brokFirma.toFixed(2) : "—"}
+              className="h-8 text-xs font-mono bg-muted/40"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Brokeraggio Quietanza €</Label>
+            <Input
+              type="text" readOnly tabIndex={-1}
+              value={brokQuietanza ? brokQuietanza.toFixed(2) : "—"}
+              className="h-8 text-xs font-mono bg-muted/40"
+            />
+          </div>
         </div>
         <p className="text-[10px] text-muted-foreground italic mt-2">
           ℹ️ % e importo provvigione sono modificabili direttamente nelle card <b>Firma</b> e <b>Quietanza</b>.
