@@ -331,6 +331,12 @@ const ProspectDetail = () => {
               <AiDocumentScanner
                 documentType="carta_identita"
                 label="Scansiona Documento"
+                entityContext={prospect ? {
+                  entityType: "prospect",
+                  scopeHint: `${prospect.cognome ?? ""} ${prospect.nome ?? ""}`.trim() || "Prospect",
+                  expectedCF: (prospect as any).codice_fiscale ?? null,
+                  expectedPIVA: (prospect as any).partita_iva ?? null,
+                } : undefined}
                 onExtracted={async (data) => {
                   const updates: Record<string, unknown> = {};
                   if (data.nome) updates.nome = data.nome;
