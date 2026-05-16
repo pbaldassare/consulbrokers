@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Shield, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import ServerPagination from "@/components/ServerPagination";
@@ -21,6 +23,7 @@ const PortafoglioAttivePage = () => {
   const [filtroGruppoRamo, setFiltroGruppoRamo] = useState<string | null>(null);
   const [filtroRamo, setFiltroRamo] = useState<string | null>(null);
   const [escludiMeseCorrente, setEscludiMeseCorrente] = useState(true);
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const inizioMese = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -28,14 +31,19 @@ const PortafoglioAttivePage = () => {
 
   const { data: ramiAll = [] } = useRamiAll();
   const { ramoIds: filterRamoIds } = expandRamoFilter(filtroGruppoRamo, filtroRamo, ramiAll);
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroGruppoRamo, filtroRamo, escludiMeseCorrente]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroGruppoRamo, filtroRamo, escludiMeseCorrente, filtroTipo]);
 
+  const applyTipoFilter = (q: any) => {
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    return q;
+  };
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente],
+    queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
         { count: "exact" }
       ).eq("stato", "attivo").gte("garanzia_a", today);
 
@@ -47,6 +55,7 @@ const PortafoglioAttivePage = () => {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
       if (filterRamoIds && filterRamoIds.length > 0) q = q.in("ramo_id", filterRamoIds);
+      q = applyTipoFilter(q);
 
       const { data, count } = await q
         .order("garanzia_a", { ascending: true })
@@ -128,6 +137,16 @@ const PortafoglioAttivePage = () => {
             setPage(0);
           }}
         />
+        <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="polizze">Solo polizze</SelectItem>
+            <SelectItem value="quietanze">Solo quietanze</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-2 ml-auto">
           <Switch
             id="escludi-mese"
@@ -151,6 +170,7 @@ const PortafoglioAttivePage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>N° Polizza</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Agenzia</TableHead>
                   <TableHead>Ramo</TableHead>
@@ -169,6 +189,11 @@ const PortafoglioAttivePage = () => {
                 {polizze.map((p: any) => (
                   <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
                     <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                    <TableCell>
+                      {p.sostituisce_polizza
+                        ? <Badge variant="secondary">Quietanza</Badge>
+                        : <Badge variant="default">Polizza</Badge>}
+                    </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
                     <TableCell>{p.ramo_nome || "—"}</TableCell>

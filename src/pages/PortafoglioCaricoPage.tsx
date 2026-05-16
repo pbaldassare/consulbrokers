@@ -33,6 +33,7 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [filtroStato, setFiltroStato] = useState("tutti");
+  const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -68,13 +69,19 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
+
+  const applyTipoFilter = (q: any) => {
+    if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
+    if (filtroTipo === "quietanze") return q.not("sostituisce_polizza", "is", null);
+    return q;
+  };
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroStato, page, caricoStart, caricoEnd, sortField, sortDirection],
+    queryKey: ["portafoglio-carico", search, filtroStato, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
-        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti",
+        "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
         { count: "exact" }
       ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
 
@@ -83,6 +90,7 @@ const PortafoglioCaricoPage = () => {
       }
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
+      q = applyTipoFilter(q);
 
       const { data, count } = await q
         .order(sortField, { ascending: sortDirection === "asc" })
@@ -97,19 +105,29 @@ const PortafoglioCaricoPage = () => {
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
+      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo, sostituisce_polizza")
         .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
-      
+
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
       const { data } = await q;
-      return (data || []).reduce((sum: number, r: any) => sum + (Number(r.premio_lordo) || 0), 0);
+      const rows = (data || []) as any[];
+      const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
+      const polizzeRows = rows.filter((r) => !r.sostituisce_polizza);
+      const quietanzeRows = rows.filter((r) => !!r.sostituisce_polizza);
+      return {
+        totale: sumAll,
+        polizzeCount: polizzeRows.length,
+        polizzeTotale: polizzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+        quietanzeCount: quietanzeRows.length,
+        quietanzeTotale: quietanzeRows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0),
+      };
     },
   });
-  const totalePremio = totaleData ?? 0;
+  const totalePremio = totaleData?.totale ?? 0;
 
   // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
   const { data: pendingRinnovi } = useQuery({
@@ -335,15 +353,16 @@ const PortafoglioCaricoPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="rounded-lg bg-accent/50 p-3">
               <Clock className="h-6 w-6 text-accent-foreground" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Polizze da rinnovare</p>
+              <p className="text-sm text-muted-foreground">Totale titoli</p>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
+              <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
             </div>
           </CardContent>
         </Card>
@@ -353,8 +372,33 @@ const PortafoglioCaricoPage = () => {
               <Euro className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Totale premio lordo</p>
-              <p className="text-2xl font-bold text-foreground">{fmtCurrency(totalePremio)}</p>
+              <p className="text-sm text-muted-foreground">Polizze</p>
+              <p className="text-2xl font-bold text-foreground">{totaleData?.polizzeCount ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{fmtCurrency(totaleData?.polizzeTotale ?? 0)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-lg bg-secondary p-3">
+              <Banknote className="h-6 w-6 text-secondary-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Quietanze</p>
+              <p className="text-2xl font-bold text-foreground">{totaleData?.quietanzeCount ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{fmtCurrency(totaleData?.quietanzeTotale ?? 0)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-lg bg-orange-100 p-3">
+              <Hourglass className="h-6 w-6 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">In attesa rinnovo</p>
+              <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
+              <p className="text-xs text-muted-foreground">polizza precedente non a cassa</p>
             </div>
           </CardContent>
         </Card>
@@ -447,6 +491,16 @@ const PortafoglioCaricoPage = () => {
             <SelectItem value="incassato">Messe a cassa</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tutti">Polizze + Quietanze</SelectItem>
+            <SelectItem value="polizze">Solo polizze</SelectItem>
+            <SelectItem value="quietanze">Solo quietanze</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -466,6 +520,7 @@ const PortafoglioCaricoPage = () => {
                     />
                   </TableHead>
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
+                  <TableHead>Tipo</TableHead>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
@@ -496,6 +551,13 @@ const PortafoglioCaricoPage = () => {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
+                      <TableCell>
+                        {p.sostituisce_polizza ? (
+                          <Badge variant="secondary" title={`Rata della polizza ${p.numero_titolo || ""}`}>Quietanza</Badge>
+                        ) : (
+                          <Badge variant="default">Polizza</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                       <TableCell>{p.compagnia_nome || "—"}</TableCell>
                       <TableCell>{p.ramo_nome || "—"}</TableCell>
