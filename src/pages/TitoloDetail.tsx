@@ -2790,6 +2790,7 @@ const TitoloDetail = () => {
                 </div>
                 <div className="mt-2 pt-2 border-t border-teal-200 dark:border-teal-900">
                   <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                  <FieldRow label="Brokeraggio" value={fmtEuro((t as any).brokeraggio_firma)} />
                   {renderSplitImporti("Split", sFirma, "teal")}
                 </div>
               </div>
@@ -2802,6 +2803,7 @@ const TitoloDetail = () => {
                 </div>
                 <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900">
                   <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                  <FieldRow label="Brokeraggio" value={fmtEuro((t as any).brokeraggio_quietanza)} />
                   {renderSplitImporti("Split", sQui, "amber")}
                 </div>
               </div>
