@@ -69,7 +69,10 @@ const TIPI_COPERTURA = ["Deposito a copertura", "Scambio conferme", "Conferma so
 
 // ── Types ──
 
+const TIPI_AGENZIA = ["agenzia", "broker", "direzione"];
+
 interface CompagniaForm {
+  tipo: string;
   nome: string;
   nome_sede: string;
   codice: string;
@@ -116,6 +119,7 @@ interface CompagniaForm {
 }
 
 const emptyForm: CompagniaForm = {
+  tipo: "agenzia",
   nome: "", nome_sede: "", codice: "", nome_segue: "", indirizzo: "", cap: "", comune: "", provincia: "",
   nazione: "ITALIA", stato: "Attivo", telefono: "", fax: "", cellulare: "", note: "",
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
@@ -134,6 +138,7 @@ function toOptions(arr: string[]) {
 
 function dbToForm(c: any): CompagniaForm {
   return {
+    tipo: c.tipo || "agenzia",
     nome: c.nome || "",
     nome_sede: c.nome_sede || "",
     codice: c.codice || "",
@@ -182,6 +187,7 @@ function dbToForm(c: any): CompagniaForm {
 
 function formToPayload(form: CompagniaForm) {
   return {
+    tipo: form.tipo || "agenzia",
     nome: form.nome,
     nome_sede: form.nome_sede || null,
     codice: form.codice || null,
@@ -428,24 +434,112 @@ function CompagniaFormDialog({
     </div>
   );
 
+  const isBroker = form.tipo === "broker";
+  const needsGruppo = form.tipo === "agenzia" || form.tipo === "direzione";
+  const canSave = !!form.nome.trim() && !!form.codice.trim() && (!needsGruppo || !!form.gruppo_compagnia_id);
+
   return (
     <>
-      <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-      <Tabs defaultValue="anagrafica" className="w-full">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="anagrafica">Dati Anagrafici</TabsTrigger>
-          <TabsTrigger value="contabili">Dati Contabili</TabsTrigger>
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+      </DialogHeader>
+      <Tabs defaultValue="identificativi" className="w-full">
+        <TabsList className="w-full grid grid-cols-4">
+          <TabsTrigger value="identificativi">Identificativi</TabsTrigger>
+          <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
+          <TabsTrigger value="bancario">RUI &amp; Bancario</TabsTrigger>
           <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
         </TabsList>
 
-        {/* ── TAB 1: DATI ANAGRAFICI ── */}
-        <TabsContent value="anagrafica" className="space-y-3 mt-4">
+        {/* ── TAB 1: IDENTIFICATIVI ── */}
+        <TabsContent value="identificativi" className="space-y-3 mt-4">
           <div className="grid grid-cols-3 gap-3">
-            {renderField("Codice Ricerca", "codice")}
-            {renderField("Nome Agenzia *", "nome")}
-            {renderField("Nome Sede", "nome_sede", "es. Milano 1, Roma Centro")}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Tipo <span className="text-destructive">*</span></Label>
+              <RadioGroup value={form.tipo} onValueChange={(v) => setField("tipo", v)} className="flex gap-3 pt-2">
+                {TIPI_AGENZIA.map((t) => (
+                  <div key={t} className="flex items-center gap-1.5">
+                    <RadioGroupItem value={t} id={`tipo-${t}`} />
+                    <Label htmlFor={`tipo-${t}`} className="text-sm font-normal cursor-pointer capitalize">{t}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Codice <span className="text-destructive">*</span></Label>
+              <Input
+                value={form.codice}
+                onChange={(e) => setField("codice", e.target.value.toUpperCase().trim())}
+                placeholder="es. MED001"
+                className="font-mono"
+              />
+              {!form.codice.trim() && <p className="text-xs text-destructive">Obbligatorio e univoco</p>}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Stato</Label>
+              <RadioGroup value={form.stato} onValueChange={(v) => setField("stato", v)} className="flex gap-3 pt-2">
+                {["Attivo", "Sospeso"].map((s) => (
+                  <div key={s} className="flex items-center gap-1.5">
+                    <RadioGroupItem value={s} id={`stato-${s}`} />
+                    <Label htmlFor={`stato-${s}`} className="text-sm font-normal cursor-pointer">{s}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
           </div>
-          {renderField("Nome (segue)", "nome_segue")}
+
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Ragione sociale <span className="text-destructive">*</span></Label>
+            <Input value={form.nome} onChange={(e) => setField("nome", e.target.value)} placeholder="Nome completo dell'agenzia/broker" />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">
+              Compagnia madre {needsGruppo && <span className="text-destructive">*</span>}
+              {isBroker && <span className="text-muted-foreground"> (opzionale per broker)</span>}
+            </Label>
+            <SearchableSelect
+              options={gruppiCompagnia}
+              value={form.gruppo_compagnia_id}
+              onValueChange={(v) => {
+                setField("gruppo_compagnia_id", v);
+                const found = gruppiCompagnia.find((g: any) => g.value === v);
+                setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
+              }}
+              placeholder="Seleziona compagnia assicurativa..."
+            />
+            {needsGruppo && !form.gruppo_compagnia_id && (
+              <p className="text-xs text-destructive">Campo obbligatorio per agenzia/direzione</p>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── TAB 2: ANAGRAFICA ── */}
+        <TabsContent value="anagrafica" className="space-y-3 mt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Codice Fiscale</Label>
+              <Input
+                value={form.codice_fiscale}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  setField("codice_fiscale", val);
+                  if (val.length === 11 && /^\d{11}$/.test(val) && !form.partita_iva) {
+                    setField("partita_iva", val);
+                    toast.info("Partita IVA copiata dal Codice Fiscale");
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Partita IVA</Label>
+              <Input
+                value={form.partita_iva}
+                onChange={(e) => setField("partita_iva", e.target.value.toUpperCase())}
+                placeholder="11 cifre"
+              />
+            </div>
+          </div>
 
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Indirizzo</Label>
@@ -457,11 +551,7 @@ function CompagniaFormDialog({
           </div>
           <div className="grid grid-cols-3 gap-3">
             {renderField("CAP", "cap")}
-            {renderField("Città", "comune")}
-            {renderField("Provincia", "provincia", "es. MI")}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+            {renderField("Comune", "comune")}
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nazione</Label>
               <SearchableSelect
@@ -471,119 +561,41 @@ function CompagniaFormDialog({
                 placeholder="Seleziona nazione..."
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Stato</Label>
-              <RadioGroup value={form.stato} onValueChange={(v) => setField("stato", v)} className="flex gap-4 pt-2">
-                {STATI_COMPAGNIA.map((s) => (
-                  <div key={s} className="flex items-center gap-1.5">
-                    <RadioGroupItem value={s} id={`stato-${s}`} />
-                    <Label htmlFor={`stato-${s}`} className="text-sm font-normal cursor-pointer">{s}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {renderField("Email", "mail")}
-            {renderField("PEC", "pec")}
+          <div className="border-t pt-3 mt-3">
+            <Label className="text-sm font-medium text-foreground">Contatti</Label>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            {renderField("Email", "mail", "info@...")}
+            {renderField("PEC", "pec", "pec@...")}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             {renderField("Telefono", "telefono")}
-            {renderField("Fax", "fax")}
-            {renderField("Cellulare", "cellulare")}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             {renderField("Mail Estratto Conto", "mail_ec")}
-            {renderField("Mail Avvisi", "mail_avvisi")}
           </div>
+
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Attenzione di / Note</Label>
+            <Label className="text-xs text-muted-foreground">Note</Label>
             <Textarea value={form.note} onChange={(e) => setField("note", e.target.value)} rows={2} />
           </div>
         </TabsContent>
 
-        {/* ── TAB 2: DATI CONTABILI ── */}
-        <TabsContent value="contabili" className="space-y-3 mt-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Codice Fiscale</Label>
-              <Input value={form.codice_fiscale} onChange={(e) => {
-                const val = e.target.value.toUpperCase();
-                setField("codice_fiscale", val);
-                if (val.length === 11 && /^\d{11}$/.test(val) && !form.partita_iva) {
-                  setField("partita_iva", val);
-                  toast.info("Partita IVA copiata dal Codice Fiscale");
-                }
-              }} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Partita IVA</Label>
-              <Input value={form.partita_iva} onChange={(e) => setField("partita_iva", e.target.value.toUpperCase())} />
-            </div>
+        {/* ── TAB 3: RUI & BANCARIO ── */}
+        <TabsContent value="bancario" className="space-y-3 mt-4">
+          <div className="border-b pb-2">
+            <Label className="text-sm font-medium text-foreground">Iscrizione RUI</Label>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {renderField("Iscrizione RUI - Sezione", "iscrizione_rui_sez")}
-            {renderField("Iscrizione RUI - Numero", "iscrizione_rui_num")}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {renderField("Pagamento", "pagamento", "es. Bonifico a 30 gg.")}
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Tipo Pagamento</Label>
-              <SearchableSelect
-                options={toOptions(TIPI_PAGAMENTO)}
-                value={form.tipo_pagamento}
-                onValueChange={(v) => setField("tipo_pagamento", v)}
-                placeholder="Seleziona..."
-              />
-            </div>
-          </div>
-          {renderField("% Ritenuta d'Acconto", "percentuale_ra", "es. 23")}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
-                Compagnia Assicurativa (gruppo) <span className="text-destructive">*</span>
-              </Label>
-              <SearchableSelect
-                options={gruppiCompagnia}
-                value={form.gruppo_compagnia_id}
-                onValueChange={(v) => {
-                  setField("gruppo_compagnia_id", v);
-                  const found = gruppiCompagnia.find((g: any) => g.value === v);
-                  setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
-                }}
-                placeholder="Seleziona compagnia assicurativa..."
-              />
-              {!form.gruppo_compagnia_id && (
-                <p className="text-xs text-destructive">Campo obbligatorio</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Tipo Mandatario</Label>
-              <SearchableSelect
-                options={toOptions(TIPI_MANDATARIO)}
-                value={form.tipo_mandatario}
-                onValueChange={(v) => setField("tipo_mandatario", v)}
-                placeholder="Seleziona..."
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Gruppo Statistico</Label>
-            <SearchableSelect
-              options={toOptions(GRUPPI_STATISTICI)}
-              value={form.gruppo_statistico}
-              onValueChange={(v) => setField("gruppo_statistico", v)}
-              placeholder="Seleziona..."
-            />
+            {renderField("Sezione", "iscrizione_rui_sez", "A / B / E …")}
+            {renderField("Numero", "iscrizione_rui_num")}
           </div>
 
-          <div className="border-t pt-3 mt-3">
-            <Label className="text-sm font-medium text-foreground">Conto Bancario</Label>
+          <div className="border-b pb-2 pt-3">
+            <Label className="text-sm font-medium text-foreground">Coordinate bancarie</Label>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Conto bancario della agenzia</Label>
+            <Label className="text-xs text-muted-foreground">Conto bancario</Label>
             <ContoBancarioSelect
               value={form.conto_bancario_id}
               onChange={(id) => setField("conto_bancario_id", id)}
@@ -591,65 +603,22 @@ function CompagniaFormDialog({
               placeholder="Seleziona dal registro Conti Bancari…"
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Gestisci il registro dei conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>. Questo conto viene usato come default per le rimesse premi della compagnia.
+              Default per rimesse premi. Gestisci i conti in <span className="font-medium">Anagrafiche → Conti Bancari</span>.
             </p>
           </div>
-
-          <div className="border-t pt-3 mt-3">
-            <Label className="text-sm font-medium text-foreground">Opzioni</Label>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Aut. Incasso (art. 118)</Label>
-              <Switch checked={form.aut_incasso_118} onCheckedChange={(v) => setField("aut_incasso_118", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">R.A. su E/C negativi</Label>
-              <Switch checked={form.ra_ec_negativi} onCheckedChange={(v) => setField("ra_ec_negativi", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Allegato Excel in Avvisi</Label>
-              <Switch checked={form.allegato_excel_avvisi} onCheckedChange={(v) => setField("allegato_excel_avvisi", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Allegato Excel in E/C</Label>
-              <Switch checked={form.allegato_excel_ec} onCheckedChange={(v) => setField("allegato_excel_ec", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Escluso All. 4</Label>
-              <Switch checked={form.escluso_all4} onCheckedChange={(v) => setField("escluso_all4", v)} />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Tipo Copertura</Label>
-            <SearchableSelect
-              options={toOptions(TIPI_COPERTURA)}
-              value={form.tipo_copertura}
-              onValueChange={(v) => setField("tipo_copertura", v)}
-              placeholder="Seleziona..."
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Firma Digitale</Label>
-            <RadioGroup value={form.firma_digitale} onValueChange={(v) => setField("firma_digitale", v)} className="flex gap-4 pt-1">
-              {FIRME_DIGITALI.map((f) => (
-                <div key={f} className="flex items-center gap-1.5">
-                  <RadioGroupItem value={f} id={`firma-${f}`} />
-                  <Label htmlFor={`firma-${f}`} className="text-sm font-normal cursor-pointer">{f}</Label>
-                </div>
-              ))}
-            </RadioGroup>
+          <div className="grid grid-cols-2 gap-3">
+            {renderField("IBAN (alternativo)", "iban", "IT60X0542811101000000123456")}
+            {renderField("Intestato a", "intestato_a")}
           </div>
         </TabsContent>
 
-        {/* ── TAB 3: PROVVIGIONI ── */}
+        {/* ── TAB 4: PROVVIGIONI ── */}
         <TabsContent value="provvigioni" className="mt-4">
           <ProvvigioniTabContent compagniaId={compagniaId} />
         </TabsContent>
       </Tabs>
-      <Button onClick={onSave} disabled={!form.nome || !form.gruppo_compagnia_id || saving} className="w-full mt-4">
+
+      <Button onClick={onSave} disabled={!canSave || saving} className="w-full mt-4">
         {saveLabel}
       </Button>
     </>
@@ -1216,6 +1185,7 @@ const CompagnieList = () => {
   const [searchCodice, setSearchCodice] = useState("");
   
   const [onlyPluri, setOnlyPluri] = useState(false);
+  const [filterTipo, setFilterTipo] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("agenzie");
   const [rapportiTarget, setRapportiTarget] = useState<{ id: string; nome: string } | null>(null);
   const [deleteCompagnia, setDeleteCompagnia] = useState<{ id: string; nome: string; attiva: boolean } | null>(null);
@@ -1271,7 +1241,11 @@ const CompagnieList = () => {
       setForm(emptyForm);
       toast.success("Agenzia creata con successo");
     },
-    onError: () => toast.error("Errore nella creazione"),
+    onError: (err: any) => toast.error(
+      err?.message?.toLowerCase()?.includes("idx_compagnie_codice_unique") || err?.code === "23505"
+        ? `Codice "${form.codice}" già usato da un'altra agenzia`
+        : err?.message || "Errore nella creazione"
+    ),
   });
 
   const updateMutation = useMutation({
@@ -1286,7 +1260,11 @@ const CompagnieList = () => {
       setEditId(null);
       toast.success("Agenzia aggiornata");
     },
-    onError: () => toast.error("Errore nell'aggiornamento"),
+    onError: (err: any) => toast.error(
+      err?.message?.toLowerCase()?.includes("idx_compagnie_codice_unique") || err?.code === "23505"
+        ? `Codice "${form.codice}" già usato da un'altra agenzia`
+        : err?.message || "Errore nell'aggiornamento"
+    ),
   });
 
   const toggleMutation = useMutation({
@@ -1329,7 +1307,8 @@ const CompagnieList = () => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
     const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri);
-    return matchNome && matchCodice && matchPluri;
+    const matchTipo = filterTipo === "all" || c.tipo === filterTipo;
+    return matchNome && matchCodice && matchPluri && matchTipo;
   });
 
   const pluriCount = compagnie.filter((c: any) => (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri).length;
@@ -1415,19 +1394,21 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
                   <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Filtro rapido</Label>
-                  <Button
-                    variant={onlyPluri ? "default" : "outline"}
-                    onClick={() => setOnlyPluri((v) => !v)}
-                    className="gap-2"
-                    title="Mostra solo agenzie da riassegnare"
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    Solo Plurimandatario {pluriCount > 0 && <Badge variant="secondary">{pluriCount}</Badge>}
-                  </Button>
+                <div className="space-y-1 w-44">
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "all", label: "Tutti" },
+                      { value: "agenzia", label: "Agenzia" },
+                      { value: "broker", label: "Broker" },
+                      { value: "direzione", label: "Direzione" },
+                    ]}
+                    value={filterTipo}
+                    onValueChange={setFilterTipo}
+                    placeholder="Filtra per tipo..."
+                  />
                 </div>
-                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setOnlyPluri(false); }}>Reset</Button>
+                <Button variant="secondary" onClick={() => { setSearchNome(""); setSearchCodice(""); setFilterTipo("all"); setOnlyPluri(false); }}>Reset</Button>
               </div>
             </CardContent>
           </Card>
@@ -1446,11 +1427,10 @@ const CompagnieList = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Codice</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Sede</TableHead>
-                      <TableHead>Agenzia</TableHead>
+                      <TableHead>Ragione sociale</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Compagnia madre</TableHead>
                       <TableHead>Comune</TableHead>
-                      <TableHead>Prov</TableHead>
                       <TableHead>Stato</TableHead>
                       <TableHead className="text-center">Rapporti</TableHead>
                       <TableHead>Attiva</TableHead>
@@ -1460,28 +1440,22 @@ const CompagnieList = () => {
                   <TableBody>
                     {filteredAnagrafica.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
-                      const isPluri = grp?.is_pluri;
                       const rc = (rapportiCounts as any)[c.id] || { tot: 0, attivi: 0 };
                       return (
                         <TableRow
                           key={c.id}
-                          className={`cursor-pointer hover:bg-muted/50 ${isPluri ? "bg-accent/30" : ""}`}
+                          className="cursor-pointer hover:bg-muted/50"
                           onClick={() => openEdit(c)}
                         >
                           <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
                           <TableCell className="font-medium">{c.nome}</TableCell>
-                          <TableCell>{c.nome_sede || "—"}</TableCell>
                           <TableCell>
-                            {isPluri ? (
-                              <Badge variant="outline" className="gap-1 border-primary/40 bg-accent/40 text-foreground">
-                                <AlertTriangle className="w-3 h-3" />Plurimandatario
-                              </Badge>
-                            ) : (
-                              <span>{grp?.descrizione || c.gruppo_compagnia || "—"}</span>
-                            )}
+                            <Badge variant="outline" className="capitalize">
+                              {c.tipo || "agenzia"}
+                            </Badge>
                           </TableCell>
+                          <TableCell>{grp?.descrizione || "—"}</TableCell>
                           <TableCell>{c.comune || "—"}</TableCell>
-                          <TableCell>{c.provincia || "—"}</TableCell>
                           <TableCell>
                             <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
                               {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
@@ -1493,7 +1467,7 @@ const CompagnieList = () => {
                               size="sm"
                               className="gap-1 h-7"
                               onClick={() => setRapportiTarget({ id: c.id, nome: c.nome })}
-                              title="Gestisci rapporti con agenzie"
+                              title="Gestisci rapporti con compagnie"
                             >
                               <Network className="w-3.5 h-3.5" />
                               {rc.attivi}{rc.tot > rc.attivi ? `/${rc.tot}` : ""}
@@ -1517,7 +1491,7 @@ const CompagnieList = () => {
                       );
                     })}
                     {filteredAnagrafica.length === 0 && (
-                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nessuna agenzia trovata</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nessuna agenzia trovata — clicca "Nuova Agenzia" per crearne una</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>

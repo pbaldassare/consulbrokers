@@ -1,68 +1,93 @@
-# Riorganizzazione pagina Conti Bancari
+# Reset agenzie/broker e ricostruzione form
 
-## Problema attuale
-- Una sola tabella con 338 righe (334 sono `tipo='compagnia'`, 3 `generico`, 1 `incasso_clienti`).
-- Nessuna ricerca testuale: trovare un IBAN o una compagnia è impossibile.
-- Filtro tipo presente ma il valore reale `compagnia` non è nemmeno nella lista `TIPI` (mostra "compagnia" come badge grezzo).
-- Niente paginazione → render lento, scroll infinito.
-- I conti "core" di Consulbrokers (incassi, provvigioni, generici) si perdono in mezzo ai 334 conti agenzia.
+## Obiettivo
+Cancellare tutti i 476 record `compagnie` con `tipo IN ('agenzia','broker')` e rifare la form di inserimento pulita, con i campi davvero utili. Le **106 compagnie assicurative madri** (`gruppi_compagnia`) restano intatte.
 
-## Nuovo layout
+---
 
-Una pagina con **tab per categoria** sopra alla tabella:
+## Fase 1 — Backup (sicurezza)
 
-```text
-[Banknote] Conti Bancari                                    [+ Nuovo Conto]
+Snapshot completo su `_backup_compagnie_reset_20260516` (admin-only) con tutte le colonne + JSON di `compagnia_rapporti` collegati. Recuperabile in lettura.
 
-┌──────────────────────────────────────────────────────────────────────┐
-│ Consulbrokers (4)  │  Compagnie (334)  │  Agenzie (0)  │  Tutti      │
-└──────────────────────────────────────────────────────────────────────┘
+## Fase 2 — Azzeramento riferimenti (SET NULL manuale)
 
- 🔎 Cerca per etichetta, IBAN, intestatario, banca…   [Solo attivi ☑]
+Le FK su `compagnie.id` sono quasi tutte `ON DELETE NO ACTION`. Prima del DELETE devo svuotare a mano:
 
- ┌──────────────────────────────────────────────────────────────────┐
- │ ★  Etichetta        Tipo         IBAN              Intestato a … │
- │ ────────────────────────────────────────────────────────────────  │
- │ ★  Conto Incassi…   Incasso cli  IT70…6469         Consulbrok…   │
- │ ...                                                              │
- └──────────────────────────────────────────────────────────────────┘
-                                       « 1 2 3 … 14 »   25 / pagina
-```
-
-### Tab e mapping
-
-| Tab | Tipi inclusi | Default visibile |
+| Tabella | Colonna | Azione |
 |---|---|---|
-| **Consulbrokers** | `incasso_clienti`, `provvigioni`, `generico` | Sì, per ciascun sotto-tipo |
-| **Compagnie** | `compagnia` | No (default non si applica) |
-| **Agenzie** | `agenzia` | No |
-| **Tutti** | — | Default per tipo |
+| `titoli` | `compagnia_id` | UPDATE → NULL |
+| `sinistri` | `compagnia_id` | UPDATE → NULL |
+| `trattative` | `compagnia_id` | UPDATE → NULL |
+| `prodotti` | `compagnia_id` | UPDATE → NULL |
+| `flussi_compagnia` | `compagnia_id` | UPDATE → NULL |
+| `anagrafiche_professionali` | `compagnia_id` | UPDATE → NULL |
+| `dettaglio_riparto` | `compagnia_id` | UPDATE → NULL |
+| `rimessa_premi` | `compagnia_id` | UPDATE → NULL |
+| `document_folders` | `compagnia_id` | già SET NULL automatico |
+| `compagnia_rapporti` | `compagnia_id` | CASCADE automatico (si cancella) |
+| `provvigioni_compagnia_ramo` | `compagnia_id` | CASCADE automatico |
 
-I tab mostrano il **conteggio** tra parentesi (query separata `count: 'exact'`).
+Solo per i record dove `compagnia_id` punta a un'agenzia/broker (NON tocco i riferimenti alle compagnie madri).
 
-### Ricerca
-- Campo di ricerca con debounce 350 ms.
-- Server-side: `ilike` su `etichetta`, `iban`, `intestato_a`, `banca` con `or(...)`.
+## Fase 3 — DELETE
 
-### Paginazione
-- Server-side, 25 per pagina, componente `ServerPagination` già usato altrove.
+```sql
+DELETE FROM compagnie WHERE tipo IN ('agenzia','broker');
+```
+Risultato atteso: 0 record `agenzia`/`broker` rimasti.
 
-### Altri miglioramenti UX
-- Nella tab **Compagnie** aggiungo colonna "Compagnia collegata" (join leggero su `compagnie.conto_bancario_id` → ragione sociale) per capire a chi appartiene il conto.
-- Badge `Default` solo nelle tab dove ha senso (Consulbrokers, Tutti).
-- Aggiungo `compagnia` e `agenzia` al dizionario `TIPI` così il badge non mostra più il valore raw.
-- Empty state per tab vuota: testo + bottone "Nuovo conto di questa categoria" (pre-imposta il `tipo` nel form).
+## Fase 4 — Pulizia schema (rimozione campi inutili nella form)
 
-## Dettagli tecnici
+Confermami i campi della nuova form. **Proposta minimale** (campi che propongo di tenere visibili; quelli legacy restano in DB ma nascosti):
 
-File toccato: `src/pages/anagrafiche/ContiBancariPage.tsx` (solo presentazione, niente schema/RLS).
+**Essenziali (obbligatori)**
+- `codice` ★ obbligatorio + unique
+- `nome` (Ragione sociale)
+- `tipo` (agenzia / broker / direzione)
+- `gruppo_compagnia_id` (compagnia madre, opzionale per broker)
 
-- Stato: `categoria` ('consul' | 'compagnie' | 'agenzie' | 'all'), `search` (debounced), `page`, `soloAttivi`.
-- Query principale: `select('*', { count: 'exact' })` con `.in('tipo', tipiTab)` + `or(...ilike)` + `.range()`.
-- Conteggi tab: una query `select('tipo', { count: 'exact', head: true })` per ognuno, oppure unica RPC; per semplicità 3 query in parallelo con `useQueries`, `staleTime` 60 s.
-- Mantengo dialog di creazione/modifica e `DeleteWithImpactDialog` invariati. Il form già ha `tipo` come Select → aggiungo `compagnia` e `agenzia` alle opzioni (read-only se editi un conto collegato a un'agenzia/compagnia).
-- Nessuna modifica alla logica `is_default` / catena IBAN.
+**Anagrafica**
+- `partita_iva`, `codice_fiscale`
+- `indirizzo`, `cap`, `comune` (con autocomplete)
+- `telefono`, `mail`, `pec`
 
-## Fuori scope
-- Refactor backend, nuove tabelle, nuove RLS.
-- Modifiche alla pagina IBAN dei profili Specialist o Sedi.
+**Operativi**
+- `iscrizione_rui_sez`, `iscrizione_rui_num`
+- `iban`, `intestato_a` (o `conto_bancario_id`)
+- `stato` (Attivo / Sospeso)
+
+**Da rimuovere dalla UI** (residui legacy, restano in DB ma nascosti):
+- `provincia` (deriva da `comune`)
+- `fax`, `cellulare`, `mail_avvisi`, `nome_segue`, `nome_sede`
+- `codice_abi`, `codice_cab`, `bic`, `citta_banca` (sostituiti da IBAN)
+- `gruppo_compagnia` (testo legacy, sostituito da `gruppo_compagnia_id`)
+- `tipo_copertura`, `aut_incasso_118`, `ra_ec_negativi`, `allegato_excel_*`, `escluso_all4`, `pagamento`, `tipo_pagamento`
+- `percentuale_ra`, `ultima_scadenza_polizza`, `gruppo_statistico`, `tipo_mandatario`, `firma_digitale`
+
+→ Se confermi questi tagli aggiungo `codice` UNIQUE constraint e nascondo i campi dalla form di `CompagnieList.tsx`.
+
+## Fase 5 — UI nuova form
+
+In `src/pages/CompagnieList.tsx`, tab "Agenzie":
+- Form a sezioni: **Identificativi · Anagrafica · Contatti · RUI · Bancario**
+- Validazioni: `codice` univoco (case-insensitive), P.IVA 11 cifre, IBAN valido (helper esistente)
+- Tab "Agenzie" mostra colonne: **Codice · Nome · Tipo · Compagnia madre · Comune · Stato · Rapporti**
+- Rimosse colonne: Provincia, Agenzia, Sede
+- Filtro per tipo (agenzia / broker / direzione)
+- Bottone "Nuova Agenzia" con `tipo` preselezionato dal filtro
+
+## Fase 6 — Memoria
+
+Aggiorno `mem://insurance/compagnie-struttura-pulita` con: campi obbligatori, campi nascosti, regole codice univoco.
+
+---
+
+## Cosa NON tocco
+- 106 compagnie assicurative madri (`gruppi_compagnia`)
+- Storico titoli/sinistri/trattative (restano con `compagnia_id = NULL`, poi riassocerete)
+- Tabella `compagnie` come schema (solo aggiungo UNIQUE su `codice`)
+
+## Conferme richieste prima di eseguire
+1. **Lista campi** della Fase 4 ti va bene? Vuoi aggiungere/togliere qualcosa?
+2. **`codice` UNIQUE**: ok renderlo obbligatorio e univoco?
+3. Procedo con tutto in un'unica migrazione (backup + SET NULL + DELETE) e poi modifico la UI in un secondo step?
