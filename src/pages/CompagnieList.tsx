@@ -549,7 +549,7 @@ function CompagniaFormDialog({
         </TabsContent>
 
         {/* ── TAB 2: ANAGRAFICA ── */}
-        <TabsContent value="anagrafica" className="space-y-3 mt-4">
+        <TabsContent value="anagrafica" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Codice Fiscale</Label>
@@ -616,7 +616,7 @@ function CompagniaFormDialog({
         </TabsContent>
 
         {/* ── TAB 3: RUI & BANCARIO ── */}
-        <TabsContent value="bancario" className="space-y-3 mt-4">
+        <TabsContent value="bancario" className="space-y-4 mt-4">
           <div className="border-b pb-2">
             <Label className="text-sm font-medium text-foreground">Iscrizione RUI</Label>
           </div>
