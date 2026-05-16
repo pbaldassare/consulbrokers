@@ -70,6 +70,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
           file_base64: base64,
           tipo_documento: documentType,
           mime_type: file.type,
+          entity_context: entityContext ?? null,
         },
       });
 
