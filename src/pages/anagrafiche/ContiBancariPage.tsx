@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Banknote, Plus, Pencil, Star, Trash2, Search, Building2, Briefcase, Landmark, List } from "lucide-react";
+import { Banknote, Plus, Pencil, Star, Trash2, Search, Building2, Briefcase, Landmark, List, Network, ShieldCheck, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import ServerPagination from "@/components/ServerPagination";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { validateIban } from "@/lib/validateIban";
@@ -32,26 +33,57 @@ interface ContoBancario {
   tipo: string;
   is_default: boolean;
   ufficio_id: string | null;
+  compagnia_id: string | null;
+  rapporto_id: string | null;
   piano_conti_conto_id: string | null;
   attivo: boolean;
   note: string | null;
 }
 
-const TIPI = [
+// Tipi Consul (sottocategorie) — usate solo nella tab Consulbrokers
+const CONSUL_SUBTIPI = [
   { value: "incasso_clienti", label: "Incasso clienti" },
   { value: "provvigioni", label: "Provvigioni" },
   { value: "generico", label: "Generico" },
-  { value: "compagnia", label: "Compagnia" },
-  { value: "agenzia", label: "Agenzia" },
 ];
 
-type CategoriaKey = "consul" | "compagnie" | "agenzie" | "all";
+// Tipi entità — uno per tab
+const ENTITY_TIPI = [
+  { value: "agenzia", label: "Agenzia" },
+  { value: "broker", label: "Broker" },
+  { value: "direzione", label: "Direzione" },
+  { value: "plurimandataria", label: "Plurimandataria" },
+] as const;
+
+const TIPO_LABEL: Record<string, string> = {
+  incasso_clienti: "Incasso clienti",
+  provvigioni: "Provvigioni",
+  generico: "Generico",
+  agenzia: "Agenzia",
+  broker: "Broker",
+  direzione: "Direzione",
+  plurimandataria: "Plurimandataria",
+};
+
+const TIPO_BADGE: Record<string, string> = {
+  incasso_clienti: "bg-teal-100 text-teal-800 border-teal-200",
+  provvigioni: "bg-sky-100 text-sky-800 border-sky-200",
+  generico: "bg-slate-100 text-slate-800 border-slate-200",
+  agenzia: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  broker: "bg-blue-100 text-blue-800 border-blue-200",
+  direzione: "bg-purple-100 text-purple-800 border-purple-200",
+  plurimandataria: "bg-orange-100 text-orange-800 border-orange-200",
+};
+
+type CategoriaKey = "consul" | "agenzie" | "broker" | "direzioni" | "plurimandatari" | "all";
 
 const CATEGORIE: Record<CategoriaKey, { label: string; icon: React.ComponentType<any>; tipi: string[] | null; defaultTipo: string }> = {
-  consul: { label: "Consulbrokers", icon: Briefcase, tipi: ["incasso_clienti", "provvigioni", "generico"], defaultTipo: "incasso_clienti" },
-  compagnie: { label: "Compagnie", icon: Building2, tipi: ["compagnia"], defaultTipo: "compagnia" },
-  agenzie: { label: "Agenzie", icon: Landmark, tipi: ["agenzia"], defaultTipo: "agenzia" },
-  all: { label: "Tutti", icon: List, tipi: null, defaultTipo: "incasso_clienti" },
+  consul:          { label: "Consulbrokers",  icon: Briefcase, tipi: ["incasso_clienti", "provvigioni", "generico"], defaultTipo: "incasso_clienti" },
+  agenzie:         { label: "Agenzie",        icon: Landmark,  tipi: ["agenzia"],                                     defaultTipo: "agenzia" },
+  broker:          { label: "Broker",         icon: Building,  tipi: ["broker"],                                      defaultTipo: "broker" },
+  direzioni:       { label: "Direzioni",      icon: ShieldCheck, tipi: ["direzione"],                                 defaultTipo: "direzione" },
+  plurimandatari:  { label: "Plurimandatari", icon: Network,   tipi: ["plurimandataria"],                             defaultTipo: "plurimandataria" },
+  all:             { label: "Tutti",          icon: List,      tipi: null,                                            defaultTipo: "incasso_clienti" },
 };
 
 const PAGE_SIZE = 25;
@@ -68,6 +100,8 @@ const emptyForm: Partial<ContoBancario> = {
   tipo: "incasso_clienti",
   is_default: false,
   ufficio_id: null,
+  compagnia_id: null,
+  rapporto_id: null,
   attivo: true,
   note: "",
 };
@@ -76,6 +110,10 @@ const maskIban = (iban: string) => {
   if (!iban || iban.length < 8) return iban;
   return iban.slice(0, 4) + " **** **** **** " + iban.slice(-4);
 };
+
+const isConsulTipo = (t?: string | null) => t === "incasso_clienti" || t === "provvigioni" || t === "generico";
+const isEntityTipo = (t?: string | null) => t === "agenzia" || t === "broker" || t === "direzione" || t === "plurimandataria";
+const supportsRapporto = (t?: string | null) => t === "broker" || t === "plurimandataria";
 
 export default function ContiBancariPage() {
   const qc = useQueryClient();
@@ -88,16 +126,13 @@ export default function ContiBancariPage() {
   const [form, setForm] = useState<Partial<ContoBancario>>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ContoBancario | null>(null);
 
-  // Debounce ricerca 350ms
   useEffect(() => {
     const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 350);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Reset paginazione quando cambio tab o filtro attivi
   useEffect(() => { setPage(0); }, [categoria, soloAttivi]);
 
-  // Conteggi per tab
   const { data: counts } = useQuery({
     queryKey: ["conti_bancari_counts", soloAttivi],
     queryFn: async () => {
@@ -109,13 +144,15 @@ export default function ContiBancariPage() {
         if (error) throw error;
         return count || 0;
       };
-      const [consul, compagnie, agenzie, all] = await Promise.all([
+      const [consul, agenzie, broker, direzioni, plurimandatari, all] = await Promise.all([
         fetchCount(CATEGORIE.consul.tipi),
-        fetchCount(CATEGORIE.compagnie.tipi),
         fetchCount(CATEGORIE.agenzie.tipi),
+        fetchCount(CATEGORIE.broker.tipi),
+        fetchCount(CATEGORIE.direzioni.tipi),
+        fetchCount(CATEGORIE.plurimandatari.tipi),
         fetchCount(null),
       ]);
-      return { consul, compagnie, agenzie, all };
+      return { consul, agenzie, broker, direzioni, plurimandatari, all };
     },
     staleTime: 60_000,
   });
@@ -125,7 +162,7 @@ export default function ContiBancariPage() {
   const { data: result, isLoading } = useQuery({
     queryKey: ["conti_bancari_admin", categoria, search, page, soloAttivi],
     queryFn: async () => {
-      let q = supabase.from("conti_bancari" as any).select("*", { count: "exact" });
+      let q = supabase.from("conti_bancari" as any).select("*, compagnia:compagnie(id,nome,codice,tipo), rapporto:compagnia_rapporti(id,codice_mandato,gruppo_compagnia:gruppi_compagnia(descrizione))", { count: "exact" });
       if (tipiCorrenti) q = q.in("tipo", tipiCorrenti);
       if (soloAttivi) q = q.eq("attivo", true);
       if (search) {
@@ -140,7 +177,7 @@ export default function ContiBancariPage() {
         .order("etichetta")
         .range(from, to);
       if (error) throw error;
-      return { rows: (data || []) as unknown as ContoBancario[], total: count || 0 };
+      return { rows: (data || []) as any[], total: count || 0 };
     },
   });
 
@@ -155,9 +192,40 @@ export default function ContiBancariPage() {
     },
   });
 
+  // Compagnie filtrate per tipo selezionato nella form
+  const { data: compagnieForType = [] } = useQuery({
+    queryKey: ["compagnie_for_conto", form.tipo],
+    enabled: isEntityTipo(form.tipo),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnie" as any)
+        .select("id, nome, codice")
+        .eq("tipo", form.tipo!)
+        .eq("attiva", true)
+        .order("nome");
+      return ((data || []) as unknown) as Array<{ id: string; nome: string; codice: string | null }>;
+    },
+  });
+
+  // Rapporti della compagnia scelta (solo broker/plurimandataria)
+  const { data: rapportiForCompagnia = [] } = useQuery({
+    queryKey: ["rapporti_for_conto", form.compagnia_id],
+    enabled: supportsRapporto(form.tipo) && !!form.compagnia_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("id, codice_mandato, attivo, gruppo_compagnia:gruppi_compagnia(descrizione)")
+        .eq("compagnia_id", form.compagnia_id!)
+        .eq("attivo", true)
+        .order("codice_mandato");
+      return (data || []) as any[];
+    },
+  });
+
   const upsert = useMutation({
     mutationFn: async (payload: Partial<ContoBancario>) => {
-      const data = {
+      const isEntity = isEntityTipo(payload.tipo);
+      const data: any = {
         etichetta: payload.etichetta?.trim(),
         iban: payload.iban?.trim(),
         intestato_a: payload.intestato_a?.trim(),
@@ -169,6 +237,8 @@ export default function ContiBancariPage() {
         tipo: payload.tipo,
         is_default: !!payload.is_default,
         ufficio_id: payload.ufficio_id || null,
+        compagnia_id: isEntity ? (payload.compagnia_id || null) : null,
+        rapporto_id: supportsRapporto(payload.tipo) ? (payload.rapporto_id || null) : null,
         attivo: payload.attivo ?? true,
         note: payload.note?.trim() || null,
       };
@@ -240,13 +310,22 @@ export default function ContiBancariPage() {
       toast.error(ibanValidation.error || "IBAN non valido");
       return;
     }
+    if (isEntityTipo(form.tipo) && !form.compagnia_id) {
+      toast.error(`Per tipo "${TIPO_LABEL[form.tipo!]}" devi selezionare la compagnia intestataria`);
+      return;
+    }
     upsert.mutate({ ...form, iban: ibanValidation.normalized });
   };
 
   const mostraDefault = categoria === "consul" || categoria === "all";
+  const mostraCompagnia = categoria !== "consul";
+  const mostraRapporto = categoria === "broker" || categoria === "plurimandatari" || categoria === "all";
 
   const tabBadge = (n: number | undefined) =>
     typeof n === "number" ? <span className="ml-1.5 text-xs opacity-70">({n})</span> : null;
+
+  const formatRapportoLabel = (r: any) =>
+    `${r.gruppo_compagnia?.descrizione || "Compagnia"} · ${r.codice_mandato || "—"}`;
 
   return (
     <div className="space-y-6">
@@ -263,10 +342,12 @@ export default function ContiBancariPage() {
       </div>
 
       <Tabs value={categoria} onValueChange={(v) => setCategoria(v as CategoriaKey)}>
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="consul"><Briefcase className="w-4 h-4 mr-1.5" />Consulbrokers{tabBadge(counts?.consul)}</TabsTrigger>
-          <TabsTrigger value="compagnie"><Building2 className="w-4 h-4 mr-1.5" />Compagnie{tabBadge(counts?.compagnie)}</TabsTrigger>
           <TabsTrigger value="agenzie"><Landmark className="w-4 h-4 mr-1.5" />Agenzie{tabBadge(counts?.agenzie)}</TabsTrigger>
+          <TabsTrigger value="broker"><Building className="w-4 h-4 mr-1.5" />Broker{tabBadge(counts?.broker)}</TabsTrigger>
+          <TabsTrigger value="direzioni"><ShieldCheck className="w-4 h-4 mr-1.5" />Direzioni{tabBadge(counts?.direzioni)}</TabsTrigger>
+          <TabsTrigger value="plurimandatari"><Network className="w-4 h-4 mr-1.5" />Plurimandatari{tabBadge(counts?.plurimandatari)}</TabsTrigger>
           <TabsTrigger value="all"><List className="w-4 h-4 mr-1.5" />Tutti{tabBadge(counts?.all)}</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -298,15 +379,16 @@ export default function ContiBancariPage() {
                     {mostraDefault && <TableHead className="w-[80px]">Default</TableHead>}
                     <TableHead>Etichetta</TableHead>
                     <TableHead>Tipo</TableHead>
+                    {mostraCompagnia && <TableHead>Compagnia</TableHead>}
+                    {mostraRapporto && <TableHead>Rapporto</TableHead>}
                     <TableHead>IBAN</TableHead>
-                    <TableHead>Intestato a</TableHead>
                     <TableHead>Banca</TableHead>
                     <TableHead>Stato</TableHead>
                     <TableHead className="text-right">Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {conti.map((c, i) => (
+                  {conti.map((c: any, i: number) => (
                     <TableRow key={c.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
                       {mostraDefault && (
                         <TableCell>
@@ -320,9 +402,27 @@ export default function ContiBancariPage() {
                         </TableCell>
                       )}
                       <TableCell className="font-medium">{c.etichetta}</TableCell>
-                      <TableCell><Badge variant="secondary">{TIPI.find(t => t.value === c.tipo)?.label || c.tipo}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={TIPO_BADGE[c.tipo] || ""}>
+                          {TIPO_LABEL[c.tipo] || c.tipo}
+                        </Badge>
+                      </TableCell>
+                      {mostraCompagnia && (
+                        <TableCell className="text-sm">
+                          {c.compagnia ? (
+                            <span>
+                              {c.compagnia.codice ? <span className="font-mono text-xs text-muted-foreground mr-1">{c.compagnia.codice}</span> : null}
+                              {c.compagnia.nome}
+                            </span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                      )}
+                      {mostraRapporto && (
+                        <TableCell className="text-sm">
+                          {c.rapporto ? formatRapportoLabel(c.rapporto) : <span className="text-muted-foreground">— (generico)</span>}
+                        </TableCell>
+                      )}
                       <TableCell className="font-mono text-xs">{maskIban(c.iban)}</TableCell>
-                      <TableCell className="text-sm">{c.intestato_a}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{c.banca || "—"}</TableCell>
                       <TableCell>
                         <Badge variant={c.attivo ? "default" : "secondary"}>{c.attivo ? "Attivo" : "Disattivo"}</Badge>
@@ -335,12 +435,12 @@ export default function ContiBancariPage() {
                   ))}
                   {conti.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={mostraDefault ? 8 : 7} className="text-center text-muted-foreground py-10">
+                      <TableCell colSpan={3 + (mostraDefault ? 1 : 0) + (mostraCompagnia ? 1 : 0) + (mostraRapporto ? 1 : 0) + 3} className="text-center text-muted-foreground py-10">
                         {search ? (
                           <>Nessun conto trovato per "<span className="font-medium">{search}</span>"</>
                         ) : (
                           <div className="space-y-3">
-                            <p>Nessun conto in questa categoria.</p>
+                            <p>Nessun conto in questa categoria. Verranno popolati man mano che crei {CATEGORIE[categoria].label.toLowerCase()}.</p>
                             <Button size="sm" variant="outline" onClick={openNew}>
                               <Plus className="w-4 h-4 mr-2" /> Nuovo conto {CATEGORIE[categoria].label}
                             </Button>
@@ -358,24 +458,81 @@ export default function ContiBancariPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{form.id ? "Modifica Conto Bancario" : "Nuovo Conto Bancario"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            {/* Tipologia: radio gruppo (Consul vs Entità) */}
+            <div className="space-y-2">
+              <Label>Tipo conto *</Label>
+              <Select
+                value={form.tipo}
+                onValueChange={(v) => setForm({ ...form, tipo: v, compagnia_id: null, rapporto_id: null })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="incasso_clienti">Consulbrokers · Incasso clienti</SelectItem>
+                  <SelectItem value="provvigioni">Consulbrokers · Provvigioni</SelectItem>
+                  <SelectItem value="generico">Consulbrokers · Generico</SelectItem>
+                  <SelectItem value="agenzia">Agenzia</SelectItem>
+                  <SelectItem value="broker">Broker</SelectItem>
+                  <SelectItem value="direzione">Direzione</SelectItem>
+                  <SelectItem value="plurimandataria">Plurimandataria</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Compagnia intestataria — solo per tipi entità */}
+            {isEntityTipo(form.tipo) && (
+              <div>
+                <Label>Compagnia intestataria * <span className="text-xs text-muted-foreground font-normal">(filtrate per tipo "{TIPO_LABEL[form.tipo!]}")</span></Label>
+                <SearchableSelect
+                  options={compagnieForType.map(c => ({
+                    value: c.id,
+                    label: c.nome,
+                    description: c.codice || undefined,
+                    searchText: `${c.nome} ${c.codice || ""}`,
+                  }))}
+                  value={form.compagnia_id || ""}
+                  onValueChange={(v) => setForm({ ...form, compagnia_id: v || null, rapporto_id: null })}
+                  placeholder={compagnieForType.length === 0 ? `Nessuna ${TIPO_LABEL[form.tipo!].toLowerCase()} ancora creata` : "Seleziona compagnia…"}
+                  emptyText="Nessuna compagnia trovata"
+                  disabled={compagnieForType.length === 0}
+                />
+              </div>
+            )}
+
+            {/* Rapporto opzionale — solo broker/plurimandataria con compagnia selezionata */}
+            {supportsRapporto(form.tipo) && form.compagnia_id && (
+              <div>
+                <Label>
+                  Rapporto specifico <span className="text-xs text-muted-foreground font-normal">(opzionale — vuoto = conto generico dell'entità)</span>
+                </Label>
+                <SearchableSelect
+                  options={[
+                    { value: "__none__", label: "— Conto generico (nessun rapporto specifico) —" },
+                    ...rapportiForCompagnia.map((r: any) => ({
+                      value: r.id,
+                      label: formatRapportoLabel(r),
+                    })),
+                  ]}
+                  value={form.rapporto_id || "__none__"}
+                  onValueChange={(v) => setForm({ ...form, rapporto_id: v === "__none__" ? null : v })}
+                  placeholder="Seleziona rapporto…"
+                  emptyText={rapportiForCompagnia.length === 0 ? "Nessun rapporto attivo per questa compagnia" : "Nessun risultato"}
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label>Etichetta *</Label>
                 <Input value={form.etichetta || ""} onChange={(e) => setForm({ ...form, etichetta: e.target.value })} placeholder="Es. Conto incassi Napoli" />
               </div>
               <div>
-                <Label>Tipo *</Label>
-                <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TIPI.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label>Intestato a *</Label>
+                <Input value={form.intestato_a || ""} onChange={(e) => setForm({ ...form, intestato_a: e.target.value })} placeholder="Es. Consulbrokers Digital SRL" />
               </div>
             </div>
 
@@ -401,11 +558,6 @@ export default function ContiBancariPage() {
               ) : (
                 <p className="text-xs text-muted-foreground mt-1">Inserisci un IBAN valido (es. IT + 25 caratteri)</p>
               )}
-            </div>
-
-            <div>
-              <Label>Intestato a *</Label>
-              <Input value={form.intestato_a || ""} onChange={(e) => setForm({ ...form, intestato_a: e.target.value })} placeholder="Es. Consulbrokers Digital SRL" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -450,7 +602,7 @@ export default function ContiBancariPage() {
               <Textarea value={form.note || ""} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={2} />
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 flex-wrap">
               <Label className="flex items-center gap-2 cursor-pointer">
                 <Switch checked={!!form.is_default} onCheckedChange={(v) => setForm({ ...form, is_default: v })} />
                 Imposta come default per questo tipo
@@ -477,7 +629,7 @@ export default function ContiBancariPage() {
         checks={[
           { table: "uffici", column: "conto_bancario_id", label: "Sedi (IBAN incassi)" },
           { table: "uffici", column: "conto_incasso_id", label: "Sedi (IBAN secondario)" },
-          { table: "compagnie", column: "conto_bancario_id", label: "Agenzie collegate" },
+          { table: "compagnie", column: "conto_bancario_id", label: "Compagnie collegate" },
           { table: "compagnia_rapporti", column: "conto_bancario_id", label: "Rapporti agenzia-compagnia" },
           { table: "profiles", column: "conto_bancario_id", label: "Specialist collegati" },
         ]}
