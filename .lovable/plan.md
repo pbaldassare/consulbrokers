@@ -74,3 +74,7 @@ Apertura dell'Assistente IA dalle pagine entità (Cliente, Polizza, Sinistro): n
 ```
 
 Posso iniziare dalla Fase 1 (fondamenta) e poi proseguire con le tre superfici in parallelo, o partire subito dall'Assistente IA se preferisci vedere prima un risultato tangibile.
+## Avanzamento Fase 3 & 4
+
+- **Fase 3 (estrazione documenti)**: `extract-document-data` accetta ora `entity_context` (`entityType`, `scopeHint`, `expectedCF`, `expectedPIVA`) e arricchisce il system prompt per privilegiare dati coerenti con l'entità corrente (il documento viene comunque trascritto fedelmente). `AiDocumentScanner` espone `entityContext` e lo inoltra. Wiring iniziale in `ClienteDetail` (carta d'identità / tessera sanitaria / visura camerale).
+- **Fase 4 (matching banca)**: `match-bank-rows` mantiene il match euristico come primario; per i casi borderline (score 60–84) interroga il Lovable AI Gateway con i soli candidati dello stesso ufficio e con importo entro ±5%, in output strutturato (`kind/id/score/motivazione`). Il risultato viene loggato in `incroci_bancari.note` + `matching_metodo = "...+ai_assist"`. Stato resta `da_verificare`: nessun auto-commit, conferma manuale via `AnomalieKO`.
