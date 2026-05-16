@@ -217,6 +217,10 @@ const ImmissionePolizzaPage = () => {
   // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
 
+  // Brokeraggio (quota del Produttore — default da anagrafiche_professionali.percentuale_consulenza)
+  const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
+  const [percentualeBrokeraggioAuto, setPercentualeBrokeraggioAuto] = useState(false);
+
   // === RCA AUTO State ===
   // Veicolo
   const [vSettore, setVSettore] = useState("Autovetture");
@@ -624,6 +628,8 @@ const ImmissionePolizzaPage = () => {
   const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
   const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
   const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
+  const brokFirma = percentualeBrokeraggio ? (premioNettoNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
+  const brokQuietanza = percentualeBrokeraggio ? (premioNettoQNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
 
   // --- Auto-lookup % Commerciale Produttore in base al Ramo ---
   // Sorgente: produttori_provvigioni_ramo (anagrafica_id + ramo_codice) → fallback anagrafiche_professionali.percentuale_base
@@ -648,10 +654,25 @@ const ImmissionePolizzaPage = () => {
         if (pct == null) {
           const { data: ap } = await supabase
             .from("anagrafiche_professionali")
-            .select("percentuale_base")
+            .select("percentuale_base, percentuale_consulenza")
             .eq("id", selectedAE)
             .maybeSingle();
           if (ap?.percentuale_base != null) pct = Number(ap.percentuale_base);
+          if (!cancelled && ap?.percentuale_consulenza != null) {
+            setPercentualeBrokeraggio(String(Number(ap.percentuale_consulenza)));
+            setPercentualeBrokeraggioAuto(true);
+          }
+        } else {
+          // % commerciale presa dal ramo: leggo comunque la consulenza base del produttore
+          const { data: ap2 } = await supabase
+            .from("anagrafiche_professionali")
+            .select("percentuale_consulenza")
+            .eq("id", selectedAE)
+            .maybeSingle();
+          if (!cancelled && ap2?.percentuale_consulenza != null) {
+            setPercentualeBrokeraggio(String(Number(ap2.percentuale_consulenza)));
+            setPercentualeBrokeraggioAuto(true);
+          }
         }
         if (!cancelled && pct != null && !Number.isNaN(pct)) {
           setPercentualeCommerciale(String(pct));
@@ -781,6 +802,9 @@ const ImmissionePolizzaPage = () => {
         addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
         provvigioni_quietanza: provvQuietanza || null,
+        brokeraggio_firma: brokFirma || null,
+        brokeraggio_quietanza: brokQuietanza || null,
+        percentuale_brokeraggio: percentualeBrokeraggio ? parseFloat(percentualeBrokeraggio) : null,
         rimborso, indicizzata, no_calcolo_tasse: noCalcoloTasse,
         pag_diretto_compagnia: pagDirettoCompagnia, emissione_fee: emissioneFee,
         formato_elettronico: formatoElettronico,
@@ -1554,6 +1578,38 @@ const ImmissionePolizzaPage = () => {
               onChange={(e) => { setPercentualeCommerciale(e.target.value); setPercentualeCommercialeAuto(false); }}
               disabled={selectedCommerciale === "__sede__"}
               className="h-8 text-xs font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              % Brokeraggio
+              {percentualeBrokeraggioAuto && (
+                <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
+              )}
+            </Label>
+            <Input
+              type="number" step="0.01" min="0" max="100"
+              value={percentualeBrokeraggio}
+              onChange={(e) => { setPercentualeBrokeraggio(e.target.value); setPercentualeBrokeraggioAuto(false); }}
+              placeholder="0,00"
+              className="h-8 text-xs font-mono"
+              title="Quota di brokeraggio del Produttore — default da % Provv. Consulenza"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Brokeraggio Firma €</Label>
+            <Input
+              type="text" readOnly tabIndex={-1}
+              value={brokFirma ? brokFirma.toFixed(2) : "—"}
+              className="h-8 text-xs font-mono bg-muted/40"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Brokeraggio Quietanza €</Label>
+            <Input
+              type="text" readOnly tabIndex={-1}
+              value={brokQuietanza ? brokQuietanza.toFixed(2) : "—"}
+              className="h-8 text-xs font-mono bg-muted/40"
             />
           </div>
         </div>

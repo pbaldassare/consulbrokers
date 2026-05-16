@@ -816,10 +816,13 @@ const TitoloDetail = () => {
     tasse: "" as string,
     premio_lordo: "" as string,
     provvigioni_firma: "" as string,
+    brokeraggio_firma: "" as string,
     premio_netto_quietanza: "" as string,
     addizionali_quietanza: "" as string,
     tasse_quietanza: "" as string,
     provvigioni_quietanza: "" as string,
+    brokeraggio_quietanza: "" as string,
+    percentuale_brokeraggio: "" as string,
     valuta: "EUR" as string,
     cambio: "" as string,
     indicizzata: false as boolean,
@@ -852,10 +855,13 @@ const TitoloDetail = () => {
         tasse: t.tasse != null ? String(t.tasse) : "",
         premio_lordo: t.premio_lordo != null ? String(t.premio_lordo) : "",
         provvigioni_firma: t.provvigioni_firma != null ? String(t.provvigioni_firma) : "",
+        brokeraggio_firma: t.brokeraggio_firma != null ? String(t.brokeraggio_firma) : "",
         premio_netto_quietanza: t.premio_netto_quietanza != null ? String(t.premio_netto_quietanza) : "",
         addizionali_quietanza: t.addizionali_quietanza != null ? String(t.addizionali_quietanza) : "",
         tasse_quietanza: t.tasse_quietanza != null ? String(t.tasse_quietanza) : "",
         provvigioni_quietanza: t.provvigioni_quietanza != null ? String(t.provvigioni_quietanza) : "",
+        brokeraggio_quietanza: t.brokeraggio_quietanza != null ? String(t.brokeraggio_quietanza) : "",
+        percentuale_brokeraggio: t.percentuale_brokeraggio != null ? String(t.percentuale_brokeraggio) : "",
         valuta: t.valuta ?? "EUR",
         cambio: t.cambio != null ? String(t.cambio) : "",
         indicizzata: !!t.indicizzata,
@@ -885,8 +891,9 @@ const TitoloDetail = () => {
   const saveImportiMutation = useMutation({
     mutationFn: async () => {
       const numericFields = [
-        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma",
-        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza",
+        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma", "brokeraggio_firma",
+        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza", "brokeraggio_quietanza",
+        "percentuale_brokeraggio",
         "cambio",
       ] as const;
 
@@ -966,6 +973,7 @@ const TitoloDetail = () => {
         ["tasse", "tasse_quietanza"],
         ["addizionali", "addizionali_quietanza"],
         ["provvigioni_firma", "provvigioni_quietanza"],
+        ["brokeraggio_firma", "brokeraggio_quietanza"],
       ];
       let syncedQuietanza = false;
       syncPairs.forEach(([firmaKey, quietKey]) => {
@@ -2782,6 +2790,7 @@ const TitoloDetail = () => {
                 </div>
                 <div className="mt-2 pt-2 border-t border-teal-200 dark:border-teal-900">
                   <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
+                  <FieldRow label="Brokeraggio" value={fmtEuro((t as any).brokeraggio_firma)} />
                   {renderSplitImporti("Split", sFirma, "teal")}
                 </div>
               </div>
@@ -2794,6 +2803,7 @@ const TitoloDetail = () => {
                 </div>
                 <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900">
                   <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
+                  <FieldRow label="Brokeraggio" value={fmtEuro((t as any).brokeraggio_quietanza)} />
                   {renderSplitImporti("Split", sQui, "amber")}
                 </div>
               </div>
@@ -2831,6 +2841,46 @@ const TitoloDetail = () => {
                   onCheckedChange={(c) => setImportiForm({ ...importiForm, rimborso: c })} />
                 <Label className="text-xs">Rimborso</Label>
               </div>
+            </div>
+
+            {/* Brokeraggio — quota del Produttore (default da % Provv. Consulenza) */}
+            <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2">
+              <div className="text-xs font-semibold uppercase text-primary">Brokeraggio</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">% Brokeraggio</Label>
+                  <Input
+                    type="number" step="0.01" min="0" max="100"
+                    value={importiForm.percentuale_brokeraggio}
+                    onChange={(e) => setImportiForm({ ...importiForm, percentuale_brokeraggio: e.target.value })}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Brokeraggio Firma €</Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={importiForm.brokeraggio_firma}
+                    onChange={(e) => setImportiForm({ ...importiForm, brokeraggio_firma: e.target.value })}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Brokeraggio Quietanza €</Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={importiForm.brokeraggio_quietanza}
+                    onChange={(e) => setImportiForm({ ...importiForm, brokeraggio_quietanza: e.target.value })}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Default da <b>% Provv. Consulenza</b> del Produttore. Modifica % per ricalcolare manualmente gli importi (Netto Firma/Quietanza × %).
+              </p>
             </div>
           </div>
         )}
