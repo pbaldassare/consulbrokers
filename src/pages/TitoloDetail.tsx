@@ -891,8 +891,9 @@ const TitoloDetail = () => {
   const saveImportiMutation = useMutation({
     mutationFn: async () => {
       const numericFields = [
-        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma",
-        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza",
+        "premio_netto", "addizionali", "tasse", "premio_lordo", "provvigioni_firma", "brokeraggio_firma",
+        "premio_netto_quietanza", "addizionali_quietanza", "tasse_quietanza", "provvigioni_quietanza", "brokeraggio_quietanza",
+        "percentuale_brokeraggio",
         "cambio",
       ] as const;
 
