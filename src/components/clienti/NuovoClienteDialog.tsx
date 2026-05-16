@@ -709,6 +709,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             <div className="flex flex-wrap gap-2">
               <AiDocumentScanner
                 documentType="visura_camerale"
+                entityContext={(partitaIva || ragioneSociale) ? {
+                  entityType: "cliente",
+                  scopeHint: ragioneSociale || "Nuova azienda",
+                  expectedPIVA: partitaIva || null,
+                } : undefined}
                 onFileReady={handleFileReady}
                 onExtracted={(data) => {
                   if (data.ragione_sociale) setRagioneSociale(data.ragione_sociale as string);
