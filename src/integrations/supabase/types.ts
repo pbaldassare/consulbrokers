@@ -5391,7 +5391,8 @@ export type Database = {
         Row: {
           attiva: boolean | null
           categoria_id: string
-          compagnia_id: string
+          compagnia_id: string | null
+          compagnia_rapporto_id: string | null
           created_at: string | null
           id: string
           percentuale_provvigione: number
@@ -5399,7 +5400,8 @@ export type Database = {
         Insert: {
           attiva?: boolean | null
           categoria_id: string
-          compagnia_id: string
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
           created_at?: string | null
           id?: string
           percentuale_provvigione?: number
@@ -5407,7 +5409,8 @@ export type Database = {
         Update: {
           attiva?: boolean | null
           categoria_id?: string
-          compagnia_id?: string
+          compagnia_id?: string | null
+          compagnia_rapporto_id?: string | null
           created_at?: string | null
           id?: string
           percentuale_provvigione?: number
@@ -5425,6 +5428,13 @@ export type Database = {
             columns: ["compagnia_id"]
             isOneToOne: false
             referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provvigioni_compagnia_ramo_compagnia_rapporto_id_fkey"
+            columns: ["compagnia_rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
             referencedColumns: ["id"]
           },
         ]
@@ -8110,6 +8120,10 @@ export type Database = {
           cliente_id: string
           count: number
         }[]
+      }
+      ensure_default_rapporto: {
+        Args: { _compagnia_id: string }
+        Returns: string
       }
       find_clienti_duplicati: {
         Args: never
