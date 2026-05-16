@@ -318,10 +318,7 @@ export default function SinistroDetail() {
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="perizia"
-                    entityContext={{
-                      entityType: "sinistro",
-                      scopeHint: `Sinistro ${(sinistro as any).numero_sinistro ?? id} — ${clienteNome}`,
-                    }}
+                    entityContext={sinistroAiContext}
                     onFileReady={async (file) => {
                       try {
                         const { data: { user } } = await supabase.auth.getUser();
