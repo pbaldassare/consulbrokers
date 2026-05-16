@@ -306,7 +306,6 @@ export default function SinistroDetail() {
                 <CardTitle className="text-base">Scansione AI Documenti Sinistro</CardTitle>
               </CardHeader>
               <CardContent>
-                {(() => null)()}
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner
                     documentType="perizia"
