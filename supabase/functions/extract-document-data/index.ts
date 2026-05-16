@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPTS[tipo_documento] },
+          { role: "system", content: SYSTEM_PROMPTS[tipo_documento] + entityContextBlock },
           {
             role: "user",
             content: [
