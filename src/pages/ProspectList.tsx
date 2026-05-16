@@ -282,6 +282,11 @@ const ProspectList = () => {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   <AiDocumentScanner documentType="visura_camerale" onFileReady={handleFileReady}
+                    entityContext={(form.partita_iva || form.ragione_sociale) ? {
+                      entityType: "prospect",
+                      scopeHint: form.ragione_sociale || "Nuova azienda prospect",
+                      expectedPIVA: form.partita_iva || null,
+                    } : undefined}
                     onExtracted={(data) => {
                       if (data.ragione_sociale) set("ragione_sociale", data.ragione_sociale);
                       if (data.partita_iva) set("partita_iva", data.partita_iva);
