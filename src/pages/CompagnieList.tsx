@@ -254,7 +254,48 @@ function formToPayload(form: CompagniaForm) {
   };
 }
 
-// ── Dialog Form Component ──
+// Crea o aggiorna il conto bancario dell'agenzia in conti_bancari. Ritorna l'id (o null se no-op).
+async function persistContoAgenzia(
+  compagniaId: string,
+  form: CompagniaForm,
+): Promise<string | null> {
+  const iban = (form.conto_iban || "").trim().toUpperCase();
+  // No-op se né IBAN né record esistente
+  if (!iban && !form.conto_bancario_id) return null;
+  if (iban && iban.startsWith("IT") && iban.length !== 27) {
+    throw new Error(`IBAN italiano non valido (${iban.length} caratteri, attesi 27).`);
+  }
+  const payload: any = {
+    tipo: "agenzia",
+    compagnia_id: compagniaId,
+    etichetta: form.conto_etichetta?.trim() || form.conto_banca?.trim() || "Conto agenzia",
+    banca: form.conto_banca?.trim() || null,
+    iban: iban || null,
+    intestato_a: form.conto_intestato_a?.trim() || null,
+    bic: form.conto_bic?.trim() || null,
+    codice_abi: form.conto_abi?.trim() || null,
+    codice_cab: form.conto_cab?.trim() || null,
+    note: form.conto_note?.trim() || null,
+    is_default: !!form.conto_is_default,
+    attivo: true,
+  };
+  if (form.conto_bancario_id) {
+    const { error } = await supabase
+      .from("conti_bancari")
+      .update(payload)
+      .eq("id", form.conto_bancario_id);
+    if (error) throw error;
+    return form.conto_bancario_id;
+  }
+  if (!iban) return null;
+  const { data, error } = await supabase
+    .from("conti_bancari")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data?.id || null;
+}
 
 function ProvvigioniTabContent({ compagniaId }: { compagniaId: string | null }) {
   const queryClient = useQueryClient();
