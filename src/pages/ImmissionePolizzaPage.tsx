@@ -509,8 +509,23 @@ const ImmissionePolizzaPage = () => {
   const { data: compagnieList } = useQuery({
     queryKey: ["agenzie-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id").eq("attiva", true).order("nome");
+      const { data } = await supabase.from("compagnie").select("id, nome, codice, gruppo_compagnia, gruppo_compagnia_id, tipo").eq("attiva", true).order("nome");
       return data || [];
+    },
+  });
+
+  // Broker/Plurimandatarie che hanno un rapporto attivo con la compagnia (gruppo) scelta
+  const { data: brokerPluriPerGruppo } = useQuery({
+    queryKey: ["broker_pluri_per_gruppo", selectedGruppoCompagniaId],
+    enabled: !!selectedGruppoCompagniaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporti" as any)
+        .select("compagnia_id")
+        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
+        .eq("attivo", true);
+      const ids = Array.from(new Set(((data as any[]) || []).map((r) => r.compagnia_id).filter(Boolean)));
+      return ids as string[];
     },
   });
 
