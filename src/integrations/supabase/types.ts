@@ -1699,10 +1699,16 @@ export type Database = {
           gruppo_compagnia_id: string
           iban_dedicato: string | null
           id: string
+          nome_rapporto: string | null
           note: string | null
           percentuale_provvigione: number | null
           rami_abilitati: string[] | null
           referente_compagnia: string | null
+          sede_cap: string | null
+          sede_citta: string | null
+          sede_denominazione: string | null
+          sede_indirizzo: string | null
+          sede_provincia: string | null
           telefono_referente: string | null
           tipo_rapporto: string | null
           updated_at: string
@@ -1721,10 +1727,16 @@ export type Database = {
           gruppo_compagnia_id: string
           iban_dedicato?: string | null
           id?: string
+          nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
           rami_abilitati?: string[] | null
           referente_compagnia?: string | null
+          sede_cap?: string | null
+          sede_citta?: string | null
+          sede_denominazione?: string | null
+          sede_indirizzo?: string | null
+          sede_provincia?: string | null
           telefono_referente?: string | null
           tipo_rapporto?: string | null
           updated_at?: string
@@ -1743,10 +1755,16 @@ export type Database = {
           gruppo_compagnia_id?: string
           iban_dedicato?: string | null
           id?: string
+          nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
           rami_abilitati?: string[] | null
           referente_compagnia?: string | null
+          sede_cap?: string | null
+          sede_citta?: string | null
+          sede_denominazione?: string | null
+          sede_indirizzo?: string | null
+          sede_provincia?: string | null
           telefono_referente?: string | null
           tipo_rapporto?: string | null
           updated_at?: string
