@@ -637,11 +637,6 @@ function CompagniaFormDialog({
             {renderField("Intestato a", "intestato_a")}
           </div>
         </TabsContent>
-
-        {/* ── TAB 4: PROVVIGIONI ── */}
-        <TabsContent value="provvigioni" className="mt-4">
-          <ProvvigioniTabContent compagniaId={compagniaId} />
-        </TabsContent>
       </Tabs>
 
       <Button onClick={onSave} disabled={!canSave || saving} className="w-full mt-4">
