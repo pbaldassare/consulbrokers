@@ -45,6 +45,14 @@ interface RapportoForm {
   attivo: boolean;
   percentuale_provvigione: string;
   conto_bancario_id: string | null;
+  conto_etichetta: string;
+  conto_banca: string;
+  conto_iban: string;
+  conto_intestato_a: string;
+  conto_bic: string;
+  conto_abi: string;
+  conto_cab: string;
+  conto_note: string;
   sede_denominazione: string;
   sede_indirizzo: string;
   sede_cap: string;
@@ -67,6 +75,14 @@ const emptyForm: RapportoForm = {
   attivo: true,
   percentuale_provvigione: "",
   conto_bancario_id: null,
+  conto_etichetta: "",
+  conto_banca: "",
+  conto_iban: "",
+  conto_intestato_a: "",
+  conto_bic: "",
+  conto_abi: "",
+  conto_cab: "",
+  conto_note: "",
   sede_denominazione: "",
   sede_indirizzo: "",
   sede_cap: "",
