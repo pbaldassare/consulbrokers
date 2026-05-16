@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Sparkles, Loader2, Bot } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Sparkles, Loader2, Bot, Target, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AiChatMessage, type AiMessage, type AiToolCall } from "@/components/ai/AiChatMessage";
 import { AiChatInput } from "@/components/ai/AiChatInput";
+import { useConsumedAiEntityContext, type AiEntityContext } from "@/lib/ai/context";
 
 interface DbConversation {
   id: string;
