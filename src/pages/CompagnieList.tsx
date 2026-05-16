@@ -69,7 +69,10 @@ const TIPI_COPERTURA = ["Deposito a copertura", "Scambio conferme", "Conferma so
 
 // ── Types ──
 
+const TIPI_AGENZIA = ["agenzia", "broker", "direzione"];
+
 interface CompagniaForm {
+  tipo: string;
   nome: string;
   nome_sede: string;
   codice: string;
@@ -134,6 +137,7 @@ function toOptions(arr: string[]) {
 
 function dbToForm(c: any): CompagniaForm {
   return {
+    tipo: c.tipo || "agenzia",
     nome: c.nome || "",
     nome_sede: c.nome_sede || "",
     codice: c.codice || "",
@@ -182,6 +186,7 @@ function dbToForm(c: any): CompagniaForm {
 
 function formToPayload(form: CompagniaForm) {
   return {
+    tipo: form.tipo || "agenzia",
     nome: form.nome,
     nome_sede: form.nome_sede || null,
     codice: form.codice || null,
