@@ -2842,6 +2842,46 @@ const TitoloDetail = () => {
                 <Label className="text-xs">Rimborso</Label>
               </div>
             </div>
+
+            {/* Brokeraggio — quota del Produttore (default da % Provv. Consulenza) */}
+            <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2">
+              <div className="text-xs font-semibold uppercase text-primary">Brokeraggio</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">% Brokeraggio</Label>
+                  <Input
+                    type="number" step="0.01" min="0" max="100"
+                    value={importiForm.percentuale_brokeraggio}
+                    onChange={(e) => setImportiForm({ ...importiForm, percentuale_brokeraggio: e.target.value })}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Brokeraggio Firma €</Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={importiForm.brokeraggio_firma}
+                    onChange={(e) => setImportiForm({ ...importiForm, brokeraggio_firma: e.target.value })}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Brokeraggio Quietanza €</Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={importiForm.brokeraggio_quietanza}
+                    onChange={(e) => setImportiForm({ ...importiForm, brokeraggio_quietanza: e.target.value })}
+                    className="h-8 text-xs font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Default da <b>% Provv. Consulenza</b> del Produttore. Modifica % per ricalcolare manualmente gli importi (Netto Firma/Quietanza × %).
+              </p>
+            </div>
           </div>
         )}
 
