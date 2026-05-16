@@ -532,16 +532,24 @@ function CompagniaFormDialog({
               )}
             </div>
           ) : (
-            <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-              {isBrokerLike
-                ? `I ${form.tipo === "broker" ? "broker" : "plurimandatari"} non hanno una compagnia madre: i legami con le compagnie si gestiscono dalla colonna "Rapporti" nella tabella.`
-                : null}
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 flex gap-2">
+              <Network className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-medium">
+                  {form.tipo === "broker" ? "Broker" : "Plurimandataria"} — nessuna compagnia madre
+                </p>
+                <p>
+                  Un {form.tipo === "broker" ? "broker" : "plurimandatario"} lavora con più compagnie contemporaneamente.
+                  Dopo aver creato l'anagrafica, gestisci i legami dalla colonna <span className="font-semibold">Rapporti</span> in elenco
+                  (un rapporto per ogni compagnia con codice mandato, % provvigione, date).
+                </p>
+              </div>
             </div>
           )}
         </TabsContent>
 
         {/* ── TAB 2: ANAGRAFICA ── */}
-        <TabsContent value="anagrafica" className="space-y-3 mt-4">
+        <TabsContent value="anagrafica" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Codice Fiscale</Label>
@@ -608,7 +616,7 @@ function CompagniaFormDialog({
         </TabsContent>
 
         {/* ── TAB 3: RUI & BANCARIO ── */}
-        <TabsContent value="bancario" className="space-y-3 mt-4">
+        <TabsContent value="bancario" className="space-y-4 mt-4">
           <div className="border-b pb-2">
             <Label className="text-sm font-medium text-foreground">Iscrizione RUI</Label>
           </div>
