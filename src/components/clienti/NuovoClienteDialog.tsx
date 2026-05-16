@@ -671,6 +671,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             <div className="flex flex-wrap gap-2">
               <AiDocumentScanner
                 documentType="carta_identita"
+                entityContext={(codiceFiscale || nome || cognome) ? {
+                  entityType: "cliente",
+                  scopeHint: `Nuovo cliente ${(cognome || "").trim()} ${(nome || "").trim()}`.trim() || "Nuovo cliente",
+                  expectedCF: codiceFiscale || null,
+                } : undefined}
                 onFileReady={handleFileReady}
                 onExtracted={(data) => {
                   if (data.nome) setNome(data.nome as string);
@@ -686,6 +691,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
               />
               <AiDocumentScanner
                 documentType="tessera_sanitaria"
+                entityContext={(codiceFiscale || nome || cognome) ? {
+                  entityType: "cliente",
+                  scopeHint: `Nuovo cliente ${(cognome || "").trim()} ${(nome || "").trim()}`.trim() || "Nuovo cliente",
+                  expectedCF: codiceFiscale || null,
+                } : undefined}
                 onFileReady={handleFileReady}
                 onExtracted={(data) => {
                   if (data.codice_fiscale) setCodiceFiscale((data.codice_fiscale as string).toUpperCase());
@@ -699,6 +709,11 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
             <div className="flex flex-wrap gap-2">
               <AiDocumentScanner
                 documentType="visura_camerale"
+                entityContext={(partitaIva || ragioneSociale) ? {
+                  entityType: "cliente",
+                  scopeHint: ragioneSociale || "Nuova azienda",
+                  expectedPIVA: partitaIva || null,
+                } : undefined}
                 onFileReady={handleFileReady}
                 onExtracted={(data) => {
                   if (data.ragione_sociale) setRagioneSociale(data.ragione_sociale as string);

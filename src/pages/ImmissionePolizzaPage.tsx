@@ -344,7 +344,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
         .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, ufficio_id, gruppo_finanziario_id, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, ufficio_id, gruppo_finanziario_id, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
         .eq("id", selectedClienteId)
         .maybeSingle();
       return data as any;
@@ -1114,6 +1114,12 @@ const ImmissionePolizzaPage = () => {
 
         <AiDocumentScanner
           documentType="copia_polizza"
+          entityContext={clienteDettaglio ? {
+            entityType: "polizza",
+            scopeHint: `Polizza per ${clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome ?? ""} ${clienteDettaglio.nome ?? ""}`.trim()}`,
+            expectedCF: clienteDettaglio.codice_fiscale ?? null,
+            expectedPIVA: clienteDettaglio.partita_iva ?? null,
+          } : undefined}
           onFileReady={(file) => { scannedFileRef.current = file; }}
           onExtracted={(data) => {
             if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
