@@ -321,8 +321,12 @@ export default function ContiBancariPage() {
   const mostraCompagnia = categoria !== "consul";
   const mostraRapporto = categoria === "broker" || categoria === "plurimandatari" || categoria === "all";
 
-  const tabBadge = (n: number | undefined) =>
-    typeof n === "number" ? <span className="ml-1.5 text-xs opacity-70">({n})</span> : null;
+  const tabBadge = (n: number | undefined, colorClass?: string) =>
+    typeof n === "number" ? (
+      <Badge variant="outline" className={`ml-1.5 px-1.5 py-0 text-[10px] font-semibold ${colorClass || "bg-muted text-muted-foreground"}`}>
+        {n}
+      </Badge>
+    ) : null;
 
   const formatRapportoLabel = (r: any) =>
     `${r.gruppo_compagnia?.descrizione || "Compagnia"} · ${r.codice_mandato || "—"}`;
@@ -343,14 +347,26 @@ export default function ContiBancariPage() {
 
       <Tabs value={categoria} onValueChange={(v) => setCategoria(v as CategoriaKey)}>
         <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="consul"><Briefcase className="w-4 h-4 mr-1.5" />Consulbrokers{tabBadge(counts?.consul)}</TabsTrigger>
-          <TabsTrigger value="agenzie"><Landmark className="w-4 h-4 mr-1.5" />Agenzie{tabBadge(counts?.agenzie)}</TabsTrigger>
-          <TabsTrigger value="broker"><Building className="w-4 h-4 mr-1.5" />Broker{tabBadge(counts?.broker)}</TabsTrigger>
-          <TabsTrigger value="direzioni"><ShieldCheck className="w-4 h-4 mr-1.5" />Direzioni{tabBadge(counts?.direzioni)}</TabsTrigger>
-          <TabsTrigger value="plurimandatari"><Network className="w-4 h-4 mr-1.5" />Plurimandatari{tabBadge(counts?.plurimandatari)}</TabsTrigger>
+          <TabsTrigger value="consul"><Briefcase className="w-4 h-4 mr-1.5" />Consulbrokers{tabBadge(counts?.consul, TIPO_BADGE.generico)}</TabsTrigger>
+          <TabsTrigger value="agenzie"><Landmark className="w-4 h-4 mr-1.5" />Agenzie{tabBadge(counts?.agenzie, TIPO_BADGE.agenzia)}</TabsTrigger>
+          <TabsTrigger value="broker"><Building className="w-4 h-4 mr-1.5" />Broker{tabBadge(counts?.broker, TIPO_BADGE.broker)}</TabsTrigger>
+          <TabsTrigger value="direzioni"><ShieldCheck className="w-4 h-4 mr-1.5" />Direzioni{tabBadge(counts?.direzioni, TIPO_BADGE.direzione)}</TabsTrigger>
+          <TabsTrigger value="plurimandatari"><Network className="w-4 h-4 mr-1.5" />Plurimandatarie{tabBadge(counts?.plurimandatari, TIPO_BADGE.plurimandataria)}</TabsTrigger>
           <TabsTrigger value="all"><List className="w-4 h-4 mr-1.5" />Tutti{tabBadge(counts?.all)}</TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {mostraRapporto && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-start gap-2">
+          <Network className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <strong>Colonna "Rapporto":</strong> per broker e plurimandatarie un conto può essere
+            <em> generico</em> (intestato all'entità, usato per tutti i mandati) oppure
+            <em> specifico per rapporto</em> (intestato all'entità ma riservato agli incassi/pagamenti di una singola compagnia madre tramite il relativo codice mandato).
+          </div>
+        </div>
+      )}
+
 
       <Card>
         <CardContent className="pt-6 space-y-4">
