@@ -32,6 +32,9 @@ const CF16_IS_LETTER = [
   true,                               // 15: controllo
 ];
 
+// Lettere ammesse al posto delle cifre per OMOCODIA (Agenzia delle Entrate)
+const OMOCODIA_LETTERS = /[LMNPQRSTUV]/;
+
 function filterCF16(input: string): string {
   let out = "";
   for (const raw of input) {
@@ -41,7 +44,8 @@ function filterCF16(input: string): string {
     if (wantsLetter) {
       if (/[A-Z]/.test(ch)) out += ch;
     } else {
-      if (/[0-9]/.test(ch)) out += ch;
+      // In posizione cifra accettiamo sia digit sia lettere omocodia
+      if (/[0-9]/.test(ch) || OMOCODIA_LETTERS.test(ch)) out += ch;
     }
   }
   return out;
