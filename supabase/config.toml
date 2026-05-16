@@ -36,6 +36,9 @@ verify_jwt = false
 [functions.parse-provvigioni-pdf]
 verify_jwt = false
 
+[functions.parse-tariffario-rami]
+verify_jwt = false
+
 [functions.import-corrispondenti]
 verify_jwt = false
 
