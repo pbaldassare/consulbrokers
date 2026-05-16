@@ -1415,7 +1415,7 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
                   <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
-                <div className="space-y-1 w-44">
+                <div className="space-y-1 w-52">
                   <Label className="text-xs text-muted-foreground">Tipo</Label>
                   <SearchableSelect
                     options={[
@@ -1423,6 +1423,7 @@ const CompagnieList = () => {
                       { value: "agenzia", label: "Agenzia" },
                       { value: "broker", label: "Broker" },
                       { value: "direzione", label: "Direzione" },
+                      { value: "plurimandataria", label: "Plurimandataria" },
                     ]}
                     value={filterTipo}
                     onValueChange={setFilterTipo}
