@@ -19,6 +19,7 @@ import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Networ
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
+import ProvvigioniRapportiTab from "@/components/compagnie/ProvvigioniRapportiTab";
 
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { toast } from "sonner";
