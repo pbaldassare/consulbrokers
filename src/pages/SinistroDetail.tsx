@@ -48,7 +48,7 @@ export default function SinistroDetail() {
     queryKey: ["sinistro", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("sinistri")
-        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)")
+        .select("*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome), titoli(numero_titolo), clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente, codice_fiscale, partita_iva)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
