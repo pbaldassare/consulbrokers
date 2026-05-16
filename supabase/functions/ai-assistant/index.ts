@@ -153,8 +153,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Entity context opzionale inviato dal frontend per restringere il
+    // contesto AI ai dati pertinenti all'entità correntemente in uso.
+    // Schema atteso (vedi src/lib/ai/context.ts):
+    //   { entityType, entityId, scopeHint, ufficioId?, sqlFilterHint? }
+    const entityContext = body.entity_context ?? null;
+
+    let systemContent = SYSTEM_PROMPT;
+    if (entityContext && typeof entityContext === "object" && entityContext.entityType && entityContext.entityId) {
+      const scopeLine = entityContext.scopeHint
+        ? `${entityContext.entityType} "${entityContext.scopeHint}" (id=${entityContext.entityId})`
+        : `${entityContext.entityType} id=${entityContext.entityId}`;
+      const sqlHint = entityContext.sqlFilterHint
+        ? `\nQuando esegui SELECT, applica SEMPRE la clausola WHERE: ${entityContext.sqlFilterHint} a meno che l'utente non chieda esplicitamente dati globali ("totale agenzia", "tutti i clienti", ecc.).`
+        : "";
+      const ufficioHint = entityContext.ufficioId
+        ? `\nL'utente opera sulla Sede (ufficio_id) = '${entityContext.ufficioId}'. Le RLS già filtrano per questa Sede, non duplicare il filtro in WHERE.`
+        : "";
+      systemContent =
+        `${SYSTEM_PROMPT}\n\n=== CONTESTO ENTITÀ ATTIVO ===\nStai assistendo l'utente sulla pagina di ${scopeLine}.${sqlHint}${ufficioHint}\nSe l'utente fa una domanda generica (es. "mostrami le polizze"), interpretala come riferita a questa entità. Se ti chiede dati globali, allora ignora questo filtro.`;
+    }
+
     const messages: any[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemContent },
       ...userMessages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
