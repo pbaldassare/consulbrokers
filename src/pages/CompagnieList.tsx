@@ -447,6 +447,37 @@ function CompagniaFormDialog({
     staleTime: 1000 * 60 * 30,
   });
 
+  // Carica il conto bancario dell'agenzia esistente (edit mode)
+  useEffect(() => {
+    if (!compagniaId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("conti_bancari")
+        .select("id, etichetta, banca, iban, intestato_a, bic, codice_abi, codice_cab, note, is_default")
+        .eq("compagnia_id", compagniaId)
+        .is("rapporto_id", null)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (cancelled || !data || data.length === 0) return;
+      const c: any = data[0];
+      setForm((prev) => ({
+        ...prev,
+        conto_bancario_id: c.id,
+        conto_etichetta: c.etichetta || "",
+        conto_banca: c.banca || "",
+        conto_iban: c.iban || "",
+        conto_intestato_a: c.intestato_a || "",
+        conto_bic: c.bic || "",
+        conto_abi: c.codice_abi || "",
+        conto_cab: c.codice_cab || "",
+        conto_note: c.note || "",
+        conto_is_default: c.is_default ?? true,
+      }));
+    })();
+    return () => { cancelled = true; };
+  }, [compagniaId, setForm]);
   const renderField = (label: string, field: keyof CompagniaForm, placeholder?: string, className?: string) => (
     <div className={`space-y-1 ${className || ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
