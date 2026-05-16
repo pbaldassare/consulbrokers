@@ -1283,21 +1283,23 @@ const ImmissionePolizzaPage = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              CIG/Rif. {cigObbligatorio && <span className="text-destructive" title="Obbligatorio per Enti">*</span>}
-            </Label>
-            <Input
-              value={cigRif}
-              onChange={(e) => setCigRif(e.target.value)}
-              className={`h-8 text-xs ${cigObbligatorio && !cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
-              title={cigObbligatorio ? "Obbligatorio per clienti di tipo Ente" : undefined}
-            />
-            {cigObbligatorio && !cigRif.trim() && (
-              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
-            )}
-          </div>
+        <div className={`grid ${cigObbligatorio ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
+          {cigObbligatorio && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1">
+                CIG/Rif. <span className="text-destructive" title="Obbligatorio per Enti">*</span>
+              </Label>
+              <Input
+                value={cigRif}
+                onChange={(e) => setCigRif(e.target.value)}
+                className={`h-8 text-xs ${!cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                title="Obbligatorio per clienti di tipo Ente"
+              />
+              {!cigRif.trim() && (
+                <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Vincolo</Label>
             <SearchableSelect
