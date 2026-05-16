@@ -23,6 +23,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import AddressAutocomplete, { type AddressComponents } from "@/components/AddressAutocomplete";
 import DocumentiTab from "@/components/DocumentiTab";
 import { DeleteWithImpactDialog } from "@/components/common/DeleteWithImpactDialog";
+import { pushAiEntityContext, buildClienteScopeHint } from "@/lib/ai/context";
 import SinistriClienteTab from "@/components/SinistriClienteTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
@@ -1713,6 +1714,23 @@ export default function ClienteDetail() {
           </Label>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              pushAiEntityContext({
+                entityType: "cliente",
+                entityId: cliente.id,
+                scopeHint: buildClienteScopeHint(cliente),
+                ufficioId: cliente.ufficio_id ?? null,
+                sqlFilterHint: `cliente_anagrafica_id = '${cliente.id}'`,
+              });
+              navigate("/ai-assistant");
+            }}
+            title="Apri l'assistente IA con il contesto di questo cliente"
+          >
+            <Sparkles className="w-4 h-4 mr-1" /> Chiedi all'AI
+          </Button>
           <Button
             variant="outline"
             size="sm"

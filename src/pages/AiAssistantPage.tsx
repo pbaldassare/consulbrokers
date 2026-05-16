@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Sparkles, Loader2, Bot } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Sparkles, Loader2, Bot, Target, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AiChatMessage, type AiMessage, type AiToolCall } from "@/components/ai/AiChatMessage";
 import { AiChatInput } from "@/components/ai/AiChatInput";
+import { useConsumedAiEntityContext, type AiEntityContext } from "@/lib/ai/context";
 
 interface DbConversation {
   id: string;
@@ -44,6 +46,11 @@ const AiAssistantPage = () => {
   const [pendingMessages, setPendingMessages] = useState<AiMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Contesto entità impostato dalla pagina chiamante (es. "Chiedi all'AI"
+  // da ClienteDetail). Viene letto e rimosso una sola volta al mount.
+  const consumedCtx = useConsumedAiEntityContext();
+  const [entityContext, setEntityContext] = useState<AiEntityContext | null>(consumedCtx);
 
   // Conversations list
   const { data: conversations = [] } = useQuery({
@@ -173,7 +180,11 @@ const AiAssistantPage = () => {
     setIsThinking(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
-        body: { messages: history, conversation_id: convId },
+        body: {
+          messages: history,
+          conversation_id: convId,
+          entity_context: entityContext ?? undefined,
+        },
       });
       if (error) {
         const msg = (error as any).message ?? "Errore IA";
@@ -269,14 +280,35 @@ const AiAssistantPage = () => {
 
       {/* Main chat */}
       <main className="flex flex-1 flex-col rounded-lg border bg-card">
-        <header className="flex items-center gap-2 border-b px-4 py-3">
+        <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
           <Sparkles className="h-5 w-5 text-primary" />
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-base font-semibold">Assistente IA</h1>
             <p className="text-xs text-muted-foreground">
               Chiedi informazioni sui tuoi dati. Vedi solo ciò che ti è permesso.
             </p>
           </div>
+          {entityContext && (
+            <Badge
+              variant="outline"
+              className="gap-1.5 border-primary/40 bg-primary/5 py-1 pl-2 pr-1 text-xs text-primary"
+              title={`Contesto attivo: ${entityContext.entityType} ${entityContext.scopeHint}`}
+            >
+              <Target className="h-3 w-3" />
+              <span className="max-w-[200px] truncate">
+                {entityContext.entityType}: {entityContext.scopeHint}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEntityContext(null)}
+                className="ml-1 rounded p-0.5 hover:bg-primary/10"
+                aria-label="Rimuovi contesto"
+                title="Rimuovi contesto (l'AI vedrà tutti i tuoi dati)"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4">
