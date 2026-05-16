@@ -90,7 +90,7 @@ const AiDocumentScanner = ({ documentType, onExtracted, onFileReady, entityConte
     } finally {
       setIsProcessing(false);
     }
-  }, [documentType, onExtracted, toast]);
+  }, [documentType, onExtracted, onFileReady, entityContext]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
