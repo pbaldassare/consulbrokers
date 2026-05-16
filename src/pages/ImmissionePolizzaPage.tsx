@@ -217,6 +217,10 @@ const ImmissionePolizzaPage = () => {
   // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
 
+  // Brokeraggio (quota del Produttore — default da anagrafiche_professionali.percentuale_consulenza)
+  const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
+  const [percentualeBrokeraggioAuto, setPercentualeBrokeraggioAuto] = useState(false);
+
   // === RCA AUTO State ===
   // Veicolo
   const [vSettore, setVSettore] = useState("Autovetture");
