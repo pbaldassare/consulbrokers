@@ -353,15 +353,16 @@ const PortafoglioCaricoPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="rounded-lg bg-accent/50 p-3">
               <Clock className="h-6 w-6 text-accent-foreground" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Polizze da rinnovare</p>
+              <p className="text-sm text-muted-foreground">Totale titoli</p>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
+              <p className="text-xs text-muted-foreground">{fmtCurrency(totalePremio)}</p>
             </div>
           </CardContent>
         </Card>
@@ -371,8 +372,33 @@ const PortafoglioCaricoPage = () => {
               <Euro className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Totale premio lordo</p>
-              <p className="text-2xl font-bold text-foreground">{fmtCurrency(totalePremio)}</p>
+              <p className="text-sm text-muted-foreground">Polizze</p>
+              <p className="text-2xl font-bold text-foreground">{totaleData?.polizzeCount ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{fmtCurrency(totaleData?.polizzeTotale ?? 0)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-lg bg-secondary p-3">
+              <Banknote className="h-6 w-6 text-secondary-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Quietanze</p>
+              <p className="text-2xl font-bold text-foreground">{totaleData?.quietanzeCount ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{fmtCurrency(totaleData?.quietanzeTotale ?? 0)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="rounded-lg bg-orange-100 p-3">
+              <Hourglass className="h-6 w-6 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">In attesa rinnovo</p>
+              <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
+              <p className="text-xs text-muted-foreground">polizza precedente non a cassa</p>
             </div>
           </CardContent>
         </Card>
