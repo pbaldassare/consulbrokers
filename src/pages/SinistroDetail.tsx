@@ -338,6 +338,10 @@ export default function SinistroDetail() {
                   />
                   <AiDocumentScanner
                     documentType="referto_medico"
+                    entityContext={{
+                      entityType: "sinistro",
+                      scopeHint: `Sinistro ${(sinistro as any).numero_sinistro ?? id} — ${clienteNome}`,
+                    }}
                     onFileReady={async (file) => {
                       try {
                         const { data: { user } } = await supabase.auth.getUser();
