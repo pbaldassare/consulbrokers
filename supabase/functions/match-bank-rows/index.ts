@@ -18,6 +18,90 @@ function fuzzyMatch(a: string, b: string): number {
   return (matched / Math.max(wa.length, wb.length)) * 100;
 }
 
+/**
+ * AI assist per match banca borderline.
+ * Chiama Lovable AI Gateway con structured output: restituisce best candidate
+ * (movimento_id | titolo_id), score 0..100 e motivazione. Limitato al perimetro
+ * (stesso ufficio, candidati pre-filtrati) — niente full-scan globale.
+ */
+async function aiAssistMatch(
+  estratto: any,
+  candidatesMov: any[],
+  candidatesTitoli: any[],
+): Promise<{ kind: "movimento" | "titolo"; id: string; score: number; motivazione: string } | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return null;
+  if (candidatesMov.length === 0 && candidatesTitoli.length === 0) return null;
+
+  const compact = (m: any) => ({
+    id: m.id,
+    importo: m.importo ?? m.importo_incassato ?? m.premio_lordo,
+    data: m.data_movimento ?? m.data_incasso,
+    descrizione: (m.descrizione ?? m.numero_titolo ?? "").toString().slice(0, 120),
+  });
+
+  const payload = {
+    estratto: {
+      importo: estratto.importo,
+      data: estratto.data_operazione,
+      descrizione: (estratto.descrizione ?? "").toString().slice(0, 200),
+    },
+    movimenti: candidatesMov.slice(0, 15).map(compact),
+    titoli: candidatesTitoli.slice(0, 15).map(compact),
+  };
+
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Sei un assistente di riconciliazione bancaria italiana. Confronta una riga di estratto conto con una lista limitata di candidati (movimenti contabili e titoli incassati) tutti appartenenti allo stesso ufficio. Scegli il miglior match valutando importo (peso forte), data (entro pochi giorni), e descrizione/numero titolo. Restituisci null se nessun candidato è plausibile.",
+          },
+          { role: "user", content: JSON.stringify(payload) },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "best_match",
+              description: "Best matching candidate or none",
+              parameters: {
+                type: "object",
+                properties: {
+                  kind: { type: "string", enum: ["movimento", "titolo", "none"] },
+                  id: { type: "string", description: "UUID del candidato scelto, vuoto se kind=none" },
+                  score: { type: "number", description: "Confidenza 0..100" },
+                  motivazione: { type: "string" },
+                },
+                required: ["kind", "score", "motivazione"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "best_match" } },
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const tc = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!tc) return null;
+    const args = JSON.parse(tc.function.arguments);
+    if (args.kind === "none" || !args.id) return null;
+    return { kind: args.kind, id: args.id, score: Number(args.score) || 0, motivazione: args.motivazione || "" };
+  } catch (e) {
+    console.error("aiAssistMatch error:", e);
+    return null;
+  }
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
