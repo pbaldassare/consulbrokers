@@ -36,4 +36,10 @@ describe("validateCF", () => {
   it("rifiuta formato non valido", () => {
     expect(validateCF("ABC").valid).toBe(false);
   });
+  it("segnala posizione errata con dettaglio (cifra al posto di lettera in pos. 12)", () => {
+    const r = validateCF("BLDPLA74R211449G");
+    expect(r.valid).toBe(false);
+    expect(r.error).toMatch(/posizione 12/);
+  });
 });
+
