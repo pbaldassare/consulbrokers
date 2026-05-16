@@ -112,7 +112,7 @@ export default function ProvvigioniRapportiTab() {
         percentuale_provvigione: r.percentuale,
         attiva: true,
       }));
-      const { error } = await supabase.from("provvigioni_compagnia_ramo").upsert(payload, {
+      const { error } = await (supabase.from("provvigioni_compagnia_ramo") as any).upsert(payload, {
         onConflict: "compagnia_rapporto_id,gruppo_ramo_id,ramo_id",
       });
       if (error) throw error;
