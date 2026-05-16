@@ -248,6 +248,25 @@ Deno.serve(async (req) => {
         }
       }
 
+      // AI assist solo per casi borderline (>=60 e <85) e quando non già "ok perfetto".
+      // Output: pre-compilato, NON auto-confermato (stato resta da_verificare).
+      let aiNote: string | null = null;
+      let aiSuggerimento: { kind: "movimento" | "titolo"; id: string; score: number; motivazione: string } | null = null;
+      if (bestScore >= 60 && bestScore < 85) {
+        // Restringiamo i candidati a quelli con importo plausibile (entro 5%)
+        const candMov = availableMovimenti.filter(
+          (m: any) => Math.abs((m.importo ?? 0) - absImporto) / Math.max(absImporto, 0.01) < 0.05,
+        );
+        const candTit = (titoli || []).filter((t: any) => {
+          const ti = t.importo_incassato || t.premio_lordo || 0;
+          return ti > 0 && Math.abs(ti - absImporto) / Math.max(absImporto, 0.01) < 0.05;
+        });
+        aiSuggerimento = await aiAssistMatch(estratto, candMov, candTit);
+        if (aiSuggerimento) {
+          aiNote = `AI assist: ${aiSuggerimento.motivazione} (conf ${aiSuggerimento.score})`;
+        }
+      }
+
       // Determine outcome
       let esito: string;
       let nuovoStato: string;
@@ -269,15 +288,20 @@ Deno.serve(async (req) => {
       // Update estratto stato
       await supabaseAdmin.from("estratti_conto").update({ stato: nuovoStato }).eq("id", estratto.id);
 
-      // Create incrocio
+      // Create incrocio (precompilato; la conferma definitiva avviene in UI)
+      const movimentoIdFinal = bestMatch && bestMetodo !== "titolo_incassato" ? bestMatch.id : null;
+      const noteParts: string[] = [];
+      if (bestScore >= 60 && bestScore < 85) noteParts.push(`Match parziale (score ${bestScore})`);
+      if (aiNote) noteParts.push(aiNote);
+
       await supabaseAdmin.from("incroci_bancari").insert({
         estratto_id: estratto.id,
-        movimento_id: bestMatch && bestMetodo !== "titolo_incassato" ? bestMatch.id : null,
+        movimento_id: movimentoIdFinal,
         esito,
         differenza: bestDiff,
         matching_score: bestScore,
-        matching_metodo: bestMetodo || null,
-        note: bestScore >= 60 && bestScore < 85 ? `Match parziale (score ${bestScore})` : null,
+        matching_metodo: aiSuggerimento ? `${bestMetodo || "ai"}+ai_assist` : (bestMetodo || null),
+        note: noteParts.length ? noteParts.join(" • ") : null,
       });
 
       // If matched a movimento, mark as used
