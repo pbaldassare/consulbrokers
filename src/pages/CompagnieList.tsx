@@ -1241,7 +1241,11 @@ const CompagnieList = () => {
       setForm(emptyForm);
       toast.success("Agenzia creata con successo");
     },
-    onError: () => toast.error("Errore nella creazione"),
+    onError: (err: any) => toast.error(
+      err?.message?.toLowerCase()?.includes("idx_compagnie_codice_unique") || err?.code === "23505"
+        ? `Codice "${form.codice}" già usato da un'altra agenzia`
+        : err?.message || "Errore nella creazione"
+    ),
   });
 
   const updateMutation = useMutation({
@@ -1256,7 +1260,11 @@ const CompagnieList = () => {
       setEditId(null);
       toast.success("Agenzia aggiornata");
     },
-    onError: () => toast.error("Errore nell'aggiornamento"),
+    onError: (err: any) => toast.error(
+      err?.message?.toLowerCase()?.includes("idx_compagnie_codice_unique") || err?.code === "23505"
+        ? `Codice "${form.codice}" già usato da un'altra agenzia`
+        : err?.message || "Errore nell'aggiornamento"
+    ),
   });
 
   const toggleMutation = useMutation({
