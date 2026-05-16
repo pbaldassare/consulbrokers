@@ -188,6 +188,72 @@ export type Database = {
         }
         Relationships: []
       }
+      _backup_conti_compagnia_20260516: {
+        Row: {
+          attivo: boolean | null
+          banca: string | null
+          bic: string | null
+          citta_banca: string | null
+          codice_abi: string | null
+          codice_cab: string | null
+          created_at: string | null
+          created_by: string | null
+          etichetta: string | null
+          iban: string | null
+          id: string | null
+          intestato_a: string | null
+          is_default: boolean | null
+          note: string | null
+          piano_conti_conto_id: string | null
+          tipo: string | null
+          ufficio_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          attivo?: boolean | null
+          banca?: string | null
+          bic?: string | null
+          citta_banca?: string | null
+          codice_abi?: string | null
+          codice_cab?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          etichetta?: string | null
+          iban?: string | null
+          id?: string | null
+          intestato_a?: string | null
+          is_default?: boolean | null
+          note?: string | null
+          piano_conti_conto_id?: string | null
+          tipo?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          attivo?: boolean | null
+          banca?: string | null
+          bic?: string | null
+          citta_banca?: string | null
+          codice_abi?: string | null
+          codice_cab?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          etichetta?: string | null
+          iban?: string | null
+          id?: string | null
+          intestato_a?: string | null
+          is_default?: boolean | null
+          note?: string | null
+          piano_conti_conto_id?: string | null
+          tipo?: string | null
+          ufficio_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ai_chat_conversazioni: {
         Row: {
           created_at: string
@@ -2252,6 +2318,7 @@ export type Database = {
           citta_banca: string | null
           codice_abi: string | null
           codice_cab: string | null
+          compagnia_id: string | null
           created_at: string
           created_by: string | null
           etichetta: string
@@ -2261,6 +2328,7 @@ export type Database = {
           is_default: boolean
           note: string | null
           piano_conti_conto_id: string | null
+          rapporto_id: string | null
           tipo: string
           ufficio_id: string | null
           updated_at: string
@@ -2273,6 +2341,7 @@ export type Database = {
           citta_banca?: string | null
           codice_abi?: string | null
           codice_cab?: string | null
+          compagnia_id?: string | null
           created_at?: string
           created_by?: string | null
           etichetta: string
@@ -2282,6 +2351,7 @@ export type Database = {
           is_default?: boolean
           note?: string | null
           piano_conti_conto_id?: string | null
+          rapporto_id?: string | null
           tipo?: string
           ufficio_id?: string | null
           updated_at?: string
@@ -2294,6 +2364,7 @@ export type Database = {
           citta_banca?: string | null
           codice_abi?: string | null
           codice_cab?: string | null
+          compagnia_id?: string | null
           created_at?: string
           created_by?: string | null
           etichetta?: string
@@ -2303,6 +2374,7 @@ export type Database = {
           is_default?: boolean
           note?: string | null
           piano_conti_conto_id?: string | null
+          rapporto_id?: string | null
           tipo?: string
           ufficio_id?: string | null
           updated_at?: string
@@ -2310,10 +2382,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "conti_bancari_compagnia_id_fkey"
+            columns: ["compagnia_id"]
+            isOneToOne: false
+            referencedRelation: "compagnie"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conti_bancari_piano_conti_conto_id_fkey"
             columns: ["piano_conti_conto_id"]
             isOneToOne: false
             referencedRelation: "piano_conti_conti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conti_bancari_rapporto_id_fkey"
+            columns: ["rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
             referencedColumns: ["id"]
           },
           {
