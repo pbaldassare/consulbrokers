@@ -364,6 +364,16 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nome del rapporto *</Label>
+              <Input
+                value={form.nome_rapporto}
+                onChange={(e) => setForm((p) => ({ ...p, nome_rapporto: e.target.value }))}
+                placeholder="es. Nobis – Agenzia Torino Centro"
+              />
+              <p className="text-[11px] text-muted-foreground">Etichetta libera che identifica univocamente questo rapporto.</p>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Compagnia Assicurativa *</Label>
               <SearchableSelect
                 options={gruppiOptions}
