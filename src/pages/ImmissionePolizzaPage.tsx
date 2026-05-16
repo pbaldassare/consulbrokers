@@ -1114,6 +1114,12 @@ const ImmissionePolizzaPage = () => {
 
         <AiDocumentScanner
           documentType="copia_polizza"
+          entityContext={clienteDettaglio ? {
+            entityType: "polizza",
+            scopeHint: `Polizza per ${clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome ?? ""} ${clienteDettaglio.nome ?? ""}`.trim()}`,
+            expectedCF: clienteDettaglio.codice_fiscale ?? null,
+            expectedPIVA: clienteDettaglio.partita_iva ?? null,
+          } : undefined}
           onFileReady={(file) => { scannedFileRef.current = file; }}
           onExtracted={(data) => {
             if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
