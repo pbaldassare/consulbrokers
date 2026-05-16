@@ -396,9 +396,11 @@ const ImmissionePolizzaPage = () => {
     ? "Seleziona prima un cliente"
     : gruppoFinanziarioMancante
       ? "Il cliente selezionato non ha un Gruppo Finanziario: aprilo nella scheda cliente e assegnalo prima di salvare la polizza"
-      : (cigObbligatorio && !cigRif.trim())
-        ? "Per i clienti di tipo Ente il CIG è obbligatorio"
-        : null;
+      : !numeroPolizza.trim()
+        ? "Il N° Polizza è obbligatorio"
+        : (cigObbligatorio && !cigRif.trim())
+          ? "Per i clienti di tipo Ente il CIG è obbligatorio"
+          : null;
 
   // (eredità AE/Specialist/Produttore spostata sotto le query)
 
@@ -1251,11 +1253,19 @@ const ImmissionePolizzaPage = () => {
 
         <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
           <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">N° Polizza</Label>
+            <Label className="text-xs">N° Polizza <span className="text-destructive">*</span></Label>
             <div className="relative">
-              <Input value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" className="h-8 text-xs" />
+              <Input
+                value={numeroPolizza}
+                onChange={(e) => setNumeroPolizza(e.target.value)}
+                placeholder="N° polizza"
+                className={`h-8 text-xs ${!numeroPolizza.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+              />
               <Search className="absolute right-2 top-2 w-3.5 h-3.5 text-muted-foreground" />
             </div>
+            {!numeroPolizza.trim() && (
+              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Riga</Label>
@@ -1273,21 +1283,23 @@ const ImmissionePolizzaPage = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              CIG/Rif. {cigObbligatorio && <span className="text-destructive" title="Obbligatorio per Enti">*</span>}
-            </Label>
-            <Input
-              value={cigRif}
-              onChange={(e) => setCigRif(e.target.value)}
-              className={`h-8 text-xs ${cigObbligatorio && !cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
-              title={cigObbligatorio ? "Obbligatorio per clienti di tipo Ente" : undefined}
-            />
-            {cigObbligatorio && !cigRif.trim() && (
-              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
-            )}
-          </div>
+        <div className={`grid ${cigObbligatorio ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
+          {cigObbligatorio && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1">
+                CIG/Rif. <span className="text-destructive" title="Obbligatorio per Enti">*</span>
+              </Label>
+              <Input
+                value={cigRif}
+                onChange={(e) => setCigRif(e.target.value)}
+                className={`h-8 text-xs ${!cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                title="Obbligatorio per clienti di tipo Ente"
+              />
+              {!cigRif.trim() && (
+                <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Vincolo</Label>
             <SearchableSelect
