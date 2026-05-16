@@ -69,7 +69,13 @@ const TIPI_COPERTURA = ["Deposito a copertura", "Scambio conferme", "Conferma so
 
 // ── Types ──
 
-const TIPI_AGENZIA = ["agenzia", "broker", "direzione"];
+const TIPI_AGENZIA = ["agenzia", "broker", "direzione", "plurimandataria"];
+const TIPI_LABEL: Record<string, string> = {
+  agenzia: "Agenzia",
+  broker: "Broker",
+  direzione: "Direzione",
+  plurimandataria: "Plurimandataria",
+};
 
 interface CompagniaForm {
   tipo: string;
@@ -434,7 +440,7 @@ function CompagniaFormDialog({
     </div>
   );
 
-  const isBroker = form.tipo === "broker";
+  const isBrokerLike = form.tipo === "broker" || form.tipo === "plurimandataria";
   const needsGruppo = form.tipo === "agenzia" || form.tipo === "direzione";
   const canSave = !!form.nome.trim() && !!form.codice.trim() && (!needsGruppo || !!form.gruppo_compagnia_id);
 
@@ -444,28 +450,40 @@ function CompagniaFormDialog({
         <DialogTitle>{title}</DialogTitle>
       </DialogHeader>
       <Tabs defaultValue="identificativi" className="w-full">
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="identificativi">Identificativi</TabsTrigger>
           <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
           <TabsTrigger value="bancario">RUI &amp; Bancario</TabsTrigger>
-          <TabsTrigger value="provvigioni">Provvigioni</TabsTrigger>
         </TabsList>
 
         {/* ── TAB 1: IDENTIFICATIVI ── */}
-        <TabsContent value="identificativi" className="space-y-3 mt-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Tipo <span className="text-destructive">*</span></Label>
-              <RadioGroup value={form.tipo} onValueChange={(v) => setField("tipo", v)} className="flex gap-3 pt-2">
-                {TIPI_AGENZIA.map((t) => (
-                  <div key={t} className="flex items-center gap-1.5">
-                    <RadioGroupItem value={t} id={`tipo-${t}`} />
-                    <Label htmlFor={`tipo-${t}`} className="text-sm font-normal cursor-pointer capitalize">{t}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-            <div className="space-y-1">
+        <TabsContent value="identificativi" className="space-y-4 mt-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Tipo <span className="text-destructive">*</span></Label>
+            <RadioGroup
+              value={form.tipo}
+              onValueChange={(v) => {
+                setField("tipo", v);
+                if (v === "broker" || v === "plurimandataria") {
+                  setField("gruppo_compagnia_id", "");
+                  setField("gruppo_compagnia", "");
+                }
+              }}
+              className="flex flex-wrap gap-x-6 gap-y-2 pt-1"
+            >
+              {TIPI_AGENZIA.map((t) => (
+                <div key={t} className="flex items-center gap-2 min-w-[140px]">
+                  <RadioGroupItem value={t} id={`tipo-${t}`} />
+                  <Label htmlFor={`tipo-${t}`} className="text-sm font-normal cursor-pointer whitespace-nowrap">
+                    {TIPI_LABEL[t] || t}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Codice <span className="text-destructive">*</span></Label>
               <Input
                 value={form.codice}
@@ -475,11 +493,11 @@ function CompagniaFormDialog({
               />
               {!form.codice.trim() && <p className="text-xs text-destructive">Obbligatorio e univoco</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Stato</Label>
-              <RadioGroup value={form.stato} onValueChange={(v) => setField("stato", v)} className="flex gap-3 pt-2">
+              <RadioGroup value={form.stato} onValueChange={(v) => setField("stato", v)} className="flex gap-6 pt-1">
                 {["Attivo", "Sospeso"].map((s) => (
-                  <div key={s} className="flex items-center gap-1.5">
+                  <div key={s} className="flex items-center gap-2">
                     <RadioGroupItem value={s} id={`stato-${s}`} />
                     <Label htmlFor={`stato-${s}`} className="text-sm font-normal cursor-pointer">{s}</Label>
                   </div>
@@ -488,30 +506,38 @@ function CompagniaFormDialog({
             </div>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Ragione sociale <span className="text-destructive">*</span></Label>
             <Input value={form.nome} onChange={(e) => setField("nome", e.target.value)} placeholder="Nome completo dell'agenzia/broker" />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">
-              Compagnia madre {needsGruppo && <span className="text-destructive">*</span>}
-              {isBroker && <span className="text-muted-foreground"> (opzionale per broker)</span>}
-            </Label>
-            <SearchableSelect
-              options={gruppiCompagnia}
-              value={form.gruppo_compagnia_id}
-              onValueChange={(v) => {
-                setField("gruppo_compagnia_id", v);
-                const found = gruppiCompagnia.find((g: any) => g.value === v);
-                setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
-              }}
-              placeholder="Seleziona compagnia assicurativa..."
-            />
-            {needsGruppo && !form.gruppo_compagnia_id && (
-              <p className="text-xs text-destructive">Campo obbligatorio per agenzia/direzione</p>
-            )}
-          </div>
+          {needsGruppo ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Compagnia madre <span className="text-destructive">*</span>
+              </Label>
+              <SearchableSelect
+                options={[{ value: "__none__", label: "— Nessuna —" }, ...gruppiCompagnia]}
+                value={form.gruppo_compagnia_id || ""}
+                onValueChange={(v) => {
+                  const val = v === "__none__" ? "" : v;
+                  setField("gruppo_compagnia_id", val);
+                  const found = gruppiCompagnia.find((g: any) => g.value === val);
+                  setField("gruppo_compagnia", found?.label?.replace(/^⚠️\s*/, "").replace(/\s*\(Fallback\)$/, "") || "");
+                }}
+                placeholder="Seleziona compagnia assicurativa..."
+              />
+              {!form.gruppo_compagnia_id && (
+                <p className="text-xs text-destructive">Campo obbligatorio per agenzia/direzione</p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+              {isBrokerLike
+                ? `I ${form.tipo === "broker" ? "broker" : "plurimandatari"} non hanno una compagnia madre: i legami con le compagnie si gestiscono dalla colonna "Rapporti" nella tabella.`
+                : null}
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 2: ANAGRAFICA ── */}
@@ -610,11 +636,6 @@ function CompagniaFormDialog({
             {renderField("IBAN (alternativo)", "iban", "IT60X0542811101000000123456")}
             {renderField("Intestato a", "intestato_a")}
           </div>
-        </TabsContent>
-
-        {/* ── TAB 4: PROVVIGIONI ── */}
-        <TabsContent value="provvigioni" className="mt-4">
-          <ProvvigioniTabContent compagniaId={compagniaId} />
         </TabsContent>
       </Tabs>
 
@@ -1394,7 +1415,7 @@ const CompagnieList = () => {
                   <Label className="text-xs text-muted-foreground">Codice iniziale</Label>
                   <Input placeholder="es. MED" value={searchCodice} onChange={(e) => setSearchCodice(e.target.value)} />
                 </div>
-                <div className="space-y-1 w-44">
+                <div className="space-y-1 w-52">
                   <Label className="text-xs text-muted-foreground">Tipo</Label>
                   <SearchableSelect
                     options={[
@@ -1402,6 +1423,7 @@ const CompagnieList = () => {
                       { value: "agenzia", label: "Agenzia" },
                       { value: "broker", label: "Broker" },
                       { value: "direzione", label: "Direzione" },
+                      { value: "plurimandataria", label: "Plurimandataria" },
                     ]}
                     value={filterTipo}
                     onValueChange={setFilterTipo}
@@ -1450,9 +1472,15 @@ const CompagnieList = () => {
                           <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
                           <TableCell className="font-medium">{c.nome}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {c.tipo || "agenzia"}
-                            </Badge>
+                            {(() => {
+                              const t = c.tipo || "agenzia";
+                              const cls =
+                                t === "broker" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                                t === "direzione" ? "bg-purple-100 text-purple-800 border-purple-200" :
+                                t === "plurimandataria" ? "bg-orange-100 text-orange-800 border-orange-200" :
+                                "bg-emerald-100 text-emerald-800 border-emerald-200";
+                              return <Badge variant="outline" className={cls}>{TIPI_LABEL[t] || t}</Badge>;
+                            })()}
                           </TableCell>
                           <TableCell>{grp?.descrizione || "—"}</TableCell>
                           <TableCell>{c.comune || "—"}</TableCell>
