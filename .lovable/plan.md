@@ -1,23 +1,68 @@
-# Piano
+# Riorganizzazione pagina Conti Bancari
 
-In `src/pages/ImmissionePolizzaPage.tsx`:
+## Problema attuale
+- Una sola tabella con 338 righe (334 sono `tipo='compagnia'`, 3 `generico`, 1 `incasso_clienti`).
+- Nessuna ricerca testuale: trovare un IBAN o una compagnia è impossibile.
+- Filtro tipo presente ma il valore reale `compagnia` non è nemmeno nella lista `TIPI` (mostra "compagnia" come badge grezzo).
+- Niente paginazione → render lento, scroll infinito.
+- I conti "core" di Consulbrokers (incassi, provvigioni, generici) si perdono in mezzo ai 334 conti agenzia.
 
-1. **CIG/Rif solo per Enti**
-   - Nascondere l'intero blocco "CIG/Rif." (righe ~1277-1290) quando `cigObbligatorio` è `false` (cioè `tipoSoggetto !== "ente"`).
-   - Quando nascosto, la riga della grid mostrerà solo "Vincolo": cambiare il wrapper grid in modo che, se non Ente, "Vincolo" occupi tutta la larghezza (oppure mantenere `grid-cols-2` con il solo Vincolo su una colonna — preferito: condizionare le colonne).
-   - Lasciare invariata la logica di obbligatorietà esistente per gli Enti (asterisco, bordo, blocco salvataggio).
+## Nuovo layout
 
-2. **N° Polizza obbligatorio (per tutti)**
-   - Aggiungere asterisco rosso `*` nel Label "N° Polizza" (riga 1254).
-   - Bordo destructive sull'`Input` quando `!numeroPolizza.trim()`.
-   - Estendere `saveBlockReason` (righe 395-401) aggiungendo un controllo: se `!numeroPolizza.trim()` → "Il N° Polizza è obbligatorio". Inserirlo subito dopo il check del Gruppo Finanziario per coerenza con gli altri messaggi.
-   - Nessuna modifica al backend / schema DB: il campo è già persistito; cambia solo la validazione client-side.
+Una pagina con **tab per categoria** sopra alla tabella:
 
-3. **Nessun altro cambiamento**
-   - Niente refactor del resto della sezione Contratto.
-   - Nessun cambiamento ai test esistenti (riguardano l'import AI, non questa pagina).
+```text
+[Banknote] Conti Bancari                                    [+ Nuovo Conto]
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ Consulbrokers (4)  │  Compagnie (334)  │  Agenzie (0)  │  Tutti      │
+└──────────────────────────────────────────────────────────────────────┘
+
+ 🔎 Cerca per etichetta, IBAN, intestatario, banca…   [Solo attivi ☑]
+
+ ┌──────────────────────────────────────────────────────────────────┐
+ │ ★  Etichetta        Tipo         IBAN              Intestato a … │
+ │ ────────────────────────────────────────────────────────────────  │
+ │ ★  Conto Incassi…   Incasso cli  IT70…6469         Consulbrok…   │
+ │ ...                                                              │
+ └──────────────────────────────────────────────────────────────────┘
+                                       « 1 2 3 … 14 »   25 / pagina
+```
+
+### Tab e mapping
+
+| Tab | Tipi inclusi | Default visibile |
+|---|---|---|
+| **Consulbrokers** | `incasso_clienti`, `provvigioni`, `generico` | Sì, per ciascun sotto-tipo |
+| **Compagnie** | `compagnia` | No (default non si applica) |
+| **Agenzie** | `agenzia` | No |
+| **Tutti** | — | Default per tipo |
+
+I tab mostrano il **conteggio** tra parentesi (query separata `count: 'exact'`).
+
+### Ricerca
+- Campo di ricerca con debounce 350 ms.
+- Server-side: `ilike` su `etichetta`, `iban`, `intestato_a`, `banca` con `or(...)`.
+
+### Paginazione
+- Server-side, 25 per pagina, componente `ServerPagination` già usato altrove.
+
+### Altri miglioramenti UX
+- Nella tab **Compagnie** aggiungo colonna "Compagnia collegata" (join leggero su `compagnie.conto_bancario_id` → ragione sociale) per capire a chi appartiene il conto.
+- Badge `Default` solo nelle tab dove ha senso (Consulbrokers, Tutti).
+- Aggiungo `compagnia` e `agenzia` al dizionario `TIPI` così il badge non mostra più il valore raw.
+- Empty state per tab vuota: testo + bottone "Nuovo conto di questa categoria" (pre-imposta il `tipo` nel form).
 
 ## Dettagli tecnici
-- File toccato: `src/pages/ImmissionePolizzaPage.tsx` (solo presentation + validazione blocco salvataggio già esistente).
-- Stato `tipoSoggetto` e `cigObbligatorio` già disponibili: nessun nuovo hook.
-- Coerenza UX: stesso stile (border-destructive + testo `text-[10px] text-destructive`) usato già per CIG.
+
+File toccato: `src/pages/anagrafiche/ContiBancariPage.tsx` (solo presentazione, niente schema/RLS).
+
+- Stato: `categoria` ('consul' | 'compagnie' | 'agenzie' | 'all'), `search` (debounced), `page`, `soloAttivi`.
+- Query principale: `select('*', { count: 'exact' })` con `.in('tipo', tipiTab)` + `or(...ilike)` + `.range()`.
+- Conteggi tab: una query `select('tipo', { count: 'exact', head: true })` per ognuno, oppure unica RPC; per semplicità 3 query in parallelo con `useQueries`, `staleTime` 60 s.
+- Mantengo dialog di creazione/modifica e `DeleteWithImpactDialog` invariati. Il form già ha `tipo` come Select → aggiungo `compagnia` e `agenzia` alle opzioni (read-only se editi un conto collegato a un'agenzia/compagnia).
+- Nessuna modifica alla logica `is_default` / catena IBAN.
+
+## Fuori scope
+- Refactor backend, nuove tabelle, nuove RLS.
+- Modifiche alla pagina IBAN dei profili Specialist o Sedi.
