@@ -766,9 +766,16 @@ const ImmissionePolizzaPage = () => {
       toast.error("Aggiungi almeno una garanzia/sottoramo nelle Composizioni Premio");
       return;
     }
-    // Se l'agenzia ha 2+ rapporti attivi, l'utente deve sceglierne uno
-    if (selectedCompagnia && (rapportiAgenzia || []).length >= 2 && !selectedRapportoId) {
-      toast.error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
+    if (!selectedGruppoCompagniaId) {
+      toast.error("Seleziona la Compagnia Assicurativa");
+      return;
+    }
+    if (!selectedCompagnia) {
+      toast.error("Seleziona l'Agenzia di Riferimento");
+      return;
+    }
+    if (isBrokerLike && !selectedRapportoId) {
+      toast.error("Seleziona il Rapporto Agenzia");
       return;
     }
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
@@ -778,9 +785,10 @@ const ImmissionePolizzaPage = () => {
         numero_titolo: numeroPolizza || null,
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
+        gruppo_compagnia_id: selectedGruppoCompagniaId || null,
         compagnia_id: selectedCompagnia || null,
-        compagnia_rapporto_id: selectedRapportoId || null,
-        codice_rapporto: rapportoSel?.codice_rapporto || null,
+        compagnia_rapporto_id: isBrokerLike ? (selectedRapportoId || null) : null,
+        codice_rapporto: isBrokerLike ? (rapportoSel?.codice_rapporto || null) : null,
         ramo_id: ramoIdToSave,
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
