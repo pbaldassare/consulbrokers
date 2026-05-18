@@ -255,9 +255,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         gruppo_compagnia_id: form.gruppo_compagnia_id,
         codice_rapporto: form.codice_rapporto || null,
         tipo_rapporto: form.tipo_rapporto || null,
-        rami_abilitati: form.rami_abilitati
-          ? form.rami_abilitati.split(",").map((s) => s.trim()).filter(Boolean)
-          : null,
+        rami_abilitati: null,
         data_inizio: form.data_inizio || null,
         data_fine: form.data_fine || null,
         attivo: form.attivo,
