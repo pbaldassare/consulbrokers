@@ -103,6 +103,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<RapportoForm>(emptyForm);
+  const [ramiRows, setRamiRows] = useState<RamoRow[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: rapporti = [], isLoading } = useQuery({
