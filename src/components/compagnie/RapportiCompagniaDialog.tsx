@@ -298,10 +298,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
 
       let rapportoId: string;
       if (form.id) {
-        const contoId = await persistContoRapporto(form.conto_bancario_id);
+        const contoId = skipConto ? null : await persistContoRapporto(form.conto_bancario_id);
         const { error } = await supabase
           .from("compagnia_rapporti" as any)
-          .update({ ...basePayload, conto_bancario_id: ibanFilled ? contoId : null })
+          .update({ ...basePayload, conto_bancario_id: skipConto ? null : contoId })
           .eq("id", form.id);
         if (error) throw error;
         rapportoId = form.id;
@@ -314,7 +314,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         if (insErr) throw insErr;
         rapportoId = (created as any).id as string;
         try {
-          if (ibanFilled) {
+          if (!skipConto) {
             const contoId = await persistContoRapporto(null);
             const { error: upErr } = await supabase
               .from("compagnia_rapporti" as any)
