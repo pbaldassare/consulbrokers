@@ -1,71 +1,26 @@
-## Obiettivo
+## Problema
 
-Nella dialog **Nuovo / Modifica Rapporto** (`RapportiCompagniaDialog.tsx`):
+Nella dialog "Nuovo Rapporto" il pulsante **Salva Rapporto** resta disabilitato perché l'IBAN inserito (`IT38F5086642546323232233232`) non supera il controllo mod-97 in `validateIban`. Anche cliccando, il salvataggio sarebbe comunque bloccato dall'errore lanciato in `persistContoRapporto`.
 
-1. Permettere di selezionare **più sottorami in contemporanea** per uno stesso Ramo (multi-select), invece di dover aggiungere una riga per ogni sottoramo.
-2. Quando si aggiunge un Ramo, il flag **"Tutti i sottorami" deve essere attivo di default**.
-3. **Rimuovere completamente la sezione "% Provvigione"** dalla dialog: le provvigioni verranno gestite a parte (tab Provvigioni / pagina dedicata).
+L'utente vuole poter salvare il rapporto **anche con IBAN non valido o vuoto**, senza essere bloccato.
 
-## Comportamento UI dopo la modifica
+## Soluzione
 
-Sezione "Rami e Sottorami abilitati":
+In `src/components/compagnie/RapportiCompagniaDialog.tsx`:
 
-```text
-[ Ramo: CORPI            ▼ ]   [ ☑ Tutti i sottorami ]                       [ X ]
-                               (se deselezionato compare il multi-select)
-                               [ ☐ AVIAZIONE CORPI                          ]
-                               [ ☐ CORPI DRONE                              ]
-                               [ ☐ CORPI IMBARCAZIONI DIPORTO               ]
-                               [ ☐ CORPI NAUTICA                            ]
-                               ...
-[ + Aggiungi Ramo ]
-```
+1. **Pulsante Salva sempre abilitato** quando i campi obbligatori (Nome rapporto + Compagnia) sono compilati.
+   - Rimuovere la condizione `(!!form.conto_iban.trim() && !validateIban(form.conto_iban).valid)` dal `disabled` del bottone.
 
-- Aggiungendo un Ramo → riga creata con `ramo_id = null` (Tutti i sottorami) già attiva.
-- Disattivando "Tutti" → appare un multi-select (checkbox list) per scegliere uno o più sottorami del gruppo. Internamente verranno salvate N righe in `compagnia_rapporto_rami`, una per ogni sottoramo selezionato.
-- Riattivando "Tutti" → le righe specifiche di quel gruppo vengono sostituite da un'unica riga `ramo_id = null`.
-- Validazione: niente duplicati gruppo+sottoramo (già presente).
+2. **IBAN non valido → conto bancario non creato, ma rapporto salvato.**
+   - In `saveMutation.mutationFn`: se l'IBAN è vuoto **oppure non valido**, saltare `persistContoRapporto` e salvare il rapporto con `conto_bancario_id: null`.
+   - Mostrare un toast warning ("Rapporto salvato senza conto bancario: IBAN non valido o assente") quando l'IBAN era stato compilato ma rifiutato.
 
-Sezione "% Provvigione" (campo singolo nella riga `Data Inizio | Data Fine | % Provvigione`):
+3. **Feedback inline invariato**: l'input IBAN continua a mostrare il bordo rosso + messaggio di errore sotto il campo, così l'utente sa che quel valore non verrà persistito come conto.
 
-- Rimosso il campo e l'etichetta.
-- La riga diventa una griglia a 2 colonne: `Data Inizio | Data Fine`.
-- Il campo `percentuale_provvigione` non viene più scritto né letto dalla form (sempre `null` in save).
-
-Nessuna modifica al database, alla tabella riepilogativa dei rapporti, alla dialog di lista, all'IBAN o all'autocomplete sede.
-
-## Dettagli tecnici
-
-File toccato: `src/components/compagnie/RapportiCompagniaDialog.tsx`
-
-1. **Struttura dati interna**: invece di `RamoRow { gruppo_ramo_id, ramo_id }[]`, raggruppare per gruppo in stato locale:
-
-   ```ts
-   interface RamoGroupRow {
-     gruppo_ramo_id: string;
-     all: boolean;            // true => salva una riga con ramo_id null
-     ramo_ids: string[];      // usato solo se all === false
-   }
-   ```
-
-   - `openEdit`: leggere da `compagnia_rapporto_rami`, raggruppare per `gruppo_ramo_id`. Se esiste almeno una riga con `ramo_id = null` → `all = true, ramo_ids = []`. Altrimenti `all = false, ramo_ids = [...]`.
-   - `openNew`: `[]`.
-   - Pulsante "+ Aggiungi Ramo" → push `{ gruppo_ramo_id: "", all: true, ramo_ids: [] }`.
-
-2. **Persistenza in `saveMutation`**: appiattire le righe prima dell'insert:
-   - Se `all` → `{ rapporto_id, gruppo_ramo_id, ramo_id: null }`.
-   - Altrimenti → una riga per ogni `ramo_id` in `ramo_ids` (se vuoto, gruppo ignorato con warning soft).
-   - Mantenere l'attuale `delete + insert` per il sync.
-
-3. **UI multi-select sottorami**: usare componente locale con `Popover` + `Command` + `CommandItem` con checkbox (pattern già in uso in `SearchableSelect`). Il trigger mostra "Tutti i sottorami" oppure il conteggio "N selezionati" + tooltip con nomi. Checkbox separata "Tutti i sottorami" sopra la lista.
-
-4. **Rimozione % Provvigione**:
-   - Eliminare il blocco JSX (riga `<div className="grid grid-cols-3 ...">` → diventa `grid-cols-2` con solo le due date).
-   - Eliminare `percentuale_provvigione` da `RapportoForm`, `emptyForm`, `openEdit`, `basePayload` (passare sempre `null` per compatibilità con la colonna esistente in DB).
-   - Lasciare invariata la colonna `% Provv.` nella tabella riepilogativa (mostra il valore storico se presente, "—" altrimenti).
+4. Nessuna modifica al DB, alle policy, o agli altri campi della form.
 
 ## Fuori scope
 
-- Tab Provvigioni separato / nuova pagina dedicata (richiesta dell'utente di gestirle "a parte"): da fare in un task successivo.
-- Migrazioni DB: nessuna necessaria.
-- Modifiche al matching della matrice provvigioni: già funziona espandendo `ramo_id = null` in tutti i sottorami del gruppo.
+- Logica di validazione IBAN (`validateIban`): resta com'è.
+- Conti bancari delle compagnie / sedi.
+- Tab Provvigioni separato (sarà un task successivo).
