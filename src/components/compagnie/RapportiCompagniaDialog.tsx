@@ -271,36 +271,57 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         note: form.note || null,
       };
 
+      // Dedup rows: se un gruppo ha "Tutti" rimuovi le righe specifiche dello stesso gruppo
+      const gruppiAll = new Set(ramiRows.filter((r) => r.ramo_id === null).map((r) => r.gruppo_ramo_id));
+      const cleanRami = ramiRows.filter(
+        (r, idx, arr) =>
+          arr.findIndex((x) => x.gruppo_ramo_id === r.gruppo_ramo_id && x.ramo_id === r.ramo_id) === idx &&
+          !(r.ramo_id !== null && gruppiAll.has(r.gruppo_ramo_id)),
+      );
+
+      let rapportoId: string;
       if (form.id) {
-        // UPDATE rapporto + sync conto
         const contoId = await persistContoRapporto(form.conto_bancario_id);
         const { error } = await supabase
           .from("compagnia_rapporti" as any)
           .update({ ...basePayload, conto_bancario_id: ibanFilled ? contoId : null })
           .eq("id", form.id);
         if (error) throw error;
+        rapportoId = form.id;
       } else {
-        // INSERT rapporto, poi conto, poi link; rollback se conto fallisce
         const { data: created, error: insErr } = await supabase
           .from("compagnia_rapporti" as any)
           .insert({ ...basePayload, conto_bancario_id: null })
           .select("id")
           .single();
         if (insErr) throw insErr;
-        const newId = (created as any).id as string;
+        rapportoId = (created as any).id as string;
         try {
           if (ibanFilled) {
             const contoId = await persistContoRapporto(null);
             const { error: upErr } = await supabase
               .from("compagnia_rapporti" as any)
               .update({ conto_bancario_id: contoId })
-              .eq("id", newId);
+              .eq("id", rapportoId);
             if (upErr) throw upErr;
           }
         } catch (e) {
-          await supabase.from("compagnia_rapporti" as any).delete().eq("id", newId);
+          await supabase.from("compagnia_rapporti" as any).delete().eq("id", rapportoId);
           throw e;
         }
+      }
+
+      // Sync rami abilitati (delete + insert)
+      const { error: delErr } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .delete()
+        .eq("rapporto_id", rapportoId);
+      if (delErr) throw delErr;
+      if (cleanRami.length > 0) {
+        const { error: insRErr } = await supabase
+          .from("compagnia_rapporto_rami" as any)
+          .insert(cleanRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
+        if (insRErr) throw insRErr;
       }
     },
     onSuccess: () => {
