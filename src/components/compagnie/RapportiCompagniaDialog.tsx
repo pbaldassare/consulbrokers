@@ -13,6 +13,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, XCircle, Network } from "lucide-react";
 import { toast } from "sonner";
+import { validateIban } from "@/lib/validateIban";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface Props {
   open: boolean;
