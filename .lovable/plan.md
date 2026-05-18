@@ -1,28 +1,14 @@
-## Stato attuale
+## Causa
 
-Il pulsante **Salva Rapporto** in `RapportiCompagniaDialog.tsx` è già configurato per essere abilitato quando sono compilati solo i due campi obbligatori:
+Salvando la polizza, il payload verso `titoli` include `gruppo_compagnia_id`, ma la tabella `titoli` **non ha** quella colonna → Postgrest risponde `PGRST204: Could not find the 'gruppo_compagnia_id' column of 'titoli'`.
 
-- Nome rapporto
-- Compagnia Assicurativa (`gruppo_compagnia_id`)
+La compagnia madre è già derivabile via `compagnia_rapporto_id → compagnia_rapporti.gruppo_compagnia_id`, quindi non serve duplicarla in `titoli`.
 
-L'IBAN non blocca più il salvataggio: se vuoto o non valido, il rapporto viene salvato con `conto_bancario_id = null` e mostra un toast di warning.
+## Fix
 
-## Cosa fare ora
-
-1. **Scrollare in alto nella dialog** e verificare che siano compilati:
-   - Nome rapporto (es. "Nobis – Verona")
-   - Compagnia Assicurativa (dropdown gruppo)
-2. Cliccare **Salva Rapporto** — dovrebbe funzionare immediatamente.
-
-## Se il pulsante è ancora disabilitato
-
-Apro un'indagine mirata con i console logs / network requests per capire quale campo manca, poi rimuovo eventuali validazioni residue.
-
-## Se compare un errore al salvataggio
-
-Catturo il messaggio di errore (toast + console) e correggo il payload o il vincolo DB corrispondente (es. colonne obbligatorie, foreign key, RLS).
+In `src/pages/ImmissionePolizzaPage.tsx` (funzione `finalizzaPolizza`, intorno alla riga 1011): **rimuovere `gruppo_compagnia_id` dal payload `insert` su `titoli`**. Lo stato locale può restare per uso UI/filtri.
 
 ## Fuori scope
 
-- Tab Provvigioni (già spostato in pagina dedicata `/provvigioni-compagnie-ramo`).
-- Modifiche alla validazione IBAN.
+- Nessuna migration: non aggiungiamo colonne ridondanti.
+- Lettura/join `gruppo_compagnia_id` in altre query: già funzionano via `compagnia_rapporti`.
