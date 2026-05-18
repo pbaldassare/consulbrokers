@@ -611,13 +611,64 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Rami abilitati (separati da virgola)</Label>
-              <Input
-                value={form.rami_abilitati}
-                onChange={(e) => setForm((p) => ({ ...p, rami_abilitati: e.target.value }))}
-                placeholder="es. RCA, Property, Vita"
-              />
+            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Rami e Sottorami abilitati</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", ramo_id: null }])}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
+                </Button>
+              </div>
+              {ramiRows.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Nessun ramo abilitato. Aggiungi i Rami/Sottorami su cui questo rapporto opera: la matrice provvigioni proporrà solo questi.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {ramiRows.map((row, idx) => {
+                    const sottoOpts = [
+                      { value: ALL_SOTTORAMI, label: "Tutti i sottorami", description: "Vale per ogni sottoramo del gruppo" },
+                      ...(ramiCatalog as any[])
+                        .filter((rr) => rr.gruppo_ramo_id === row.gruppo_ramo_id)
+                        .map((rr) => ({ value: rr.id, label: rr.descrizione, description: rr.codice || undefined })),
+                    ];
+                    return (
+                      <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                        <SearchableSelect
+                          options={(gruppiRamo as any[]).map((g) => ({ value: g.id, label: g.descrizione, description: g.codice || undefined }))}
+                          value={row.gruppo_ramo_id}
+                          onValueChange={(v) =>
+                            setRamiRows((p) => p.map((r, i) => (i === idx ? { gruppo_ramo_id: v, ramo_id: null } : r)))
+                          }
+                          placeholder="Ramo..."
+                        />
+                        <SearchableSelect
+                          options={sottoOpts}
+                          value={row.ramo_id ?? ALL_SOTTORAMI}
+                          onValueChange={(v) =>
+                            setRamiRows((p) => p.map((r, i) => (i === idx ? { ...r, ramo_id: v === ALL_SOTTORAMI ? null : v } : r)))
+                          }
+                          placeholder={row.gruppo_ramo_id ? "Sottoramo..." : "Seleziona prima un Ramo"}
+                          disabled={!row.gruppo_ramo_id}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setRamiRows((p) => p.filter((_, i) => i !== idx))}
+                          title="Rimuovi"
+                        >
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
