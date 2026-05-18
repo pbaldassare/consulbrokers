@@ -496,10 +496,22 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                             )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">{r.codice_rapporto || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
-                            {Array.isArray(r.rami_abilitati) && r.rami_abilitati.length
-                              ? r.rami_abilitati.join(", ")
-                              : "—"}
+                          <TableCell className="text-xs text-muted-foreground max-w-[180px]">
+                            {(() => {
+                              const rows = (rapportoRamiAll as any[]).filter((x) => x.rapporto_id === r.id);
+                              if (rows.length === 0) return "—";
+                              const labels = rows.slice(0, 3).map((x) => {
+                                const g = (gruppiRamo as any[]).find((gg) => gg.id === x.gruppo_ramo_id);
+                                if (!x.ramo_id) return `${g?.descrizione || "?"} · Tutti`;
+                                const ra = (ramiCatalog as any[]).find((rr) => rr.id === x.ramo_id);
+                                return `${g?.descrizione || "?"} · ${ra?.descrizione || "?"}`;
+                              });
+                              return (
+                                <span title={labels.join(" | ")}>
+                                  {labels.join(", ")}{rows.length > 3 ? ` +${rows.length - 3}` : ""}
+                                </span>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="text-sm">{r.data_inizio || "—"}</TableCell>
                           <TableCell className="text-sm">{r.data_fine || "—"}</TableCell>
