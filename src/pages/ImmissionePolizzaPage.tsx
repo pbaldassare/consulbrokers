@@ -785,7 +785,7 @@ const ImmissionePolizzaPage = () => {
         numero_titolo: numeroPolizza || null,
         riga: parseInt(riga) || 0,
         appendice: appendice || "000",
-        gruppo_compagnia_id: selectedGruppoCompagniaId || null,
+        // gruppo_compagnia_id non è una colonna di titoli: si deriva via compagnia_rapporti
         compagnia_id: selectedCompagnia || null,
         compagnia_rapporto_id: isBrokerLike ? (selectedRapportoId || null) : null,
         codice_rapporto: isBrokerLike ? (rapportoSel?.codice_rapporto || null) : null,
