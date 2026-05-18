@@ -277,13 +277,21 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         note: form.note || null,
       };
 
-      // Dedup rows: se un gruppo ha "Tutti" rimuovi le righe specifiche dello stesso gruppo
-      const gruppiAll = new Set(ramiRows.filter((r) => r.ramo_id === null).map((r) => r.gruppo_ramo_id));
-      const cleanRami = ramiRows.filter(
-        (r, idx, arr) =>
-          arr.findIndex((x) => x.gruppo_ramo_id === r.gruppo_ramo_id && x.ramo_id === r.ramo_id) === idx &&
-          !(r.ramo_id !== null && gruppiAll.has(r.gruppo_ramo_id)),
-      );
+      // Flatten: per ogni gruppo, se "all" => 1 riga con ramo_id null, altrimenti N righe (una per sottoramo)
+      const flatRami: { gruppo_ramo_id: string; ramo_id: string | null }[] = [];
+      const seen = new Set<string>();
+      for (const g of ramiRows) {
+        if (!g.gruppo_ramo_id) continue;
+        if (g.all) {
+          const k = `${g.gruppo_ramo_id}|null`;
+          if (!seen.has(k)) { seen.add(k); flatRami.push({ gruppo_ramo_id: g.gruppo_ramo_id, ramo_id: null }); }
+        } else {
+          for (const rid of g.ramo_ids) {
+            const k = `${g.gruppo_ramo_id}|${rid}`;
+            if (!seen.has(k)) { seen.add(k); flatRami.push({ gruppo_ramo_id: g.gruppo_ramo_id, ramo_id: rid }); }
+          }
+        }
+      }
 
       let rapportoId: string;
       if (form.id) {
@@ -323,10 +331,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         .delete()
         .eq("rapporto_id", rapportoId);
       if (delErr) throw delErr;
-      if (cleanRami.length > 0) {
+      if (flatRami.length > 0) {
         const { error: insRErr } = await supabase
           .from("compagnia_rapporto_rami" as any)
-          .insert(cleanRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
+          .insert(flatRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
         if (insRErr) throw insRErr;
       }
     },
