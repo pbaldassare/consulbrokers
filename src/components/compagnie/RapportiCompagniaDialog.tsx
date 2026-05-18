@@ -11,10 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X } from "lucide-react";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+
+const ALL_SOTTORAMI = "__ALL__";
+interface RamoRow { gruppo_ramo_id: string; ramo_id: string | null }
 
 interface Props {
   open: boolean;
@@ -100,6 +103,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<RapportoForm>(emptyForm);
+  const [ramiRows, setRamiRows] = useState<RamoRow[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: rapporti = [], isLoading } = useQuery({
@@ -129,6 +133,48 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       return data || [];
     },
     staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: gruppiRamo = [] } = useQuery({
+    queryKey: ["gruppi_ramo_for_rapporti"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_ramo" as any)
+        .select("id, codice, descrizione")
+        .eq("attivo", true)
+        .order("descrizione");
+      return data || [];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: ramiCatalog = [] } = useQuery({
+    queryKey: ["rami_for_rapporti"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rami" as any)
+        .select("id, codice, descrizione, gruppo_ramo_id")
+        .eq("attivo", true)
+        .order("descrizione");
+      return data || [];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  // Tutti i rami abilitati per i rapporti di questa compagnia (per riepilogo in tabella)
+  const rapportoIds = (rapporti as any[]).map((r) => r.id);
+  const { data: rapportoRamiAll = [] } = useQuery({
+    queryKey: ["compagnia_rapporto_rami_all", compagniaId, rapportoIds.length],
+    queryFn: async () => {
+      if (rapportoIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .select("id, rapporto_id, gruppo_ramo_id, ramo_id")
+        .in("rapporto_id", rapportoIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && rapportoIds.length > 0,
   });
 
   // Load conto bancario fields when editing a rapporto with linked account
@@ -209,9 +255,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         gruppo_compagnia_id: form.gruppo_compagnia_id,
         codice_rapporto: form.codice_rapporto || null,
         tipo_rapporto: form.tipo_rapporto || null,
-        rami_abilitati: form.rami_abilitati
-          ? form.rami_abilitati.split(",").map((s) => s.trim()).filter(Boolean)
-          : null,
+        rami_abilitati: null,
         data_inizio: form.data_inizio || null,
         data_fine: form.data_fine || null,
         attivo: form.attivo,
@@ -227,36 +271,57 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         note: form.note || null,
       };
 
+      // Dedup rows: se un gruppo ha "Tutti" rimuovi le righe specifiche dello stesso gruppo
+      const gruppiAll = new Set(ramiRows.filter((r) => r.ramo_id === null).map((r) => r.gruppo_ramo_id));
+      const cleanRami = ramiRows.filter(
+        (r, idx, arr) =>
+          arr.findIndex((x) => x.gruppo_ramo_id === r.gruppo_ramo_id && x.ramo_id === r.ramo_id) === idx &&
+          !(r.ramo_id !== null && gruppiAll.has(r.gruppo_ramo_id)),
+      );
+
+      let rapportoId: string;
       if (form.id) {
-        // UPDATE rapporto + sync conto
         const contoId = await persistContoRapporto(form.conto_bancario_id);
         const { error } = await supabase
           .from("compagnia_rapporti" as any)
           .update({ ...basePayload, conto_bancario_id: ibanFilled ? contoId : null })
           .eq("id", form.id);
         if (error) throw error;
+        rapportoId = form.id;
       } else {
-        // INSERT rapporto, poi conto, poi link; rollback se conto fallisce
         const { data: created, error: insErr } = await supabase
           .from("compagnia_rapporti" as any)
           .insert({ ...basePayload, conto_bancario_id: null })
           .select("id")
           .single();
         if (insErr) throw insErr;
-        const newId = (created as any).id as string;
+        rapportoId = (created as any).id as string;
         try {
           if (ibanFilled) {
             const contoId = await persistContoRapporto(null);
             const { error: upErr } = await supabase
               .from("compagnia_rapporti" as any)
               .update({ conto_bancario_id: contoId })
-              .eq("id", newId);
+              .eq("id", rapportoId);
             if (upErr) throw upErr;
           }
         } catch (e) {
-          await supabase.from("compagnia_rapporti" as any).delete().eq("id", newId);
+          await supabase.from("compagnia_rapporti" as any).delete().eq("id", rapportoId);
           throw e;
         }
+      }
+
+      // Sync rami abilitati (delete + insert)
+      const { error: delErr } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .delete()
+        .eq("rapporto_id", rapportoId);
+      if (delErr) throw delErr;
+      if (cleanRami.length > 0) {
+        const { error: insRErr } = await supabase
+          .from("compagnia_rapporto_rami" as any)
+          .insert(cleanRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
+        if (insRErr) throw insRErr;
       }
     },
     onSuccess: () => {
@@ -264,6 +329,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami_all"] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       setFormOpen(false);
       setForm(emptyForm);
       toast.success("Rapporto salvato");
@@ -340,11 +407,20 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       telefono_referente: r.telefono_referente || "",
       note: r.note || "",
     });
+    // Carica rami abilitati dal DB
+    (async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .select("gruppo_ramo_id, ramo_id")
+        .eq("rapporto_id", r.id);
+      setRamiRows((data as any[] | null)?.map((x) => ({ gruppo_ramo_id: x.gruppo_ramo_id, ramo_id: x.ramo_id })) || []);
+    })();
     setFormOpen(true);
   };
 
   const openNew = () => {
     setForm(emptyForm);
+    setRamiRows([]);
     setFormOpen(true);
   };
 
@@ -420,10 +496,22 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                             )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">{r.codice_rapporto || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
-                            {Array.isArray(r.rami_abilitati) && r.rami_abilitati.length
-                              ? r.rami_abilitati.join(", ")
-                              : "—"}
+                          <TableCell className="text-xs text-muted-foreground max-w-[180px]">
+                            {(() => {
+                              const rows = (rapportoRamiAll as any[]).filter((x) => x.rapporto_id === r.id);
+                              if (rows.length === 0) return "—";
+                              const labels = rows.slice(0, 3).map((x) => {
+                                const g = (gruppiRamo as any[]).find((gg) => gg.id === x.gruppo_ramo_id);
+                                if (!x.ramo_id) return `${g?.descrizione || "?"} · Tutti`;
+                                const ra = (ramiCatalog as any[]).find((rr) => rr.id === x.ramo_id);
+                                return `${g?.descrizione || "?"} · ${ra?.descrizione || "?"}`;
+                              });
+                              return (
+                                <span title={labels.join(" | ")}>
+                                  {labels.join(", ")}{rows.length > 3 ? ` +${rows.length - 3}` : ""}
+                                </span>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="text-sm">{r.data_inizio || "—"}</TableCell>
                           <TableCell className="text-sm">{r.data_fine || "—"}</TableCell>
@@ -523,13 +611,64 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Rami abilitati (separati da virgola)</Label>
-              <Input
-                value={form.rami_abilitati}
-                onChange={(e) => setForm((p) => ({ ...p, rami_abilitati: e.target.value }))}
-                placeholder="es. RCA, Property, Vita"
-              />
+            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Rami e Sottorami abilitati</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", ramo_id: null }])}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
+                </Button>
+              </div>
+              {ramiRows.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Nessun ramo abilitato. Aggiungi i Rami/Sottorami su cui questo rapporto opera: la matrice provvigioni proporrà solo questi.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {ramiRows.map((row, idx) => {
+                    const sottoOpts = [
+                      { value: ALL_SOTTORAMI, label: "Tutti i sottorami", description: "Vale per ogni sottoramo del gruppo" },
+                      ...(ramiCatalog as any[])
+                        .filter((rr) => rr.gruppo_ramo_id === row.gruppo_ramo_id)
+                        .map((rr) => ({ value: rr.id, label: rr.descrizione, description: rr.codice || undefined })),
+                    ];
+                    return (
+                      <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                        <SearchableSelect
+                          options={(gruppiRamo as any[]).map((g) => ({ value: g.id, label: g.descrizione, description: g.codice || undefined }))}
+                          value={row.gruppo_ramo_id}
+                          onValueChange={(v) =>
+                            setRamiRows((p) => p.map((r, i) => (i === idx ? { gruppo_ramo_id: v, ramo_id: null } : r)))
+                          }
+                          placeholder="Ramo..."
+                        />
+                        <SearchableSelect
+                          options={sottoOpts}
+                          value={row.ramo_id ?? ALL_SOTTORAMI}
+                          onValueChange={(v) =>
+                            setRamiRows((p) => p.map((r, i) => (i === idx ? { ...r, ramo_id: v === ALL_SOTTORAMI ? null : v } : r)))
+                          }
+                          placeholder={row.gruppo_ramo_id ? "Sottoramo..." : "Seleziona prima un Ramo"}
+                          disabled={!row.gruppo_ramo_id}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setRamiRows((p) => p.filter((_, i) => i !== idx))}
+                          title="Rimuovi"
+                        >
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-3">

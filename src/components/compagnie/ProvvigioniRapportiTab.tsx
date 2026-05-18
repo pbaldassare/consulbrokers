@@ -64,6 +64,31 @@ export default function ProvvigioniRapportiTab() {
     },
   });
 
+  // Rami abilitati per il rapporto selezionato (compagnia_rapporto_rami)
+  const { data: ramiAbilitati = [] } = useQuery({
+    queryKey: ["rapporto-rami-abilitati", rapportoId],
+    enabled: !!rapportoId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .select("gruppo_ramo_id, ramo_id")
+        .eq("rapporto_id", rapportoId);
+      if (error) throw error;
+      return ((data || []) as unknown) as { gruppo_ramo_id: string; ramo_id: string | null }[];
+    },
+  });
+  // Set di gruppi abilitati + map sottorami specifici per gruppo
+  const enabledGruppoIds = new Set<string>(ramiAbilitati.map((x) => x.gruppo_ramo_id));
+  const specificSottoByGruppo: Record<string, Set<string>> = {};
+  const gruppoHasAll: Record<string, boolean> = {};
+  ramiAbilitati.forEach((x) => {
+    if (x.ramo_id === null) gruppoHasAll[x.gruppo_ramo_id] = true;
+    else {
+      specificSottoByGruppo[x.gruppo_ramo_id] = specificSottoByGruppo[x.gruppo_ramo_id] || new Set();
+      specificSottoByGruppo[x.gruppo_ramo_id].add(x.ramo_id);
+    }
+  });
+
   // Provvigioni del rapporto selezionato
   const { data: provvigioni = [], refetch: refetchProvv } = useQuery({
     queryKey: ["provv-rapporto", rapportoId],
@@ -243,24 +268,37 @@ export default function ProvvigioniRapportiTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {gruppiRamo.map((gr: any, grIdx: number) => {
-                  const sottorami = rami.filter((r: any) => r.gruppo_ramo_id === gr.id);
-                  const defKey = `${gr.id}|`;
-                  const defaultRow = provvMap[defKey];
-                  return (
-                    <RamoBlock
-                      key={gr.id}
-                      gr={gr}
-                      sottorami={sottorami}
-                      provvMap={provvMap}
-                      defaultRow={defaultRow}
-                      defKey={defKey}
-                      onSave={(row) => upsertMutation.mutate([row])}
-                      onDelete={(id) => deleteMutation.mutate(id)}
-                      zebra={grIdx % 2 === 0}
-                    />
-                  );
-                })}
+                {ramiAbilitati.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
+                      Nessun Ramo abilitato su questo rapporto. Apri "Rapporti" sulla compagnia e definisci i Rami/Sottorami abilitati.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  gruppiRamo
+                    .filter((gr: any) => enabledGruppoIds.has(gr.id))
+                    .map((gr: any, grIdx: number) => {
+                      const allSottorami = rami.filter((r: any) => r.gruppo_ramo_id === gr.id);
+                      const sottorami = gruppoHasAll[gr.id]
+                        ? allSottorami
+                        : allSottorami.filter((r: any) => specificSottoByGruppo[gr.id]?.has(r.id));
+                      const defKey = `${gr.id}|`;
+                      const defaultRow = provvMap[defKey];
+                      return (
+                        <RamoBlock
+                          key={gr.id}
+                          gr={gr}
+                          sottorami={sottorami}
+                          provvMap={provvMap}
+                          defaultRow={defaultRow}
+                          defKey={defKey}
+                          onSave={(row) => upsertMutation.mutate([row])}
+                          onDelete={(id) => deleteMutation.mutate(id)}
+                          zebra={grIdx % 2 === 0}
+                        />
+                      );
+                    })
+                )}
               </TableBody>
             </Table>
           </CardContent>

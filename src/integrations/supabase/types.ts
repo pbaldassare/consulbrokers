@@ -1794,6 +1794,59 @@ export type Database = {
           },
         ]
       }
+      compagnia_rapporto_rami: {
+        Row: {
+          created_at: string
+          gruppo_ramo_id: string
+          id: string
+          ramo_id: string | null
+          rapporto_id: string
+        }
+        Insert: {
+          created_at?: string
+          gruppo_ramo_id: string
+          id?: string
+          ramo_id?: string | null
+          rapporto_id: string
+        }
+        Update: {
+          created_at?: string
+          gruppo_ramo_id?: string
+          id?: string
+          ramo_id?: string | null
+          rapporto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compagnia_rapporto_rami_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "gruppi_ramo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compagnia_rapporto_rami_gruppo_ramo_id_fkey"
+            columns: ["gruppo_ramo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["gruppo_ramo_id"]
+          },
+          {
+            foreignKeyName: "compagnia_rapporto_rami_ramo_id_fkey"
+            columns: ["ramo_id"]
+            isOneToOne: false
+            referencedRelation: "rami"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compagnia_rapporto_rami_rapporto_id_fkey"
+            columns: ["rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compagnie: {
         Row: {
           allegato_excel_avvisi: boolean | null
