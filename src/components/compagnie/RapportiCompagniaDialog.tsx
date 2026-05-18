@@ -935,8 +935,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 disabled={
                   !form.gruppo_compagnia_id ||
                   !form.nome_rapporto.trim() ||
-                  saveMutation.isPending ||
-                  (!!form.conto_iban.trim() && !validateIban(form.conto_iban).valid)
+                  saveMutation.isPending
                 }
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
