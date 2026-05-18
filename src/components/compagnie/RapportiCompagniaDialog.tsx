@@ -340,8 +340,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           .insert(flatRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
         if (insRErr) throw insRErr;
       }
+      return { ibanRejected: ibanFilled && !ibanValid };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
@@ -350,7 +351,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       setFormOpen(false);
       setForm(emptyForm);
-      toast.success("Rapporto salvato");
+      if (res?.ibanRejected) toast.warning("Rapporto salvato senza conto bancario: IBAN non valido");
+      else toast.success("Rapporto salvato");
     },
     onError: (e: any) => {
       const msg = e?.message || "";
