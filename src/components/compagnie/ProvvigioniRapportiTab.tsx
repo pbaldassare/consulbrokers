@@ -74,7 +74,7 @@ export default function ProvvigioniRapportiTab() {
         .select("gruppo_ramo_id, ramo_id")
         .eq("rapporto_id", rapportoId);
       if (error) throw error;
-      return (data || []) as { gruppo_ramo_id: string; ramo_id: string | null }[];
+      return ((data || []) as unknown) as { gruppo_ramo_id: string; ramo_id: string | null }[];
     },
   });
   // Set di gruppi abilitati + map sottorami specifici per gruppo
