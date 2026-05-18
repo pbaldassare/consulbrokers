@@ -634,10 +634,19 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 value={form.sede_denominazione}
                 onChange={(e) => setForm((p) => ({ ...p, sede_denominazione: e.target.value }))}
               />
-              <Input
+              <AddressAutocomplete
                 placeholder="Indirizzo (es. Via Moncalieri 12)"
                 value={form.sede_indirizzo}
-                onChange={(e) => setForm((p) => ({ ...p, sede_indirizzo: e.target.value }))}
+                onChange={(v) => setForm((p) => ({ ...p, sede_indirizzo: v }))}
+                onSelect={(c) =>
+                  setForm((p) => ({
+                    ...p,
+                    sede_indirizzo: c.indirizzo || p.sede_indirizzo,
+                    sede_cap: c.cap || p.sede_cap,
+                    sede_citta: c.citta || p.sede_citta,
+                    sede_provincia: (c.provincia || p.sede_provincia).toUpperCase(),
+                  }))
+                }
               />
               <div className="grid grid-cols-[100px_1fr_80px] gap-3">
                 <Input
