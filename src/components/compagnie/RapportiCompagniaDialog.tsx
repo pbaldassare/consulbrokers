@@ -702,7 +702,12 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={!form.gruppo_compagnia_id || !form.nome_rapporto.trim() || saveMutation.isPending}
+                disabled={
+                  !form.gruppo_compagnia_id ||
+                  !form.nome_rapporto.trim() ||
+                  saveMutation.isPending ||
+                  (!!form.conto_iban.trim() && !validateIban(form.conto_iban).valid)
+                }
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
               </Button>
