@@ -160,11 +160,13 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   }, [formOpen, form.id]);
 
   const persistContoRapporto = async (currentContoId: string | null): Promise<string | null> => {
-    const iban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
-    if (!iban) return null;
-    if (iban.startsWith("IT") && iban.length !== 27) {
-      throw new Error("IBAN italiano deve avere 27 caratteri");
+    const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+    if (!rawIban) return null;
+    const ibanCheck = validateIban(rawIban);
+    if (!ibanCheck.valid) {
+      throw new Error(ibanCheck.error || "IBAN non valido");
     }
+    const iban = ibanCheck.normalized || rawIban;
     const intestato = (form.conto_intestato_a || form.nome_rapporto || compagniaNome || "").trim();
     if (!intestato) throw new Error("Specifica l'intestatario del conto");
     const banca = (form.conto_banca || "Banca da definire").trim();
