@@ -407,11 +407,20 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       telefono_referente: r.telefono_referente || "",
       note: r.note || "",
     });
+    // Carica rami abilitati dal DB
+    (async () => {
+      const { data } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .select("gruppo_ramo_id, ramo_id")
+        .eq("rapporto_id", r.id);
+      setRamiRows((data as any[] | null)?.map((x) => ({ gruppo_ramo_id: x.gruppo_ramo_id, ramo_id: x.ramo_id })) || []);
+    })();
     setFormOpen(true);
   };
 
   const openNew = () => {
     setForm(emptyForm);
+    setRamiRows([]);
     setFormOpen(true);
   };
 
