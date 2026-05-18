@@ -254,7 +254,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
       }
 
-      const ibanFilled = !!(form.conto_iban || "").replace(/\s+/g, "").trim();
+      const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+      const ibanFilled = !!rawIban;
+      const ibanValid = ibanFilled ? validateIban(rawIban).valid : false;
+      const skipConto = !ibanFilled || !ibanValid;
       const basePayload: any = {
         compagnia_id: compagniaId,
         nome_rapporto: form.nome_rapporto.trim(),
@@ -295,10 +298,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
 
       let rapportoId: string;
       if (form.id) {
-        const contoId = await persistContoRapporto(form.conto_bancario_id);
+        const contoId = skipConto ? null : await persistContoRapporto(form.conto_bancario_id);
         const { error } = await supabase
           .from("compagnia_rapporti" as any)
-          .update({ ...basePayload, conto_bancario_id: ibanFilled ? contoId : null })
+          .update({ ...basePayload, conto_bancario_id: skipConto ? null : contoId })
           .eq("id", form.id);
         if (error) throw error;
         rapportoId = form.id;
@@ -311,7 +314,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         if (insErr) throw insErr;
         rapportoId = (created as any).id as string;
         try {
-          if (ibanFilled) {
+          if (!skipConto) {
             const contoId = await persistContoRapporto(null);
             const { error: upErr } = await supabase
               .from("compagnia_rapporti" as any)
@@ -337,8 +340,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           .insert(flatRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
         if (insRErr) throw insRErr;
       }
+      return { ibanRejected: ibanFilled && !ibanValid };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
@@ -347,7 +351,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       setFormOpen(false);
       setForm(emptyForm);
-      toast.success("Rapporto salvato");
+      if (res?.ibanRejected) toast.warning("Rapporto salvato senza conto bancario: IBAN non valido");
+      else toast.success("Rapporto salvato");
     },
     onError: (e: any) => {
       const msg = e?.message || "";
@@ -930,8 +935,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 disabled={
                   !form.gruppo_compagnia_id ||
                   !form.nome_rapporto.trim() ||
-                  saveMutation.isPending ||
-                  (!!form.conto_iban.trim() && !validateIban(form.conto_iban).valid)
+                  saveMutation.isPending
                 }
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
