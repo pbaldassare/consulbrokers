@@ -578,13 +578,26 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
                 />
               </div>
-              <Input
-                placeholder="IBAN"
-                value={form.conto_iban}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
-                }
-              />
+              {(() => {
+                const ibanRaw = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+                const ibanCheck = ibanRaw ? validateIban(ibanRaw) : { valid: true as const };
+                return (
+                  <div className="space-y-1">
+                    <Input
+                      placeholder="IBAN (es. IT60X0542811101000000123456)"
+                      value={form.conto_iban}
+                      maxLength={34}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
+                      }
+                      className={!ibanCheck.valid ? "border-destructive focus-visible:ring-destructive" : ""}
+                    />
+                    {!ibanCheck.valid && (
+                      <p className="text-xs text-destructive">{ibanCheck.error}</p>
+                    )}
+                  </div>
+                );
+              })()}
               <Input
                 placeholder="Intestato a (default: nome rapporto)"
                 value={form.conto_intestato_a}
