@@ -10,14 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network, X } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
-const ALL_SOTTORAMI = "__ALL__";
-interface RamoRow { gruppo_ramo_id: string; ramo_id: string | null }
+interface RamoGroupRow {
+  gruppo_ramo_id: string;
+  all: boolean;
+  ramo_ids: string[];
+}
 
 interface Props {
   open: boolean;
@@ -103,7 +109,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<RapportoForm>(emptyForm);
-  const [ramiRows, setRamiRows] = useState<RamoRow[]>([]);
+  const [ramiRows, setRamiRows] = useState<RamoGroupRow[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: rapporti = [], isLoading } = useQuery({
@@ -271,13 +277,21 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         note: form.note || null,
       };
 
-      // Dedup rows: se un gruppo ha "Tutti" rimuovi le righe specifiche dello stesso gruppo
-      const gruppiAll = new Set(ramiRows.filter((r) => r.ramo_id === null).map((r) => r.gruppo_ramo_id));
-      const cleanRami = ramiRows.filter(
-        (r, idx, arr) =>
-          arr.findIndex((x) => x.gruppo_ramo_id === r.gruppo_ramo_id && x.ramo_id === r.ramo_id) === idx &&
-          !(r.ramo_id !== null && gruppiAll.has(r.gruppo_ramo_id)),
-      );
+      // Flatten: per ogni gruppo, se "all" => 1 riga con ramo_id null, altrimenti N righe (una per sottoramo)
+      const flatRami: { gruppo_ramo_id: string; ramo_id: string | null }[] = [];
+      const seen = new Set<string>();
+      for (const g of ramiRows) {
+        if (!g.gruppo_ramo_id) continue;
+        if (g.all) {
+          const k = `${g.gruppo_ramo_id}|null`;
+          if (!seen.has(k)) { seen.add(k); flatRami.push({ gruppo_ramo_id: g.gruppo_ramo_id, ramo_id: null }); }
+        } else {
+          for (const rid of g.ramo_ids) {
+            const k = `${g.gruppo_ramo_id}|${rid}`;
+            if (!seen.has(k)) { seen.add(k); flatRami.push({ gruppo_ramo_id: g.gruppo_ramo_id, ramo_id: rid }); }
+          }
+        }
+      }
 
       let rapportoId: string;
       if (form.id) {
@@ -317,10 +331,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         .delete()
         .eq("rapporto_id", rapportoId);
       if (delErr) throw delErr;
-      if (cleanRami.length > 0) {
+      if (flatRami.length > 0) {
         const { error: insRErr } = await supabase
           .from("compagnia_rapporto_rami" as any)
-          .insert(cleanRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
+          .insert(flatRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
         if (insRErr) throw insRErr;
       }
     },
@@ -407,13 +421,23 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       telefono_referente: r.telefono_referente || "",
       note: r.note || "",
     });
-    // Carica rami abilitati dal DB
+    // Carica rami abilitati dal DB e raggruppa per gruppo_ramo_id
     (async () => {
       const { data } = await supabase
         .from("compagnia_rapporto_rami" as any)
         .select("gruppo_ramo_id, ramo_id")
         .eq("rapporto_id", r.id);
-      setRamiRows((data as any[] | null)?.map((x) => ({ gruppo_ramo_id: x.gruppo_ramo_id, ramo_id: x.ramo_id })) || []);
+      const rows = (data as any[] | null) || [];
+      const byGroup = new Map<string, RamoGroupRow>();
+      for (const x of rows) {
+        const g = byGroup.get(x.gruppo_ramo_id) || { gruppo_ramo_id: x.gruppo_ramo_id, all: false, ramo_ids: [] };
+        if (x.ramo_id === null) g.all = true;
+        else if (!g.ramo_ids.includes(x.ramo_id)) g.ramo_ids.push(x.ramo_id);
+        byGroup.set(x.gruppo_ramo_id, g);
+      }
+      // Se "all" => svuota ramo_ids
+      const grouped = Array.from(byGroup.values()).map((g) => (g.all ? { ...g, ramo_ids: [] } : g));
+      setRamiRows(grouped);
     })();
     setFormOpen(true);
   };
@@ -618,7 +642,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", ramo_id: null }])}
+                  onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", all: true, ramo_ids: [] }])}
                 >
                   <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
                 </Button>
@@ -630,31 +654,102 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               ) : (
                 <div className="space-y-2">
                   {ramiRows.map((row, idx) => {
-                    const sottoOpts = [
-                      { value: ALL_SOTTORAMI, label: "Tutti i sottorami", description: "Vale per ogni sottoramo del gruppo" },
-                      ...(ramiCatalog as any[])
-                        .filter((rr) => rr.gruppo_ramo_id === row.gruppo_ramo_id)
-                        .map((rr) => ({ value: rr.id, label: rr.descrizione, description: rr.codice || undefined })),
-                    ];
+                    const sottoCatalog = (ramiCatalog as any[]).filter((rr) => rr.gruppo_ramo_id === row.gruppo_ramo_id);
+                    const selectedLabels = row.ramo_ids
+                      .map((id) => sottoCatalog.find((rr) => rr.id === id)?.descrizione)
+                      .filter(Boolean) as string[];
                     return (
-                      <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                      <div key={idx} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-center">
                         <SearchableSelect
                           options={(gruppiRamo as any[]).map((g) => ({ value: g.id, label: g.descrizione, description: g.codice || undefined }))}
                           value={row.gruppo_ramo_id}
                           onValueChange={(v) =>
-                            setRamiRows((p) => p.map((r, i) => (i === idx ? { gruppo_ramo_id: v, ramo_id: null } : r)))
+                            setRamiRows((p) => p.map((r, i) => (i === idx ? { gruppo_ramo_id: v, all: true, ramo_ids: [] } : r)))
                           }
                           placeholder="Ramo..."
                         />
-                        <SearchableSelect
-                          options={sottoOpts}
-                          value={row.ramo_id ?? ALL_SOTTORAMI}
-                          onValueChange={(v) =>
-                            setRamiRows((p) => p.map((r, i) => (i === idx ? { ...r, ramo_id: v === ALL_SOTTORAMI ? null : v } : r)))
-                          }
-                          placeholder={row.gruppo_ramo_id ? "Sottoramo..." : "Seleziona prima un Ramo"}
-                          disabled={!row.gruppo_ramo_id}
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              disabled={!row.gruppo_ramo_id}
+                              className="w-full justify-between font-normal"
+                            >
+                              <span className="truncate text-left">
+                                {!row.gruppo_ramo_id
+                                  ? "Seleziona prima un Ramo"
+                                  : row.all
+                                  ? "Tutti i sottorami"
+                                  : selectedLabels.length === 0
+                                  ? "Nessun sottoramo"
+                                  : selectedLabels.length === 1
+                                  ? selectedLabels[0]
+                                  : `${selectedLabels.length} selezionati`}
+                              </span>
+                              <ChevronsUpDown className="w-4 h-4 opacity-50 ml-2 shrink-0" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Cerca sottoramo..." />
+                              <CommandList>
+                                <CommandEmpty>Nessun sottoramo trovato.</CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem
+                                    value="__all__"
+                                    onSelect={() =>
+                                      setRamiRows((p) => p.map((r, i) => (i === idx ? { ...r, all: !r.all, ramo_ids: [] } : r)))
+                                    }
+                                  >
+                                    <Checkbox checked={row.all} className="mr-2" />
+                                    <span className="font-medium">Tutti i sottorami</span>
+                                  </CommandItem>
+                                </CommandGroup>
+                                {!row.all && (
+                                  <CommandGroup>
+                                    {sottoCatalog.map((rr) => {
+                                      const checked = row.ramo_ids.includes(rr.id);
+                                      return (
+                                        <CommandItem
+                                          key={rr.id}
+                                          value={`${rr.descrizione} ${rr.codice || ""}`}
+                                          onSelect={() =>
+                                            setRamiRows((p) =>
+                                              p.map((r, i) =>
+                                                i === idx
+                                                  ? {
+                                                      ...r,
+                                                      ramo_ids: checked
+                                                        ? r.ramo_ids.filter((x) => x !== rr.id)
+                                                        : [...r.ramo_ids, rr.id],
+                                                    }
+                                                  : r,
+                                              ),
+                                            )
+                                          }
+                                        >
+                                          <Checkbox checked={checked} className="mr-2" />
+                                          <div className="flex flex-col">
+                                            <span>{rr.descrizione}</span>
+                                            {rr.codice && (
+                                              <span className="text-[11px] text-muted-foreground">{rr.codice}</span>
+                                            )}
+                                          </div>
+                                          {checked && <Check className="w-4 h-4 ml-auto opacity-50" />}
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                )}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <div className="text-[11px] text-muted-foreground min-w-[60px]">
+                          {row.all ? "Tutti" : `${row.ramo_ids.length} sel.`}
+                        </div>
                         <Button
                           type="button"
                           size="icon"
@@ -671,7 +766,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Data Inizio</Label>
                 <Input
@@ -688,17 +783,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   onChange={(e) => setForm((p) => ({ ...p, data_fine: e.target.value }))}
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">% Provvigione</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={form.percentuale_provvigione}
-                  onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
-                  placeholder="es. 12.5"
-                />
-              </div>
             </div>
+
 
             <div className="border-t pt-3 space-y-3">
               <Label className="text-sm font-medium">Conto bancario del rapporto</Label>

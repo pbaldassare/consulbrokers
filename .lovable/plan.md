@@ -1,67 +1,71 @@
-# Obiettivo
+## Obiettivo
 
-Nella dialog "Nuovo / Modifica Rapporto" (`/compagnie` → Rapporti) il campo libero **"Rami abilitati (separati da virgola)"** è una stringa che non è collegata a nulla. Va sostituito con un selettore strutturato **Ramo (`gruppi_ramo`) + Sottoramo (`rami`)** coordinato (lo stesso pattern già usato in polizze: vedi memoria *ramo-sottoramo-coordinated-selection*) e persistito in una tabella ponte, così che la matrice provvigioni del rapporto possa proporre **solo** le combinazioni effettivamente abilitate.
+Nella dialog **Nuovo / Modifica Rapporto** (`RapportiCompagniaDialog.tsx`):
 
-## 1. Database — nuova tabella ponte
+1. Permettere di selezionare **più sottorami in contemporanea** per uno stesso Ramo (multi-select), invece di dover aggiungere una riga per ogni sottoramo.
+2. Quando si aggiunge un Ramo, il flag **"Tutti i sottorami" deve essere attivo di default**.
+3. **Rimuovere completamente la sezione "% Provvigione"** dalla dialog: le provvigioni verranno gestite a parte (tab Provvigioni / pagina dedicata).
 
-Tabella `compagnia_rapporto_rami`:
-- `rapporto_id` → `compagnia_rapporti(id)` ON DELETE CASCADE
-- `gruppo_ramo_id` → `gruppi_ramo(id)` (obbligatorio = "Ramo")
-- `ramo_id` → `rami(id)` NULLABLE
-  - se `NULL` ⇒ "tutto il gruppo ramo abilitato" (tutti i sottorami)
-  - se valorizzato ⇒ solo quello specifico sottoramo
-- UNIQUE `(rapporto_id, gruppo_ramo_id, COALESCE(ramo_id, '00000000-0000-0000-0000-000000000000'))`
-- RLS: stesse policy lette/scritte da chi può gestire `compagnia_rapporti` (admin / livelli abilitati, allineato a quanto esiste oggi su `compagnia_rapporti`)
+## Comportamento UI dopo la modifica
 
-Vincolo applicativo + check: se `ramo_id` è valorizzato, il suo `gruppo_ramo_id` deve coincidere con quello della riga (trigger di coerenza).
-
-Il vecchio campo `compagnia_rapporti.rami_abilitati` (text[]) resta in DB per retro-compatibilità ma non viene più letto/scritto dalla UI. Nessuna migrazione dati automatica: viene popolato a mano la prima volta che si apre/salva un rapporto.
-
-## 2. Dialog Rapporto — UI
-
-File: `src/components/compagnie/RapportiCompagniaDialog.tsx`
-
-Sostituire l'attuale input testo `Rami abilitati` con una sezione **"Rami e Sottorami abilitati"**:
+Sezione "Rami e Sottorami abilitati":
 
 ```text
+[ Ramo: CORPI            ▼ ]   [ ☑ Tutti i sottorami ]                       [ X ]
+                               (se deselezionato compare il multi-select)
+                               [ ☐ AVIAZIONE CORPI                          ]
+                               [ ☐ CORPI DRONE                              ]
+                               [ ☐ CORPI IMBARCAZIONI DIPORTO               ]
+                               [ ☐ CORPI NAUTICA                            ]
+                               ...
 [ + Aggiungi Ramo ]
-┌──────────────────────────────────────────────┐
-│ Ramo: [AUTO ▼]   Sottoramo: [Tutti ▼]   [✕] │
-│ Ramo: [AUTO ▼]   Sottoramo: [RCA AUTO ▼] [✕]│
-│ Ramo: [INFORTUNI ▼] Sottoramo: [Tutti ▼] [✕]│
-└──────────────────────────────────────────────┘
 ```
 
-- Ramo: SearchableSelect su `gruppi_ramo` (attivo=true).
-- Sottoramo: SearchableSelect su `rami` filtrati per `gruppo_ramo_id` scelto, con opzione speciale **"Tutti i sottorami"** (= `ramo_id` NULL).
-- De-duplica righe identiche; impedisci di mescolare "Tutti" + sottoramo specifico dello stesso gruppo (se l'utente sceglie "Tutti", rimuovi le righe specifiche di quel gruppo).
-- In edit, precarica righe da `compagnia_rapporto_rami`.
-- Su Salva: dopo l'upsert di `compagnia_rapporti`, fai `delete` + `insert` delle righe di `compagnia_rapporto_rami` per quel rapporto (in transazione lato client: delete-then-insert come già fatto altrove per relazioni N:N).
+- Aggiungendo un Ramo → riga creata con `ramo_id = null` (Tutti i sottorami) già attiva.
+- Disattivando "Tutti" → appare un multi-select (checkbox list) per scegliere uno o più sottorami del gruppo. Internamente verranno salvate N righe in `compagnia_rapporto_rami`, una per ogni sottoramo selezionato.
+- Riattivando "Tutti" → le righe specifiche di quel gruppo vengono sostituite da un'unica riga `ramo_id = null`.
+- Validazione: niente duplicati gruppo+sottoramo (già presente).
 
-Riusa il pattern di `RamoSottoramoSelect` esistente se applicabile, oppure due `SearchableSelect` coordinati.
+Sezione "% Provvigione" (campo singolo nella riga `Data Inizio | Data Fine | % Provvigione`):
 
-## 3. Matrice Provvigioni del rapporto
+- Rimosso il campo e l'etichetta.
+- La riga diventa una griglia a 2 colonne: `Data Inizio | Data Fine`.
+- Il campo `percentuale_provvigione` non viene più scritto né letto dalla form (sempre `null` in save).
 
-File: `src/components/compagnie/ProvvigioniRapportiTab.tsx`
+Nessuna modifica al database, alla tabella riepilogativa dei rapporti, alla dialog di lista, all'IBAN o all'autocomplete sede.
 
-Oggi la matrice Ramo × Sottoramo mostra **tutto** il catalogo. Modifica:
-- Quando un rapporto è selezionato, carica `compagnia_rapporto_rami` per quel rapporto.
-- Mostra come righe modificabili **solo** i `(gruppo_ramo, ramo)` abilitati:
-  - se una riga abilitata ha `ramo_id = NULL`, espandila in N righe (una per ogni sottoramo del gruppo, dal catalogo `rami`).
-  - se ha `ramo_id` specifico, mostra solo quella riga.
-- Le percentuali continuano a salvarsi in `provvigioni_compagnia_ramo` (struttura già presente: `compagnia_rapporto_id`, `gruppo_ramo_id`, `ramo_id`, `percentuale_provvigione`).
-- La catena di risoluzione resta invariata: Sottoramo → Ramo (default gruppo) → % Rapporto → Default Tipo Rapporto → 0%. L'unica differenza è che **non si può più impostare una % su un ramo non abilitato dal rapporto**.
+## Dettagli tecnici
 
-Bottoni "Incolla CSV" e "Import IA": dopo il parsing, le righe per `(ramo, sottoramo)` non presenti tra quelle abilitate vengono mostrate in anteprima con badge "non abilitato" e l'utente può:
-- scartarle, oppure
-- aggiungerle ai rami abilitati del rapporto con un click ("Abilita e importa").
+File toccato: `src/components/compagnie/RapportiCompagniaDialog.tsx`
 
-## 4. Fuori scope
+1. **Struttura dati interna**: invece di `RamoRow { gruppo_ramo_id, ramo_id }[]`, raggruppare per gruppo in stato locale:
 
-- Nessuna modifica a polizze, titoli, calcolo provvigioni a valle.
-- Nessuna migrazione automatica del vecchio `rami_abilitati` testo libero → la colonna resta in DB ma non più usata dalla UI.
-- Nessuna modifica a `ProvvigioniCompagnieRamoPage` (pagina legacy).
+   ```ts
+   interface RamoGroupRow {
+     gruppo_ramo_id: string;
+     all: boolean;            // true => salva una riga con ramo_id null
+     ramo_ids: string[];      // usato solo se all === false
+   }
+   ```
 
-## 5. Memoria
+   - `openEdit`: leggere da `compagnia_rapporto_rami`, raggruppare per `gruppo_ramo_id`. Se esiste almeno una riga con `ramo_id = null` → `all = true, ramo_ids = []`. Altrimenti `all = false, ramo_ids = [...]`.
+   - `openNew`: `[]`.
+   - Pulsante "+ Aggiungi Ramo" → push `{ gruppo_ramo_id: "", all: true, ramo_ids: [] }`.
 
-Aggiungere nota in `mem://insurance/compagnia-rapporti-multipli` (o nuova memoria `compagnia-rapporto-rami-abilitati`): i rami abilitati per rapporto vivono in `compagnia_rapporto_rami (rapporto_id, gruppo_ramo_id, ramo_id NULL=tutti)`; la matrice provvigioni e l'import IA/CSV si basano su questa tabella.
+2. **Persistenza in `saveMutation`**: appiattire le righe prima dell'insert:
+   - Se `all` → `{ rapporto_id, gruppo_ramo_id, ramo_id: null }`.
+   - Altrimenti → una riga per ogni `ramo_id` in `ramo_ids` (se vuoto, gruppo ignorato con warning soft).
+   - Mantenere l'attuale `delete + insert` per il sync.
+
+3. **UI multi-select sottorami**: usare componente locale con `Popover` + `Command` + `CommandItem` con checkbox (pattern già in uso in `SearchableSelect`). Il trigger mostra "Tutti i sottorami" oppure il conteggio "N selezionati" + tooltip con nomi. Checkbox separata "Tutti i sottorami" sopra la lista.
+
+4. **Rimozione % Provvigione**:
+   - Eliminare il blocco JSX (riga `<div className="grid grid-cols-3 ...">` → diventa `grid-cols-2` con solo le due date).
+   - Eliminare `percentuale_provvigione` da `RapportoForm`, `emptyForm`, `openEdit`, `basePayload` (passare sempre `null` per compatibilità con la colonna esistente in DB).
+   - Lasciare invariata la colonna `% Provv.` nella tabella riepilogativa (mostra il valore storico se presente, "—" altrimenti).
+
+## Fuori scope
+
+- Tab Provvigioni separato / nuova pagina dedicata (richiesta dell'utente di gestirle "a parte"): da fare in un task successivo.
+- Migrazioni DB: nessuna necessaria.
+- Modifiche al matching della matrice provvigioni: già funziona espandendo `ramo_id = null` in tutti i sottorami del gruppo.
