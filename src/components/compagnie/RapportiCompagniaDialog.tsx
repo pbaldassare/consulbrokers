@@ -13,6 +13,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, XCircle, Network } from "lucide-react";
 import { toast } from "sonner";
+import { validateIban } from "@/lib/validateIban";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface Props {
   open: boolean;
@@ -158,11 +160,13 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   }, [formOpen, form.id]);
 
   const persistContoRapporto = async (currentContoId: string | null): Promise<string | null> => {
-    const iban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
-    if (!iban) return null;
-    if (iban.startsWith("IT") && iban.length !== 27) {
-      throw new Error("IBAN italiano deve avere 27 caratteri");
+    const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+    if (!rawIban) return null;
+    const ibanCheck = validateIban(rawIban);
+    if (!ibanCheck.valid) {
+      throw new Error(ibanCheck.error || "IBAN non valido");
     }
+    const iban = ibanCheck.normalized || rawIban;
     const intestato = (form.conto_intestato_a || form.nome_rapporto || compagniaNome || "").trim();
     if (!intestato) throw new Error("Specifica l'intestatario del conto");
     const banca = (form.conto_banca || "Banca da definire").trim();
@@ -574,13 +578,26 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
                 />
               </div>
-              <Input
-                placeholder="IBAN"
-                value={form.conto_iban}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
-                }
-              />
+              {(() => {
+                const ibanRaw = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+                const ibanCheck = ibanRaw ? validateIban(ibanRaw) : { valid: true as const };
+                return (
+                  <div className="space-y-1">
+                    <Input
+                      placeholder="IBAN (es. IT60X0542811101000000123456)"
+                      value={form.conto_iban}
+                      maxLength={34}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
+                      }
+                      className={!ibanCheck.valid ? "border-destructive focus-visible:ring-destructive" : ""}
+                    />
+                    {!ibanCheck.valid && (
+                      <p className="text-xs text-destructive">{ibanCheck.error}</p>
+                    )}
+                  </div>
+                );
+              })()}
               <Input
                 placeholder="Intestato a (default: nome rapporto)"
                 value={form.conto_intestato_a}
@@ -617,10 +634,19 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 value={form.sede_denominazione}
                 onChange={(e) => setForm((p) => ({ ...p, sede_denominazione: e.target.value }))}
               />
-              <Input
+              <AddressAutocomplete
                 placeholder="Indirizzo (es. Via Moncalieri 12)"
                 value={form.sede_indirizzo}
-                onChange={(e) => setForm((p) => ({ ...p, sede_indirizzo: e.target.value }))}
+                onChange={(v) => setForm((p) => ({ ...p, sede_indirizzo: v }))}
+                onSelect={(c) =>
+                  setForm((p) => ({
+                    ...p,
+                    sede_indirizzo: c.indirizzo || p.sede_indirizzo,
+                    sede_cap: c.cap || p.sede_cap,
+                    sede_citta: c.citta || p.sede_citta,
+                    sede_provincia: (c.provincia || p.sede_provincia).toUpperCase(),
+                  }))
+                }
               />
               <div className="grid grid-cols-[100px_1fr_80px] gap-3">
                 <Input
@@ -676,7 +702,12 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={!form.gruppo_compagnia_id || !form.nome_rapporto.trim() || saveMutation.isPending}
+                disabled={
+                  !form.gruppo_compagnia_id ||
+                  !form.nome_rapporto.trim() ||
+                  saveMutation.isPending ||
+                  (!!form.conto_iban.trim() && !validateIban(form.conto_iban).valid)
+                }
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
               </Button>
