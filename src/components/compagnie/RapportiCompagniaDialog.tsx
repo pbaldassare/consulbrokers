@@ -421,13 +421,23 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       telefono_referente: r.telefono_referente || "",
       note: r.note || "",
     });
-    // Carica rami abilitati dal DB
+    // Carica rami abilitati dal DB e raggruppa per gruppo_ramo_id
     (async () => {
       const { data } = await supabase
         .from("compagnia_rapporto_rami" as any)
         .select("gruppo_ramo_id, ramo_id")
         .eq("rapporto_id", r.id);
-      setRamiRows((data as any[] | null)?.map((x) => ({ gruppo_ramo_id: x.gruppo_ramo_id, ramo_id: x.ramo_id })) || []);
+      const rows = (data as any[] | null) || [];
+      const byGroup = new Map<string, RamoGroupRow>();
+      for (const x of rows) {
+        const g = byGroup.get(x.gruppo_ramo_id) || { gruppo_ramo_id: x.gruppo_ramo_id, all: false, ramo_ids: [] };
+        if (x.ramo_id === null) g.all = true;
+        else if (!g.ramo_ids.includes(x.ramo_id)) g.ramo_ids.push(x.ramo_id);
+        byGroup.set(x.gruppo_ramo_id, g);
+      }
+      // Se "all" => svuota ramo_ids
+      const grouped = Array.from(byGroup.values()).map((g) => (g.all ? { ...g, ramo_ids: [] } : g));
+      setRamiRows(grouped);
     })();
     setFormOpen(true);
   };
