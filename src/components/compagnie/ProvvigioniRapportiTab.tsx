@@ -64,6 +64,31 @@ export default function ProvvigioniRapportiTab() {
     },
   });
 
+  // Rami abilitati per il rapporto selezionato (compagnia_rapporto_rami)
+  const { data: ramiAbilitati = [] } = useQuery({
+    queryKey: ["rapporto-rami-abilitati", rapportoId],
+    enabled: !!rapportoId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .select("gruppo_ramo_id, ramo_id")
+        .eq("rapporto_id", rapportoId);
+      if (error) throw error;
+      return (data || []) as { gruppo_ramo_id: string; ramo_id: string | null }[];
+    },
+  });
+  // Set di gruppi abilitati + map sottorami specifici per gruppo
+  const enabledGruppoIds = new Set<string>(ramiAbilitati.map((x) => x.gruppo_ramo_id));
+  const specificSottoByGruppo: Record<string, Set<string>> = {};
+  const gruppoHasAll: Record<string, boolean> = {};
+  ramiAbilitati.forEach((x) => {
+    if (x.ramo_id === null) gruppoHasAll[x.gruppo_ramo_id] = true;
+    else {
+      specificSottoByGruppo[x.gruppo_ramo_id] = specificSottoByGruppo[x.gruppo_ramo_id] || new Set();
+      specificSottoByGruppo[x.gruppo_ramo_id].add(x.ramo_id);
+    }
+  });
+
   // Provvigioni del rapporto selezionato
   const { data: provvigioni = [], refetch: refetchProvv } = useQuery({
     queryKey: ["provv-rapporto", rapportoId],
