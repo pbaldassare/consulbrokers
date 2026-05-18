@@ -254,7 +254,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
       }
 
-      const ibanFilled = !!(form.conto_iban || "").replace(/\s+/g, "").trim();
+      const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+      const ibanFilled = !!rawIban;
+      const ibanValid = ibanFilled ? validateIban(rawIban).valid : false;
+      const skipConto = !ibanFilled || !ibanValid;
       const basePayload: any = {
         compagnia_id: compagniaId,
         nome_rapporto: form.nome_rapporto.trim(),
