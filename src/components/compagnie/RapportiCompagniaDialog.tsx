@@ -329,6 +329,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami_all"] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       setFormOpen(false);
       setForm(emptyForm);
       toast.success("Rapporto salvato");
