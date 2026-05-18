@@ -135,6 +135,48 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     staleTime: 1000 * 60 * 30,
   });
 
+  const { data: gruppiRamo = [] } = useQuery({
+    queryKey: ["gruppi_ramo_for_rapporti"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("gruppi_ramo" as any)
+        .select("id, codice, descrizione")
+        .eq("attivo", true)
+        .order("descrizione");
+      return data || [];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: ramiCatalog = [] } = useQuery({
+    queryKey: ["rami_for_rapporti"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rami" as any)
+        .select("id, codice, descrizione, gruppo_ramo_id")
+        .eq("attivo", true)
+        .order("descrizione");
+      return data || [];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  // Tutti i rami abilitati per i rapporti di questa compagnia (per riepilogo in tabella)
+  const rapportoIds = (rapporti as any[]).map((r) => r.id);
+  const { data: rapportoRamiAll = [] } = useQuery({
+    queryKey: ["compagnia_rapporto_rami_all", compagniaId, rapportoIds.length],
+    queryFn: async () => {
+      if (rapportoIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("compagnia_rapporto_rami" as any)
+        .select("id, rapporto_id, gruppo_ramo_id, ramo_id")
+        .in("rapporto_id", rapportoIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && rapportoIds.length > 0,
+  });
+
   // Load conto bancario fields when editing a rapporto with linked account
   useEffect(() => {
     if (!formOpen || !form.id || !form.conto_bancario_id) return;
