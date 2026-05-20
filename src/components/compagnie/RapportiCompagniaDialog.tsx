@@ -359,13 +359,6 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       setShowAdvanced(false);
       toast.success("Rapporto salvato");
     },
-      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami_all"] });
-      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
-      setFormOpen(false);
-      setForm(emptyForm);
-      if (res?.ibanRejected) toast.warning("Rapporto salvato senza conto bancario: IBAN non valido");
-      else toast.success("Rapporto salvato");
-    },
     onError: (e: any) => {
       const msg = e?.message || "";
       if (msg.includes("intestato_a")) toast.error("Manca l'intestatario del conto bancario");
