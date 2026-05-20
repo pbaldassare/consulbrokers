@@ -203,8 +203,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         conto_iban: d.iban || "",
         conto_intestato_a: d.intestato_a || "",
         conto_bic: d.bic || "",
-        conto_abi: d.abi || "",
-        conto_cab: d.cab || "",
+        conto_abi: d.codice_abi || "",
+        conto_cab: d.codice_cab || "",
         conto_note: d.note || "",
       }));
     })();
