@@ -857,46 +857,76 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               />
             </div>
 
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Sede del rapporto (presso la Compagnia partner)</Label>
-              <Input
-                placeholder="Denominazione (es. Agenzia Nobis Torino Centro)"
-                value={form.sede_denominazione}
-                onChange={(e) => setForm((p) => ({ ...p, sede_denominazione: e.target.value }))}
-              />
-              <AddressAutocomplete
-                placeholder="Indirizzo (es. Via Moncalieri 12)"
-                value={form.sede_indirizzo}
-                onChange={(v) => setForm((p) => ({ ...p, sede_indirizzo: v }))}
-                onSelect={(c) =>
-                  setForm((p) => ({
-                    ...p,
-                    sede_indirizzo: c.indirizzo || p.sede_indirizzo,
-                    sede_cap: c.cap || p.sede_cap,
-                    sede_citta: c.citta || p.sede_citta,
-                    sede_provincia: (c.provincia || p.sede_provincia).toUpperCase(),
-                  }))
-                }
-              />
-              <div className="grid grid-cols-[100px_1fr_80px] gap-3">
-                <Input
-                  placeholder="CAP"
-                  value={form.sede_cap}
-                  onChange={(e) => setForm((p) => ({ ...p, sede_cap: e.target.value }))}
-                />
-                <Input
-                  placeholder="Città"
-                  value={form.sede_citta}
-                  onChange={(e) => setForm((p) => ({ ...p, sede_citta: e.target.value }))}
-                />
-                <Input
-                  placeholder="Prov."
-                  maxLength={2}
-                  value={form.sede_provincia}
-                  onChange={(e) => setForm((p) => ({ ...p, sede_provincia: e.target.value.toUpperCase() }))}
-                />
-              </div>
-            </div>
+            {(() => {
+              const sedeIndirizzoFilled = !!form.sede_indirizzo.trim();
+              const cittaMissing = sedeIndirizzoFilled && !form.sede_citta.trim();
+              const provMissing = sedeIndirizzoFilled && !form.sede_provincia.trim();
+              const provInvalid = !!form.sede_provincia && form.sede_provincia.trim().length !== 2;
+              const capInvalid = !!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim());
+              return (
+                <div className="border-t pt-3 space-y-3">
+                  <Label className="text-sm font-medium">Sede del rapporto (presso la Compagnia partner)</Label>
+                  <Input
+                    placeholder="Denominazione (es. Agenzia Nobis Torino Centro)"
+                    value={form.sede_denominazione}
+                    onChange={(e) => setForm((p) => ({ ...p, sede_denominazione: e.target.value }))}
+                  />
+                  <AddressAutocomplete
+                    placeholder="Indirizzo (es. Via Moncalieri 12) — digita per cercare con Google Maps"
+                    value={form.sede_indirizzo}
+                    onChange={(v) => setForm((p) => ({ ...p, sede_indirizzo: v }))}
+                    onSelect={(c) =>
+                      setForm((p) => ({
+                        ...p,
+                        sede_indirizzo: c.indirizzo || p.sede_indirizzo,
+                        sede_cap: c.cap || p.sede_cap,
+                        sede_citta: c.citta || p.sede_citta,
+                        sede_provincia: (c.provincia || p.sede_provincia).toUpperCase(),
+                      }))
+                    }
+                  />
+                  {sedeIndirizzoFilled && (
+                    <p className="text-xs text-muted-foreground">
+                      Indirizzo compilato: CAP, Città e Provincia sono obbligatori. Seleziona un suggerimento Google per compilarli automaticamente.
+                    </p>
+                  )}
+                  <div className="grid grid-cols-[110px_1fr_90px] gap-3">
+                    <div className="space-y-1">
+                      <Input
+                        placeholder="CAP"
+                        value={form.sede_cap}
+                        onChange={(e) => setForm((p) => ({ ...p, sede_cap: e.target.value.replace(/\D/g, "").slice(0, 5) }))}
+                        aria-invalid={capInvalid}
+                        className={capInvalid ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                      {capInvalid && <p className="text-xs text-destructive">CAP: 5 cifre</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Input
+                        placeholder="Città *"
+                        value={form.sede_citta}
+                        onChange={(e) => setForm((p) => ({ ...p, sede_citta: e.target.value }))}
+                        aria-invalid={cittaMissing}
+                        className={cittaMissing ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                      {cittaMissing && <p className="text-xs text-destructive">Città obbligatoria con indirizzo</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Input
+                        placeholder="Prov. *"
+                        maxLength={2}
+                        value={form.sede_provincia}
+                        onChange={(e) => setForm((p) => ({ ...p, sede_provincia: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2) }))}
+                        aria-invalid={provMissing || provInvalid}
+                        className={(provMissing || provInvalid) ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                      {provMissing && <p className="text-xs text-destructive">Obbligatoria</p>}
+                      {!provMissing && provInvalid && <p className="text-xs text-destructive">2 lettere</p>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="border-t pt-3 space-y-3">
               <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
@@ -935,6 +965,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 disabled={
                   !form.gruppo_compagnia_id ||
                   !form.nome_rapporto.trim() ||
+                  (!!form.sede_indirizzo.trim() && (!form.sede_citta.trim() || !form.sede_provincia.trim() || form.sede_provincia.trim().length !== 2)) ||
+                  (!!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim())) ||
                   saveMutation.isPending
                 }
               >
