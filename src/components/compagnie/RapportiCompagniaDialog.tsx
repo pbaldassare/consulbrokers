@@ -231,8 +231,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       iban,
       intestato_a: intestato,
       bic: form.conto_bic || null,
-      abi: form.conto_abi || null,
-      cab: form.conto_cab || null,
+      codice_abi: form.conto_abi || null,
+      codice_cab: form.conto_cab || null,
       note: form.conto_note || null,
       attivo: true,
     };
