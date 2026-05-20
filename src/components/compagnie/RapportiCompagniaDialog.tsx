@@ -965,6 +965,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 disabled={
                   !form.gruppo_compagnia_id ||
                   !form.nome_rapporto.trim() ||
+                  (!!form.sede_indirizzo.trim() && (!form.sede_citta.trim() || !form.sede_provincia.trim() || form.sede_provincia.trim().length !== 2)) ||
+                  (!!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim())) ||
                   saveMutation.isPending
                 }
               >
