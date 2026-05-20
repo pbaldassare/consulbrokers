@@ -251,14 +251,21 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       if (!compagniaId) throw new Error("Agenzia non valida");
       if (!form.gruppo_compagnia_id) throw new Error("Seleziona la Compagnia Assicurativa");
       if (!form.nome_rapporto.trim()) throw new Error("Inserisci il nome del rapporto");
+
+      const validRamiRows = ramiRows.filter((g) => g.gruppo_ramo_id && (g.all || g.ramo_ids.length > 0));
+      if (validRamiRows.length === 0) {
+        throw new Error("Aggiungi almeno un Ramo abilitato (con 'Tutti' o almeno un sottoramo)");
+      }
+
+      const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+      if (!rawIban) throw new Error("IBAN obbligatorio");
+      const ibanCheck = validateIban(rawIban);
+      if (!ibanCheck.valid) throw new Error(ibanCheck.error || "IBAN non valido");
+
       if (form.sede_indirizzo && (!form.sede_citta || !form.sede_provincia)) {
         throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
       }
 
-      const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
-      const ibanFilled = !!rawIban;
-      const ibanValid = ibanFilled ? validateIban(rawIban).valid : false;
-      const skipConto = !ibanFilled || !ibanValid;
       const basePayload: any = {
         compagnia_id: compagniaId,
         nome_rapporto: form.nome_rapporto.trim(),
@@ -284,8 +291,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       // Flatten: per ogni gruppo, se "all" => 1 riga con ramo_id null, altrimenti N righe (una per sottoramo)
       const flatRami: { gruppo_ramo_id: string; ramo_id: string | null }[] = [];
       const seen = new Set<string>();
-      for (const g of ramiRows) {
-        if (!g.gruppo_ramo_id) continue;
+      for (const g of validRamiRows) {
         if (g.all) {
           const k = `${g.gruppo_ramo_id}|null`;
           if (!seen.has(k)) { seen.add(k); flatRami.push({ gruppo_ramo_id: g.gruppo_ramo_id, ramo_id: null }); }
@@ -299,10 +305,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
 
       let rapportoId: string;
       if (form.id) {
-        const contoId = skipConto ? null : await persistContoRapporto(form.conto_bancario_id);
+        const contoId = await persistContoRapporto(form.conto_bancario_id);
         const { error } = await supabase
           .from("compagnia_rapporti" as any)
-          .update({ ...basePayload, conto_bancario_id: skipConto ? null : contoId })
+          .update({ ...basePayload, conto_bancario_id: contoId })
           .eq("id", form.id);
         if (error) throw error;
         rapportoId = form.id;
@@ -315,14 +321,12 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         if (insErr) throw insErr;
         rapportoId = (created as any).id as string;
         try {
-          if (!skipConto) {
-            const contoId = await persistContoRapporto(null);
-            const { error: upErr } = await supabase
-              .from("compagnia_rapporti" as any)
-              .update({ conto_bancario_id: contoId })
-              .eq("id", rapportoId);
-            if (upErr) throw upErr;
-          }
+          const contoId = await persistContoRapporto(null);
+          const { error: upErr } = await supabase
+            .from("compagnia_rapporti" as any)
+            .update({ conto_bancario_id: contoId })
+            .eq("id", rapportoId);
+          if (upErr) throw upErr;
         } catch (e) {
           await supabase.from("compagnia_rapporti" as any).delete().eq("id", rapportoId);
           throw e;
@@ -341,7 +345,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           .insert(flatRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
         if (insRErr) throw insRErr;
       }
-      return { ibanRejected: ibanFilled && !ibanValid };
+      return { ibanRejected: false };
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
