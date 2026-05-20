@@ -611,6 +611,25 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           <DialogHeader>
             <DialogTitle>{form.id ? "Modifica Rapporto" : "Nuovo Rapporto"}</DialogTitle>
           </DialogHeader>
+          {(() => {
+            const ibanRaw = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+            const ibanCheck = ibanRaw ? validateIban(ibanRaw) : { valid: false as const, error: "IBAN obbligatorio" };
+            const ibanError = !ibanRaw ? "IBAN obbligatorio" : (ibanCheck.valid ? null : ibanCheck.error);
+            const validRamiRowsCount = ramiRows.filter((g) => g.gruppo_ramo_id && (g.all || g.ramo_ids.length > 0)).length;
+            const ramiError = validRamiRowsCount === 0 ? "Aggiungi almeno un Ramo abilitato" : null;
+            const sedeIndirizzoFilled = !!form.sede_indirizzo.trim();
+            const cittaMissing = sedeIndirizzoFilled && !form.sede_citta.trim();
+            const provMissing = sedeIndirizzoFilled && !form.sede_provincia.trim();
+            const provInvalid = !!form.sede_provincia && form.sede_provincia.trim().length !== 2;
+            const capInvalid = !!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim());
+            const canSave =
+              !!form.gruppo_compagnia_id &&
+              !!form.nome_rapporto.trim() &&
+              !ramiError &&
+              !ibanError &&
+              !cittaMissing && !provMissing && !provInvalid && !capInvalid;
+
+            return (
           <div className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nome del rapporto *</Label>
@@ -618,6 +637,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 value={form.nome_rapporto}
                 onChange={(e) => setForm((p) => ({ ...p, nome_rapporto: e.target.value }))}
                 placeholder="es. Nobis – Agenzia Torino Centro"
+                aria-invalid={!form.nome_rapporto.trim()}
               />
               <p className="text-[11px] text-muted-foreground">Etichetta libera che identifica univocamente questo rapporto.</p>
             </div>
@@ -632,32 +652,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Codice Rapporto</Label>
-                <Input
-                  value={form.codice_rapporto}
-                  onChange={(e) => setForm((p) => ({ ...p, codice_rapporto: e.target.value }))}
-                  placeholder="es. AG12345"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Tipo Rapporto</Label>
-                <select
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  value={form.tipo_rapporto}
-                  onChange={(e) => setForm((p) => ({ ...p, tipo_rapporto: e.target.value }))}
-                >
-                  {TIPI_RAPPORTO.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+            <div className={`space-y-2 border rounded-md p-3 bg-muted/30 ${ramiError ? "border-destructive" : ""}`}>
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Rami e Sottorami abilitati</Label>
+                <Label className="text-sm font-medium">Rami e Sottorami abilitati *</Label>
                 <Button
                   type="button"
                   size="sm"
@@ -668,8 +665,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 </Button>
               </div>
               {ramiRows.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Nessun ramo abilitato. Aggiungi i Rami/Sottorami su cui questo rapporto opera: la matrice provvigioni proporrà solo questi.
+                <p className={`text-[11px] ${ramiError ? "text-destructive" : "text-muted-foreground"}`}>
+                  Aggiungi almeno un Ramo abilitato (con "Tutti i sottorami" oppure selezionando i singoli sottorami).
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -784,102 +781,143 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   })}
                 </div>
               )}
+              {ramiError && ramiRows.length > 0 && (
+                <p className="text-xs text-destructive">{ramiError}</p>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-sm font-medium">Conto bancario del rapporto *</Label>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Data Inizio</Label>
+                <Label className="text-xs text-muted-foreground">IBAN *</Label>
                 <Input
-                  type="date"
-                  value={form.data_inizio}
-                  onChange={(e) => setForm((p) => ({ ...p, data_inizio: e.target.value }))}
+                  placeholder="es. IT60X0542811101000000123456"
+                  value={form.conto_iban}
+                  maxLength={34}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
+                  }
+                  aria-invalid={!!ibanError}
+                  className={ibanError ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
+                {ibanError && <p className="text-xs text-destructive">{ibanError}</p>}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Data Fine</Label>
+                <Label className="text-xs text-muted-foreground">Intestato a</Label>
                 <Input
-                  type="date"
-                  value={form.data_fine}
-                  onChange={(e) => setForm((p) => ({ ...p, data_fine: e.target.value }))}
+                  placeholder={form.nome_rapporto || "default: nome rapporto"}
+                  value={form.conto_intestato_a}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_intestato_a: e.target.value }))}
                 />
+                <p className="text-[11px] text-muted-foreground">Se vuoto, viene usato il nome del rapporto.</p>
               </div>
             </div>
 
+            <div className="border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {showAdvanced ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
+                {showAdvanced ? "Nascondi altri dettagli" : "Mostra altri dettagli (opzionali)"}
+              </Button>
+            </div>
 
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Conto bancario del rapporto</Label>
-              <p className="text-[11px] text-muted-foreground">
-                Inserisci l'IBAN dell'agenzia per questo rapporto. Se lasci vuoto, verrà usato l'IBAN della Compagnia Assicurativa.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Etichetta (es. Conto Nobis Torino)"
-                  value={form.conto_etichetta}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_etichetta: e.target.value }))}
-                />
-                <Input
-                  placeholder="Banca (es. Intesa Sanpaolo)"
-                  value={form.conto_banca}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
-                />
-              </div>
-              {(() => {
-                const ibanRaw = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
-                const ibanCheck = ibanRaw ? validateIban(ibanRaw) : { valid: true as const };
-                return (
+            {showAdvanced && (
+              <div className="space-y-4 border-l-2 border-muted pl-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Codice Rapporto</Label>
                     <Input
-                      placeholder="IBAN (es. IT60X0542811101000000123456)"
-                      value={form.conto_iban}
-                      maxLength={34}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
-                      }
-                      className={!ibanCheck.valid ? "border-destructive focus-visible:ring-destructive" : ""}
+                      value={form.codice_rapporto}
+                      onChange={(e) => setForm((p) => ({ ...p, codice_rapporto: e.target.value }))}
+                      placeholder="es. AG12345"
                     />
-                    {!ibanCheck.valid && (
-                      <p className="text-xs text-destructive">{ibanCheck.error}</p>
-                    )}
                   </div>
-                );
-              })()}
-              <Input
-                placeholder="Intestato a (default: nome rapporto)"
-                value={form.conto_intestato_a}
-                onChange={(e) => setForm((p) => ({ ...p, conto_intestato_a: e.target.value }))}
-              />
-              <div className="grid grid-cols-3 gap-3">
-                <Input
-                  placeholder="BIC (opz.)"
-                  value={form.conto_bic}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_bic: e.target.value.toUpperCase() }))}
-                />
-                <Input
-                  placeholder="ABI (opz.)"
-                  value={form.conto_abi}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_abi: e.target.value }))}
-                />
-                <Input
-                  placeholder="CAB (opz.)"
-                  value={form.conto_cab}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_cab: e.target.value }))}
-                />
-              </div>
-              <Input
-                placeholder="Note conto (opz.)"
-                value={form.conto_note}
-                onChange={(e) => setForm((p) => ({ ...p, conto_note: e.target.value }))}
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Tipo Rapporto</Label>
+                    <select
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={form.tipo_rapporto}
+                      onChange={(e) => setForm((p) => ({ ...p, tipo_rapporto: e.target.value }))}
+                    >
+                      {TIPI_RAPPORTO.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            {(() => {
-              const sedeIndirizzoFilled = !!form.sede_indirizzo.trim();
-              const cittaMissing = sedeIndirizzoFilled && !form.sede_citta.trim();
-              const provMissing = sedeIndirizzoFilled && !form.sede_provincia.trim();
-              const provInvalid = !!form.sede_provincia && form.sede_provincia.trim().length !== 2;
-              const capInvalid = !!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim());
-              return (
-                <div className="border-t pt-3 space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data Inizio</Label>
+                    <Input
+                      type="date"
+                      value={form.data_inizio}
+                      onChange={(e) => setForm((p) => ({ ...p, data_inizio: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data Fine</Label>
+                    <Input
+                      type="date"
+                      value={form.data_fine}
+                      onChange={(e) => setForm((p) => ({ ...p, data_fine: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">% Provvigione</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={form.percentuale_provvigione}
+                      onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
+                  <Label className="text-sm font-medium">Dettagli conto bancario</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Etichetta (es. Conto Nobis Torino)"
+                      value={form.conto_etichetta}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_etichetta: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Banca (es. Intesa Sanpaolo)"
+                      value={form.conto_banca}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      placeholder="BIC"
+                      value={form.conto_bic}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_bic: e.target.value.toUpperCase() }))}
+                    />
+                    <Input
+                      placeholder="ABI"
+                      value={form.conto_abi}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_abi: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="CAB"
+                      value={form.conto_cab}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_cab: e.target.value }))}
+                    />
+                  </div>
+                  <Input
+                    placeholder="Note conto"
+                    value={form.conto_note}
+                    onChange={(e) => setForm((p) => ({ ...p, conto_note: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
                   <Label className="text-sm font-medium">Sede del rapporto (presso la Compagnia partner)</Label>
                   <Input
                     placeholder="Denominazione (es. Agenzia Nobis Torino Centro)"
@@ -918,7 +956,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     </div>
                     <div className="space-y-1">
                       <Input
-                        placeholder="Città *"
+                        placeholder={sedeIndirizzoFilled ? "Città *" : "Città"}
                         value={form.sede_citta}
                         onChange={(e) => setForm((p) => ({ ...p, sede_citta: e.target.value }))}
                         aria-invalid={cittaMissing}
@@ -928,7 +966,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     </div>
                     <div className="space-y-1">
                       <Input
-                        placeholder="Prov. *"
+                        placeholder={sedeIndirizzoFilled ? "Prov. *" : "Prov."}
                         maxLength={2}
                         value={form.sede_provincia}
                         onChange={(e) => setForm((p) => ({ ...p, sede_provincia: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2) }))}
@@ -940,55 +978,51 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     </div>
                   </div>
                 </div>
-              );
-            })()}
 
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <Input
-                  placeholder="Nome referente"
-                  value={form.referente_compagnia}
-                  onChange={(e) => setForm((p) => ({ ...p, referente_compagnia: e.target.value }))}
-                />
-                <Input
-                  placeholder="Email"
-                  value={form.email_referente}
-                  onChange={(e) => setForm((p) => ({ ...p, email_referente: e.target.value }))}
-                />
-                <Input
-                  placeholder="Telefono"
-                  value={form.telefono_referente}
-                  onChange={(e) => setForm((p) => ({ ...p, telefono_referente: e.target.value }))}
-                />
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
+                  <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      placeholder="Nome referente"
+                      value={form.referente_compagnia}
+                      onChange={(e) => setForm((p) => ({ ...p, referente_compagnia: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Email"
+                      value={form.email_referente}
+                      onChange={(e) => setForm((p) => ({ ...p, email_referente: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Telefono"
+                      value={form.telefono_referente}
+                      onChange={(e) => setForm((p) => ({ ...p, telefono_referente: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Note</Label>
+                  <Textarea
+                    value={form.note}
+                    onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Note</Label>
-              <Textarea
-                value={form.note}
-                onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
-                rows={3}
-              />
-            </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={
-                  !form.gruppo_compagnia_id ||
-                  !form.nome_rapporto.trim() ||
-                  (!!form.sede_indirizzo.trim() && (!form.sede_citta.trim() || !form.sede_provincia.trim() || form.sede_provincia.trim().length !== 2)) ||
-                  (!!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim())) ||
-                  saveMutation.isPending
-                }
+                disabled={!canSave || saveMutation.isPending}
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
               </Button>
             </div>
           </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
