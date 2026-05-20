@@ -1,40 +1,35 @@
-## Obiettivo
-Per ogni **rapporto lavorativo** (riga di `compagnia_rapporti` — broker, agenzia, plurimandataria, ecc.) avere un **folder documentale dedicato** dove caricare, rinominare, scaricare ed eliminare file, con popup di conferma sull'eliminazione.
+## Modifiche a Rapporti Compagnia
 
-## Dove vive nell'UI
-Dentro `RapportiCompagniaDialog.tsx`, accanto a ciascuna riga della tabella rapporti aggiungo un'azione **"Documenti"** (icona cartella) che apre un secondo dialog `RapportoDocumentiDialog` dedicato a quel singolo rapporto.
+### 1. Bottone "Tutti i Rami" nel form rapporto
+Nella sezione "Rami e Sottoramo abilitati" del `RapportiCompagniaDialog`, aggiungere accanto a "+ Aggiungi Ramo" un nuovo bottone **"+ Tutti i Rami"** che:
+- popola `ramiRows` con una riga per **ogni** `gruppi_ramo` attivo, con `all=true` e `ramo_ids=[]` (equivalente a "Tutti i sottorami" per ciascun gruppo)
+- sostituisce le righe esistenti (con conferma se ce ne sono già)
 
-Il dialog mostra:
-- Header: nome rapporto + tipo + compagnia madre
-- Pulsante **Carica documento** (input file nascosto, multi-file)
-- Select **Tipo documento** (mandato, lettera incarico, convenzione, polizza quadro, altro)
-- Tabella documenti: Nome · Tipo · Caricato da · Data · Azioni (Download / Rinomina / Elimina)
-- **Rinomina**: input inline che cambia solo `nome_file` (il `file_path` su storage resta invariato)
-- **Elimina**: `AlertDialog` shadcn con "Sei sicuro? L'azione è irreversibile" → conferma → rimuove sia da storage che da DB
+Risultato: un click abilita tutti i rami/sottorami senza doverli aggiungere uno per uno.
 
-## Backend (richiede migrazione)
-Nuova tabella `compagnia_rapporto_documenti`:
-- `rapporto_id` → FK `compagnia_rapporti(id)` ON DELETE CASCADE
-- `nome_file` (text, rinominabile)
-- `file_path` (text, path su storage, immutabile)
-- `tipo_documento` (text: mandato/convenzione/lettera/polizza_quadro/altro)
-- `dimensione_bytes`, `mime_type`
-- `uploaded_by` → FK `profiles(id)`
-- RLS: lettura/scrittura per utenti autenticati interni (stesso pattern di `trattativa_documenti`)
+### 2. Duplicazione rapida del rapporto
+Nella tabella rapporti, aggiungere accanto alle azioni 📁 / ✏️ / 🗑️ una nuova icona **📋 Duplica** che apre il form `Nuovo Rapporto` pre-compilato con tutti i campi del rapporto sorgente:
+- `nome_rapporto` → `"<originale> (copia)"`
+- `id` non valorizzato (verrà creato nuovo record)
+- `conto_bancario_id` → `null` con IBAN/banca/intestatario/BIC/ABI/CAB **copiati nei campi conto** così l'utente li vede e può modificarli (al salvataggio si creerà un **nuovo** record `conti_bancari`, ora possibile grazie al punto 3)
+- rami abilitati copiati (stessa logica di `openEdit`)
+- sede, referente, note copiati
 
-Storage: riuso del bucket esistente **`documenti_generali`**, path: `compagnia_rapporti/{rapporto_id}/{timestamp}_{nome}`.
+L'utente può poi modificare ciò che vuole prima di salvare.
 
-## Componenti da creare
-- `src/components/compagnie/RapportoDocumentiDialog.tsx` — dialog principale (pattern identico a `TrattativaDocumentiTab.tsx` già in uso, adattato a dialog invece di tab)
-- Estensione di `RapportiCompagniaDialog.tsx`: nuova colonna/azione "Documenti" con icona `FolderOpen` che apre il dialog passando `rapportoId`
+### 3. Rimozione blocco IBAN duplicato
+Attualmente esiste un unique index `conti_bancari_iban_unique` su `conti_bancari.iban` che impedisce di salvare due conti con lo stesso IBAN. Va **eliminato** via migration:
 
-## Dettagli tecnici
-- Download: `supabase.storage.from('documenti_generali').createSignedUrl(path, 300)`
-- Rinomina: UPDATE solo su `nome_file` (no rename storage, non necessario)
-- Eliminazione: prima `storage.remove([path])` poi `delete` dalla tabella, dentro stessa mutation; popup conferma con `AlertDialog`
-- Toast feedback (sonner) per ogni operazione
+```sql
+DROP INDEX IF EXISTS public.conti_bancari_iban_unique;
+```
 
-## Fuori scopo
-- Versioning documenti
-- Anteprima PDF inline (basta download)
-- Cartelle/sottocartelle (folder unico per rapporto)
+Lato UI nessuna validazione bloccante sull'unicità IBAN (la validazione formale mod-97 resta).
+
+### File coinvolti
+- `src/components/compagnie/RapportiCompagniaDialog.tsx` — bottone "Tutti i Rami", azione "Duplica", handler `openDuplicate`
+- Migration DB — drop unique index su `conti_bancari.iban`
+
+### Fuori scope
+- Cambi sul resto del form (resta tutto invariato)
+- Cambi su altre pagine che leggono `conti_bancari`

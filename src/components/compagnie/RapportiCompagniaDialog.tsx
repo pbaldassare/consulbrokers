@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight, FolderOpen, Copy, ListPlus } from "lucide-react";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -471,6 +471,68 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     setFormOpen(true);
   };
 
+  const openDuplicate = async (r: any) => {
+    // Carica dati conto bancario di origine (se presente)
+    let conto: any = null;
+    if (r.conto_bancario_id) {
+      const { data } = await supabase
+        .from("conti_bancari" as any)
+        .select("etichetta, banca, iban, intestato_a, bic, codice_abi, codice_cab, note")
+        .eq("id", r.conto_bancario_id)
+        .maybeSingle();
+      conto = data || null;
+    }
+    setForm({
+      // niente id => nuovo record
+      nome_rapporto: `${r.nome_rapporto || "Rapporto"} (copia)`,
+      gruppo_compagnia_id: r.gruppo_compagnia_id || "",
+      codice_rapporto: r.codice_rapporto || "",
+      tipo_rapporto: r.tipo_rapporto || "Agenzia",
+      rami_abilitati: Array.isArray(r.rami_abilitati) ? r.rami_abilitati.join(", ") : "",
+      data_inizio: new Date().toISOString().slice(0, 10),
+      data_fine: "",
+      attivo: true,
+      percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
+      conto_bancario_id: null, // forza creazione nuovo record conto
+      conto_etichetta: conto?.etichetta || "",
+      conto_banca: conto?.banca || "",
+      conto_iban: conto?.iban || "",
+      conto_intestato_a: conto?.intestato_a || "",
+      conto_bic: conto?.bic || "",
+      conto_abi: conto?.codice_abi || "",
+      conto_cab: conto?.codice_cab || "",
+      conto_note: conto?.note || "",
+      sede_denominazione: r.sede_denominazione || "",
+      sede_indirizzo: r.sede_indirizzo || "",
+      sede_cap: r.sede_cap || "",
+      sede_citta: r.sede_citta || "",
+      sede_provincia: r.sede_provincia || "",
+      referente_compagnia: r.referente_compagnia || "",
+      email_referente: r.email_referente || "",
+      telefono_referente: r.telefono_referente || "",
+      note: r.note || "",
+    });
+    // Copia rami abilitati
+    const { data } = await supabase
+      .from("compagnia_rapporto_rami" as any)
+      .select("gruppo_ramo_id, ramo_id")
+      .eq("rapporto_id", r.id);
+    const rows = (data as any[] | null) || [];
+    const byGroup = new Map<string, RamoGroupRow>();
+    for (const x of rows) {
+      const g = byGroup.get(x.gruppo_ramo_id) || { gruppo_ramo_id: x.gruppo_ramo_id, all: false, ramo_ids: [] };
+      if (x.ramo_id === null) g.all = true;
+      else if (!g.ramo_ids.includes(x.ramo_id)) g.ramo_ids.push(x.ramo_id);
+      byGroup.set(x.gruppo_ramo_id, g);
+    }
+    const grouped = Array.from(byGroup.values()).map((g) => (g.all ? { ...g, ramo_ids: [] } : g));
+    setRamiRows(grouped);
+    setShowAdvanced(true);
+    setFormOpen(true);
+    toast.info("Rapporto duplicato in bozza: modifica e salva");
+  };
+
+
   const gruppiOptions = (gruppi as any[]).map((g) => ({
     value: g.id,
     label: g.descrizione,
@@ -585,6 +647,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                               <Button size="icon" variant="ghost" onClick={() => openEdit(r)} title="Modifica">
                                 <Pencil className="w-4 h-4" />
                               </Button>
+                              <Button size="icon" variant="ghost" onClick={() => openDuplicate(r)} title="Duplica rapporto">
+                                <Copy className="w-4 h-4 text-primary" />
+                              </Button>
+
                               {r.attivo && (
                                 <Button
                                   size="icon"
@@ -666,14 +732,34 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             <div className={`space-y-2 border rounded-md p-3 bg-muted/30 ${ramiError ? "border-destructive" : ""}`}>
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Rami e Sottorami abilitati *</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", all: true, ramo_ids: [] }])}
-                >
-                  <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (ramiRows.length > 0 && !confirm("Sostituire le righe già aggiunte con TUTTI i rami?")) return;
+                      const allRows: RamoGroupRow[] = (gruppiRamo as any[]).map((g) => ({
+                        gruppo_ramo_id: g.id,
+                        all: true,
+                        ramo_ids: [],
+                      }));
+                      setRamiRows(allRows);
+                    }}
+                    title="Abilita tutti i rami con tutti i sottorami"
+                  >
+                    <ListPlus className="w-3 h-3 mr-1" /> Tutti i Rami
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", all: true, ramo_ids: [] }])}
+                  >
+                    <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
+                  </Button>
+                </div>
+
               </div>
               {ramiRows.length === 0 ? (
                 <p className={`text-[11px] ${ramiError ? "text-destructive" : "text-muted-foreground"}`}>
