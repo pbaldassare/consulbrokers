@@ -574,6 +574,14 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setDocsRapporto({ id: r.id, nome: `${r.nome_rapporto || "Rapporto"} — ${r.gruppi_compagnia?.descrizione || ""}` })}
+                                title="Documenti"
+                              >
+                                <FolderOpen className="w-4 h-4" />
+                              </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(r)} title="Modifica">
                                 <Pencil className="w-4 h-4" />
                               </Button>
