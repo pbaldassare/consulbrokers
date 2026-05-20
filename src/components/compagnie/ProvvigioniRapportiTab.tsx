@@ -555,10 +555,27 @@ function DefaultTipoEditor({ rows, gruppiRamo, rami, onChanged }: any) {
 // ─── Dialog paste CSV ──────────────────────────────────────────────────────
 function PasteDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   const [text, setText] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    try {
+      const content = await file.text();
+      setText(content);
+      toast.success(`File "${file.name}" caricato`);
+    } catch (e: any) {
+      toast.error(e.message || "Errore lettura file");
+    }
+  };
 
   const parsed = useMemo(() => {
     if (!text.trim()) return [];
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const allLines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    // skippa header se la prima riga contiene "ramo" e "perc"/"%"
+    const lines = allLines.filter((l, i) => {
+      if (i > 0) return true;
+      const low = l.toLowerCase();
+      return !(low.includes("ramo") && (low.includes("perc") || low.includes("%")));
+    });
     return lines.map((line) => {
       const parts = line.split(/[;,\t]/).map((p) => p.trim());
       let ramoName = "", sottoName = "", percStr = "";
@@ -597,12 +614,25 @@ function PasteDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Incolla provvigioni (CSV)</DialogTitle>
+          <DialogTitle>Incolla o carica provvigioni (CSV)</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Formato: <code>Ramo;Sottoramo;%</code> oppure <code>Sottoramo;%</code> (una riga per voce). Separatori: <code>; , tab</code>.
+            Formato: <code>Ramo;Sottoramo;%</code> oppure <code>Sottoramo;%</code> (una riga per voce). Separatori: <code>; , tab</code>. Header opzionale.
           </p>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,.txt,text/csv,text/plain"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+            />
+            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+              <Upload className="w-4 h-4 mr-2" />Carica CSV
+            </Button>
+            <span className="text-xs text-muted-foreground">oppure incolla qui sotto</span>
+          </div>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
