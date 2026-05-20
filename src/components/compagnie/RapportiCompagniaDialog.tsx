@@ -647,6 +647,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                               <Button size="icon" variant="ghost" onClick={() => openEdit(r)} title="Modifica">
                                 <Pencil className="w-4 h-4" />
                               </Button>
+                              <Button size="icon" variant="ghost" onClick={() => openDuplicate(r)} title="Duplica rapporto">
+                                <Copy className="w-4 h-4 text-primary" />
+                              </Button>
+
                               {r.attivo && (
                                 <Button
                                   size="icon"
