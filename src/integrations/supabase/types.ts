@@ -1794,6 +1794,60 @@ export type Database = {
           },
         ]
       }
+      compagnia_rapporto_documenti: {
+        Row: {
+          created_at: string
+          dimensione_bytes: number | null
+          file_path: string
+          id: string
+          mime_type: string | null
+          nome_file: string
+          rapporto_id: string
+          tipo_documento: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          dimensione_bytes?: number | null
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          nome_file: string
+          rapporto_id: string
+          tipo_documento?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          dimensione_bytes?: number | null
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          nome_file?: string
+          rapporto_id?: string
+          tipo_documento?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compagnia_rapporto_documenti_rapporto_id_fkey"
+            columns: ["rapporto_id"]
+            isOneToOne: false
+            referencedRelation: "compagnia_rapporti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compagnia_rapporto_documenti_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compagnia_rapporto_rami: {
         Row: {
           created_at: string
