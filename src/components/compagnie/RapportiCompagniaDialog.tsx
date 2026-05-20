@@ -1055,6 +1055,13 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RapportoDocumentiDialog
+        open={!!docsRapporto}
+        onOpenChange={(v) => !v && setDocsRapporto(null)}
+        rapportoId={docsRapporto?.id ?? null}
+        rapportoNome={docsRapporto?.nome}
+      />
     </>
   );
 }
