@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
