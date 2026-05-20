@@ -191,7 +191,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     (async () => {
       const { data } = await supabase
         .from("conti_bancari" as any)
-        .select("etichetta, banca, iban, intestato_a, bic, abi, cab, note")
+        .select("etichetta, banca, iban, intestato_a, bic, codice_abi, codice_cab, note")
         .eq("id", form.conto_bancario_id)
         .maybeSingle();
       if (cancelled || !data) return;
@@ -203,8 +203,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         conto_iban: d.iban || "",
         conto_intestato_a: d.intestato_a || "",
         conto_bic: d.bic || "",
-        conto_abi: d.abi || "",
-        conto_cab: d.cab || "",
+        conto_abi: d.codice_abi || "",
+        conto_cab: d.codice_cab || "",
         conto_note: d.note || "",
       }));
     })();
@@ -231,8 +231,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       iban,
       intestato_a: intestato,
       bic: form.conto_bic || null,
-      abi: form.conto_abi || null,
-      cab: form.conto_cab || null,
+      codice_abi: form.conto_abi || null,
+      codice_cab: form.conto_cab || null,
       note: form.conto_note || null,
       attivo: true,
     };
