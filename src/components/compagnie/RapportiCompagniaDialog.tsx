@@ -449,12 +449,22 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       const grouped = Array.from(byGroup.values()).map((g) => (g.all ? { ...g, ramo_ids: [] } : g));
       setRamiRows(grouped);
     })();
+    // In modifica, mostra subito gli "Altri dettagli" se ci sono dati opzionali
+    const hasAdvancedData = !!(
+      r.codice_rapporto || r.tipo_rapporto !== "Agenzia" ||
+      r.data_fine || r.percentuale_provvigione ||
+      r.sede_denominazione || r.sede_indirizzo ||
+      r.referente_compagnia || r.email_referente || r.telefono_referente ||
+      r.note
+    );
+    setShowAdvanced(hasAdvancedData);
     setFormOpen(true);
   };
 
   const openNew = () => {
     setForm(emptyForm);
     setRamiRows([]);
+    setShowAdvanced(false);
     setFormOpen(true);
   };
 
