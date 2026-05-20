@@ -347,11 +347,18 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       }
       return { ibanRejected: false };
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
       qc.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami_all"] });
+      qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
+      setFormOpen(false);
+      setForm(emptyForm);
+      setShowAdvanced(false);
+      toast.success("Rapporto salvato");
+    },
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami_all"] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       setFormOpen(false);
