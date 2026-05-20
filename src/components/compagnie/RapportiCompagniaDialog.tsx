@@ -14,10 +14,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import RapportoDocumentiDialog from "./RapportoDocumentiDialog";
 
 interface RamoGroupRow {
   gruppo_ramo_id: string;
@@ -112,6 +113,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const [ramiRows, setRamiRows] = useState<RamoGroupRow[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [docsRapporto, setDocsRapporto] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: rapporti = [], isLoading } = useQuery({
     queryKey: ["compagnia_rapporti", compagniaId],
@@ -572,6 +574,14 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setDocsRapporto({ id: r.id, nome: `${r.nome_rapporto || "Rapporto"} — ${r.gruppi_compagnia?.descrizione || ""}` })}
+                                title="Documenti"
+                              >
+                                <FolderOpen className="w-4 h-4" />
+                              </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(r)} title="Modifica">
                                 <Pencil className="w-4 h-4" />
                               </Button>
@@ -1045,6 +1055,13 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RapportoDocumentiDialog
+        open={!!docsRapporto}
+        onOpenChange={(v) => !v && setDocsRapporto(null)}
+        rapportoId={docsRapporto?.id ?? null}
+        rapportoNome={docsRapporto?.nome}
+      />
     </>
   );
 }
