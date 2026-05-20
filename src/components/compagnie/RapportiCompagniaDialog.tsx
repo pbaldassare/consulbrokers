@@ -471,6 +471,68 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     setFormOpen(true);
   };
 
+  const openDuplicate = async (r: any) => {
+    // Carica dati conto bancario di origine (se presente)
+    let conto: any = null;
+    if (r.conto_bancario_id) {
+      const { data } = await supabase
+        .from("conti_bancari" as any)
+        .select("etichetta, banca, iban, intestato_a, bic, codice_abi, codice_cab, note")
+        .eq("id", r.conto_bancario_id)
+        .maybeSingle();
+      conto = data || null;
+    }
+    setForm({
+      // niente id => nuovo record
+      nome_rapporto: `${r.nome_rapporto || "Rapporto"} (copia)`,
+      gruppo_compagnia_id: r.gruppo_compagnia_id || "",
+      codice_rapporto: r.codice_rapporto || "",
+      tipo_rapporto: r.tipo_rapporto || "Agenzia",
+      rami_abilitati: Array.isArray(r.rami_abilitati) ? r.rami_abilitati.join(", ") : "",
+      data_inizio: new Date().toISOString().slice(0, 10),
+      data_fine: "",
+      attivo: true,
+      percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
+      conto_bancario_id: null, // forza creazione nuovo record conto
+      conto_etichetta: conto?.etichetta || "",
+      conto_banca: conto?.banca || "",
+      conto_iban: conto?.iban || "",
+      conto_intestato_a: conto?.intestato_a || "",
+      conto_bic: conto?.bic || "",
+      conto_abi: conto?.codice_abi || "",
+      conto_cab: conto?.codice_cab || "",
+      conto_note: conto?.note || "",
+      sede_denominazione: r.sede_denominazione || "",
+      sede_indirizzo: r.sede_indirizzo || "",
+      sede_cap: r.sede_cap || "",
+      sede_citta: r.sede_citta || "",
+      sede_provincia: r.sede_provincia || "",
+      referente_compagnia: r.referente_compagnia || "",
+      email_referente: r.email_referente || "",
+      telefono_referente: r.telefono_referente || "",
+      note: r.note || "",
+    });
+    // Copia rami abilitati
+    const { data } = await supabase
+      .from("compagnia_rapporto_rami" as any)
+      .select("gruppo_ramo_id, ramo_id")
+      .eq("rapporto_id", r.id);
+    const rows = (data as any[] | null) || [];
+    const byGroup = new Map<string, RamoGroupRow>();
+    for (const x of rows) {
+      const g = byGroup.get(x.gruppo_ramo_id) || { gruppo_ramo_id: x.gruppo_ramo_id, all: false, ramo_ids: [] };
+      if (x.ramo_id === null) g.all = true;
+      else if (!g.ramo_ids.includes(x.ramo_id)) g.ramo_ids.push(x.ramo_id);
+      byGroup.set(x.gruppo_ramo_id, g);
+    }
+    const grouped = Array.from(byGroup.values()).map((g) => (g.all ? { ...g, ramo_ids: [] } : g));
+    setRamiRows(grouped);
+    setShowAdvanced(true);
+    setFormOpen(true);
+    toast.info("Rapporto duplicato in bozza: modifica e salva");
+  };
+
+
   const gruppiOptions = (gruppi as any[]).map((g) => ({
     value: g.id,
     label: g.descrizione,
