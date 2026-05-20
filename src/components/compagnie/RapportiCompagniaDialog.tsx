@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, XCircle, Network, X, Check, ChevronsUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { validateIban } from "@/lib/validateIban";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -111,6 +111,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
   const [form, setForm] = useState<RapportoForm>(emptyForm);
   const [ramiRows, setRamiRows] = useState<RamoGroupRow[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { data: rapporti = [], isLoading } = useQuery({
     queryKey: ["compagnia_rapporti", compagniaId],
@@ -250,14 +251,21 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       if (!compagniaId) throw new Error("Agenzia non valida");
       if (!form.gruppo_compagnia_id) throw new Error("Seleziona la Compagnia Assicurativa");
       if (!form.nome_rapporto.trim()) throw new Error("Inserisci il nome del rapporto");
+
+      const validRamiRows = ramiRows.filter((g) => g.gruppo_ramo_id && (g.all || g.ramo_ids.length > 0));
+      if (validRamiRows.length === 0) {
+        throw new Error("Aggiungi almeno un Ramo abilitato (con 'Tutti' o almeno un sottoramo)");
+      }
+
+      const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+      if (!rawIban) throw new Error("IBAN obbligatorio");
+      const ibanCheck = validateIban(rawIban);
+      if (!ibanCheck.valid) throw new Error(ibanCheck.error || "IBAN non valido");
+
       if (form.sede_indirizzo && (!form.sede_citta || !form.sede_provincia)) {
         throw new Error("Se inserisci l'indirizzo della sede, specifica anche città e provincia");
       }
 
-      const rawIban = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
-      const ibanFilled = !!rawIban;
-      const ibanValid = ibanFilled ? validateIban(rawIban).valid : false;
-      const skipConto = !ibanFilled || !ibanValid;
       const basePayload: any = {
         compagnia_id: compagniaId,
         nome_rapporto: form.nome_rapporto.trim(),
@@ -283,8 +291,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       // Flatten: per ogni gruppo, se "all" => 1 riga con ramo_id null, altrimenti N righe (una per sottoramo)
       const flatRami: { gruppo_ramo_id: string; ramo_id: string | null }[] = [];
       const seen = new Set<string>();
-      for (const g of ramiRows) {
-        if (!g.gruppo_ramo_id) continue;
+      for (const g of validRamiRows) {
         if (g.all) {
           const k = `${g.gruppo_ramo_id}|null`;
           if (!seen.has(k)) { seen.add(k); flatRami.push({ gruppo_ramo_id: g.gruppo_ramo_id, ramo_id: null }); }
@@ -298,10 +305,10 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
 
       let rapportoId: string;
       if (form.id) {
-        const contoId = skipConto ? null : await persistContoRapporto(form.conto_bancario_id);
+        const contoId = await persistContoRapporto(form.conto_bancario_id);
         const { error } = await supabase
           .from("compagnia_rapporti" as any)
-          .update({ ...basePayload, conto_bancario_id: skipConto ? null : contoId })
+          .update({ ...basePayload, conto_bancario_id: contoId })
           .eq("id", form.id);
         if (error) throw error;
         rapportoId = form.id;
@@ -314,14 +321,12 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         if (insErr) throw insErr;
         rapportoId = (created as any).id as string;
         try {
-          if (!skipConto) {
-            const contoId = await persistContoRapporto(null);
-            const { error: upErr } = await supabase
-              .from("compagnia_rapporti" as any)
-              .update({ conto_bancario_id: contoId })
-              .eq("id", rapportoId);
-            if (upErr) throw upErr;
-          }
+          const contoId = await persistContoRapporto(null);
+          const { error: upErr } = await supabase
+            .from("compagnia_rapporti" as any)
+            .update({ conto_bancario_id: contoId })
+            .eq("id", rapportoId);
+          if (upErr) throw upErr;
         } catch (e) {
           await supabase.from("compagnia_rapporti" as any).delete().eq("id", rapportoId);
           throw e;
@@ -340,9 +345,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           .insert(flatRami.map((r) => ({ rapporto_id: rapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: r.ramo_id })));
         if (insRErr) throw insRErr;
       }
-      return { ibanRejected: ibanFilled && !ibanValid };
+      return { ibanRejected: false };
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti", compagniaId] });
       qc.invalidateQueries({ queryKey: ["compagnia_rapporti_counts"] });
       qc.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
@@ -351,8 +356,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       qc.invalidateQueries({ queryKey: ["compagnia_rapporto_rami"] });
       setFormOpen(false);
       setForm(emptyForm);
-      if (res?.ibanRejected) toast.warning("Rapporto salvato senza conto bancario: IBAN non valido");
-      else toast.success("Rapporto salvato");
+      setShowAdvanced(false);
+      toast.success("Rapporto salvato");
     },
     onError: (e: any) => {
       const msg = e?.message || "";
@@ -444,12 +449,22 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       const grouped = Array.from(byGroup.values()).map((g) => (g.all ? { ...g, ramo_ids: [] } : g));
       setRamiRows(grouped);
     })();
+    // In modifica, mostra subito gli "Altri dettagli" se ci sono dati opzionali
+    const hasAdvancedData = !!(
+      r.codice_rapporto || r.tipo_rapporto !== "Agenzia" ||
+      r.data_fine || r.percentuale_provvigione ||
+      r.sede_denominazione || r.sede_indirizzo ||
+      r.referente_compagnia || r.email_referente || r.telefono_referente ||
+      r.note
+    );
+    setShowAdvanced(hasAdvancedData);
     setFormOpen(true);
   };
 
   const openNew = () => {
     setForm(emptyForm);
     setRamiRows([]);
+    setShowAdvanced(false);
     setFormOpen(true);
   };
 
@@ -596,6 +611,25 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           <DialogHeader>
             <DialogTitle>{form.id ? "Modifica Rapporto" : "Nuovo Rapporto"}</DialogTitle>
           </DialogHeader>
+          {(() => {
+            const ibanRaw = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
+            const ibanCheck = ibanRaw ? validateIban(ibanRaw) : { valid: false as const, error: "IBAN obbligatorio" };
+            const ibanError = !ibanRaw ? "IBAN obbligatorio" : (ibanCheck.valid ? null : ibanCheck.error);
+            const validRamiRowsCount = ramiRows.filter((g) => g.gruppo_ramo_id && (g.all || g.ramo_ids.length > 0)).length;
+            const ramiError = validRamiRowsCount === 0 ? "Aggiungi almeno un Ramo abilitato" : null;
+            const sedeIndirizzoFilled = !!form.sede_indirizzo.trim();
+            const cittaMissing = sedeIndirizzoFilled && !form.sede_citta.trim();
+            const provMissing = sedeIndirizzoFilled && !form.sede_provincia.trim();
+            const provInvalid = !!form.sede_provincia && form.sede_provincia.trim().length !== 2;
+            const capInvalid = !!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim());
+            const canSave =
+              !!form.gruppo_compagnia_id &&
+              !!form.nome_rapporto.trim() &&
+              !ramiError &&
+              !ibanError &&
+              !cittaMissing && !provMissing && !provInvalid && !capInvalid;
+
+            return (
           <div className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nome del rapporto *</Label>
@@ -603,6 +637,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 value={form.nome_rapporto}
                 onChange={(e) => setForm((p) => ({ ...p, nome_rapporto: e.target.value }))}
                 placeholder="es. Nobis – Agenzia Torino Centro"
+                aria-invalid={!form.nome_rapporto.trim()}
               />
               <p className="text-[11px] text-muted-foreground">Etichetta libera che identifica univocamente questo rapporto.</p>
             </div>
@@ -617,32 +652,9 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Codice Rapporto</Label>
-                <Input
-                  value={form.codice_rapporto}
-                  onChange={(e) => setForm((p) => ({ ...p, codice_rapporto: e.target.value }))}
-                  placeholder="es. AG12345"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Tipo Rapporto</Label>
-                <select
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  value={form.tipo_rapporto}
-                  onChange={(e) => setForm((p) => ({ ...p, tipo_rapporto: e.target.value }))}
-                >
-                  {TIPI_RAPPORTO.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+            <div className={`space-y-2 border rounded-md p-3 bg-muted/30 ${ramiError ? "border-destructive" : ""}`}>
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Rami e Sottorami abilitati</Label>
+                <Label className="text-sm font-medium">Rami e Sottorami abilitati *</Label>
                 <Button
                   type="button"
                   size="sm"
@@ -653,8 +665,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                 </Button>
               </div>
               {ramiRows.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Nessun ramo abilitato. Aggiungi i Rami/Sottorami su cui questo rapporto opera: la matrice provvigioni proporrà solo questi.
+                <p className={`text-[11px] ${ramiError ? "text-destructive" : "text-muted-foreground"}`}>
+                  Aggiungi almeno un Ramo abilitato (con "Tutti i sottorami" oppure selezionando i singoli sottorami).
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -769,102 +781,143 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   })}
                 </div>
               )}
+              {ramiError && ramiRows.length > 0 && (
+                <p className="text-xs text-destructive">{ramiError}</p>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-sm font-medium">Conto bancario del rapporto *</Label>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Data Inizio</Label>
+                <Label className="text-xs text-muted-foreground">IBAN *</Label>
                 <Input
-                  type="date"
-                  value={form.data_inizio}
-                  onChange={(e) => setForm((p) => ({ ...p, data_inizio: e.target.value }))}
+                  placeholder="es. IT60X0542811101000000123456"
+                  value={form.conto_iban}
+                  maxLength={34}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
+                  }
+                  aria-invalid={!!ibanError}
+                  className={ibanError ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
+                {ibanError && <p className="text-xs text-destructive">{ibanError}</p>}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Data Fine</Label>
+                <Label className="text-xs text-muted-foreground">Intestato a</Label>
                 <Input
-                  type="date"
-                  value={form.data_fine}
-                  onChange={(e) => setForm((p) => ({ ...p, data_fine: e.target.value }))}
+                  placeholder={form.nome_rapporto || "default: nome rapporto"}
+                  value={form.conto_intestato_a}
+                  onChange={(e) => setForm((p) => ({ ...p, conto_intestato_a: e.target.value }))}
                 />
+                <p className="text-[11px] text-muted-foreground">Se vuoto, viene usato il nome del rapporto.</p>
               </div>
             </div>
 
+            <div className="border-t pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {showAdvanced ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
+                {showAdvanced ? "Nascondi altri dettagli" : "Mostra altri dettagli (opzionali)"}
+              </Button>
+            </div>
 
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Conto bancario del rapporto</Label>
-              <p className="text-[11px] text-muted-foreground">
-                Inserisci l'IBAN dell'agenzia per questo rapporto. Se lasci vuoto, verrà usato l'IBAN della Compagnia Assicurativa.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Etichetta (es. Conto Nobis Torino)"
-                  value={form.conto_etichetta}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_etichetta: e.target.value }))}
-                />
-                <Input
-                  placeholder="Banca (es. Intesa Sanpaolo)"
-                  value={form.conto_banca}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
-                />
-              </div>
-              {(() => {
-                const ibanRaw = (form.conto_iban || "").replace(/\s+/g, "").toUpperCase();
-                const ibanCheck = ibanRaw ? validateIban(ibanRaw) : { valid: true as const };
-                return (
+            {showAdvanced && (
+              <div className="space-y-4 border-l-2 border-muted pl-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Codice Rapporto</Label>
                     <Input
-                      placeholder="IBAN (es. IT60X0542811101000000123456)"
-                      value={form.conto_iban}
-                      maxLength={34}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, conto_iban: e.target.value.replace(/\s+/g, "").toUpperCase() }))
-                      }
-                      className={!ibanCheck.valid ? "border-destructive focus-visible:ring-destructive" : ""}
+                      value={form.codice_rapporto}
+                      onChange={(e) => setForm((p) => ({ ...p, codice_rapporto: e.target.value }))}
+                      placeholder="es. AG12345"
                     />
-                    {!ibanCheck.valid && (
-                      <p className="text-xs text-destructive">{ibanCheck.error}</p>
-                    )}
                   </div>
-                );
-              })()}
-              <Input
-                placeholder="Intestato a (default: nome rapporto)"
-                value={form.conto_intestato_a}
-                onChange={(e) => setForm((p) => ({ ...p, conto_intestato_a: e.target.value }))}
-              />
-              <div className="grid grid-cols-3 gap-3">
-                <Input
-                  placeholder="BIC (opz.)"
-                  value={form.conto_bic}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_bic: e.target.value.toUpperCase() }))}
-                />
-                <Input
-                  placeholder="ABI (opz.)"
-                  value={form.conto_abi}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_abi: e.target.value }))}
-                />
-                <Input
-                  placeholder="CAB (opz.)"
-                  value={form.conto_cab}
-                  onChange={(e) => setForm((p) => ({ ...p, conto_cab: e.target.value }))}
-                />
-              </div>
-              <Input
-                placeholder="Note conto (opz.)"
-                value={form.conto_note}
-                onChange={(e) => setForm((p) => ({ ...p, conto_note: e.target.value }))}
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Tipo Rapporto</Label>
+                    <select
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={form.tipo_rapporto}
+                      onChange={(e) => setForm((p) => ({ ...p, tipo_rapporto: e.target.value }))}
+                    >
+                      {TIPI_RAPPORTO.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            {(() => {
-              const sedeIndirizzoFilled = !!form.sede_indirizzo.trim();
-              const cittaMissing = sedeIndirizzoFilled && !form.sede_citta.trim();
-              const provMissing = sedeIndirizzoFilled && !form.sede_provincia.trim();
-              const provInvalid = !!form.sede_provincia && form.sede_provincia.trim().length !== 2;
-              const capInvalid = !!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim());
-              return (
-                <div className="border-t pt-3 space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data Inizio</Label>
+                    <Input
+                      type="date"
+                      value={form.data_inizio}
+                      onChange={(e) => setForm((p) => ({ ...p, data_inizio: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data Fine</Label>
+                    <Input
+                      type="date"
+                      value={form.data_fine}
+                      onChange={(e) => setForm((p) => ({ ...p, data_fine: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">% Provvigione</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={form.percentuale_provvigione}
+                      onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
+                  <Label className="text-sm font-medium">Dettagli conto bancario</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Etichetta (es. Conto Nobis Torino)"
+                      value={form.conto_etichetta}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_etichetta: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Banca (es. Intesa Sanpaolo)"
+                      value={form.conto_banca}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_banca: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      placeholder="BIC"
+                      value={form.conto_bic}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_bic: e.target.value.toUpperCase() }))}
+                    />
+                    <Input
+                      placeholder="ABI"
+                      value={form.conto_abi}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_abi: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="CAB"
+                      value={form.conto_cab}
+                      onChange={(e) => setForm((p) => ({ ...p, conto_cab: e.target.value }))}
+                    />
+                  </div>
+                  <Input
+                    placeholder="Note conto"
+                    value={form.conto_note}
+                    onChange={(e) => setForm((p) => ({ ...p, conto_note: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
                   <Label className="text-sm font-medium">Sede del rapporto (presso la Compagnia partner)</Label>
                   <Input
                     placeholder="Denominazione (es. Agenzia Nobis Torino Centro)"
@@ -903,7 +956,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     </div>
                     <div className="space-y-1">
                       <Input
-                        placeholder="Città *"
+                        placeholder={sedeIndirizzoFilled ? "Città *" : "Città"}
                         value={form.sede_citta}
                         onChange={(e) => setForm((p) => ({ ...p, sede_citta: e.target.value }))}
                         aria-invalid={cittaMissing}
@@ -913,7 +966,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     </div>
                     <div className="space-y-1">
                       <Input
-                        placeholder="Prov. *"
+                        placeholder={sedeIndirizzoFilled ? "Prov. *" : "Prov."}
                         maxLength={2}
                         value={form.sede_provincia}
                         onChange={(e) => setForm((p) => ({ ...p, sede_provincia: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2) }))}
@@ -925,55 +978,51 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     </div>
                   </div>
                 </div>
-              );
-            })()}
 
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <Input
-                  placeholder="Nome referente"
-                  value={form.referente_compagnia}
-                  onChange={(e) => setForm((p) => ({ ...p, referente_compagnia: e.target.value }))}
-                />
-                <Input
-                  placeholder="Email"
-                  value={form.email_referente}
-                  onChange={(e) => setForm((p) => ({ ...p, email_referente: e.target.value }))}
-                />
-                <Input
-                  placeholder="Telefono"
-                  value={form.telefono_referente}
-                  onChange={(e) => setForm((p) => ({ ...p, telefono_referente: e.target.value }))}
-                />
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
+                  <Label className="text-sm font-medium">Referente in Compagnia Assicurativa</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      placeholder="Nome referente"
+                      value={form.referente_compagnia}
+                      onChange={(e) => setForm((p) => ({ ...p, referente_compagnia: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Email"
+                      value={form.email_referente}
+                      onChange={(e) => setForm((p) => ({ ...p, email_referente: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Telefono"
+                      value={form.telefono_referente}
+                      onChange={(e) => setForm((p) => ({ ...p, telefono_referente: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Note</Label>
+                  <Textarea
+                    value={form.note}
+                    onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Note</Label>
-              <Textarea
-                value={form.note}
-                onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
-                rows={3}
-              />
-            </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setFormOpen(false)}>Annulla</Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={
-                  !form.gruppo_compagnia_id ||
-                  !form.nome_rapporto.trim() ||
-                  (!!form.sede_indirizzo.trim() && (!form.sede_citta.trim() || !form.sede_provincia.trim() || form.sede_provincia.trim().length !== 2)) ||
-                  (!!form.sede_cap && !/^\d{5}$/.test(form.sede_cap.trim())) ||
-                  saveMutation.isPending
-                }
+                disabled={!canSave || saveMutation.isPending}
               >
                 {saveMutation.isPending ? "Salvataggio..." : "Salva Rapporto"}
               </Button>
             </div>
           </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
