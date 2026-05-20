@@ -191,7 +191,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     (async () => {
       const { data } = await supabase
         .from("conti_bancari" as any)
-        .select("etichetta, banca, iban, intestato_a, bic, abi, cab, note")
+        .select("etichetta, banca, iban, intestato_a, bic, codice_abi, codice_cab, note")
         .eq("id", form.conto_bancario_id)
         .maybeSingle();
       if (cancelled || !data) return;
