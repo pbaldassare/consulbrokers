@@ -226,6 +226,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     const etichetta = (form.conto_etichetta || form.nome_rapporto || "Conto rapporto").trim();
     const payload: any = {
       tipo: "agenzia",
+      compagnia_id: compagniaId,
       etichetta,
       banca,
       iban,
