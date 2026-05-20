@@ -732,14 +732,34 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
             <div className={`space-y-2 border rounded-md p-3 bg-muted/30 ${ramiError ? "border-destructive" : ""}`}>
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Rami e Sottorami abilitati *</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", all: true, ramo_ids: [] }])}
-                >
-                  <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (ramiRows.length > 0 && !confirm("Sostituire le righe già aggiunte con TUTTI i rami?")) return;
+                      const allRows: RamoGroupRow[] = (gruppiRamo as any[]).map((g) => ({
+                        gruppo_ramo_id: g.id,
+                        all: true,
+                        ramo_ids: [],
+                      }));
+                      setRamiRows(allRows);
+                    }}
+                    title="Abilita tutti i rami con tutti i sottorami"
+                  >
+                    <ListPlus className="w-3 h-3 mr-1" /> Tutti i Rami
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRamiRows((p) => [...p, { gruppo_ramo_id: "", all: true, ramo_ids: [] }])}
+                  >
+                    <Plus className="w-3 h-3 mr-1" /> Aggiungi Ramo
+                  </Button>
+                </div>
+
               </div>
               {ramiRows.length === 0 ? (
                 <p className={`text-[11px] ${ramiError ? "text-destructive" : "text-muted-foreground"}`}>
