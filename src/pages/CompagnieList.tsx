@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Plus, Building2, Search, Percent, Pencil, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
 
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
 
