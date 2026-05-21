@@ -21,13 +21,18 @@ serve(async (req) => {
       pdf_base64: string;
       mime_type?: string;
     };
-    if (!pdf_base64) return json({ error: "pdf_base64 obbligatorio" }, 400);
+    const cleanBase64 = (pdf_base64 || "").replace(/\s/g, "");
+    if (!cleanBase64) return json({ righe: [], warning: "Allegato vuoto: seleziona un PDF o un'immagine valida." });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY non configurata" }, 500);
 
     const mt = mime_type || "application/pdf";
-    console.log("[parse-tariffario-rami] in", { mime: mt, sizeKB: Math.round(pdf_base64.length / 1024) });
+    const estimatedBytes = Math.floor((cleanBase64.length * 3) / 4);
+    console.log("[parse-tariffario-rami] in", { mime: mt, sizeKB: Math.round(estimatedBytes / 1024) });
+    if (estimatedBytes < 100) {
+      return json({ righe: [], warning: "Allegato non leggibile o senza pagine. Ricarica il PDF originale o usa un'immagine JPG/PNG della tabella." });
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 90_000);
@@ -54,7 +59,7 @@ Estrai TUTTE le righe leggibili, anche se la prima colonna si chiama "Sezione" o
               role: "user",
               content: [
                 { type: "text", text: "Estrai tutte le righe del tariffario provvigioni." },
-                { type: "image_url", image_url: { url: `data:${mt};base64,${pdf_base64}` } },
+                { type: "image_url", image_url: { url: `data:${mt};base64,${cleanBase64}` } },
               ],
             },
           ],
@@ -99,6 +104,9 @@ Estrai TUTTE le righe leggibili, anche se la prima colonna si chiama "Sezione" o
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
       console.error("[parse-tariffario-rami] gateway", aiResponse.status, errText);
+      if (aiResponse.status === 400 && /no pages|document has no pages|INVALID_ARGUMENT/i.test(errText)) {
+        return json({ righe: [], warning: "Il PDF non contiene pagine leggibili per l'IA. Prova a caricare una scansione JPG/PNG della tabella provvigionale." });
+      }
       if (aiResponse.status === 429) return json({ error: "Troppe richieste, riprova tra qualche secondo." }, 429);
       if (aiResponse.status === 402) return json({ error: "Crediti AI esauriti." }, 402);
       if (aiResponse.status === 413) return json({ error: "File troppo grande per il modello IA. Carica una porzione o un'immagine più leggera." }, 413);
