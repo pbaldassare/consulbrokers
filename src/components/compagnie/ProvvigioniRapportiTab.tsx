@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import {
   Percent, Copy, ClipboardPaste, Upload, Sparkles, Save, Plus, Trash2, Download,
   ChevronDown, ChevronRight, Search, ChevronLeft, ChevronsUpDown, Wand2, RotateCcw,
+  AlertCircle, FileText, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
