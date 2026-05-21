@@ -704,6 +704,34 @@ const ImmissionePolizzaPage = () => {
     return () => { cancelled = true; };
   }, [selectedAE, selectedRamoData?.codice]);
 
+  // --- Auto-lookup % Provvigione (Rapporto + Ramo + Sottoramo) ---
+  const firstSottoramoForProvv =
+    premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+    premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+    null;
+  useEffect(() => {
+    if (!percentualeProvvigioneAuto) return;
+    if (!selectedRapportoId || !selectedGruppoRamoId) {
+      setPercentualeProvvigione("");
+      setProvvigioneFonte("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await resolvePercentualeProvvigione({
+          compagnia_rapporto_id: selectedRapportoId,
+          gruppo_ramo_id: selectedGruppoRamoId,
+          ramo_id: firstSottoramoForProvv,
+        });
+        if (cancelled) return;
+        setPercentualeProvvigione(res.percentuale ? String(res.percentuale) : "");
+        setProvvigioneFonte(res.fonte || "");
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv, percentualeProvvigioneAuto]);
+
   // --- Frazionamento helpers + auto-calcolo Periodo ---
   const FRAZIONAMENTO_OPTIONS = [
     { value: "Mensile", label: "Mensile" },
