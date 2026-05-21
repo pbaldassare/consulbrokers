@@ -1,30 +1,7 @@
-## Diagnosi
-Cliccando "Applica" sul bulk-apply non viene fatta nessuna chiamata POST/PATCH a `provvigioni_compagnia_ramo`. Causa root:
+Problema individuato: il click su “Applica” arriva correttamente e prova a inserire le righe dei sottorami, ma Supabase risponde 400 perché la tabella `provvigioni_compagnia_ramo` ha ancora `categoria_id` obbligatorio e il payload attuale non lo valorizza. Quindi i sottorami non si aggiornano.
 
-- L'`upsertMutation` usa `.upsert(payload, { onConflict: "compagnia_rapporto_id,gruppo_ramo_id,ramo_id" })`.
-- In DB esiste solo un **indice unico PARZIALE** (`provv_rapporto_gr_ramo_unique` con `WHERE attiva = true AND gruppo_ramo_id IS NOT NULL`), **non un constraint**. PostgREST non può usare indici parziali come target di `ON CONFLICT` → l'upsert fallisce con errore "no unique or exclusion constraint matching…", che viene mostrato brevemente nel toast e poi sparisce.
-- Inoltre il flusso passa per un `AlertDialog` di conferma che aggiunge frizione per un'operazione non distruttiva.
-
-## Fix
-
-### 1. Riscrivere `upsertMutation` senza `.upsert()` (file `src/components/compagnie/ProvvigioniRapportiTab.tsx`)
-Le righe in input hanno già `id` quando esistono (vengono da `provvMap`). Quindi splittare:
-- Righe con `id` → `update({ percentuale_provvigione, attiva: true }).eq("id", r.id)`
-- Righe senza `id` → `insert(payload)` in batch
-Eseguire in parallelo con `Promise.all`, propagare il primo errore.
-Questo elimina la dipendenza dal constraint mancante e funziona per tutti i casi (default ramo con `ramo_id=null` incluso).
-
-### 2. Rimuovere la conferma `AlertDialog` per il bulk-apply non distruttivo
-- Se `overwrite === false` → applicare direttamente senza dialog (sono solo righe nuove, non distruttivo).
-- Mantenere la conferma solo quando `overwrite === true` (sovrascrive valori esistenti) e per il `Reset sottorami` (cancella override).
-
-### 3. Toast più chiari
-- Aggiungere nel `onError` di `upsertMutation` il messaggio Postgres pulito (era già lì, ma con il nuovo flusso senza upsert sarà più affidabile).
-- Sul success del bulk-apply mostrare il numero di righe applicate: `toast.success(\`Applicata % a ${n} sottorami\`)`.
-
-## Out of scope
-- Nessuna migrazione DB necessaria. L'indice parziale esistente continua a proteggere dai duplicati a livello DB; semplicemente non lo usiamo come ON CONFLICT da PostgREST.
-- Nessuna modifica al calcolo provvigioni o alla catena di risoluzione.
-
-## File toccati
-- `src/components/compagnie/ProvvigioniRapportiTab.tsx` — riscrittura `upsertMutation` + by-pass AlertDialog quando non si sovrascrive.
+Piano di intervento:
+1. Aggiornare `ProvvigioniRapportiTab.tsx` per caricare anche la mappatura `categorie_prodotto` ↔ `gruppi_ramo`.
+2. Quando si salva una provvigione per default ramo o sottoramo, includere sempre `categoria_id` coerente con il `gruppo_ramo_id`, così l’insert rispetta il vincolo DB esistente.
+3. Aggiungere una protezione chiara: se per un ramo manca la categoria collegata, mostrare un errore leggibile invece del messaggio tecnico “categoria_id null”.
+4. Verificare dal network che “Applica %” generi POST/PATCH riuscite e che i sottorami passino da `0% (nessuna regola)` alla percentuale impostata.
