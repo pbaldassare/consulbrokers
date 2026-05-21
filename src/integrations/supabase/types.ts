@@ -5500,7 +5500,7 @@ export type Database = {
       provvigioni_compagnia_ramo: {
         Row: {
           attiva: boolean | null
-          categoria_id: string
+          categoria_id: string | null
           compagnia_id: string | null
           compagnia_rapporto_id: string | null
           created_at: string | null
@@ -5511,7 +5511,7 @@ export type Database = {
         }
         Insert: {
           attiva?: boolean | null
-          categoria_id: string
+          categoria_id?: string | null
           compagnia_id?: string | null
           compagnia_rapporto_id?: string | null
           created_at?: string | null
@@ -5522,7 +5522,7 @@ export type Database = {
         }
         Update: {
           attiva?: boolean | null
-          categoria_id?: string
+          categoria_id?: string | null
           compagnia_id?: string | null
           compagnia_rapporto_id?: string | null
           created_at?: string | null
