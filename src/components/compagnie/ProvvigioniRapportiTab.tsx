@@ -1136,6 +1136,8 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [risultati, setRisultati] = useState<any[]>([]);
+  const [warningMsg, setWarningMsg] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
   // Normalizzazione robusta: maiuscole, no accenti, no punteggiatura, spazi compatti
   const norm = (s: string) =>
@@ -1235,20 +1237,31 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   const handleFile = async (file: File) => {
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
     const isImg = file.type.startsWith("image/");
+    setWarningMsg("");
+    setErrorMsg("");
+    setRisultati([]);
+    setFileName(file.name);
+
     if (!isPdf && !isImg) {
-      toast.error("Formato non supportato: carica un PDF o un'immagine.");
+      const msg = "Formato non supportato: carica un PDF o un'immagine.";
+      setErrorMsg(msg);
+      toast.error(msg);
+      return;
+    }
+    if (file.size === 0) {
+      const msg = "Il file selezionato è vuoto. Scarica di nuovo l'allegato e riprova.";
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error(
-        `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 8 MB. Per PDF pesanti, esporta come immagine JPG.`
-      );
+      const msg = `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 8 MB. Per PDF pesanti, esporta come immagine JPG.`;
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     setLoading(true);
-    setFileName(file.name);
-    setRisultati([]);
     try {
       let b64: string;
       let mime: string;
@@ -1267,6 +1280,9 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
         b64 = btoa(binary);
         mime = file.type || "application/pdf";
       }
+      if (!b64 || b64.length < 100) {
+        throw new Error("L'allegato non è stato letto correttamente: contenuto vuoto o non valido.");
+      }
       console.log("[AI Import] invio", { name: file.name, mime, sizeKB: Math.round(b64.length / 1024) });
       const { data, error } = await supabase.functions.invoke("parse-tariffario-rami", {
         body: { pdf_base64: b64, mime_type: mime },
@@ -1277,16 +1293,22 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
       }
       if ((data as any)?.error) throw new Error((data as any).error);
       const righe = (data as any)?.righe || [];
+      const warning = (data as any)?.warning || "";
+      setWarningMsg(warning);
       console.log("[AI Import] righe ricevute", righe.length, (data as any)?.warning);
       if (!righe.length) {
-        toast.warning((data as any)?.warning || "L'IA non ha estratto righe. Verifica leggibilità del documento.");
+        const msg = warning || "L'IA non ha estratto righe. Verifica leggibilità del documento.";
+        setWarningMsg(msg);
+        toast.warning(msg);
       } else {
         toast.success(`Estratte ${righe.length} righe dal documento`);
       }
       setRisultati(enrich(righe));
     } catch (e: any) {
       console.error("[AI Import] errore", e);
-      toast.error(e?.message || "Errore IA durante l'analisi del documento");
+      const msg = e?.message || "Errore IA durante l'analisi del documento";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -1304,6 +1326,7 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   };
 
   const valid = risultati.filter((r) => r.ok);
+  const showPreview = !!fileName || loading || !!warningMsg || !!errorMsg || risultati.length > 0;
 
   const gruppoOptions = useMemo(
     () => (gruppiRamo as any[]).map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
