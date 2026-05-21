@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,13 +8,24 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Percent, Copy, ClipboardPaste, Upload, Sparkles, Save, Plus, Trash2, Download } from "lucide-react";
+import {
+  Percent, Copy, ClipboardPaste, Upload, Sparkles, Save, Plus, Trash2, Download,
+  ChevronDown, ChevronRight, Search, ChevronLeft, ChevronsUpDown, Wand2, RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 
 const TIPI_RAPPORTO = ["Direzione", "Agenzia", "Broker", "Plurimandataria", "Mandato diretto", "Sub-agenzia", "Convenzione broker", "Coverholder", "Altro"];
+const LS_KEY = "provv-rapporti-ui-v1";
+type FilterStato = "all" | "configured" | "missing" | "only_default";
+
 
 export default function ProvvigioniRapportiTab() {
   const qc = useQueryClient();
