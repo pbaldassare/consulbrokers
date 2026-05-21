@@ -214,8 +214,10 @@ const ImmissionePolizzaPage = () => {
   // Flag: percentuale commerciale auto-popolata da produttori_provvigioni_ramo
   const [percentualeCommercialeAuto, setPercentualeCommercialeAuto] = useState(false);
 
-  // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
+  // Provvigioni: auto-popolata da resolvePercentualeProvvigione (Rapporto + Ramo + Sottoramo)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
+  const [percentualeProvvigioneAuto, setPercentualeProvvigioneAuto] = useState(true);
+  const [provvigioneFonte, setProvvigioneFonte] = useState<string>("");
 
   // Brokeraggio (quota del Produttore — default da anagrafiche_professionali.percentuale_consulenza)
   const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
