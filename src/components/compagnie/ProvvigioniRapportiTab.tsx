@@ -1211,6 +1211,8 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
       };
     });
 
+  const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+
   const compressImage = async (file: File): Promise<{ base64: string; mime: string }> => {
     const dataUrl: string = await new Promise((res, rej) => {
       const r = new FileReader();
