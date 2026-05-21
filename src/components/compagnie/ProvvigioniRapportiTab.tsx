@@ -1204,29 +1204,89 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
       };
     });
 
+  const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+
+  const compressImage = async (file: File): Promise<{ base64: string; mime: string }> => {
+    const dataUrl: string = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.onerror = () => rej(r.error);
+      r.readAsDataURL(file);
+    });
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error("Immagine non leggibile"));
+      i.src = dataUrl;
+    });
+    const maxSide = 2000;
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, w, h);
+    const out = canvas.toDataURL("image/jpeg", 0.85);
+    return { base64: out.split(",")[1], mime: "image/jpeg" };
+  };
+
   const handleFile = async (file: File) => {
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const isImg = file.type.startsWith("image/");
+    if (!isPdf && !isImg) {
+      toast.error("Formato non supportato: carica un PDF o un'immagine.");
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      toast.error(
+        `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 8 MB. Per PDF pesanti, esporta come immagine JPG.`
+      );
+      return;
+    }
+
     setLoading(true);
     setFileName(file.name);
     setRisultati([]);
     try {
-      const buf = await file.arrayBuffer();
-      let binary = "";
-      const bytes = new Uint8Array(buf);
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+      let b64: string;
+      let mime: string;
+      if (isImg) {
+        const c = await compressImage(file);
+        b64 = c.base64;
+        mime = c.mime;
+      } else {
+        const buf = await file.arrayBuffer();
+        let binary = "";
+        const bytes = new Uint8Array(buf);
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+        }
+        b64 = btoa(binary);
+        mime = file.type || "application/pdf";
       }
-      const b64 = btoa(binary);
+      console.log("[AI Import] invio", { name: file.name, mime, sizeKB: Math.round(b64.length / 1024) });
       const { data, error } = await supabase.functions.invoke("parse-tariffario-rami", {
-        body: { pdf_base64: b64, mime_type: file.type || "application/pdf" },
+        body: { pdf_base64: b64, mime_type: mime },
       });
-      if (error) throw error;
+      if (error) {
+        console.error("[AI Import] invoke error", error);
+        throw new Error(error.message || "Errore chiamata IA");
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       const righe = (data as any)?.righe || [];
-      if (!righe.length) toast.warning("L'IA non ha estratto righe dal documento");
+      console.log("[AI Import] righe ricevute", righe.length, (data as any)?.warning);
+      if (!righe.length) {
+        toast.warning((data as any)?.warning || "L'IA non ha estratto righe. Verifica leggibilità del documento.");
+      } else {
+        toast.success(`Estratte ${righe.length} righe dal documento`);
+      }
       setRisultati(enrich(righe));
     } catch (e: any) {
-      toast.error(e.message || "Errore IA");
+      console.error("[AI Import] errore", e);
+      toast.error(e?.message || "Errore IA durante l'analisi del documento");
     } finally {
       setLoading(false);
     }
