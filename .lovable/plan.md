@@ -1,31 +1,57 @@
-## Problema
+# Gestione avanzata Sottoramo nell'Import IA tariffario
 
-Nel modal Import IA l’anteprima è costruita in verticale dentro un `DialogContent` con altezza non controllata. Con viewport come quello attuale, la tabella con `SearchableSelect`, badge, messaggi e footer può risultare compressa, tagliata o difficile da scorrere. Inoltre l’anteprima mostra poco: separa male stato file, risposta IA e righe realmente importabili.
+## Obiettivo
+Nel dialog **Import IA tariffario provvigioni** (Compagnie → Rapporto → Import IA) la colonna **Sottoramo DB** oggi permette di scegliere **un solo** sottoramo (o "default ramo"). L'utente vuole poter:
 
-## Piano di correzione
+1. Selezionare **tutti** i sottorami del Ramo DB scelto con un click.
+2. Selezionare **alcuni** sottorami (multi-selezione a checkbox).
+3. Mantenere l'opzione "default ramo" (nessun sottoramo) come oggi.
 
-1. **Riorganizzare il modal Import IA**
-   - Rendere il dialog largo ma responsive: massimo circa 96vw e altezza massima 88vh.
-   - Strutturarlo in header fisso, corpo scrollabile e footer fisso.
-   - Evitare che il footer “Salva / Annulla” finisca fuori schermo.
+## Comportamento UI (file: `src/components/compagnie/ProvvigioniRapportiTab.tsx`, componente `AiImportDialog`)
 
-2. **Creare un’area anteprima più leggibile**
-   - In alto: pannello compatto con file caricato, stato analisi, warning/errore.
-   - Sotto: contatori chiari “righe estratte”, “salvabili”, “da rivedere”.
-   - Se non ci sono dati, mostrare uno stato vuoto ordinato invece di una tabella o messaggi sparsi.
+- Sostituire l'attuale `SearchableSelect` nella cella **Sottoramo DB** con un nuovo **MultiSelect a popover**:
+  - Trigger: pulsante che mostra
+    - "— Default ramo —" se nessun sottoramo selezionato
+    - "Tutti i sottorami (N)" se tutti selezionati
+    - "X sottorami" o l'unico nome se selezione parziale
+  - Contenuto popover: 
+    - Riga in alto **"Seleziona tutti / Deseleziona tutti"** (toggle)
+    - Lista checkbox dei sottorami del Ramo DB corrente
+    - Search box (riuso pattern `Command`)
+  - Disabilitato finché non è scelto un Ramo DB
+- Stato per riga: campo `ramo_ids: string[]` (vuoto = default ramo). Si sostituisce a `ramo_id: string | null`.
+- Cambio Ramo DB → reset `ramo_ids` a `[]`.
+- Badge **Stato**: `OK` quando `gruppo_ramo_id` valido e `%` numerica (indipendentemente da quanti sottorami).
+- Contatore footer: `Salva N` dove **N = numero totale di righe che verranno inserite**, cioè per ogni riga `max(ramo_ids.length, 1)` (1 = default ramo). Esempio: 4 righe con sottorami [3, 0, 2, 5] → bottone "Salva 11".
 
-3. **Sistemare la tabella dati estratti**
-   - Mettere la tabella in un contenitore con scroll verticale e orizzontale controllato.
-   - Rendere sticky l’intestazione della tabella.
-   - Ridurre padding e larghezze delle colonne per viewport medio/piccolo.
-   - Fare in modo che i `SearchableSelect` non allarghino o rompano la griglia.
+## Logica di salvataggio
 
-4. **Aggiungere preview documento quando utile**
-   - Per PDF: usare il componente `PdfPreview` già presente, mostrando una preview laterale o collassabile.
-   - Per immagini: mostrare un’anteprima dell’immagine caricata.
-   - La preview documento non deve rubare spazio alla tabella: sarà scrollabile e limitata in altezza.
+In `onConfirm` espandere ogni riga valida:
 
-5. **Verifica finale**
-   - Controllare il modal a 955x599 e desktop.
-   - Verificare che caricamento, warning, errore e tabella con righe siano tutti leggibili senza sovrapposizioni.
-   - Controllare che non compaiano più layout instabili legati allo scroll del modal.
+```ts
+valid.flatMap(r => {
+  const ids = r.ramo_ids?.length ? r.ramo_ids : [null]; // null = default ramo
+  return ids.map(ramo_id => ({
+    gruppo_ramo_id: r.gruppo_ramo_id,
+    ramo_id,
+    percentuale: Number(r.percentuale),
+  }));
+})
+```
+
+Il chiamante `onConfirm` (più in alto in `ProvvigioniRapportiTab`) riceve già un array piatto di righe `{gruppo_ramo_id, ramo_id, percentuale}` → **nessuna modifica lato server / API**. La deduplica e l'upsert su `provvigioni_compagnia_ramo` esistenti continuano a funzionare.
+
+## Match IA iniziale
+
+Quando l'IA riconosce **un** sottoramo, lo si inserisce come `ramo_ids: [matchedId]` (comportamento attuale, solo nel nuovo formato array).
+
+## Out of scope
+- Nessuna modifica al modello DB.
+- Nessuna modifica all'edge function `parse-tariffario-rami`.
+- Layout, colonne, pulsanti header del dialog restano invariati.
+- Manuale / CSV / "Copia da altro rapporto" non toccati.
+
+## File da modificare
+- `src/components/compagnie/ProvvigioniRapportiTab.tsx` (solo `AiImportDialog` e tipi interni)
+
+Confermi e procedo?

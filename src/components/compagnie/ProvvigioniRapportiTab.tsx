@@ -8,6 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Check } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -1202,7 +1206,7 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
         sottoramo: r.sottoramo || "",
         percentuale: perc,
         gruppo_ramo_id,
-        ramo_id: sotto?.id || null,
+        ramo_ids: sotto?.id ? [sotto.id] : [],
         ok: !!gruppo_ramo_id && !isNaN(perc),
       };
     });
@@ -1327,18 +1331,15 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   };
 
   const valid = risultati.filter((r) => r.ok);
+  const totalToSave = valid.reduce((acc, r) => acc + Math.max(r.ramo_ids?.length || 0, 1), 0);
   const showPreview = !!fileName || loading || !!warningMsg || !!errorMsg || risultati.length > 0;
 
   const gruppoOptions = useMemo(
     () => (gruppiRamo as any[]).map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
     [gruppiRamo]
   );
-  const ramoOptionsFor = (gruppoId: string | null) =>
-    [{ value: "__default__", label: "— Default ramo (nessun sottoramo) —" }].concat(
-      (rami as any[])
-        .filter((r: any) => !gruppoId || r.gruppo_ramo_id === gruppoId)
-        .map((r: any) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))
-    );
+  const sottoramiFor = (gruppoId: string | null) =>
+    (rami as any[]).filter((r: any) => gruppoId && r.gruppo_ramo_id === gruppoId);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -1436,16 +1437,16 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                           <SearchableSelect
                             options={gruppoOptions}
                             value={r.gruppo_ramo_id || ""}
-                            onValueChange={(v) => updateRow(i, { gruppo_ramo_id: v, ramo_id: null })}
+                            onValueChange={(v) => updateRow(i, { gruppo_ramo_id: v, ramo_ids: [] })}
                             placeholder="Seleziona ramo..."
                           />
                         </TableCell>
                         <TableCell className="p-2 align-top">
-                          <SearchableSelect
-                            options={ramoOptionsFor(r.gruppo_ramo_id)}
-                            value={r.ramo_id || "__default__"}
-                            onValueChange={(v) => updateRow(i, { ramo_id: v === "__default__" ? null : v })}
-                            placeholder="Default ramo"
+                          <SottoramiMultiSelect
+                            sottorami={sottoramiFor(r.gruppo_ramo_id)}
+                            value={r.ramo_ids || []}
+                            onChange={(ids) => updateRow(i, { ramo_ids: ids })}
+                            disabled={!r.gruppo_ramo_id}
                           />
                         </TableCell>
                         <TableCell className="p-2 align-top">
@@ -1480,22 +1481,124 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
             Annulla
           </Button>
           <Button
-            disabled={valid.length === 0}
+            disabled={totalToSave === 0}
             onClick={() =>
               onConfirm(
-                valid.map((r) => ({
-                  gruppo_ramo_id: r.gruppo_ramo_id,
-                  ramo_id: r.ramo_id,
-                  percentuale: Number(r.percentuale),
-                }))
+                valid.flatMap((r) => {
+                  const ids = r.ramo_ids?.length ? r.ramo_ids : [null];
+                  return ids.map((ramo_id: string | null) => ({
+                    gruppo_ramo_id: r.gruppo_ramo_id,
+                    ramo_id,
+                    percentuale: Number(r.percentuale),
+                  }));
+                })
               )
             }
           >
             <Save className="w-4 h-4 mr-2" />
-            Salva {valid.length}
+            Salva {totalToSave}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SottoramiMultiSelect({
+  sottorami,
+  value,
+  onChange,
+  disabled,
+}: {
+  sottorami: { id: string; codice: string; descrizione: string }[];
+  value: string[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const allIds = sottorami.map((s) => s.id);
+  const selectedSet = new Set(value);
+  const allSelected = sottorami.length > 0 && allIds.every((id) => selectedSet.has(id));
+  const someSelected = value.length > 0 && !allSelected;
+
+  const label = (() => {
+    if (disabled) return "Seleziona prima il ramo";
+    if (sottorami.length === 0) return "— Default ramo (nessun sottoramo) —";
+    if (value.length === 0) return "— Default ramo (nessun sottoramo) —";
+    if (allSelected) return `Tutti i sottorami (${value.length})`;
+    if (value.length === 1) {
+      const s = sottorami.find((x) => x.id === value[0]);
+      return s ? `${s.codice} - ${s.descrizione}` : "1 sottoramo";
+    }
+    return `${value.length} sottorami`;
+  })();
+
+  const toggle = (id: string) => {
+    if (selectedSet.has(id)) onChange(value.filter((x) => x !== id));
+    else onChange([...value, id]);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          className="h-8 w-full justify-between text-xs font-normal"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Cerca sottoramo..." className="h-9" />
+          <div className="flex items-center justify-between gap-2 border-b px-2 py-1.5 text-xs">
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-accent"
+              onClick={() => onChange(allSelected ? [] : allIds)}
+              disabled={sottorami.length === 0}
+            >
+              <Checkbox
+                checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                className="pointer-events-none"
+              />
+              <span className="font-medium">
+                {allSelected ? "Deseleziona tutti" : "Seleziona tutti"}
+              </span>
+            </button>
+            <span className="text-muted-foreground">
+              {value.length}/{sottorami.length}
+            </span>
+          </div>
+          <CommandList>
+            <CommandEmpty>Nessun sottoramo</CommandEmpty>
+            <CommandGroup>
+              <CommandItem value="__default__" onSelect={() => onChange([])}>
+                <Check className={`mr-2 h-4 w-4 ${value.length === 0 ? "opacity-100" : "opacity-0"}`} />
+                <span className="italic text-muted-foreground">— Default ramo (nessun sottoramo) —</span>
+              </CommandItem>
+              {sottorami.map((s) => {
+                const checked = selectedSet.has(s.id);
+                return (
+                  <CommandItem
+                    key={s.id}
+                    value={`${s.codice} ${s.descrizione}`}
+                    onSelect={() => toggle(s.id)}
+                  >
+                    <Checkbox checked={checked} className="mr-2 pointer-events-none" />
+                    <span className="truncate">
+                      <span className="font-medium">{s.codice}</span> - {s.descrizione}
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
