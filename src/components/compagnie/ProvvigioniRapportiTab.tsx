@@ -208,261 +208,528 @@ export default function ProvvigioniRapportiTab() {
     URL.revokeObjectURL(url);
   };
 
+  // Helper: % ereditata dal tipo rapporto per un gruppo (livello 4)
+  const inheritedFromTipo = (gruppoId: string, ramoId: string | null = null) => {
+    const tipo = rapportoSelected?.tipo_rapporto;
+    if (!tipo) return null;
+    const rows = (defaultTipo as any[]).filter((d) => d.tipo_rapporto === tipo && d.gruppo_ramo_id === gruppoId);
+    const exact = ramoId ? rows.find((r) => r.ramo_id === ramoId) : null;
+    const def = rows.find((r) => r.ramo_id === null);
+    const hit = exact || def;
+    return hit ? Number(hit.percentuale) : null;
+  };
+
+  // Lista gruppi visibili (abilitati + filtro testo + filtro stato)
+  const gruppiVisibili = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (gruppiRamo as any[])
+      .filter((gr) => enabledGruppoIds.has(gr.id))
+      .map((gr) => {
+        const allSotto = (rami as any[]).filter((r) => r.gruppo_ramo_id === gr.id);
+        const sottorami = gruppoHasAll[gr.id]
+          ? allSotto
+          : allSotto.filter((r) => specificSottoByGruppo[gr.id]?.has(r.id));
+        const defaultRow = provvMap[`${gr.id}|`];
+        const configuredCount = sottorami.filter((s) => provvMap[`${gr.id}|${s.id}`]).length;
+        return { gr, sottorami, defaultRow, configuredCount };
+      })
+      .filter(({ gr, sottorami, defaultRow, configuredCount }) => {
+        if (q) {
+          const grMatch = gr.descrizione?.toLowerCase().includes(q) || gr.codice?.toLowerCase().includes(q);
+          const sottoMatch = sottorami.some(
+            (s: any) => s.descrizione?.toLowerCase().includes(q) || s.codice?.toLowerCase().includes(q)
+          );
+          if (!grMatch && !sottoMatch) return false;
+        }
+        if (filterStato === "configured") return !!defaultRow || configuredCount > 0;
+        if (filterStato === "missing") return !defaultRow && configuredCount === 0;
+        if (filterStato === "only_default") return !!defaultRow && configuredCount === 0;
+        return true;
+      });
+  }, [gruppiRamo, rami, enabledGruppoIds, gruppoHasAll, specificSottoByGruppo, provvMap, search, filterStato]);
+
+  const totals = useMemo(() => {
+    const totSotto = gruppiVisibili.reduce((acc, g) => acc + g.sottorami.length, 0);
+    const totConf = gruppiVisibili.reduce((acc, g) => acc + g.configuredCount + (g.defaultRow ? 1 : 0), 0);
+    return { gruppi: gruppiVisibili.length, sottorami: totSotto, configurati: totConf };
+  }, [gruppiVisibili]);
+
+  // Espandi/collassa
+  const setAllExpanded = (v: boolean) => {
+    const next: Record<string, boolean> = {};
+    gruppiVisibili.forEach(({ gr }) => { next[gr.id] = v; });
+    setExpanded((prev) => ({ ...prev, ...next }));
+  };
+  const isExpanded = (grId: string, defaultOpen: boolean) =>
+    expanded[grId] === undefined ? defaultOpen : expanded[grId];
+
+  // Bulk-apply su gruppo: scrive la stessa % a tutti i sottorami abilitati
+  const doBulkApply = (gruppoId: string, perc: number, overwrite: boolean) => {
+    const g = gruppiVisibili.find((x) => x.gr.id === gruppoId);
+    if (!g) return;
+    const rows = g.sottorami
+      .filter((s: any) => overwrite || !provvMap[`${gruppoId}|${s.id}`])
+      .map((s: any) => ({
+        id: provvMap[`${gruppoId}|${s.id}`]?.id,
+        gruppo_ramo_id: gruppoId,
+        ramo_id: s.id,
+        percentuale: perc,
+      }));
+    if (rows.length === 0) { toast.info("Nessuna riga da aggiornare"); return; }
+    upsertMutation.mutate(rows);
+  };
+
+  // Bulk-reset: rimuove tutti gli override sui sottorami del gruppo
+  const doBulkReset = (gruppoId: string) => {
+    const g = gruppiVisibili.find((x) => x.gr.id === gruppoId);
+    if (!g) return;
+    const ids = g.sottorami
+      .map((s: any) => provvMap[`${gruppoId}|${s.id}`]?.id)
+      .filter(Boolean) as string[];
+    if (ids.length === 0) { toast.info("Nessun override da rimuovere"); return; }
+    Promise.all(ids.map((id) => deleteMutation.mutateAsync(id))).then(() =>
+      toast.success(`${ids.length} override rimossi`)
+    );
+  };
+
+  // Navigazione rapporto prev/next
+  const currentIdx = rapportoOptions.findIndex((o) => o.value === rapportoId);
+  const goRapporto = (delta: number) => {
+    if (!rapportoOptions.length) return;
+    const next = (currentIdx + delta + rapportoOptions.length) % rapportoOptions.length;
+    setRapportoId(rapportoOptions[next].value);
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Catena di risoluzione */}
-      <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-start gap-3">
-            <Percent className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-            <div className="space-y-1 text-sm">
-              <p className="font-medium">Catena di risoluzione della % provvigione</p>
-              <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-0.5">
-                <li>Match esatto <b>Rapporto + Ramo + Sottoramo</b> (es. Allianz Direzione → AUTO → RCA)</li>
-                <li>Default di <b>Ramo</b> sul rapporto (es. Allianz Direzione → AUTO senza sottoramo)</li>
-                <li><b>% globale del rapporto</b> (campo su <code>compagnia_rapporti</code>)</li>
-                <li>Default per <b>Tipo rapporto + Ramo/Sottoramo</b> (es. Broker → CASA = 18%)</li>
-                <li>Se nessuna regola → <b>0%</b> + warning in fase di immissione polizza</li>
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Catena di risoluzione (collassabile) */}
+        <Accordion type="single" collapsible>
+          <AccordionItem value="chain" className="border-primary/30 border rounded-md bg-primary/5 px-3">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline">
+              <span className="flex items-center gap-2">
+                <Percent className="w-4 h-4 text-primary" />Catena di risoluzione della % provvigione (5 livelli)
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-0.5 pb-2">
+                <li>Match esatto <b>Rapporto + Ramo + Sottoramo</b></li>
+                <li>Default di <b>Ramo</b> sul rapporto</li>
+                <li><b>% globale del rapporto</b> (<code>compagnia_rapporti</code>)</li>
+                <li>Default per <b>Tipo rapporto + Ramo/Sottoramo</b></li>
+                <li>Se nessuna regola → <b>0%</b> + warning</li>
               </ol>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
-      {/* Default tipo rapporto */}
-      <Accordion type="single" collapsible>
-        <AccordionItem value="def">
-          <AccordionTrigger className="text-sm font-medium">
-            <span className="flex items-center gap-2"><Percent className="w-4 h-4" />Default globali per tipo rapporto ({defaultTipo.length})</span>
-          </AccordionTrigger>
-          <AccordionContent>
-            <DefaultTipoEditor rows={defaultTipo} gruppiRamo={gruppiRamo} rami={rami} onChanged={() => qc.invalidateQueries({ queryKey: ["provv-default-tipo"] })} />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        {/* Default tipo rapporto */}
+        <Accordion type="single" collapsible>
+          <AccordionItem value="def">
+            <AccordionTrigger className="text-sm font-medium">
+              <span className="flex items-center gap-2"><Percent className="w-4 h-4" />Default globali per tipo rapporto ({defaultTipo.length})</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <DefaultTipoEditor rows={defaultTipo} gruppiRamo={gruppiRamo} rami={rami} onChanged={() => qc.invalidateQueries({ queryKey: ["provv-default-tipo"] })} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
-      {/* Selettore rapporto + azioni */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-end gap-3 flex-wrap">
-            <div className="flex-1 min-w-[300px] space-y-1">
-              <Label className="text-xs text-muted-foreground">Rapporto Agenzia ↔ Compagnia</Label>
-              <SearchableSelect
-                options={rapportoOptions}
-                value={rapportoId}
-                onValueChange={setRapportoId}
-                placeholder="Seleziona un rapporto..."
-              />
-            </div>
-            {rapportoSelected && (
-              <Badge variant="outline" className="h-9 px-3">
-                Tipo: {rapportoSelected.tipo_rapporto}
-              </Badge>
-            )}
-            <Button variant="outline" disabled={!rapportoId} onClick={() => setPasteOpen(true)}>
-              <ClipboardPaste className="w-4 h-4 mr-2" />Incolla CSV
-            </Button>
-            <Button variant="outline" disabled={!rapportoId} onClick={() => setCopyOpen(true)}>
-              <Copy className="w-4 h-4 mr-2" />Copia da altro
-            </Button>
-            <Button variant="outline" disabled={!rapportoId} onClick={() => setAiOpen(true)}>
-              <Sparkles className="w-4 h-4 mr-2" />Import IA
-            </Button>
-            <Button variant="outline" disabled={!rapportoId} onClick={exportCsv}>
-              <Download className="w-4 h-4 mr-2" />Export
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Matrice */}
-      {rapportoId && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Percent className="w-4 h-4" />Provvigioni per Ramo / Sottoramo
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">Ramo / Sottoramo</TableHead>
-                  <TableHead className="w-[120px]">%</TableHead>
-                  <TableHead className="w-[80px]">Stato</TableHead>
-                  <TableHead className="w-[60px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ramiAbilitati.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
-                      Nessun Ramo abilitato su questo rapporto. Apri "Rapporti" sulla compagnia e definisci i Rami/Sottorami abilitati.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  gruppiRamo
-                    .filter((gr: any) => enabledGruppoIds.has(gr.id))
-                    .map((gr: any, grIdx: number) => {
-                      const allSottorami = rami.filter((r: any) => r.gruppo_ramo_id === gr.id);
-                      const sottorami = gruppoHasAll[gr.id]
-                        ? allSottorami
-                        : allSottorami.filter((r: any) => specificSottoByGruppo[gr.id]?.has(r.id));
-                      const defKey = `${gr.id}|`;
-                      const defaultRow = provvMap[defKey];
-                      return (
-                        <RamoBlock
-                          key={gr.id}
-                          gr={gr}
-                          sottorami={sottorami}
-                          provvMap={provvMap}
-                          defaultRow={defaultRow}
-                          defKey={defKey}
-                          onSave={(row) => upsertMutation.mutate([row])}
-                          onDelete={(id) => deleteMutation.mutate(id)}
-                          zebra={grIdx % 2 === 0}
-                        />
-                      );
-                    })
+        {/* Toolbar sticky: selettore rapporto + azioni */}
+        <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
+          <Card>
+            <CardContent className="pt-4 pb-4 space-y-3">
+              <div className="flex items-end gap-2 flex-wrap">
+                <div className="flex-1 min-w-[300px] space-y-1">
+                  <Label className="text-xs text-muted-foreground">Rapporto Agenzia ↔ Compagnia</Label>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" disabled={!rapportoOptions.length} onClick={() => goRapporto(-1)} title="Rapporto precedente">
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <div className="flex-1">
+                      <SearchableSelect
+                        options={rapportoOptions}
+                        value={rapportoId}
+                        onValueChange={setRapportoId}
+                        placeholder="Seleziona un rapporto..."
+                      />
+                    </div>
+                    <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" disabled={!rapportoOptions.length} onClick={() => goRapporto(1)} title="Rapporto successivo">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                {rapportoSelected && (
+                  <Badge variant="outline" className="h-9 px-3">
+                    Tipo: {rapportoSelected.tipo_rapporto}
+                  </Badge>
                 )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+                <Button variant="outline" disabled={!rapportoId} onClick={() => setPasteOpen(true)}>
+                  <ClipboardPaste className="w-4 h-4 mr-2" />Incolla CSV
+                </Button>
+                <Button variant="outline" disabled={!rapportoId} onClick={() => setCopyOpen(true)}>
+                  <Copy className="w-4 h-4 mr-2" />Copia da altro
+                </Button>
+                <Button variant="outline" disabled={!rapportoId} onClick={() => setAiOpen(true)}>
+                  <Sparkles className="w-4 h-4 mr-2" />Import IA
+                </Button>
+                <Button variant="outline" disabled={!rapportoId} onClick={exportCsv}>
+                  <Download className="w-4 h-4 mr-2" />Export
+                </Button>
+              </div>
 
-      {pasteOpen && (
-        <PasteDialog
-          open={pasteOpen}
-          onClose={() => setPasteOpen(false)}
-          gruppiRamo={gruppiRamo}
-          rami={rami}
-          onConfirm={(rows) => {
-            upsertMutation.mutate(rows, { onSuccess: () => setPasteOpen(false) });
-          }}
-        />
-      )}
+              {/* Filtri matrice */}
+              {rapportoId && (
+                <div className="flex items-center gap-2 flex-wrap pt-1 border-t pt-3">
+                  <div className="relative flex-1 min-w-[220px] max-w-md">
+                    <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Cerca Ramo o Sottoramo..."
+                      className="pl-8 h-9"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    {(["all", "configured", "missing", "only_default"] as FilterStato[]).map((f) => (
+                      <Button
+                        key={f}
+                        size="sm"
+                        variant={filterStato === f ? "default" : "outline"}
+                        className="h-8"
+                        onClick={() => setFilterStato(f)}
+                      >
+                        {f === "all" ? "Tutti" : f === "configured" ? "Configurati" : f === "missing" ? "Mancanti" : "Solo default"}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {totals.gruppi} Rami · {totals.sottorami} sottorami · <b>{totals.configurati}</b> configurati
+                    </span>
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setAllExpanded(true)}>
+                      <ChevronsUpDown className="w-3.5 h-3.5 mr-1" />Espandi
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setAllExpanded(false)}>
+                      Collassa
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      {copyOpen && (
-        <CopyDialog
-          open={copyOpen}
-          onClose={() => setCopyOpen(false)}
-          rapporti={rapporti.filter((r: any) => r.id !== rapportoId)}
-          onConfirm={async (sourceId) => {
-            const { data } = await supabase
-              .from("provvigioni_compagnia_ramo")
-              .select("gruppo_ramo_id, ramo_id, percentuale_provvigione")
-              .eq("compagnia_rapporto_id", sourceId)
-              .eq("attiva", true);
-            const rows = (data || [])
-              .filter((r: any) => r.gruppo_ramo_id)
-              .map((r: any) => ({
-                gruppo_ramo_id: r.gruppo_ramo_id,
-                ramo_id: r.ramo_id,
-                percentuale: Number(r.percentuale_provvigione),
-              }));
-            if (rows.length === 0) {
-              toast.error("Il rapporto sorgente non ha righe");
-              return;
-            }
-            upsertMutation.mutate(rows, { onSuccess: () => setCopyOpen(false) });
-          }}
-        />
-      )}
+        {/* Matrice raggruppata */}
+        {rapportoId && (
+          <div className="space-y-2">
+            {ramiAbilitati.length === 0 ? (
+              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+                Nessun Ramo abilitato su questo rapporto. Apri "Rapporti" sulla compagnia e definisci i Rami/Sottorami abilitati.
+              </CardContent></Card>
+            ) : gruppiVisibili.length === 0 ? (
+              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+                Nessun Ramo corrisponde ai filtri.
+              </CardContent></Card>
+            ) : (
+              gruppiVisibili.map(({ gr, sottorami, defaultRow, configuredCount }) => (
+                <RamoGroupCard
+                  key={gr.id}
+                  gr={gr}
+                  sottorami={sottorami}
+                  defaultRow={defaultRow}
+                  provvMap={provvMap}
+                  configuredCount={configuredCount}
+                  expanded={isExpanded(gr.id, sottorami.length <= 5 || !!defaultRow || configuredCount > 0)}
+                  onToggle={() => setExpanded((p) => ({ ...p, [gr.id]: !isExpanded(gr.id, sottorami.length <= 5) }))}
+                  inheritedDefault={inheritedFromTipo(gr.id, null)}
+                  inheritedForRamo={(rid: string) => inheritedFromTipo(gr.id, rid)}
+                  onSave={(row) => upsertMutation.mutate([row])}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  onBulkApply={(perc, overwrite) => setBulkConfirm({ kind: "apply", gruppoId: gr.id, perc, overwrite })}
+                  onBulkReset={() => setBulkConfirm({ kind: "reset", gruppoId: gr.id })}
+                />
+              ))
+            )}
+          </div>
+        )}
 
-      {aiOpen && (
-        <AiImportDialog
-          open={aiOpen}
-          onClose={() => setAiOpen(false)}
-          gruppiRamo={gruppiRamo}
-          rami={rami}
-          onConfirm={(rows) => {
-            upsertMutation.mutate(rows, { onSuccess: () => setAiOpen(false) });
-          }}
-        />
-      )}
-    </div>
+        {/* AlertDialog conferma bulk */}
+        <AlertDialog open={!!bulkConfirm} onOpenChange={(v) => !v && setBulkConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {bulkConfirm?.kind === "apply" ? "Applica % a tutti i sottorami" : "Rimuovi override sottorami"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {bulkConfirm?.kind === "apply"
+                  ? `Verrà scritta la % ${bulkConfirm?.perc}% su ${bulkConfirm?.overwrite ? "tutti" : "solo i sottorami vuoti"} di questo Ramo.`
+                  : "Tutti i sottorami configurati di questo Ramo torneranno a ereditare dal default ramo. Operazione non distruttiva (soft delete)."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annulla</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (!bulkConfirm) return;
+                  if (bulkConfirm.kind === "apply") doBulkApply(bulkConfirm.gruppoId, bulkConfirm.perc!, !!bulkConfirm.overwrite);
+                  else doBulkReset(bulkConfirm.gruppoId);
+                  setBulkConfirm(null);
+                }}
+              >
+                Conferma
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {pasteOpen && (
+          <PasteDialog
+            open={pasteOpen}
+            onClose={() => setPasteOpen(false)}
+            gruppiRamo={gruppiRamo}
+            rami={rami}
+            onConfirm={(rows) => {
+              upsertMutation.mutate(rows, { onSuccess: () => setPasteOpen(false) });
+            }}
+          />
+        )}
+
+        {copyOpen && (
+          <CopyDialog
+            open={copyOpen}
+            onClose={() => setCopyOpen(false)}
+            rapporti={rapporti.filter((r: any) => r.id !== rapportoId)}
+            onConfirm={async (sourceId) => {
+              const { data } = await supabase
+                .from("provvigioni_compagnia_ramo")
+                .select("gruppo_ramo_id, ramo_id, percentuale_provvigione")
+                .eq("compagnia_rapporto_id", sourceId)
+                .eq("attiva", true);
+              const rows = (data || [])
+                .filter((r: any) => r.gruppo_ramo_id)
+                .map((r: any) => ({
+                  gruppo_ramo_id: r.gruppo_ramo_id,
+                  ramo_id: r.ramo_id,
+                  percentuale: Number(r.percentuale_provvigione),
+                }));
+              if (rows.length === 0) {
+                toast.error("Il rapporto sorgente non ha righe");
+                return;
+              }
+              upsertMutation.mutate(rows, { onSuccess: () => setCopyOpen(false) });
+            }}
+          />
+        )}
+
+        {aiOpen && (
+          <AiImportDialog
+            open={aiOpen}
+            onClose={() => setAiOpen(false)}
+            gruppiRamo={gruppiRamo}
+            rami={rami}
+            onConfirm={(rows) => {
+              upsertMutation.mutate(rows, { onSuccess: () => setAiOpen(false) });
+            }}
+          />
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
-// ─── Blocco riga Ramo + sottorami ──────────────────────────────────────────
-function RamoBlock({ gr, sottorami, provvMap, defaultRow, defKey, onSave, onDelete, zebra }: any) {
+// ─── Card collassabile per Ramo (gruppo) ───────────────────────────────────
+function RamoGroupCard({
+  gr, sottorami, defaultRow, provvMap, configuredCount,
+  expanded, onToggle, inheritedDefault, inheritedForRamo,
+  onSave, onDelete, onBulkApply, onBulkReset,
+}: any) {
   const [defVal, setDefVal] = useState<string>(defaultRow ? String(defaultRow.perc) : "");
+  const [bulkVal, setBulkVal] = useState<string>("");
+  const [overwrite, setOverwrite] = useState(false);
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => { setDefVal(defaultRow ? String(defaultRow.perc) : ""); }, [defaultRow?.id, defaultRow?.perc]);
+
+  const triggerFlash = () => { setFlash(true); setTimeout(() => setFlash(false), 700); };
+
+  const saveDefault = () => {
+    const n = parseFloat(defVal);
+    if (isNaN(n)) return;
+    if (defaultRow && n === defaultRow.perc) return;
+    onSave({ id: defaultRow?.id, gruppo_ramo_id: gr.id, ramo_id: null, percentuale: n });
+    triggerFlash();
+  };
+
   return (
-    <>
-      <TableRow className={zebra ? "bg-muted/30 font-medium" : "bg-muted/50 font-medium"}>
-        <TableCell>
-          <span className="text-xs uppercase text-muted-foreground mr-2">{gr.codice}</span>
-          {gr.descrizione} <Badge variant="outline" className="ml-2 text-[10px]">default ramo</Badge>
-        </TableCell>
-        <TableCell>
+    <Card className={`overflow-hidden transition-colors ${flash ? "ring-2 ring-emerald-400" : ""}`}>
+      <div className={`flex items-center gap-2 px-3 py-2 ${defaultRow || configuredCount > 0 ? "bg-primary/5" : "bg-muted/40"}`}>
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onToggle} aria-label={expanded ? "Collassa" : "Espandi"}>
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </Button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{gr.codice}</span>
+            <span className="font-medium truncate">{gr.descrizione}</span>
+            <Badge variant="outline" className="text-[10px]">{configuredCount}/{sottorami.length} sottorami</Badge>
+            {defaultRow && <Badge variant="secondary" className="text-[10px]">default {defaultRow.perc}%</Badge>}
+            {!defaultRow && inheritedDefault != null && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">eredita tipo: {inheritedDefault}%</Badge>
+                </TooltipTrigger>
+                <TooltipContent>Da "Default globali per tipo rapporto" (livello 4)</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+        {/* Default ramo inline */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Label className="text-[10px] text-muted-foreground mr-1">Default ramo</Label>
           <Input
-            type="number"
-            step="0.01"
+            type="number" step="0.01"
             value={defVal}
             onChange={(e) => setDefVal(e.target.value)}
-            onBlur={() => {
-              const n = parseFloat(defVal);
-              if (!isNaN(n)) {
-                onSave({ id: defaultRow?.id, gruppo_ramo_id: gr.id, ramo_id: null, percentuale: n });
-              }
-            }}
-            className="h-8 w-24"
+            onBlur={saveDefault}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            className="h-8 w-20"
+            placeholder="—"
           />
-        </TableCell>
-        <TableCell>{defaultRow ? <Badge variant="secondary">salvato</Badge> : <Badge variant="outline">—</Badge>}</TableCell>
-        <TableCell>
           {defaultRow && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(defaultRow.id)}>
-              <Trash2 className="w-3.5 h-3.5 text-destructive" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(defaultRow.id)}>
+                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Rimuovi default ramo</TooltipContent>
+            </Tooltip>
           )}
-        </TableCell>
-      </TableRow>
-      {sottorami.map((r: any) => {
-        const key = `${gr.id}|${r.id}`;
-        const row = provvMap[key];
-        return (
-          <SottoramoRow
-            key={r.id}
-            gr={gr}
-            ramo={r}
-            existing={row}
-            onSave={(perc) => onSave({ id: row?.id, gruppo_ramo_id: gr.id, ramo_id: r.id, percentuale: perc })}
-            onDelete={() => row && onDelete(row.id)}
-          />
-        );
-      })}
-    </>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t">
+          {/* Bulk actions */}
+          <div className="flex items-center gap-2 flex-wrap px-3 py-2 bg-muted/20 border-b">
+            <Wand2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Applica % a tutti i sottorami:</span>
+            <Input
+              type="number" step="0.01"
+              value={bulkVal}
+              onChange={(e) => setBulkVal(e.target.value)}
+              className="h-7 w-20"
+              placeholder="es. 15"
+            />
+            <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
+              sovrascrivi configurati
+            </label>
+            <Button
+              size="sm" variant="outline" className="h-7"
+              disabled={!bulkVal || isNaN(parseFloat(bulkVal))}
+              onClick={() => onBulkApply(parseFloat(bulkVal), overwrite)}
+            >
+              Applica
+            </Button>
+            <div className="ml-auto">
+              <Button size="sm" variant="ghost" className="h-7 text-destructive" onClick={onBulkReset}>
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />Resetta sottorami
+              </Button>
+            </div>
+          </div>
+
+          {/* Sottorami */}
+          {sottorami.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic px-3 py-3">Nessun sottoramo abilitato per questo Ramo.</p>
+          ) : (
+            <Table>
+              <TableBody>
+                {sottorami.map((s: any, i: number) => {
+                  const row = provvMap[`${gr.id}|${s.id}`];
+                  return (
+                    <SottoramoRow
+                      key={s.id}
+                      gr={gr}
+                      ramo={s}
+                      existing={row}
+                      zebra={i % 2 === 1}
+                      inheritedTipo={inheritedForRamo(s.id)}
+                      hasDefaultRamo={!!defaultRow}
+                      onSave={(perc: number) =>
+                        onSave({ id: row?.id, gruppo_ramo_id: gr.id, ramo_id: s.id, percentuale: perc })
+                      }
+                      onDelete={() => row && onDelete(row.id)}
+                    />
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 
-function SottoramoRow({ gr, ramo, existing, onSave, onDelete }: any) {
+function SottoramoRow({ ramo, existing, zebra, inheritedTipo, hasDefaultRamo, onSave, onDelete }: any) {
   const [val, setVal] = useState<string>(existing ? String(existing.perc) : "");
+  const [flash, setFlash] = useState(false);
+  useEffect(() => { setVal(existing ? String(existing.perc) : ""); }, [existing?.id, existing?.perc]);
+
+  const commit = () => {
+    const n = parseFloat(val);
+    if (isNaN(n)) return;
+    if (existing && n === existing.perc) return;
+    onSave(n);
+    setFlash(true); setTimeout(() => setFlash(false), 700);
+  };
+
+  const inheritLabel = existing
+    ? null
+    : hasDefaultRamo
+      ? "eredita default ramo"
+      : inheritedTipo != null
+        ? `eredita tipo (${inheritedTipo}%)`
+        : "0% (nessuna regola)";
+
   return (
-    <TableRow>
-      <TableCell className="pl-10 text-sm">
+    <TableRow className={`${zebra ? "bg-muted/20" : ""} ${flash ? "bg-emerald-50 dark:bg-emerald-950/30" : ""} transition-colors`}>
+      <TableCell className="pl-10 text-sm w-[55%]">
         <span className="text-xs text-muted-foreground mr-2">{ramo.codice}</span>
         {ramo.descrizione}
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[120px]">
         <Input
           type="number"
           step="0.01"
           value={val}
           onChange={(e) => setVal(e.target.value)}
-          onBlur={() => {
-            const n = parseFloat(val);
-            if (!isNaN(n)) onSave(n);
-          }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           className="h-8 w-24"
           placeholder="—"
         />
       </TableCell>
-      <TableCell>
-        {existing ? <Badge variant="default">salvato</Badge> : <Badge variant="outline" className="text-muted-foreground">eredita</Badge>}
+      <TableCell className="w-[180px]">
+        {existing ? (
+          <Badge variant="default">salvato</Badge>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="text-muted-foreground cursor-help">{inheritLabel}</Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {hasDefaultRamo
+                ? "Usa la % del default ramo configurata sopra (livello 2)."
+                : inheritedTipo != null
+                  ? "Usa la % del default globale per tipo rapporto (livello 4)."
+                  : "Nessuna regola: in fase di immissione polizza verrà applicato 0% con warning."}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[60px] text-right pr-3">
         {existing && (
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
             <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -472,6 +739,7 @@ function SottoramoRow({ gr, ramo, existing, onSave, onDelete }: any) {
     </TableRow>
   );
 }
+
 
 // ─── Editor default tipo rapporto ──────────────────────────────────────────
 function DefaultTipoEditor({ rows, gruppiRamo, rami, onChanged }: any) {
