@@ -1331,18 +1331,15 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   };
 
   const valid = risultati.filter((r) => r.ok);
+  const totalToSave = valid.reduce((acc, r) => acc + Math.max(r.ramo_ids?.length || 0, 1), 0);
   const showPreview = !!fileName || loading || !!warningMsg || !!errorMsg || risultati.length > 0;
 
   const gruppoOptions = useMemo(
     () => (gruppiRamo as any[]).map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
     [gruppiRamo]
   );
-  const ramoOptionsFor = (gruppoId: string | null) =>
-    [{ value: "__default__", label: "— Default ramo (nessun sottoramo) —" }].concat(
-      (rami as any[])
-        .filter((r: any) => !gruppoId || r.gruppo_ramo_id === gruppoId)
-        .map((r: any) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))
-    );
+  const sottoramiFor = (gruppoId: string | null) =>
+    (rami as any[]).filter((r: any) => gruppoId && r.gruppo_ramo_id === gruppoId);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
