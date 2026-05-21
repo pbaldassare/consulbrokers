@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
+import { resolvePercentualeProvvigione } from "@/lib/resolveProvvigione";
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
@@ -214,8 +215,10 @@ const ImmissionePolizzaPage = () => {
   // Flag: percentuale commerciale auto-popolata da produttori_provvigioni_ramo
   const [percentualeCommercialeAuto, setPercentualeCommercialeAuto] = useState(false);
 
-  // Provvigioni: l'utente inserisce manualmente la percentuale (lookup automatica rimossa)
+  // Provvigioni: auto-popolata da resolvePercentualeProvvigione (Rapporto + Ramo + Sottoramo)
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
+  const [percentualeProvvigioneAuto, setPercentualeProvvigioneAuto] = useState(true);
+  const [provvigioneFonte, setProvvigioneFonte] = useState<string>("");
 
   // Brokeraggio (quota del Produttore — default da anagrafiche_professionali.percentuale_consulenza)
   const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
@@ -700,6 +703,40 @@ const ImmissionePolizzaPage = () => {
     })();
     return () => { cancelled = true; };
   }, [selectedAE, selectedRamoData?.codice]);
+
+  // --- Auto-lookup % Provvigione (Rapporto + Ramo + Sottoramo) ---
+  const firstSottoramoForProvv =
+    premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+    premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
+    null;
+
+  // Re-abilita auto-lookup quando cambiano rapporto / gruppo ramo / sottoramo
+  useEffect(() => {
+    setPercentualeProvvigioneAuto(true);
+  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv]);
+
+  useEffect(() => {
+    if (!percentualeProvvigioneAuto) return;
+    if (!selectedRapportoId || !selectedGruppoRamoId) {
+      setPercentualeProvvigione("");
+      setProvvigioneFonte("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await resolvePercentualeProvvigione({
+          compagnia_rapporto_id: selectedRapportoId,
+          gruppo_ramo_id: selectedGruppoRamoId,
+          ramo_id: firstSottoramoForProvv,
+        });
+        if (cancelled) return;
+        setPercentualeProvvigione(res.percentuale ? String(res.percentuale) : "");
+        setProvvigioneFonte(res.fonte || "");
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv, percentualeProvvigioneAuto]);
 
   // --- Frazionamento helpers + auto-calcolo Periodo ---
   const FRAZIONAMENTO_OPTIONS = [
@@ -1506,8 +1543,8 @@ const ImmissionePolizzaPage = () => {
             const isSede = !produttoreLabel;
             const commonProvvProps = {
               percentualeAgenzia: percentualeProvvigione,
-              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeCommercialeAuto(false); },
-              percentualeAgenziaAuto: percentualeCommercialeAuto,
+              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeProvvigioneAuto(false); },
+              percentualeAgenziaAuto: percentualeProvvigioneAuto,
               produttoreLabel,
               percentualeCommerciale,
               percentualeCommercialeAuto,
