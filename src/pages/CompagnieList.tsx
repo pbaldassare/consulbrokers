@@ -14,10 +14,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Plus, Building2, Search, Percent, Pencil, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
 
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
-import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
+
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
 import ProvvigioniRapportiTab from "@/components/compagnie/ProvvigioniRapportiTab";
 
@@ -1539,9 +1539,6 @@ const CompagnieList = () => {
           <TabsTrigger value="provvigioni" className="gap-2">
             <Percent className="w-4 h-4" />Provvigioni
           </TabsTrigger>
-          <TabsTrigger value="import-provvigioni" className="gap-2">
-            <Brain className="w-4 h-4" />Import Provvigioni IA
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="agenzie" className="mt-4">
@@ -1680,9 +1677,6 @@ const CompagnieList = () => {
           <ProvvigioniRapportiTab />
         </TabsContent>
 
-        <TabsContent value="import-provvigioni">
-          <ImportProvvigioniTab />
-        </TabsContent>
 
       </Tabs>
 
