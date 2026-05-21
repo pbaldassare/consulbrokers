@@ -1699,6 +1699,7 @@ export type Database = {
           gruppo_compagnia_id: string
           iban_dedicato: string | null
           id: string
+          is_principale: boolean
           nome_rapporto: string | null
           note: string | null
           percentuale_provvigione: number | null
@@ -1727,6 +1728,7 @@ export type Database = {
           gruppo_compagnia_id: string
           iban_dedicato?: string | null
           id?: string
+          is_principale?: boolean
           nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
@@ -1755,6 +1757,7 @@ export type Database = {
           gruppo_compagnia_id?: string
           iban_dedicato?: string | null
           id?: string
+          is_principale?: boolean
           nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null

@@ -131,6 +131,18 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     enabled: !!compagniaId && open,
   });
 
+  // Tipo compagnia: agenzia/direzione = relazione 1:1 → un solo rapporto principale
+  const { data: compagniaTipo } = useQuery({
+    queryKey: ["compagnia-tipo", compagniaId],
+    enabled: !!compagniaId && open,
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("tipo").eq("id", compagniaId!).maybeSingle();
+      return (data as any)?.tipo as string | undefined;
+    },
+  });
+  const isSingleRapporto = compagniaTipo === "agenzia" || compagniaTipo === "direzione";
+
+
   const { data: gruppi = [] } = useQuery({
     queryKey: ["gruppi_compagnia_for_rapporti"],
     queryFn: async () => {
@@ -552,10 +564,17 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
           </DialogHeader>
 
           <div className="space-y-4">
+            {isSingleRapporto && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+                Per <b>{compagniaTipo === "agenzia" ? "Agenzie" : "Direzioni"}</b> la relazione con la Compagnia è 1:1: esiste un solo <b>rapporto principale</b>, generato automaticamente dall'anagrafica e sincronizzato bidirezionalmente. Modifica i campi qui o sull'anagrafica: cambia tutto in entrambi i posti.
+              </div>
+            )}
             <div className="flex justify-end">
-              <Button onClick={openNew} className="gap-2">
-                <Plus className="w-4 h-4" /> Nuovo Rapporto
-              </Button>
+              {!isSingleRapporto && (
+                <Button onClick={openNew} className="gap-2">
+                  <Plus className="w-4 h-4" /> Nuovo Rapporto
+                </Button>
+              )}
             </div>
 
             <Card>
@@ -564,8 +583,11 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   <p className="text-muted-foreground text-sm">Caricamento...</p>
                 ) : rapporti.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8 text-sm">
-                    Nessun rapporto registrato. Clicca "Nuovo Rapporto" per crearne uno.
+                    {isSingleRapporto
+                      ? "Rapporto principale non ancora generato. Riapri l'anagrafica e salva per crearlo."
+                      : "Nessun rapporto registrato. Clicca \"Nuovo Rapporto\" per crearne uno."}
                   </p>
+
                 ) : (
                   <Table>
                     <TableHeader>
