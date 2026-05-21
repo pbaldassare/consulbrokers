@@ -29,10 +29,25 @@ type FilterStato = "all" | "configured" | "missing" | "only_default";
 
 export default function ProvvigioniRapportiTab() {
   const qc = useQueryClient();
-  const [rapportoId, setRapportoId] = useState<string>("");
+  // Stato UI (con persistenza localStorage)
+  const persisted = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; }
+  }, []);
+  const [rapportoId, setRapportoId] = useState<string>(persisted.rapportoId || "");
   const [pasteOpen, setPasteOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [search, setSearch] = useState<string>("");
+  const [filterStato, setFilterStato] = useState<FilterStato>(persisted.filterStato || "all");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(persisted.expanded || {});
+  const [bulkConfirm, setBulkConfirm] = useState<{ kind: "apply" | "reset"; gruppoId: string; perc?: number; overwrite?: boolean } | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ rapportoId, filterStato, expanded }));
+    } catch {}
+  }, [rapportoId, filterStato, expanded]);
+
 
   // Rapporti elenco
   const { data: rapporti = [] } = useQuery({
