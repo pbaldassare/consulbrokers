@@ -1342,11 +1342,12 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="max-w-[96vw] md:max-w-5xl w-full max-h-[88vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b shrink-0">
           <DialogTitle>Import IA tariffario provvigioni</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <input
               ref={fileRef}
@@ -1363,9 +1364,11 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               {loading ? "Analisi in corso..." : "Carica PDF/Immagine"}
             </Button>
-            {fileName && <span className="text-xs text-muted-foreground truncate max-w-[260px]">{fileName}</span>}
-            <span className="text-xs text-muted-foreground ml-auto">
-              L'IA estrarrà Ramo, Sottoramo e %. Puoi correggere i match prima di salvare.
+            {fileName && (
+              <span className="text-xs text-muted-foreground truncate max-w-[260px]">{fileName}</span>
+            )}
+            <span className="text-xs text-muted-foreground ml-auto hidden md:inline">
+              L'IA estrae Ramo, Sottoramo e %. Puoi correggere i match prima di salvare.
             </span>
           </div>
 
@@ -1373,11 +1376,11 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
             <div className="rounded-md border bg-muted/20 p-3 text-sm">
               <div className="flex items-start gap-2">
                 {errorMsg ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-destructive shrink-0" />
                 ) : loading ? (
-                  <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                 ) : (
-                  <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <FileText className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
                 )}
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="font-medium">
@@ -1389,12 +1392,20 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                           ? `Anteprima import: ${risultati.length} righe estratte`
                           : "Anteprima import"}
                   </div>
-                  <div className={errorMsg ? "text-destructive" : "text-muted-foreground"}>
-                    {errorMsg || warningMsg || (fileName ? `File selezionato: ${fileName}` : "Seleziona un PDF o un'immagine per avviare l'estrazione.")}
+                  <div className={errorMsg ? "text-destructive break-words" : "text-muted-foreground break-words"}>
+                    {errorMsg ||
+                      warningMsg ||
+                      (fileName
+                        ? `File selezionato: ${fileName}`
+                        : "Seleziona un PDF o un'immagine per avviare l'estrazione.")}
                   </div>
-                  {!loading && !errorMsg && risultati.length === 0 && fileName && (
-                    <div className="text-xs text-muted-foreground">
-                      Se non vengono estratte righe, prova a caricare una scansione JPG/PNG più nitida o una pagina PDF contenente la tabella provvigionale.
+                  {risultati.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <Badge variant="default">{valid.length} salvabili</Badge>
+                      <Badge variant="destructive">{risultati.length - valid.length} da rivedere</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Le righe senza sottoramo vengono salvate come <b>default ramo</b>.
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1403,32 +1414,25 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
           )}
 
           {risultati.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <Badge variant="default">{valid.length} OK</Badge>
-                <Badge variant="destructive">{risultati.length - valid.length} da rivedere</Badge>
-                <span className="text-muted-foreground">
-                  Le righe senza sottoramo verranno salvate come <b>default ramo</b>.
-                </span>
-              </div>
-              <div className="border rounded max-h-[420px] overflow-auto">
+            <div className="border rounded-md overflow-hidden">
+              <div className="max-h-[50vh] overflow-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
-                      <TableHead className="w-[16%]">Ramo IA</TableHead>
-                      <TableHead className="w-[16%]">Sottoramo IA</TableHead>
-                      <TableHead className="w-[24%]">Ramo DB</TableHead>
-                      <TableHead className="w-[24%]">Sottoramo DB</TableHead>
-                      <TableHead className="w-[10%]">%</TableHead>
-                      <TableHead className="w-[10%]">Stato</TableHead>
+                      <TableHead className="w-[14%] h-9 px-2 text-xs">Ramo IA</TableHead>
+                      <TableHead className="w-[14%] h-9 px-2 text-xs">Sottoramo IA</TableHead>
+                      <TableHead className="w-[24%] h-9 px-2 text-xs">Ramo DB</TableHead>
+                      <TableHead className="w-[24%] h-9 px-2 text-xs">Sottoramo DB</TableHead>
+                      <TableHead className="w-[12%] h-9 px-2 text-xs">%</TableHead>
+                      <TableHead className="w-[12%] h-9 px-2 text-xs">Stato</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {risultati.map((r, i) => (
                       <TableRow key={i} className={i % 2 ? "bg-muted/30" : ""}>
-                        <TableCell className="text-xs">{r.ramo || "—"}</TableCell>
-                        <TableCell className="text-xs">{r.sottoramo || "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs p-2 align-top">{r.ramo || "—"}</TableCell>
+                        <TableCell className="text-xs p-2 align-top">{r.sottoramo || "—"}</TableCell>
+                        <TableCell className="p-2 align-top">
                           <SearchableSelect
                             options={gruppoOptions}
                             value={r.gruppo_ramo_id || ""}
@@ -1436,7 +1440,7 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                             placeholder="Seleziona ramo..."
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="p-2 align-top">
                           <SearchableSelect
                             options={ramoOptionsFor(r.gruppo_ramo_id)}
                             value={r.ramo_id || "__default__"}
@@ -1444,7 +1448,7 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                             placeholder="Default ramo"
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="p-2 align-top">
                           <Input
                             type="number"
                             step="0.01"
@@ -1453,7 +1457,7 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                             className="h-8 w-20"
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="p-2 align-top">
                           {r.ok ? <Badge>OK</Badge> : <Badge variant="destructive">no match</Badge>}
                         </TableCell>
                       </TableRow>
@@ -1463,8 +1467,15 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               </div>
             </div>
           )}
+
+          {!showPreview && (
+            <div className="rounded-md border border-dashed bg-muted/10 p-8 text-center text-sm text-muted-foreground">
+              Nessun allegato caricato. Seleziona un PDF o un'immagine della tabella provvigionale per iniziare.
+            </div>
+          )}
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="px-6 py-3 border-t shrink-0 bg-background">
           <Button variant="outline" onClick={onClose}>
             Annulla
           </Button>

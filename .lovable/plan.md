@@ -1,30 +1,31 @@
-## Diagnosi
+## Problema
 
-Il modal non mostra anteprima perché oggi visualizza la tabella solo quando `risultati.length > 0`. Se la funzione risponde errore o warning, l’utente vede solo `Salva 0` senza dettagli. Dai log inoltre risultano chiamate con `sizeKB: 0` e il gateway risponde `The document has no pages`, quindi va intercettato il caso file/base64 vuoto o PDF non leggibile prima di inviare o subito dopo la risposta.
+Nel modal Import IA l’anteprima è costruita in verticale dentro un `DialogContent` con altezza non controllata. Con viewport come quello attuale, la tabella con `SearchableSelect`, badge, messaggi e footer può risultare compressa, tagliata o difficile da scorrere. Inoltre l’anteprima mostra poco: separa male stato file, risposta IA e righe realmente importabili.
 
-## Piano di intervento
+## Piano di correzione
 
-1. **Rendere il caricamento verificabile lato frontend**
-   - Bloccare file vuoti o letture base64 vuote con messaggio chiaro.
-   - Resettare il valore dell’input file dopo ogni scelta, così ricaricare lo stesso allegato rilancia davvero l’analisi.
-   - Mostrare stato esplicito nel modal: file selezionato, analisi in corso, errore/warning, righe estratte.
+1. **Riorganizzare il modal Import IA**
+   - Rendere il dialog largo ma responsive: massimo circa 96vw e altezza massima 88vh.
+   - Strutturarlo in header fisso, corpo scrollabile e footer fisso.
+   - Evitare che il footer “Salva / Annulla” finisca fuori schermo.
 
-2. **Aggiungere una vera area anteprima nel modal**
-   - Mostrare sempre un pannello sotto il pulsante, anche con 0 righe.
-   - Stati previsti:
-     - nessun file caricato;
-     - analisi in corso;
-     - errore leggibile;
-     - warning AI;
-     - tabella preview con righe estratte e correggibili.
-   - `Salva` resta disabilitato solo se non ci sono righe valide, ma l’utente capisce perché.
+2. **Creare un’area anteprima più leggibile**
+   - In alto: pannello compatto con file caricato, stato analisi, warning/errore.
+   - Sotto: contatori chiari “righe estratte”, “salvabili”, “da rivedere”.
+   - Se non ci sono dati, mostrare uno stato vuoto ordinato invece di una tabella o messaggi sparsi.
 
-3. **Correggere risposta edge function per PDF non validi/non leggibili**
-   - Validare `pdf_base64` minimo prima di chiamare Lovable AI.
-   - Se il gateway risponde `The document has no pages`, restituire warning utente invece di errore generico 502.
-   - Mantenere log tecnici, ma trasformare gli errori comuni in messaggi operativi.
+3. **Sistemare la tabella dati estratti**
+   - Mettere la tabella in un contenitore con scroll verticale e orizzontale controllato.
+   - Rendere sticky l’intestazione della tabella.
+   - Ridurre padding e larghezze delle colonne per viewport medio/piccolo.
+   - Fare in modo che i `SearchableSelect` non allarghino o rompano la griglia.
 
-4. **Verifica e deploy**
-   - Deploy della funzione `parse-tariffario-rami` dopo la modifica.
-   - Test diretto della funzione con payload vuoto/minimo per confermare il warning pulito.
-   - Verifica che nel modal compaia sempre l’anteprima/stato e non rimanga più silenzioso su `Salva 0`.
+4. **Aggiungere preview documento quando utile**
+   - Per PDF: usare il componente `PdfPreview` già presente, mostrando una preview laterale o collassabile.
+   - Per immagini: mostrare un’anteprima dell’immagine caricata.
+   - La preview documento non deve rubare spazio alla tabella: sarà scrollabile e limitata in altezza.
+
+5. **Verifica finale**
+   - Controllare il modal a 955x599 e desktop.
+   - Verificare che caricamento, warning, errore e tabella con righe siano tutti leggibili senza sovrapposizioni.
+   - Controllare che non compaiano più layout instabili legati allo scroll del modal.
