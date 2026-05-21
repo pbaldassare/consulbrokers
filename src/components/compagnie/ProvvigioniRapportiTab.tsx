@@ -67,10 +67,28 @@ export default function ProvvigioniRapportiTab() {
     () =>
       rapporti.map((r: any) => ({
         value: r.id,
-        label: `${r.gruppi_compagnia?.descrizione || "?"} — ${r.nome_rapporto} (${r.compagnie?.nome || ""})`,
+        label: `${r.gruppi_compagnia?.descrizione || "?"} — ${r.nome_rapporto}${r.compagnie?.nome ? ` (${r.compagnie.nome})` : ""} · ${r.tipo_rapporto || "—"}`,
       })),
     [rapporti]
   );
+
+  // Aggregato: conteggio righe provvigione attive per rapporto (per pannello "Elenco rapporti")
+  const { data: provvCountByRapporto = {} } = useQuery({
+    queryKey: ["provv-count-by-rapporto"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("provvigioni_compagnia_ramo")
+        .select("compagnia_rapporto_id")
+        .eq("attiva", true);
+      if (error) throw error;
+      const m: Record<string, number> = {};
+      (data || []).forEach((r: any) => {
+        if (!r.compagnia_rapporto_id) return;
+        m[r.compagnia_rapporto_id] = (m[r.compagnia_rapporto_id] || 0) + 1;
+      });
+      return m;
+    },
+  });
 
   const rapportoSelected = rapporti.find((r: any) => r.id === rapportoId) as any;
 
