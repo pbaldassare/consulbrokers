@@ -1206,12 +1206,10 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
         sottoramo: r.sottoramo || "",
         percentuale: perc,
         gruppo_ramo_id,
-        ramo_id: sotto?.id || null,
+        ramo_ids: sotto?.id ? [sotto.id] : [],
         ok: !!gruppo_ramo_id && !isNaN(perc),
       };
     });
-
-  const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 
   const compressImage = async (file: File): Promise<{ base64: string; mime: string }> => {
     const dataUrl: string = await new Promise((res, rej) => {
