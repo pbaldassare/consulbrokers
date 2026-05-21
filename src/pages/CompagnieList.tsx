@@ -17,7 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Building2, Search, Percent, Pencil, Brain, Layers, Trash2, Network, AlertTriangle, ShieldCheck } from "lucide-react";
 
 const PLURIMANDATARIO_CODE = "PLURIMANDATARIO";
-import ImportProvvigioniTab from "@/components/ImportProvvigioniTab";
+
 import RapportiCompagniaDialog from "@/components/compagnie/RapportiCompagniaDialog";
 import ProvvigioniRapportiTab from "@/components/compagnie/ProvvigioniRapportiTab";
 
