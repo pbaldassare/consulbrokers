@@ -1437,16 +1437,16 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                           <SearchableSelect
                             options={gruppoOptions}
                             value={r.gruppo_ramo_id || ""}
-                            onValueChange={(v) => updateRow(i, { gruppo_ramo_id: v, ramo_id: null })}
+                            onValueChange={(v) => updateRow(i, { gruppo_ramo_id: v, ramo_ids: [] })}
                             placeholder="Seleziona ramo..."
                           />
                         </TableCell>
                         <TableCell className="p-2 align-top">
-                          <SearchableSelect
-                            options={ramoOptionsFor(r.gruppo_ramo_id)}
-                            value={r.ramo_id || "__default__"}
-                            onValueChange={(v) => updateRow(i, { ramo_id: v === "__default__" ? null : v })}
-                            placeholder="Default ramo"
+                          <SottoramiMultiSelect
+                            sottorami={sottoramiFor(r.gruppo_ramo_id)}
+                            value={r.ramo_ids || []}
+                            onChange={(ids) => updateRow(i, { ramo_ids: ids })}
+                            disabled={!r.gruppo_ramo_id}
                           />
                         </TableCell>
                         <TableCell className="p-2 align-top">
@@ -1481,19 +1481,22 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
             Annulla
           </Button>
           <Button
-            disabled={valid.length === 0}
+            disabled={totalToSave === 0}
             onClick={() =>
               onConfirm(
-                valid.map((r) => ({
-                  gruppo_ramo_id: r.gruppo_ramo_id,
-                  ramo_id: r.ramo_id,
-                  percentuale: Number(r.percentuale),
-                }))
+                valid.flatMap((r) => {
+                  const ids = r.ramo_ids?.length ? r.ramo_ids : [null];
+                  return ids.map((ramo_id: string | null) => ({
+                    gruppo_ramo_id: r.gruppo_ramo_id,
+                    ramo_id,
+                    percentuale: Number(r.percentuale),
+                  }));
+                })
               )
             }
           >
             <Save className="w-4 h-4 mr-2" />
-            Salva {valid.length}
+            Salva {totalToSave}
           </Button>
         </DialogFooter>
       </DialogContent>
