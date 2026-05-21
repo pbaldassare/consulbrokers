@@ -131,6 +131,18 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
     enabled: !!compagniaId && open,
   });
 
+  // Tipo compagnia: agenzia/direzione = relazione 1:1 → un solo rapporto principale
+  const { data: compagniaTipo } = useQuery({
+    queryKey: ["compagnia-tipo", compagniaId],
+    enabled: !!compagniaId && open,
+    queryFn: async () => {
+      const { data } = await supabase.from("compagnie").select("tipo").eq("id", compagniaId!).maybeSingle();
+      return (data as any)?.tipo as string | undefined;
+    },
+  });
+  const isSingleRapporto = compagniaTipo === "agenzia" || compagniaTipo === "direzione";
+
+
   const { data: gruppi = [] } = useQuery({
     queryKey: ["gruppi_compagnia_for_rapporti"],
     queryFn: async () => {
