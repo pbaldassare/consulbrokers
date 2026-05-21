@@ -1677,9 +1677,6 @@ const CompagnieList = () => {
           <ProvvigioniRapportiTab />
         </TabsContent>
 
-        <TabsContent value="import-provvigioni">
-          <ImportProvvigioniTab />
-        </TabsContent>
 
       </Tabs>
 
