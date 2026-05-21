@@ -1537,8 +1537,8 @@ const ImmissionePolizzaPage = () => {
             const isSede = !produttoreLabel;
             const commonProvvProps = {
               percentualeAgenzia: percentualeProvvigione,
-              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeCommercialeAuto(false); },
-              percentualeAgenziaAuto: percentualeCommercialeAuto,
+              onPercentualeAgenziaChange: (v: string) => { setPercentualeProvvigione(v); setPercentualeProvvigioneAuto(false); },
+              percentualeAgenziaAuto: percentualeProvvigioneAuto,
               produttoreLabel,
               percentualeCommerciale,
               percentualeCommercialeAuto,
