@@ -353,52 +353,133 @@ export default function ProvvigioniRapportiTab() {
           </AccordionItem>
         </Accordion>
 
+        {/* Elenco rapporti attivi (collassabile) */}
+        <Accordion type="single" collapsible>
+          <AccordionItem value="elenco" className="border rounded-md px-3">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline">
+              <span className="flex items-center gap-2">
+                <Percent className="w-4 h-4" />
+                Elenco Agenzie e provvigioni attive ({rapporti.length})
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="pb-2 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Compagnia</TableHead>
+                      <TableHead>Rapporto</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead className="text-right">Righe %</TableHead>
+                      <TableHead className="text-right">Azione</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rapporti.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-4">
+                          Nessun rapporto attivo.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      (rapporti as any[]).map((r) => {
+                        const count = provvCountByRapporto[r.id] || 0;
+                        return (
+                          <TableRow
+                            key={r.id}
+                            className={`cursor-pointer ${rapportoId === r.id ? "bg-primary/10" : ""}`}
+                            onClick={() => setRapportoId(r.id)}
+                          >
+                            <TableCell className="text-sm">{r.gruppi_compagnia?.descrizione || "—"}</TableCell>
+                            <TableCell className="text-sm font-medium">
+                              {r.nome_rapporto}
+                              {r.compagnie?.nome ? (
+                                <span className="text-muted-foreground"> · {r.compagnie.nome}</span>
+                              ) : null}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{r.tipo_rapporto || "—"}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {count > 0 ? (
+                                <Badge variant="default">{count}</Badge>
+                              ) : (
+                                <Badge variant="secondary">0</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant={rapportoId === r.id ? "default" : "outline"}
+                                onClick={(e) => { e.stopPropagation(); setRapportoId(r.id); }}
+                              >
+                                Apri
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
         {/* Toolbar sticky: selettore rapporto + azioni */}
         <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
           <Card>
             <CardContent className="pt-4 pb-4 space-y-3">
-              <div className="flex items-end gap-2 flex-wrap">
-                <div className="flex-1 min-w-[300px] space-y-1">
-                  <Label className="text-xs text-muted-foreground">Rapporto Agenzia ↔ Compagnia</Label>
-                  <div className="flex items-center gap-1">
-                    <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" disabled={!rapportoOptions.length} onClick={() => goRapporto(-1)} title="Rapporto precedente">
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <div className="flex-1">
-                      <SearchableSelect
-                        options={rapportoOptions}
-                        value={rapportoId}
-                        onValueChange={setRapportoId}
-                        placeholder="Seleziona un rapporto..."
-                      />
-                    </div>
-                    <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" disabled={!rapportoOptions.length} onClick={() => goRapporto(1)} title="Rapporto successivo">
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
+              {/* Riga 1: selettore rapporto con prev/next */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Rapporto Agenzia ↔ Compagnia</Label>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" disabled={!rapportoOptions.length} onClick={() => goRapporto(-1)} title="Rapporto precedente">
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      options={rapportoOptions}
+                      value={rapportoId}
+                      onValueChange={setRapportoId}
+                      placeholder="Seleziona un rapporto..."
+                    />
                   </div>
+                  <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" disabled={!rapportoOptions.length} onClick={() => goRapporto(1)} title="Rapporto successivo">
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </div>
-                {rapportoSelected && (
-                  <Badge variant="outline" className="h-9 px-3">
-                    Tipo: {rapportoSelected.tipo_rapporto}
-                  </Badge>
-                )}
-                <Button variant="outline" disabled={!rapportoId} onClick={() => setPasteOpen(true)}>
-                  <ClipboardPaste className="w-4 h-4 mr-2" />Incolla CSV
-                </Button>
-                <Button variant="outline" disabled={!rapportoId} onClick={() => setCopyOpen(true)}>
-                  <Copy className="w-4 h-4 mr-2" />Copia da altro
-                </Button>
-                <Button variant="outline" disabled={!rapportoId} onClick={() => setAiOpen(true)}>
-                  <Sparkles className="w-4 h-4 mr-2" />Import IA
-                </Button>
-                <Button variant="outline" disabled={!rapportoId} onClick={exportCsv}>
-                  <Download className="w-4 h-4 mr-2" />Export
-                </Button>
+              </div>
+
+              {/* Riga 2: tipo rapporto + azioni */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  {rapportoSelected && (
+                    <Badge variant="outline" className="h-8 px-3">
+                      Tipo: {rapportoSelected.tipo_rapporto || "—"}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" disabled={!rapportoId} onClick={() => setPasteOpen(true)}>
+                    <ClipboardPaste className="w-4 h-4 mr-2" />Incolla CSV
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={!rapportoId} onClick={() => setCopyOpen(true)}>
+                    <Copy className="w-4 h-4 mr-2" />Copia da altro
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={!rapportoId} onClick={() => setAiOpen(true)}>
+                    <Sparkles className="w-4 h-4 mr-2" />Import IA
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={!rapportoId} onClick={exportCsv}>
+                    <Download className="w-4 h-4 mr-2" />Export
+                  </Button>
+                </div>
               </div>
 
               {/* Filtri matrice */}
               {rapportoId && (
-                <div className="flex items-center gap-2 flex-wrap pt-1 border-t pt-3">
+                <div className="flex items-center gap-2 flex-wrap pt-3 border-t">
                   <div className="relative flex-1 min-w-[220px] max-w-md">
                     <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
