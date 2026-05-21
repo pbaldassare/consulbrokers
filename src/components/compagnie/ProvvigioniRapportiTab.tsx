@@ -1353,10 +1353,14 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               type="file"
               accept="application/pdf,image/*"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              onChange={(e) => {
+                const selected = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (selected) handleFile(selected);
+              }}
             />
             <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={loading}>
-              <Upload className="w-4 h-4 mr-2" />
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               {loading ? "Analisi in corso..." : "Carica PDF/Immagine"}
             </Button>
             {fileName && <span className="text-xs text-muted-foreground truncate max-w-[260px]">{fileName}</span>}
@@ -1364,6 +1368,39 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               L'IA estrarrà Ramo, Sottoramo e %. Puoi correggere i match prima di salvare.
             </span>
           </div>
+
+          {showPreview && (
+            <div className="rounded-md border bg-muted/20 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                {errorMsg ? (
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+                ) : loading ? (
+                  <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                )}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="font-medium">
+                    {loading
+                      ? "Analisi dell'allegato in corso"
+                      : errorMsg
+                        ? "Allegato non caricato"
+                        : risultati.length > 0
+                          ? `Anteprima import: ${risultati.length} righe estratte`
+                          : "Anteprima import"}
+                  </div>
+                  <div className={errorMsg ? "text-destructive" : "text-muted-foreground"}>
+                    {errorMsg || warningMsg || (fileName ? `File selezionato: ${fileName}` : "Seleziona un PDF o un'immagine per avviare l'estrazione.")}
+                  </div>
+                  {!loading && !errorMsg && risultati.length === 0 && fileName && (
+                    <div className="text-xs text-muted-foreground">
+                      Se non vengono estratte righe, prova a caricare una scansione JPG/PNG più nitida o una pagina PDF contenente la tabella provvigionale.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {risultati.length > 0 && (
             <div className="space-y-2">
