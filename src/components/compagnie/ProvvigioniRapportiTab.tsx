@@ -565,7 +565,10 @@ export default function ProvvigioniRapportiTab() {
                   inheritedForRamo={(rid: string) => inheritedFromTipo(gr.id, rid)}
                   onSave={(row) => upsertMutation.mutate([row])}
                   onDelete={(id) => deleteMutation.mutate(id)}
-                  onBulkApply={(perc, overwrite) => setBulkConfirm({ kind: "apply", gruppoId: gr.id, perc, overwrite })}
+                  onBulkApply={(perc, overwrite) => {
+                    if (overwrite) setBulkConfirm({ kind: "apply", gruppoId: gr.id, perc, overwrite });
+                    else doBulkApply(gr.id, perc, false);
+                  }}
                   onBulkReset={() => setBulkConfirm({ kind: "reset", gruppoId: gr.id })}
                 />
               ))
