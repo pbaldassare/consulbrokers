@@ -172,25 +172,45 @@ export default function ProvvigioniRapportiTab() {
   const upsertMutation = useMutation({
     mutationFn: async (rows: { gruppo_ramo_id: string; ramo_id: string | null; percentuale: number; id?: string }[]) => {
       if (!rapportoId) throw new Error("Seleziona un rapporto");
-      const payload = rows.map((r) => ({
-        ...(r.id ? { id: r.id } : {}),
-        compagnia_rapporto_id: rapportoId,
-        compagnia_id: rapportoSelected?.compagnia_id,
-        gruppo_ramo_id: r.gruppo_ramo_id,
-        ramo_id: r.ramo_id,
-        percentuale_provvigione: r.percentuale,
-        attiva: true,
-      }));
-      const { error } = await (supabase.from("provvigioni_compagnia_ramo") as any).upsert(payload, {
-        onConflict: "compagnia_rapporto_id,gruppo_ramo_id,ramo_id",
-      });
-      if (error) throw error;
+      if (!rows.length) return { inserted: 0, updated: 0 };
+
+      // Split UPDATE vs INSERT — no .upsert() to avoid PostgREST onConflict
+      // limitation (we only have a PARTIAL unique index, not a constraint).
+      const toUpdate = rows.filter((r) => !!r.id);
+      const toInsert = rows.filter((r) => !r.id);
+
+      const updates = await Promise.all(
+        toUpdate.map((r) =>
+          supabase
+            .from("provvigioni_compagnia_ramo")
+            .update({ percentuale_provvigione: r.percentuale, attiva: true } as any)
+            .eq("id", r.id!)
+        )
+      );
+      const updErr = updates.find((u) => u.error)?.error;
+      if (updErr) throw updErr;
+
+      if (toInsert.length) {
+        const payload = toInsert.map((r) => ({
+          compagnia_rapporto_id: rapportoId,
+          compagnia_id: rapportoSelected?.compagnia_id,
+          gruppo_ramo_id: r.gruppo_ramo_id,
+          ramo_id: r.ramo_id,
+          percentuale_provvigione: r.percentuale,
+          attiva: true,
+        }));
+        const { error } = await (supabase.from("provvigioni_compagnia_ramo") as any).insert(payload);
+        if (error) throw error;
+      }
+      return { inserted: toInsert.length, updated: toUpdate.length };
     },
-    onSuccess: () => {
-      toast.success("Salvato");
+    onSuccess: (res: any) => {
+      const n = (res?.inserted || 0) + (res?.updated || 0);
+      toast.success(n > 1 ? `Salvate ${n} righe` : "Salvato");
       qc.invalidateQueries({ queryKey: ["provv-rapporto", rapportoId] });
+      qc.invalidateQueries({ queryKey: ["provv-count-by-rapporto"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.message || "Errore nel salvataggio"),
   });
 
   const deleteMutation = useMutation({
@@ -545,7 +565,10 @@ export default function ProvvigioniRapportiTab() {
                   inheritedForRamo={(rid: string) => inheritedFromTipo(gr.id, rid)}
                   onSave={(row) => upsertMutation.mutate([row])}
                   onDelete={(id) => deleteMutation.mutate(id)}
-                  onBulkApply={(perc, overwrite) => setBulkConfirm({ kind: "apply", gruppoId: gr.id, perc, overwrite })}
+                  onBulkApply={(perc, overwrite) => {
+                    if (overwrite) setBulkConfirm({ kind: "apply", gruppoId: gr.id, perc, overwrite });
+                    else doBulkApply(gr.id, perc, false);
+                  }}
                   onBulkReset={() => setBulkConfirm({ kind: "reset", gruppoId: gr.id })}
                 />
               ))

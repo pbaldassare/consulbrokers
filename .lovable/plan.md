@@ -1,40 +1,30 @@
-## Obiettivo
-Semplificare la pagina `Compagnie / Agenzie` rimuovendo il tab ridondante "Import Provvigioni IA", aggiungere un elenco riepilogativo "Agenzie e provvigioni attive" e sistemare gli spacing problematici della toolbar.
+## Diagnosi
+Cliccando "Applica" sul bulk-apply non viene fatta nessuna chiamata POST/PATCH a `provvigioni_compagnia_ramo`. Causa root:
 
-## 1. Rimozione tab "Import Provvigioni IA"
-- In `src/pages/CompagnieList.tsx`:
-  - Rimuovere il `TabsTrigger value="import-provvigioni"` e il relativo `TabsContent`.
-  - Rimuovere l'import `ImportProvvigioniTab` (non più usato).
-  - Aggiornare la `TabsList` a 3 tab: Compagnie Assicurative · Agenzie · Provvigioni.
-- L'import IA resta comunque disponibile **dentro** il tab Provvigioni tramite il pulsante "Import IA" già presente in `ProvvigioniRapportiTab` (apre `aiOpen`), quindi nessuna funzionalità viene persa.
+- L'`upsertMutation` usa `.upsert(payload, { onConflict: "compagnia_rapporto_id,gruppo_ramo_id,ramo_id" })`.
+- In DB esiste solo un **indice unico PARZIALE** (`provv_rapporto_gr_ramo_unique` con `WHERE attiva = true AND gruppo_ramo_id IS NOT NULL`), **non un constraint**. PostgREST non può usare indici parziali come target di `ON CONFLICT` → l'upsert fallisce con errore "no unique or exclusion constraint matching…", che viene mostrato brevemente nel toast e poi sparisce.
+- Inoltre il flusso passa per un `AlertDialog` di conferma che aggiunge frizione per un'operazione non distruttiva.
 
-## 2. Nuovo pannello "Agenzie con provvigioni attive"
-Nel tab **Provvigioni** (`ProvvigioniRapportiTab.tsx`), sopra alla matrice rami/sottorami, aggiungere una sezione collassabile (default chiusa) `Elenco rapporti attivi (N)` che mostra una tabella compatta con:
+## Fix
 
-- Compagnia (gruppo) · Rapporto (nome + tipo) · Sede/Agenzia · Default ramo configurati / totali · Sottorami configurati / totali · % default globale · Azioni (Apri / Copia da / Export).
-- Sorgenti: stessa query `all-compagnia-rapporti` già caricata + aggregato da `compagnia_rapporto_rami` (count configurati per rapporto). Una singola query aggregata `select compagnia_rapporto_id, count(*)` evita N+1.
-- Click sulla riga → imposta `rapportoId` (riusa lo stato già esistente, niente nuova logica) e scrolla alla matrice.
-- Filtro testo e filtro stato (`Tutti / Configurati / Mancanti`) riusano gli stessi setter già esistenti.
+### 1. Riscrivere `upsertMutation` senza `.upsert()` (file `src/components/compagnie/ProvvigioniRapportiTab.tsx`)
+Le righe in input hanno già `id` quando esistono (vengono da `provvMap`). Quindi splittare:
+- Righe con `id` → `update({ percentuale_provvigione, attiva: true }).eq("id", r.id)`
+- Righe senza `id` → `insert(payload)` in batch
+Eseguire in parallelo con `Promise.all`, propagare il primo errore.
+Questo elimina la dipendenza dal constraint mancante e funziona per tutti i casi (default ramo con `ramo_id=null` incluso).
 
-Vantaggio: l'utente vede a colpo d'occhio quali agenzie hanno provvigioni già impostate e quali no, senza dover scorrere il select uno per uno.
+### 2. Rimuovere la conferma `AlertDialog` per il bulk-apply non distruttivo
+- Se `overwrite === false` → applicare direttamente senza dialog (sono solo righe nuove, non distruttivo).
+- Mantenere la conferma solo quando `overwrite === true` (sovrascrive valori esistenti) e per il `Reset sottorami` (cancella override).
 
-## 3. Fix spacing della toolbar Provvigioni
-Dallo screenshot si vedono i seguenti problemi sopra "Cerca Ramo o Sottoramo…":
-- Il badge "Tipo Agenzia" si sovrappone al select rapporto (collisione testo lungo + badge assoluto).
-- Bottoni `‹ ›`, `Incolla CSV`, `Copia da altro`, `Import IA` troppo stretti, vanno a capo male a 1257px.
-- Spaziatura verticale fra "Rapporto Agenzia ↔ Compagnia", select e riga azioni incoerente.
-
-Interventi mirati in `ProvvigioniRapportiTab.tsx` (solo CSS / layout, niente logica):
-- Sostituire la riga unica con un `grid` responsive: prima riga = label + tipo + export; seconda riga = `[‹] [SearchableSelect flex-1] [›]`; terza riga = azioni (`Incolla CSV`, `Copia da altro`, `Import IA`) raggruppate a destra con `flex-wrap gap-2`.
-- Spostare il badge "Tipo Agenzia" **dentro** l'etichetta del select (badge inline accanto al nome del rapporto) invece di posizionarlo sopra.
-- Allineare il pannello `Catena di risoluzione` e `Default globali` con `space-y-3` coerente; rimuovere `mt-4` ridondanti.
-- Toolbar filtri (Tutti/Configurati/Mancanti/Solo default + contatori + Espandi/Collassa): convertire in `flex flex-wrap items-center justify-between gap-3` con i contatori in `text-xs text-muted-foreground` su una singola riga ben spaziata.
+### 3. Toast più chiari
+- Aggiungere nel `onError` di `upsertMutation` il messaggio Postgres pulito (era già lì, ma con il nuovo flusso senza upsert sarà più affidabile).
+- Sul success del bulk-apply mostrare il numero di righe applicate: `toast.success(\`Applicata % a ${n} sottorami\`)`.
 
 ## Out of scope
-- Nessuna modifica al DB.
-- Nessuna modifica alla logica di calcolo provvigioni o ai trigger.
-- `ImportProvvigioniTab.tsx` resta nel codebase (non rimuoviamo il file, solo l'accesso dal tab) nel caso serva riattivarlo.
+- Nessuna migrazione DB necessaria. L'indice parziale esistente continua a proteggere dai duplicati a livello DB; semplicemente non lo usiamo come ON CONFLICT da PostgREST.
+- Nessuna modifica al calcolo provvigioni o alla catena di risoluzione.
 
 ## File toccati
-- `src/pages/CompagnieList.tsx` — rimozione tab + import
-- `src/components/compagnie/ProvvigioniRapportiTab.tsx` — nuovo pannello elenco + restyling toolbar
+- `src/components/compagnie/ProvvigioniRapportiTab.tsx` — riscrittura `upsertMutation` + by-pass AlertDialog quando non si sovrascrive.
