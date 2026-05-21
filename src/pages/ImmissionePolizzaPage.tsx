@@ -704,16 +704,17 @@ const ImmissionePolizzaPage = () => {
     return () => { cancelled = true; };
   }, [selectedAE, selectedRamoData?.codice]);
 
-  // Re-abilita auto-lookup provvigione quando cambiano rapporto / gruppo ramo / sottoramo
-  useEffect(() => {
-    setPercentualeProvvigioneAuto(true);
-  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv]);
-
   // --- Auto-lookup % Provvigione (Rapporto + Ramo + Sottoramo) ---
   const firstSottoramoForProvv =
     premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
     premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
     null;
+
+  // Re-abilita auto-lookup quando cambiano rapporto / gruppo ramo / sottoramo
+  useEffect(() => {
+    setPercentualeProvvigioneAuto(true);
+  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv]);
+
   useEffect(() => {
     if (!percentualeProvvigioneAuto) return;
     if (!selectedRapportoId || !selectedGruppoRamoId) {
