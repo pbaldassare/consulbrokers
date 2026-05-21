@@ -1134,35 +1134,97 @@ function CopyDialog({ open, onClose, rapporti, onConfirm }: any) {
 function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [fileName, setFileName] = useState<string>("");
   const [risultati, setRisultati] = useState<any[]>([]);
+
+  // Normalizzazione robusta: maiuscole, no accenti, no punteggiatura, spazi compatti
+  const norm = (s: string) =>
+    (s || "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  // Alias comuni (sinonimi → nome canonico)
+  const ALIASES: Record<string, string[]> = {
+    INFORTUNI: ["INFORTUNI", "INF", "INFORTUNIO"],
+    MALATTIA: ["MALATTIA", "MAL"],
+    AUTO: ["AUTO", "RCA AUTO", "VEICOLI", "AUTOVETTURE"],
+    RCA: ["RCA", "RC AUTO", "RESPONSABILITA CIVILE AUTO"],
+    ARD: ["ARD", "AUTO RISCHI DIVERSI", "FURTO INCENDIO KASKO"],
+    INCENDIO: ["INCENDIO", "INCENDIO FURTO"],
+    FURTO: ["FURTO"],
+    "RC GENERALE": ["RC GENERALE", "RCG", "RESPONSABILITA CIVILE GENERALE", "RC"],
+    CAUZIONI: ["CAUZIONI", "CAUZIONE", "CREDITO CAUZIONI"],
+    "TUTELA LEGALE": ["TUTELA LEGALE", "TL"],
+    ASSISTENZA: ["ASSISTENZA", "ASS STRADALE"],
+    CRISTALLI: ["CRISTALLI"],
+    VITA: ["VITA", "RAMO VITA"],
+  };
+
+  const matchEntry = (
+    raw: string,
+    pool: { id: string; codice: string; descrizione: string; gruppo_ramo_id?: string }[],
+    restrictGruppoId?: string | null
+  ) => {
+    if (!raw) return null;
+    const target = norm(raw);
+    const candidates = restrictGruppoId ? pool.filter((p) => p.gruppo_ramo_id === restrictGruppoId) : pool;
+    let hit = candidates.find((p) => norm(p.codice) === target || norm(p.descrizione) === target);
+    if (hit) return hit;
+    for (const [canon, alts] of Object.entries(ALIASES)) {
+      if (alts.includes(target) || target === canon) {
+        hit = candidates.find((p) => norm(p.descrizione) === canon || alts.includes(norm(p.descrizione)));
+        if (hit) return hit;
+      }
+    }
+    hit = candidates.find((p) => {
+      const d = norm(p.descrizione);
+      return d && (d.includes(target) || target.includes(d));
+    });
+    return hit || null;
+  };
+
+  const enrich = (righe: any[]) =>
+    righe.map((r: any) => {
+      const gr = matchEntry(r.ramo, gruppiRamo as any[]);
+      const sotto = r.sottoramo ? matchEntry(r.sottoramo, rami as any[], gr?.id || null) : null;
+      const gruppo_ramo_id = gr?.id || sotto?.gruppo_ramo_id || null;
+      const perc = typeof r.percentuale === "number" ? r.percentuale : parseFloat(r.percentuale);
+      return {
+        ramo: r.ramo || "",
+        sottoramo: r.sottoramo || "",
+        percentuale: perc,
+        gruppo_ramo_id,
+        ramo_id: sotto?.id || null,
+        ok: !!gruppo_ramo_id && !isNaN(perc),
+      };
+    });
 
   const handleFile = async (file: File) => {
     setLoading(true);
+    setFileName(file.name);
+    setRisultati([]);
     try {
       const buf = await file.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+      }
+      const b64 = btoa(binary);
       const { data, error } = await supabase.functions.invoke("parse-tariffario-rami", {
-        body: { pdf_base64: b64, mime_type: file.type },
+        body: { pdf_base64: b64, mime_type: file.type || "application/pdf" },
       });
       if (error) throw error;
-      const upper = (s: string) => (s || "").toUpperCase().trim();
-      const enriched = (data.righe || []).map((r: any) => {
-        const gr = gruppiRamo.find((g: any) => upper(g.descrizione) === upper(r.ramo) || upper(g.codice) === upper(r.ramo));
-        const sotto = r.sottoramo
-          ? rami.find((x: any) =>
-              (upper(x.descrizione) === upper(r.sottoramo) || upper(x.codice) === upper(r.sottoramo)) &&
-              (!gr || x.gruppo_ramo_id === gr.id))
-          : null;
-        return {
-          ramo: r.ramo,
-          sottoramo: r.sottoramo,
-          percentuale: r.percentuale,
-          gruppo_ramo_id: gr?.id || (sotto ? sotto.gruppo_ramo_id : null),
-          ramo_id: sotto?.id || null,
-          ok: !!(gr || sotto) && !isNaN(r.percentuale),
-        };
-      });
-      setRisultati(enriched);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const righe = (data as any)?.righe || [];
+      if (!righe.length) toast.warning("L'IA non ha estratto righe dal documento");
+      setRisultati(enrich(righe));
     } catch (e: any) {
       toast.error(e.message || "Errore IA");
     } finally {
@@ -1170,14 +1232,38 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
     }
   };
 
+  const updateRow = (i: number, patch: Partial<any>) => {
+    setRisultati((prev) =>
+      prev.map((r, idx) => {
+        if (idx !== i) return r;
+        const merged = { ...r, ...patch };
+        merged.ok = !!merged.gruppo_ramo_id && !isNaN(Number(merged.percentuale));
+        return merged;
+      })
+    );
+  };
+
   const valid = risultati.filter((r) => r.ok);
+
+  const gruppoOptions = useMemo(
+    () => (gruppiRamo as any[]).map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
+    [gruppiRamo]
+  );
+  const ramoOptionsFor = (gruppoId: string | null) =>
+    [{ value: "__default__", label: "— Default ramo (nessun sottoramo) —" }].concat(
+      (rami as any[])
+        .filter((r: any) => !gruppoId || r.gruppo_ramo_id === gruppoId)
+        .map((r: any) => ({ value: r.id, label: `${r.codice} - ${r.descrizione}` }))
+    );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader><DialogTitle>Import IA tariffario provvigioni</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Import IA tariffario provvigioni</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               ref={fileRef}
               type="file"
@@ -1186,37 +1272,81 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
             <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={loading}>
-              <Upload className="w-4 h-4 mr-2" />{loading ? "Analisi in corso..." : "Carica PDF/Immagine"}
+              <Upload className="w-4 h-4 mr-2" />
+              {loading ? "Analisi in corso..." : "Carica PDF/Immagine"}
             </Button>
-            <span className="text-xs text-muted-foreground">L'IA estrarrà ramo, sottoramo e %.</span>
+            {fileName && <span className="text-xs text-muted-foreground truncate max-w-[260px]">{fileName}</span>}
+            <span className="text-xs text-muted-foreground ml-auto">
+              L'IA estrarrà Ramo, Sottoramo e %. Puoi correggere i match prima di salvare.
+            </span>
           </div>
+
           {risultati.length > 0 && (
-            <div className="border rounded max-h-72 overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ramo IA</TableHead>
-                    <TableHead>Sottoramo IA</TableHead>
-                    <TableHead>%</TableHead>
-                    <TableHead>Match</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {risultati.map((r, i) => (
-                    <TableRow key={i} className={i % 2 ? "bg-muted/30" : ""}>
-                      <TableCell>{r.ramo}</TableCell>
-                      <TableCell>{r.sottoramo || "—"}</TableCell>
-                      <TableCell>{r.percentuale}</TableCell>
-                      <TableCell>{r.ok ? <Badge>OK</Badge> : <Badge variant="destructive">no match</Badge>}</TableCell>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="default">{valid.length} OK</Badge>
+                <Badge variant="destructive">{risultati.length - valid.length} da rivedere</Badge>
+                <span className="text-muted-foreground">
+                  Le righe senza sottoramo verranno salvate come <b>default ramo</b>.
+                </span>
+              </div>
+              <div className="border rounded max-h-[420px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[16%]">Ramo IA</TableHead>
+                      <TableHead className="w-[16%]">Sottoramo IA</TableHead>
+                      <TableHead className="w-[24%]">Ramo DB</TableHead>
+                      <TableHead className="w-[24%]">Sottoramo DB</TableHead>
+                      <TableHead className="w-[10%]">%</TableHead>
+                      <TableHead className="w-[10%]">Stato</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {risultati.map((r, i) => (
+                      <TableRow key={i} className={i % 2 ? "bg-muted/30" : ""}>
+                        <TableCell className="text-xs">{r.ramo || "—"}</TableCell>
+                        <TableCell className="text-xs">{r.sottoramo || "—"}</TableCell>
+                        <TableCell>
+                          <SearchableSelect
+                            options={gruppoOptions}
+                            value={r.gruppo_ramo_id || ""}
+                            onValueChange={(v) => updateRow(i, { gruppo_ramo_id: v, ramo_id: null })}
+                            placeholder="Seleziona ramo..."
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <SearchableSelect
+                            options={ramoOptionsFor(r.gruppo_ramo_id)}
+                            value={r.ramo_id || "__default__"}
+                            onValueChange={(v) => updateRow(i, { ramo_id: v === "__default__" ? null : v })}
+                            placeholder="Default ramo"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={isNaN(r.percentuale) ? "" : r.percentuale}
+                            onChange={(e) => updateRow(i, { percentuale: parseFloat(e.target.value) })}
+                            className="h-8 w-20"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {r.ok ? <Badge>OK</Badge> : <Badge variant="destructive">no match</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Annulla</Button>
+          <Button variant="outline" onClick={onClose}>
+            Annulla
+          </Button>
           <Button
             disabled={valid.length === 0}
             onClick={() =>
@@ -1224,12 +1354,13 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
                 valid.map((r) => ({
                   gruppo_ramo_id: r.gruppo_ramo_id,
                   ramo_id: r.ramo_id,
-                  percentuale: r.percentuale,
+                  percentuale: Number(r.percentuale),
                 }))
               )
             }
           >
-            <Save className="w-4 h-4 mr-2" />Salva {valid.length}
+            <Save className="w-4 h-4 mr-2" />
+            Salva {valid.length}
           </Button>
         </DialogFooter>
       </DialogContent>
