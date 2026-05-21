@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import {
   Percent, Copy, ClipboardPaste, Upload, Sparkles, Save, Plus, Trash2, Download,
   ChevronDown, ChevronRight, Search, ChevronLeft, ChevronsUpDown, Wand2, RotateCcw,
+  AlertCircle, FileText, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1136,6 +1137,8 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [risultati, setRisultati] = useState<any[]>([]);
+  const [warningMsg, setWarningMsg] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
   // Normalizzazione robusta: maiuscole, no accenti, no punteggiatura, spazi compatti
   const norm = (s: string) =>
@@ -1235,20 +1238,31 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   const handleFile = async (file: File) => {
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
     const isImg = file.type.startsWith("image/");
+    setWarningMsg("");
+    setErrorMsg("");
+    setRisultati([]);
+    setFileName(file.name);
+
     if (!isPdf && !isImg) {
-      toast.error("Formato non supportato: carica un PDF o un'immagine.");
+      const msg = "Formato non supportato: carica un PDF o un'immagine.";
+      setErrorMsg(msg);
+      toast.error(msg);
+      return;
+    }
+    if (file.size === 0) {
+      const msg = "Il file selezionato è vuoto. Scarica di nuovo l'allegato e riprova.";
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error(
-        `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 8 MB. Per PDF pesanti, esporta come immagine JPG.`
-      );
+      const msg = `File troppo grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 8 MB. Per PDF pesanti, esporta come immagine JPG.`;
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     setLoading(true);
-    setFileName(file.name);
-    setRisultati([]);
     try {
       let b64: string;
       let mime: string;
@@ -1267,6 +1281,9 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
         b64 = btoa(binary);
         mime = file.type || "application/pdf";
       }
+      if (!b64 || b64.length < 100) {
+        throw new Error("L'allegato non è stato letto correttamente: contenuto vuoto o non valido.");
+      }
       console.log("[AI Import] invio", { name: file.name, mime, sizeKB: Math.round(b64.length / 1024) });
       const { data, error } = await supabase.functions.invoke("parse-tariffario-rami", {
         body: { pdf_base64: b64, mime_type: mime },
@@ -1277,16 +1294,22 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
       }
       if ((data as any)?.error) throw new Error((data as any).error);
       const righe = (data as any)?.righe || [];
+      const warning = (data as any)?.warning || "";
+      setWarningMsg(warning);
       console.log("[AI Import] righe ricevute", righe.length, (data as any)?.warning);
       if (!righe.length) {
-        toast.warning((data as any)?.warning || "L'IA non ha estratto righe. Verifica leggibilità del documento.");
+        const msg = warning || "L'IA non ha estratto righe. Verifica leggibilità del documento.";
+        setWarningMsg(msg);
+        toast.warning(msg);
       } else {
         toast.success(`Estratte ${righe.length} righe dal documento`);
       }
       setRisultati(enrich(righe));
     } catch (e: any) {
       console.error("[AI Import] errore", e);
-      toast.error(e?.message || "Errore IA durante l'analisi del documento");
+      const msg = e?.message || "Errore IA durante l'analisi del documento";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -1304,6 +1327,7 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
   };
 
   const valid = risultati.filter((r) => r.ok);
+  const showPreview = !!fileName || loading || !!warningMsg || !!errorMsg || risultati.length > 0;
 
   const gruppoOptions = useMemo(
     () => (gruppiRamo as any[]).map((g: any) => ({ value: g.id, label: `${g.codice} - ${g.descrizione}` })),
@@ -1329,10 +1353,14 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               type="file"
               accept="application/pdf,image/*"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              onChange={(e) => {
+                const selected = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (selected) handleFile(selected);
+              }}
             />
             <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={loading}>
-              <Upload className="w-4 h-4 mr-2" />
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               {loading ? "Analisi in corso..." : "Carica PDF/Immagine"}
             </Button>
             {fileName && <span className="text-xs text-muted-foreground truncate max-w-[260px]">{fileName}</span>}
@@ -1340,6 +1368,39 @@ function AiImportDialog({ open, onClose, gruppiRamo, rami, onConfirm }: any) {
               L'IA estrarrà Ramo, Sottoramo e %. Puoi correggere i match prima di salvare.
             </span>
           </div>
+
+          {showPreview && (
+            <div className="rounded-md border bg-muted/20 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                {errorMsg ? (
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+                ) : loading ? (
+                  <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                )}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="font-medium">
+                    {loading
+                      ? "Analisi dell'allegato in corso"
+                      : errorMsg
+                        ? "Allegato non caricato"
+                        : risultati.length > 0
+                          ? `Anteprima import: ${risultati.length} righe estratte`
+                          : "Anteprima import"}
+                  </div>
+                  <div className={errorMsg ? "text-destructive" : "text-muted-foreground"}>
+                    {errorMsg || warningMsg || (fileName ? `File selezionato: ${fileName}` : "Seleziona un PDF o un'immagine per avviare l'estrazione.")}
+                  </div>
+                  {!loading && !errorMsg && risultati.length === 0 && fileName && (
+                    <div className="text-xs text-muted-foreground">
+                      Se non vengono estratte righe, prova a caricare una scansione JPG/PNG più nitida o una pagina PDF contenente la tabella provvigionale.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {risultati.length > 0 && (
             <div className="space-y-2">
