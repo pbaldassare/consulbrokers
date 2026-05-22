@@ -137,7 +137,6 @@ const PortafoglioStoricoPage = () => {
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             <SelectItem value="scaduto">Scaduto</SelectItem>
-            <SelectItem value="sospeso">Sospeso</SelectItem>
             <SelectItem value="attivo">Attivo (garanzia scaduta)</SelectItem>
           </SelectContent>
         </Select>
