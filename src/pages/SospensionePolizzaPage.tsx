@@ -94,18 +94,6 @@ const SospensionePolizzaPage = () => {
     }
   }, [clienteFromId, fromDettaglio]);
 
-  const { data: aeList } = useQuery({
-    queryKey: ["ae-list-sosp"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla")
-        .eq("tipo", "account_executive")
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
 
   const sospensioneMutation = useMutation({
     mutationFn: async () => {
