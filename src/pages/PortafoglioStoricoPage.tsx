@@ -41,7 +41,7 @@ const PortafoglioStoricoPage = () => {
 
   const buildFilter = (q: any) => {
     if (filtroStato === "tutti") {
-      q = q.or(`stato.in.(scaduto,sospeso),and(stato.eq.attivo,garanzia_a.lt.${today})`);
+      q = q.or(`stato.eq.scaduto,and(stato.eq.attivo,garanzia_a.lt.${today})`);
     } else {
       q = q.eq("stato", filtroStato);
       if (filtroStato === "attivo") {
@@ -103,7 +103,7 @@ const PortafoglioStoricoPage = () => {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
-          <p className="text-sm text-muted-foreground">Polizze scadute, sospese o con copertura terminata — sola consultazione</p>
+          <p className="text-sm text-muted-foreground">Polizze scadute o con copertura terminata — sola consultazione</p>
         </div>
         <NuovaPolizzaButton />
       </div>
@@ -137,7 +137,6 @@ const PortafoglioStoricoPage = () => {
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             <SelectItem value="scaduto">Scaduto</SelectItem>
-            <SelectItem value="sospeso">Sospeso</SelectItem>
             <SelectItem value="attivo">Attivo (garanzia scaduta)</SelectItem>
           </SelectContent>
         </Select>

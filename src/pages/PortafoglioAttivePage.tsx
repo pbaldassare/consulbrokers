@@ -45,7 +45,7 @@ const PortafoglioAttivePage = () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
         { count: "exact" }
-      ).eq("stato", "attivo").gte("garanzia_a", today);
+      ).in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
 
       if (escludiMeseCorrente) {
         q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
@@ -71,7 +71,7 @@ const PortafoglioAttivePage = () => {
     queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .eq("stato", "attivo").gte("garanzia_a", today);
+        .in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
       if (escludiMeseCorrente) {
         q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
       }
@@ -190,9 +190,14 @@ const PortafoglioAttivePage = () => {
                   <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
                     <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
                     <TableCell>
-                      {p.sostituisce_polizza
-                        ? <Badge variant="secondary">Quietanza</Badge>
-                        : <Badge variant="default">Polizza</Badge>}
+                      <div className="flex gap-1 flex-wrap">
+                        {p.sostituisce_polizza
+                          ? <Badge variant="secondary">Quietanza</Badge>
+                          : <Badge variant="default">Polizza</Badge>}
+                        {p.stato === "sospeso" && (
+                          <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>

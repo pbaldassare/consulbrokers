@@ -24,13 +24,30 @@ const SospensionePolizzaPage = () => {
   const paramTitoloId = searchParams.get("titoloId") || "";
   const fromDettaglio = !!(paramPolizza && paramClienteId);
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const addMonthsISO = (iso: string, months: number) => {
+    if (!iso) return "";
+    const d = new Date(iso + "T00:00:00");
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().slice(0, 10);
+  };
+
   const [codiceCliente, setCodiceCliente] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState(paramPolizza);
   const [riga, setRiga] = useState(paramRiga);
-  const [dataSospensione, setDataSospensione] = useState("");
-  const [limiteRiattivazione, setLimiteRiattivazione] = useState("");
-  const [motivo, setMotivo] = useState("");
+  const [dataSospensione, setDataSospensione] = useState(todayISO);
+  const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 3));
+  const [limiteManual, setLimiteManual] = useState(false);
+  const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+
+  // Auto-aggiorna limite riattivazione (+3 mesi) quando cambia data sospensione,
+  // a meno che l'utente non l'abbia modificato manualmente.
+  useEffect(() => {
+    if (!limiteManual && dataSospensione) {
+      setLimiteRiattivazione(addMonthsISO(dataSospensione, 3));
+    }
+  }, [dataSospensione, limiteManual]);
 
   const { data: clienteFromId } = useQuery({
     queryKey: ["cliente-by-id-sosp", paramClienteId],
@@ -100,6 +117,35 @@ const SospensionePolizzaPage = () => {
       }
       if (!titoloId) throw new Error("Specificare una polizza");
 
+      // Carica numero_titolo e riga della rata da sospendere
+      const { data: titoloRow, error: errFetch } = await supabase
+        .from("titoli")
+        .select("id, numero_titolo, riga")
+        .eq("id", titoloId)
+        .single();
+      if (errFetch) throw errFetch;
+
+      // Trova quietanze successive (stesso numero_titolo, riga > rata) non incassate
+      let quietanzeEliminate: string[] = [];
+      if (titoloRow?.numero_titolo && titoloRow.riga != null) {
+        const { data: future } = await supabase
+          .from("titoli")
+          .select("id, riga")
+          .eq("numero_titolo", titoloRow.numero_titolo)
+          .gt("riga", titoloRow.riga)
+          .neq("stato", "incassato")
+          .is("data_messa_cassa", null);
+        const ids = (future || []).map((r: any) => r.id);
+        if (ids.length > 0) {
+          // Pulisci eventuali movimenti collegati prima di eliminare le quietanze
+          await supabase.from("movimenti_polizza").delete().in("titolo_id", ids);
+          await supabase.from("premi_garanzia_polizza").delete().in("titolo_id", ids);
+          const { error: errDel } = await supabase.from("titoli").delete().in("id", ids);
+          if (errDel) throw errDel;
+          quietanzeEliminate = ids;
+        }
+      }
+
       // Update titolo
       const { error: errUp } = await supabase
         .from("titoli")
@@ -126,15 +172,26 @@ const SospensionePolizzaPage = () => {
         azione: "sospensione_polizza",
         entita_tipo: "titolo",
         entita_id: titoloId,
-        dettagli_json: { data_sospensione: dataSospensione, limite_riattivazione: limiteRiattivazione, motivo },
+        dettagli_json: {
+          data_sospensione: dataSospensione,
+          limite_riattivazione: limiteRiattivazione,
+          motivo,
+          quietanze_eliminate: quietanzeEliminate,
+        },
       });
 
-      return titoloId;
+      return { titoloId, quietanzeEliminate };
     },
-    onSuccess: (titoloId) => {
+    onSuccess: ({ titoloId, quietanzeEliminate }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio"] });
-      toast.success("Polizza sospesa con successo");
+      queryClient.invalidateQueries({ queryKey: ["portafoglio-attive"] });
+      queryClient.invalidateQueries({ queryKey: ["portafoglio-storico"] });
+      queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+      const msg = quietanzeEliminate.length > 0
+        ? `Polizza sospesa. ${quietanzeEliminate.length} quietanze future rimosse.`
+        : "Polizza sospesa con successo";
+      toast.success(msg);
       navigate(`/titoli/${titoloId}`);
     },
     onError: (err: any) => {
@@ -199,7 +256,7 @@ const SospensionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="limite-riatt">Limite Riattivazione</Label>
-            <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => setLimiteRiattivazione(e.target.value)} className="tabular-nums" />
+            <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => { setLimiteRiattivazione(e.target.value); setLimiteManual(true); }} className="tabular-nums" />
           </div>
         </div>
         <div className="space-y-1.5 mt-3">
