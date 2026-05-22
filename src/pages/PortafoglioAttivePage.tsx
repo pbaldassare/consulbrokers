@@ -71,7 +71,7 @@ const PortafoglioAttivePage = () => {
     queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
-        .eq("stato", "attivo").gte("garanzia_a", today);
+        .in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
       if (escludiMeseCorrente) {
         q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
       }
