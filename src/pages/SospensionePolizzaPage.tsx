@@ -7,11 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, User as UserIcon, FileText, Settings2 } from "lucide-react";
+import { Loader2, User as UserIcon, FileText, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { PolizzaHeaderCard } from "@/components/polizze/PolizzaHeaderCard";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const SospensionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -33,13 +43,12 @@ const SospensionePolizzaPage = () => {
   };
 
   const [codiceCliente, setCodiceCliente] = useState("");
-  const [selectedAE, setSelectedAE] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState(paramPolizza);
-  const [riga, setRiga] = useState(paramRiga);
   const [dataSospensione, setDataSospensione] = useState(todayISO);
   const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 3));
   const [limiteManual, setLimiteManual] = useState(false);
   const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Auto-aggiorna limite riattivazione (+3 mesi) quando cambia data sospensione,
   // a meno che l'utente non l'abbia modificato manualmente.
@@ -85,18 +94,6 @@ const SospensionePolizzaPage = () => {
     }
   }, [clienteFromId, fromDettaglio]);
 
-  const { data: aeList } = useQuery({
-    queryKey: ["ae-list-sosp"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("anagrafiche_professionali")
-        .select("id, codice, cognome, nome, sigla")
-        .eq("tipo", "account_executive")
-        .eq("attivo", true)
-        .order("cognome");
-      return data || [];
-    },
-  });
 
   const sospensioneMutation = useMutation({
     mutationFn: async () => {
@@ -214,10 +211,7 @@ const SospensionePolizzaPage = () => {
         <div className="flex items-end gap-3 flex-wrap">
           <div className="space-y-1.5 flex-1 max-w-[220px]">
             <Label htmlFor="codice-cliente-sosp">Codice</Label>
-            <div className="relative">
-              <Input id="codice-cliente-sosp" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
-              <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
-            </div>
+            <Input id="codice-cliente-sosp" value={codiceCliente} onChange={(e) => setCodiceCliente(e.target.value)} placeholder="Codice cliente" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
           </div>
           {clienteData && (
             <p className="text-sm text-foreground pb-2">
@@ -225,30 +219,13 @@ const SospensionePolizzaPage = () => {
             </p>
           )}
         </div>
-        <div className="space-y-1.5 max-w-[320px] mt-3">
-          <Label>A/E</Label>
-          <select value={selectedAE} onChange={(e) => setSelectedAE(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <option value="">— Seleziona —</option>
-            {aeList?.map((ae) => (
-              <option key={ae.id} value={ae.id}>{ae.sigla || ae.codice} - {ae.cognome} {ae.nome}</option>
-            ))}
-          </select>
-        </div>
       </PolizzaSection>
 
       <PolizzaSection title="Polizza" icon={FileText}>
         <div className="flex items-end gap-4 flex-wrap">
           <div className="space-y-1.5 flex-1 min-w-[180px] max-w-[260px]">
             <Label htmlFor="numero-polizza-sosp">Numero</Label>
-            <div className="relative">
-              <Input id="numero-polizza-sosp" value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
-              <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
-            </div>
-          </div>
-          <div className="space-y-1.5 w-[80px]">
-            <Label htmlFor="riga-sosp">Riga</Label>
-            <Input id="riga-sosp" value={riga} onChange={(e) => setRiga(e.target.value)} readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
+            <Input id="numero-polizza-sosp" value={numeroPolizza} onChange={(e) => setNumeroPolizza(e.target.value)} placeholder="N° polizza" readOnly={fromDettaglio} className={fromDettaglio ? "bg-muted" : ""} />
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="data-sosp">Data Sospensione *</Label>
@@ -265,6 +242,7 @@ const SospensionePolizzaPage = () => {
         </div>
       </PolizzaSection>
 
+
       <PolizzaSection title="Tipo Operazione" icon={Settings2}>
         <RadioGroup value="sospensione" className="flex gap-4">
           <div className="flex items-center gap-2">
@@ -277,13 +255,39 @@ const SospensionePolizzaPage = () => {
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>Chiudi</Button>
-        <Button onClick={handleConferma} disabled={sospensioneMutation.isPending}>
+        <Button onClick={() => setConfirmOpen(true)} disabled={sospensioneMutation.isPending}>
           {sospensioneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Conferma
         </Button>
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma sospensione polizza</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <div>Stai per sospendere la polizza <strong>{numeroPolizza || "—"}</strong>.</div>
+                <div>Data sospensione: <strong>{dataSospensione || "—"}</strong></div>
+                <div>Limite riattivazione: <strong>{limiteRiattivazione || "—"}</strong></div>
+                <div className="text-destructive">Attenzione: tutte le quietanze future non incassate verranno eliminate.</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmOpen(false); handleConferma(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Conferma sospensione
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
+
 
 export default SospensionePolizzaPage;
