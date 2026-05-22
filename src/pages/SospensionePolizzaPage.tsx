@@ -24,13 +24,30 @@ const SospensionePolizzaPage = () => {
   const paramTitoloId = searchParams.get("titoloId") || "";
   const fromDettaglio = !!(paramPolizza && paramClienteId);
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const addMonthsISO = (iso: string, months: number) => {
+    if (!iso) return "";
+    const d = new Date(iso + "T00:00:00");
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().slice(0, 10);
+  };
+
   const [codiceCliente, setCodiceCliente] = useState("");
   const [selectedAE, setSelectedAE] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState(paramPolizza);
   const [riga, setRiga] = useState(paramRiga);
-  const [dataSospensione, setDataSospensione] = useState("");
-  const [limiteRiattivazione, setLimiteRiattivazione] = useState("");
-  const [motivo, setMotivo] = useState("");
+  const [dataSospensione, setDataSospensione] = useState(todayISO);
+  const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 3));
+  const [limiteManual, setLimiteManual] = useState(false);
+  const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+
+  // Auto-aggiorna limite riattivazione (+3 mesi) quando cambia data sospensione,
+  // a meno che l'utente non l'abbia modificato manualmente.
+  useEffect(() => {
+    if (!limiteManual && dataSospensione) {
+      setLimiteRiattivazione(addMonthsISO(dataSospensione, 3));
+    }
+  }, [dataSospensione, limiteManual]);
 
   const { data: clienteFromId } = useQuery({
     queryKey: ["cliente-by-id-sosp", paramClienteId],
