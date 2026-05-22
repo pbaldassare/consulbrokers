@@ -43,13 +43,12 @@ const SospensionePolizzaPage = () => {
   };
 
   const [codiceCliente, setCodiceCliente] = useState("");
-  const [selectedAE, setSelectedAE] = useState("");
   const [numeroPolizza, setNumeroPolizza] = useState(paramPolizza);
-  const [riga, setRiga] = useState(paramRiga);
   const [dataSospensione, setDataSospensione] = useState(todayISO);
   const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 3));
   const [limiteManual, setLimiteManual] = useState(false);
   const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Auto-aggiorna limite riattivazione (+3 mesi) quando cambia data sospensione,
   // a meno che l'utente non l'abbia modificato manualmente.
