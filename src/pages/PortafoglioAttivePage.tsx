@@ -190,9 +190,14 @@ const PortafoglioAttivePage = () => {
                   <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/titoli/${p.id}`)}>
                     <TableCell className="font-medium">{p.numero_titolo || "—"}</TableCell>
                     <TableCell>
-                      {p.sostituisce_polizza
-                        ? <Badge variant="secondary">Quietanza</Badge>
-                        : <Badge variant="default">Polizza</Badge>}
+                      <div className="flex gap-1 flex-wrap">
+                        {p.sostituisce_polizza
+                          ? <Badge variant="secondary">Quietanza</Badge>
+                          : <Badge variant="default">Polizza</Badge>}
+                        {p.stato === "sospeso" && (
+                          <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Sospesa</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{p.cliente_nome_display || "—"}</TableCell>
                     <TableCell>{p.compagnia_nome || "—"}</TableCell>
