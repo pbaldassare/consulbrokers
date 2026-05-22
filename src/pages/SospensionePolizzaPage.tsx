@@ -5,9 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, User as UserIcon, FileText, Settings2 } from "lucide-react";
+import { Loader2, User as UserIcon, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { PolizzaHeaderCard } from "@/components/polizze/PolizzaHeaderCard";
@@ -242,15 +241,6 @@ const SospensionePolizzaPage = () => {
         </div>
       </PolizzaSection>
 
-
-      <PolizzaSection title="Tipo Operazione" icon={Settings2}>
-        <RadioGroup value="sospensione" className="flex gap-4">
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="sospensione" id="tipo-sosp" />
-            <Label htmlFor="tipo-sosp" className="font-normal cursor-pointer">Sospensione</Label>
-          </div>
-        </RadioGroup>
-      </PolizzaSection>
 
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
