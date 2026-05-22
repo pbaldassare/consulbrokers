@@ -256,7 +256,7 @@ const SospensionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5 w-[180px]">
             <Label htmlFor="limite-riatt">Limite Riattivazione</Label>
-            <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => setLimiteRiattivazione(e.target.value)} className="tabular-nums" />
+            <Input id="limite-riatt" type="date" value={limiteRiattivazione} onChange={(e) => { setLimiteRiattivazione(e.target.value); setLimiteManual(true); }} className="tabular-nums" />
           </div>
         </div>
         <div className="space-y-1.5 mt-3">
