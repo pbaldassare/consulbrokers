@@ -103,7 +103,7 @@ const PortafoglioStoricoPage = () => {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Storico Polizze</h1>
-          <p className="text-sm text-muted-foreground">Polizze scadute, sospese o con copertura terminata — sola consultazione</p>
+          <p className="text-sm text-muted-foreground">Polizze scadute o con copertura terminata — sola consultazione</p>
         </div>
         <NuovaPolizzaButton />
       </div>
