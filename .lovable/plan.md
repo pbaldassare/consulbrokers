@@ -1,57 +1,77 @@
-# Gestione avanzata Sottoramo nell'Import IA tariffario
+# Sospensione Polizza — Nuova Specifica
 
-## Obiettivo
-Nel dialog **Import IA tariffario provvigioni** (Compagnie → Rapporto → Import IA) la colonna **Sottoramo DB** oggi permette di scegliere **un solo** sottoramo (o "default ramo"). L'utente vuole poter:
+Allineamento del comportamento dell'operazione **Sospensione** alle regole confermate dall'utente. Niente DB schema changes: si lavora su default di form, mutation, filtri di lista e cleanup quietanze.
 
-1. Selezionare **tutti** i sottorami del Ramo DB scelto con un click.
-2. Selezionare **alcuni** sottorami (multi-selezione a checkbox).
-3. Mantenere l'opzione "default ramo" (nessun sottoramo) come oggi.
+## 1. Form Sospensione (`SospensionePolizzaPage`)
 
-## Comportamento UI (file: `src/components/compagnie/ProvvigioniRapportiTab.tsx`, componente `AiImportDialog`)
+- **`limite_riattivazione`**: default = `data_sospensione + 3 mesi` (precompilato, l'utente può modificarlo).
+- **`motivo_sospensione`**: testo libero con placeholder/default suggerito (es. "Sospensione su richiesta cliente"); il campo resta editabile.
+- Resto del form invariato.
 
-- Sostituire l'attuale `SearchableSelect` nella cella **Sottoramo DB** con un nuovo **MultiSelect a popover**:
-  - Trigger: pulsante che mostra
-    - "— Default ramo —" se nessun sottoramo selezionato
-    - "Tutti i sottorami (N)" se tutti selezionati
-    - "X sottorami" o l'unico nome se selezione parziale
-  - Contenuto popover: 
-    - Riga in alto **"Seleziona tutti / Deseleziona tutti"** (toggle)
-    - Lista checkbox dei sottorami del Ramo DB corrente
-    - Search box (riuso pattern `Command`)
-  - Disabilitato finché non è scelto un Ramo DB
-- Stato per riga: campo `ramo_ids: string[]` (vuoto = default ramo). Si sostituisce a `ramo_id: string | null`.
-- Cambio Ramo DB → reset `ramo_ids` a `[]`.
-- Badge **Stato**: `OK` quando `gruppo_ramo_id` valido e `%` numerica (indipendentemente da quanti sottorami).
-- Contatore footer: `Salva N` dove **N = numero totale di righe che verranno inserite**, cioè per ogni riga `max(ramo_ids.length, 1)` (1 = default ramo). Esempio: 4 righe con sottorami [3, 0, 2, 5] → bottone "Salva 11".
+## 2. Scrittura sul titolo (rata su cui si apre l'operazione)
 
-## Logica di salvataggio
+Su `titoli` (solo la rata selezionata):
+- `stato = 'sospeso'`
+- `data_sospensione = <data scelta>`
+- `limite_riattivazione = <data scelta o default +3 mesi>`
+- `motivo_sospensione = <testo>`
 
-In `onConfirm` espandere ogni riga valida:
+## 3. UI TitoloDetail — eccezione al lock
 
-```ts
-valid.flatMap(r => {
-  const ids = r.ramo_ids?.length ? r.ramo_ids : [null]; // null = default ramo
-  return ids.map(ramo_id => ({
-    gruppo_ramo_id: r.gruppo_ramo_id,
-    ramo_id,
-    percentuale: Number(r.percentuale),
-  }));
-})
-```
+Oggi `isLocked` in `TitoloDetail.tsx` blocca i Modifica anche quando `stato === 'sospeso'` (via memoria *titolo-detail-allineato-immissione* — in realtà oggi locka solo `data_messa_cassa || incassato || stornato`; va verificato che `sospeso` resti editabile).
 
-Il chiamante `onConfirm` (più in alto in `ProvvigioniRapportiTab`) riceve già un array piatto di righe `{gruppo_ramo_id, ramo_id, percentuale}` → **nessuna modifica lato server / API**. La deduplica e l'upsert su `provvigioni_compagnia_ramo` esistenti continuano a funzionare.
+Regola: **quando `stato = 'sospeso'` la polizza resta modificabile** (campi contratto/firma/quietanza/importi). Solo Messa a Cassa / Storno / Annullamento restano disabilitate sulla rata sospesa; Riattivazione si abilita. Banner informativo "Polizza sospesa fino al …" sopra le sezioni, senza disabilitare gli input.
 
-## Match IA iniziale
+## 4. Visibilità nelle liste di Portafoglio
 
-Quando l'IA riconosce **un** sottoramo, lo si inserisce come `ramo_ids: [matchedId]` (comportamento attuale, solo nel nuovo formato array).
+- **Polizze Attive**: la rata sospesa **resta visibile** (oggi il filtro è `stato = 'attivo'`; va esteso per includere `sospeso`, con badge "Sospesa").
+- **Carico del Mese**: la rata sospesa **non** appare (resta com'è oggi).
+- **Storico Polizze**: la rata sospesa **non** vi compare (oggi sì — va escluso `sospeso` dal filtro storico).
 
-## Out of scope
-- Nessuna modifica al modello DB.
-- Nessuna modifica all'edge function `parse-tariffario-rami`.
-- Layout, colonne, pulsanti header del dialog restano invariati.
-- Manuale / CSV / "Copia da altro rapporto" non toccati.
+## 5. Quietanze successive — rimozione
 
-## File da modificare
-- `src/components/compagnie/ProvvigioniRapportiTab.tsx` (solo `AiImportDialog` e tipi interni)
+Cambio importante rispetto al comportamento attuale (che lasciava intatte le quietanze figlie):
 
-Confermi e procedo?
+- Alla conferma della Sospensione, **tutte le quietanze successive** della stessa catena polizza (stessi `numero_titolo` collegati via `sostituisce_polizza`, con `riga > rata sospesa`) e che **non sono ancora state messe a cassa / incassate** vengono **eliminate** dal DB.
+- Le quietanze già `incassato` / con `data_messa_cassa` valorizzata restano (regola: la sospensione è prospettica, non retroattiva — gli incassi storici non si toccano).
+- Razionale: le rate future verranno ricalcolate al momento della Riattivazione (date e importi) e non hanno più senso finché la polizza è sospesa.
+- Aggiornare `assertSameTitolo` non serve: il delete è scoped per `numero_titolo` + `riga > current` + `stato != 'incassato'` + `data_messa_cassa IS NULL`.
+
+## 6. Contabilità (invariato — già corretto)
+
+Nessun movimento di cassa, nessuna distinta, nessun E/C toccato. Messa a Cassa bloccata, provvigioni non maturano sulla rata sospesa, rimesse già chiuse non impattate.
+
+## 7. `movimenti_polizza` (invariato — già corretto)
+
+Inserimento riga con `tipo_documento='SO'`, `data_movimento=data_sospensione`, `descrizione="Sospensione polizza"` + motivo, `stato='sospeso'`.
+
+## 8. Audit (invariato)
+
+`logAttivita('sospensione_polizza', 'titolo', id, { data_sospensione, limite_riattivazione, motivo, quietanze_eliminate: [...] })` + diff trigger DB.
+
+## 9. Cosa non fa (invariato)
+
+No comunicazione compagnia, no PDF, no impatto sinistri, no disattivazione cliente.
+
+---
+
+## File coinvolti (frontend-only, niente migrations)
+
+- `src/pages/SospensionePolizzaPage.tsx` — default `limite_riattivazione = +3 mesi`, default motivo, mutation: delete quietanze figlie non incassate, insert movimento `SO`, log.
+- `src/pages/TitoloDetail.tsx` — verificare che `stato='sospeso'` NON entri in `isLocked`; aggiungere banner sospensione informativo (non bloccante).
+- `src/pages/PortafoglioAttivePage.tsx` — estendere filtro per includere `sospeso` + badge.
+- `src/pages/PortafoglioStoricoPage.tsx` — escludere `sospeso` dal filtro.
+- `src/pages/PortafoglioCaricoPage.tsx` — confermare che `sospeso` resta fuori (probabile, da verificare).
+
+## Verifica
+
+1. Apertura SospensionePolizzaPage: `limite_riattivazione` precompilato a +3m, motivo con default.
+2. Conferma: rata → `sospeso`; quietanze figlie non incassate **cancellate**; quietanze già incassate intatte.
+3. Lista Polizze Attive: rata sospesa visibile con badge.
+4. Lista Storico: rata sospesa NON visibile.
+5. TitoloDetail: campi editabili, banner sospensione, Riattivazione abilitata, Messa a Cassa/Storno disabilitati.
+6. `movimenti_polizza` ha la riga `SO`, `log_attivita` ha l'evento con elenco quietanze eliminate.
+
+## Aperti per la prossima iterazione
+
+- **Riattivazione**: ricalcolo automatico delle quietanze (date + importi) dalla rata riattivata fino a scadenza, in base al frazionamento. Da definire dopo, come specifica separata.
