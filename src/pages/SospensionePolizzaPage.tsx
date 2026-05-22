@@ -267,13 +267,39 @@ const SospensionePolizzaPage = () => {
       {/* ACTIONS */}
       <div className="flex justify-between pt-2">
         <Button variant="secondary" onClick={() => fromDettaglio && paramTitoloId ? navigate(`/titoli/${paramTitoloId}`) : navigate("/portafoglio/attive")}>Chiudi</Button>
-        <Button onClick={handleConferma} disabled={sospensioneMutation.isPending}>
+        <Button onClick={() => setConfirmOpen(true)} disabled={sospensioneMutation.isPending}>
           {sospensioneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Conferma
         </Button>
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma sospensione polizza</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <div>Stai per sospendere la polizza <strong>{numeroPolizza || "—"}</strong>.</div>
+                <div>Data sospensione: <strong>{dataSospensione || "—"}</strong></div>
+                <div>Limite riattivazione: <strong>{limiteRiattivazione || "—"}</strong></div>
+                <div className="text-destructive">Attenzione: tutte le quietanze future non incassate verranno eliminate.</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmOpen(false); handleConferma(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Conferma sospensione
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
+
 
 export default SospensionePolizzaPage;
