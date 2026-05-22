@@ -45,7 +45,7 @@ const PortafoglioAttivePage = () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
         { count: "exact" }
-      ).eq("stato", "attivo").gte("garanzia_a", today);
+      ).in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
 
       if (escludiMeseCorrente) {
         q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);
