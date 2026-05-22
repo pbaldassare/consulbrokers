@@ -41,7 +41,7 @@ const PortafoglioStoricoPage = () => {
 
   const buildFilter = (q: any) => {
     if (filtroStato === "tutti") {
-      q = q.or(`stato.in.(scaduto,sospeso),and(stato.eq.attivo,garanzia_a.lt.${today})`);
+      q = q.or(`stato.eq.scaduto,and(stato.eq.attivo,garanzia_a.lt.${today})`);
     } else {
       q = q.eq("stato", filtroStato);
       if (filtroStato === "attivo") {
