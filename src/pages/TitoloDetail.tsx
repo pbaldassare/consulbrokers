@@ -1595,7 +1595,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
               <Clock className="w-4 h-4 mr-1" /> Sospensione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setRiattivazioneOpen(true)}>
+            <Button variant="outline" size="sm" disabled={t.stato !== "sospeso"} title={t.stato !== "sospeso" ? "Solo le polizze sospese possono essere riattivate" : undefined} onClick={() => setRiattivazioneOpen(true)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
             </Button>
             <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
