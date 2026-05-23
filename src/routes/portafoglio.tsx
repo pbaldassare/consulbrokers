@@ -6,13 +6,8 @@ import TitoloDetail from "@/pages/TitoloDetail";
 
 import ImmissionePolizzaPage from "@/pages/ImmissionePolizzaPage";
 import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
-import DuplicazionePolizzaPage from "@/pages/DuplicazionePolizzaPage";
-import ConfermaEmittendePage from "@/pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "@/pages/RinnoviPolizzaPage";
 
-import DiffProvvigioniPage from "@/pages/DiffProvvigioniPage";
-import SospensionePolizzaPage from "@/pages/SospensionePolizzaPage";
-import RiattivazionePolizzaPage from "@/pages/RiattivazionePolizzaPage";
 import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 
@@ -42,13 +37,8 @@ export const portafoglioRoutes = (
     
     <Route path="/portafoglio/immissione" element={<ImmissionePolizzaPage />} />
     <Route path="/portafoglio/appendici" element={<AppendiciPolizzaPage />} />
-    <Route path="/portafoglio/duplicazione" element={<DuplicazionePolizzaPage />} />
-    <Route path="/portafoglio/conferma-emittende" element={<ConfermaEmittendePage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
-    
-    <Route path="/portafoglio/diff-provvigionali" element={<DiffProvvigioniPage />} />
-    <Route path="/portafoglio/sospensione" element={<SospensionePolizzaPage />} />
-    <Route path="/portafoglio/riattivazione" element={<RiattivazionePolizzaPage />} />
+
     <Route path="/portafoglio/doc-precontrattuale" element={<DocPrecontrattualePage />} />
     <Route path="/portafoglio/estrazioni-stampe" element={<EstrazioniStampePage />} />
     <Route path="/portafoglio/estrazioni/per-cliente" element={<PortafoglioPerClientePage />} />
