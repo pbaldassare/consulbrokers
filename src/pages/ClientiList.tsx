@@ -39,7 +39,7 @@ const ClientiList = () => {
       if (debouncedSearch) {
         const s = `%${debouncedSearch}%`;
         query = query.or(
-          `nome.ilike.${s},cognome.ilike.${s},ragione_sociale.ilike.${s},codice_fiscale.ilike.${s},codice_fiscale_azienda.ilike.${s},partita_iva.ilike.${s},email.ilike.${s},pec.ilike.${s},telefono.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},codice_ricerca.ilike.${s}`
+          `nome.ilike.${s},cognome.ilike.${s},ragione_sociale.ilike.${s},codice_fiscale.ilike.${s},codice_fiscale_azienda.ilike.${s},partita_iva.ilike.${s},email.ilike.${s},pec.ilike.${s},telefono.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},codice_ricerca.ilike.${s},codice_cliente.ilike.${s}`
         );
       }
 
