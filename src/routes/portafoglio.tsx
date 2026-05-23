@@ -9,7 +9,7 @@ import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
 import DuplicazionePolizzaPage from "@/pages/DuplicazionePolizzaPage";
 import ConfermaEmittendePage from "@/pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "@/pages/RinnoviPolizzaPage";
-import StornoPolizzaPage from "@/pages/StornoPolizzaPage";
+
 import DiffProvvigioniPage from "@/pages/DiffProvvigioniPage";
 import SospensionePolizzaPage from "@/pages/SospensionePolizzaPage";
 import RiattivazionePolizzaPage from "@/pages/RiattivazionePolizzaPage";
