@@ -1591,7 +1591,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
               <Clock className="w-4 h-4 mr-1" /> Sospensione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button variant="outline" size="sm" onClick={() => setRiattivazioneOpen(true)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
