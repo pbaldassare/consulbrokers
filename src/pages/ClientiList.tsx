@@ -133,7 +133,7 @@ const ClientiList = () => {
                   const citta = c.citta_residenza || c.citta_sede || "—";
                   return (
                     <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
-                      <TableCell className="font-mono text-xs">{c.codice_ricerca || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{(c as any).codice_cliente || c.codice_ricerca || "—"}</TableCell>
                       <TableCell className="font-medium">{denominazione}</TableCell>
                       <TableCell className="font-mono text-xs">{cfPiva}</TableCell>
                       <TableCell>{c.email || "—"}</TableCell>
