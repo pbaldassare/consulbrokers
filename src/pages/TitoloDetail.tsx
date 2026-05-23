@@ -3289,6 +3289,14 @@ const TitoloDetail = () => {
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
       />
+
+      <RiattivazionePolizzaDialog
+        open={riattivazioneOpen}
+        onOpenChange={setRiattivazioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
     </div>
   );
 };
