@@ -45,7 +45,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/duplicazione" element={<DuplicazionePolizzaPage />} />
     <Route path="/portafoglio/conferma-emittende" element={<ConfermaEmittendePage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
-    <Route path="/portafoglio/storno" element={<StornoPolizzaPage />} />
+    
     <Route path="/portafoglio/diff-provvigionali" element={<DiffProvvigioniPage />} />
     <Route path="/portafoglio/sospensione" element={<SospensionePolizzaPage />} />
     <Route path="/portafoglio/riattivazione" element={<RiattivazionePolizzaPage />} />
