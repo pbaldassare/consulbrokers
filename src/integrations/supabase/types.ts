@@ -1256,6 +1256,7 @@ export type Database = {
           cliente_non_ceduto: boolean | null
           codice_ateco: string | null
           codice_cig: string | null
+          codice_cliente: string | null
           codice_fiscale: string | null
           codice_fiscale_azienda: string | null
           codice_ricerca: string | null
@@ -1342,6 +1343,7 @@ export type Database = {
           cliente_non_ceduto?: boolean | null
           codice_ateco?: string | null
           codice_cig?: string | null
+          codice_cliente?: string | null
           codice_fiscale?: string | null
           codice_fiscale_azienda?: string | null
           codice_ricerca?: string | null
@@ -1428,6 +1430,7 @@ export type Database = {
           cliente_non_ceduto?: boolean | null
           codice_ateco?: string | null
           codice_cig?: string | null
+          codice_cliente?: string | null
           codice_fiscale?: string | null
           codice_fiscale_azienda?: string | null
           codice_ricerca?: string | null
@@ -8596,6 +8599,7 @@ export type Database = {
           tipo_cliente: string
         }[]
       }
+      generate_codice_cliente: { Args: never; Returns: string }
       get_canali_cliente_with_meta: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
         Returns: {
