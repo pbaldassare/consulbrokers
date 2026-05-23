@@ -40,6 +40,8 @@ import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizz
 import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
+import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
+import { RegolazionePremioDialog } from "@/components/polizze/RegolazionePremioDialog";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
 
@@ -133,6 +135,8 @@ const TitoloDetail = () => {
   const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
+  const [stornoOpen, setStornoOpen] = useState(false);
+  const [regolazioneOpen, setRegolazioneOpen] = useState(false);
 
   // --- Rinnovo dialog state ---
   
@@ -1607,10 +1611,10 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/storno?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> Storno
             </Button>
-            <Button variant="outline" size="sm" onClick={() => document.getElementById("regolazione-section")?.scrollIntoView({ behavior: "smooth" })}>
+            <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => setRegolazioneOpen(true)}>
               <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}`)}>
@@ -3316,6 +3320,22 @@ const TitoloDetail = () => {
       <EstinzionePolizzaDialog
         open={estinzioneOpen}
         onOpenChange={setEstinzioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
+
+      <StornoTitoloDialog
+        open={stornoOpen}
+        onOpenChange={setStornoOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
+
+      <RegolazionePremioDialog
+        open={regolazioneOpen}
+        onOpenChange={setRegolazioneOpen}
         titoloId={t.id}
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}

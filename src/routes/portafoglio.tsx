@@ -9,7 +9,7 @@ import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
 import DuplicazionePolizzaPage from "@/pages/DuplicazionePolizzaPage";
 import ConfermaEmittendePage from "@/pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "@/pages/RinnoviPolizzaPage";
-import StornoPolizzaPage from "@/pages/StornoPolizzaPage";
+
 import DiffProvvigioniPage from "@/pages/DiffProvvigioniPage";
 import SospensionePolizzaPage from "@/pages/SospensionePolizzaPage";
 import RiattivazionePolizzaPage from "@/pages/RiattivazionePolizzaPage";
@@ -45,7 +45,7 @@ export const portafoglioRoutes = (
     <Route path="/portafoglio/duplicazione" element={<DuplicazionePolizzaPage />} />
     <Route path="/portafoglio/conferma-emittende" element={<ConfermaEmittendePage />} />
     <Route path="/portafoglio/rinnovi" element={<RinnoviPolizzaPage />} />
-    <Route path="/portafoglio/storno" element={<StornoPolizzaPage />} />
+    
     <Route path="/portafoglio/diff-provvigionali" element={<DiffProvvigioniPage />} />
     <Route path="/portafoglio/sospensione" element={<SospensionePolizzaPage />} />
     <Route path="/portafoglio/riattivazione" element={<RiattivazionePolizzaPage />} />

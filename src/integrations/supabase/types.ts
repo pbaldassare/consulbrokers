@@ -6778,6 +6778,7 @@ export type Database = {
           cambio: number | null
           causale_estinzione: string | null
           causale_sostituzione: string | null
+          causale_storno: string | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_id: string | null
@@ -6801,6 +6802,7 @@ export type Database = {
           data_scadenza: string | null
           data_sospensione: string | null
           data_sostituzione: string | null
+          data_storno: string | null
           descrizione_polizza: string | null
           disdetta_mesi: number | null
           durata_a: string | null
@@ -6824,6 +6826,7 @@ export type Database = {
           motivo_estinzione: string | null
           motivo_sospensione: string | null
           motivo_sostituzione: string | null
+          motivo_storno: string | null
           no_calcolo_tasse: boolean | null
           note: string | null
           numero_titolo: string | null
@@ -6867,6 +6870,7 @@ export type Database = {
           tipo_portafoglio: string | null
           tipo_rinnovo: string | null
           tipo_scadenza: string | null
+          titolo_storno_id: string | null
           ufficio_id: string | null
           updated_at: string | null
           valuta: string | null
@@ -6887,6 +6891,7 @@ export type Database = {
           cambio?: number | null
           causale_estinzione?: string | null
           causale_sostituzione?: string | null
+          causale_storno?: string | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
@@ -6910,6 +6915,7 @@ export type Database = {
           data_scadenza?: string | null
           data_sospensione?: string | null
           data_sostituzione?: string | null
+          data_storno?: string | null
           descrizione_polizza?: string | null
           disdetta_mesi?: number | null
           durata_a?: string | null
@@ -6933,6 +6939,7 @@ export type Database = {
           motivo_estinzione?: string | null
           motivo_sospensione?: string | null
           motivo_sostituzione?: string | null
+          motivo_storno?: string | null
           no_calcolo_tasse?: boolean | null
           note?: string | null
           numero_titolo?: string | null
@@ -6976,6 +6983,7 @@ export type Database = {
           tipo_portafoglio?: string | null
           tipo_rinnovo?: string | null
           tipo_scadenza?: string | null
+          titolo_storno_id?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
           valuta?: string | null
@@ -6996,6 +7004,7 @@ export type Database = {
           cambio?: number | null
           causale_estinzione?: string | null
           causale_sostituzione?: string | null
+          causale_storno?: string | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
@@ -7019,6 +7028,7 @@ export type Database = {
           data_scadenza?: string | null
           data_sospensione?: string | null
           data_sostituzione?: string | null
+          data_storno?: string | null
           descrizione_polizza?: string | null
           disdetta_mesi?: number | null
           durata_a?: string | null
@@ -7042,6 +7052,7 @@ export type Database = {
           motivo_estinzione?: string | null
           motivo_sospensione?: string | null
           motivo_sostituzione?: string | null
+          motivo_storno?: string | null
           no_calcolo_tasse?: boolean | null
           note?: string | null
           numero_titolo?: string | null
@@ -7085,6 +7096,7 @@ export type Database = {
           tipo_portafoglio?: string | null
           tipo_rinnovo?: string | null
           tipo_scadenza?: string | null
+          titolo_storno_id?: string | null
           ufficio_id?: string | null
           updated_at?: string | null
           valuta?: string | null
@@ -7163,6 +7175,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "titoli_titolo_storno_id_fkey"
+            columns: ["titolo_storno_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_titolo_storno_id_fkey"
+            columns: ["titolo_storno_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "titoli_ufficio_id_fkey"
             columns: ["ufficio_id"]
             isOneToOne: false
@@ -7203,6 +7229,80 @@ export type Database = {
           titolo_id?: string
         }
         Relationships: []
+      }
+      titoli_regolazioni: {
+        Row: {
+          conguaglio_premio: number
+          created_at: string
+          created_by: string | null
+          data_regolazione: string
+          documento_id: string | null
+          id: string
+          imponibile_consuntivo: number | null
+          note: string | null
+          periodo_a: string | null
+          periodo_da: string | null
+          titolo_madre_id: string
+          titolo_regolazione_id: string | null
+        }
+        Insert: {
+          conguaglio_premio?: number
+          created_at?: string
+          created_by?: string | null
+          data_regolazione: string
+          documento_id?: string | null
+          id?: string
+          imponibile_consuntivo?: number | null
+          note?: string | null
+          periodo_a?: string | null
+          periodo_da?: string | null
+          titolo_madre_id: string
+          titolo_regolazione_id?: string | null
+        }
+        Update: {
+          conguaglio_premio?: number
+          created_at?: string
+          created_by?: string | null
+          data_regolazione?: string
+          documento_id?: string | null
+          id?: string
+          imponibile_consuntivo?: number | null
+          note?: string | null
+          periodo_a?: string | null
+          periodo_da?: string | null
+          titolo_madre_id?: string
+          titolo_regolazione_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_regolazioni_titolo_madre_id_fkey"
+            columns: ["titolo_madre_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazioni_titolo_madre_id_fkey"
+            columns: ["titolo_madre_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazioni_titolo_regolazione_id_fkey"
+            columns: ["titolo_regolazione_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_regolazioni_titolo_regolazione_id_fkey"
+            columns: ["titolo_regolazione_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       titoli_sostituzioni: {
         Row: {
@@ -7340,6 +7440,77 @@ export type Database = {
           {
             foreignKeyName: "titoli_split_commerciali_titolo_id_fkey"
             columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      titoli_storni: {
+        Row: {
+          causale: string | null
+          created_at: string
+          created_by: string | null
+          data_storno: string
+          documento_id: string | null
+          era_messa_cassa: boolean | null
+          id: string
+          importo_rimborsato: number | null
+          motivo: string | null
+          titolo_id: string
+          titolo_storno_id: string | null
+        }
+        Insert: {
+          causale?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_storno: string
+          documento_id?: string | null
+          era_messa_cassa?: boolean | null
+          id?: string
+          importo_rimborsato?: number | null
+          motivo?: string | null
+          titolo_id: string
+          titolo_storno_id?: string | null
+        }
+        Update: {
+          causale?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_storno?: string
+          documento_id?: string | null
+          era_messa_cassa?: boolean | null
+          id?: string
+          importo_rimborsato?: number | null
+          motivo?: string | null
+          titolo_id?: string
+          titolo_storno_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_storni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_storni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_storni_titolo_storno_id_fkey"
+            columns: ["titolo_storno_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_storni_titolo_storno_id_fkey"
+            columns: ["titolo_storno_id"]
             isOneToOne: false
             referencedRelation: "v_portafoglio_titoli"
             referencedColumns: ["id"]
