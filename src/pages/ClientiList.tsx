@@ -39,7 +39,7 @@ const ClientiList = () => {
       if (debouncedSearch) {
         const s = `%${debouncedSearch}%`;
         query = query.or(
-          `nome.ilike.${s},cognome.ilike.${s},ragione_sociale.ilike.${s},codice_fiscale.ilike.${s},codice_fiscale_azienda.ilike.${s},partita_iva.ilike.${s},email.ilike.${s},pec.ilike.${s},telefono.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},codice_ricerca.ilike.${s}`
+          `nome.ilike.${s},cognome.ilike.${s},ragione_sociale.ilike.${s},codice_fiscale.ilike.${s},codice_fiscale_azienda.ilike.${s},partita_iva.ilike.${s},email.ilike.${s},pec.ilike.${s},telefono.ilike.${s},citta_residenza.ilike.${s},citta_sede.ilike.${s},codice_ricerca.ilike.${s},codice_cliente.ilike.${s}`
         );
       }
 
@@ -133,7 +133,7 @@ const ClientiList = () => {
                   const citta = c.citta_residenza || c.citta_sede || "—";
                   return (
                     <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/archivi/clienti/${c.id}`)}>
-                      <TableCell className="font-mono text-xs">{c.codice_ricerca || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{(c as any).codice_cliente || c.codice_ricerca || "—"}</TableCell>
                       <TableCell className="font-medium">{denominazione}</TableCell>
                       <TableCell className="font-mono text-xs">{cfPiva}</TableCell>
                       <TableCell>{c.email || "—"}</TableCell>

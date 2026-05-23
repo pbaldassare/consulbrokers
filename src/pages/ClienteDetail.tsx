@@ -2011,6 +2011,12 @@ export default function ClienteDetail() {
             <CardHeader><CardTitle className="text-base">Dati Anagrafici</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Codice Cliente</Label>
+                  <div className="font-mono text-sm py-2 px-3 rounded-md bg-muted border border-border">
+                    {(cliente as any)?.codice_cliente || "—"}
+                  </div>
+                </div>
                 <FieldInput label="Codice Ricerca" field="codice_ricerca" />
                 <FieldSelect label="Titolo" field="titolo" options={[
                   { value: "sig", label: "Sig." }, { value: "sig.ra", label: "Sig.ra" },
