@@ -26,7 +26,7 @@ const actions: ActionCard[] = [
   { label: "Duplicazione", description: "Duplica polizza esistente", icon: FileStack, path: "/portafoglio/duplicazione" },
   { label: "Conferma Emittende", description: "Conferma emissione polizze", icon: FileCheck, path: "/portafoglio/conferma-emittende" },
   { label: "Rinnovi", description: "Gestione rinnovi polizze", icon: CalendarCheck, path: "/portafoglio/rinnovi" },
-  { label: "Storno", description: "Storno polizze", icon: ArrowRightLeft, path: "/portafoglio/storno" },
+  
   { label: "Diff. Provvigionali", description: "Differenze provvigionali", icon: DollarSign, path: "/portafoglio/diff-provvigionali" },
   { label: "Sospensione", description: "Sospensione polizze", icon: Clock, path: "/portafoglio/sospensione" },
   { label: "Riattivazione", description: "Riattivazione polizze sospese", icon: CheckSquare, path: "/portafoglio/riattivazione" },
