@@ -3279,6 +3279,14 @@ const TitoloDetail = () => {
         appendiciPolizza={appendiciPolizza}
         navigate={navigate}
       />
+
+      <SospensionePolizzaDialog
+        open={sospensioneOpen}
+        onOpenChange={setSospensioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
     </div>
   );
 };
