@@ -1585,7 +1585,7 @@ const TitoloDetail = () => {
         <Card className="border-l-4 border-l-teal-600 shadow-sm">
           <CardHeader className="pb-3 bg-teal-50/60 dark:bg-teal-950/20 border-b"><CardTitle className="text-sm sm:text-base font-semibold text-teal-900 dark:text-teal-100">Operazioni</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/sospensione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
               <Clock className="w-4 h-4 mr-1" /> Sospensione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
