@@ -6,13 +6,8 @@ import TitoloDetail from "@/pages/TitoloDetail";
 
 import ImmissionePolizzaPage from "@/pages/ImmissionePolizzaPage";
 import AppendiciPolizzaPage from "@/pages/AppendiciPolizzaPage";
-import DuplicazionePolizzaPage from "@/pages/DuplicazionePolizzaPage";
-import ConfermaEmittendePage from "@/pages/ConfermaEmittendePage";
 import RinnoviPolizzaPage from "@/pages/RinnoviPolizzaPage";
 
-import DiffProvvigioniPage from "@/pages/DiffProvvigioniPage";
-import SospensionePolizzaPage from "@/pages/SospensionePolizzaPage";
-import RiattivazionePolizzaPage from "@/pages/RiattivazionePolizzaPage";
 import DocPrecontrattualePage from "@/pages/DocPrecontrattualePage";
 import EstrazioniStampePage from "@/pages/EstrazioniStampePage";
 
