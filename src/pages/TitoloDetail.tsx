@@ -125,6 +125,7 @@ const TitoloDetail = () => {
   const [annullaDialogOpen, setAnnullaDialogOpen] = useState(false);
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
+  const [sospensioneOpen, setSospensioneOpen] = useState(false);
 
   // --- Rinnovo dialog state ---
   
