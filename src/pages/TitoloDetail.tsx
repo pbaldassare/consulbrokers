@@ -40,6 +40,8 @@ import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizz
 import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
 import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
 import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
+import { StornoTitoloDialog } from "@/components/polizze/StornoTitoloDialog";
+import { RegolazionePremioDialog } from "@/components/polizze/RegolazionePremioDialog";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
 
