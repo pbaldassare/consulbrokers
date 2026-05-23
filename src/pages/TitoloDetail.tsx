@@ -3324,6 +3324,22 @@ const TitoloDetail = () => {
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
       />
+
+      <StornoTitoloDialog
+        open={stornoOpen}
+        onOpenChange={setStornoOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
+
+      <RegolazionePremioDialog
+        open={regolazioneOpen}
+        onOpenChange={setRegolazioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
     </div>
   );
 };
