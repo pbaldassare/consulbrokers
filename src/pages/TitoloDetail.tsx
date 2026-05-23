@@ -135,6 +135,8 @@ const TitoloDetail = () => {
   const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
   const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
   const [estinzioneOpen, setEstinzioneOpen] = useState(false);
+  const [stornoOpen, setStornoOpen] = useState(false);
+  const [regolazioneOpen, setRegolazioneOpen] = useState(false);
 
   // --- Rinnovo dialog state ---
   
