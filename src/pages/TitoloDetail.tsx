@@ -1579,7 +1579,7 @@ const TitoloDetail = () => {
             <p className="text-sm text-muted-foreground">
               Questa polizza è attualmente sospesa. Puoi riattivarla per ripristinare la copertura.
             </p>
-            <Button size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button size="sm" onClick={() => setRiattivazioneOpen(true)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattiva Polizza
             </Button>
           </CardContent>
