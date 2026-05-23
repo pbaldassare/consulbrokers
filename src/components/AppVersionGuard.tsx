@@ -12,14 +12,19 @@ import { ensureLatestVersion, BUNDLE_VERSION } from "@/lib/versionCheck";
  * Throttle anti-loop di reload è gestito in versionCheck.ts (30s).
  */
 const POLL_MS = 30_000;
+const MIN_CHECK_GAP_MS = 10_000;
 
 const AppVersionGuard = () => {
   useEffect(() => {
     console.info(`[AppVersionGuard] bundle ${BUNDLE_VERSION}`);
 
     let cancelled = false;
+    let lastCheck = 0;
     const run = () => {
       if (cancelled) return;
+      const now = Date.now();
+      if (now - lastCheck < MIN_CHECK_GAP_MS) return;
+      lastCheck = now;
       ensureLatestVersion().catch(() => {});
     };
 
