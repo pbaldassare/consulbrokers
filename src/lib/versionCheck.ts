@@ -7,13 +7,19 @@
  * e ricarichiamo (con throttle anti-loop).
  */
 
-const RELOAD_FLAG = "__cbnet_version_reload_ts";
+const VERSION_STORAGE_PREFIX = "__cbnet_version_";
+const RELOAD_FLAG = `${VERSION_STORAGE_PREFIX}reload_ts`;
+const RELOAD_SERVER_KEY = `${VERSION_STORAGE_PREFIX}reload_server`;
 const RELOAD_THROTTLE_MS = 30_000;
+const RELOAD_COOLDOWN_MS = 5 * 60_000;
 const STORAGE_KEYS_TO_KEEP = (k: string) =>
-  k.startsWith("sb-") || k.startsWith("supabase.");
+  k.startsWith("sb-") || k.startsWith("supabase.") || k.startsWith(VERSION_STORAGE_PREFIX);
 
 export const BUNDLE_VERSION: string =
   (import.meta as any).env?.VITE_APP_VERSION || "dev";
+
+const IS_DEV = Boolean((import.meta as any).env?.DEV);
+let versionCheckPromise: Promise<boolean> | null = null;
 
 export interface VersionInfo {
   bundle: string;
@@ -81,34 +87,79 @@ export async function purgeClientCaches(): Promise<void> {
   } catch {}
 }
 
-export function forceReload(reason: string): void {
+function readVersionStorage(key: string): string | null {
   try {
-    const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeVersionStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch {}
+}
+
+function recentlyReloadedFor(serverVersion: string | null): boolean {
+  if (!serverVersion) return false;
+  const last = Number(readVersionStorage(RELOAD_FLAG) || 0);
+  const lastServer = readVersionStorage(RELOAD_SERVER_KEY);
+  return lastServer === serverVersion && Date.now() - last < RELOAD_COOLDOWN_MS;
+}
+
+export function forceReload(reason: string, serverVersion?: string | null): boolean {
+  try {
+    const last = Number(readVersionStorage(RELOAD_FLAG) || 0);
     const now = Date.now();
     if (now - last < RELOAD_THROTTLE_MS) {
       console.warn(`[versionCheck] reload skipped (throttle): ${reason}`);
-      return;
+      return false;
     }
-    sessionStorage.setItem(RELOAD_FLAG, String(now));
+    writeVersionStorage(RELOAD_FLAG, String(now));
+    if (serverVersion) writeVersionStorage(RELOAD_SERVER_KEY, serverVersion);
   } catch {}
 
   const url = new URL(window.location.href);
   url.searchParams.set("__v", Date.now().toString());
   console.warn(`[versionCheck] forcing reload: ${reason}`);
   window.location.replace(url.toString());
+  return true;
 }
 
 /**
  * Esegue il check, pulisce caches e ricarica se la versione è disallineata.
  * Ritorna true se la versione è OK (l'app può proseguire).
  */
-export async function ensureLatestVersion(): Promise<boolean> {
+async function runLatestVersionCheck(): Promise<boolean> {
+  if (IS_DEV) {
+    // In preview/dev Vite aggiorna i moduli via HMR. Forzare reload su version.json
+    // può creare loop quando il dev server mantiene lo stesso VITE_APP_VERSION.
+    return true;
+  }
+
   const info = await getVersionInfo();
   console.info(
     `[versionCheck] bundle=${info.bundle} server=${info.server ?? "n/a"} match=${info.match}`,
   );
   if (info.match) return true;
+
+  if (recentlyReloadedFor(info.server)) {
+    console.warn(
+      `[versionCheck] reload skipped (cooldown): bundle ${info.bundle} != server ${info.server}`,
+    );
+    return true;
+  }
+
   await purgeClientCaches();
-  forceReload(`bundle ${info.bundle} != server ${info.server}`);
-  return false;
+  return !forceReload(`bundle ${info.bundle} != server ${info.server}`, info.server);
+}
+
+export async function ensureLatestVersion(): Promise<boolean> {
+  if (versionCheckPromise) return versionCheckPromise;
+  versionCheckPromise = runLatestVersionCheck().finally(() => {
+    versionCheckPromise = null;
+  });
+  return versionCheckPromise;
 }
