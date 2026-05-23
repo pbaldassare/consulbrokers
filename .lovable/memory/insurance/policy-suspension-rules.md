@@ -24,12 +24,25 @@ type: feature
 - **Storico Polizze**: NON mostra più le sospese (rimosso `sospeso` dal filtro "tutti" e dal dropdown stato).
 - **Carico del Mese**: invariato (le sospese non vi appaiono).
 
-## Riattivazione (da implementare)
+## Riattivazione
 
-Al ripristino dovrà ricalcolare le quietanze (date + importi) dalla rata riattivata fino a scadenza in base al frazionamento, dato che le future erano state cancellate.
+Modale `RiattivazionePolizzaDialog` (speculare a Sospensione, niente pagina dedicata) aperto dalla card gialla in `TitoloDetail` o dalla CTA "Riattivazione" della card Operazioni.
+
+Campi modale: data riattivazione (default oggi), oneri a carico cliente (€, default 0), motivo (default "Riattivazione su richiesta cliente"), documento allegato opzionale (nome editabile, max 10 MB). Preview tabellare delle quietanze che verranno ricreate.
+
+Effetti mutation (in ordine):
+1. Update rata sospesa: `stato='attivo'`, `data_riattivazione` set, azzera `data_sospensione/limite_riattivazione/motivo_sospensione`.
+2. **Ricrea quietanze future** dal periodo successivo a `garanzia_a` rata sospesa fino a `durata_a` (o `data_scadenza`), usando `frazionamentoMesi()` di `src/lib/frazionamento.ts`. Importo per rata = `premio_lordo / rate_per_anno`. Ogni insert con `sostituisce_polizza = numero_titolo`, `sostituisce_riga` incrementale, stesso `numero_titolo`. Skip se Poliennale.
+3. **Se oneri > 0**: insert titolo separato "Oneri di Riattivazione" (stesso `numero_titolo`, `note='Oneri di riattivazione'`, `premio_lordo=oneri`, split provvigioni/commerciale copiato 1:1 dalla rata madre), `stato='attivo'`, `data_messa_cassa NULL` → da contabilizzare normalmente in Carico del Mese.
+4. Upload documento opzionale in `documenti_titoli/titolo/{id}/riattivazione_{ts}_{safeName}` + riga `documenti` con nome editabile (pattern identico a Sospensione, no folder).
+5. Insert `movimenti_polizza` con `tipo_documento='RA'`, descrizione composta (oneri + motivo + allegato), `stato='attivo'`.
+6. `logAttivita('riattivazione_polizza', 'titolo', id, { data_riattivazione, oneri, motivo, quietanze_ricreate:[ids], titolo_oneri_id, documento_id, documento_nome })`.
+7. Invalidate query: titolo, movimenti-polizza, timeline, documenti, portafoglio (attive/storico/carico).
 
 ## File
 
-- `src/pages/SospensionePolizzaPage.tsx`
+- `src/components/polizze/SospensionePolizzaDialog.tsx`
+- `src/components/polizze/RiattivazionePolizzaDialog.tsx`
+- `src/pages/TitoloDetail.tsx`
 - `src/pages/PortafoglioAttivePage.tsx`
 - `src/pages/PortafoglioStoricoPage.tsx`
