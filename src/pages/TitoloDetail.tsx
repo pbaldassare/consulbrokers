@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
+import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
 
