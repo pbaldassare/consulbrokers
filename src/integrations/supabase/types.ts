@@ -6776,6 +6776,8 @@ export type Database = {
           brokeraggio_firma: number | null
           brokeraggio_quietanza: number | null
           cambio: number | null
+          causale_estinzione: string | null
+          causale_sostituzione: string | null
           cig_rif: string | null
           cliente_anagrafica_id: string | null
           cliente_id: string | null
@@ -6791,12 +6793,14 @@ export type Database = {
           data_competenza: string | null
           data_conferimento_gestito: string | null
           data_decorrenza_rinnovo: string | null
+          data_estinzione: string | null
           data_incasso: string | null
           data_messa_cassa: string | null
           data_pagamento: string | null
           data_riattivazione: string | null
           data_scadenza: string | null
           data_sospensione: string | null
+          data_sostituzione: string | null
           descrizione_polizza: string | null
           disdetta_mesi: number | null
           durata_a: string | null
@@ -6817,7 +6821,9 @@ export type Database = {
           limite_mora: string | null
           limite_riattivazione: string | null
           mora_giorni: number | null
+          motivo_estinzione: string | null
           motivo_sospensione: string | null
+          motivo_sostituzione: string | null
           no_calcolo_tasse: boolean | null
           note: string | null
           numero_titolo: string | null
@@ -6879,6 +6885,8 @@ export type Database = {
           brokeraggio_firma?: number | null
           brokeraggio_quietanza?: number | null
           cambio?: number | null
+          causale_estinzione?: string | null
+          causale_sostituzione?: string | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
@@ -6894,12 +6902,14 @@ export type Database = {
           data_competenza?: string | null
           data_conferimento_gestito?: string | null
           data_decorrenza_rinnovo?: string | null
+          data_estinzione?: string | null
           data_incasso?: string | null
           data_messa_cassa?: string | null
           data_pagamento?: string | null
           data_riattivazione?: string | null
           data_scadenza?: string | null
           data_sospensione?: string | null
+          data_sostituzione?: string | null
           descrizione_polizza?: string | null
           disdetta_mesi?: number | null
           durata_a?: string | null
@@ -6920,7 +6930,9 @@ export type Database = {
           limite_mora?: string | null
           limite_riattivazione?: string | null
           mora_giorni?: number | null
+          motivo_estinzione?: string | null
           motivo_sospensione?: string | null
+          motivo_sostituzione?: string | null
           no_calcolo_tasse?: boolean | null
           note?: string | null
           numero_titolo?: string | null
@@ -6982,6 +6994,8 @@ export type Database = {
           brokeraggio_firma?: number | null
           brokeraggio_quietanza?: number | null
           cambio?: number | null
+          causale_estinzione?: string | null
+          causale_sostituzione?: string | null
           cig_rif?: string | null
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
@@ -6997,12 +7011,14 @@ export type Database = {
           data_competenza?: string | null
           data_conferimento_gestito?: string | null
           data_decorrenza_rinnovo?: string | null
+          data_estinzione?: string | null
           data_incasso?: string | null
           data_messa_cassa?: string | null
           data_pagamento?: string | null
           data_riattivazione?: string | null
           data_scadenza?: string | null
           data_sospensione?: string | null
+          data_sostituzione?: string | null
           descrizione_polizza?: string | null
           disdetta_mesi?: number | null
           durata_a?: string | null
@@ -7023,7 +7039,9 @@ export type Database = {
           limite_mora?: string | null
           limite_riattivazione?: string | null
           mora_giorni?: number | null
+          motivo_estinzione?: string | null
           motivo_sospensione?: string | null
+          motivo_sostituzione?: string | null
           no_calcolo_tasse?: boolean | null
           note?: string | null
           numero_titolo?: string | null
@@ -7185,6 +7203,77 @@ export type Database = {
           titolo_id?: string
         }
         Relationships: []
+      }
+      titoli_sostituzioni: {
+        Row: {
+          causale: string | null
+          conguaglio: number | null
+          created_at: string
+          created_by: string | null
+          data_sostituzione: string
+          id: string
+          motivo: string | null
+          parametri_nuovi: Json
+          parametri_precedenti: Json
+          titolo_conguaglio_id: string | null
+          titolo_id: string
+        }
+        Insert: {
+          causale?: string | null
+          conguaglio?: number | null
+          created_at?: string
+          created_by?: string | null
+          data_sostituzione: string
+          id?: string
+          motivo?: string | null
+          parametri_nuovi?: Json
+          parametri_precedenti?: Json
+          titolo_conguaglio_id?: string | null
+          titolo_id: string
+        }
+        Update: {
+          causale?: string | null
+          conguaglio?: number | null
+          created_at?: string
+          created_by?: string | null
+          data_sostituzione?: string
+          id?: string
+          motivo?: string | null
+          parametri_nuovi?: Json
+          parametri_precedenti?: Json
+          titolo_conguaglio_id?: string | null
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_sostituzioni_titolo_conguaglio_id_fkey"
+            columns: ["titolo_conguaglio_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_sostituzioni_titolo_conguaglio_id_fkey"
+            columns: ["titolo_conguaglio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_sostituzioni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_sostituzioni_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       titoli_split_commerciali: {
         Row: {

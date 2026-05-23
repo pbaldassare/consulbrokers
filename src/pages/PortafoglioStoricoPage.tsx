@@ -41,7 +41,7 @@ const PortafoglioStoricoPage = () => {
 
   const buildFilter = (q: any) => {
     if (filtroStato === "tutti") {
-      q = q.or(`stato.eq.scaduto,and(stato.eq.attivo,garanzia_a.lt.${today})`);
+      q = q.or(`stato.eq.scaduto,stato.eq.estinto,and(stato.eq.attivo,garanzia_a.lt.${today})`);
     } else {
       q = q.eq("stato", filtroStato);
       if (filtroStato === "attivo") {
@@ -93,6 +93,7 @@ const PortafoglioStoricoPage = () => {
       case "attivo": return "default" as const;
       case "sospeso": return "secondary" as const;
       case "scaduto": return "destructive" as const;
+      case "estinto": return "destructive" as const;
       case "incassato": return "outline" as const;
       default: return "secondary" as const;
     }
@@ -137,6 +138,7 @@ const PortafoglioStoricoPage = () => {
           <SelectContent>
             <SelectItem value="tutti">Tutti gli stati</SelectItem>
             <SelectItem value="scaduto">Scaduto</SelectItem>
+            <SelectItem value="estinto">Estinto</SelectItem>
             <SelectItem value="attivo">Attivo (garanzia scaduta)</SelectItem>
           </SelectContent>
         </Select>
