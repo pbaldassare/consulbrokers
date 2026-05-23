@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultRoute } from "@/lib/getDefaultRoute";
-import { ensureLatestVersion } from "@/lib/versionCheck";
 
 const LoginPage = () => {
   const { user, profile, loading: authLoading } = useAuth();
@@ -39,14 +38,6 @@ const LoginPage = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    // Pre-login: garantisce che il bundle sia aggiornato. Se non lo è,
-    // ensureLatestVersion ricarica la pagina (con throttle anti-loop).
-    const versionOk = await ensureLatestVersion();
-    if (!versionOk) {
-      // Reload imminente: non procedere col signIn, evita stati inconsistenti.
-      return;
-    }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
