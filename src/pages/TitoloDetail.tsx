@@ -37,6 +37,7 @@ import { VociRcaCard } from "@/components/polizze/VociRcaCard";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
+import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
 
@@ -127,6 +128,7 @@ const TitoloDetail = () => {
   const [annullaPassword, setAnnullaPassword] = useState("");
   const [annullaLoading, setAnnullaLoading] = useState(false);
   const [sospensioneOpen, setSospensioneOpen] = useState(false);
+  const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
 
   // --- Rinnovo dialog state ---
   
@@ -1577,7 +1579,7 @@ const TitoloDetail = () => {
             <p className="text-sm text-muted-foreground">
               Questa polizza è attualmente sospesa. Puoi riattivarla per ripristinare la copertura.
             </p>
-            <Button size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button size="sm" onClick={() => setRiattivazioneOpen(true)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattiva Polizza
             </Button>
           </CardContent>
@@ -1589,7 +1591,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => setSospensioneOpen(true)}>
               <Clock className="w-4 h-4 mr-1" /> Sospensione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/riattivazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button variant="outline" size="sm" onClick={() => setRiattivazioneOpen(true)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
@@ -3283,6 +3285,14 @@ const TitoloDetail = () => {
       <SospensionePolizzaDialog
         open={sospensioneOpen}
         onOpenChange={setSospensioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
+
+      <RiattivazionePolizzaDialog
+        open={riattivazioneOpen}
+        onOpenChange={setRiattivazioneOpen}
         titoloId={t.id}
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
