@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Copy, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2 } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -38,6 +38,8 @@ import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButto
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
 import { RiattivazionePolizzaDialog } from "@/components/polizze/RiattivazionePolizzaDialog";
+import { SostituzionePolizzaDialog } from "@/components/polizze/SostituzionePolizzaDialog";
+import { EstinzionePolizzaDialog } from "@/components/polizze/EstinzionePolizzaDialog";
 import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
 
@@ -129,6 +131,8 @@ const TitoloDetail = () => {
   const [annullaLoading, setAnnullaLoading] = useState(false);
   const [sospensioneOpen, setSospensioneOpen] = useState(false);
   const [riattivazioneOpen, setRiattivazioneOpen] = useState(false);
+  const [sostituzioneOpen, setSostituzioneOpen] = useState(false);
+  const [estinzioneOpen, setEstinzioneOpen] = useState(false);
 
   // --- Rinnovo dialog state ---
   
@@ -1594,8 +1598,11 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" onClick={() => setRiattivazioneOpen(true)}>
               <CheckSquare className="w-4 h-4 mr-1" /> Riattivazione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/duplicazione?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
-              <Copy className="w-4 h-4 mr-1" /> Duplicazione
+            <Button variant="outline" size="sm" onClick={() => setSostituzioneOpen(true)}>
+              <Replace className="w-4 h-4 mr-1" /> Sostituzione
+            </Button>
+            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
+              <Ban className="w-4 h-4 mr-1" /> Estinzione
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
@@ -3293,6 +3300,22 @@ const TitoloDetail = () => {
       <RiattivazionePolizzaDialog
         open={riattivazioneOpen}
         onOpenChange={setRiattivazioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
+
+      <SostituzionePolizzaDialog
+        open={sostituzioneOpen}
+        onOpenChange={setSostituzioneOpen}
+        titoloId={t.id}
+        numeroPolizza={t.numero_titolo || undefined}
+        onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
+      />
+
+      <EstinzionePolizzaDialog
+        open={estinzioneOpen}
+        onOpenChange={setEstinzioneOpen}
         titoloId={t.id}
         numeroPolizza={t.numero_titolo || undefined}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["titolo", id] })}
