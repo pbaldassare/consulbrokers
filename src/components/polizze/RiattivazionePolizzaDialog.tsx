@@ -141,6 +141,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     mutationFn: async () => {
       if (!dataRiattivazione) throw new Error("Data riattivazione obbligatoria");
       if (!titoloRow) throw new Error("Titolo non caricato");
+      if (titoloRow.stato !== "sospeso") throw new Error("La polizza non è sospesa. Solo le polizze sospese possono essere riattivate.");
 
       // 1. Riattiva rata sospesa
       const { error: errUp } = await supabase
