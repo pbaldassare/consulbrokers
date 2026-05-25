@@ -44,7 +44,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
       const { data, error } = await supabase
         .from("compagnia_rapporto_rami" as any)
         .select("gruppo_ramo_id, ramo_id")
-        .eq("compagnia_rapporto_id", compagniaRapportoId);
+        .eq("rapporto_id", compagniaRapportoId);
       if (error) throw error;
       return (data || []) as any[];
     },
@@ -75,16 +75,16 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
       const { error: delErr } = await supabase
         .from("compagnia_rapporto_rami" as any)
         .delete()
-        .eq("compagnia_rapporto_id", compagniaRapportoId);
+        .eq("rapporto_id", compagniaRapportoId);
       if (delErr) throw delErr;
 
       const toInsert: any[] = [];
       for (const r of valid) {
         if (r.all) {
-          toInsert.push({ compagnia_rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: null });
+          toInsert.push({ rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: null });
         } else {
           for (const rid of r.ramo_ids) {
-            toInsert.push({ compagnia_rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: rid });
+            toInsert.push({ rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: rid });
           }
         }
       }
