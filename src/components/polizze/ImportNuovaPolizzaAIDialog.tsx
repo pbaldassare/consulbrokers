@@ -487,14 +487,12 @@ export function ImportNuovaPolizzaAIDialog({
     }
     const gruppoComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId) || null;
     const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId) || null;
-    const ramoLabel = ramoCandidates.find(
-      (r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId,
-    );
-    const ramo = selectedGruppoRamoId && selectedSottoramoId
+    // Ramo: solo gruppoRamoId (scelto in Setup). I sottorami sono nelle voci di garanzia.
+    const ramo = selectedGruppoRamoId
       ? {
           gruppoRamoId: selectedGruppoRamoId,
-          ramoId: selectedSottoramoId,
-          label: ramoLabel?.label || "",
+          ramoId: null,
+          label: "",
         }
       : null;
     const effIsNewCliente = lockedClienteId ? false : isNewCliente;
@@ -515,7 +513,7 @@ export function ImportNuovaPolizzaAIDialog({
     (lockedClienteId ? true : !!selectedClienteId && newClienteReady) &&
     !!selectedGruppoCompagniaId &&
     !!selectedAgenziaId &&
-    !!selectedSottoramoId;
+    !!selectedGruppoRamoId;
 
   const apply = () => {
     if (!lockedClienteId) {
