@@ -195,6 +195,41 @@ Deno.serve(async (req) => {
       console.error("parse args fail", e, args);
     }
 
+    // Heuristic fallback: riempi i codice_sottoramo rimasti vuoti usando keyword → codice (solo se ammessi).
+    try {
+      const ammessi = new Set<string>(
+        (Array.isArray(sottorami_ammessi) ? sottorami_ammessi : [])
+          .map((s: any) => String(s?.codice || "").toUpperCase())
+          .filter(Boolean),
+      );
+      const gr = (gruppo_ramo as any) || {};
+      const isZQ = String(gr?.codice || "").toUpperCase() === "ZQ";
+      if (isZQ && Array.isArray(parsed?.garanzie)) {
+        const rules: Array<{ re: RegExp; code: string }> = [
+          { re: /cristall/i, code: "EC" },
+          { re: /kasko|collision/i, code: "QK" },
+          { re: /incend|furt|rapin/i, code: "QI" },
+          { re: /grandin|atmosfer|sociopolit|vandal|ricorso/i, code: "DRA" },
+          { re: /a\.?\s?r\.?\s?d\.?/i, code: "DRA" },
+          { re: /autocarr/i, code: "QC" },
+          { re: /motociclo|motoveicolo|moto/i, code: "QM" },
+          { re: /responsabilit|r\.?c\.?a|rca|r\.?c\.?\s*auto/i, code: "PI" },
+        ];
+        parsed.garanzie = parsed.garanzie.map((g: any) => {
+          if (g?.codice_sottoramo) return g;
+          const desc = String(g?.descrizione || "");
+          for (const r of rules) {
+            if (r.re.test(desc) && ammessi.has(r.code)) {
+              return { ...g, codice_sottoramo: r.code };
+            }
+          }
+          return g;
+        });
+      }
+    } catch (e) {
+      console.warn("heuristic fallback fail", e);
+    }
+
     return new Response(JSON.stringify({ ok: true, data: parsed }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
