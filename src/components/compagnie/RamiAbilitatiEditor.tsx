@@ -44,7 +44,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
       const { data, error } = await supabase
         .from("compagnia_rapporto_rami" as any)
         .select("gruppo_ramo_id, ramo_id")
-        .eq("compagnia_rapporto_id", compagniaRapportoId);
+        .eq("rapporto_id", compagniaRapportoId);
       if (error) throw error;
       return (data || []) as any[];
     },

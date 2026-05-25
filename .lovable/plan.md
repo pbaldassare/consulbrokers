@@ -1,30 +1,29 @@
-## Obiettivo
+# Fix salvataggio Rami/Sottorami abilitati
 
-Sulla pagina **Provvigioni Compagnie/Ramo** (tab del rapporto selezionato) aggiungere la gestione **manuale** dei Rami e Sottorami abilitati per il rapporto, oggi possibile solo dal dialog "Rapporti" della compagnia o tramite Import IA/CSV.
+## Diagnosi
 
-## Stato attuale
+Nel pannello "Gestione manuale Rami e Sottorami abilitati":
+- Selezioni Ramo + sottoramo, premi Salva → niente succede, il pannello provvigioni resta "0 Rami · 0 sottorami".
 
-- `src/components/compagnie/ProvvigioniRapportiTab.tsx` mostra il banner _"Nessun Ramo abilitato su questo rapporto. Apri 'Rapporti' sulla compagnia e definisci i Rami/Sottorami abilitati."_ quando `compagnia_rapporto_rami` è vuoto.
-- L'editor "Rami e Sottorami abilitati" esiste già in `RapportiCompagniaDialog.tsx` (righe ~754–905): grid Ramo + popover sottorami con "Tutti i sottorami" o multiselect.
-- I dati vivono in `compagnia_rapporto_rami (compagnia_rapporto_id, gruppo_ramo_id, ramo_id NULL=tutti)`.
+Causa: `RamiAbilitatiEditor.tsx` usa la colonna **`compagnia_rapporto_id`** ovunque (SELECT / DELETE / INSERT), ma la colonna reale in DB si chiama **`rapporto_id`** (NOT NULL).
 
-## Modifica
+Verificato:
+- `information_schema.columns` su `compagnia_rapporto_rami` → colonne: `id, rapporto_id (NOT NULL), gruppo_ramo_id (NOT NULL), ramo_id, created_at`.
+- Il flusso AI (`RapportiCompagniaDialog.tsx`) e la lettura in `ProvvigioniRapportiTab.tsx` usano già `rapporto_id` correttamente — è solo l'editor manuale ad essere sbagliato.
 
-1. **Estrarre** l'editor in un componente riusabile `src/components/compagnie/RamiAbilitatiEditor.tsx` che riceve `compagniaRapportoId`, carica/salva su `compagnia_rapporto_rami` (delete + insert come fa già il dialog) e invalida le query `compagnia_rapporto_rami`, `rapporto-rami-abilitati`, `compagnia_rapporto_rami_all`.
-2. **Refactor** `RapportiCompagniaDialog.tsx` per usare il nuovo componente (stesso comportamento, nessuna regressione).
-3. **Aggiungere in `ProvvigioniRapportiTab.tsx`** una nuova sezione collassabile (sopra "Elenco Rami e provvigioni") intitolata _"Rami e Sottorami abilitati"_ che monta `RamiAbilitatiEditor` per il `rapportoId` corrente. Pulsanti: "Aggiungi Ramo", "Tutti i Rami", "Salva". Salvataggio inline (non serve riaprire il dialog rapporti).
-4. **Sostituire il banner vuoto** con un CTA che apre/espande direttamente questa sezione, mantenendo il link al dialog rapporti come secondario.
-5. La toolbar esistente (Import IA / Incolla CSV / Copia da altro / Export) resta invariata; questa è la quarta via, completamente manuale.
+Risultato attuale: l'INSERT lato PostgREST fallisce (campo NOT NULL mancante + colonna inesistente), la SELECT non trova mai righe → UI sempre vuota.
 
-## Note tecniche
+## Fix (un solo file)
 
-- Nessuna modifica DB.
-- Riusare `SearchableSelect`, `useGruppiRamo`, `useRamiAll` (già in `useRamiLookup.ts`).
-- Mantenere soft-validation: almeno una riga con `gruppo_ramo_id` valido; `all=true` salva una sola riga con `ramo_id=null`, altrimenti N righe con i `ramo_id` selezionati.
-- Toast di conferma + invalidate per far ricomparire la matrice provvigioni con i nuovi rami già pronti da configurare.
+`src/components/compagnie/RamiAbilitatiEditor.tsx`:
+1. SELECT (~riga 47): `.eq("compagnia_rapporto_id", …)` → `.eq("rapporto_id", …)`
+2. DELETE (~riga 77): stesso rename
+3. INSERT payload (~righe 83 e 86): `compagnia_rapporto_id: …` → `rapporto_id: …`
+4. Allineare anche la prop e il nome variabile (`compagniaRapportoId` resta nel codice, è solo la variabile JS che porta `rapportoId`: nessuna modifica al chiamante necessaria).
 
-## File toccati
+## Verifica post-fix
 
-- nuovo: `src/components/compagnie/RamiAbilitatiEditor.tsx`
-- mod: `src/components/compagnie/RapportiCompagniaDialog.tsx` (sostituire markup inline col componente)
-- mod: `src/components/compagnie/ProvvigioniRapportiTab.tsx` (nuova sezione + sostituzione banner vuoto)
+- Apri rapporto, aggiungi un Ramo + "Tutti i sottorami", premi Salva → toast successo, le righe compaiono in `compagnia_rapporto_rami`.
+- Il pannello "Provvigioni" sopra mostra i gruppi abilitati e si possono inserire le percentuali (la mutation provvigioni era già corretta — diventerà utilizzabile non appena ci sono righe abilitate).
+
+Nessun cambiamento di schema DB o di altri componenti: i due flussi (AI e manuale) convergono sullo stesso storage `compagnia_rapporto_rami(rapporto_id, …)`.
