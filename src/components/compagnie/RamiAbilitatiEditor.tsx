@@ -81,10 +81,10 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
       const toInsert: any[] = [];
       for (const r of valid) {
         if (r.all) {
-          toInsert.push({ compagnia_rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: null });
+          toInsert.push({ rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: null });
         } else {
           for (const rid of r.ramo_ids) {
-            toInsert.push({ compagnia_rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: rid });
+            toInsert.push({ rapporto_id: compagniaRapportoId, gruppo_ramo_id: r.gruppo_ramo_id, ramo_id: rid });
           }
         }
       }
