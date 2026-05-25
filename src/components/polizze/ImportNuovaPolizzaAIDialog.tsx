@@ -352,44 +352,72 @@ export function ImportNuovaPolizzaAIDialog({
       toast.error("File troppo grande (max 15MB)");
       return;
     }
+    if (!selectedGruppoRamoId) {
+      toast.error("Seleziona prima il Ramo per aiutare l'estrazione");
+      return;
+    }
     setFileName(file.name);
     setParsing(true);
     setLogs([]);
     setProgress(0);
     try {
-      setPhase(10, `Lettura file (${(file.size / 1024).toFixed(0)} KB)…`);
+      setPhase(5, "Caricamento contesto Ramo / sottorami…");
+      // Carico Gruppo Ramo + elenco sottorami ammessi per dare contesto all'AI
+      const [{ data: gr }, { data: sottorami }] = await Promise.all([
+        supabase.from("gruppi_ramo" as any).select("id, codice, descrizione").eq("id", selectedGruppoRamoId).maybeSingle(),
+        supabase.from("rami").select("codice, descrizione").eq("gruppo_ramo_id", selectedGruppoRamoId).eq("attivo", true).order("codice"),
+      ]);
+      const gruppoRamoCtx = gr as any
+        ? { id: (gr as any).id, codice: (gr as any).codice, descrizione: (gr as any).descrizione }
+        : null;
+      const sottoramiAmmessi = (sottorami || []).map((s: any) => ({ codice: s.codice, descrizione: s.descrizione }));
+      log("success", `Ramo: ${gruppoRamoCtx?.codice} — ${gruppoRamoCtx?.descrizione} · ${sottoramiAmmessi.length} sottorami ammessi`);
+
+      setPhase(15, `Lettura file (${(file.size / 1024).toFixed(0)} KB)…`);
       const buf = await file.arrayBuffer();
       const bytes = new Uint8Array(buf);
       let bin = "";
       for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       setPhase(25, "Conversione base64…");
       const b64 = btoa(bin);
-      setPhase(40, "Invio a Gemini per analisi…");
+      setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
       const { data: resp, error } = await supabase.functions.invoke("parse-polizza-completa", {
-        body: { fileBase64: b64, mimeType: file.type || "application/pdf" },
+        body: {
+          fileBase64: b64,
+          mimeType: file.type || "application/pdf",
+          gruppo_ramo: gruppoRamoCtx,
+          sottorami_ammessi: sottoramiAmmessi,
+        },
       });
       if (error) throw error;
       if ((resp as any)?.error) throw new Error((resp as any).error);
       const parsed: ParsedPolizzaData = (resp as any)?.data || {};
       setPhase(70, "Estrazione dati completata");
       log("success", `Numero polizza: ${parsed.numero_polizza || "—"}`);
-      log("success", `Compagnia: ${parsed.compagnia || "—"} · Ramo: ${parsed.ramo_descrizione || "—"}`);
+      log("success", `Compagnia: ${parsed.compagnia || "—"}`);
       log("success", `Contraente: ${parsed.contraente_nome || "—"}`);
+      log("success", `Voci di garanzia estratte: ${parsed.garanzie?.length || 0}`);
 
       setData(parsed);
 
-      setPhase(80, "Ricerca cliente nel database…");
-      const cli = await lookupClienti(parsed);
-      setClienteCandidates(cli);
-      const exact = cli.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email");
-      if (exact) {
-        setSelectedClienteId(exact.id);
-      } else if (cli.length) {
-        log("warn", `Nessun match esatto — ${cli.length} candidato/i solo per nome`);
-        setSelectedClienteId(NEW_CLIENTE);
+      // Cliente: skip lookup se locked dall'anagrafica corrente
+      if (lockedClienteId) {
+        setSelectedClienteId(lockedClienteId);
+        log("info", `Cliente già fissato dall'anagrafica: ${lockedClienteLabel || lockedClienteId}`);
       } else {
-        log("warn", "Nessun cliente trovato — andrà creato");
-        setSelectedClienteId(NEW_CLIENTE);
+        setPhase(80, "Ricerca cliente nel database…");
+        const cli = await lookupClienti(parsed);
+        setClienteCandidates(cli);
+        const exact = cli.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email");
+        if (exact) {
+          setSelectedClienteId(exact.id);
+        } else if (cli.length) {
+          log("warn", `Nessun match esatto — ${cli.length} candidato/i solo per nome`);
+          setSelectedClienteId(NEW_CLIENTE);
+        } else {
+          log("warn", "Nessun cliente trovato — andrà creato");
+          setSelectedClienteId(NEW_CLIENTE);
+        }
       }
 
       setPhase(88, "Ricerca compagnia assicurativa…");
@@ -412,16 +440,8 @@ export function ImportNuovaPolizzaAIDialog({
         log("warn", "Nessuna compagnia (gruppo) trovata");
       }
 
-      setPhase(95, "Ricerca ramo…");
-      const ram = await lookupRami(parsed);
-      setRamoCandidates(ram);
-      if (ram.length) {
-        log("success", `${ram.length} ramo/i candidato/i`);
-        setSelectedGruppoRamoId(ram[0].gruppoRamoId);
-        setSelectedSottoramoId(ram[0].ramoId);
-      } else {
-        log("warn", "Nessun ramo mappato — selezionalo manualmente nel form");
-      }
+      // Ramo: già scelto dall'utente nello step Setup, NON viene cambiato dall'AI
+      log("success", `Ramo confermato (scelto manualmente): ${gruppoRamoCtx?.codice} — ${gruppoRamoCtx?.descrizione}`);
 
       setPhase(100, "Completato");
       log("success", "Pronto per la revisione");
