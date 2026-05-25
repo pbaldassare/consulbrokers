@@ -1014,68 +1014,53 @@ export function ImportNuovaPolizzaAIDialog({
               </div>
             </section>
 
-            {/* GARANZIE */}
+            {/* GARANZIE estratte — preview read-only allineata al form manuale (Sottoramo + Premio netto + Tasse) */}
             {data.garanzie && data.garanzie.length > 0 && (
               <section className="border rounded-lg p-3 space-y-2">
-                <h3 className="font-semibold">Garanzie ({data.garanzie.length})</h3>
-                <div className="space-y-2">
-                  {data.garanzie.map((g, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-6">
-                        <Label className="text-[11px]">Descrizione</Label>
-                        <Input
-                          value={g.descrizione}
-                          onChange={(e) => {
-                            const arr = [...(data.garanzie || [])];
-                            arr[i] = { ...arr[i], descrizione: e.target.value };
-                            updateField("garanzie", arr);
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <Label className="text-[11px]">Massimale</Label>
-                        <Input
-                          type="number"
-                          value={g.massimale ?? ""}
-                          onChange={(e) => {
-                            const arr = [...(data.garanzie || [])];
-                            arr[i] = { ...arr[i], massimale: num(e.target.value) };
-                            updateField("garanzie", arr);
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-[11px]">Premio netto</Label>
-                        <Input
-                          type="number"
-                          value={g.premio_netto ?? ""}
-                          onChange={(e) => {
-                            const arr = [...(data.garanzie || [])];
-                            arr[i] = { ...arr[i], premio_netto: num(e.target.value) };
-                            updateField("garanzie", arr);
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const arr = (data.garanzie || []).filter((_, j) => j !== i);
-                            updateField("garanzie", arr);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <h3 className="font-semibold text-sm">
+                  Voci di garanzia estratte ({data.garanzie.length})
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Queste voci verranno create come righe nelle <strong>Composizioni Premio</strong> del form manuale.
+                  Potrai correggere Sottoramo, Premio netto e Tasse per ogni riga dopo "Applica".
+                </p>
+                <div className="rounded border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 text-muted-foreground">
+                      <tr>
+                        <th className="text-left px-2 py-1.5 font-medium">Sottoramo (suggerito)</th>
+                        <th className="text-left px-2 py-1.5 font-medium">Descrizione (dal PDF)</th>
+                        <th className="text-right px-2 py-1.5 font-medium">Premio netto</th>
+                        <th className="text-right px-2 py-1.5 font-medium">Imposte</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.garanzie.map((g, i) => (
+                        <tr key={i} className="border-t odd:bg-background even:bg-muted/20">
+                          <td className="px-2 py-1.5">
+                            {g.codice_sottoramo ? (
+                              <Badge variant="outline" className="text-[10px] font-mono">
+                                {g.codice_sottoramo}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">
+                                da scegliere
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5">{g.descrizione}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums">{fmtEur(g.premio_netto)}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums">{fmtEur(g.premio_imposte)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </section>
             )}
           </div>
         )}
+
 
         {/* STEP SUMMARY */}
         {step === "summary" && (
