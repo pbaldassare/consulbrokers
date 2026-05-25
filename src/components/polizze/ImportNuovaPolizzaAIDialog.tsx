@@ -628,23 +628,25 @@ export function ImportNuovaPolizzaAIDialog({
               </div>
             )}
 
-            {/* Selezione Ramo OBBLIGATORIA prima del PDF */}
+            {/* Selezione SOLO Gruppo Ramo OBBLIGATORIA prima del PDF.
+                I sottorami vengono estratti dal PDF voce per voce (come nel manuale). */}
             <div className="border rounded-lg p-3 space-y-2">
               <Label className="text-xs font-semibold">
                 Ramo della polizza <span className="text-destructive">*</span>
               </Label>
               <RamoSottoramoSelect
                 gruppoRamoId={selectedGruppoRamoId || null}
-                ramoId={selectedSottoramoId || null}
-                onChange={({ gruppoRamoId, ramoId }) => {
+                ramoId={null}
+                onChange={({ gruppoRamoId }) => {
                   setSelectedGruppoRamoId(gruppoRamoId || "");
-                  setSelectedSottoramoId(ramoId || "");
                 }}
-                hideLabels={false}
+                hideLabels
+                gruppoOnly
               />
               <p className="text-[11px] text-muted-foreground">
-                Seleziona prima il <strong>Ramo</strong>: l'AI riceverà l'elenco dei sottorami ammessi e mapperà
-                correttamente le voci di garanzia. Il Sottoramo è opzionale (puoi sceglierlo per riga nello step successivo).
+                Seleziona il <strong>Ramo</strong>: l'AI riceverà l'elenco dei sottorami ammessi e mapperà
+                ogni voce di garanzia del PDF al sottoramo corretto. I sottorami vengono presi dal PDF
+                (uno per riga, esattamente come nel form manuale).
               </p>
             </div>
 
