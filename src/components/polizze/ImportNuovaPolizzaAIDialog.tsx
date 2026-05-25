@@ -99,12 +99,17 @@ export function ImportNuovaPolizzaAIDialog({
   open,
   onOpenChange,
   onApply,
+  lockedClienteId,
+  lockedClienteLabel,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onApply: (m: MatchResult) => void;
+  /** Se fornito, il dialog non chiede il cliente: usa direttamente questo id (anagrafica già aperta). */
+  lockedClienteId?: string;
+  lockedClienteLabel?: string;
 }) {
-  const [step, setStep] = useState<Step>("upload");
+  const [step, setStep] = useState<Step>("setup");
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
