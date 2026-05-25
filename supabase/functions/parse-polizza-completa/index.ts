@@ -115,7 +115,23 @@ Deno.serve(async (req) => {
         .map((s) => `  - ${s.codice} : ${s.descrizione}`)
         .join("\n");
       ramoContext +=
-        `\n\nElenco SOTTORAMI AMMESSI (devi mappare ogni voce 'garanzie[].codice_sottoramo' SOLO a uno di questi codici; se non sei sicuro, OMETTI il campo):\n${list}`;
+        `\n\nElenco SOTTORAMI AMMESSI (devi mappare ogni voce 'garanzie[].codice_sottoramo' SOLO a uno di questi codici. ` +
+        `È LECITO e ATTESO riusare lo STESSO codice su più voci diverse del PDF — molte garanzie tecniche del PDF mappano sullo stesso sottoramo catalogo. ` +
+        `Solo se davvero nessun codice è applicabile, OMETTI il campo).\n${list}`;
+
+      // Regole di dominio (heuristics) per ramo ZQ — R.C.A. (auto/veicoli)
+      const gr = (gruppo_ramo as any) || {};
+      if ((gr.codice || "").toUpperCase() === "ZQ") {
+        ramoContext +=
+          `\n\nREGOLE DI MAPPING per ramo ZQ (R.C.A.):\n` +
+          `- "Responsabilità civile auto", "RCA", "RC veicoli" → PI (autovetture) / QA (auto generica) / QC (autocarri) / QM (motoveicoli) — scegli in base al tipo veicolo.\n` +
+          `- "Incendio", "Furto", "Incendio e Furto", "Rapina" → QI (INCENDIO/FURTO).\n` +
+          `- "Eventi atmosferici", "Grandine", "Eventi naturali", "Eventi sociopolitici", "Atti vandalici", "Ricorso terzi da incendio" → DRA (AUTO RISCHI DIVERSI / A.R.D.).\n` +
+          `- "Cristalli", "Rottura cristalli" → EC (CRISTALLI).\n` +
+          `- "Kasko", "Collisione", "Mini-kasko", "Garanzia collisione" → QK (KASKO).\n` +
+          `- "Tutela legale", "Assistenza stradale", "Infortuni del conducente" → NON hanno sottoramo dedicato in ZQ: OMETTI codice_sottoramo (l'utente lo sceglierà).\n` +
+          `Riusa pure più volte lo stesso codice (es. più voci A.R.D. → tutte DRA).`;
+      }
     }
 
     const messages = [
@@ -177,6 +193,41 @@ Deno.serve(async (req) => {
       parsed = typeof args === "string" ? JSON.parse(args) : args ?? {};
     } catch (e) {
       console.error("parse args fail", e, args);
+    }
+
+    // Heuristic fallback: riempi i codice_sottoramo rimasti vuoti usando keyword → codice (solo se ammessi).
+    try {
+      const ammessi = new Set<string>(
+        (Array.isArray(sottorami_ammessi) ? sottorami_ammessi : [])
+          .map((s: any) => String(s?.codice || "").toUpperCase())
+          .filter(Boolean),
+      );
+      const gr = (gruppo_ramo as any) || {};
+      const isZQ = String(gr?.codice || "").toUpperCase() === "ZQ";
+      if (isZQ && Array.isArray(parsed?.garanzie)) {
+        const rules: Array<{ re: RegExp; code: string }> = [
+          { re: /cristall/i, code: "EC" },
+          { re: /kasko|collision/i, code: "QK" },
+          { re: /incend|furt|rapin/i, code: "QI" },
+          { re: /grandin|atmosfer|sociopolit|vandal|ricorso/i, code: "DRA" },
+          { re: /a\.?\s?r\.?\s?d\.?/i, code: "DRA" },
+          { re: /autocarr/i, code: "QC" },
+          { re: /motociclo|motoveicolo|moto/i, code: "QM" },
+          { re: /responsabilit|r\.?c\.?a|rca|r\.?c\.?\s*auto/i, code: "PI" },
+        ];
+        parsed.garanzie = parsed.garanzie.map((g: any) => {
+          if (g?.codice_sottoramo) return g;
+          const desc = String(g?.descrizione || "");
+          for (const r of rules) {
+            if (r.re.test(desc) && ammessi.has(r.code)) {
+              return { ...g, codice_sottoramo: r.code };
+            }
+          }
+          return g;
+        });
+      }
+    } catch (e) {
+      console.warn("heuristic fallback fail", e);
     }
 
     return new Response(JSON.stringify({ ok: true, data: parsed }), {
