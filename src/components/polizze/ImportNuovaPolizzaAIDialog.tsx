@@ -60,7 +60,8 @@ export type MatchResult = {
   cliente?: { id: string; label: string } | null;
   gruppoCompagnia?: { id: string; label: string } | null;
   compagnia?: { id: string; label: string } | null; // = agenzia (compagnie.id)
-  ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
+  /** ramoId opzionale: nel flusso AI il Sottoramo viene scelto riga per riga (come nel manuale). */
+  ramo?: { gruppoRamoId: string; ramoId?: string | null; label: string } | null;
   isNewCliente?: boolean;
   gruppoFinanziarioId?: string;
   tipoCliente?: "privato" | "azienda" | "ente";
