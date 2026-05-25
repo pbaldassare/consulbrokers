@@ -155,7 +155,7 @@ export function ImportNuovaPolizzaAIDialog({
   }, [step, gruppiFinanziari.length]);
 
   const reset = () => {
-    setStep("upload");
+    setStep("setup");
     setParsing(false);
     setProgress(0);
     setProgressLabel("");
