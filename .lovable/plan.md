@@ -1,68 +1,44 @@
 ## Obiettivo
 
-Allineare il flusso "Importa da PDF (AI)" alla logica del manuale, rispettando due vincoli che hai ribadito:
-
-1. **Cliente già noto** → siamo dentro l'anagrafica cliente (`?clienteId=...`), quindi niente sezione "Cliente" nel dialog.
-2. **Ramo come contesto, Sottorami dal PDF** → nello step Setup si sceglie SOLO il **Gruppo Ramo** (es. `ZQ - R.C.A.`). I **sottorami** li estrae l'AI dal PDF, voce per voce, esattamente come avviene quando l'utente nel manuale aggiunge le righe in `PremiGaranziaCardShell` scegliendo il sottoramo riga per riga.
-
-Nessun campo inventato. Nessuna deviazione dalla struttura del form manuale.
-
----
+Eliminare gli step intermedi "Revisione" e "Riepilogo" del dialog `ImportNuovaPolizzaAIDialog`. Dopo aver selezionato il Ramo e caricato il PDF, i dati estratti vengono **applicati direttamente** al form di immissione (che è già il punto di verità grafico e funzionale). Eventuali correzioni si fanno nel form stesso, esattamente come per il manuale. Nessun campo inventato, nessuna grafica parallela.
 
 ## Modifiche
 
 ### 1. `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx`
 
-**Step "Setup" (prima dell'upload PDF)**
-- Mostrare SOLO il selettore **Gruppo Ramo** (obbligatorio). Rimuovere il selettore "Sottoramo" da questo step — non ha senso sceglierne uno globale, perché ogni riga garanzia avrà il suo.
-- Helper text aggiornato: "Seleziona il Ramo: l'AI riceverà l'elenco dei sottorami ammessi per quel Ramo e mapperà ogni voce di garanzia del PDF al sottoramo corretto."
-- Dropzone PDF disabilitata finché `selectedGruppoRamoId` è vuoto.
+- **Rimuovere** gli step `review` e `summary`. Resta solo `setup` + stato `parsing`.
+- Dopo che `handleFile` riceve il `parsed` e completa i lookup automatici (cliente locked, gruppoCompagnia, agenzia, ramo già scelto):
+  - Costruire direttamente `MatchResult` con `buildResult()`.
+  - Chiamare `onApply(result)` e chiudere il dialog (`onOpenChange(false)` + `reset()`).
+  - Toast: "Dati importati: completa/correggi nel form".
+- **Auto-selezione lookup** (già presenti): mantenere la logica che pre-seleziona il primo `gruppoCompagnia` candidato e l'unica/prima agenzia. Se l'auto-selezione lascia `gruppoCompagnia` o `agenzia` vuoti, il form mostrerà i campi vuoti — l'utente li imposta lì, niente blocchi nel dialog.
+- **Cliente nuovo (non locked):** caso oggi non in scope perché siamo sempre dentro l'anagrafica cliente. Se `lockedClienteId` manca, lasciare comunque l'auto-apply usando `isNewCliente=true`: la pagina `ImmissionePolizzaPage` ha già la sua gestione (apertura form nuovo cliente). Nessuno step intermedio.
+- **Rimuovere** dal JSX: l'intera sezione `step === "review"` (cliente cards, banner match, premi, garanzie preview), l'intera sezione `step === "summary"`, e i pulsanti footer `Riepilogo`/`Modifica`/`Applica` (resta solo eventuale Annulla).
+- **Rimuovere** componenti helper non più usati: `FieldInput`, `PremiBlock`, `SummaryRow` se non hanno altri consumer (verifica con grep).
+- **Rimuovere** stati ora morti: `gruppiFinanziari`, `selectedGruppoFinanziarioId`, `codiceCigNew`, `clienteCandidates`, banner `bestMatch`/`matchLevel`. La logica `lookupClienti` resta solo se serve all'auto-apply quando non locked; altrimenti rimuoverla del tutto.
+- **Tipo `Step`** ridotto a `"setup"` (o eliminato).
+- **Header dialog:** rimuovere il Badge "2. Revisione / 3. Riepilogo".
 
-**Cliente locked (da URL)**
-- Quando `lockedClienteId` è valorizzato (sempre nel caso `/portafoglio/immissione?clienteId=...`):
-  - Skip `lookupClienti` nella chiamata edge function (non serve scoring/matching).
-  - Nello step "review" mostrare un badge read-only "Cliente: {lockedClienteLabel} — preso dall'anagrafica corrente". Nessuna card "Cliente match", nessun campo modificabile.
-  - `buildResult()` restituisce `{ cliente: { id: lockedClienteId, label: lockedClienteLabel, isNewCliente: false } }`.
-  - `canProceed`/`apply()` non controllano più il cliente.
+### 2. `src/pages/ImmissionePolizzaPage.tsx`
 
-**Review step**
-- Resta com'è dopo l'ultimo giro: niente sezione "Garanzie" inventata con Descrizione/Massimale. Solo preview read-only delle righe estratte (Sottoramo + Premio netto + Imposte) per dare visibilità all'utente prima dell'Applica.
+Nessuna modifica funzionale al form. Solo verificare che `handleAIImportApply` (già implementato nelle iterazioni precedenti):
+- Mappa correttamente `m.data.garanzie[]` → `premiFirmaRows` (sottoramo per riga via `codice_sottoramo`).
+- Popola tutti gli altri campi: cliente locked, compagnia/agenzia, ramo (gruppo), prodotto, numero polizza, decorrenza/scadenza, frazionamento, tacito rinnovo, premi firma/quietanza, targa.
+- Mostra un toast di conferma. Eventuali campi mancanti restano vuoti nel form (selezionabili manualmente lì).
 
-**Chiamata edge function (`handleFile`)**
-- Body invariato rispetto all'ultimo giro: invia `gruppo_ramo: { id, codice, descrizione }` + `sottorami_ammessi: [{ id, codice, descrizione }]` filtrati per quel Gruppo Ramo. L'AI userà SOLO quella lista per popolare `codice_sottoramo` di ogni voce.
+### 3. Edge function `parse-polizza-completa`
 
-### 2. `supabase/functions/parse-polizza-completa/index.ts`
+Nessuna modifica. Lo schema output e il prompt restano quelli già allineati al manuale (con `gruppo_ramo` + `sottorami_ammessi` come contesto).
 
-Già aggiornato nell'iterazione precedente. Verifica solo che:
-- Lo schema JSON output per ogni `voci_garanzia` includa `codice_sottoramo` (string|null) + `premio_netto` + `premio_imposte` + `aliquota_tasse_pct`.
-- Il system prompt istruisca chiaramente: "Mappa `codice_sottoramo` ESCLUSIVAMENTE scegliendo dalla lista `sottorami_ammessi` fornita. Se nessuno è applicabile, lascia null e l'utente sceglierà manualmente nel form."
-- **Nessun campo `massimale`** nello schema.
+## Flusso risultante
 
-### 3. `src/pages/ImmissionePolizzaPage.tsx`
-
-- Passare `lockedClienteId={clienteIdFromUrl}` e `lockedClienteLabel={clienteCorrente?.nome_completo}` al dialog.
-- In `handleAIImportApply`:
-  - Pre-popolare `gruppoRamoId` dal valore scelto nello step Setup.
-  - Mappare `m.data.garanzie[]` in righe di `premiFirmaRows` (struttura `GaranziaRow` esistente). Per ogni voce:
-    - cerca nel `ramiList` (catalogo già filtrato per `gruppoRamoId`) il record con `codice === voce.codice_sottoramo` → se trovato, `sottoramoId = riga.id`; altrimenti `sottoramoId = ""` (l'utente sceglie dal `SearchableSelect` di riga, identico al manuale).
-    - `descrizione = voce.descrizione`, `premioNetto = voce.premio_netto`, `imposte = voce.premio_imposte`, `aliquota = voce.aliquota_tasse_pct`.
-  - Nessun campo `massimale`. Nessuna riga "libera" inventata.
-
----
+1. `/portafoglio/immissione?clienteId=...` → click "Importa da PDF (AI)".
+2. Dialog: badge Cliente (locked) + selettore Ramo + dropzone.
+3. Scelgo Ramo → carico PDF → progress bar + log live.
+4. Estrazione completa → **dialog si chiude da solo** → form pre-compilato con tutti i campi estratti, righe garanzia già create con sottoramo selezionato dove c'è match.
+5. Eventuali campi mancanti/errati si correggono direttamente nel form (UI identica al manuale).
 
 ## Cosa NON cambia
 
-- Schema DB, RLS, migrazioni: zero modifiche.
-- Form manuale (`ImmissionePolizzaPage` + `PremiGaranziaCardShell`): struttura invariata, solo prefill via `handleAIImportApply`.
-- Logica edge function core (parsing PDF, AI call): invariata, solo input/output schema arricchiti come sopra.
-
----
-
-## Verifica
-
-1. Da `/clienti/{id}` → "Nuova Polizza" → URL `/portafoglio/immissione?clienteId=...` → click "Importa da PDF (AI)".
-2. Step Setup mostra **solo** "Ramo" (no Sottoramo, no Cliente). Dropzone disabilitata finché Ramo vuoto.
-3. Seleziono `ZQ - R.C.A.` → dropzone si abilita → carico PDF.
-4. Review step mostra: badge Cliente read-only · Compagnia/Agenzia · Ramo (ZQ) · Polizza · Premio Firma · Premio Quietanza · Targa · tabella preview Sottorami estratti dal PDF (read-only).
-5. Click "Applica" → form pre-compilato; `PremiGaranziaCardShell` ha N righe, una per ogni voce del PDF, con sottoramo già selezionato dove l'AI ha trovato match nel catalogo `ZQ`, e vuoto (selezionabile dall'utente) dove non l'ha trovato.
-6. Zero regressione: aprire `/portafoglio/immissione` SENZA `clienteId` mostra di nuovo la sezione Cliente completa nel dialog.
+- Schema DB, RLS, edge function, form manuale, mappatura `handleAIImportApply`.
+- Tracciamento log live durante il parsing (utile per debug — resta visibile nello step setup mentre `parsing=true`).
