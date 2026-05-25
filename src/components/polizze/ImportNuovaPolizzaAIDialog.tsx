@@ -472,8 +472,8 @@ export function ImportNuovaPolizzaAIDialog({
 
       onApply(result);
       toast.success("Dati importati — completa/correggi nel form");
-      onOpenChange(false);
-      reset();
+      // Mostra un riepilogo semplice (chiudibile) PRIMA di chiudere il dialog.
+      setStep("summary");
     } catch (e: any) {
       console.error(e);
       log("error", `Errore: ${e?.message || "sconosciuto"}`);
