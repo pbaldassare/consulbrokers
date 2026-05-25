@@ -60,7 +60,8 @@ export type MatchResult = {
   cliente?: { id: string; label: string } | null;
   gruppoCompagnia?: { id: string; label: string } | null;
   compagnia?: { id: string; label: string } | null; // = agenzia (compagnie.id)
-  ramo?: { gruppoRamoId: string; ramoId: string; label: string } | null;
+  /** ramoId opzionale: nel flusso AI il Sottoramo viene scelto riga per riga (come nel manuale). */
+  ramo?: { gruppoRamoId: string; ramoId?: string | null; label: string } | null;
   isNewCliente?: boolean;
   gruppoFinanziarioId?: string;
   tipoCliente?: "privato" | "azienda" | "ente";
@@ -486,14 +487,12 @@ export function ImportNuovaPolizzaAIDialog({
     }
     const gruppoComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId) || null;
     const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId) || null;
-    const ramoLabel = ramoCandidates.find(
-      (r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId,
-    );
-    const ramo = selectedGruppoRamoId && selectedSottoramoId
+    // Ramo: solo gruppoRamoId (scelto in Setup). I sottorami sono nelle voci di garanzia.
+    const ramo = selectedGruppoRamoId
       ? {
           gruppoRamoId: selectedGruppoRamoId,
-          ramoId: selectedSottoramoId,
-          label: ramoLabel?.label || "",
+          ramoId: null,
+          label: "",
         }
       : null;
     const effIsNewCliente = lockedClienteId ? false : isNewCliente;
@@ -514,7 +513,7 @@ export function ImportNuovaPolizzaAIDialog({
     (lockedClienteId ? true : !!selectedClienteId && newClienteReady) &&
     !!selectedGruppoCompagniaId &&
     !!selectedAgenziaId &&
-    !!selectedSottoramoId;
+    !!selectedGruppoRamoId;
 
   const apply = () => {
     if (!lockedClienteId) {
@@ -629,23 +628,25 @@ export function ImportNuovaPolizzaAIDialog({
               </div>
             )}
 
-            {/* Selezione Ramo OBBLIGATORIA prima del PDF */}
+            {/* Selezione SOLO Gruppo Ramo OBBLIGATORIA prima del PDF.
+                I sottorami vengono estratti dal PDF voce per voce (come nel manuale). */}
             <div className="border rounded-lg p-3 space-y-2">
               <Label className="text-xs font-semibold">
                 Ramo della polizza <span className="text-destructive">*</span>
               </Label>
               <RamoSottoramoSelect
                 gruppoRamoId={selectedGruppoRamoId || null}
-                ramoId={selectedSottoramoId || null}
-                onChange={({ gruppoRamoId, ramoId }) => {
+                ramoId={null}
+                onChange={({ gruppoRamoId }) => {
                   setSelectedGruppoRamoId(gruppoRamoId || "");
-                  setSelectedSottoramoId(ramoId || "");
                 }}
-                hideLabels={false}
+                hideLabels
+                gruppoOnly
               />
               <p className="text-[11px] text-muted-foreground">
-                Seleziona prima il <strong>Ramo</strong>: l'AI riceverà l'elenco dei sottorami ammessi e mapperà
-                correttamente le voci di garanzia. Il Sottoramo è opzionale (puoi sceglierlo per riga nello step successivo).
+                Seleziona il <strong>Ramo</strong>: l'AI riceverà l'elenco dei sottorami ammessi e mapperà
+                ogni voce di garanzia del PDF al sottoramo corretto. I sottorami vengono presi dal PDF
+                (uno per riga, esattamente come nel form manuale).
               </p>
             </div>
 
@@ -930,17 +931,16 @@ export function ImportNuovaPolizzaAIDialog({
                 </div>
                 <div className="md:col-span-2">
                   <Label className="text-xs mb-1 block">
-                    Ramo / Sottoramo <span className="text-destructive">*</span>{" "}
-                    <span className="text-muted-foreground">(dal PDF: <em>{data.ramo_descrizione || "—"}</em>)</span>
+                    Ramo <span className="text-muted-foreground">(scelto nello step Setup — i Sottorami sono nelle voci di garanzia)</span>
                   </Label>
                   <RamoSottoramoSelect
                     gruppoRamoId={selectedGruppoRamoId || null}
-                    ramoId={selectedSottoramoId || null}
-                    onChange={({ gruppoRamoId, ramoId }) => {
+                    ramoId={null}
+                    onChange={({ gruppoRamoId }) => {
                       setSelectedGruppoRamoId(gruppoRamoId || "");
-                      setSelectedSottoramoId(ramoId || "");
                     }}
                     hideLabels
+                    gruppoOnly
                   />
                 </div>
                 <FieldInput label="Prodotto" value={data.prodotto} onChange={(v) => updateField("prodotto", v)} />
@@ -1088,14 +1088,15 @@ export function ImportNuovaPolizzaAIDialog({
                   value={agenziaCandidates.find((a) => a.id === selectedAgenziaId)?.label || "—"}
                 />
                 <SummaryRow
-                  label="Ramo / Sottoramo"
-                  badge={selectedSottoramoId ? "ok" : "mancante"}
+                  label="Ramo"
+                  badge={selectedGruppoRamoId ? "ok" : "mancante"}
                   value={
-                    ramoCandidates.find((r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId)?.label ||
-                    data.ramo_descrizione ||
-                    "—"
+                    selectedGruppoRamoId
+                      ? `${data.ramo_descrizione || "—"}${data.garanzie?.length ? ` · ${data.garanzie.length} voce/i di garanzia` : ""}`
+                      : data.ramo_descrizione || "—"
                   }
                 />
+
                 <SummaryRow label="N. Polizza" value={data.numero_polizza} />
                 <SummaryRow label="Prodotto" value={data.prodotto} />
                 <SummaryRow label="Periodo" value={`${data.decorrenza || "—"} → ${data.scadenza || "—"}`} />

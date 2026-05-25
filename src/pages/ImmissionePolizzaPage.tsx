@@ -107,7 +107,7 @@ const ImmissionePolizzaPage = () => {
     if (m.compagnia?.id) setSelectedCompagnia(m.compagnia.id);
     if (m.ramo) {
       setSelectedGruppoRamoId(m.ramo.gruppoRamoId);
-      setSelectedRamo(m.ramo.ramoId);
+      if (m.ramo.ramoId) setSelectedRamo(m.ramo.ramoId);
     }
     if (d.prodotto) setProdottoNome(d.prodotto);
     if (d.numero_polizza) setNumeroPolizza(d.numero_polizza);
@@ -122,7 +122,29 @@ const ImmissionePolizzaPage = () => {
       };
       if (map[fraz]) setFrazionamento(map[fraz]);
     }
-    if (d.premio_firma_netto != null || d.premio_firma_imposte != null) {
+
+    // Premi alla firma: se l'AI ha estratto voci di garanzia dal PDF, crea N righe
+    // (una per voce) come nel manuale; altrimenti fallback alla riga unica con i totali.
+    const gruppoRamoIdForRows = m.ramo?.gruppoRamoId || null;
+    const ramiPerGruppo = (ramiList || []).filter(
+      (r: any) => !gruppoRamoIdForRows || r.gruppo_ramo_id === gruppoRamoIdForRows,
+    );
+    if (Array.isArray(d.garanzie) && d.garanzie.length > 0) {
+      const rows: GaranziaRow[] = d.garanzie.map((g) => {
+        const codice = (g.codice_sottoramo || "").trim();
+        const match = codice ? ramiPerGruppo.find((r: any) => r.codice === codice) : null;
+        return {
+          ...emptyGaranziaRow(),
+          codice: match?.codice ?? (codice || null),
+          sottoramoId: match?.id ?? null,
+          descrizione: g.descrizione || match?.descrizione || "",
+          netto: g.premio_netto != null ? String(g.premio_netto) : "",
+          tasse: g.premio_imposte != null ? String(g.premio_imposte) : "",
+          aliquotaTasse: typeof g.aliquota_tasse_pct === "number" ? g.aliquota_tasse_pct : 0,
+        };
+      });
+      setPremiFirmaRows(rows);
+    } else if (d.premio_firma_netto != null || d.premio_firma_imposte != null) {
       setPremiFirmaRows([{ ...emptyGaranziaRow(), netto: d.premio_firma_netto != null ? String(d.premio_firma_netto) : "", tasse: d.premio_firma_imposte != null ? String(d.premio_firma_imposte) : "" }]);
     }
     if (d.premio_firma_accessori != null) setAddizionali(String(d.premio_firma_accessori));
@@ -1011,6 +1033,14 @@ const ImmissionePolizzaPage = () => {
         open={aiImportOpen}
         onOpenChange={setAiImportOpen}
         onApply={handleAIImportApply}
+        lockedClienteId={preselectedClienteId || undefined}
+        lockedClienteLabel={
+          clienteDettaglio
+            ? (clienteDettaglio.ragione_sociale ||
+                `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim() ||
+                undefined)
+            : undefined
+        }
       />
 
       {/* CLIENTE */}
