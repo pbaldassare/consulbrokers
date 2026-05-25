@@ -115,7 +115,23 @@ Deno.serve(async (req) => {
         .map((s) => `  - ${s.codice} : ${s.descrizione}`)
         .join("\n");
       ramoContext +=
-        `\n\nElenco SOTTORAMI AMMESSI (devi mappare ogni voce 'garanzie[].codice_sottoramo' SOLO a uno di questi codici; se non sei sicuro, OMETTI il campo):\n${list}`;
+        `\n\nElenco SOTTORAMI AMMESSI (devi mappare ogni voce 'garanzie[].codice_sottoramo' SOLO a uno di questi codici. ` +
+        `È LECITO e ATTESO riusare lo STESSO codice su più voci diverse del PDF — molte garanzie tecniche del PDF mappano sullo stesso sottoramo catalogo. ` +
+        `Solo se davvero nessun codice è applicabile, OMETTI il campo).\n${list}`;
+
+      // Regole di dominio (heuristics) per ramo ZQ — R.C.A. (auto/veicoli)
+      const gr = (gruppo_ramo as any) || {};
+      if ((gr.codice || "").toUpperCase() === "ZQ") {
+        ramoContext +=
+          `\n\nREGOLE DI MAPPING per ramo ZQ (R.C.A.):\n` +
+          `- "Responsabilità civile auto", "RCA", "RC veicoli" → PI (autovetture) / QA (auto generica) / QC (autocarri) / QM (motoveicoli) — scegli in base al tipo veicolo.\n` +
+          `- "Incendio", "Furto", "Incendio e Furto", "Rapina" → QI (INCENDIO/FURTO).\n` +
+          `- "Eventi atmosferici", "Grandine", "Eventi naturali", "Eventi sociopolitici", "Atti vandalici", "Ricorso terzi da incendio" → DRA (AUTO RISCHI DIVERSI / A.R.D.).\n` +
+          `- "Cristalli", "Rottura cristalli" → EC (CRISTALLI).\n` +
+          `- "Kasko", "Collisione", "Mini-kasko", "Garanzia collisione" → QK (KASKO).\n` +
+          `- "Tutela legale", "Assistenza stradale", "Infortuni del conducente" → NON hanno sottoramo dedicato in ZQ: OMETTI codice_sottoramo (l'utente lo sceglierà).\n` +
+          `Riusa pure più volte lo stesso codice (es. più voci A.R.D. → tutte DRA).`;
+      }
     }
 
     const messages = [
