@@ -52,7 +52,7 @@ export type ParsedPolizzaData = {
   premio_quietanza_imposte?: number;
   premio_quietanza_lordo?: number;
   targa?: string;
-  garanzie?: { descrizione: string; massimale?: number; premio_netto?: number }[];
+  garanzie?: { descrizione: string; codice_sottoramo?: string; premio_netto?: number; premio_imposte?: number; aliquota_tasse_pct?: number }[];
 };
 
 export type MatchResult = {
