@@ -596,14 +596,9 @@ export function ImportNuovaPolizzaAIDialog({
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-teal-600" />
             Importa polizza da PDF (AI)
-            {step !== "setup" && (
-              <Badge variant="outline" className="ml-2">
-                {step === "review" ? "2. Revisione" : "3. Riepilogo"}
-              </Badge>
-            )}
           </DialogTitle>
           <DialogDescription>
-            Scegli il Ramo, carica la scheda di polizza, verifica/correggi i dati estratti e applica al form.
+            Scegli il Ramo e carica la scheda di polizza: i dati estratti vengono applicati direttamente al form.
           </DialogDescription>
         </DialogHeader>
 
