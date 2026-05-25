@@ -1033,6 +1033,14 @@ const ImmissionePolizzaPage = () => {
         open={aiImportOpen}
         onOpenChange={setAiImportOpen}
         onApply={handleAIImportApply}
+        lockedClienteId={preselectedClienteId || undefined}
+        lockedClienteLabel={
+          clienteDettaglio
+            ? (clienteDettaglio.ragione_sociale ||
+                `${clienteDettaglio.cognome || ""} ${clienteDettaglio.nome || ""}`.trim() ||
+                undefined)
+            : undefined
+        }
       />
 
       {/* CLIENTE */}
