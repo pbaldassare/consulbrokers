@@ -52,7 +52,7 @@ export type ParsedPolizzaData = {
   premio_quietanza_imposte?: number;
   premio_quietanza_lordo?: number;
   targa?: string;
-  garanzie?: { descrizione: string; massimale?: number; premio_netto?: number }[];
+  garanzie?: { descrizione: string; codice_sottoramo?: string; premio_netto?: number; premio_imposte?: number; aliquota_tasse_pct?: number }[];
 };
 
 export type MatchResult = {
@@ -80,7 +80,7 @@ type GruppoCompagniaCand = { id: string; label: string };
 type AgenziaCand = { id: string; label: string; gruppo_compagnia_id: string | null };
 type RamoCand = { gruppoRamoId: string; ramoId: string; label: string };
 type LogEntry = { ts: number; level: "info" | "success" | "warn" | "error"; msg: string };
-type Step = "upload" | "review" | "summary";
+type Step = "setup" | "review" | "summary";
 
 const NEW_CLIENTE = "__new__";
 
@@ -99,12 +99,17 @@ export function ImportNuovaPolizzaAIDialog({
   open,
   onOpenChange,
   onApply,
+  lockedClienteId,
+  lockedClienteLabel,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onApply: (m: MatchResult) => void;
+  /** Se fornito, il dialog non chiede il cliente: usa direttamente questo id (anagrafica già aperta). */
+  lockedClienteId?: string;
+  lockedClienteLabel?: string;
 }) {
-  const [step, setStep] = useState<Step>("upload");
+  const [step, setStep] = useState<Step>("setup");
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
@@ -150,7 +155,7 @@ export function ImportNuovaPolizzaAIDialog({
   }, [step, gruppiFinanziari.length]);
 
   const reset = () => {
-    setStep("upload");
+    setStep("setup");
     setParsing(false);
     setProgress(0);
     setProgressLabel("");
@@ -347,44 +352,72 @@ export function ImportNuovaPolizzaAIDialog({
       toast.error("File troppo grande (max 15MB)");
       return;
     }
+    if (!selectedGruppoRamoId) {
+      toast.error("Seleziona prima il Ramo per aiutare l'estrazione");
+      return;
+    }
     setFileName(file.name);
     setParsing(true);
     setLogs([]);
     setProgress(0);
     try {
-      setPhase(10, `Lettura file (${(file.size / 1024).toFixed(0)} KB)…`);
+      setPhase(5, "Caricamento contesto Ramo / sottorami…");
+      // Carico Gruppo Ramo + elenco sottorami ammessi per dare contesto all'AI
+      const [{ data: gr }, { data: sottorami }] = await Promise.all([
+        supabase.from("gruppi_ramo" as any).select("id, codice, descrizione").eq("id", selectedGruppoRamoId).maybeSingle(),
+        supabase.from("rami").select("codice, descrizione").eq("gruppo_ramo_id", selectedGruppoRamoId).eq("attivo", true).order("codice"),
+      ]);
+      const gruppoRamoCtx = gr as any
+        ? { id: (gr as any).id, codice: (gr as any).codice, descrizione: (gr as any).descrizione }
+        : null;
+      const sottoramiAmmessi = (sottorami || []).map((s: any) => ({ codice: s.codice, descrizione: s.descrizione }));
+      log("success", `Ramo: ${gruppoRamoCtx?.codice} — ${gruppoRamoCtx?.descrizione} · ${sottoramiAmmessi.length} sottorami ammessi`);
+
+      setPhase(15, `Lettura file (${(file.size / 1024).toFixed(0)} KB)…`);
       const buf = await file.arrayBuffer();
       const bytes = new Uint8Array(buf);
       let bin = "";
       for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       setPhase(25, "Conversione base64…");
       const b64 = btoa(bin);
-      setPhase(40, "Invio a Gemini per analisi…");
+      setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
       const { data: resp, error } = await supabase.functions.invoke("parse-polizza-completa", {
-        body: { fileBase64: b64, mimeType: file.type || "application/pdf" },
+        body: {
+          fileBase64: b64,
+          mimeType: file.type || "application/pdf",
+          gruppo_ramo: gruppoRamoCtx,
+          sottorami_ammessi: sottoramiAmmessi,
+        },
       });
       if (error) throw error;
       if ((resp as any)?.error) throw new Error((resp as any).error);
       const parsed: ParsedPolizzaData = (resp as any)?.data || {};
       setPhase(70, "Estrazione dati completata");
       log("success", `Numero polizza: ${parsed.numero_polizza || "—"}`);
-      log("success", `Compagnia: ${parsed.compagnia || "—"} · Ramo: ${parsed.ramo_descrizione || "—"}`);
+      log("success", `Compagnia: ${parsed.compagnia || "—"}`);
       log("success", `Contraente: ${parsed.contraente_nome || "—"}`);
+      log("success", `Voci di garanzia estratte: ${parsed.garanzie?.length || 0}`);
 
       setData(parsed);
 
-      setPhase(80, "Ricerca cliente nel database…");
-      const cli = await lookupClienti(parsed);
-      setClienteCandidates(cli);
-      const exact = cli.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email");
-      if (exact) {
-        setSelectedClienteId(exact.id);
-      } else if (cli.length) {
-        log("warn", `Nessun match esatto — ${cli.length} candidato/i solo per nome`);
-        setSelectedClienteId(NEW_CLIENTE);
+      // Cliente: skip lookup se locked dall'anagrafica corrente
+      if (lockedClienteId) {
+        setSelectedClienteId(lockedClienteId);
+        log("info", `Cliente già fissato dall'anagrafica: ${lockedClienteLabel || lockedClienteId}`);
       } else {
-        log("warn", "Nessun cliente trovato — andrà creato");
-        setSelectedClienteId(NEW_CLIENTE);
+        setPhase(80, "Ricerca cliente nel database…");
+        const cli = await lookupClienti(parsed);
+        setClienteCandidates(cli);
+        const exact = cli.find((c) => c.matchType === "cf" || c.matchType === "piva" || c.matchType === "email");
+        if (exact) {
+          setSelectedClienteId(exact.id);
+        } else if (cli.length) {
+          log("warn", `Nessun match esatto — ${cli.length} candidato/i solo per nome`);
+          setSelectedClienteId(NEW_CLIENTE);
+        } else {
+          log("warn", "Nessun cliente trovato — andrà creato");
+          setSelectedClienteId(NEW_CLIENTE);
+        }
       }
 
       setPhase(88, "Ricerca compagnia assicurativa…");
@@ -407,16 +440,8 @@ export function ImportNuovaPolizzaAIDialog({
         log("warn", "Nessuna compagnia (gruppo) trovata");
       }
 
-      setPhase(95, "Ricerca ramo…");
-      const ram = await lookupRami(parsed);
-      setRamoCandidates(ram);
-      if (ram.length) {
-        log("success", `${ram.length} ramo/i candidato/i`);
-        setSelectedGruppoRamoId(ram[0].gruppoRamoId);
-        setSelectedSottoramoId(ram[0].ramoId);
-      } else {
-        log("warn", "Nessun ramo mappato — selezionalo manualmente nel form");
-      }
+      // Ramo: già scelto dall'utente nello step Setup, NON viene cambiato dall'AI
+      log("success", `Ramo confermato (scelto manualmente): ${gruppoRamoCtx?.codice} — ${gruppoRamoCtx?.descrizione}`);
 
       setPhase(100, "Completato");
       log("success", "Pronto per la revisione");
@@ -451,10 +476,14 @@ export function ImportNuovaPolizzaAIDialog({
     !isNewCliente || (!!selectedGruppoFinanziarioId && (!cigRequired || codiceCigNew.trim().length > 0));
 
   const buildResult = (): MatchResult => {
-    const cliente =
-      selectedClienteId && selectedClienteId !== NEW_CLIENTE
-        ? clienteCandidates.find((c) => c.id === selectedClienteId)
-        : null;
+    // Cliente locked: ritorna direttamente quello dell'anagrafica corrente
+    let cliente: { id: string; label: string } | null = null;
+    if (lockedClienteId) {
+      cliente = { id: lockedClienteId, label: lockedClienteLabel || "Cliente corrente" };
+    } else if (selectedClienteId && selectedClienteId !== NEW_CLIENTE) {
+      const found = clienteCandidates.find((c) => c.id === selectedClienteId);
+      cliente = found ? { id: found.id, label: found.label } : null;
+    }
     const gruppoComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId) || null;
     const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId) || null;
     const ramoLabel = ramoCandidates.find(
@@ -467,47 +496,49 @@ export function ImportNuovaPolizzaAIDialog({
           label: ramoLabel?.label || "",
         }
       : null;
+    const effIsNewCliente = lockedClienteId ? false : isNewCliente;
     return {
       data,
-      cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
+      cliente,
       gruppoCompagnia: gruppoComp ? { id: gruppoComp.id, label: gruppoComp.label } : null,
       compagnia: agenzia ? { id: agenzia.id, label: agenzia.label } : null,
       ramo,
-      isNewCliente,
-      gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
-      tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
-      codiceCig: isNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
+      isNewCliente: effIsNewCliente,
+      gruppoFinanziarioId: effIsNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
+      tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
+      codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
     };
   };
 
   const canProceed =
-    !!selectedClienteId &&
-    newClienteReady &&
+    (lockedClienteId ? true : !!selectedClienteId && newClienteReady) &&
     !!selectedGruppoCompagniaId &&
     !!selectedAgenziaId &&
     !!selectedSottoramoId;
 
   const apply = () => {
-    if (!selectedClienteId) {
-      toast.error("Seleziona un cliente esistente o scegli 'Crea nuovo cliente'");
-      return;
-    }
-    if (isNewCliente && !selectedGruppoFinanziarioId) {
-      toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
-      return;
-    }
-    if (isNewCliente && cigRequired && !codiceCigNew.trim()) {
-      toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
-      return;
-    }
-    try {
-      assertFiscalValid([
-        { label: "Codice Fiscale Contraente", value: data.contraente_codice_fiscale, kind: "cf-azienda" },
-        { label: "Partita IVA Contraente", value: data.contraente_partita_iva, kind: "piva" },
-      ]);
-    } catch (err: any) {
-      toast.error(err.message);
-      return;
+    if (!lockedClienteId) {
+      if (!selectedClienteId) {
+        toast.error("Seleziona un cliente esistente o scegli 'Crea nuovo cliente'");
+        return;
+      }
+      if (isNewCliente && !selectedGruppoFinanziarioId) {
+        toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
+        return;
+      }
+      if (isNewCliente && cigRequired && !codiceCigNew.trim()) {
+        toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
+        return;
+      }
+      try {
+        assertFiscalValid([
+          { label: "Codice Fiscale Contraente", value: data.contraente_codice_fiscale, kind: "cf-azienda" },
+          { label: "Partita IVA Contraente", value: data.contraente_partita_iva, kind: "piva" },
+        ]);
+      } catch (err: any) {
+        toast.error(err.message);
+        return;
+      }
     }
     onApply(buildResult());
     onOpenChange(false);
@@ -540,19 +571,19 @@ export function ImportNuovaPolizzaAIDialog({
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-teal-600" />
             Importa polizza da PDF (AI)
-            {step !== "upload" && (
+            {step !== "setup" && (
               <Badge variant="outline" className="ml-2">
                 {step === "review" ? "2. Revisione" : "3. Riepilogo"}
               </Badge>
             )}
           </DialogTitle>
           <DialogDescription>
-            Carica la scheda di polizza, verifica/correggi i dati estratti, scegli i match e applica al form.
+            Scegli il Ramo, carica la scheda di polizza, verifica/correggi i dati estratti e applica al form.
           </DialogDescription>
         </DialogHeader>
 
         {/* PROGRESS + LOG */}
-        {(parsing || logs.length > 0) && step === "upload" && (
+        {(parsing || logs.length > 0) && step === "setup" && (
           <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium">{progressLabel || "In attesa…"}</span>
@@ -579,45 +610,100 @@ export function ImportNuovaPolizzaAIDialog({
           </div>
         )}
 
-        {/* STEP UPLOAD */}
-        {step === "upload" && (
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault(); setDragOver(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleFile(f);
-            }}
-            onClick={() => !parsing && fileInput.current?.click()}
-            className={cn(
-              "border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors",
-              dragOver ? "border-teal-500 bg-teal-50 dark:bg-teal-950/30" : "border-muted-foreground/30 hover:border-teal-400",
-              parsing && "opacity-60 cursor-wait",
-            )}
-          >
-            <input
-              ref={fileInput}
-              type="file"
-              className="hidden"
-              accept="application/pdf,image/*"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-            />
-            {parsing ? (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-                <span>Analisi in corso… non chiudere il dialog</span>
-                {fileName && <span className="text-xs">{fileName}</span>}
+        {/* STEP SETUP: Cliente (read-only se locked) + Ramo + Dropzone */}
+        {step === "setup" && (
+          <div className="space-y-4">
+            {/* Cliente: badge read-only se locked, altrimenti messaggio neutro */}
+            {lockedClienteId ? (
+              <div className="rounded border p-3 text-xs flex gap-2 items-start bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900 text-teal-800 dark:text-teal-200">
+                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="font-semibold">Cliente: {lockedClienteLabel || "—"}</div>
+                  <div className="opacity-80">Preso dall'anagrafica corrente — la polizza verrà associata a questo cliente.</div>
+                </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <UploadCloud className="h-10 w-10 text-teal-600" />
-                <span className="font-medium">Trascina la scheda di polizza o clicca per selezionare</span>
-                <span className="text-xs">PDF o immagini, max 15MB</span>
+              <div className="rounded border p-3 text-xs flex gap-2 items-start bg-muted/40 border-border text-muted-foreground">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                Il Cliente verrà ricercato (o creato) dopo l'analisi del PDF.
               </div>
             )}
+
+            {/* Selezione Ramo OBBLIGATORIA prima del PDF */}
+            <div className="border rounded-lg p-3 space-y-2">
+              <Label className="text-xs font-semibold">
+                Ramo della polizza <span className="text-destructive">*</span>
+              </Label>
+              <RamoSottoramoSelect
+                gruppoRamoId={selectedGruppoRamoId || null}
+                ramoId={selectedSottoramoId || null}
+                onChange={({ gruppoRamoId, ramoId }) => {
+                  setSelectedGruppoRamoId(gruppoRamoId || "");
+                  setSelectedSottoramoId(ramoId || "");
+                }}
+                hideLabels={false}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Seleziona prima il <strong>Ramo</strong>: l'AI riceverà l'elenco dei sottorami ammessi e mapperà
+                correttamente le voci di garanzia. Il Sottoramo è opzionale (puoi sceglierlo per riga nello step successivo).
+              </p>
+            </div>
+
+            {/* Dropzone — disabilitata finché manca il Ramo */}
+            <div
+              onDragOver={(e) => { if (!selectedGruppoRamoId) return; e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                if (!selectedGruppoRamoId) return;
+                e.preventDefault(); setDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleFile(f);
+              }}
+              onClick={() => {
+                if (!selectedGruppoRamoId) {
+                  toast.error("Seleziona prima il Ramo");
+                  return;
+                }
+                if (!parsing) fileInput.current?.click();
+              }}
+              className={cn(
+                "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
+                !selectedGruppoRamoId
+                  ? "border-muted-foreground/20 bg-muted/20 cursor-not-allowed opacity-60"
+                  : dragOver
+                    ? "border-teal-500 bg-teal-50 dark:bg-teal-950/30 cursor-pointer"
+                    : "border-muted-foreground/30 hover:border-teal-400 cursor-pointer",
+                parsing && "opacity-60 cursor-wait",
+              )}
+            >
+              <input
+                ref={fileInput}
+                type="file"
+                className="hidden"
+                accept="application/pdf,image/*"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              />
+              {parsing ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+                  <span>Analisi in corso… non chiudere il dialog</span>
+                  {fileName && <span className="text-xs">{fileName}</span>}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <UploadCloud className="h-10 w-10 text-teal-600" />
+                  <span className="font-medium">
+                    {selectedGruppoRamoId
+                      ? "Trascina la scheda di polizza o clicca per selezionare"
+                      : "Seleziona prima il Ramo per abilitare il caricamento"}
+                  </span>
+                  <span className="text-xs">PDF o immagini, max 15MB</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
 
         {/* STEP REVIEW */}
         {step === "review" && (
@@ -928,68 +1014,53 @@ export function ImportNuovaPolizzaAIDialog({
               </div>
             </section>
 
-            {/* GARANZIE */}
+            {/* GARANZIE estratte — preview read-only allineata al form manuale (Sottoramo + Premio netto + Tasse) */}
             {data.garanzie && data.garanzie.length > 0 && (
               <section className="border rounded-lg p-3 space-y-2">
-                <h3 className="font-semibold">Garanzie ({data.garanzie.length})</h3>
-                <div className="space-y-2">
-                  {data.garanzie.map((g, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-6">
-                        <Label className="text-[11px]">Descrizione</Label>
-                        <Input
-                          value={g.descrizione}
-                          onChange={(e) => {
-                            const arr = [...(data.garanzie || [])];
-                            arr[i] = { ...arr[i], descrizione: e.target.value };
-                            updateField("garanzie", arr);
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <Label className="text-[11px]">Massimale</Label>
-                        <Input
-                          type="number"
-                          value={g.massimale ?? ""}
-                          onChange={(e) => {
-                            const arr = [...(data.garanzie || [])];
-                            arr[i] = { ...arr[i], massimale: num(e.target.value) };
-                            updateField("garanzie", arr);
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-[11px]">Premio netto</Label>
-                        <Input
-                          type="number"
-                          value={g.premio_netto ?? ""}
-                          onChange={(e) => {
-                            const arr = [...(data.garanzie || [])];
-                            arr[i] = { ...arr[i], premio_netto: num(e.target.value) };
-                            updateField("garanzie", arr);
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const arr = (data.garanzie || []).filter((_, j) => j !== i);
-                            updateField("garanzie", arr);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <h3 className="font-semibold text-sm">
+                  Voci di garanzia estratte ({data.garanzie.length})
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Queste voci verranno create come righe nelle <strong>Composizioni Premio</strong> del form manuale.
+                  Potrai correggere Sottoramo, Premio netto e Tasse per ogni riga dopo "Applica".
+                </p>
+                <div className="rounded border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 text-muted-foreground">
+                      <tr>
+                        <th className="text-left px-2 py-1.5 font-medium">Sottoramo (suggerito)</th>
+                        <th className="text-left px-2 py-1.5 font-medium">Descrizione (dal PDF)</th>
+                        <th className="text-right px-2 py-1.5 font-medium">Premio netto</th>
+                        <th className="text-right px-2 py-1.5 font-medium">Imposte</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.garanzie.map((g, i) => (
+                        <tr key={i} className="border-t odd:bg-background even:bg-muted/20">
+                          <td className="px-2 py-1.5">
+                            {g.codice_sottoramo ? (
+                              <Badge variant="outline" className="text-[10px] font-mono">
+                                {g.codice_sottoramo}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">
+                                da scegliere
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5">{g.descrizione}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums">{fmtEur(g.premio_netto)}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums">{fmtEur(g.premio_imposte)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </section>
             )}
           </div>
         )}
+
 
         {/* STEP SUMMARY */}
         {step === "summary" && (

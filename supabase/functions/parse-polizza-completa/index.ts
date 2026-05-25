@@ -58,16 +58,23 @@ const TOOL = {
       // RCA-specifici (opzionali)
       targa: { type: "string" },
 
-      // Garanzie operanti
+      // Garanzie operanti (ogni voce diventerà una riga "Sottoramo" nel form manuale)
       garanzie: {
         type: "array",
-        description: "Elenco garanzie OPERANTI (con flag = SI). Ignora garanzie non attive.",
+        description:
+          "Elenco voci di garanzia OPERANTI con premio (flag = SI / Operante). Ogni voce verrà mappata a un Sottoramo del catalogo. Ignora garanzie non attive.",
         items: {
           type: "object",
           properties: {
             descrizione: { type: "string", description: "Descrizione della garanzia esattamente come sul documento" },
-            massimale: { type: "number", description: "Massimale per sinistro in euro, se indicato" },
+            codice_sottoramo: {
+              type: "string",
+              description:
+                "OBBLIGATORIO mappare al `codice` di uno dei sottorami ammessi forniti nel prompt utente. Se non sei sicuro, OMETTI il campo: non inventare codici.",
+            },
             premio_netto: { type: "number" },
+            premio_imposte: { type: "number", description: "Imposte/tasse della singola voce, se indicate" },
+            aliquota_tasse_pct: { type: "number", description: "Aliquota imposte % della voce (es. 13.5, 22.25)" },
           },
           required: ["descrizione"],
           additionalProperties: false,
@@ -85,7 +92,7 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
-    const { fileBase64, mimeType } = await req.json();
+    const { fileBase64, mimeType, gruppo_ramo, sottorami_ammessi } = await req.json();
     if (!fileBase64 || !mimeType) {
       return new Response(JSON.stringify({ error: "fileBase64 e mimeType richiesti" }), {
         status: 400,
@@ -94,6 +101,22 @@ Deno.serve(async (req) => {
     }
 
     const dataUrl = `data:${mimeType};base64,${fileBase64}`;
+
+    // Contesto Ramo + sottorami ammessi (passati dalla UI quando l'utente sceglie il Ramo prima dell'upload)
+    let ramoContext = "";
+    if (gruppo_ramo && typeof gruppo_ramo === "object") {
+      const gr = gruppo_ramo as { codice?: string; descrizione?: string };
+      ramoContext +=
+        `\n\nIl RAMO della polizza è già stato indicato dall'utente: ${gr.codice || ""} - ${gr.descrizione || ""}. ` +
+        `NON cambiarlo: tutte le voci di garanzia devono appartenere a questo ramo.`;
+    }
+    if (Array.isArray(sottorami_ammessi) && sottorami_ammessi.length > 0) {
+      const list = (sottorami_ammessi as Array<{ codice?: string; descrizione?: string }>)
+        .map((s) => `  - ${s.codice} : ${s.descrizione}`)
+        .join("\n");
+      ramoContext +=
+        `\n\nElenco SOTTORAMI AMMESSI (devi mappare ogni voce 'garanzie[].codice_sottoramo' SOLO a uno di questi codici; se non sei sicuro, OMETTI il campo):\n${list}`;
+    }
 
     const messages = [
       {
@@ -108,7 +131,7 @@ Deno.serve(async (req) => {
       {
         role: "user",
         content: [
-          { type: "text", text: "Analizza questa scheda di polizza ed estrai i dati richiesti." },
+          { type: "text", text: "Analizza questa scheda di polizza ed estrai i dati richiesti." + ramoContext },
           { type: "image_url", image_url: { url: dataUrl } },
         ],
       },
