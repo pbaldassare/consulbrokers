@@ -476,10 +476,14 @@ export function ImportNuovaPolizzaAIDialog({
     !isNewCliente || (!!selectedGruppoFinanziarioId && (!cigRequired || codiceCigNew.trim().length > 0));
 
   const buildResult = (): MatchResult => {
-    const cliente =
-      selectedClienteId && selectedClienteId !== NEW_CLIENTE
-        ? clienteCandidates.find((c) => c.id === selectedClienteId)
-        : null;
+    // Cliente locked: ritorna direttamente quello dell'anagrafica corrente
+    let cliente: { id: string; label: string } | null = null;
+    if (lockedClienteId) {
+      cliente = { id: lockedClienteId, label: lockedClienteLabel || "Cliente corrente" };
+    } else if (selectedClienteId && selectedClienteId !== NEW_CLIENTE) {
+      const found = clienteCandidates.find((c) => c.id === selectedClienteId);
+      cliente = found ? { id: found.id, label: found.label } : null;
+    }
     const gruppoComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId) || null;
     const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId) || null;
     const ramoLabel = ramoCandidates.find(
@@ -492,47 +496,49 @@ export function ImportNuovaPolizzaAIDialog({
           label: ramoLabel?.label || "",
         }
       : null;
+    const effIsNewCliente = lockedClienteId ? false : isNewCliente;
     return {
       data,
-      cliente: cliente ? { id: cliente.id, label: cliente.label } : null,
+      cliente,
       gruppoCompagnia: gruppoComp ? { id: gruppoComp.id, label: gruppoComp.label } : null,
       compagnia: agenzia ? { id: agenzia.id, label: agenzia.label } : null,
       ramo,
-      isNewCliente,
-      gruppoFinanziarioId: isNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
-      tipoCliente: isNewCliente ? tipoClienteAuto : undefined,
-      codiceCig: isNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
+      isNewCliente: effIsNewCliente,
+      gruppoFinanziarioId: effIsNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
+      tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
+      codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
     };
   };
 
   const canProceed =
-    !!selectedClienteId &&
-    newClienteReady &&
+    (lockedClienteId ? true : !!selectedClienteId && newClienteReady) &&
     !!selectedGruppoCompagniaId &&
     !!selectedAgenziaId &&
     !!selectedSottoramoId;
 
   const apply = () => {
-    if (!selectedClienteId) {
-      toast.error("Seleziona un cliente esistente o scegli 'Crea nuovo cliente'");
-      return;
-    }
-    if (isNewCliente && !selectedGruppoFinanziarioId) {
-      toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
-      return;
-    }
-    if (isNewCliente && cigRequired && !codiceCigNew.trim()) {
-      toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
-      return;
-    }
-    try {
-      assertFiscalValid([
-        { label: "Codice Fiscale Contraente", value: data.contraente_codice_fiscale, kind: "cf-azienda" },
-        { label: "Partita IVA Contraente", value: data.contraente_partita_iva, kind: "piva" },
-      ]);
-    } catch (err: any) {
-      toast.error(err.message);
-      return;
+    if (!lockedClienteId) {
+      if (!selectedClienteId) {
+        toast.error("Seleziona un cliente esistente o scegli 'Crea nuovo cliente'");
+        return;
+      }
+      if (isNewCliente && !selectedGruppoFinanziarioId) {
+        toast.error("Seleziona il Gruppo Finanziario per il nuovo cliente");
+        return;
+      }
+      if (isNewCliente && cigRequired && !codiceCigNew.trim()) {
+        toast.error("Inserisci il Codice CIG (obbligatorio per gli Enti)");
+        return;
+      }
+      try {
+        assertFiscalValid([
+          { label: "Codice Fiscale Contraente", value: data.contraente_codice_fiscale, kind: "cf-azienda" },
+          { label: "Partita IVA Contraente", value: data.contraente_partita_iva, kind: "piva" },
+        ]);
+      } catch (err: any) {
+        toast.error(err.message);
+        return;
+      }
     }
     onApply(buildResult());
     onOpenChange(false);
