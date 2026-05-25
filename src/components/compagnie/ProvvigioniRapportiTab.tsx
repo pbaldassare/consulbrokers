@@ -26,6 +26,7 @@ import {
   AlertCircle, FileText, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import RamiAbilitatiEditor from "./RamiAbilitatiEditor";
 
 const TIPI_RAPPORTO = ["Direzione", "Agenzia", "Broker", "Plurimandataria", "Mandato diretto", "Sub-agenzia", "Convenzione broker", "Coverholder", "Altro"];
 const LS_KEY = "provv-rapporti-ui-v1";
