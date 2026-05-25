@@ -75,7 +75,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
       const { error: delErr } = await supabase
         .from("compagnia_rapporto_rami" as any)
         .delete()
-        .eq("compagnia_rapporto_id", compagniaRapportoId);
+        .eq("rapporto_id", compagniaRapportoId);
       if (delErr) throw delErr;
 
       const toInsert: any[] = [];
