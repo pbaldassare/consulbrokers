@@ -931,17 +931,16 @@ export function ImportNuovaPolizzaAIDialog({
                 </div>
                 <div className="md:col-span-2">
                   <Label className="text-xs mb-1 block">
-                    Ramo / Sottoramo <span className="text-destructive">*</span>{" "}
-                    <span className="text-muted-foreground">(dal PDF: <em>{data.ramo_descrizione || "—"}</em>)</span>
+                    Ramo <span className="text-muted-foreground">(scelto nello step Setup — i Sottorami sono nelle voci di garanzia)</span>
                   </Label>
                   <RamoSottoramoSelect
                     gruppoRamoId={selectedGruppoRamoId || null}
-                    ramoId={selectedSottoramoId || null}
-                    onChange={({ gruppoRamoId, ramoId }) => {
+                    ramoId={null}
+                    onChange={({ gruppoRamoId }) => {
                       setSelectedGruppoRamoId(gruppoRamoId || "");
-                      setSelectedSottoramoId(ramoId || "");
                     }}
                     hideLabels
+                    gruppoOnly
                   />
                 </div>
                 <FieldInput label="Prodotto" value={data.prodotto} onChange={(v) => updateField("prodotto", v)} />
