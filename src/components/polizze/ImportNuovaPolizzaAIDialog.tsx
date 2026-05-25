@@ -444,10 +444,36 @@ export function ImportNuovaPolizzaAIDialog({
       // Ramo: già scelto dall'utente nello step Setup, NON viene cambiato dall'AI
       log("success", `Ramo confermato (scelto manualmente): ${gruppoRamoCtx?.codice} — ${gruppoRamoCtx?.descrizione}`);
 
-      setPhase(100, "Completato");
-      log("success", "Pronto per la revisione");
-      setStep("review");
-      toast.success("Documento analizzato");
+      setPhase(100, "Completato — applico al form");
+      log("success", "Pronto — dati trasferiti al form");
+
+      // Auto-apply diretto: niente step intermedi. Le correzioni si fanno nel form.
+      const firstGrComp = grComp[0] || null;
+      let agFresh: AgenziaCand[] = [];
+      if (firstGrComp) {
+        agFresh = await loadAgenzieByGruppo(firstGrComp.id);
+      }
+      const firstAg = agFresh[0] || null;
+
+      const cliente: { id: string; label: string } | null = lockedClienteId
+        ? { id: lockedClienteId, label: lockedClienteLabel || "Cliente corrente" }
+        : null;
+
+      const result: MatchResult = {
+        data: parsed,
+        cliente,
+        gruppoCompagnia: firstGrComp ? { id: firstGrComp.id, label: firstGrComp.label } : null,
+        compagnia: firstAg ? { id: firstAg.id, label: firstAg.label } : null,
+        ramo: selectedGruppoRamoId
+          ? { gruppoRamoId: selectedGruppoRamoId, ramoId: null, label: "" }
+          : null,
+        isNewCliente: !lockedClienteId,
+      };
+
+      onApply(result);
+      toast.success("Dati importati — completa/correggi nel form");
+      onOpenChange(false);
+      reset();
     } catch (e: any) {
       console.error(e);
       log("error", `Errore: ${e?.message || "sconosciuto"}`);
