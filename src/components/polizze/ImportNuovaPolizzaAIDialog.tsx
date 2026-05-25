@@ -1088,14 +1088,15 @@ export function ImportNuovaPolizzaAIDialog({
                   value={agenziaCandidates.find((a) => a.id === selectedAgenziaId)?.label || "—"}
                 />
                 <SummaryRow
-                  label="Ramo / Sottoramo"
-                  badge={selectedSottoramoId ? "ok" : "mancante"}
+                  label="Ramo"
+                  badge={selectedGruppoRamoId ? "ok" : "mancante"}
                   value={
-                    ramoCandidates.find((r) => r.gruppoRamoId === selectedGruppoRamoId && r.ramoId === selectedSottoramoId)?.label ||
-                    data.ramo_descrizione ||
-                    "—"
+                    selectedGruppoRamoId
+                      ? `${data.ramo_descrizione || "—"}${data.garanzie?.length ? ` · ${data.garanzie.length} voce/i di garanzia` : ""}`
+                      : data.ramo_descrizione || "—"
                   }
                 />
+
                 <SummaryRow label="N. Polizza" value={data.numero_polizza} />
                 <SummaryRow label="Prodotto" value={data.prodotto} />
                 <SummaryRow label="Periodo" value={`${data.decorrenza || "—"} → ${data.scadenza || "—"}`} />
