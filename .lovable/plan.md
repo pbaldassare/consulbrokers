@@ -1,49 +1,25 @@
 ## Obiettivo
-Rimuovere pagine/componenti/route non più utilizzati senza toccare logiche esistenti. Solo cleanup.
+Generare un documento Markdown scaricabile che mostra, per ciascuna operazione su polizza (Sospensione, Riattivazione, Sostituzione, Estinzione, Appendici, Storno, Regolazione), gli effetti su: **rata target**, **quietanze future**, **quietanze già a cassa**, **contabili / movimenti**, **pagamenti & provvigioni**, **vista cliente**, **documenti** e **log**.
 
-## File da eliminare (zero import attivi)
+Nessuna modifica al codice dell'app. Solo file artifact in `/mnt/documents/operazioni-polizza-effetti.md`, scaricabile dall'utente.
 
-**Pagine portafoglio legacy** (sostituite da dialog o mai usate):
-- `src/pages/SospensionePolizzaPage.tsx` → sostituita da `SospensionePolizzaDialog`
-- `src/pages/RiattivazionePolizzaPage.tsx` → sostituita da `RiattivazionePolizzaDialog`
-- `src/pages/DuplicazionePolizzaPage.tsx` → placeholder TODO mai usato
-- `src/pages/ConfermaEmittendePage.tsx` → placeholder TODO mai usato
-- `src/pages/DiffProvvigioniPage.tsx` → placeholder TODO mai usato
+## Contenuto del documento
 
-**Pagine orfane** (nessun import nel codice, route già redirect o assente):
-- `src/pages/GestionePolizzePage.tsx` (route `/portafoglio/gestione-polizze` già redirect a `/portafoglio/attive`)
-- `src/pages/AnalisiPreventivoRCAPage.tsx`
-- `src/pages/CreaNuovoUtente.tsx` (sostituita da `GestioneUtentiPrivilegi`)
-- `src/pages/PortafoglioList.tsx` (sostituita da pagine `PortafoglioAttive/Carico/Storico`)
+1. Premessa modello dati (catena `titoli` con stesso `numero_titolo`, madre + N quietanze).
+2. Una sezione per operazione con tabella effetti:
+   - **Sospensione** — cancella future non incassate, stato `sospeso`, badge in Attive, movimento `SO`.
+   - **Riattivazione** — ricrea quietanze, opzionale titolo "Oneri", movimento `RA`.
+   - **Sostituzione** — cambia oggetto, conguaglio opzionale, snapshot `titoli_sostituzioni`, movimento `SO`.
+   - **Estinzione** — chiude polizza, cancella future, rimborso opzionale negativo, movimento `ES`.
+   - **Appendici** — documentale + eventuale titolo extra.
+   - **Storno** — annullo, cancella future, se era a cassa crea speculare negativo da incassare in remittance, movimento `ST`.
+   - **Regolazione** — nuovo titolo `RG`, importi manuali, snapshot `titoli_regolazioni`, movimento `RG`.
+3. **Schema riassuntivo** tabellare di tutti gli effetti.
+4. **Note trasversali**: trigger anti-doppio incasso, auto-generazione quietanza successiva, logging, bucket documenti, regola "importi sempre manuali".
 
-**Componenti orfani**:
-- `src/components/polizze/RinnovoTitoloDialog.tsx` (nessun import — il flusso rinnovo passa altrove)
-
-**Lib orfana**:
-- `src/lib/formatDate.ts` (creata in audit Step 2, mai adottata)
-
-## Modifiche route
-
-In `src/routes/portafoglio.tsx`: rimuovere import e `<Route>` per:
-- `/portafoglio/duplicazione`
-- `/portafoglio/conferma-emittende`
-- `/portafoglio/diff-provvigionali`
-- `/portafoglio/sospensione`
-- `/portafoglio/riattivazione`
-
-(Le funzionalità Sospensione/Riattivazione sono già accessibili via dialog dentro `TitoloDetail`.)
-
-## Aggiornamenti collaterali
-- `public/version.json` bump
-- `.lovable/audit-refactor.md`: marcare come completati gli item "codice morto sospetto"
-- Memory `mem://navigation/legacy-pages-removed`: aggiungere le pagine appena rimosse
+## Output
+- File: `/mnt/documents/operazioni-polizza-effetti.md`
+- Scaricabile via `<presentation-artifact path="operazioni-polizza-effetti.md" mime_type="text/markdown">`
 
 ## Cosa NON tocco
-- Nessuna logica business
-- Nessuno schema DB / RLS / edge function
-- Nessun componente UI shadcn
-- Nessuna pagina ancora referenziata (anche se grossa: `TitoloDetail`, `ImmissionePolizzaPage`, `VociRcaCard`, ecc.)
-
-## Verifica finale
-- `bunx tsc --noEmit` per confermare zero import rotti
-- Browse rapido per assicurarsi che nessuna voce sidebar/breadcrumb punti a route rimosse
+Nessun file di progetto, nessuno schema DB, nessuna logica.
