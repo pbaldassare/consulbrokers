@@ -1,25 +1,30 @@
 ## Obiettivo
-Generare un documento Markdown scaricabile che mostra, per ciascuna operazione su polizza (Sospensione, Riattivazione, Sostituzione, Estinzione, Appendici, Storno, Regolazione), gli effetti su: **rata target**, **quietanze future**, **quietanze già a cassa**, **contabili / movimenti**, **pagamenti & provvigioni**, **vista cliente**, **documenti** e **log**.
 
-Nessuna modifica al codice dell'app. Solo file artifact in `/mnt/documents/operazioni-polizza-effetti.md`, scaricabile dall'utente.
+Sulla pagina **Provvigioni Compagnie/Ramo** (tab del rapporto selezionato) aggiungere la gestione **manuale** dei Rami e Sottorami abilitati per il rapporto, oggi possibile solo dal dialog "Rapporti" della compagnia o tramite Import IA/CSV.
 
-## Contenuto del documento
+## Stato attuale
 
-1. Premessa modello dati (catena `titoli` con stesso `numero_titolo`, madre + N quietanze).
-2. Una sezione per operazione con tabella effetti:
-   - **Sospensione** — cancella future non incassate, stato `sospeso`, badge in Attive, movimento `SO`.
-   - **Riattivazione** — ricrea quietanze, opzionale titolo "Oneri", movimento `RA`.
-   - **Sostituzione** — cambia oggetto, conguaglio opzionale, snapshot `titoli_sostituzioni`, movimento `SO`.
-   - **Estinzione** — chiude polizza, cancella future, rimborso opzionale negativo, movimento `ES`.
-   - **Appendici** — documentale + eventuale titolo extra.
-   - **Storno** — annullo, cancella future, se era a cassa crea speculare negativo da incassare in remittance, movimento `ST`.
-   - **Regolazione** — nuovo titolo `RG`, importi manuali, snapshot `titoli_regolazioni`, movimento `RG`.
-3. **Schema riassuntivo** tabellare di tutti gli effetti.
-4. **Note trasversali**: trigger anti-doppio incasso, auto-generazione quietanza successiva, logging, bucket documenti, regola "importi sempre manuali".
+- `src/components/compagnie/ProvvigioniRapportiTab.tsx` mostra il banner _"Nessun Ramo abilitato su questo rapporto. Apri 'Rapporti' sulla compagnia e definisci i Rami/Sottorami abilitati."_ quando `compagnia_rapporto_rami` è vuoto.
+- L'editor "Rami e Sottorami abilitati" esiste già in `RapportiCompagniaDialog.tsx` (righe ~754–905): grid Ramo + popover sottorami con "Tutti i sottorami" o multiselect.
+- I dati vivono in `compagnia_rapporto_rami (compagnia_rapporto_id, gruppo_ramo_id, ramo_id NULL=tutti)`.
 
-## Output
-- File: `/mnt/documents/operazioni-polizza-effetti.md`
-- Scaricabile via `<presentation-artifact path="operazioni-polizza-effetti.md" mime_type="text/markdown">`
+## Modifica
 
-## Cosa NON tocco
-Nessun file di progetto, nessuno schema DB, nessuna logica.
+1. **Estrarre** l'editor in un componente riusabile `src/components/compagnie/RamiAbilitatiEditor.tsx` che riceve `compagniaRapportoId`, carica/salva su `compagnia_rapporto_rami` (delete + insert come fa già il dialog) e invalida le query `compagnia_rapporto_rami`, `rapporto-rami-abilitati`, `compagnia_rapporto_rami_all`.
+2. **Refactor** `RapportiCompagniaDialog.tsx` per usare il nuovo componente (stesso comportamento, nessuna regressione).
+3. **Aggiungere in `ProvvigioniRapportiTab.tsx`** una nuova sezione collassabile (sopra "Elenco Rami e provvigioni") intitolata _"Rami e Sottorami abilitati"_ che monta `RamiAbilitatiEditor` per il `rapportoId` corrente. Pulsanti: "Aggiungi Ramo", "Tutti i Rami", "Salva". Salvataggio inline (non serve riaprire il dialog rapporti).
+4. **Sostituire il banner vuoto** con un CTA che apre/espande direttamente questa sezione, mantenendo il link al dialog rapporti come secondario.
+5. La toolbar esistente (Import IA / Incolla CSV / Copia da altro / Export) resta invariata; questa è la quarta via, completamente manuale.
+
+## Note tecniche
+
+- Nessuna modifica DB.
+- Riusare `SearchableSelect`, `useGruppiRamo`, `useRamiAll` (già in `useRamiLookup.ts`).
+- Mantenere soft-validation: almeno una riga con `gruppo_ramo_id` valido; `all=true` salva una sola riga con `ramo_id=null`, altrimenti N righe con i `ramo_id` selezionati.
+- Toast di conferma + invalidate per far ricomparire la matrice provvigioni con i nuovi rami già pronti da configurare.
+
+## File toccati
+
+- nuovo: `src/components/compagnie/RamiAbilitatiEditor.tsx`
+- mod: `src/components/compagnie/RapportiCompagniaDialog.tsx` (sostituire markup inline col componente)
+- mod: `src/components/compagnie/ProvvigioniRapportiTab.tsx` (nuova sezione + sostituzione banner vuoto)
