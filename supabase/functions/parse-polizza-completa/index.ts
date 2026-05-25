@@ -58,16 +58,23 @@ const TOOL = {
       // RCA-specifici (opzionali)
       targa: { type: "string" },
 
-      // Garanzie operanti
+      // Garanzie operanti (ogni voce diventerà una riga "Sottoramo" nel form manuale)
       garanzie: {
         type: "array",
-        description: "Elenco garanzie OPERANTI (con flag = SI). Ignora garanzie non attive.",
+        description:
+          "Elenco voci di garanzia OPERANTI con premio (flag = SI / Operante). Ogni voce verrà mappata a un Sottoramo del catalogo. Ignora garanzie non attive.",
         items: {
           type: "object",
           properties: {
             descrizione: { type: "string", description: "Descrizione della garanzia esattamente come sul documento" },
-            massimale: { type: "number", description: "Massimale per sinistro in euro, se indicato" },
+            codice_sottoramo: {
+              type: "string",
+              description:
+                "OBBLIGATORIO mappare al `codice` di uno dei sottorami ammessi forniti nel prompt utente. Se non sei sicuro, OMETTI il campo: non inventare codici.",
+            },
             premio_netto: { type: "number" },
+            premio_imposte: { type: "number", description: "Imposte/tasse della singola voce, se indicate" },
+            aliquota_tasse_pct: { type: "number", description: "Aliquota imposte % della voce (es. 13.5, 22.25)" },
           },
           required: ["descrizione"],
           additionalProperties: false,
