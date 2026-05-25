@@ -37,7 +37,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
   const [dirty, setDirty] = useState(false);
 
   // Carica righe esistenti
-  const { data: existing = [], isLoading } = useQuery({
+  const { data: existing, isLoading } = useQuery({
     queryKey: ["rami-editor-load", compagniaRapportoId],
     enabled: !!compagniaRapportoId,
     queryFn: async () => {
@@ -51,6 +51,7 @@ export default function RamiAbilitatiEditor({ compagniaRapportoId, onSaved }: Pr
   });
 
   useEffect(() => {
+    if (!existing) return;
     // Raggruppa per gruppo_ramo_id, marcando all=true se almeno una riga ha ramo_id NULL
     const byGruppo = new Map<string, RamoGroupRow>();
     for (const r of existing as any[]) {
