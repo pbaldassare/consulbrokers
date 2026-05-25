@@ -726,6 +726,67 @@ export function ImportNuovaPolizzaAIDialog({
           </div>
         )}
 
+        {/* STEP SUMMARY: riepilogo semplice dei dati estratti (i dati sono già stati applicati al form) */}
+        {step === "summary" && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-teal-200 dark:border-teal-900 bg-teal-50 dark:bg-teal-950/30 p-3 text-sm text-teal-800 dark:text-teal-200 flex gap-2 items-start">
+              <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold">Dati importati nel form</div>
+                <div className="text-xs opacity-80">Controlla qui sotto cosa l'AI ha estratto dal PDF. Puoi chiudere e completare/correggere direttamente nel form.</div>
+              </div>
+            </div>
+
+            <div className="border rounded-lg divide-y text-sm">
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Numero polizza</span><span className="font-medium">{data.numero_polizza || "—"}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Compagnia</span><span className="font-medium">{data.compagnia || "—"}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Contraente</span><span className="font-medium">{data.contraente_nome || "—"}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">CF / P.IVA</span><span className="font-medium">{[data.contraente_codice_fiscale, data.contraente_partita_iva].filter(Boolean).join(" / ") || "—"}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Decorrenza → Scadenza</span><span className="font-medium">{(data.decorrenza || "—") + " → " + (data.scadenza || "—")}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Frazionamento</span><span className="font-medium">{data.frazionamento || "—"}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Premio firma (lordo)</span><span className="font-medium">{fmtEur(data.premio_firma_lordo)}</span></div>
+              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Premio quietanza (lordo)</span><span className="font-medium">{fmtEur(data.premio_quietanza_lordo)}</span></div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold mb-1">Garanzie estratte ({data.garanzie?.length || 0})</div>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-2">Descrizione</th>
+                      <th className="text-left p-2 w-24">Sottoramo</th>
+                      <th className="text-right p-2 w-24">Netto</th>
+                      <th className="text-right p-2 w-24">Imposte</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.garanzie || []).map((g, i) => (
+                      <tr key={i} className={i % 2 ? "bg-muted/20" : ""}>
+                        <td className="p-2">{g.descrizione}</td>
+                        <td className="p-2">
+                          {g.codice_sottoramo
+                            ? <Badge variant="secondary" className="font-mono">{g.codice_sottoramo}</Badge>
+                            : <span className="text-amber-600">—</span>}
+                        </td>
+                        <td className="p-2 text-right tabular-nums">{fmtEur(g.premio_netto)}</td>
+                        <td className="p-2 text-right tabular-nums">{fmtEur(g.premio_imposte)}</td>
+                      </tr>
+                    ))}
+                    {(!data.garanzie || data.garanzie.length === 0) && (
+                      <tr><td colSpan={4} className="p-3 text-center text-muted-foreground">Nessuna garanzia estratta</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={() => { onOpenChange(false); reset(); }}>Chiudi</Button>
+            </DialogFooter>
+          </div>
+        )}
+
       </DialogContent>
     </Dialog>
   );
