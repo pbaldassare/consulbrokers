@@ -545,12 +545,24 @@ export default function ProvvigioniRapportiTab() {
           </Card>
         </div>
 
+        {/* Editor manuale Rami/Sottorami abilitati */}
+        {rapportoId && (
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm">Gestione manuale Rami e Sottorami abilitati</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RamiAbilitatiEditor compagniaRapportoId={rapportoId} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Matrice raggruppata */}
         {rapportoId && (
           <div className="space-y-2">
             {ramiAbilitati.length === 0 ? (
               <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
-                Nessun Ramo abilitato su questo rapporto. Apri "Rapporti" sulla compagnia e definisci i Rami/Sottorami abilitati.
+                Nessun Ramo abilitato su questo rapporto. Usa il pannello "Gestione manuale" qui sopra, oppure Import IA / Incolla CSV / Copia da altro per popolarli.
               </CardContent></Card>
             ) : gruppiVisibili.length === 0 ? (
               <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
