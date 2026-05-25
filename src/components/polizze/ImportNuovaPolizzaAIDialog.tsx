@@ -571,19 +571,19 @@ export function ImportNuovaPolizzaAIDialog({
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-teal-600" />
             Importa polizza da PDF (AI)
-            {step !== "upload" && (
+            {step !== "setup" && (
               <Badge variant="outline" className="ml-2">
                 {step === "review" ? "2. Revisione" : "3. Riepilogo"}
               </Badge>
             )}
           </DialogTitle>
           <DialogDescription>
-            Carica la scheda di polizza, verifica/correggi i dati estratti, scegli i match e applica al form.
+            Scegli il Ramo, carica la scheda di polizza, verifica/correggi i dati estratti e applica al form.
           </DialogDescription>
         </DialogHeader>
 
         {/* PROGRESS + LOG */}
-        {(parsing || logs.length > 0) && step === "upload" && (
+        {(parsing || logs.length > 0) && step === "setup" && (
           <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium">{progressLabel || "In attesa…"}</span>
@@ -610,45 +610,100 @@ export function ImportNuovaPolizzaAIDialog({
           </div>
         )}
 
-        {/* STEP UPLOAD */}
-        {step === "upload" && (
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault(); setDragOver(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleFile(f);
-            }}
-            onClick={() => !parsing && fileInput.current?.click()}
-            className={cn(
-              "border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors",
-              dragOver ? "border-teal-500 bg-teal-50 dark:bg-teal-950/30" : "border-muted-foreground/30 hover:border-teal-400",
-              parsing && "opacity-60 cursor-wait",
-            )}
-          >
-            <input
-              ref={fileInput}
-              type="file"
-              className="hidden"
-              accept="application/pdf,image/*"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-            />
-            {parsing ? (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-                <span>Analisi in corso… non chiudere il dialog</span>
-                {fileName && <span className="text-xs">{fileName}</span>}
+        {/* STEP SETUP: Cliente (read-only se locked) + Ramo + Dropzone */}
+        {step === "setup" && (
+          <div className="space-y-4">
+            {/* Cliente: badge read-only se locked, altrimenti messaggio neutro */}
+            {lockedClienteId ? (
+              <div className="rounded border p-3 text-xs flex gap-2 items-start bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900 text-teal-800 dark:text-teal-200">
+                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="font-semibold">Cliente: {lockedClienteLabel || "—"}</div>
+                  <div className="opacity-80">Preso dall'anagrafica corrente — la polizza verrà associata a questo cliente.</div>
+                </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <UploadCloud className="h-10 w-10 text-teal-600" />
-                <span className="font-medium">Trascina la scheda di polizza o clicca per selezionare</span>
-                <span className="text-xs">PDF o immagini, max 15MB</span>
+              <div className="rounded border p-3 text-xs flex gap-2 items-start bg-muted/40 border-border text-muted-foreground">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                Il Cliente verrà ricercato (o creato) dopo l'analisi del PDF.
               </div>
             )}
+
+            {/* Selezione Ramo OBBLIGATORIA prima del PDF */}
+            <div className="border rounded-lg p-3 space-y-2">
+              <Label className="text-xs font-semibold">
+                Ramo della polizza <span className="text-destructive">*</span>
+              </Label>
+              <RamoSottoramoSelect
+                gruppoRamoId={selectedGruppoRamoId || null}
+                ramoId={selectedSottoramoId || null}
+                onChange={({ gruppoRamoId, ramoId }) => {
+                  setSelectedGruppoRamoId(gruppoRamoId || "");
+                  setSelectedSottoramoId(ramoId || "");
+                }}
+                hideLabels={false}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Seleziona prima il <strong>Ramo</strong>: l'AI riceverà l'elenco dei sottorami ammessi e mapperà
+                correttamente le voci di garanzia. Il Sottoramo è opzionale (puoi sceglierlo per riga nello step successivo).
+              </p>
+            </div>
+
+            {/* Dropzone — disabilitata finché manca il Ramo */}
+            <div
+              onDragOver={(e) => { if (!selectedGruppoRamoId) return; e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                if (!selectedGruppoRamoId) return;
+                e.preventDefault(); setDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleFile(f);
+              }}
+              onClick={() => {
+                if (!selectedGruppoRamoId) {
+                  toast.error("Seleziona prima il Ramo");
+                  return;
+                }
+                if (!parsing) fileInput.current?.click();
+              }}
+              className={cn(
+                "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
+                !selectedGruppoRamoId
+                  ? "border-muted-foreground/20 bg-muted/20 cursor-not-allowed opacity-60"
+                  : dragOver
+                    ? "border-teal-500 bg-teal-50 dark:bg-teal-950/30 cursor-pointer"
+                    : "border-muted-foreground/30 hover:border-teal-400 cursor-pointer",
+                parsing && "opacity-60 cursor-wait",
+              )}
+            >
+              <input
+                ref={fileInput}
+                type="file"
+                className="hidden"
+                accept="application/pdf,image/*"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              />
+              {parsing ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+                  <span>Analisi in corso… non chiudere il dialog</span>
+                  {fileName && <span className="text-xs">{fileName}</span>}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <UploadCloud className="h-10 w-10 text-teal-600" />
+                  <span className="font-medium">
+                    {selectedGruppoRamoId
+                      ? "Trascina la scheda di polizza o clicca per selezionare"
+                      : "Seleziona prima il Ramo per abilitare il caricamento"}
+                  </span>
+                  <span className="text-xs">PDF o immagini, max 15MB</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
 
         {/* STEP REVIEW */}
         {step === "review" && (
