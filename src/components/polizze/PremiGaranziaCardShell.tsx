@@ -392,7 +392,7 @@ export function PremiGaranziaCardShell({
         </div>
 
         {/* Totali */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 border-t bg-muted/20">
+        <div className={cn("grid grid-cols-2 gap-2 p-3 border-t bg-muted/20", hasSsnRows ? "md:grid-cols-5" : "md:grid-cols-4")}>
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Netto</Label>
             <p className="text-sm font-mono font-semibold mt-0.5">{totNetto.toFixed(2)} €</p>
@@ -401,6 +401,12 @@ export function PremiGaranziaCardShell({
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Tasse</Label>
             <p className="text-sm font-mono font-semibold mt-0.5">{totTasse.toFixed(2)} €</p>
           </div>
+          {hasSsnRows && (
+            <div className="rounded-md border bg-card p-2">
+              <Label className="text-[10px] uppercase text-muted-foreground">Totale SSN</Label>
+              <p className="text-sm font-mono font-semibold mt-0.5">{totSsn.toFixed(2)} €</p>
+            </div>
+          )}
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Addizionali</Label>
             <Input
