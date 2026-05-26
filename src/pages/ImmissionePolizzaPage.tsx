@@ -30,6 +30,7 @@ import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/c
 import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
+import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
@@ -198,6 +199,7 @@ const ImmissionePolizzaPage = () => {
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
   
   const [cigRif, setCigRif] = useState("");
+  const [cigTemporaneo, setCigTemporaneo] = useState(false);
   const [vincolo, setVincolo] = useState("");
   const [targaTelaio, setTargaTelaio] = useState("");
   const [descrizionePolizza, setDescrizionePolizza] = useState("");
@@ -426,6 +428,7 @@ const ImmissionePolizzaPage = () => {
   }, [clienteDettaglio]);
   const gruppoFinanziarioMancante = !!selectedClienteId && !tipoSoggetto;
   const cigObbligatorio = tipoSoggetto === "ente";
+  const cigValido = !cigRif.trim() || isValidCigWithFlag(cigRif, cigTemporaneo);
   const saveBlockReason = !selectedClienteId
     ? "Seleziona prima un cliente"
     : gruppoFinanziarioMancante
@@ -434,7 +437,9 @@ const ImmissionePolizzaPage = () => {
         ? "Il N° Polizza è obbligatorio"
         : (cigObbligatorio && !cigRif.trim())
           ? "Per i clienti di tipo Ente il CIG è obbligatorio"
-          : null;
+          : (cigRif.trim() && !cigValido)
+            ? "Il CIG deve essere di 10 caratteri alfanumerici (o spunta 'CIG temporaneo')"
+            : null;
 
   // (eredità AE/Specialist/Produttore spostata sotto le query)
 
@@ -959,7 +964,8 @@ const ImmissionePolizzaPage = () => {
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         
-        cig_rif: cigRif || null,
+        cig_rif: cigRif ? normalizeCig(cigRif) : null,
+        cig_temporaneo: cigTemporaneo,
         vincolo: vincolo || null,
         targa_telaio: targaTelaio || null,
         descrizione_polizza: descrizionePolizza || null,
@@ -1513,13 +1519,27 @@ const ImmissionePolizzaPage = () => {
               </Label>
               <Input
                 value={cigRif}
-                onChange={(e) => setCigRif(e.target.value)}
-                className={`h-8 text-xs ${!cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                onChange={(e) => setCigRif(e.target.value.toUpperCase())}
+                maxLength={cigTemporaneo ? 40 : 10}
+                placeholder={cigTemporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
+                className={`h-8 text-xs font-mono ${(!cigRif.trim() || !cigValido) ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 title="Obbligatorio per clienti di tipo Ente"
               />
-              {!cigRif.trim() && (
+              <div className="flex items-center gap-2 mt-1">
+                <Checkbox
+                  id="cig-temp"
+                  checked={cigTemporaneo}
+                  onCheckedChange={(v) => setCigTemporaneo(!!v)}
+                />
+                <Label htmlFor="cig-temp" className="text-[10px] cursor-pointer">
+                  CIG temporaneo (formato libero)
+                </Label>
+              </div>
+              {!cigRif.trim() ? (
                 <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
-              )}
+              ) : !cigValido ? (
+                <p className="text-[10px] text-destructive mt-0.5">CIG: 10 caratteri alfanumerici</p>
+              ) : null}
             </div>
           )}
           <div className="space-y-1.5">

@@ -1247,6 +1247,7 @@ export type Database = {
           cap_residenza: string | null
           cap_sede: string | null
           cellulare: string | null
+          cig_temporaneo: boolean
           citta_alternativa: string | null
           citta_fiscale: string | null
           citta_residenza: string | null
@@ -1334,6 +1335,7 @@ export type Database = {
           cap_residenza?: string | null
           cap_sede?: string | null
           cellulare?: string | null
+          cig_temporaneo?: boolean
           citta_alternativa?: string | null
           citta_fiscale?: string | null
           citta_residenza?: string | null
@@ -1421,6 +1423,7 @@ export type Database = {
           cap_residenza?: string | null
           cap_sede?: string | null
           cellulare?: string | null
+          cig_temporaneo?: boolean
           citta_alternativa?: string | null
           citta_fiscale?: string | null
           citta_residenza?: string | null
@@ -6789,6 +6792,7 @@ export type Database = {
           causale_sostituzione: string | null
           causale_storno: string | null
           cig_rif: string | null
+          cig_temporaneo: boolean
           cliente_anagrafica_id: string | null
           cliente_id: string | null
           codice_rapporto: string | null
@@ -6904,6 +6908,7 @@ export type Database = {
           causale_sostituzione?: string | null
           causale_storno?: string | null
           cig_rif?: string | null
+          cig_temporaneo?: boolean
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           codice_rapporto?: string | null
@@ -7019,6 +7024,7 @@ export type Database = {
           causale_sostituzione?: string | null
           causale_storno?: string | null
           cig_rif?: string | null
+          cig_temporaneo?: boolean
           cliente_anagrafica_id?: string | null
           cliente_id?: string | null
           codice_rapporto?: string | null
