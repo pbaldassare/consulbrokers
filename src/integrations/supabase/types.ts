@@ -7212,6 +7212,48 @@ export type Database = {
           },
         ]
       }
+      titoli_eventi_snapshot: {
+        Row: {
+          created_by: string | null
+          evento_at: string
+          id: string
+          payload_jsonb: Json
+          tipo_evento: string
+          titolo_id: string
+        }
+        Insert: {
+          created_by?: string | null
+          evento_at?: string
+          id?: string
+          payload_jsonb: Json
+          tipo_evento: string
+          titolo_id: string
+        }
+        Update: {
+          created_by?: string | null
+          evento_at?: string
+          id?: string
+          payload_jsonb?: Json
+          tipo_evento?: string
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_eventi_snapshot_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_eventi_snapshot_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       titoli_garanzia_legacy_backup: {
         Row: {
           data_scadenza: string | null
