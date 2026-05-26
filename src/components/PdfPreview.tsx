@@ -20,13 +20,26 @@ const PdfPreview = ({ data }: Props) => {
     setLoading(true);
     setError(null);
 
-    (async () => {
+    // Clone immediately — pdfjs detaches the buffer
+    const bytes = data.slice();
+
+    const start = async () => {
+      // Wait for the container to mount (Radix Dialog mounts content lazily)
+      let tries = 0;
+      while (!containerRef.current && tries < 30 && !cancelled) {
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        tries++;
+      }
+      const container = containerRef.current;
+      if (!container || cancelled) {
+        if (!cancelled) {
+          setError("Container non disponibile");
+          setLoading(false);
+        }
+        return;
+      }
+      container.innerHTML = "";
       try {
-        const container = containerRef.current;
-        if (!container) return;
-        container.innerHTML = "";
-        // Clone bytes — pdfjs detaches the buffer
-        const bytes = new Uint8Array(data);
         const loadingTask = pdfjs.getDocument({ data: bytes });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
@@ -46,11 +59,14 @@ const PdfPreview = ({ data }: Props) => {
           if (cancelled) return;
         }
       } catch (e: any) {
+        console.error("[PdfPreview]", e);
         setError(e?.message || String(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    start();
 
     return () => {
       cancelled = true;
