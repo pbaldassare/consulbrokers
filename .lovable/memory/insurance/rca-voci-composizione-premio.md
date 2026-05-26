@@ -23,7 +23,7 @@ Rami coperti: auto (`PI, QA, QAC, QC, QF, QG, QR, QU, DAB, PJ, RV*`) + natanti/n
 - Firma → card teal, alimenta `titoli.premio_netto / tasse / premio_lordo` via debounced UPDATE 800ms.
 - Quietanza → card amber, alimenta `titoli.premio_netto_quietanza / tasse_quietanza`.
 - Edit/INSERT/DELETE su card Quietanza marcano `quietanza_personalizzata=true`.
-- Riga **RCA Auto** sempre presente, non rimovibile.
+- Riga "RCA Auto / principale" **non più auto-creata**: il sottoramo RCA (es. QA, PI, RV*) si seleziona come normale voce di garanzia. Le polizze legacy con `is_rca_principale=true` continuano a funzionare (formula IPT+SSN) ma senza badge "obbligatoria" — la riga è rimovibile.
 - Provvigioni Firma/Quietanza editate dalla card → DB UPDATE su `titoli.provvigioni_*` + `refetchQueries(["titolo", id])` (sincrono, garantisce refresh split commerciale/agenzia).
 
 ## Calcolo
