@@ -1096,7 +1096,7 @@ const ImmissionePolizzaPage = () => {
             tipo_premio: tipo,
             garanzia: (r.descrizione && r.descrizione.trim()) || r.codice || "Premio",
             codice_garanzia: r.codice || null,
-            ramo_id: r.sottoramoId || null,
+            // ramo_id: r.sottoramoId || null,  // colonna non presente in premi_garanzia_polizza; il link si fa via codice_garanzia
             capitale: 0,
             tasso: 0,
             firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
