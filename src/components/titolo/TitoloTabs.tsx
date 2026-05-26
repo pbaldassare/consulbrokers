@@ -11,12 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
-
-
-const fmtEuro = (v: number | null | undefined) =>
-  v == null || isNaN(Number(v))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
+import { fmtEuro } from "@/lib/formatCurrency";
 
 interface TitoloTabsProps {
   id: string;
