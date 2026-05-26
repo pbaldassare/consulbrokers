@@ -1,33 +1,64 @@
-## Problema
+## Problemi rilevati
 
-In `/titoli/95567873-…` (polizza ramo QA — R.C. AUTO) si osservano due bug:
+### 1. Account Executive "Tallina Iole" non trovata
+A DB esiste correttamente (`tipo='account_executive'`, `attivo=true`), ma ha `ragione_sociale='232323'`. L'hook `useAccountExecutivesLookup` (e `useProduttoriLookup`) costruisce la label dando **priorità a `ragione_sociale`** se valorizzata, quindi mostra "232323" invece di "Tallina Iole" → la ricerca per "tallina" non matcha.
 
-1. **Voci salvate senza codice**: in DB le righe `premi_garanzia_polizza` hanno `garanzia="QA"`, `codice_garanzia=NULL`, e nessun link al sottoramo selezionato in immissione. Si perde la descrizione (es. "R. C. AUTO") e il codice ufficiale del sottoramo.
-2. **Riga "RCA Auto · obbligatoria"** appare in alto nelle card Firma/Quietanza anche se l'utente ha già selezionato i sottorami riga per riga (QA, QI, 045, …). È un refuso del vecchio modello "principale RCA" e va eliminato.
+### 2. CIG senza validazione + nessun flag "temporaneo"
+Il campo CIG/Rif. (su polizza, `titoli.cig_rif`) e Codice CIG (su cliente, `clienti.codice_cig`) accettano qualsiasi testo. Va imposto: **10 caratteri alfanumerici**. Inoltre serve un flag "CIG temporaneo" (default OFF) salvato in DB per filtri futuri.
 
-## Cosa fare
+---
 
-### 1. Salvataggio corretto delle voci in `ImmissionePolizzaPage.tsx` (≈ riga 1094)
+## Piano
 
-In `buildPremiInsert` includere i campi del sottoramo:
-- `garanzia` ← `r.descrizione || r.codice` (descrizione leggibile, non più il codice come fallback primario)
-- `codice_garanzia` ← `r.codice || null`
-- `ramo_id` ← `r.sottoramoId || null` (link al sottoramo `rami.id`)
+### A. Fix label AE/Produttore (priorità a nome persona)
+In `src/hooks/useAccountExecutivesLookup.ts` e `src/hooks/useProduttoriLookup.ts` invertire la logica:
+```
+label = (cognome+nome).trim() || ragione_sociale.trim() || sigla || codice || "—"
+```
+Così Tallina Iole appare sempre con nome/cognome, anche se qualcuno ha riempito ragione_sociale per errore.
 
-In questo modo, riaprendo la polizza, le card mostrano codice + descrizione del sottoramo selezionato.
+### B. Validazione CIG (10 alfanumerici)
+Nuovo helper `src/lib/validateCig.ts`:
+- `isValidCig(value: string): boolean` → regex `/^[A-Z0-9]{10}$/` (auto-uppercase, no spazi).
+- Esportato per riuso.
 
-### 2. Rimozione della riga "RCA Auto obbligatoria" in `VociRcaCard.tsx`
+Applicato in:
+- **`ImmissionePolizzaPage.tsx`** (campo CIG/Rif.): auto-uppercase on change, errore inline "CIG: 10 caratteri alfanumerici" se non valido **e** flag temporaneo è OFF. Blocco submit quando obbligatorio (Ente) e non valido.
+- **`NuovoClienteDialog.tsx`** (Codice CIG per Ente): stesso pattern.
+- **`ClienteDetail.tsx`** (tab anagrafica, campo `codice_cig`): stesso pattern.
 
-- Rimuovere lo `useEffect` (righe 218–235) che auto-inserisce la riga `is_rca_principale=true` quando `useAutoTaxFormula=true`.
-- Rimuovere il badge "obbligatoria" (riga 700) e l'icona "principale" (riga 682).
-- Mantenere la logica formula RCA (IPT + SSN 10,5%) ma applicarla automaticamente alle righe il cui `codice_garanzia` corrisponde al **sottoramo RCA** del gruppo (QA, PI, RV*, QN/QT/QNA/DD/DN/DNA per natanti) anziché al flag `is_rca_principale`. In pratica: una riga è "RCA principale" se il suo `codice_garanzia` ∈ set RCA del gruppo del titolo.
-- Per le polizze esistenti con la riga refuso a 0,00: lasciarla in DB (non distruttiva), ma l'UI non la marcherà più come obbligatoria. L'utente potrà cancellarla manualmente dal cestino.
+Se `cig_temporaneo = true`, la validazione di formato viene **rilassata** (solo non vuoto), perché i CIG temporanei/SmartCIG possono avere formato diverso in fase di assegnazione.
 
-### 3. Aggiornamento memoria
+### C. Flag "CIG temporaneo" persistito
+Migration DB:
+- `ALTER TABLE clienti ADD COLUMN cig_temporaneo boolean NOT NULL DEFAULT false;`
+- `ALTER TABLE titoli ADD COLUMN cig_temporaneo boolean NOT NULL DEFAULT false;`
+- Indici parziali leggeri per i filtri:
+  - `CREATE INDEX idx_clienti_cig_temp ON clienti(cig_temporaneo) WHERE cig_temporaneo = true;`
+  - `CREATE INDEX idx_titoli_cig_temp ON titoli(cig_temporaneo) WHERE cig_temporaneo = true;`
 
-Aggiornare `mem://insurance/rca-voci-composizione-premio.md`: rimuovere "Riga RCA Auto sempre presente, non rimovibile" e descrivere la nuova regola basata su `codice_garanzia`.
+UI:
+- Checkbox **"CIG temporaneo"** accanto al campo CIG in:
+  - `ImmissionePolizzaPage` (salva su `titoli.cig_temporaneo`)
+  - `NuovoClienteDialog` (salva su `clienti.cig_temporaneo`)
+  - `ClienteDetail` tab anagrafica (salva su `clienti.cig_temporaneo`)
+- Default deflaggato. Quando flaggato, mostra hint "Validazione formato disattivata".
 
-## Fuori scopo
+### D. Memory
+Aggiornare `mem://insurance/gruppi-finanziari-tipo-soggetto.md` con la regola CIG (10 alfanumerici + flag temporaneo) e creare `mem://insurance/cig-validation-and-temp-flag.md` con la regola di validazione e il flag.
 
-- Pulizia retroattiva dei record `premi_garanzia_polizza` già esistenti (incluse le 14 righe duplicate `3454` viste in DB su questa polizza in lato Quietanza): se vuoi le pulisco con una migration separata, fammelo sapere.
-- Modifiche al trigger `genera_quietanza_su_messa_cassa` o a `sync_quietanza_da_firma`.
+---
+
+## File toccati
+- `src/hooks/useAccountExecutivesLookup.ts`
+- `src/hooks/useProduttoriLookup.ts`
+- `src/lib/validateCig.ts` (nuovo)
+- `src/components/clienti/NuovoClienteDialog.tsx`
+- `src/pages/ClienteDetail.tsx`
+- `src/pages/ImmissionePolizzaPage.tsx`
+- Migration Supabase per le due colonne `cig_temporaneo`
+- Memory files
+
+## Note / Out of scope
+- Non rinomino "232323" su Tallina: è dato esistente; resta visibile solo se vuoi pulirlo nelle anagrafiche professionali.
+- I filtri reali su `cig_temporaneo` (es. in liste polizze/clienti) sono fuori scope: aggiungo solo persistenza + indice.
