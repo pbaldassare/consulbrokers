@@ -1,13 +1,13 @@
 ---
 name: Sospensione polizza — regole
-description: Sospensione cancella quietanze future non incassate; rata sospesa resta in Polizze Attive; campi modificabili; limite_riattivazione default +3 mesi
+description: Sospensione cancella quietanze future non incassate; rata sospesa resta in Polizze Attive; campi modificabili; limite_riattivazione default +10 mesi
 type: feature
 ---
 
 ## Form Sospensione
 
 - `data_sospensione` default = oggi.
-- `limite_riattivazione` default = `data_sospensione + 3 mesi`; si auto-aggiorna finché l'utente non lo modifica manualmente.
+- `limite_riattivazione` default = `data_sospensione + 10 mesi`; si auto-aggiorna finché l'utente non lo modifica manualmente.
 - `motivo` default precompilato: "Sospensione su richiesta cliente" (modificabile).
 
 ## Effetti
