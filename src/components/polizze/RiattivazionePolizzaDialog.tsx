@@ -333,15 +333,16 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Riattivazione Polizza</DialogTitle>
             <DialogDescription>
-              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Riattiva la polizza sospesa"}
+              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Riattiva la polizza sospesa"} — modifica date e garanzie se necessario, poi conferma in un unico passaggio.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 py-2">
+            <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="data-riatt-dlg">Data Riattivazione *</Label>
