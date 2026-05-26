@@ -3018,6 +3018,34 @@ const TitoloDetail = () => {
       })()}
 
 
+      {/* NUMERI POLIZZA STORICI */}
+      {numeriStorici.length > 0 && (
+        <SectionCollapsible title="Numeri polizza storici" icon={RefreshCw} defaultOpen={false}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Causale</TableHead>
+                <TableHead>Numero precedente</TableHead>
+                <TableHead>Numero nuovo</TableHead>
+                <TableHead>Motivo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(numeriStorici as any[]).map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="tabular-nums">{r.cambiato_il ? new Date(r.cambiato_il).toLocaleString("it-IT") : "—"}</TableCell>
+                  <TableCell className="capitalize">{r.causale}</TableCell>
+                  <TableCell className="font-mono">{r.numero_precedente}</TableCell>
+                  <TableCell className="font-mono font-semibold">{r.numero_nuovo}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.motivo || "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </SectionCollapsible>
+      )}
+
       {/* SOSTITUZIONI / STORNI */}
       {(t.sostituisce_polizza || t.storno_polizza) && (
         <SectionCollapsible title="Sostituzioni / Storni" icon={RefreshCw} defaultOpen={false}>
