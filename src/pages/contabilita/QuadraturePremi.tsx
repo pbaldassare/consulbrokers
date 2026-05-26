@@ -15,8 +15,7 @@ import {
   RefreshCw, Search, ShieldAlert, TrendingDown, XCircle
 } from "lucide-react";
 import { toast } from "sonner";
-
-const fmt = (n: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+import { fmtEuro as fmt } from "@/lib/formatCurrency";
 
 interface MatchResult {
   titolo: any;
