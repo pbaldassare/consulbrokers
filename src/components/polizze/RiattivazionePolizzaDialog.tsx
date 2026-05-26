@@ -302,6 +302,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           titolo_oneri_id: titoloOneriId,
           documento_id: documentoId,
           documento_nome: documentoNome,
+          snapshot_id: snapshotId,
         },
       });
 
