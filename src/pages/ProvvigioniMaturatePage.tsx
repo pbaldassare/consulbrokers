@@ -143,9 +143,10 @@ const ProvvigioniMaturatePage = () => {
   ), [filtered]);
   const byRamo = useMemo(() => aggBy((p) => p.titoli?.ramo_id, (p) => p.titoli?.rami?.descrizione || "—"), [filtered]);
   const byTipo = useMemo(() => aggBy((p) => p.tipo_destinatario, (p) => {
-    const map: any = { admin: "Consulbrokers SPA", commerciale: "Commerciale", sede: "Sede", consul: "Consul (legacy)" };
+    const map: any = { admin: "Consulbrokers SPA", commerciale: "Produttore", ae: "Account Executive", sede: "Sede", consul: "Consul (legacy)" };
     return map[p.tipo_destinatario] || p.tipo_destinatario || "—";
   }), [filtered]);
+
 
   const { page, setPage, pages, pageRows, resetPage } = usePagination(filtered);
 
