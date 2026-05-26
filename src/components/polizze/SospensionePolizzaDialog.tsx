@@ -108,6 +108,9 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       if (!dataSospensione) throw new Error("Data sospensione obbligatoria");
       if (!titoloId) throw new Error("Specificare una polizza");
 
+      // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
+      const snapshotId = await editorRef.current?.commit("sospensione");
+
       const { data: titoloRow, error: errFetch } = await supabase
         .from("titoli")
         .select("id, numero_titolo, riga")
