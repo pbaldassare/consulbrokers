@@ -231,7 +231,13 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             classe_bm: classeBm,
             provincia_circolazione: provinciaCircolazione,
           }
-        : { tipo: "oggetto_generico", descrizione: descrizioneOggetto };
+        : {
+            tipo: "oggetto_generico",
+            descrizione: descrizioneOggetto,
+            ubicazione_rischio: ubicazioneRischio || null,
+            valore_assicurato: valoreAssicurato ? Number(valoreAssicurato.replace(",", ".")) : null,
+            riferimento_oggetto: riferimentoOggetto || null,
+          };
 
       // 1. Update polizza madre con nuovi parametri tecnici
       if (isRca && veicoloRow?.id) {
