@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import ServerPagination from "@/components/ServerPagination";
+import { useServerPagination } from "@/hooks/useServerPagination";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { validateIban } from "@/lib/validateIban";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
@@ -86,7 +87,7 @@ const CATEGORIE: Record<CategoriaKey, { label: string; icon: React.ComponentType
   all:             { label: "Tutti",          icon: List,      tipi: null,                                            defaultTipo: "incasso_clienti" },
 };
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestito da useServerPagination (default 25)
 
 const emptyForm: Partial<ContoBancario> = {
   etichetta: "",
@@ -120,18 +121,16 @@ export default function ContiBancariPage() {
   const [categoria, setCategoria] = useState<CategoriaKey>("consul");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
   const [soloAttivi, setSoloAttivi] = useState(true);
+  const { page, setPage, pageSize, range, resetPage } = useServerPagination(25, [categoria, search, soloAttivi]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<Partial<ContoBancario>>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ContoBancario | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 350);
+    const t = setTimeout(() => { setSearch(searchInput.trim()); }, 350);
     return () => clearTimeout(t);
   }, [searchInput]);
-
-  useEffect(() => { setPage(0); }, [categoria, soloAttivi]);
 
   const { data: counts } = useQuery({
     queryKey: ["conti_bancari_counts", soloAttivi],
@@ -169,13 +168,11 @@ export default function ContiBancariPage() {
         const s = search.replace(/[%,]/g, "");
         q = q.or(`etichetta.ilike.%${s}%,iban.ilike.%${s}%,intestato_a.ilike.%${s}%,banca.ilike.%${s}%`);
       }
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
       const { data, error, count } = await q
         .order("tipo")
         .order("is_default", { ascending: false })
         .order("etichetta")
-        .range(from, to);
+        .range(range.from, range.to);
       if (error) throw error;
       return { rows: (data || []) as any[], total: count || 0 };
     },
@@ -467,7 +464,7 @@ export default function ContiBancariPage() {
                   )}
                 </TableBody>
               </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+              <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
             </>
           )}
         </CardContent>
