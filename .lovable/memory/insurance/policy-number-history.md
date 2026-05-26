@@ -28,5 +28,6 @@ RLS: SELECT/INSERT/UPDATE authenticated, DELETE solo admin.
 Campo "Nuovo numero polizza (opzionale)" presente in:
 - `SostituzionePolizzaDialog` (causale `sostituzione`, riferimento_id = `titoli_sostituzioni.id`)
 - `SospensionePolizzaDialog` (causale `sospensione`)
+- `RiattivazionePolizzaDialog` (causale `riattivazione`)
 
-Riattivazione: helper disponibile ma campo UI non ancora wired.
+In `TitoloDetail` la sezione "Numeri polizza storici" (collapsible, nascosta se vuota) mostra la cronologia letta da `titoli_numeri_storici`.

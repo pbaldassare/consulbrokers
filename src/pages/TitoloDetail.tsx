@@ -253,6 +253,20 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // Numeri polizza storici (sostituzione/sospensione/riattivazione con cambio numero)
+  const { data: numeriStorici = [] } = useQuery({
+    queryKey: ["titoli-numeri-storici", id],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("titoli_numeri_storici")
+        .select("*")
+        .eq("titolo_id", id!)
+        .order("cambiato_il", { ascending: false });
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
   // Catena polizza: madre + tutte le quietanze sorelle (per banner + pannello "Quietanze")
   const numeroTitolo = (titolo as any)?.numero_titolo || null;
   const { data: catenaTitoli = [] } = useQuery({
@@ -3003,6 +3017,34 @@ const TitoloDetail = () => {
         );
       })()}
 
+
+      {/* NUMERI POLIZZA STORICI */}
+      {numeriStorici.length > 0 && (
+        <SectionCollapsible title="Numeri polizza storici" icon={RefreshCw} defaultOpen={false}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Causale</TableHead>
+                <TableHead>Numero precedente</TableHead>
+                <TableHead>Numero nuovo</TableHead>
+                <TableHead>Motivo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(numeriStorici as any[]).map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="tabular-nums">{r.cambiato_il ? new Date(r.cambiato_il).toLocaleString("it-IT") : "—"}</TableCell>
+                  <TableCell className="capitalize">{r.causale}</TableCell>
+                  <TableCell className="font-mono">{r.numero_precedente}</TableCell>
+                  <TableCell className="font-mono font-semibold">{r.numero_nuovo}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.motivo || "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </SectionCollapsible>
+      )}
 
       {/* SOSTITUZIONI / STORNI */}
       {(t.sostituisce_polizza || t.storno_polizza) && (

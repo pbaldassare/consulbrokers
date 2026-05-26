@@ -9,6 +9,7 @@ import { Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { frazionamentoMesi, frazionamentoToRate } from "@/lib/frazionamento";
+import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
 import { PolizzaEditorInline, type PolizzaEditorHandle } from "./PolizzaEditorInline";
 import {
   Dialog,
@@ -69,6 +70,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [nuovoNumero, setNuovoNumero] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +79,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     setMotivo("Riattivazione su richiesta cliente");
     setFile(null);
     setDisplayName("");
+    setNuovoNumero("");
     if (fileRef.current) fileRef.current.value = "";
     // Fetch titolo
     setLoadingTitolo(true);
@@ -148,7 +151,15 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
       const snapshotId = await editorRef.current?.commit("riattivazione");
 
-      // 1. Riattiva rata sospesa
+      // 0bis. Cambio numero polizza (se compagnia ne emette uno nuovo)
+      const numeroCambiato = await aggiornaNumeroPolizza({
+        titoloId,
+        numeroCorrente: titoloRow.numero_titolo,
+        numeroNuovo: nuovoNumero,
+        causale: "riattivazione",
+        motivo,
+      });
+      const numeroEffettivo = numeroCambiato ? nuovoNumero.trim() : titoloRow.numero_titolo;
       const { error: errUp } = await supabase
         .from("titoli")
         .update({
@@ -170,7 +181,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         const { data: ins, error: errIns } = await supabase
           .from("titoli")
           .insert({
-            numero_titolo: titoloRow.numero_titolo,
+            numero_titolo: numeroEffettivo,
             cliente_id: titoloRow.cliente_id,
             cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
             compagnia_id: titoloRow.compagnia_id,
@@ -200,7 +211,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             provvigioni_quietanza: titoloRow.provvigioni_quietanza,
             brokeraggio_quietanza: titoloRow.brokeraggio_quietanza,
             riga: nuovaRiga,
-            sostituisce_polizza: titoloRow.numero_titolo,
+            sostituisce_polizza: numeroEffettivo,
             sostituisce_riga: prevRiga,
             stato: "attivo",
             tipo_portafoglio: titoloRow.tipo_portafoglio,
@@ -220,7 +231,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         const { data: insOneri, error: errOneri } = await supabase
           .from("titoli")
           .insert({
-            numero_titolo: titoloRow.numero_titolo,
+            numero_titolo: numeroEffettivo,
             cliente_id: titoloRow.cliente_id,
             cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
             compagnia_id: titoloRow.compagnia_id,
@@ -240,7 +251,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             premio_lordo: oneriNum,
             premio_netto: oneriNum,
             riga: rigaOneri,
-            sostituisce_polizza: titoloRow.numero_titolo,
+            sostituisce_polizza: numeroEffettivo,
             sostituisce_riga: titoloRow.riga,
             stato: "attivo",
             note: "Oneri di riattivazione",
@@ -303,6 +314,8 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           documento_id: documentoId,
           documento_nome: documentoNome,
           snapshot_id: snapshotId,
+          numero_polizza_precedente: numeroCambiato ? titoloRow.numero_titolo : null,
+          numero_polizza_nuovo: numeroCambiato ? numeroEffettivo : null,
         },
       });
 
@@ -355,9 +368,22 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             </div>
 
             <div className="space-y-1.5">
+              <Label htmlFor="nuovo-numero-riatt-dlg">Nuovo numero polizza (opzionale)</Label>
+              <Input
+                id="nuovo-numero-riatt-dlg"
+                value={nuovoNumero}
+                onChange={(e) => setNuovoNumero(e.target.value)}
+                placeholder={numeroPolizza || "Lasciare vuoto se invariato"}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">Se la compagnia ha emesso un nuovo numero in fase di riattivazione, inseriscilo qui. Il numero precedente verrà archiviato.</p>
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="motivo-riatt-dlg">Motivo</Label>
               <Textarea id="motivo-riatt-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} />
             </div>
+
 
             <div className="border rounded-md p-3 bg-muted/30">
               <div className="text-sm font-semibold mb-2">Quietanze che verranno ricreate</div>
@@ -429,6 +455,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               <div className="space-y-2 text-sm">
                 <div>Stai per riattivare la polizza <strong>{numeroPolizza || "—"}</strong>.</div>
                 <div>Data riattivazione: <strong>{dataRiattivazione || "—"}</strong></div>
+                {nuovoNumero.trim() && nuovoNumero.trim() !== (numeroPolizza || "") && (
+                  <div>Nuovo numero polizza: <strong>{nuovoNumero.trim()}</strong> <span className="text-muted-foreground">(precedente archiviato)</span></div>
+                )}
                 <div>Quietanze future ricreate: <strong>{preview.length}</strong></div>
                 {oneriNum > 0 && <div>Oneri cliente: <strong>{oneriNum.toFixed(2)} €</strong> (titolo separato da contabilizzare)</div>}
                 {file && <div>Allegato: <strong>{ensureExt((displayName || file.name).trim() || file.name, file.name)}</strong></div>}
