@@ -799,22 +799,30 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   }
                 }} /></div>
               </div>
-              {tipoCliente === "ente" && (
+              {tipoCliente === "ente" && (() => {
+                const cigOk = !codiceCig.trim() || isValidCigWithFlag(codiceCig, cigTemporaneo);
+                return (
                 <div>
                   <Label>Codice CIG *</Label>
                   <Input
                     value={codiceCig}
                     onChange={(e) => setCodiceCig(e.target.value.toUpperCase())}
-                    placeholder="Codice Identificativo Gara (obbligatorio)"
-                    className={!codiceCig.trim() ? "border-amber-400 focus-visible:ring-amber-400" : undefined}
+                    maxLength={cigTemporaneo ? 40 : 10}
+                    placeholder={cigTemporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
+                    className={`font-mono ${(!codiceCig.trim() || !cigOk) ? "border-amber-400 focus-visible:ring-amber-400" : ""}`}
                   />
-                  {!codiceCig.trim() && (
-                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                      Obbligatorio per gli Enti.
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox id="cig-temp-nc" checked={cigTemporaneo} onCheckedChange={(v) => setCigTemporaneo(!!v)} />
+                    <Label htmlFor="cig-temp-nc" className="text-xs cursor-pointer">CIG temporaneo (formato libero)</Label>
+                  </div>
+                  {!codiceCig.trim() ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">Obbligatorio per gli Enti.</p>
+                  ) : !cigOk ? (
+                    <p className="text-xs text-destructive mt-1">CIG: 10 caratteri alfanumerici</p>
+                  ) : null}
                 </div>
-              )}
+                );
+              })()}
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Codice SDI</Label><Input value={codiceSdi} onChange={(e) => setCodiceSdi(e.target.value)} maxLength={7} /></div>
                 <div>
