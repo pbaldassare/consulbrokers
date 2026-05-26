@@ -112,7 +112,41 @@
     --sidebar-hover: 210 15% 18%;
     --sidebar-border: 210 15% 22%;
     --sidebar-muted: 210 15% 55%;
+
+    --topbar-bg: 210 18% 12%;
+    --topbar-border: 210 15% 22%;
+
+    /* KPI cards — dark variant: bg scuro + bordo soft + testo chiaro */
+    --kpi-green-bg: 160 35% 14%;
+    --kpi-green-border: 160 40% 28%;
+    --kpi-green-text: 160 55% 70%;
+
+    --kpi-blue-bg: 205 40% 14%;
+    --kpi-blue-border: 205 40% 28%;
+    --kpi-blue-text: 205 55% 70%;
+
+    --kpi-yellow-bg: 45 40% 14%;
+    --kpi-yellow-border: 45 40% 28%;
+    --kpi-yellow-text: 45 65% 70%;
+
+    --kpi-orange-bg: 25 40% 14%;
+    --kpi-orange-border: 25 40% 28%;
+    --kpi-orange-text: 25 65% 70%;
+
+    --kpi-teal-bg: 175 35% 14%;
+    --kpi-teal-border: 175 40% 28%;
+    --kpi-teal-text: 175 55% 70%;
+
+    --badge-green-bg: 160 45% 35%;
+    --badge-green-fg: 0 0% 100%;
+    --badge-blue-bg: 199 58% 40%;
+    --badge-blue-fg: 0 0% 100%;
+    --badge-orange-bg: 30 70% 45%;
+    --badge-orange-fg: 0 0% 100%;
+    --badge-yellow-bg: 45 70% 45%;
+    --badge-yellow-fg: 0 0% 100%;
   }
+
 }
 
 @layer base {
