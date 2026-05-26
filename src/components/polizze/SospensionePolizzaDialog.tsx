@@ -74,6 +74,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       setLimiteRiattivazione(addMonthsISO(todayISO, 10));
       setLimiteManual(false);
       setMotivo("Sospensione su richiesta cliente");
+      setNuovoNumeroPolizza(numeroPolizza || "");
       setFile(null);
       setDisplayName("");
       if (fileRef.current) fileRef.current.value = "";
