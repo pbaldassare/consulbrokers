@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import ServerPagination from "@/components/ServerPagination";
+import { useServerPagination } from "@/hooks/useServerPagination";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { validateIban } from "@/lib/validateIban";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
