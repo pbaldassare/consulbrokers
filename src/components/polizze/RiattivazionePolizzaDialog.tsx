@@ -79,6 +79,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
     setMotivo("Riattivazione su richiesta cliente");
     setFile(null);
     setDisplayName("");
+    setNuovoNumero("");
     if (fileRef.current) fileRef.current.value = "";
     // Fetch titolo
     setLoadingTitolo(true);
