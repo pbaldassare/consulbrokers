@@ -686,7 +686,7 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
                           ) : (
                             <span>{v.garanzia}</span>
                           )}
-                          {v.is_rca_principale && <Badge className="ml-1 bg-teal-600 hover:bg-teal-700 text-[10px]">obbligatoria</Badge>}
+                          {v.is_rca_principale && <Badge variant="outline" className="ml-1 text-[10px]">principale</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
                           <Input
