@@ -455,6 +455,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               <div className="space-y-2 text-sm">
                 <div>Stai per riattivare la polizza <strong>{numeroPolizza || "—"}</strong>.</div>
                 <div>Data riattivazione: <strong>{dataRiattivazione || "—"}</strong></div>
+                {nuovoNumero.trim() && nuovoNumero.trim() !== (numeroPolizza || "") && (
+                  <div>Nuovo numero polizza: <strong>{nuovoNumero.trim()}</strong> <span className="text-muted-foreground">(precedente archiviato)</span></div>
+                )}
                 <div>Quietanze future ricreate: <strong>{preview.length}</strong></div>
                 {oneriNum > 0 && <div>Oneri cliente: <strong>{oneriNum.toFixed(2)} €</strong> (titolo separato da contabilizzare)</div>}
                 {file && <div>Allegato: <strong>{ensureExt((displayName || file.name).trim() || file.name, file.name)}</strong></div>}
