@@ -4,6 +4,7 @@ import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
 import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
+import RecentEntitiesTracker from "./RecentEntitiesTracker";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 const MainLayout = () => {
