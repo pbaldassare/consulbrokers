@@ -63,10 +63,13 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 10));
   const [limiteManual, setLimiteManual] = useState(false);
   const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+  const [oneriSospensione, setOneriSospensione] = useState<string>("0");
   const [nuovoNumeroPolizza, setNuovoNumeroPolizza] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+
+  const oneriNum = Number((oneriSospensione || "0").replace(",", ".")) || 0;
 
   useEffect(() => {
     if (open) {
@@ -74,6 +77,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       setLimiteRiattivazione(addMonthsISO(todayISO, 10));
       setLimiteManual(false);
       setMotivo("Sospensione su richiesta cliente");
+      setOneriSospensione("0");
       setNuovoNumeroPolizza(numeroPolizza || "");
       setFile(null);
       setDisplayName("");
