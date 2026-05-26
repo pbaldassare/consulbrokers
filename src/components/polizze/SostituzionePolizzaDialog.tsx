@@ -136,6 +136,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       setClasseBm(vp?.classe_bm || "");
       setProvinciaCircolazione(vp?.provincia_circolazione || "");
       setDescrizioneOggetto(tit?.descrizione_polizza || "");
+      setUbicazioneRischio("");
+      setValoreAssicurato("");
+      setRiferimentoOggetto("");
       // future rates
       if (tit?.numero_titolo && tit?.riga != null) {
         const { data: future } = await supabase
