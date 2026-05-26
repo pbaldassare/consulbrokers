@@ -335,6 +335,7 @@ const AddressAutocomplete = ({
   id,
   className,
   disabled,
+  helperText = "Seleziona un suggerimento Google oppure compila i campi qui sotto a mano",
 }: AddressAutocompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteServiceRef = useRef<AutocompleteServiceInstance | null>(null);
