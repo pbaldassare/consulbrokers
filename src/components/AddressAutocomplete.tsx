@@ -20,6 +20,7 @@ interface AddressAutocompleteProps {
   id?: string;
   className?: string;
   disabled?: boolean;
+  helperText?: string;
 }
 
 interface GoogleAddressComponent {
