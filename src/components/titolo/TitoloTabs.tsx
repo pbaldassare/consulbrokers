@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
+
 
 const fmtEuro = (v: number | null | undefined) =>
   v == null || isNaN(Number(v))
@@ -30,9 +32,17 @@ interface TitoloTabsProps {
  * Comportamento e markup identici all'originale.
  */
 export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate }: TitoloTabsProps) => {
+  // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
+  const [tab, setTab] = useState<string>("movimenti");
+  const [mounted, setMounted] = useState<Record<string, boolean>>({ movimenti: true });
+  const open = (v: string) => {
+    setTab(v);
+    setMounted((m) => (m[v] ? m : { ...m, [v]: true }));
+  };
   return (
-    <Tabs defaultValue="movimenti">
+    <Tabs value={tab} onValueChange={open}>
       <TabsList className="flex-wrap h-auto">
+
         <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
         <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
         <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
@@ -163,13 +173,13 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
         <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
       </TabsContent>
       <TabsContent value="documenti">
-        <Card><CardContent className="pt-6"><DocumentiTab entitaTipo="titolo" entitaId={id} bucketName="documenti_titoli" /></CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} bucketName="documenti_titoli" /> : null}</CardContent></Card>
       </TabsContent>
       <TabsContent value="chat">
-        <Card><CardContent className="pt-6"><ChatTab entitaTipo="titolo" entitaId={id} /></CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.chat ? <ChatTab entitaTipo="titolo" entitaId={id} /> : null}</CardContent></Card>
       </TabsContent>
       <TabsContent value="timeline">
-        <Card><CardContent className="pt-6"><TimelineTab entitaTipo="titolo" entitaId={id} /></CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.timeline ? <TimelineTab entitaTipo="titolo" entitaId={id} /> : null}</CardContent></Card>
       </TabsContent>
     </Tabs>
   );
