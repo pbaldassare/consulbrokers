@@ -168,13 +168,11 @@ export default function ContiBancariPage() {
         const s = search.replace(/[%,]/g, "");
         q = q.or(`etichetta.ilike.%${s}%,iban.ilike.%${s}%,intestato_a.ilike.%${s}%,banca.ilike.%${s}%`);
       }
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
       const { data, error, count } = await q
         .order("tipo")
         .order("is_default", { ascending: false })
         .order("etichetta")
-        .range(from, to);
+        .range(range.from, range.to);
       if (error) throw error;
       return { rows: (data || []) as any[], total: count || 0 };
     },
