@@ -225,53 +225,59 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Sospensione Polizza</DialogTitle>
             <DialogDescription>
-              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Sospendi la polizza corrente"}
+              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Sospendi la polizza corrente"} — modifica date e garanzie se necessario, poi conferma in un unico passaggio.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="data-sosp-dlg">Data Sospensione *</Label>
-                <Input id="data-sosp-dlg" type="date" value={dataSospensione} onChange={(e) => setDataSospensione(e.target.value)} className="tabular-nums" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 py-2">
+            {/* Colonna SX: evento */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="data-sosp-dlg">Data Sospensione *</Label>
+                  <Input id="data-sosp-dlg" type="date" value={dataSospensione} onChange={(e) => setDataSospensione(e.target.value)} className="tabular-nums" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="limite-riatt-dlg">Limite Riattivazione</Label>
+                  <Input id="limite-riatt-dlg" type="date" value={limiteRiattivazione} onChange={(e) => { setLimiteRiattivazione(e.target.value); setLimiteManual(true); }} className="tabular-nums" />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="limite-riatt-dlg">Limite Riattivazione</Label>
-                <Input id="limite-riatt-dlg" type="date" value={limiteRiattivazione} onChange={(e) => { setLimiteRiattivazione(e.target.value); setLimiteManual(true); }} className="tabular-nums" />
+                <Label htmlFor="motivo-sosp-dlg">Motivo</Label>
+                <Textarea id="motivo-sosp-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={3} />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="motivo-sosp-dlg">Motivo</Label>
-              <Textarea id="motivo-sosp-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={3} />
+
+              <div className="space-y-1.5 border-t pt-3">
+                <Label>Documento allegato (opzionale)</Label>
+                <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelected} />
+                {!file ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                    <Paperclip className="w-4 h-4 mr-1" /> Seleziona file
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
+                    <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <Input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Nome del documento"
+                      className="h-8 text-sm"
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={removeFile} title="Rimuovi">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Max 10 MB. Il nome è modificabile; l'estensione viene preservata.</p>
+              </div>
             </div>
 
-            <div className="space-y-1.5 border-t pt-3">
-              <Label>Documento allegato (opzionale)</Label>
-              <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelected} />
-              {!file ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                  <Paperclip className="w-4 h-4 mr-1" /> Seleziona file
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
-                  <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Nome del documento"
-                    className="h-8 text-sm"
-                  />
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={removeFile} title="Rimuovi">
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Max 10 MB. Il nome è modificabile; l'estensione viene preservata.</p>
-            </div>
+            {/* Colonna DX: snapshot polizza modificabile */}
+            <PolizzaEditorInline ref={editorRef} titoloId={titoloId} />
           </div>
 
           <DialogFooter>
