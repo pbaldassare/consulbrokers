@@ -30,6 +30,7 @@ import { NuovoClienteDialog, type NuovoClienteInitialData } from "@/components/c
 import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
+import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
