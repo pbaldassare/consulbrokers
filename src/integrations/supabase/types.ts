@@ -7293,6 +7293,60 @@ export type Database = {
         }
         Relationships: []
       }
+      titoli_numeri_storici: {
+        Row: {
+          cambiato_da_user_id: string | null
+          cambiato_il: string
+          causale: string
+          created_at: string
+          id: string
+          motivo: string | null
+          numero_nuovo: string
+          numero_precedente: string
+          riferimento_id: string | null
+          titolo_id: string
+        }
+        Insert: {
+          cambiato_da_user_id?: string | null
+          cambiato_il?: string
+          causale: string
+          created_at?: string
+          id?: string
+          motivo?: string | null
+          numero_nuovo: string
+          numero_precedente: string
+          riferimento_id?: string | null
+          titolo_id: string
+        }
+        Update: {
+          cambiato_da_user_id?: string | null
+          cambiato_il?: string
+          causale?: string
+          created_at?: string
+          id?: string
+          motivo?: string | null
+          numero_nuovo?: string
+          numero_precedente?: string
+          riferimento_id?: string | null
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "titoli_numeri_storici_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "titoli_numeri_storici_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       titoli_regolazioni: {
         Row: {
           conguaglio_premio: number

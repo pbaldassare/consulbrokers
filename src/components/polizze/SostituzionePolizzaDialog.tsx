@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
 import {
   Dialog,
   DialogContent,
@@ -73,11 +74,22 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
   const [dataSostituzione, setDataSostituzione] = useState(todayISO);
   const [causale, setCausale] = useState(CAUSALI[0]);
   const [motivo, setMotivo] = useState("");
+  const [nuovoNumeroPolizza, setNuovoNumeroPolizza] = useState("");
   // Vehicle fields (used when RCA)
   const [targa, setTarga] = useState("");
   const [marca, setMarca] = useState("");
   const [modello, setModello] = useState("");
   const [telaio, setTelaio] = useState("");
+  const [versione, setVersione] = useState("");
+  const [tipoVeicolo, setTipoVeicolo] = useState("");
+  const [tipoAlimentazione, setTipoAlimentazione] = useState("");
+  const [cilindrata, setCilindrata] = useState("");
+  const [potenzaKw, setPotenzaKw] = useState("");
+  const [potenzaCv, setPotenzaCv] = useState("");
+  const [posti, setPosti] = useState("");
+  const [dataImmatricolazione, setDataImmatricolazione] = useState("");
+  const [classeBm, setClasseBm] = useState("");
+  const [provinciaCircolazione, setProvinciaCircolazione] = useState("");
   const [descrizioneOggetto, setDescrizioneOggetto] = useState("");
   const [conguaglio, setConguaglio] = useState<string>("0");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -91,6 +103,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
     setDataSostituzione(todayISO);
     setCausale(CAUSALI[0]);
     setMotivo("");
+    setNuovoNumeroPolizza(numeroPolizza || "");
     setConguaglio("0");
     setFile(null);
     setDisplayName("");
@@ -109,6 +122,16 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       setMarca(vp?.marca || "");
       setModello(vp?.modello || "");
       setTelaio(vp?.telaio || "");
+      setVersione(vp?.versione || "");
+      setTipoVeicolo(vp?.tipo_veicolo || "");
+      setTipoAlimentazione(vp?.tipo_alimentazione || "");
+      setCilindrata(vp?.cc != null ? String(vp.cc) : "");
+      setPotenzaKw(vp?.kw != null ? String(vp.kw) : "");
+      setPotenzaCv(vp?.cv != null ? String(vp.cv) : "");
+      setPosti(vp?.posti != null ? String(vp.posti) : "");
+      setDataImmatricolazione(vp?.data_immatricolazione || "");
+      setClasseBm(vp?.classe_bm || "");
+      setProvinciaCircolazione(vp?.provincia_circolazione || "");
       setDescrizioneOggetto(tit?.descrizione_polizza || "");
       // future rates
       if (tit?.numero_titolo && tit?.riga != null) {
@@ -128,7 +151,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, titoloId]);
+  }, [open, titoloId, numeroPolizza]);
 
   const conguaglioNum = Number(conguaglio.replace(",", ".")) || 0;
 
@@ -155,6 +178,11 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       if (!titoloRow) throw new Error("Titolo non caricato");
       if (!dataSostituzione) throw new Error("Data sostituzione obbligatoria");
 
+      const intOrNull = (v: string) => {
+        const n = Number(v);
+        return Number.isFinite(n) && v.trim() !== "" ? Math.round(n) : null;
+      };
+
       // Snapshot parametri precedenti / nuovi
       const parametriPrec: Record<string, any> = isRca
         ? {
@@ -162,7 +190,17 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             targa: veicoloRow?.targa || null,
             marca: veicoloRow?.marca || null,
             modello: veicoloRow?.modello || null,
+            versione: veicoloRow?.versione || null,
             telaio: veicoloRow?.telaio || null,
+            tipo_veicolo: veicoloRow?.tipo_veicolo || null,
+            tipo_alimentazione: veicoloRow?.tipo_alimentazione || null,
+            cilindrata: veicoloRow?.cc ?? null,
+            potenza_kw: veicoloRow?.kw ?? null,
+            potenza_cv: veicoloRow?.cv ?? null,
+            posti: veicoloRow?.posti ?? null,
+            data_immatricolazione: veicoloRow?.data_immatricolazione || null,
+            classe_bm: veicoloRow?.classe_bm || null,
+            provincia_circolazione: veicoloRow?.provincia_circolazione || null,
           }
         : {
             tipo: "oggetto_generico",
@@ -170,7 +208,23 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
           };
 
       const parametriNew: Record<string, any> = isRca
-        ? { tipo: "veicolo", targa, marca, modello, telaio }
+        ? {
+            tipo: "veicolo",
+            targa,
+            marca,
+            modello,
+            versione,
+            telaio,
+            tipo_veicolo: tipoVeicolo,
+            tipo_alimentazione: tipoAlimentazione,
+            cilindrata: intOrNull(cilindrata),
+            potenza_kw: intOrNull(potenzaKw),
+            potenza_cv: intOrNull(potenzaCv),
+            posti: intOrNull(posti),
+            data_immatricolazione: dataImmatricolazione || null,
+            classe_bm: classeBm,
+            provincia_circolazione: provinciaCircolazione,
+          }
         : { tipo: "oggetto_generico", descrizione: descrizioneOggetto };
 
       // 1. Update polizza madre con nuovi parametri tecnici
@@ -181,7 +235,17 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             targa: targa || null,
             marca: marca || null,
             modello: modello || null,
+            versione: versione || null,
             telaio: telaio || null,
+            tipo_veicolo: tipoVeicolo || null,
+            tipo_alimentazione: tipoAlimentazione || null,
+            cc: intOrNull(cilindrata),
+            kw: intOrNull(potenzaKw),
+            cv: intOrNull(potenzaCv),
+            posti: intOrNull(posti),
+            data_immatricolazione: dataImmatricolazione || null,
+            classe_bm: classeBm || null,
+            provincia_circolazione: provinciaCircolazione || null,
           } as any)
           .eq("id", veicoloRow.id);
         if (errVe) throw errVe;
@@ -281,6 +345,16 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
         .single();
       if (errSost) throw errSost;
 
+      // 3b. Eventuale nuovo numero polizza emesso dalla compagnia
+      const numeroCambiato = await aggiornaNumeroPolizza({
+        titoloId,
+        numeroCorrente: titoloRow.numero_titolo,
+        numeroNuovo: nuovoNumeroPolizza,
+        causale: "sostituzione",
+        motivo: motivo || causale,
+        riferimentoId: sostIns?.id || null,
+      });
+
       // 4. Upload documento opzionale
       let documentoId: string | null = null;
       let documentoNome: string | null = null;
@@ -336,12 +410,14 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
           sostituzione_id: sostIns?.id,
           documento_id: documentoId,
           documento_nome: documentoNome,
+          numero_polizza_cambiato: numeroCambiato,
+          numero_polizza_nuovo: numeroCambiato ? nuovoNumeroPolizza : null,
         },
       });
 
-      return { titoloConguaglioId, documentoNome };
+      return { titoloConguaglioId, documentoNome, numeroCambiato };
     },
-    onSuccess: ({ titoloConguaglioId, documentoNome }) => {
+    onSuccess: ({ titoloConguaglioId, documentoNome, numeroCambiato }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -351,7 +427,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       queryClient.invalidateQueries({ queryKey: ["portafoglio-storico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["veicoli-polizza", titoloId] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sostituita"];
+      if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
       if (titoloConguaglioId) parts.push("titolo conguaglio creato");
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
@@ -410,26 +488,85 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
               />
             </div>
 
+            {/* Nuovo numero polizza (se la compagnia ne emette uno diverso) */}
+            <div className="border rounded-md p-3 space-y-2 bg-muted/20">
+              <Label htmlFor="sost-nuovo-numero">Nuovo numero polizza (opzionale)</Label>
+              <Input
+                id="sost-nuovo-numero"
+                value={nuovoNumeroPolizza}
+                onChange={(e) => setNuovoNumeroPolizza(e.target.value)}
+                placeholder={numeroPolizza || "Lascia vuoto per mantenere il numero attuale"}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Se la compagnia emette un nuovo numero a seguito della sostituzione, inseriscilo qui.
+                Numero attuale: <span className="font-mono">{numeroPolizza || "—"}</span>.
+                Il vecchio numero verrà archiviato nello storico della polizza.
+              </p>
+            </div>
+
             {/* Nuovi parametri oggetto */}
             <div className="border rounded-md p-3 space-y-3">
               <div className="text-sm font-semibold">Nuovi parametri oggetto</div>
               {isRca ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-targa">Targa</Label>
-                    <Input id="sost-targa" value={targa} onChange={(e) => setTarga(e.target.value.toUpperCase())} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-telaio">Telaio</Label>
-                    <Input id="sost-telaio" value={telaio} onChange={(e) => setTelaio(e.target.value.toUpperCase())} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-marca">Marca</Label>
-                    <Input id="sost-marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-modello">Modello</Label>
-                    <Input id="sost-modello" value={modello} onChange={(e) => setModello(e.target.value)} />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-targa">Targa</Label>
+                      <Input id="sost-targa" value={targa} onChange={(e) => setTarga(e.target.value.toUpperCase())} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-telaio">Telaio</Label>
+                      <Input id="sost-telaio" value={telaio} onChange={(e) => setTelaio(e.target.value.toUpperCase())} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-marca">Marca</Label>
+                      <Input id="sost-marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-modello">Modello</Label>
+                      <Input id="sost-modello" value={modello} onChange={(e) => setModello(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-versione">Versione / Allestimento</Label>
+                      <Input id="sost-versione" value={versione} onChange={(e) => setVersione(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-tipo-veicolo">Tipo veicolo</Label>
+                      <Input id="sost-tipo-veicolo" value={tipoVeicolo} onChange={(e) => setTipoVeicolo(e.target.value)} placeholder="Autovettura, Autocarro…" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-alim">Alimentazione</Label>
+                      <Input id="sost-alim" value={tipoAlimentazione} onChange={(e) => setTipoAlimentazione(e.target.value)} placeholder="Benzina, Diesel, Elettrico…" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-cc">Cilindrata (cc)</Label>
+                      <Input id="sost-cc" type="number" inputMode="numeric" value={cilindrata} onChange={(e) => setCilindrata(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-kw">Potenza (kW)</Label>
+                      <Input id="sost-kw" type="number" inputMode="numeric" value={potenzaKw} onChange={(e) => setPotenzaKw(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-cv">Potenza (CV)</Label>
+                      <Input id="sost-cv" type="number" inputMode="numeric" value={potenzaCv} onChange={(e) => setPotenzaCv(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-posti">Posti</Label>
+                      <Input id="sost-posti" type="number" inputMode="numeric" value={posti} onChange={(e) => setPosti(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-imm">Data immatricolazione</Label>
+                      <Input id="sost-imm" type="date" value={dataImmatricolazione} onChange={(e) => setDataImmatricolazione(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-bm">Classe BM</Label>
+                      <Input id="sost-bm" value={classeBm} onChange={(e) => setClasseBm(e.target.value)} placeholder="es. 1" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-prov">Provincia di circolazione</Label>
+                      <Input id="sost-prov" value={provinciaCircolazione} onChange={(e) => setProvinciaCircolazione(e.target.value.toUpperCase())} maxLength={2} placeholder="es. VE" />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -528,6 +665,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <div>Polizza <strong>{numeroPolizza || "—"}</strong>.</div>
+                {nuovoNumeroPolizza && nuovoNumeroPolizza !== numeroPolizza && (
+                  <div>Nuovo numero polizza: <strong className="font-mono">{nuovoNumeroPolizza}</strong> (il vecchio verrà archiviato)</div>
+                )}
                 <div>Data: <strong>{dataSostituzione}</strong> · Causale: <strong>{causale}</strong></div>
                 {conguaglioNum !== 0 && (
                   <div>

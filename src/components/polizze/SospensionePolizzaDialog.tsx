@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
+import { aggiornaNumeroPolizza } from "@/lib/aggiornaNumeroPolizza";
 import { PolizzaEditorInline, type PolizzaEditorHandle } from "./PolizzaEditorInline";
 import {
   Dialog,
@@ -62,6 +63,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 10));
   const [limiteManual, setLimiteManual] = useState(false);
   const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+  const [nuovoNumeroPolizza, setNuovoNumeroPolizza] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -72,6 +74,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       setLimiteRiattivazione(addMonthsISO(todayISO, 10));
       setLimiteManual(false);
       setMotivo("Sospensione su richiesta cliente");
+      setNuovoNumeroPolizza(numeroPolizza || "");
       setFile(null);
       setDisplayName("");
       if (fileRef.current) fileRef.current.value = "";
@@ -150,6 +153,15 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         .eq("id", titoloId);
       if (errUp) throw errUp;
 
+      // 2b. Nuovo numero polizza (se la compagnia ne emette uno diverso)
+      const numeroCambiato = await aggiornaNumeroPolizza({
+        titoloId,
+        numeroCorrente: titoloRow.numero_titolo,
+        numeroNuovo: nuovoNumeroPolizza,
+        causale: "sospensione",
+        motivo: motivo || null,
+      });
+
       // 3. Upload documento (opzionale)
       let documentoId: string | null = null;
       let documentoNome: string | null = null;
@@ -195,13 +207,14 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           documento_id: documentoId,
           documento_nome: documentoNome,
           snapshot_id: snapshotId,
+          numero_polizza_cambiato: numeroCambiato,
+          numero_polizza_nuovo: numeroCambiato ? nuovoNumeroPolizza : null,
         },
       });
 
-      return { quietanzeEliminate, documentoNome };
+      return { quietanzeEliminate, documentoNome, numeroCambiato };
     },
-    onSuccess: ({ quietanzeEliminate, documentoNome }) => {
-      // Invalida TUTTE le query coinvolte così la UI si aggiorna immediatamente
+    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -210,7 +223,9 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       queryClient.invalidateQueries({ queryKey: ["portafoglio-attive"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-storico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sospesa"];
+      if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
       if (quietanzeEliminate.length > 0) parts.push(`${quietanzeEliminate.length} quietanze future rimosse`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
@@ -249,6 +264,12 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
               <div className="space-y-1.5">
                 <Label htmlFor="motivo-sosp-dlg">Motivo</Label>
                 <Textarea id="motivo-sosp-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={3} />
+              </div>
+
+              <div className="space-y-1.5 border-t pt-3">
+                <Label htmlFor="sosp-nuovo-numero">Nuovo numero polizza (opzionale)</Label>
+                <Input id="sosp-nuovo-numero" value={nuovoNumeroPolizza} onChange={(e) => setNuovoNumeroPolizza(e.target.value)} placeholder={numeroPolizza || "Lascia vuoto per mantenere il numero attuale"} className="font-mono" />
+                <p className="text-xs text-muted-foreground">Se la compagnia emette un nuovo numero, inseriscilo. Attuale: <span className="font-mono">{numeroPolizza || "—"}</span>. Il vecchio sarà archiviato.</p>
               </div>
 
               <div className="space-y-1.5 border-t pt-3">
