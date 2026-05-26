@@ -23,7 +23,7 @@ import { lookupComune } from "@/lib/comuniItaliani";
 import { FiscalCodeInput } from "@/components/ui/FiscalCodeInput";
 import { validatePIVA } from "@/lib/validatePIVA";
 import { validateCF } from "@/lib/validateCF";
-import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori,
@@ -153,8 +153,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [ragioneSociale, setRagioneSociale] = useState("");
   const [partitaIva, setPartitaIva] = useState("");
   const [codiceFiscaleAzienda, setCodiceFiscaleAzienda] = useState("");
-  const [codiceCig, setCodiceCig] = useState("");
-  const [cigTemporaneo, setCigTemporaneo] = useState(false);
   const [codiceSdi, setCodiceSdi] = useState("");
   const [formaGiuridica, setFormaGiuridica] = useState("");
   const [indirizzoSede, setIndirizzoSede] = useState("");
@@ -342,7 +340,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (initialData.cellulare) setCellulare(initialData.cellulare);
       if (initialData.nazione) setNazione(initialData.nazione);
       if (initialData.gruppoFinanziarioId) setGruppoFinanziarioId(initialData.gruppoFinanziarioId);
-      if (initialData.codiceCig) setCodiceCig(initialData.codiceCig);
+      
     }
   }, [open, initialData]);
 
@@ -436,7 +434,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
       if (!ragioneSociale.trim()) missing.push(tipoCliente === "ente" ? "Denominazione Ente" : "Ragione Sociale");
       if (!partitaIva.trim()) missing.push("Partita IVA");
       if (tipoCliente === "ente" && !codiceFiscaleAzienda.trim()) missing.push("Codice Fiscale Ente");
-      if (tipoCliente === "ente" && !codiceCig.trim()) missing.push("Codice CIG");
+      
       if (!indirizzoSede.trim()) missing.push("Indirizzo Sede");
       if (!capSede.trim()) missing.push("CAP");
       if (!cittaSede.trim()) missing.push("Città");
@@ -468,9 +466,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           const r = validateCF(codiceFiscaleAzienda, { allowPIVAFormat: true });
           if (!r.valid) fiscalErrors.push(`Codice Fiscale ${tipoCliente === "ente" ? "Ente" : "Azienda"}: ${r.error}`);
         }
-      }
-      if (tipoCliente === "ente" && codiceCig.trim() && !isValidCigWithFlag(codiceCig, cigTemporaneo)) {
-        fiscalErrors.push("Codice CIG: 10 caratteri alfanumerici (o spunta 'CIG temporaneo')");
       }
       if (fiscalErrors.length > 0) throw new Error(fiscalErrors.join(" • "));
 
@@ -552,10 +547,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         payload.referente_cognome = referenteCognome || null;
         payload.referente_telefono = referenteTelefono || null;
         payload.referente_email = referenteEmail || null;
-        if (tipoCliente === "ente") {
-          payload.codice_cig = codiceCig ? normalizeCig(codiceCig) : null;
-          payload.cig_temporaneo = cigTemporaneo;
-        }
       }
       const { data, error } = await supabase.from("clienti").insert(payload as any).select("id, nome, cognome, ragione_sociale").single();
       if (error) throw error;
@@ -584,7 +575,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setNome(""); setCognome(""); setCodiceFiscale(""); setDataNascita("");
     setLuogoNascita(""); setIndirizzoResidenza(""); setCapResidenza("");
     setCittaResidenza(""); setProvinciaResidenza(""); setRagioneSociale("");
-    setPartitaIva(""); setCodiceFiscaleAzienda(""); setCodiceCig(""); setCigTemporaneo(false); setCodiceSdi("");
+    setPartitaIva(""); setCodiceFiscaleAzienda(""); setCodiceSdi("");
     setFormaGiuridica(""); setIndirizzoSede(""); setCapSede("");
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
@@ -632,8 +623,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   if (gf?.tipo_soggetto) {
                     const newTipo = gf.tipo_soggetto as "privato" | "azienda" | "ente";
                     setTipoCliente(newTipo);
-                    // Pulisci CIG se non è più Ente
-                    if (newTipo !== "ente") setCodiceCig("");
                   }
                 }}
                 placeholder="— Cerca e seleziona gruppo finanziario —"
@@ -799,30 +788,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                   }
                 }} /></div>
               </div>
-              {tipoCliente === "ente" && (() => {
-                const cigOk = !codiceCig.trim() || isValidCigWithFlag(codiceCig, cigTemporaneo);
-                return (
-                <div>
-                  <Label>Codice CIG *</Label>
-                  <Input
-                    value={codiceCig}
-                    onChange={(e) => setCodiceCig(e.target.value.toUpperCase())}
-                    maxLength={cigTemporaneo ? 40 : 10}
-                    placeholder={cigTemporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
-                    className={`font-mono ${(!codiceCig.trim() || !cigOk) ? "border-amber-400 focus-visible:ring-amber-400" : ""}`}
-                  />
-                  <div className="flex items-center gap-2 mt-1">
-                    <Checkbox id="cig-temp-nc" checked={cigTemporaneo} onCheckedChange={(v) => setCigTemporaneo(!!v)} />
-                    <Label htmlFor="cig-temp-nc" className="text-xs cursor-pointer">CIG temporaneo (formato libero)</Label>
-                  </div>
-                  {!codiceCig.trim() ? (
-                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">Obbligatorio per gli Enti.</p>
-                  ) : !cigOk ? (
-                    <p className="text-xs text-destructive mt-1">CIG: 10 caratteri alfanumerici</p>
-                  ) : null}
-                </div>
-                );
-              })()}
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Codice SDI</Label><Input value={codiceSdi} onChange={(e) => setCodiceSdi(e.target.value)} maxLength={7} /></div>
                 <div>
