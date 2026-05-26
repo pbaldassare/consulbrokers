@@ -8,12 +8,11 @@ import { Shield, CalendarClock, Bell, FileText, AlertTriangle, TrendingUp } from
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
+import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
 
 const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4"];
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
-
-const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
 const ClienteDashboard = () => {
   const { user } = useAuth();
