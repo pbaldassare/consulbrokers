@@ -1418,97 +1418,19 @@ const TitoloDetail = () => {
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header — sticky sotto la topbar globale */}
-      <div className="sticky top-14 z-10 -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/portafoglio/carico")}><ArrowLeft className="w-5 h-5" /></Button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">Polizza {t.numero_titolo || t.id.slice(0, 8)}</h1>
-              {t.sostituisce_polizza ? (
-                <Badge variant="secondary" title={`Sostituisce ${t.sostituisce_polizza}`}>
-                  Quietanza{t.garanzia_da ? ` · dal ${t.garanzia_da}${t.garanzia_a ? ` al ${t.garanzia_a}` : ""}` : ""}
-                </Badge>
-              ) : (
-                <Badge variant="outline">Polizza originale</Badge>
-              )}
-            </div>
-            <p className="text-muted-foreground text-sm">{(t as any).prodotto_nome || t.prodotti?.nome_prodotto || ""} — {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "N/D"}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">Cliente:</span>
-                <span className="font-medium text-foreground">
-                  {t.cliente_anagrafica
-                    ? ((t.cliente_anagrafica as any).tipo_cliente === "privato"
-                      ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim() || "—"
-                      : (t.cliente_anagrafica as any).ragione_sociale || "—")
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">Sede:</span>
-                <span className="font-medium text-foreground">{(t as any).uffici?.nome_ufficio || "—"}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">Importo Firma:</span>
-                <span className="font-semibold text-teal-700 tabular-nums">{fmtEuro((t as any).premio_lordo)}</span>
-              </div>
-            </div>
-          </div>
-          {t.stato === "in_attesa_rinnovo" ? (
-            <Badge className="text-sm bg-orange-500 hover:bg-orange-600 text-white shrink-0" title="Diventerà attivo quando la polizza precedente sarà messa a cassa">
-              In attesa rinnovo
-            </Badge>
-          ) : (
-            <Badge variant={t.stato === "incassato" ? "default" : t.stato === "stornato" ? "destructive" : "secondary"} className="text-sm shrink-0">
-              {t.stato}
-            </Badge>
-          )}
-        </div>
-      </div>
+      <TitoloHeaderBar t={t} onBack={() => navigate("/portafoglio/carico")} />
 
 
-      {/* Banner di blocco: la polizza è chiusa lato cassa, le modifiche dirette sono inibite */}
-      {isLocked && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 shrink-0" />
-          <span>
-            <strong>Polizza {t.stato === "stornato" ? "stornata" : "messa a cassa"}</strong> — modifiche dirette bloccate.
-            {t.stato === "incassato" && " Per riaprirla usa Annulla Incasso / Annulla Messa a Cassa."}
-          </span>
-        </div>
-      )}
-
-      {/* Banner scope quietanza: ogni rata è indipendente */}
-      {totRate > 1 && (
-        isQuietanzaCorrente ? (
-          <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
-            <Info className="w-4 h-4 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <strong>Stai modificando la Rata {rataIndex} di {totRate}</strong>
-              {t.garanzia_da ? <> · periodo {t.garanzia_da}{t.garanzia_a ? ` → ${t.garanzia_a}` : ""}</> : null}.
-              <span className="ml-1">Le modifiche valgono solo per questa quietanza, non per la polizza madre o le altre rate.</span>
-              {madre && madre.id !== t.id && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="px-1 h-auto text-sky-700 dark:text-sky-300"
-                  onClick={() => navigate(`/titoli/${madre.id}`)}
-                >
-                  Vai alla polizza madre
-                </Button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-md border border-sky-300 bg-sky-50 dark:bg-sky-950/20 px-3 py-2 text-sm text-sky-900 dark:text-sky-200 flex items-start gap-2">
-            <Info className="w-4 h-4 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <strong>Polizza madre</strong> — questa polizza ha {totRate - 1} {totRate - 1 === 1 ? "rata" : "rate"} successive.
-              Ogni quietanza ha premi e dati propri: le modifiche su questa pagina valgono solo per la madre.
-            </div>
-          </div>
-        )
-      )}
+      {/* Banner di blocco + banner scope quietanza */}
+      <TitoloScopeBanners
+        t={t}
+        isLocked={isLocked}
+        isQuietanzaCorrente={isQuietanzaCorrente}
+        totRate={totRate}
+        rataIndex={rataIndex}
+        madre={madre}
+        onNavigateMadre={(id) => navigate(`/titoli/${id}`)}
+      />
 
       {/* Pannello "Quietanze di questa polizza" */}
       {totRate > 1 && catenaCorrente && (
