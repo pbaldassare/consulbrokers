@@ -2382,11 +2382,21 @@ const TitoloDetail = () => {
                     const next: any = { ...p, [field]: e.target.value };
                     if (field === "garanzia_a" && e.target.value) {
                       if (!p.data_scadenza) next.data_scadenza = e.target.value;
-                      const mora = Number(p.mora_giorni) || 0;
-                      if (mora > 0 && !p.limite_mora) {
+                    }
+                    // Binding bidirezionale GG Mora ↔ Limite Mora (base = data_competenza || garanzia_da)
+                    if (field === "data_competenza" && e.target.value) {
+                      const gg = Number(p.mora_giorni) || 0;
+                      if (gg >= 0) {
                         const d = new Date(e.target.value);
-                        d.setDate(d.getDate() + mora);
+                        d.setDate(d.getDate() + gg);
                         next.limite_mora = d.toISOString().slice(0, 10);
+                      }
+                    }
+                    if (field === "limite_mora" && e.target.value) {
+                      const base = p.data_competenza || p.garanzia_da;
+                      if (base) {
+                        const ms = new Date(e.target.value).getTime() - new Date(base).getTime();
+                        next.mora_giorni = String(Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24))));
                       }
                     }
                     return next;
@@ -2430,11 +2440,23 @@ const TitoloDetail = () => {
               <Label className="text-xs">GG Mora</Label>
               <Input
                 type="number"
+                min="0"
                 value={periodoForm.mora_giorni}
-                onChange={(e) => setPeriodoForm(p => ({ ...p, mora_giorni: e.target.value }))}
+                onChange={(e) => setPeriodoForm(p => {
+                  const v = e.target.value;
+                  const next: any = { ...p, mora_giorni: v };
+                  const base = p.data_competenza || p.garanzia_da;
+                  const gg = parseInt(v || "0") || 0;
+                  if (base) {
+                    const d = new Date(base); d.setDate(d.getDate() + gg);
+                    next.limite_mora = d.toISOString().slice(0, 10);
+                  }
+                  return next;
+                })}
                 placeholder="15"
               />
             </div>
+
 
             <div>
               <Label className="text-xs">Disdetta (mesi)</Label>
