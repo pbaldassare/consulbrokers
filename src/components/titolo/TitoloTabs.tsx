@@ -32,9 +32,17 @@ interface TitoloTabsProps {
  * Comportamento e markup identici all'originale.
  */
 export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate }: TitoloTabsProps) => {
+  // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
+  const [tab, setTab] = useState<string>("movimenti");
+  const [mounted, setMounted] = useState<Record<string, boolean>>({ movimenti: true });
+  const open = (v: string) => {
+    setTab(v);
+    setMounted((m) => (m[v] ? m : { ...m, [v]: true }));
+  };
   return (
-    <Tabs defaultValue="movimenti">
+    <Tabs value={tab} onValueChange={open}>
       <TabsList className="flex-wrap h-auto">
+
         <TabsTrigger value="movimenti"><List className="w-4 h-4 mr-1" />Movimenti ({movimentiPolizza.length})</TabsTrigger>
         <TabsTrigger value="provvigioni"><Percent className="w-4 h-4 mr-1" />Provvigioni ({provvigioni.length})</TabsTrigger>
         <TabsTrigger value="appendici"><FileText className="w-4 h-4 mr-1" />Appendici ({appendiciPolizza.length})</TabsTrigger>
