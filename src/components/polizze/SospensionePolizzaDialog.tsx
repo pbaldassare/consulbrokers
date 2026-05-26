@@ -56,6 +56,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const queryClient = useQueryClient();
   const todayISO = new Date().toISOString().slice(0, 10);
   const fileRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<PolizzaEditorHandle>(null);
 
   const [dataSospensione, setDataSospensione] = useState(todayISO);
   const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 3));
