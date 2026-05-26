@@ -86,10 +86,6 @@ type Step = "setup" | "review" | "summary";
 
 const NEW_CLIENTE = "__new__";
 
-const fmtEur = (n?: number | null) =>
-  n == null || isNaN(Number(n))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(n));
 
 const num = (v: any): number | undefined => {
   if (v === "" || v == null) return undefined;
