@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -310,6 +311,11 @@ const TitoloDetail = () => {
   };
   const [editingComm, setEditingComm] = useState(false);
   const [splitsForm, setSplitsForm] = useState<SplitRow[]>([]);
+  // AE (Account Executive) — secondo intermediario provvigionato, indipendente dai Produttori
+  const [aeForm, setAeForm] = useState<{ ae_anagrafica_id: string | null; percentuale_ae: number }>({
+    ae_anagrafica_id: null, percentuale_ae: 0,
+  });
+  const { data: aeLookup = [] } = useAccountExecutivesLookup();
 
   const { data: anagraficheComm = [] } = useQuery({
     queryKey: ["anagrafiche-commerciali"],
