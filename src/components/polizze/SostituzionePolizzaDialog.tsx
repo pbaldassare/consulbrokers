@@ -178,6 +178,11 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       if (!titoloRow) throw new Error("Titolo non caricato");
       if (!dataSostituzione) throw new Error("Data sostituzione obbligatoria");
 
+      const intOrNull = (v: string) => {
+        const n = Number(v);
+        return Number.isFinite(n) && v.trim() !== "" ? Math.round(n) : null;
+      };
+
       // Snapshot parametri precedenti / nuovi
       const parametriPrec: Record<string, any> = isRca
         ? {
@@ -185,7 +190,17 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             targa: veicoloRow?.targa || null,
             marca: veicoloRow?.marca || null,
             modello: veicoloRow?.modello || null,
+            versione: veicoloRow?.versione || null,
             telaio: veicoloRow?.telaio || null,
+            tipo_veicolo: veicoloRow?.tipo_veicolo || null,
+            tipo_alimentazione: veicoloRow?.tipo_alimentazione || null,
+            cilindrata: veicoloRow?.cc ?? null,
+            potenza_kw: veicoloRow?.kw ?? null,
+            potenza_cv: veicoloRow?.cv ?? null,
+            posti: veicoloRow?.posti ?? null,
+            data_immatricolazione: veicoloRow?.data_immatricolazione || null,
+            classe_bm: veicoloRow?.classe_bm || null,
+            provincia_circolazione: veicoloRow?.provincia_circolazione || null,
           }
         : {
             tipo: "oggetto_generico",
@@ -193,7 +208,23 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
           };
 
       const parametriNew: Record<string, any> = isRca
-        ? { tipo: "veicolo", targa, marca, modello, telaio }
+        ? {
+            tipo: "veicolo",
+            targa,
+            marca,
+            modello,
+            versione,
+            telaio,
+            tipo_veicolo: tipoVeicolo,
+            tipo_alimentazione: tipoAlimentazione,
+            cilindrata: intOrNull(cilindrata),
+            potenza_kw: intOrNull(potenzaKw),
+            potenza_cv: intOrNull(potenzaCv),
+            posti: intOrNull(posti),
+            data_immatricolazione: dataImmatricolazione || null,
+            classe_bm: classeBm,
+            provincia_circolazione: provinciaCircolazione,
+          }
         : { tipo: "oggetto_generico", descrizione: descrizioneOggetto };
 
       // 1. Update polizza madre con nuovi parametri tecnici
@@ -204,7 +235,17 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             targa: targa || null,
             marca: marca || null,
             modello: modello || null,
+            versione: versione || null,
             telaio: telaio || null,
+            tipo_veicolo: tipoVeicolo || null,
+            tipo_alimentazione: tipoAlimentazione || null,
+            cc: intOrNull(cilindrata),
+            kw: intOrNull(potenzaKw),
+            cv: intOrNull(potenzaCv),
+            posti: intOrNull(posti),
+            data_immatricolazione: dataImmatricolazione || null,
+            classe_bm: classeBm || null,
+            provincia_circolazione: provinciaCircolazione || null,
           } as any)
           .eq("id", veicoloRow.id);
         if (errVe) throw errVe;
