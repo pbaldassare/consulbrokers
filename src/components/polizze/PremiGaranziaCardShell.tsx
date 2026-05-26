@@ -20,6 +20,14 @@ export interface GaranziaRow {
   aliquotaTasse: number;
   /** Id del sottoramo selezionato (rami.id). Usato per derivare titoli.ramo_id in immissione. */
   sottoramoId?: string | null;
+  /** Contributo SSN per la riga (importo €) — popolato solo se il sottoramo ha ssn_attivo */
+  ssn?: string;
+  /** % SSN applicata (cache dal sottoramo, es. 10.50) */
+  aliquotaSsn?: number;
+  /** True se il sottoramo prevede SSN */
+  ssnAttivo?: boolean;
+  /** True se l'utente ha modificato manualmente l'importo SSN (no autorecalc) */
+  ssnManualOverride?: boolean;
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
@@ -29,6 +37,10 @@ export const emptyGaranziaRow = (): GaranziaRow => ({
   tasse: "",
   aliquotaTasse: 0,
   sottoramoId: null,
+  ssn: "",
+  aliquotaSsn: 0,
+  ssnAttivo: false,
+  ssnManualOverride: false,
 });
 
 export interface PremiGaranziaCardShellProps {
