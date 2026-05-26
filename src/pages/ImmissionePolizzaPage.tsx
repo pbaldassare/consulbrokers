@@ -832,7 +832,7 @@ const ImmissionePolizzaPage = () => {
       );
     })();
     return () => { cancelled = true; };
-  }, [selectedRapportoId, selectedGruppoRamoId]);
+  }, [resolvedRapportoId, selectedGruppoRamoId]);
 
   // Sincronizza display % Agenzia (media ponderata) + warning quando in auto
   useEffect(() => {
