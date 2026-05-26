@@ -345,6 +345,16 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
         .single();
       if (errSost) throw errSost;
 
+      // 3b. Eventuale nuovo numero polizza emesso dalla compagnia
+      const numeroCambiato = await aggiornaNumeroPolizza({
+        titoloId,
+        numeroCorrente: titoloRow.numero_titolo,
+        numeroNuovo: nuovoNumeroPolizza,
+        causale: "sostituzione",
+        motivo: motivo || causale,
+        riferimentoId: sostIns?.id || null,
+      });
+
       // 4. Upload documento opzionale
       let documentoId: string | null = null;
       let documentoNome: string | null = null;
