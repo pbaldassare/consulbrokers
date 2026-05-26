@@ -367,6 +367,10 @@ const TitoloDetail = () => {
     } else {
       setSplitsForm([]);
     }
+    setAeForm({
+      ae_anagrafica_id: (titolo as any)?.ae_anagrafica_id ?? null,
+      percentuale_ae: Number((titolo as any)?.percentuale_ae) || 0,
+    });
     setEditingComm(true);
   };
 
@@ -374,7 +378,9 @@ const TitoloDetail = () => {
     mutationFn: async () => {
       const cleaned = splitsForm.filter(s => s.anagrafica_commerciale_id && s.percentuale > 0);
       const sum = cleaned.reduce((acc, s) => acc + Number(s.percentuale || 0), 0);
-      if (sum > 100.001) throw new Error(`Somma percentuali (${sum}%) supera 100.`);
+      const aePerc = aeForm.ae_anagrafica_id ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
+      const sumTot = sum + aePerc;
+      if (sumTot > 100.001) throw new Error(`Somma percentuali (Produttori ${sum.toFixed(2)}% + AE ${aePerc.toFixed(2)}% = ${sumTot.toFixed(2)}%) supera 100.`);
       const ids = new Set(cleaned.map(s => s.anagrafica_commerciale_id));
       if (ids.size !== cleaned.length) throw new Error("Produttori duplicati nello split.");
 
@@ -436,6 +442,13 @@ const TitoloDetail = () => {
           commerciale_id: primary?.commerciale_user_id ?? null,
           percentuale_commerciale: primary?.percentuale ?? null,
           produttore_nome: nomeLeggibile,
+          ae_anagrafica_id: aeForm.ae_anagrafica_id ?? null,
+          ae_nome: (() => {
+            if (!aeForm.ae_anagrafica_id) return null;
+            const a = (aeLookup || []).find((x: any) => x.value === aeForm.ae_anagrafica_id);
+            return a ? (a as any).label : null;
+          })(),
+          percentuale_ae: aePerc,
         } as any)
         .eq("id", id!);
       if (tErr) throw tErr;
