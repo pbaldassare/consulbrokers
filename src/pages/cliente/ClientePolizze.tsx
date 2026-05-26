@@ -23,8 +23,6 @@ const statoBadge: Record<string, string> = {
   incassato: "bg-blue-100 text-blue-800 border-blue-300",
 };
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(v);
 
 const ClientePolizze = () => {
   const { user } = useAuth();
