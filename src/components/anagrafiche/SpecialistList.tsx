@@ -23,6 +23,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { LEVELS } from "@/lib/userLevels";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
+import { ValidatedInput } from "@/components/ui/validated-input";
 
 interface SpecialistRow {
   id: string;
@@ -583,7 +584,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  <div><Label>IBAN (campo libero — legacy)</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>IBAN (campo libero — legacy)</Label><ValidatedInput kind="iban" value={form.iban} onChange={(v) => setForm({ ...form, iban: v })} className="font-mono" /></div>
                   <div><Label>Intestatario C/C (legacy)</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
                 </div>
               </TabsContent>
@@ -646,8 +647,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                   <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
                   <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
                   <div className="col-span-2"><Label>Descrizione</Label><Input value={newUser.descrizione} onChange={(e) => setNewUser({ ...newUser, descrizione: e.target.value })} /></div>
-                  <div><Label>Email *</Label><Input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
-                  <div><Label>Codice Fiscale</Label><Input value={newUser.codice_fiscale} onChange={(e) => setNewUser({ ...newUser, codice_fiscale: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>Email *</Label><ValidatedInput kind="email" value={newUser.email} onChange={(v) => setNewUser({ ...newUser, email: v })} type="email" required uppercase={false} /></div>
+                  <div><Label>Codice Fiscale</Label><ValidatedInput kind="cf" value={newUser.codice_fiscale} onChange={(v) => setNewUser({ ...newUser, codice_fiscale: v })} /></div>
                   <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
                   <div><Label>Fax</Label><Input value={newUser.fax} onChange={(e) => setNewUser({ ...newUser, fax: e.target.value })} /></div>
                   <div className="col-span-2">
@@ -690,7 +691,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
 
               <TabsContent value="banca" className="space-y-3 mt-3">
                 <div className="grid grid-cols-1 gap-3">
-                  <div><Label>IBAN</Label><Input value={newUser.iban} onChange={(e) => setNewUser({ ...newUser, iban: e.target.value.toUpperCase() })} /></div>
+                  <div><Label>IBAN</Label><ValidatedInput kind="iban" value={newUser.iban} onChange={(v) => setNewUser({ ...newUser, iban: v })} className="font-mono" /></div>
                   <div><Label>Intestatario C/C</Label><Input value={newUser.intestatario_cc} onChange={(e) => setNewUser({ ...newUser, intestatario_cc: e.target.value })} /></div>
                 </div>
               </TabsContent>

@@ -11,10 +11,7 @@ import { logAttivita } from "@/lib/logAttivita";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmTypingDialog } from "@/components/ui/confirm-typing-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -393,28 +390,24 @@ export const StornoTitoloDialog = ({ open, onOpenChange, titoloId, numeroPolizza
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Conferma storno polizza</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <div>Polizza <strong>{numeroPolizza || "—"}</strong>.</div>
-                <div>Data: <strong>{dataStorno}</strong> · Causale: <strong>{causale}</strong></div>
-                <div>Quietanze future cancellate: <strong>{rateFutureCancellabili.length}</strong></div>
-                {eraMessaCassa && <div>Verrà creato un <strong>titolo speculare negativo</strong> da incassare.</div>}
-                <div className="text-destructive">La polizza passerà in stato <strong>Stornata</strong> e i campi non saranno più modificabili.</div>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmOpen(false); mutation.mutate(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Conferma storno
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmTypingDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Conferma storno polizza"
+        confirmationText={numeroPolizza || "STORNA"}
+        actionLabel="Conferma storno"
+        loading={mutation.isPending}
+        onConfirm={() => { setConfirmOpen(false); mutation.mutate(); }}
+        description={
+          <>
+            <div>Polizza <strong>{numeroPolizza || "—"}</strong>.</div>
+            <div>Data: <strong>{dataStorno}</strong> · Causale: <strong>{causale}</strong></div>
+            <div>Quietanze future cancellate: <strong>{rateFutureCancellabili.length}</strong></div>
+            {eraMessaCassa && <div>Verrà creato un <strong>titolo speculare negativo</strong> da incassare.</div>}
+            <div className="text-destructive">La polizza passerà in stato <strong>Stornata</strong> e i campi non saranno più modificabili.</div>
+          </>
+        }
+      />
     </>
   );
 };

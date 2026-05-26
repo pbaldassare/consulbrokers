@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -8,6 +9,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Loader2, Trash2, PowerOff } from "lucide-react";
 import type { ImpactCheck, ImpactResult } from "@/hooks/useEntityImpact";
 import { useEntityImpact } from "@/hooks/useEntityImpact";
@@ -74,6 +78,10 @@ export const DeleteWithImpactDialog = ({
   const { data, isLoading } = useEntityImpact(entityId, checks, open);
   const totalBlocking = data?.totalBlocking ?? 0;
   const blocked = totalBlocking > 0;
+
+  const [typed, setTyped] = useState("");
+  useEffect(() => { if (!open) setTyped(""); }, [open]);
+  const matches = typed.trim().toLowerCase() === entityName.trim().toLowerCase();
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -142,6 +150,22 @@ export const DeleteWithImpactDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
+        {!isLoading && !blocked && (
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs">
+              Per confermare digita il nome:{" "}
+              <span className="font-mono font-semibold text-foreground">{entityName}</span>
+            </Label>
+            <Input
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              placeholder={entityName}
+              className={cn(matches && "border-emerald-500 focus-visible:ring-emerald-500")}
+            />
+          </div>
+        )}
+
         <AlertDialogFooter className="gap-2 sm:gap-2">
           <Button
             type="button"
@@ -172,7 +196,7 @@ export const DeleteWithImpactDialog = ({
               e.preventDefault();
               onConfirmDelete();
             }}
-            disabled={isDeleting || blocked || isLoading}
+            disabled={isDeleting || blocked || isLoading || !matches}
           >
             <Trash2 className="w-4 h-4 mr-2" />
             {isDeleting ? "Eliminazione..." : "Elimina"}
