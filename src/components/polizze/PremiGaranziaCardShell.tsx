@@ -266,10 +266,11 @@ export function PremiGaranziaCardShell({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[34%]">Voce</TableHead>
+                <TableHead className="w-[30%]">Voce</TableHead>
                 <TableHead className="text-right">Premio Netto</TableHead>
-                <TableHead className="text-right w-[110px]">Aliquota %</TableHead>
+                <TableHead className="text-right w-[90px]">Aliquota %</TableHead>
                 <TableHead className="text-right">Tasse €</TableHead>
+                {hasSsnRows && <TableHead className="text-right w-[110px]">SSN €</TableHead>}
                 <TableHead className="text-right">Premio Lordo</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
@@ -278,10 +279,11 @@ export function PremiGaranziaCardShell({
               {rows.map((r, idx) => {
                 const netto = parseFloat(r.netto || "0") || 0;
                 const tax = parseFloat(r.tasse || "0") || 0;
+                const ssnRow = parseFloat(r.ssn || "0") || 0;
                 // L'aliquota è fissa: viene dal DB (ramo/sottoramo) e non si ricalcola
                 // dai valori immessi. Sono netto/tasse/lordo a muoversi in base all'aliquota.
                 const aliquotaFissa = r.aliquotaTasse || 0;
-                const lordoRow = netto + tax;
+                const lordoRow = netto + tax + ssnRow;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
@@ -332,6 +334,28 @@ export function PremiGaranziaCardShell({
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
+                    {hasSsnRows && (
+                      <TableCell className="text-right">
+                        {r.ssnAttivo ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              inputMode="decimal"
+                              value={r.ssn || ""}
+                              onChange={(e) => handleSsnChange(idx, e.target.value)}
+                              className="h-8 text-right font-mono ml-auto w-24"
+                              title={`SSN ${(r.aliquotaSsn ?? 10.5).toFixed(2)}% sul lordo (netto+tasse)`}
+                            />
+                            <span className="text-[9px] text-muted-foreground font-mono">
+                              {(r.aliquotaSsn ?? 10.5).toFixed(2)}%{r.ssnManualOverride ? " · manuale" : ""}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       <Input
                         type="number"
