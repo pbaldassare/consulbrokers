@@ -35,6 +35,7 @@ const TOOL = {
             premio_netto: { type: "number" },
             aliquota_tasse_pct: { type: "number" },
             premio_lordo: { type: "number" },
+            ssn: { type: "number", description: "Contributo SSN della voce in €, se presente sul documento (RCA Auto: tipicamente 10,5% del lordo). Omettere se non indicato." },
           },
           required: ["descrizione", "premio_netto"],
           additionalProperties: false,

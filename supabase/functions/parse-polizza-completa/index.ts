@@ -75,6 +75,7 @@ const TOOL = {
             premio_netto: { type: "number" },
             premio_imposte: { type: "number", description: "Imposte/tasse della singola voce, se indicate" },
             aliquota_tasse_pct: { type: "number", description: "Aliquota imposte % della voce (es. 13.5, 22.25)" },
+            ssn: { type: "number", description: "Contributo SSN (Servizio Sanitario Nazionale) della voce in €, se indicato sul documento. Tipico RCA Auto: 10,5% del lordo (netto+tasse). Estrai SOLO se esplicitamente presente; altrimenti omettilo (verrà calcolato lato app)." },
           },
           required: ["descrizione"],
           additionalProperties: false,
