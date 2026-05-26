@@ -189,16 +189,67 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         documentoNome = finalName;
       }
 
-      // 4. Movimento SO
+      // 4. Titolo di Sospensione (sempre creato, anche con importo 0)
+      const numeroEffettivo = (nuovoNumeroPolizza && nuovoNumeroPolizza !== titoloRow.numero_titolo)
+        ? nuovoNumeroPolizza
+        : titoloRow.numero_titolo;
+      const { data: maxRigaRow } = await supabase
+        .from("titoli")
+        .select("riga")
+        .eq("numero_titolo", numeroEffettivo)
+        .order("riga", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const rigaSosp = ((maxRigaRow?.riga as number | undefined) ?? titoloRow.riga ?? 0) + 1;
+
+      const { data: insSosp, error: errSosp } = await supabase
+        .from("titoli")
+        .insert({
+          numero_titolo: numeroEffettivo,
+          cliente_id: titoloRow.cliente_id,
+          cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
+          compagnia_id: titoloRow.compagnia_id,
+          compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
+          codice_rapporto: titoloRow.codice_rapporto,
+          ramo_id: titoloRow.ramo_id,
+          prodotto_id: titoloRow.prodotto_id,
+          prodotto_nome: titoloRow.prodotto_nome,
+          ufficio_id: titoloRow.ufficio_id,
+          ae_anagrafica_id: titoloRow.ae_anagrafica_id,
+          anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
+          commerciale_id: titoloRow.commerciale_id,
+          percentuale_commerciale: titoloRow.percentuale_commerciale,
+          percentuale_riparto: titoloRow.percentuale_riparto,
+          garanzia_da: dataSospensione,
+          garanzia_a: dataSospensione,
+          data_decorrenza: dataSospensione,
+          data_scadenza: dataSospensione,
+          frazionamento: "Unica",
+          premio_lordo: oneriNum,
+          premio_netto: oneriNum,
+          riga: rigaSosp,
+          sostituisce_polizza: numeroEffettivo,
+          sostituisce_riga: titoloRow.riga,
+          stato: "attivo",
+          note: `Sospensione polizza${motivo ? ": " + motivo : ""}`,
+          tipo_portafoglio: titoloRow.tipo_portafoglio,
+          tipo_mandatario: titoloRow.tipo_mandatario,
+        } as any)
+        .select("id")
+        .single();
+      if (errSosp) throw errSosp;
+      const titoloSospensioneId = insSosp!.id;
+
+      // 5. Movimento SO (collegato al nuovo titolo SO)
       await supabase.from("movimenti_polizza").insert({
-        titolo_id: titoloId,
+        titolo_id: titoloSospensioneId,
         tipo_documento: "SO",
         data_movimento: dataSospensione,
-        descrizione: `Sospensione polizza${motivo ? ": " + motivo : ""}${documentoNome ? ` (allegato: ${documentoNome})` : ""}`,
+        descrizione: `Sospensione polizza${motivo ? ": " + motivo : ""}${oneriNum > 0 ? ` (oneri ${oneriNum.toFixed(2)} €)` : ""}${documentoNome ? ` (allegato: ${documentoNome})` : ""}`,
         stato: "sospeso",
       } as any);
 
-      // 5. Log attività
+      // 6. Log attività
       await logAttivita({
         azione: "sospensione_polizza",
         entita_tipo: "titolo",
@@ -207,6 +258,8 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           data_sospensione: dataSospensione,
           limite_riattivazione: limiteRiattivazione,
           motivo,
+          oneri_sospensione: oneriNum,
+          titolo_sospensione_id: titoloSospensioneId,
           quietanze_eliminate: quietanzeEliminate,
           documento_id: documentoId,
           documento_nome: documentoNome,
@@ -216,9 +269,9 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         },
       });
 
-      return { quietanzeEliminate, documentoNome, numeroCambiato };
+      return { quietanzeEliminate, documentoNome, numeroCambiato, titoloSospensioneId, oneriNum };
     },
-    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato }) => {
+    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato, oneriNum: o }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
