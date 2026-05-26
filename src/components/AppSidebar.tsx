@@ -60,6 +60,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
 
 interface SidebarItem {
   label: string;
