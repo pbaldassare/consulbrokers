@@ -28,8 +28,7 @@ const CruscottoGiornaliero = () => {
   const ieriStr = format(subDays(selectedDate, 1), "yyyy-MM-dd");
   const fra7ggStr = format(new Date(selectedDate.getTime() + 7 * 86400000), "yyyy-MM-dd");
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+  const fmt = fmtEuro;
 
   // --- QUERIES ---
 
