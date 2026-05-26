@@ -464,7 +464,7 @@ export default function ContiBancariPage() {
                   )}
                 </TableBody>
               </Table>
-              <ServerPagination page={page} pageSize={PAGE_SIZE} totalCount={total} onPageChange={setPage} />
+              <ServerPagination page={page} pageSize={pageSize} totalCount={total} onPageChange={setPage} />
             </>
           )}
         </CardContent>
