@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     // Fetch titolo with all needed fields
     const { data: titolo, error: tErr } = await supabaseAdmin
       .from("titoli")
-      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato, anagrafica_commerciale_id, produttore_nome")
+      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato, anagrafica_commerciale_id, produttore_nome, ae_anagrafica_id, ae_nome, percentuale_ae")
       .eq("id", titolo_id)
       .single();
     if (tErr || !titolo) throw new Error("Titolo non trovato");
@@ -86,9 +86,14 @@ Deno.serve(async (req) => {
       }
 
       const sumPerc = effectiveSplits.reduce((acc, s) => acc + s.percentuale, 0);
-      const percAdmin = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
 
-      // Righe commerciali
+      // Account Executive: secondo intermediario provvigionato (riga distinta, residuo a Consul)
+      const aeId = (titolo as any).ae_anagrafica_id as string | null;
+      const aePerc = Math.max(0, Math.min(100, Number((titolo as any).percentuale_ae) || 0));
+      const hasAE = !!aeId && aePerc > 0;
+      const percAdmin = Math.max(0, Math.round((100 - sumPerc - (hasAE ? aePerc : 0)) * 100) / 100);
+
+      // Righe commerciali (Produttori)
       for (const s of effectiveSplits) {
         const importo = Math.round((totale * s.percentuale) / 100 * 100) / 100;
         const isAdmin = adminAnagraficaId != null && s.anagrafica_commerciale_id === adminAnagraficaId;
@@ -99,11 +104,26 @@ Deno.serve(async (req) => {
           percentuale: s.percentuale,
           importo_provvigione: importo,
           tipo_destinatario: "commerciale",
-          solo_statistico: isAdmin, // se commerciale == admin, la quota economica va sulla riga admin sotto
+          solo_statistico: isAdmin,
         });
       }
 
-      // Riga admin = residuo + (somma quote dei commerciali == admin, già contate come statistiche sopra)
+      // Riga Account Executive (se presente)
+      if (hasAE) {
+        const importoAE = Math.round((totale * aePerc) / 100 * 100) / 100;
+        const aeIsAdmin = adminAnagraficaId != null && aeId === adminAnagraficaId;
+        rows.push({
+          titolo_id,
+          user_id: null,
+          anagrafica_commerciale_id: aeId,
+          percentuale: aePerc,
+          importo_provvigione: importoAE,
+          tipo_destinatario: "ae",
+          solo_statistico: aeIsAdmin,
+        });
+      }
+
+      // Riga admin = residuo + (somma quote dei commerciali == admin + eventuale AE == admin, statistiche sopra)
       let importoAdmin = Math.round((totale * percAdmin) / 100 * 100) / 100;
       const adminCommercialeRows = effectiveSplits.filter(
         (s) => adminAnagraficaId != null && s.anagrafica_commerciale_id === adminAnagraficaId
@@ -112,15 +132,18 @@ Deno.serve(async (req) => {
         (acc, s) => acc + Math.round((totale * s.percentuale) / 100 * 100) / 100,
         0
       );
-      const importoAdminTotale = Math.round((importoAdmin + adminCommercialeImporto) * 100) / 100;
-      const percAdminTotale = Math.round((percAdmin + adminCommercialeRows.reduce((a, s) => a + s.percentuale, 0)) * 100) / 100;
+      const aeAdminImporto = (hasAE && adminAnagraficaId != null && aeId === adminAnagraficaId)
+        ? Math.round((totale * aePerc) / 100 * 100) / 100 : 0;
+      const aeAdminPerc = (hasAE && adminAnagraficaId != null && aeId === adminAnagraficaId) ? aePerc : 0;
+      const importoAdminTotale = Math.round((importoAdmin + adminCommercialeImporto + aeAdminImporto) * 100) / 100;
+      const percAdminTotale = Math.round((percAdmin + adminCommercialeRows.reduce((a, s) => a + s.percentuale, 0) + aeAdminPerc) * 100) / 100;
 
-      if (importoAdminTotale > 0 || effectiveSplits.length === 0) {
+      if (importoAdminTotale > 0 || (effectiveSplits.length === 0 && !hasAE)) {
         rows.push({
           titolo_id,
           user_id: null,
-          percentuale: effectiveSplits.length === 0 ? 100 : percAdminTotale,
-          importo_provvigione: effectiveSplits.length === 0 ? totale : importoAdminTotale,
+          percentuale: (effectiveSplits.length === 0 && !hasAE) ? 100 : percAdminTotale,
+          importo_provvigione: (effectiveSplits.length === 0 && !hasAE) ? totale : importoAdminTotale,
           tipo_destinatario: "admin",
           solo_statistico: false,
         });

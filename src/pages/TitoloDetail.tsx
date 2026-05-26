@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -310,6 +311,11 @@ const TitoloDetail = () => {
   };
   const [editingComm, setEditingComm] = useState(false);
   const [splitsForm, setSplitsForm] = useState<SplitRow[]>([]);
+  // AE (Account Executive) — secondo intermediario provvigionato, indipendente dai Produttori
+  const [aeForm, setAeForm] = useState<{ ae_anagrafica_id: string | null; percentuale_ae: number }>({
+    ae_anagrafica_id: null, percentuale_ae: 0,
+  });
+  const { data: aeLookup = [] } = useAccountExecutivesLookup();
 
   const { data: anagraficheComm = [] } = useQuery({
     queryKey: ["anagrafiche-commerciali"],
@@ -361,6 +367,10 @@ const TitoloDetail = () => {
     } else {
       setSplitsForm([]);
     }
+    setAeForm({
+      ae_anagrafica_id: (titolo as any)?.ae_anagrafica_id ?? null,
+      percentuale_ae: Number((titolo as any)?.percentuale_ae) || 0,
+    });
     setEditingComm(true);
   };
 
@@ -368,7 +378,9 @@ const TitoloDetail = () => {
     mutationFn: async () => {
       const cleaned = splitsForm.filter(s => s.anagrafica_commerciale_id && s.percentuale > 0);
       const sum = cleaned.reduce((acc, s) => acc + Number(s.percentuale || 0), 0);
-      if (sum > 100.001) throw new Error(`Somma percentuali (${sum}%) supera 100.`);
+      const aePerc = aeForm.ae_anagrafica_id ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
+      const sumTot = sum + aePerc;
+      if (sumTot > 100.001) throw new Error(`Somma percentuali (Produttori ${sum.toFixed(2)}% + AE ${aePerc.toFixed(2)}% = ${sumTot.toFixed(2)}%) supera 100.`);
       const ids = new Set(cleaned.map(s => s.anagrafica_commerciale_id));
       if (ids.size !== cleaned.length) throw new Error("Produttori duplicati nello split.");
 
@@ -430,6 +442,13 @@ const TitoloDetail = () => {
           commerciale_id: primary?.commerciale_user_id ?? null,
           percentuale_commerciale: primary?.percentuale ?? null,
           produttore_nome: nomeLeggibile,
+          ae_anagrafica_id: aeForm.ae_anagrafica_id ?? null,
+          ae_nome: (() => {
+            if (!aeForm.ae_anagrafica_id) return null;
+            const a = (aeLookup || []).find((x: any) => x.value === aeForm.ae_anagrafica_id);
+            return a ? (a as any).label : null;
+          })(),
+          percentuale_ae: aePerc,
         } as any)
         .eq("id", id!);
       if (tErr) throw tErr;
@@ -2363,11 +2382,21 @@ const TitoloDetail = () => {
                     const next: any = { ...p, [field]: e.target.value };
                     if (field === "garanzia_a" && e.target.value) {
                       if (!p.data_scadenza) next.data_scadenza = e.target.value;
-                      const mora = Number(p.mora_giorni) || 0;
-                      if (mora > 0 && !p.limite_mora) {
+                    }
+                    // Binding bidirezionale GG Mora ↔ Limite Mora (base = data_competenza || garanzia_da)
+                    if (field === "data_competenza" && e.target.value) {
+                      const gg = Number(p.mora_giorni) || 0;
+                      if (gg >= 0) {
                         const d = new Date(e.target.value);
-                        d.setDate(d.getDate() + mora);
+                        d.setDate(d.getDate() + gg);
                         next.limite_mora = d.toISOString().slice(0, 10);
+                      }
+                    }
+                    if (field === "limite_mora" && e.target.value) {
+                      const base = p.data_competenza || p.garanzia_da;
+                      if (base) {
+                        const ms = new Date(e.target.value).getTime() - new Date(base).getTime();
+                        next.mora_giorni = String(Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24))));
                       }
                     }
                     return next;
@@ -2411,11 +2440,23 @@ const TitoloDetail = () => {
               <Label className="text-xs">GG Mora</Label>
               <Input
                 type="number"
+                min="0"
                 value={periodoForm.mora_giorni}
-                onChange={(e) => setPeriodoForm(p => ({ ...p, mora_giorni: e.target.value }))}
+                onChange={(e) => setPeriodoForm(p => {
+                  const v = e.target.value;
+                  const next: any = { ...p, mora_giorni: v };
+                  const base = p.data_competenza || p.garanzia_da;
+                  const gg = parseInt(v || "0") || 0;
+                  if (base) {
+                    const d = new Date(base); d.setDate(d.getDate() + gg);
+                    next.limite_mora = d.toISOString().slice(0, 10);
+                  }
+                  return next;
+                })}
                 placeholder="15"
               />
             </div>
+
 
             <div>
               <Label className="text-xs">Disdetta (mesi)</Label>
@@ -2543,8 +2584,10 @@ const TitoloDetail = () => {
         {editingComm ? (
           (() => {
             const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
-            const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
-            const overflow = sumPerc > 100.001;
+            const aePerc = aeForm.ae_anagrafica_id ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
+            const sumTot = sumPerc + aePerc;
+            const consulPerc = Math.max(0, Math.round((100 - sumTot) * 100) / 100);
+            const overflow = sumTot > 100.001;
             const dupIds = (() => {
               const seen = new Map<string, number>();
               splitsForm.forEach(s => { if (s.anagrafica_commerciale_id) seen.set(s.anagrafica_commerciale_id, (seen.get(s.anagrafica_commerciale_id) || 0) + 1); });
@@ -2610,10 +2653,36 @@ const TitoloDetail = () => {
                   + Aggiungi produttore
                 </Button>
 
+                {/* Account Executive — secondo intermediario provvigionato (riga distinta, residuo a Consul) */}
+                <div className="grid grid-cols-12 gap-2 items-end p-2 border rounded-md bg-sky-50/40 dark:bg-sky-950/10">
+                  <div className="col-span-12 md:col-span-7">
+                    <Label className="text-[11px]">Account Executive</Label>
+                    <SearchableSelect
+                      options={[{ value: "", label: "— Nessun AE —" }, ...(aeLookup as any[])]}
+                      value={aeForm.ae_anagrafica_id || ""}
+                      onValueChange={(v) => setAeForm(p => ({ ...p, ae_anagrafica_id: v || null }))}
+                      placeholder="Seleziona Account Executive..."
+                    />
+                  </div>
+                  <div className="col-span-12 md:col-span-5">
+                    <Label className="text-[11px]">% AE</Label>
+                    <Input
+                      type="number" min={0} max={100} step={0.01}
+                      value={aeForm.percentuale_ae}
+                      onChange={(e) => setAeForm(p => ({ ...p, percentuale_ae: Number(e.target.value) || 0 }))}
+                      disabled={!aeForm.ae_anagrafica_id}
+                      placeholder="0,00"
+                    />
+                  </div>
+                </div>
+
                 <div className={cn("p-3 rounded-md border text-sm", overflow ? "border-red-400 bg-red-50 dark:bg-red-950/20 text-red-800" : "bg-muted/40")}>
                   <div className="flex justify-between"><span>Totale produttori:</span> <strong className="font-mono tabular-nums">{sumPerc.toFixed(2)}%</strong></div>
+                  {aePerc > 0 && (
+                    <div className="flex justify-between"><span>Account Executive:</span> <strong className="font-mono tabular-nums">{aePerc.toFixed(2)}%</strong></div>
+                  )}
                   <div className="flex justify-between"><span>Consulbrokers SPA (residuo):</span> <strong className="font-mono tabular-nums">{consulPerc.toFixed(2)}%</strong></div>
-                  {overflow && <div className="text-xs mt-1">⚠ La somma supera 100% — riduci le percentuali per salvare.</div>}
+                  {overflow && <div className="text-xs mt-1">⚠ La somma (Produttori + AE) supera 100% — riduci le percentuali per salvare.</div>}
                 </div>
 
                 <div className="flex gap-2">
@@ -2656,7 +2725,10 @@ const TitoloDetail = () => {
                   }] : []);
 
               const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
-              const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+              const aePercDisp = Number((t as any).percentuale_ae) || 0;
+              const aeIdDisp = (t as any).ae_anagrafica_id;
+              const aeNameDisp = (t as any).ae_nome || "—";
+              const consulPerc = Math.max(0, Math.round((100 - sumPerc - aePercDisp) * 100) / 100);
               const hasAdminInList = effective.some(e => e.isAdmin);
 
               return (
@@ -2683,6 +2755,20 @@ const TitoloDetail = () => {
                         </div>
                       </div>
                     ))}
+                    {aeIdDisp && aePercDisp > 0 && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-sky-50 to-transparent dark:from-sky-950/20 border border-sky-200">
+                        <div className="w-9 h-9 rounded-full bg-sky-600 text-white flex items-center justify-center flex-shrink-0">
+                          <UserCheck className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] uppercase font-semibold text-muted-foreground">Account Executive</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-600 text-white font-mono">{aePercDisp}%</span>
+                          </div>
+                          <div className="text-sm font-semibold truncate">{aeNameDisp}</div>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-950/20 border border-amber-200">
                       <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
                         <Building2 className="w-4 h-4" />
@@ -2696,6 +2782,7 @@ const TitoloDetail = () => {
                       </div>
                     </div>
                   </div>
+
 
                   {(provvF == null && provvQ == null) && (
                     <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata. Le card di split appariranno sotto i premi nella sezione "Importi".</div>
