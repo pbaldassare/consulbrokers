@@ -13,6 +13,7 @@ import { Shield, Calendar, X, FileSpreadsheet, FileText } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { fmtEuro as fmt } from "@/lib/formatCurrency";
 import { DatePicker } from "@/components/contabilita/DatePicker";
 
 const statoBadge: Record<string, string> = {
@@ -22,8 +23,6 @@ const statoBadge: Record<string, string> = {
   incassato: "bg-blue-100 text-blue-800 border-blue-300",
 };
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(v);
 
 const ClientePolizze = () => {
   const { user } = useAuth();

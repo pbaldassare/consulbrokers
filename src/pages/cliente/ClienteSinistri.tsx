@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import NuovaDenunciaSinistroDialog from "@/components/cliente/NuovaDenunciaSinistroDialog";
 import SinistroDocumentiCliente from "@/components/cliente/SinistroDocumentiCliente";
+import { fmtEuro0 as fmt } from "@/lib/formatCurrency";
 
 const COLORS_OPEN = ["#3b82f6", "#f97316", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
 const COLORS_CLOSED = ["#93c5fd", "#fdba74", "#d8b4fe", "#fca5a5", "#5eead4", "#fde047"];
@@ -23,7 +24,7 @@ const statoBadge: Record<string, string> = {
   respinto: "bg-red-100 text-red-800",
 };
 
-const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+
 
 export default function ClienteSinistri() {
   const { user } = useAuth();

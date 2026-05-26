@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
 
 export type ParsedPolizzaData = {
   compagnia?: string;
@@ -85,10 +86,6 @@ type Step = "setup" | "review" | "summary";
 
 const NEW_CLIENTE = "__new__";
 
-const fmtEur = (n?: number | null) =>
-  n == null || isNaN(Number(n))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(n));
 
 const num = (v: any): number | undefined => {
   if (v === "" || v == null) return undefined;

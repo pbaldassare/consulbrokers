@@ -15,12 +15,9 @@ import {
 import { Car, Plus, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Lock, RefreshCw, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-const fmtEur = (n: number | null | undefined) =>
-  n == null || isNaN(Number(n))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(round2(Number(n)));
 
 interface Voce {
   id: string;

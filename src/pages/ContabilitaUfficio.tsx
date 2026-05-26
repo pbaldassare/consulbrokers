@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { buildIncassiCoperturePdf, type IncassiCoperturaGruppo } from "@/lib/incassi-coperture-pdf";
+import { fmtEuro } from "@/lib/formatCurrency";
 import PdfPreview from "@/components/PdfPreview";
 
 type TitoloCassa = {
@@ -94,8 +95,7 @@ const ContabilitaUfficio = () => {
     { count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0 }
   );
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+  const fmt = fmtEuro;
 
   const toggleExpand = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 

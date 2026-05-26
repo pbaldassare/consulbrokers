@@ -12,6 +12,7 @@ import UploadDocPolizzaDialog from "@/components/cliente/UploadDocPolizzaDialog"
 import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { fmtEuro as fmt } from "@/lib/formatCurrency";
 
 const statoBadge: Record<string, string> = {
   attivo: "bg-emerald-100 text-emerald-800",
@@ -20,7 +21,7 @@ const statoBadge: Record<string, string> = {
   incassato: "bg-blue-100 text-blue-800",
 };
 
-const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(v);
+
 const fmtDate = (d: string | null) => d ? format(new Date(d), "dd MMM yyyy", { locale: it }) : "—";
 
 const ClientePolizzaDetail = () => {

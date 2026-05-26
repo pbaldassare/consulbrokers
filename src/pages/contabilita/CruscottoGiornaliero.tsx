@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format, subDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { fmtEuro } from "@/lib/formatCurrency";
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, CalendarIcon, CheckCircle, Clock,
   FileWarning, GitCompare, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp
@@ -27,8 +28,7 @@ const CruscottoGiornaliero = () => {
   const ieriStr = format(subDays(selectedDate, 1), "yyyy-MM-dd");
   const fra7ggStr = format(new Date(selectedDate.getTime() + 7 * 86400000), "yyyy-MM-dd");
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+  const fmt = fmtEuro;
 
   // --- QUERIES ---
 

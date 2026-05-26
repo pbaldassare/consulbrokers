@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
+import { fmtEuro } from "@/lib/formatCurrency";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,10 +60,6 @@ function assertSameTitolo(id: string | undefined, titoloId: string | undefined, 
 
 const fmt = (v: any) => v ?? "—";
 const fmtDate = (v: string | null) => v ? format(new Date(v), "dd/MM/yyyy", { locale: it }) : "—";
-const fmtEuro = (v: number | null | undefined) =>
-  v == null || isNaN(Number(v))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
 const fmtBool = (v: boolean | null) => v ? "Sì" : "No";
 
 // Determina se il ramo è Auto/Veicoli o Natanti/Nautica (mostra dati tecnici + card voci).

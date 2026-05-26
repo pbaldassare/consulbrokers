@@ -15,11 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { matchGaranzia, RCA_PRINCIPALE_CODE, type CatalogoVoce } from "@/lib/mapGaranzieRca";
 import { cn } from "@/lib/utils";
-
-const fmtEur = (n: number | null | undefined) =>
-  n == null || isNaN(Number(n))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
+import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
 
 type AiVoce = {
   descrizione: string;
