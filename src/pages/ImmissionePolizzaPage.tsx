@@ -198,6 +198,7 @@ const ImmissionePolizzaPage = () => {
   // 'specialist' hardcoded state rimosso: ora si usa solo selectedBackofficeId
   
   const [cigRif, setCigRif] = useState("");
+  const [cigTemporaneo, setCigTemporaneo] = useState(false);
   const [vincolo, setVincolo] = useState("");
   const [targaTelaio, setTargaTelaio] = useState("");
   const [descrizionePolizza, setDescrizionePolizza] = useState("");
