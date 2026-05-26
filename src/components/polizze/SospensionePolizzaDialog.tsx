@@ -207,13 +207,14 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           documento_id: documentoId,
           documento_nome: documentoNome,
           snapshot_id: snapshotId,
+          numero_polizza_cambiato: numeroCambiato,
+          numero_polizza_nuovo: numeroCambiato ? nuovoNumeroPolizza : null,
         },
       });
 
-      return { quietanzeEliminate, documentoNome };
+      return { quietanzeEliminate, documentoNome, numeroCambiato };
     },
-    onSuccess: ({ quietanzeEliminate, documentoNome }) => {
-      // Invalida TUTTE le query coinvolte così la UI si aggiorna immediatamente
+    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -222,7 +223,9 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       queryClient.invalidateQueries({ queryKey: ["portafoglio-attive"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-storico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sospesa"];
+      if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
       if (quietanzeEliminate.length > 0) parts.push(`${quietanzeEliminate.length} quietanze future rimosse`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
