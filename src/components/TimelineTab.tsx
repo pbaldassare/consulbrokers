@@ -49,9 +49,16 @@ interface FieldChange { old: unknown; new: unknown; }
 
 function extractChanges(details: Record<string, unknown> | null): Record<string, FieldChange> | null {
   if (!details) return null;
-  const c = details.changes as Record<string, FieldChange> | undefined;
-  if (c && typeof c === "object" && Object.keys(c).length > 0) return c;
-  return null;
+  const c = details.changes as Record<string, unknown> | undefined;
+  if (!c || typeof c !== "object") return null;
+  const cleaned: Record<string, FieldChange> = {};
+  for (const [k, v] of Object.entries(c)) {
+    if (v && typeof v === "object") {
+      const fc = v as { old?: unknown; new?: unknown };
+      cleaned[k] = { old: fc.old ?? null, new: fc.new ?? null };
+    }
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : null;
 }
 
 function formatDetails(details: Record<string, unknown> | null): string | null {
