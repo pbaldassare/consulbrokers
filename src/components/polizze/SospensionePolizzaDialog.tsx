@@ -282,6 +282,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sospesa"];
+      parts.push(`titolo sospensione creato (€ ${o.toFixed(2)})`);
       if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
       if (quietanzeEliminate.length > 0) parts.push(`${quietanzeEliminate.length} quietanze future rimosse`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
