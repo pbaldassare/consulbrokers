@@ -324,6 +324,12 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
                 <Textarea id="motivo-sosp-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={3} />
               </div>
 
+              <div className="space-y-1.5">
+                <Label htmlFor="oneri-sosp-dlg">Oneri di sospensione (€)</Label>
+                <Input id="oneri-sosp-dlg" type="number" min="0" step="0.01" value={oneriSospensione} onChange={(e) => setOneriSospensione(e.target.value)} className="tabular-nums" />
+                <p className="text-xs text-muted-foreground">Verrà comunque creato un titolo di sospensione, anche se l'importo è 0 €, così appare in Carico del Mese ed estratti conto.</p>
+              </div>
+
               <div className="space-y-1.5 border-t pt-3">
                 <Label htmlFor="sosp-nuovo-numero">Nuovo numero polizza (opzionale)</Label>
                 <Input id="sosp-nuovo-numero" value={nuovoNumeroPolizza} onChange={(e) => setNuovoNumeroPolizza(e.target.value)} placeholder={numeroPolizza || "Lascia vuoto per mantenere il numero attuale"} className="font-mono" />
