@@ -181,7 +181,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         const { data: ins, error: errIns } = await supabase
           .from("titoli")
           .insert({
-            numero_titolo: titoloRow.numero_titolo,
+            numero_titolo: numeroEffettivo,
             cliente_id: titoloRow.cliente_id,
             cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
             compagnia_id: titoloRow.compagnia_id,
@@ -211,7 +211,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             provvigioni_quietanza: titoloRow.provvigioni_quietanza,
             brokeraggio_quietanza: titoloRow.brokeraggio_quietanza,
             riga: nuovaRiga,
-            sostituisce_polizza: titoloRow.numero_titolo,
+            sostituisce_polizza: numeroEffettivo,
             sostituisce_riga: prevRiga,
             stato: "attivo",
             tipo_portafoglio: titoloRow.tipo_portafoglio,
@@ -231,7 +231,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
         const { data: insOneri, error: errOneri } = await supabase
           .from("titoli")
           .insert({
-            numero_titolo: titoloRow.numero_titolo,
+            numero_titolo: numeroEffettivo,
             cliente_id: titoloRow.cliente_id,
             cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
             compagnia_id: titoloRow.compagnia_id,
@@ -251,7 +251,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             premio_lordo: oneriNum,
             premio_netto: oneriNum,
             riga: rigaOneri,
-            sostituisce_polizza: titoloRow.numero_titolo,
+            sostituisce_polizza: numeroEffettivo,
             sostituisce_riga: titoloRow.riga,
             stato: "attivo",
             note: "Oneri di riattivazione",
