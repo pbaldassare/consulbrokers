@@ -253,6 +253,20 @@ const TitoloDetail = () => {
     enabled: !!id,
   });
 
+  // Numeri polizza storici (sostituzione/sospensione/riattivazione con cambio numero)
+  const { data: numeriStorici = [] } = useQuery({
+    queryKey: ["titoli-numeri-storici", id],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("titoli_numeri_storici")
+        .select("*")
+        .eq("titolo_id", id!)
+        .order("cambiato_il", { ascending: false });
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
   // Catena polizza: madre + tutte le quietanze sorelle (per banner + pannello "Quietanze")
   const numeroTitolo = (titolo as any)?.numero_titolo || null;
   const { data: catenaTitoli = [] } = useQuery({
