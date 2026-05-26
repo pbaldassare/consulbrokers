@@ -287,6 +287,57 @@ const ECClientePdfPage = () => {
             <Label>Polizze incluse</Label>
             <Input value={`${conteggio} polizze — Totale € ${totale.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} disabled />
           </div>
+        </div>
+
+        <div className="mt-2">
+          <Label className="mb-2 block">Dettaglio polizze</Label>
+          <div className="rounded-md border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-primary/10 text-primary">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold">N. Titolo</th>
+                  <th className="text-left px-3 py-2 font-semibold">Ramo</th>
+                  <th className="text-left px-3 py-2 font-semibold">Rischio</th>
+                  <th className="text-left px-3 py-2 font-semibold">Compagnia</th>
+                  <th className="text-center px-3 py-2 font-semibold">Effetto</th>
+                  <th className="text-right px-3 py-2 font-semibold">Premio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(titoli || []).length === 0 && (
+                  <tr><td colSpan={6} className="px-3 py-4 text-center text-muted-foreground">Nessuna polizza selezionata</td></tr>
+                )}
+                {(titoli || []).map((t: any, i: number) => {
+                  const ramo = t.rami ? (t.rami.descrizione || t.rami.codice || "") : "";
+                  const rischio = t.prodotto_nome || t.descrizione_polizza || "";
+                  const eff = t.garanzia_da || t.durata_da;
+                  const effetto = eff ? format(new Date(eff), "dd/MM/yyyy") : "";
+                  const premio = Number(t.premio_lordo) || 0;
+                  return (
+                    <tr key={t.id} className={i % 2 ? "bg-muted/30" : ""}>
+                      <td className="px-3 py-2 font-mono text-xs">{t.numero_titolo || ""}</td>
+                      <td className="px-3 py-2">{ramo}</td>
+                      <td className="px-3 py-2">{rischio}</td>
+                      <td className="px-3 py-2">{t.compagnie?.nome || ""}</td>
+                      <td className="px-3 py-2 text-center">{effetto}</td>
+                      <td className="px-3 py-2 text-right font-semibold">€ {premio.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              {(titoli || []).length > 0 && (
+                <tfoot className="bg-primary/10 text-primary font-semibold">
+                  <tr>
+                    <td colSpan={5} className="px-3 py-2 text-right">Totale EURO</td>
+                    <td className="px-3 py-2 text-right">€ {totale.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Luogo e data</Label>
             <Input value={luogoData} onChange={(e) => setLuogoData(e.target.value)} placeholder="Es: Napoli, 18/03/2026" />

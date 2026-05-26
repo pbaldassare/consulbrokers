@@ -40,7 +40,10 @@ const PdfPreview = ({ data }: Props) => {
       }
       container.innerHTML = "";
       try {
-        const loadingTask = pdfjs.getDocument({ data: bytes });
+        const loadingTask = pdfjs.getDocument({
+          data: bytes,
+          standardFontDataUrl: "/pdfjs/standard_fonts/",
+        });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
 
