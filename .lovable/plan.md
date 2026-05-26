@@ -1,25 +1,33 @@
-## Obiettivo
+## Problema
 
-Allineare il form **Nuovo Account Executive** al form **Nuovo Produttore** (tab Corrispondente in DB): stessi campi, stessa struttura tab, stessi obblighi (Sede opzionale).
+In `/titoli/95567873-…` (polizza ramo QA — R.C. AUTO) si osservano due bug:
 
-## Stato attuale
+1. **Voci salvate senza codice**: in DB le righe `premi_garanzia_polizza` hanno `garanzia="QA"`, `codice_garanzia=NULL`, e nessun link al sottoramo selezionato in immissione. Si perde la descrizione (es. "R. C. AUTO") e il codice ufficiale del sottoramo.
+2. **Riga "RCA Auto · obbligatoria"** appare in alto nelle card Firma/Quietanza anche se l'utente ha già selezionato i sottorami riga per riga (QA, QI, 045, …). È un refuso del vecchio modello "principale RCA" e va eliminato.
 
-In `src/pages/AnagraficheInternePage.tsx`:
+## Cosa fare
 
-- **AE** (`isAE`): form ridotto con 3 tab — Dati (Codice, Sigla, Ragione Sociale, Cognome, Nome), RUI & Banca (4 campi RUI + 3 righe banca testuali), Contatti & Note. Sede **obbligatoria**.
-- **Produttore** (`isCorr`): form completo con 4 tab — Dati (Codice, Codice Fornitore, Ragione Sociale, Azienda/Cognome, Segue/Nome, Telefono, Fax, Email, blocco RUI), Indirizzo, Provvigioni (% base / consulenza / RA + matrice per Ramo), Banca (ABI, CAB, IBAN, Intestatario). Sede **opzionale**.
+### 1. Salvataggio corretto delle voci in `ImmissionePolizzaPage.tsx` (≈ riga 1094)
 
-## Modifiche
+In `buildPremiInsert` includere i campi del sottoramo:
+- `garanzia` ← `r.descrizione || r.codice` (descrizione leggibile, non più il codice come fallback primario)
+- `codice_garanzia` ← `r.codice || null`
+- `ramo_id` ← `r.sottoramoId || null` (link al sottoramo `rami.id`)
 
-In `src/pages/AnagraficheInternePage.tsx`:
+In questo modo, riaprendo la polizza, le card mostrano codice + descrizione del sottoramo selezionato.
 
-1. **`renderFormFields()`**: unire il branch `isAE` con `isCorr` — quando `isAE || isCorr`, renderizzare lo stesso identico JSX usato oggi per il Produttore (4 tab: Dati / Indirizzo / Provvigioni / Banca, con identici campi e nessun campo marcato `*`).
-2. **`renderUfficioSelect()`**: cambiare `const isOptional = isCorr;` in `const isOptional = isCorr || isAE;` così la Sede diventa opzionale anche per AE.
-3. **`createMutation`**: nel guard `if (isProduttore && !isCorr && !resolvedUfficioId)` aggiungere `!isAE` per evitare l'errore "Selezionare un ufficio" quando si crea un AE senza Sede.
+### 2. Rimozione della riga "RCA Auto obbligatoria" in `VociRcaCard.tsx`
 
-Nessuna modifica al DB o ad altri file: la tabella `anagrafiche_professionali` già contiene tutte le colonne usate dal form Produttore, e l'AE le condivide.
+- Rimuovere lo `useEffect` (righe 218–235) che auto-inserisce la riga `is_rca_principale=true` quando `useAutoTaxFormula=true`.
+- Rimuovere il badge "obbligatoria" (riga 700) e l'icona "principale" (riga 682).
+- Mantenere la logica formula RCA (IPT + SSN 10,5%) ma applicarla automaticamente alle righe il cui `codice_garanzia` corrisponde al **sottoramo RCA** del gruppo (QA, PI, RV*, QN/QT/QNA/DD/DN/DNA per natanti) anziché al flag `is_rca_principale`. In pratica: una riga è "RCA principale" se il suo `codice_garanzia` ∈ set RCA del gruppo del titolo.
+- Per le polizze esistenti con la riga refuso a 0,00: lasciarla in DB (non distruttiva), ma l'UI non la marcherà più come obbligatoria. L'utente potrà cancellarla manualmente dal cestino.
 
-## Note
+### 3. Aggiornamento memoria
 
-- Il tab "Provvigioni per Ramo" (`ProduttoreProvvigioniRamoTab`) verrà mostrato anche per l'AE: usa `anagraficaId={editingId}`, quindi in creazione la matrice resta vuota finché non si salva, esattamente come per il Produttore.
-- I dati esistenti AE non vengono toccati; i campi extra ora visibili (es. Codice Fornitore, Indirizzo, Provvigioni, IBAN) erano già editabili lato DB ma nascosti nel form.
+Aggiornare `mem://insurance/rca-voci-composizione-premio.md`: rimuovere "Riga RCA Auto sempre presente, non rimovibile" e descrivere la nuova regola basata su `codice_garanzia`.
+
+## Fuori scopo
+
+- Pulizia retroattiva dei record `premi_garanzia_polizza` già esistenti (incluse le 14 righe duplicate `3454` viste in DB su questa polizza in lato Quietanza): se vuoi le pulisco con una migration separata, fammelo sapere.
+- Modifiche al trigger `genera_quietanza_su_messa_cassa` o a `sync_quietanza_da_firma`.

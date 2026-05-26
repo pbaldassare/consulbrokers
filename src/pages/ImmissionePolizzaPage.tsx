@@ -1094,7 +1094,9 @@ const ImmissionePolizzaPage = () => {
           .map((r, idx) => ({
             titolo_id: newTitolo.id,
             tipo_premio: tipo,
-            garanzia: r.codice || r.descrizione || "Premio",
+            garanzia: (r.descrizione && r.descrizione.trim()) || r.codice || "Premio",
+            codice_garanzia: r.codice || null,
+            ramo_id: r.sottoramoId || null,
             capitale: 0,
             tasso: 0,
             firma: tipo === "firma" ? parseFloat(r.netto || "0") || 0 : 0,
