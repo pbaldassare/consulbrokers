@@ -421,11 +421,25 @@ export function PremiGaranziaCardShell({
                   )}
                 >
                   Provvigioni {isQuietanza ? "Quietanza" : "Firma"}
-                  {percentualeAgenziaAuto && (
+                  {percentualeAgenziaAuto ? (
                     <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
-                  )}
+                  ) : onResetAuto ? (
+                    <button
+                      type="button"
+                      onClick={onResetAuto}
+                      className="inline-flex items-center rounded-sm bg-muted hover:bg-muted/70 text-muted-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase gap-1"
+                      title="Riattiva calcolo automatico"
+                    >
+                      ↻ Auto
+                    </button>
+                  ) : null}
                 </p>
               </div>
+              {percentualeAgenziaAuto && fonteAuto && (
+                <p className={cn("text-[10px] italic -mt-1", warningAuto ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground")}>
+                  {warningAuto ? `⚠ ${warningAuto} ` : ""}Fonte: {fonteAuto}
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
