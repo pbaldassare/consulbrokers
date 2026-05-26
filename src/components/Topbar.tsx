@@ -65,7 +65,10 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-4 shrink-0">
+        <ThemeToggle />
         <NotificheDropdown />
+
+
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
