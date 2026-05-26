@@ -133,6 +133,12 @@ const ImmissionePolizzaPage = () => {
       const rows: GaranziaRow[] = d.garanzie.map((g) => {
         const codice = (g.codice_sottoramo || "").trim();
         const match = codice ? ramiPerGruppo.find((r: any) => r.codice === codice) : null;
+        const ssnAttivo = !!match?.ssn_attivo;
+        const aliquotaSsn = ssnAttivo ? (Number(match?.aliquota_ssn) || 10.5) : 0;
+        const netto = g.premio_netto != null ? Number(g.premio_netto) : 0;
+        const tasse = g.premio_imposte != null ? Number(g.premio_imposte) : 0;
+        const ssnFromAi = (g as any).ssn != null ? Number((g as any).ssn) : null;
+        const ssnAuto = ssnAttivo && netto > 0 ? +(((netto + tasse) * aliquotaSsn) / 100).toFixed(2) : 0;
         return {
           ...emptyGaranziaRow(),
           codice: match?.codice ?? (codice || null),
@@ -141,6 +147,10 @@ const ImmissionePolizzaPage = () => {
           netto: g.premio_netto != null ? String(g.premio_netto) : "",
           tasse: g.premio_imposte != null ? String(g.premio_imposte) : "",
           aliquotaTasse: typeof g.aliquota_tasse_pct === "number" ? g.aliquota_tasse_pct : 0,
+          ssnAttivo,
+          aliquotaSsn,
+          ssn: ssnFromAi != null ? String(ssnFromAi) : (ssnAuto > 0 ? ssnAuto.toFixed(2) : ""),
+          ssnManualOverride: ssnFromAi != null,
         };
       });
       setPremiFirmaRows(rows);
