@@ -173,13 +173,13 @@ export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPoli
         <Card><CardContent className="pt-6"><p className="text-sm whitespace-pre-wrap">{t.note || "Nessuna nota."}</p></CardContent></Card>
       </TabsContent>
       <TabsContent value="documenti">
-        <Card><CardContent className="pt-6"><DocumentiTab entitaTipo="titolo" entitaId={id} bucketName="documenti_titoli" /></CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.documenti ? <DocumentiTab entitaTipo="titolo" entitaId={id} bucketName="documenti_titoli" /> : null}</CardContent></Card>
       </TabsContent>
       <TabsContent value="chat">
-        <Card><CardContent className="pt-6"><ChatTab entitaTipo="titolo" entitaId={id} /></CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.chat ? <ChatTab entitaTipo="titolo" entitaId={id} /> : null}</CardContent></Card>
       </TabsContent>
       <TabsContent value="timeline">
-        <Card><CardContent className="pt-6"><TimelineTab entitaTipo="titolo" entitaId={id} /></CardContent></Card>
+        <Card><CardContent className="pt-6">{mounted.timeline ? <TimelineTab entitaTipo="titolo" entitaId={id} /> : null}</CardContent></Card>
       </TabsContent>
     </Tabs>
   );
