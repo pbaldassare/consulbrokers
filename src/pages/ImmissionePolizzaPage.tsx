@@ -257,6 +257,9 @@ const ImmissionePolizzaPage = () => {
   const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
   const [percentualeBrokeraggioAuto, setPercentualeBrokeraggioAuto] = useState(false);
 
+  // Quota provvigione Account Executive (default 0 — AE = produttore aggiuntivo, residuo a Consul)
+  const [percentualeAE, setPercentualeAE] = useState("0");
+
   // === RCA AUTO State ===
   // Veicolo
   const [vSettore, setVSettore] = useState("Autovetture");
@@ -987,6 +990,7 @@ const ImmissionePolizzaPage = () => {
         
         commerciale_id: selectedCommerciale === "__sede__" ? null : selectedCommerciale,
         percentuale_commerciale: parseFloat(percentualeCommerciale) || 100,
+        percentuale_ae: parseFloat(percentualeAE) || 0,
         garanzia_da: garanziaDa || null,
         garanzia_a: garanziaA || null,
         data_competenza: dataCompetenza || null,
@@ -1597,11 +1601,30 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Data Competenza</Label>
-            <Input type="date" value={dataCompetenza} onChange={(e) => { setDataCompetenza(e.target.value); setDataCompetenzaTouched(true); }} className="h-8 text-xs" />
+            <Input type="date" value={dataCompetenza} onChange={(e) => {
+              const v = e.target.value;
+              setDataCompetenza(v); setDataCompetenzaTouched(true);
+              // Ricalcola Limite Mora se ho GG Mora
+              const gg = parseInt(moraGiorni || "0") || 0;
+              if (v && gg >= 0) {
+                const d = new Date(v); d.setDate(d.getDate() + gg);
+                setLimiteMora(d.toISOString().slice(0, 10));
+              }
+            }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Limite Mora</Label>
-            <Input type="date" value={limiteMora} onChange={(e) => setLimiteMora(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={limiteMora} onChange={(e) => {
+              const v = e.target.value;
+              setLimiteMora(v);
+              // Ricalcola GG Mora dalla differenza con base = data_competenza || garanzia_da
+              const base = dataCompetenza || garanziaDa;
+              if (v && base) {
+                const ms = new Date(v).getTime() - new Date(base).getTime();
+                const gg = Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
+                setMoraGiorni(String(gg));
+              }
+            }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Tacito Rinnovo</Label>
@@ -1612,7 +1635,16 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">GG Mora</Label>
-            <Input type="number" value={moraGiorni} onChange={(e) => setMoraGiorni(e.target.value)} className="h-8 text-xs" />
+            <Input type="number" min="0" value={moraGiorni} onChange={(e) => {
+              const v = e.target.value;
+              setMoraGiorni(v);
+              const base = dataCompetenza || garanziaDa;
+              const gg = parseInt(v || "0") || 0;
+              if (base) {
+                const d = new Date(base); d.setDate(d.getDate() + gg);
+                setLimiteMora(d.toISOString().slice(0, 10));
+              }
+            }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Disdetta (mesi)</Label>
