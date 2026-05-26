@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format, subDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { fmtEuro } from "@/lib/formatCurrency";
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, CalendarIcon, CheckCircle, Clock,
   FileWarning, GitCompare, Receipt, RefreshCw, Scale, TrendingDown, TrendingUp
