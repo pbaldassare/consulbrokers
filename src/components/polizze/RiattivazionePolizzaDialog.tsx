@@ -406,6 +406,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               )}
               <p className="text-xs text-muted-foreground">Max 10 MB. Il nome è modificabile; l'estensione viene preservata.</p>
             </div>
+            </div>
+
+            <PolizzaEditorInline ref={editorRef} titoloId={titoloId} />
           </div>
 
           <DialogFooter>
