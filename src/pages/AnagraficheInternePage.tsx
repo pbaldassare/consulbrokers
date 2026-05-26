@@ -28,6 +28,7 @@ import SediManager from "@/components/anagrafiche/SediManager";
 import SpecialistList from "@/components/anagrafiche/SpecialistList";
 import ProduttoreProvvigioniRamoTab from "@/components/anagrafiche/ProduttoreProvvigioniRamoTab";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
+import { ValidatedInput } from "@/components/ui/validated-input";
 
 /** Date picker inline (shadcn) — value is ISO yyyy-MM-dd or "" */
 const DateField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
@@ -724,7 +725,7 @@ const AnagraficheInternePage = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
                 <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
-                <div className="col-span-2"><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
+                <div className="col-span-2"><Label>IBAN</Label><ValidatedInput kind="iban" value={form.iban} onChange={(v) => setForm({ ...form, iban: v })} className="font-mono" /></div>
                 <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
               </div>
             </TabsContent>
@@ -784,7 +785,7 @@ const AnagraficheInternePage = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>ABI</Label><Input value={form.abi} onChange={(e) => setForm({ ...form, abi: e.target.value })} /></div>
                 <div><Label>CAB</Label><Input value={form.cab} onChange={(e) => setForm({ ...form, cab: e.target.value })} /></div>
-                <div className="col-span-2"><Label>IBAN</Label><Input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
+                <div className="col-span-2"><Label>IBAN</Label><ValidatedInput kind="iban" value={form.iban} onChange={(v) => setForm({ ...form, iban: v })} className="font-mono" /></div>
                 <div className="col-span-2"><Label>Intestatario C/C</Label><Input value={form.intestatario_cc} onChange={(e) => setForm({ ...form, intestatario_cc: e.target.value })} /></div>
               </div>
             </TabsContent>
