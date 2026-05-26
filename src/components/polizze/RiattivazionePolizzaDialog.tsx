@@ -151,7 +151,15 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
       const snapshotId = await editorRef.current?.commit("riattivazione");
 
-      // 1. Riattiva rata sospesa
+      // 0bis. Cambio numero polizza (se compagnia ne emette uno nuovo)
+      const numeroCambiato = await aggiornaNumeroPolizza({
+        titoloId,
+        numeroCorrente: titoloRow.numero_titolo,
+        numeroNuovo: nuovoNumero,
+        causale: "riattivazione",
+        motivo,
+      });
+      const numeroEffettivo = numeroCambiato ? nuovoNumero.trim() : titoloRow.numero_titolo;
       const { error: errUp } = await supabase
         .from("titoli")
         .update({
