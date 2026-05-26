@@ -469,6 +469,9 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
           if (!r.valid) fiscalErrors.push(`Codice Fiscale ${tipoCliente === "ente" ? "Ente" : "Azienda"}: ${r.error}`);
         }
       }
+      if (tipoCliente === "ente" && codiceCig.trim() && !isValidCigWithFlag(codiceCig, cigTemporaneo)) {
+        fiscalErrors.push("Codice CIG: 10 caratteri alfanumerici (o spunta 'CIG temporaneo')");
+      }
       if (fiscalErrors.length > 0) throw new Error(fiscalErrors.join(" • "));
 
       const payload: Record<string, unknown> = {
