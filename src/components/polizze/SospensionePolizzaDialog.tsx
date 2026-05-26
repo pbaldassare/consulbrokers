@@ -153,6 +153,15 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         .eq("id", titoloId);
       if (errUp) throw errUp;
 
+      // 2b. Nuovo numero polizza (se la compagnia ne emette uno diverso)
+      const numeroCambiato = await aggiornaNumeroPolizza({
+        titoloId,
+        numeroCorrente: titoloRow.numero_titolo,
+        numeroNuovo: nuovoNumeroPolizza,
+        causale: "sospensione",
+        motivo: motivo || null,
+      });
+
       // 3. Upload documento (opzionale)
       let documentoId: string | null = null;
       let documentoNome: string | null = null;
