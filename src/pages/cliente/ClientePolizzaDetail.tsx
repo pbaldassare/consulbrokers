@@ -21,7 +21,7 @@ const statoBadge: Record<string, string> = {
   incassato: "bg-blue-100 text-blue-800",
 };
 
-const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(v);
+
 const fmtDate = (d: string | null) => d ? format(new Date(d), "dd MMM yyyy", { locale: it }) : "—";
 
 const ClientePolizzaDetail = () => {
