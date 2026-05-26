@@ -637,7 +637,7 @@ const AnagraficheInternePage = () => {
   const renderUfficioSelect = () => {
     if (!isProduttore) return null;
     const isAdminUser = profile?.ruolo === "admin";
-    const isOptional = isCorr;
+    const isOptional = isCorr || isAE;
     return (
       <div className="mb-4">
         <Label>
