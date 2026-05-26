@@ -1,28 +1,42 @@
-# Cache PWA: bump versione per forzare reload
+# Fix Anteprima E/C Cliente + Dettaglio polizze
 
-## Stato attuale (verificato)
+## Problema 1 — `Errore: a.toHex is not a function`
 
-- **DB** — `rami.ssn_attivo` e `rami.aliquota_ssn` esistono. Rami ZQ - R.C.A. già a `10.50%` con flag ON.
-- **Codice** — `src/pages/TabelleBasePage.tsx` tab "Rami":
-  - Colonna "% Tasse ARD" NON è renderizzata (header: Codice · Descrizione · Gruppo Ramo · % Tasse Ramo · **SSN** · Attivo · Azioni)
-  - Dialog Modifica/Nuovo Ramo contiene già toggle "Contributo SSN" + input "% SSN"
-- Nessuna stringa "ARD" presente nel file.
+**Causa**: `pdfjs-dist@5` (renderer in `PdfPreview.tsx`) **richiede** i file dei 14 font standard (`standardFontDataUrl`) per renderizzare PDF che usano `Helvetica`/`HelveticaBold`/`HelveticaOblique`. `ec-cliente-pdf.ts` usa proprio `StandardFonts.Helvetica*` (non embeddati nel PDF — sono solo referenziati per nome). Senza l'URL dei font standard, pdfjs v5 fallisce nel decoder con quell'errore criptico. Per `ec-agenzia-pdf` non si nota perché probabilmente l'anteprima non veniva mai aperta.
 
-## Causa
+**Fix scelto** (semplice, niente nuove dipendenze):
+1. Copiare `node_modules/pdfjs-dist/standard_fonts/` in `public/pdfjs/standard_fonts/` (via uno script `postinstall` in `package.json` + commit dei file in `public/` come fallback immediato per la build attuale).
+2. In `src/components/PdfPreview.tsx` passare a `pdfjs.getDocument`:
+   ```ts
+   pdfjs.getDocument({
+     data: bytes,
+     standardFontDataUrl: "/pdfjs/standard_fonts/",
+     disableFontFace: false,
+   })
+   ```
 
-Il progetto è una PWA con service worker (cache aggressiva via Workbox). Il tuo browser sta servendo la versione vecchia di `TabelleBasePage` dalla cache. `AppVersionGuard` reagisce a un cambio di `APP_VERSION`.
+In alternativa, se preferito: embeddare un font reale (es. una TTF Inter) nel PDF via `pdf-lib` + `@pdf-lib/fontkit`. Più pesante (+200KB per font, +1 dipendenza), ma elimina del tutto la dipendenza dai font standard di pdfjs. **Proposta**: andiamo con l'opzione (1) — risolve anche eventuali futuri E/C Agenzia / E/C Produttore che usano gli stessi StandardFonts.
 
-## Azioni
+## Problema 2 — Dettaglio polizze incluse
 
-1. **Bump `APP_VERSION`** nel file che lo dichiara (cerco tra `src/components/AppVersionGuard.tsx` / `src/lib/appVersion.ts`) per innescare il toast "Nuova versione disponibile" e il reload con purge cache.
-2. (No modifiche a DB, no modifiche a UI Rami — già a posto.)
+Oggi la form mostra solo: `"2 polizze — Totale € 3.365,26"`. Aggiungo, sotto al campo "Polizze incluse", una **tabella riepilogativa** con le righe che finiranno nel PDF:
 
-## Verifica post-deploy
+| N. Titolo | Ramo | Rischio | Compagnia | Effetto | Premio |
+|-----------|------|---------|-----------|---------|-------:|
 
-1. Aprire `/tabelle-base` → tab **Rami** (di default si apre su "Gruppi Ramo": cliccare "Rami").
-2. Verificare colonna **SSN** visibile, righe ZQ-R.C.A. mostrano badge `10.50%`.
-3. Aprire "Modifica" su un ramo → vedere toggle "Contributo SSN" + campo "% SSN".
+- Stile coerente con le altre tabelle del progetto (zebra, header tinta teal/petrol).
+- Sotto la tabella: riga "Totale" allineata a destra.
+- Se nessuna polizza presente → riga "Nessuna polizza selezionata".
+- Niente nuove query: riuso i `titoli` già caricati da `useQuery(["ec-cli-pdf-titoli", ...])`.
 
-## Se dopo il bump ancora non si vede
+## File toccati
 
-Significa che il SW non si è aggiornato: chiedo di fare **Ctrl/Cmd + Shift + R** (hard reload) o di disinstallare il service worker da DevTools → Application → Service Workers → Unregister.
+- `public/pdfjs/standard_fonts/*` — copia statica dei font standard pdfjs.
+- `src/components/PdfPreview.tsx` — aggiungo `standardFontDataUrl`.
+- `src/pages/contabilita/ECClientePdfPage.tsx` — rimpiazzo l'`Input` "Polizze incluse" con una tabella di dettaglio (stessa fonte dati di `buildData().righe`).
+
+## Verifica
+
+1. `/contabilita/ec-cliente/pdf?clienteId=f59cb208-...` → la card "Dati Documento" mostra la tabella con le 2 righe (numero, ramo, rischio "COMUNE DI AGNONE - ...", compagnia, effetto, premio) + totale `€ 3.365,26`.
+2. Click **Anteprima** → si apre il dialog e si vede la pagina A4 renderizzata (header CONSULBROKERS, destinatario, intro, tabella, IBAN, footer). Niente errore `a.toHex`.
+3. **Stampa** e **Scarica** continuano a funzionare (usano gli stessi bytes, non passano da pdfjs).
