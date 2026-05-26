@@ -964,7 +964,8 @@ const ImmissionePolizzaPage = () => {
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         
-        cig_rif: cigRif || null,
+        cig_rif: cigRif ? normalizeCig(cigRif) : null,
+        cig_temporaneo: cigTemporaneo,
         vincolo: vincolo || null,
         targa_telaio: targaTelaio || null,
         descrizione_polizza: descrizionePolizza || null,
