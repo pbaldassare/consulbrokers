@@ -1,42 +1,32 @@
-# Fix Anteprima E/C Cliente + Dettaglio polizze
+# Anteprima PDF — passare a iframe nativo (drop pdfjs)
 
-## Problema 1 — `Errore: a.toHex is not a function`
+## Stato
 
-**Causa**: `pdfjs-dist@5` (renderer in `PdfPreview.tsx`) **richiede** i file dei 14 font standard (`standardFontDataUrl`) per renderizzare PDF che usano `Helvetica`/`HelveticaBold`/`HelveticaOblique`. `ec-cliente-pdf.ts` usa proprio `StandardFonts.Helvetica*` (non embeddati nel PDF — sono solo referenziati per nome). Senza l'URL dei font standard, pdfjs v5 fallisce nel decoder con quell'errore criptico. Per `ec-agenzia-pdf` non si nota perché probabilmente l'anteprima non veniva mai aperta.
+- **Download PDF**: funziona (file `EC_COMUNE_DI_AGNONE_2026-05-26.pdf` allegato è valido).
+- **Anteprima in-dialog**: ancora `a.toHex is not a function` da `pdfjs-dist@5.7` anche dopo aver montato `/pdfjs/standard_fonts/` (regressione nota di pdfjs v5 nel renderer Canvas su PDF generati da `pdf-lib`).
 
-**Fix scelto** (semplice, niente nuove dipendenze):
-1. Copiare `node_modules/pdfjs-dist/standard_fonts/` in `public/pdfjs/standard_fonts/` (via uno script `postinstall` in `package.json` + commit dei file in `public/` come fallback immediato per la build attuale).
-2. In `src/components/PdfPreview.tsx` passare a `pdfjs.getDocument`:
-   ```ts
-   pdfjs.getDocument({
-     data: bytes,
-     standardFontDataUrl: "/pdfjs/standard_fonts/",
-     disableFontFace: false,
-   })
-   ```
+## Decisione
 
-In alternativa, se preferito: embeddare un font reale (es. una TTF Inter) nel PDF via `pdf-lib` + `@pdf-lib/fontkit`. Più pesante (+200KB per font, +1 dipendenza), ma elimina del tutto la dipendenza dai font standard di pdfjs. **Proposta**: andiamo con l'opzione (1) — risolve anche eventuali futuri E/C Agenzia / E/C Produttore che usano gli stessi StandardFonts.
+Smettere di usare pdfjs per la preview: il browser ha già un viewer PDF nativo affidabile (Chrome/Edge/Firefox/Safari). Lo usiamo via `<iframe>` su un Blob URL — zero dipendenze, zero workers, zero font esterni, render istantaneo, identico al PDF scaricato.
 
-## Problema 2 — Dettaglio polizze incluse
+## Cambiamenti
 
-Oggi la form mostra solo: `"2 polizze — Totale € 3.365,26"`. Aggiungo, sotto al campo "Polizze incluse", una **tabella riepilogativa** con le righe che finiranno nel PDF:
+### `src/components/PdfPreview.tsx` — riscritto in 30 righe
+- Niente più `pdfjs-dist`, niente `standardFontDataUrl`, niente canvas loop.
+- Riceve `data: Uint8Array | null`.
+- In `useEffect`: crea `new Blob([data], { type: "application/pdf" })`, `URL.createObjectURL(blob)`, salva in state.
+- Cleanup: `URL.revokeObjectURL(url)` su unmount/cambio dati.
+- Render: `<iframe src={url} title="Anteprima PDF" className="w-full h-full border-0" />`.
+- Fallback se `data` null: messaggio "Caricamento anteprima…".
 
-| N. Titolo | Ramo | Rischio | Compagnia | Effetto | Premio |
-|-----------|------|---------|-----------|---------|-------:|
+### Altri PDF preview
+- Verifico che `PdfPreview` sia usato solo dalla pagina E/C cliente (grep): se sì, nessun altro file da toccare. Se è usato anche da `ECAgenziaPdfPage` / `AgenzieInPagamentoPage`, beneficia automaticamente del fix.
 
-- Stile coerente con le altre tabelle del progetto (zebra, header tinta teal/petrol).
-- Sotto la tabella: riga "Totale" allineata a destra.
-- Se nessuna polizza presente → riga "Nessuna polizza selezionata".
-- Niente nuove query: riuso i `titoli` già caricati da `useQuery(["ec-cli-pdf-titoli", ...])`.
-
-## File toccati
-
-- `public/pdfjs/standard_fonts/*` — copia statica dei font standard pdfjs.
-- `src/components/PdfPreview.tsx` — aggiungo `standardFontDataUrl`.
-- `src/pages/contabilita/ECClientePdfPage.tsx` — rimpiazzo l'`Input` "Polizze incluse" con una tabella di dettaglio (stessa fonte dati di `buildData().righe`).
+### Pulizia (opzionale, non bloccante)
+- Posso rimuovere la cartella `public/pdfjs/standard_fonts/` (non più necessaria) e mantenere `pdfjs-dist` solo se è ancora usata altrove (es. `DocumentLibrary`). Verificherò con un grep prima di rimuovere.
 
 ## Verifica
 
-1. `/contabilita/ec-cliente/pdf?clienteId=f59cb208-...` → la card "Dati Documento" mostra la tabella con le 2 righe (numero, ramo, rischio "COMUNE DI AGNONE - ...", compagnia, effetto, premio) + totale `€ 3.365,26`.
-2. Click **Anteprima** → si apre il dialog e si vede la pagina A4 renderizzata (header CONSULBROKERS, destinatario, intro, tabella, IBAN, footer). Niente errore `a.toHex`.
-3. **Stampa** e **Scarica** continuano a funzionare (usano gli stessi bytes, non passano da pdfjs).
+1. `/contabilita/ec-cliente/pdf?clienteId=f59cb208-...` → click **Anteprima** → si apre il dialog con il PDF renderizzato dal viewer nativo del browser (toolbar print/download del browser visibile in alto).
+2. Stesso flusso su E/C Agenzia / Agenzie in pagamento (se usano `PdfPreview`).
+3. **Stampa** e **Scarica**: invariati, già funzionano.
