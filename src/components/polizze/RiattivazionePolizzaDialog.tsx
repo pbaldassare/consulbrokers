@@ -314,6 +314,8 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           documento_id: documentoId,
           documento_nome: documentoNome,
           snapshot_id: snapshotId,
+          numero_polizza_precedente: numeroCambiato ? titoloRow.numero_titolo : null,
+          numero_polizza_nuovo: numeroCambiato ? numeroEffettivo : null,
         },
       });
 
