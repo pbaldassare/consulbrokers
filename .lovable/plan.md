@@ -1,44 +1,58 @@
-## Obiettivo
+## Diagnosi
 
-Eliminare gli step intermedi "Revisione" e "Riepilogo" del dialog `ImportNuovaPolizzaAIDialog`. Dopo aver selezionato il Ramo e caricato il PDF, i dati estratti vengono **applicati direttamente** al form di immissione (che è già il punto di verità grafico e funzionale). Eventuali correzioni si fanno nel form stesso, esattamente come per il manuale. Nessun campo inventato, nessuna grafica parallela.
+Ho controllato `src/components/AppSidebar.tsx`, `src/routes/*` e tutto `src/`. Nel codice **NON esistono più** le voci legacy:
 
-## Modifiche
+- ❌ `FATTURAPA` — assente in sidebar
+- ❌ `CONT. GENERALE` — assente in sidebar
+- ❌ `FORNITORI` — assente in sidebar  
+- ❌ `BANCA IMPORT` — assente in sidebar
 
-### 1. `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx`
+Le rotte `/fatturapa/*`, `/contabilita-generale/*`, `/fornitori/*`, `/banca-import/*` sono già redirect → `/contabilita` in `src/routes/contabilita.tsx`.
 
-- **Rimuovere** gli step `review` e `summary`. Resta solo `setup` + stato `parsing`.
-- Dopo che `handleFile` riceve il `parsed` e completa i lookup automatici (cliente locked, gruppoCompagnia, agenzia, ramo già scelto):
-  - Costruire direttamente `MatchResult` con `buildResult()`.
-  - Chiamare `onApply(result)` e chiudere il dialog (`onOpenChange(false)` + `reset()`).
-  - Toast: "Dati importati: completa/correggi nel form".
-- **Auto-selezione lookup** (già presenti): mantenere la logica che pre-seleziona il primo `gruppoCompagnia` candidato e l'unica/prima agenzia. Se l'auto-selezione lascia `gruppoCompagnia` o `agenzia` vuoti, il form mostrerà i campi vuoti — l'utente li imposta lì, niente blocchi nel dialog.
-- **Cliente nuovo (non locked):** caso oggi non in scope perché siamo sempre dentro l'anagrafica cliente. Se `lockedClienteId` manca, lasciare comunque l'auto-apply usando `isNewCliente=true`: la pagina `ImmissionePolizzaPage` ha già la sua gestione (apertura form nuovo cliente). Nessuno step intermedio.
-- **Rimuovere** dal JSX: l'intera sezione `step === "review"` (cliente cards, banner match, premi, garanzie preview), l'intera sezione `step === "summary"`, e i pulsanti footer `Riepilogo`/`Modifica`/`Applica` (resta solo eventuale Annulla).
-- **Rimuovere** componenti helper non più usati: `FieldInput`, `PremiBlock`, `SummaryRow` se non hanno altri consumer (verifica con grep).
-- **Rimuovere** stati ora morti: `gruppiFinanziari`, `selectedGruppoFinanziarioId`, `codiceCigNew`, `clienteCandidates`, banner `bestMatch`/`matchLevel`. La logica `lookupClienti` resta solo se serve all'auto-apply quando non locked; altrimenti rimuoverla del tutto.
-- **Tipo `Step`** ridotto a `"setup"` (o eliminato).
-- **Header dialog:** rimuovere il Badge "2. Revisione / 3. Riepilogo".
+La sidebar attuale ha: Home, Assistente IA, Area CFO, Trattative, Bandi Pubblici, Chat, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche.
 
-### 2. `src/pages/ImmissionePolizzaPage.tsx`
+**Lo screenshot mostra però la VECCHIA sidebar** con FATTURAPA + CONT. GENERALE + Comunicazioni + ARCHIVI come gruppo separato. Questo significa che il tuo browser sta caricando un **bundle JS vecchio in cache** (HTTP cache + eventuale Service Worker residuo). Il sistema di version-check esiste (`AppVersionGuard` + `versionCheck.ts`), ma:
 
-Nessuna modifica funzionale al form. Solo verificare che `handleAIImportApply` (già implementato nelle iterazioni precedenti):
-- Mappa correttamente `m.data.garanzie[]` → `premiFirmaRows` (sottoramo per riga via `codice_sottoramo`).
-- Popola tutti gli altri campi: cliente locked, compagnia/agenzia, ramo (gruppo), prodotto, numero polizza, decorrenza/scadenza, frazionamento, tacito rinnovo, premi firma/quietanza, targa.
-- Mostra un toast di conferma. Eventuali campi mancanti restano vuoti nel form (selezionabili manualmente lì).
+1. In **dev/preview** (`IS_DEV=true`) è disattivato → la preview Lovable non forza il reload.
+2. Anche in produzione, se l'`index.html` viene servito dalla cache del browser con `VITE_APP_VERSION` vecchio, il check confronta vecchio↔vecchio e non scatta.
+3. Il kill-switch SW (`/sw.js`) funziona solo se l'utente ha un SW registrato; se il browser ha solo cache HTTP del bundle, non basta.
 
-### 3. Edge function `parse-polizza-completa`
+## Cosa farò
 
-Nessuna modifica. Lo schema output e il prompt restano quelli già allineati al manuale (con `gruppo_ramo` + `sottorami_ammessi` come contesto).
+### 1. `index.html` — disabilitare cache HTML
+Aggiungo meta cache-control per impedire al browser di servire un `index.html` vecchio:
+```html
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+```
+Così ad ogni apertura il browser richiede sempre l'HTML fresco; gli asset JS hashati di Vite poi si caricano automaticamente nuovi.
 
-## Flusso risultante
+### 2. `versionCheck.ts` — attivare check anche in preview
+Rimuovo il bypass `IS_DEV` per il path `id-preview--*.lovable.app` e `*.lovable.app`: in quegli ambienti il bundle è statico (non HMR), quindi il check ha senso. Resta disattivato SOLO quando hostname è `localhost`.
 
-1. `/portafoglio/immissione?clienteId=...` → click "Importa da PDF (AI)".
-2. Dialog: badge Cliente (locked) + selettore Ramo + dropzone.
-3. Scelgo Ramo → carico PDF → progress bar + log live.
-4. Estrazione completa → **dialog si chiude da solo** → form pre-compilato con tutti i campi estratti, righe garanzia già create con sottoramo selezionato dove c'è match.
-5. Eventuali campi mancanti/errati si correggono direttamente nel form (UI identica al manuale).
+### 3. Boot one-shot purge
+Al primo mount di `AppVersionGuard`, eseguo **una volta** `purgeClientCaches()` se in `localStorage` non c'è il flag `__cbnet_purged_2026_05_26`. Questo garantisce che ogni utente con bundle stantio venga "ripulito" alla prossima apertura, poi non più.
 
-## Cosa NON cambia
+### 4. Registrazione kill-switch SW garantita
+In `main.tsx` aggiungo (se non c'è già) la registrazione di `/sw.js` all'avvio, che disinstalla qualunque vecchio SW e cancella `caches`. Idempotente.
 
-- Schema DB, RLS, edge function, form manuale, mappatura `handleAIImportApply`.
-- Tracciamento log live durante il parsing (utile per debug — resta visibile nello step setup mentre `parsing=true`).
+### 5. Bump versione `manifest.json` query param
+Cambio `manifest.json?v=2` → `?v=3` in `index.html` per forzare refetch del manifest PWA.
+
+## File toccati
+
+- `index.html` (meta cache + bump manifest)
+- `src/lib/versionCheck.ts` (logica IS_DEV ristretta a localhost)
+- `src/components/AppVersionGuard.tsx` (purge one-shot al boot)
+- `src/main.tsx` (registrazione `/sw.js` kill-switch)
+
+## Cosa NON farò
+
+- Non tocco `AppSidebar.tsx` (è già corretto)
+- Non tocco la business logic
+- Non rimuovo `/sw.js` (serve come kill-switch per chi ha vecchi SW)
+
+## Effetto atteso
+
+Alla prossima apertura: il browser scarica `index.html` fresco (no-cache), `AppVersionGuard` esegue la purge one-shot, eventuali SW vecchi vengono unregistered, le cache vengono svuotate, e vedi subito la sidebar corretta senza FATTURAPA/CONT. GENERALE.
