@@ -103,6 +103,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
     setDataSostituzione(todayISO);
     setCausale(CAUSALI[0]);
     setMotivo("");
+    setNuovoNumeroPolizza(numeroPolizza || "");
     setConguaglio("0");
     setFile(null);
     setDisplayName("");
@@ -121,6 +122,16 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       setMarca(vp?.marca || "");
       setModello(vp?.modello || "");
       setTelaio(vp?.telaio || "");
+      setVersione(vp?.versione || "");
+      setTipoVeicolo(vp?.tipo_veicolo || "");
+      setTipoAlimentazione(vp?.tipo_alimentazione || "");
+      setCilindrata(vp?.cc != null ? String(vp.cc) : "");
+      setPotenzaKw(vp?.kw != null ? String(vp.kw) : "");
+      setPotenzaCv(vp?.cv != null ? String(vp.cv) : "");
+      setPosti(vp?.posti != null ? String(vp.posti) : "");
+      setDataImmatricolazione(vp?.data_immatricolazione || "");
+      setClasseBm(vp?.classe_bm || "");
+      setProvinciaCircolazione(vp?.provincia_circolazione || "");
       setDescrizioneOggetto(tit?.descrizione_polizza || "");
       // future rates
       if (tit?.numero_titolo && tit?.riga != null) {
@@ -140,7 +151,7 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, titoloId]);
+  }, [open, titoloId, numeroPolizza]);
 
   const conguaglioNum = Number(conguaglio.replace(",", ".")) || 0;
 
