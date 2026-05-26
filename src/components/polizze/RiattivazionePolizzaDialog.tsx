@@ -366,9 +366,22 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
             </div>
 
             <div className="space-y-1.5">
+              <Label htmlFor="nuovo-numero-riatt-dlg">Nuovo numero polizza (opzionale)</Label>
+              <Input
+                id="nuovo-numero-riatt-dlg"
+                value={nuovoNumero}
+                onChange={(e) => setNuovoNumero(e.target.value)}
+                placeholder={numeroPolizza || "Lasciare vuoto se invariato"}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">Se la compagnia ha emesso un nuovo numero in fase di riattivazione, inseriscilo qui. Il numero precedente verrà archiviato.</p>
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="motivo-riatt-dlg">Motivo</Label>
               <Textarea id="motivo-riatt-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} />
             </div>
+
 
             <div className="border rounded-md p-3 bg-muted/30">
               <div className="text-sm font-semibold mb-2">Quietanze che verranno ricreate</div>
