@@ -6,10 +6,12 @@ import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
 import RecentEntitiesTracker from "./RecentEntitiesTracker";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { useNavigationHistoryTracker } from "@/hooks/useNavigationHistory";
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   useInactivityTimeout();
+  useNavigationHistoryTracker();
 
   return (
     <div className="min-h-screen bg-background">
