@@ -410,12 +410,14 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
           sostituzione_id: sostIns?.id,
           documento_id: documentoId,
           documento_nome: documentoNome,
+          numero_polizza_cambiato: numeroCambiato,
+          numero_polizza_nuovo: numeroCambiato ? nuovoNumeroPolizza : null,
         },
       });
 
-      return { titoloConguaglioId, documentoNome };
+      return { titoloConguaglioId, documentoNome, numeroCambiato };
     },
-    onSuccess: ({ titoloConguaglioId, documentoNome }) => {
+    onSuccess: ({ titoloConguaglioId, documentoNome, numeroCambiato }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
