@@ -9,6 +9,7 @@ import { Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
 import { frazionamentoMesi, frazionamentoToRate } from "@/lib/frazionamento";
+import { PolizzaEditorInline, type PolizzaEditorHandle } from "./PolizzaEditorInline";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const queryClient = useQueryClient();
   const todayISO = new Date().toISOString().slice(0, 10);
   const fileRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<PolizzaEditorHandle>(null);
 
   const [titoloRow, setTitoloRow] = useState<any>(null);
   const [loadingTitolo, setLoadingTitolo] = useState(false);
@@ -142,6 +144,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       if (!dataRiattivazione) throw new Error("Data riattivazione obbligatoria");
       if (!titoloRow) throw new Error("Titolo non caricato");
       if (titoloRow.stato !== "sospeso") throw new Error("La polizza non è sospesa. Solo le polizze sospese possono essere riattivate.");
+
+      // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
+      const snapshotId = await editorRef.current?.commit("riattivazione");
 
       // 1. Riattiva rata sospesa
       const { error: errUp } = await supabase
@@ -297,6 +302,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
           titolo_oneri_id: titoloOneriId,
           documento_id: documentoId,
           documento_nome: documentoNome,
+          snapshot_id: snapshotId,
         },
       });
 
@@ -327,15 +333,16 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Riattivazione Polizza</DialogTitle>
             <DialogDescription>
-              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Riattiva la polizza sospesa"}
+              {numeroPolizza ? `Polizza ${numeroPolizza}` : "Riattiva la polizza sospesa"} — modifica date e garanzie se necessario, poi conferma in un unico passaggio.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 py-2">
+            <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="data-riatt-dlg">Data Riattivazione *</Label>
@@ -399,6 +406,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
               )}
               <p className="text-xs text-muted-foreground">Max 10 MB. Il nome è modificabile; l'estensione viene preservata.</p>
             </div>
+            </div>
+
+            <PolizzaEditorInline ref={editorRef} titoloId={titoloId} />
           </div>
 
           <DialogFooter>
