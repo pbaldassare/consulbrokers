@@ -1519,13 +1519,27 @@ const ImmissionePolizzaPage = () => {
               </Label>
               <Input
                 value={cigRif}
-                onChange={(e) => setCigRif(e.target.value)}
-                className={`h-8 text-xs ${!cigRif.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                onChange={(e) => setCigRif(e.target.value.toUpperCase())}
+                maxLength={cigTemporaneo ? 40 : 10}
+                placeholder={cigTemporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
+                className={`h-8 text-xs font-mono ${(!cigRif.trim() || !cigValido) ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 title="Obbligatorio per clienti di tipo Ente"
               />
-              {!cigRif.trim() && (
+              <div className="flex items-center gap-2 mt-1">
+                <Checkbox
+                  id="cig-temp"
+                  checked={cigTemporaneo}
+                  onCheckedChange={(v) => setCigTemporaneo(!!v)}
+                />
+                <Label htmlFor="cig-temp" className="text-[10px] cursor-pointer">
+                  CIG temporaneo (formato libero)
+                </Label>
+              </div>
+              {!cigRif.trim() ? (
                 <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
-              )}
+              ) : !cigValido ? (
+                <p className="text-[10px] text-destructive mt-0.5">CIG: 10 caratteri alfanumerici</p>
+              ) : null}
             </div>
           )}
           <div className="space-y-1.5">
