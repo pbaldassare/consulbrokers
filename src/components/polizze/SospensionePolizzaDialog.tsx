@@ -194,6 +194,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           quietanze_eliminate: quietanzeEliminate,
           documento_id: documentoId,
           documento_nome: documentoNome,
+          snapshot_id: snapshotId,
         },
       });
 
