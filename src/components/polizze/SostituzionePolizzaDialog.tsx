@@ -665,6 +665,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <div>Polizza <strong>{numeroPolizza || "—"}</strong>.</div>
+                {nuovoNumeroPolizza && nuovoNumeroPolizza !== numeroPolizza && (
+                  <div>Nuovo numero polizza: <strong className="font-mono">{nuovoNumeroPolizza}</strong> (il vecchio verrà archiviato)</div>
+                )}
                 <div>Data: <strong>{dataSostituzione}</strong> · Causale: <strong>{causale}</strong></div>
                 {conguaglioNum !== 0 && (
                   <div>
