@@ -59,7 +59,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const editorRef = useRef<PolizzaEditorHandle>(null);
 
   const [dataSospensione, setDataSospensione] = useState(todayISO);
-  const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 3));
+  const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 10));
   const [limiteManual, setLimiteManual] = useState(false);
   const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -69,7 +69,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   useEffect(() => {
     if (open) {
       setDataSospensione(todayISO);
-      setLimiteRiattivazione(addMonthsISO(todayISO, 3));
+      setLimiteRiattivazione(addMonthsISO(todayISO, 10));
       setLimiteManual(false);
       setMotivo("Sospensione su richiesta cliente");
       setFile(null);
@@ -81,7 +81,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
 
   useEffect(() => {
     if (!limiteManual && dataSospensione) {
-      setLimiteRiattivazione(addMonthsISO(dataSospensione, 3));
+      setLimiteRiattivazione(addMonthsISO(dataSospensione, 10));
     }
   }, [dataSospensione, limiteManual]);
 
