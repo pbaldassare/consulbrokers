@@ -9,13 +9,15 @@ type: feature
 - `data_sospensione` default = oggi.
 - `limite_riattivazione` default = `data_sospensione + 10 mesi`; si auto-aggiorna finché l'utente non lo modifica manualmente.
 - `motivo` default precompilato: "Sospensione su richiesta cliente" (modificabile).
+- `oneri_sospensione` (€) default `0` — usato come `premio_lordo` del titolo SO.
 
 ## Effetti
 
 - Update `titoli` (solo rata target): `stato='sospeso'`, `data_sospensione`, `limite_riattivazione`, `motivo_sospensione`.
 - **Cancellazione quietanze future**: tutte le righe `titoli` con stesso `numero_titolo`, `riga > rata sospesa`, `stato != 'incassato'` e `data_messa_cassa IS NULL` vengono eliminate (con pulizia preventiva di `movimenti_polizza` e `premi_garanzia_polizza` collegati). Le rate già messe a cassa / incassate restano intatte (la sospensione è prospettica).
-- Insert `movimenti_polizza` con `tipo_documento='SO'`, `stato='sospeso'`.
-- `logAttivita('sospensione_polizza', 'titolo', id, { ..., quietanze_eliminate: [ids] })`.
+- **Titolo di sospensione (sempre creato, anche con importo 0 €)**: insert in `titoli` con `numero_titolo` corrente, `riga = max(riga)+1`, `note='Sospensione polizza: <motivo>'`, `premio_lordo = oneri`, `frazionamento='Unica'`, `garanzia_da/a = data_decorrenza = data_scadenza = data_sospensione`, `sostituisce_polizza = numero_titolo`, `sostituisce_riga = riga madre`, `stato='attivo'`, `data_messa_cassa = NULL`. Split commerciale (cliente/compagnia/ramo/ufficio/AE/anagrafica_commerciale/percentuali/tipo_portafoglio/tipo_mandatario) copiato 1:1 dalla madre. Entra in **Carico del Mese** ed E/C cliente/agenzia/produttore, anche a 0 €.
+- Insert `movimenti_polizza` con `tipo_documento='SO'`, `stato='sospeso'`, `titolo_id` puntato al nuovo titolo SO (non più alla madre).
+- `logAttivita('sospensione_polizza', 'titolo', id, { ..., oneri_sospensione, titolo_sospensione_id, quietanze_eliminate: [ids] })`.
 
 ## UI
 
