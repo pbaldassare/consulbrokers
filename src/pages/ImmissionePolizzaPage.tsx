@@ -1583,6 +1583,9 @@ const ImmissionePolizzaPage = () => {
               percentualeCommercialeAuto,
               produttoreIsSede: isSede,
               ramoLabel: selectedRamoData?.descrizione || null,
+              fonteAuto: provvigioneFonte || null,
+              warningAuto: provvigioneWarning || null,
+              onResetAuto: () => setPercentualeProvvigioneAuto(true),
             };
             return (
               <>
