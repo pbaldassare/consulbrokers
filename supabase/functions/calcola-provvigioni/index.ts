@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     // Fetch titolo with all needed fields
     const { data: titolo, error: tErr } = await supabaseAdmin
       .from("titoli")
-      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato, anagrafica_commerciale_id, produttore_nome")
+      .select("id, stato, provvigioni_quietanza, percentuale_commerciale, commerciale_id, produttore_id, prodotto_id, ufficio_id, premio_lordo, importo_incassato, anagrafica_commerciale_id, produttore_nome, ae_anagrafica_id, ae_nome, percentuale_ae")
       .eq("id", titolo_id)
       .single();
     if (tErr || !titolo) throw new Error("Titolo non trovato");
