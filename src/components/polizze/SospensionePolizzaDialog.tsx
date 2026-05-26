@@ -267,6 +267,12 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
               </div>
 
               <div className="space-y-1.5 border-t pt-3">
+                <Label htmlFor="sosp-nuovo-numero">Nuovo numero polizza (opzionale)</Label>
+                <Input id="sosp-nuovo-numero" value={nuovoNumeroPolizza} onChange={(e) => setNuovoNumeroPolizza(e.target.value)} placeholder={numeroPolizza || "Lascia vuoto per mantenere il numero attuale"} className="font-mono" />
+                <p className="text-xs text-muted-foreground">Se la compagnia emette un nuovo numero, inseriscilo. Attuale: <span className="font-mono">{numeroPolizza || "—"}</span>. Il vecchio sarà archiviato.</p>
+              </div>
+
+              <div className="space-y-1.5 border-t pt-3">
                 <Label>Documento allegato (opzionale)</Label>
                 <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelected} />
                 {!file ? (
