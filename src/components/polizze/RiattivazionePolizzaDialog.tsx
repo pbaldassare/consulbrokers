@@ -59,6 +59,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const queryClient = useQueryClient();
   const todayISO = new Date().toISOString().slice(0, 10);
   const fileRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<PolizzaEditorHandle>(null);
 
   const [titoloRow, setTitoloRow] = useState<any>(null);
   const [loadingTitolo, setLoadingTitolo] = useState(false);
