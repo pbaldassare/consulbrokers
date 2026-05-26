@@ -2725,7 +2725,10 @@ const TitoloDetail = () => {
                   }] : []);
 
               const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
-              const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
+              const aePercDisp = Number((t as any).percentuale_ae) || 0;
+              const aeIdDisp = (t as any).ae_anagrafica_id;
+              const aeNameDisp = (t as any).ae_nome || "—";
+              const consulPerc = Math.max(0, Math.round((100 - sumPerc - aePercDisp) * 100) / 100);
               const hasAdminInList = effective.some(e => e.isAdmin);
 
               return (
@@ -2752,6 +2755,20 @@ const TitoloDetail = () => {
                         </div>
                       </div>
                     ))}
+                    {aeIdDisp && aePercDisp > 0 && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-sky-50 to-transparent dark:from-sky-950/20 border border-sky-200">
+                        <div className="w-9 h-9 rounded-full bg-sky-600 text-white flex items-center justify-center flex-shrink-0">
+                          <UserCheck className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] uppercase font-semibold text-muted-foreground">Account Executive</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-600 text-white font-mono">{aePercDisp}%</span>
+                          </div>
+                          <div className="text-sm font-semibold truncate">{aeNameDisp}</div>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-950/20 border border-amber-200">
                       <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
                         <Building2 className="w-4 h-4" />
@@ -2765,6 +2782,7 @@ const TitoloDetail = () => {
                       </div>
                     </div>
                   </div>
+
 
                   {(provvF == null && provvQ == null) && (
                     <div className="text-xs text-muted-foreground italic">Nessuna provvigione impostata. Le card di split appariranno sotto i premi nella sezione "Importi".</div>
