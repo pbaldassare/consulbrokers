@@ -5,6 +5,7 @@ import Topbar from "./Topbar";
 import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
 import RecentEntitiesTracker from "./RecentEntitiesTracker";
+import GlobalShortcuts from "./GlobalShortcuts";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useNavigationHistoryTracker } from "@/hooks/useNavigationHistory";
 
