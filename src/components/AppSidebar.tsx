@@ -60,6 +60,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import RecentiPreferitiSidebar from "./RecentiPreferitiSidebar";
 
 interface SidebarItem {
   label: string;
@@ -320,6 +321,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 sidebar-scrollbar">
+        <RecentiPreferitiSidebar collapsed={collapsed} />
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
             const item = entry.item;
