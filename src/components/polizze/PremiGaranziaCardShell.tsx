@@ -154,57 +154,85 @@ export function PremiGaranziaCardShell({
     onRowsChange(next.length ? next : [emptyGaranziaRow()]);
   };
 
+  const calcSsn = (netto: number, tasse: number, aliquotaSsn: number) =>
+    aliquotaSsn > 0 ? +(((netto + tasse) * aliquotaSsn) / 100).toFixed(2) : 0;
+
   const handleGaranziaSelect = (idx: number, sottoramoId: string) => {
     const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
     if (!sel) return;
     const aliquota = Number(sel.aliquota_tasse_ramo) || 0;
+    const ssnAttivo = !!sel.ssn_attivo;
+    const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     const netto = parseFloat(rows[idx]?.netto || "0") || 0;
+    const tasseCalc = netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(rows[idx]?.tasse || "0") || 0);
     updateRow(idx, {
       sottoramoId: sel.id,
       codice: sel.codice,
       descrizione: sel.descrizione,
       aliquotaTasse: aliquota,
-      tasse: netto > 0 && aliquota > 0 ? ((netto * aliquota) / 100).toFixed(2) : rows[idx]?.tasse || "",
+      tasse: netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || "",
+      ssnAttivo,
+      aliquotaSsn,
+      ssn: ssnAttivo && netto > 0 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : "",
+      ssnManualOverride: false,
     });
   };
 
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (value === "") {
-      updateRow(idx, { netto: "", tasse: "" });
+      updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
     const netto = parseFloat(value);
     const aliquota = r?.aliquotaTasse || 0;
+    const tasseNew = aliquota > 0 && !isNaN(netto) ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(r?.tasse || "0") || 0);
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(netto, tasseNew, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
     updateRow(idx, {
       netto: value,
-      tasse: aliquota > 0 && !isNaN(netto) ? ((netto * aliquota) / 100).toFixed(2) : r?.tasse || "",
+      tasse: aliquota > 0 && !isNaN(netto) ? tasseNew.toFixed(2) : r?.tasse || "",
+      ssn: ssnNew,
     });
   };
 
   const handleTasseChange = (idx: number, value: string) => {
-    // Override manuale delle tasse: lascia il netto invariato; il Lordo si ricalcola
-    // automaticamente dalla somma netto+tasse nel render. L'aliquota mostrata diventa
-    // quella effettiva (tax/netto*100).
-    updateRow(idx, { tasse: value });
+    const r = rows[idx];
+    const netto = parseFloat(r?.netto || "0") || 0;
+    const tasse = parseFloat(value || "0") || 0;
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(netto, tasse, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
+    updateRow(idx, { tasse: value, ssn: ssnNew });
+  };
+
+  const handleSsnChange = (idx: number, value: string) => {
+    updateRow(idx, { ssn: value, ssnManualOverride: true });
   };
 
   const handleLordoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (value === "") {
-      updateRow(idx, { netto: "", tasse: "" });
+      updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
     const lordo = parseFloat(value);
     if (isNaN(lordo)) return;
     const aliquota = r?.aliquotaTasse || 0;
+    // Risolve netto+tasse a partire dal lordo riga (SSN escluso: trattato come riga separata)
+    let nettoCalc: number; let tasseCalc: number;
     if (aliquota > 0) {
-      const netto = lordo / (1 + aliquota / 100);
-      const tasse = lordo - netto;
-      updateRow(idx, { netto: netto.toFixed(2), tasse: tasse.toFixed(2) });
+      nettoCalc = lordo / (1 + aliquota / 100);
+      tasseCalc = lordo - nettoCalc;
     } else {
-      updateRow(idx, { netto: lordo.toFixed(2), tasse: "0.00" });
+      nettoCalc = lordo;
+      tasseCalc = 0;
     }
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(nettoCalc, tasseCalc, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
+    updateRow(idx, { netto: nettoCalc.toFixed(2), tasse: tasseCalc.toFixed(2), ssn: ssnNew });
   };
 
   return (
