@@ -584,7 +584,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
     setNome(""); setCognome(""); setCodiceFiscale(""); setDataNascita("");
     setLuogoNascita(""); setIndirizzoResidenza(""); setCapResidenza("");
     setCittaResidenza(""); setProvinciaResidenza(""); setRagioneSociale("");
-    setPartitaIva(""); setCodiceFiscaleAzienda(""); setCodiceCig(""); setCodiceSdi("");
+    setPartitaIva(""); setCodiceFiscaleAzienda(""); setCodiceCig(""); setCigTemporaneo(false); setCodiceSdi("");
     setFormaGiuridica(""); setIndirizzoSede(""); setCapSede("");
     setCittaSede(""); setProvinciaSede(""); setReferenteNome("");
     setReferenteCognome(""); setReferenteTelefono(""); setReferenteEmail("");
