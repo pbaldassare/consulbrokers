@@ -18,8 +18,15 @@ const STORAGE_KEYS_TO_KEEP = (k: string) =>
 export const BUNDLE_VERSION: string =
   (import.meta as any).env?.VITE_APP_VERSION || "dev";
 
-const IS_DEV = Boolean((import.meta as any).env?.DEV);
+// Disattiviamo il check SOLO su localhost (vero dev locale).
+// In tutte le altre situazioni (preview Lovable, custom domain, prod)
+// il bundle è statico e va riallineato al server.
+const IS_LOCAL_DEV =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
 let versionCheckPromise: Promise<boolean> | null = null;
+
 
 export interface VersionInfo {
   bundle: string;
@@ -133,7 +140,7 @@ export function forceReload(reason: string, serverVersion?: string | null): bool
  * Ritorna true se la versione è OK (l'app può proseguire).
  */
 async function runLatestVersionCheck(): Promise<boolean> {
-  if (IS_DEV) {
+  if (IS_LOCAL_DEV) {
     // In preview/dev Vite aggiorna i moduli via HMR. Forzare reload su version.json
     // può creare loop quando il dev server mantiene lo stesso VITE_APP_VERSION.
     return true;
