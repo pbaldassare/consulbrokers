@@ -1671,10 +1671,16 @@ const ImmissionePolizzaPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="flex items-center gap-2 h-8">
             <Checkbox id="regolazione" checked={regolazione} onCheckedChange={(v) => setRegolazione(v === true)} />
-            <Label htmlFor="regolazione" className="font-normal cursor-pointer text-xs">Regolazione Sì</Label>
+            <Label htmlFor="regolazione" className="font-normal cursor-pointer text-xs flex items-center gap-1">
+              Regolazione Sì
+              <FieldHint>Attiva se il premio è soggetto a regolazione periodica (es. polizze con conguaglio a consuntivo sui dati dichiarati).</FieldHint>
+            </Label>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Periodicità</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Periodicità
+              <FieldHint>Cadenza con cui la compagnia richiede i dati per la regolazione del premio.</FieldHint>
+            </Label>
             <SearchableSelect className="h-8 text-xs" value={periodicita} onValueChange={setPeriodicita} placeholder="—"
               options={[
                 { value: "annuale", label: "Annuale" },
@@ -1685,7 +1691,10 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Tipo Scadenza</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Tipo Scadenza
+              <FieldHint>"A scadenza": la regolazione è dovuta entro una data fissa. "No scadenza": gestione libera.</FieldHint>
+            </Label>
             <SearchableSelect className="h-8 text-xs" value={tipoScadenza} onValueChange={setTipoScadenza} placeholder="—"
               options={[
                 { value: "no_scadenza", label: "No Scadenza" },
@@ -1694,11 +1703,17 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">GG Presentazione</Label>
+            <Label className="text-xs flex items-center gap-1">
+              GG Presentazione
+              <FieldHint>Giorni a disposizione del cliente per presentare i dati di regolazione dopo la scadenza periodica.</FieldHint>
+            </Label>
             <Input type="number" value={giorniPresentazione} onChange={(e) => setGiorniPresentazione(e.target.value)} placeholder="0" className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Tipo Lettera Regolazione</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Tipo Lettera Regolazione
+              <FieldHint>Modello di comunicazione inviata al cliente per richiedere i dati di regolazione.</FieldHint>
+            </Label>
             <SearchableSelect className="h-8 text-xs" value={tipoLetteraRegolazione} onValueChange={setTipoLetteraRegolazione} placeholder="— Tipo lettera —"
               options={[
                 { value: "standard", label: "Standard" },
@@ -1708,7 +1723,10 @@ const ImmissionePolizzaPage = () => {
             />
           </div>
           <div className="space-y-1.5 col-span-2">
-            <Label className="text-xs">Libro Matricola</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Libro Matricola
+              <FieldHint>Indica se la polizza è gestita a libro matricola (es. flotte veicoli, dipendenti) con aggiornamenti periodici del parco assicurato.</FieldHint>
+            </Label>
             <RadioGroup value={libroMatricola} onValueChange={setLibroMatricola} className="flex gap-4 h-8 items-center">
               {[
                 { value: "no", label: "No" },
@@ -1876,6 +1894,7 @@ const ImmissionePolizzaPage = () => {
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1.5">
               % Produttore
+              <FieldHint>Quota provvigionale del Produttore selezionato. Default popolato dalla matrice "Provvigioni per Ramo".</FieldHint>
               {percentualeCommercialeAuto && (
                 <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
               )}
@@ -1891,6 +1910,7 @@ const ImmissionePolizzaPage = () => {
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1.5">
               % AE
+              <FieldHint>Quota provvigione spettante all'Account Executive. Sommata alla % Produttore, il residuo va a Consulbrokers SPA. Somma totale ≤ 100%.</FieldHint>
               {!selectedAccountExecutiveId && (
                 <span className="text-[9px] text-muted-foreground">(seleziona AE)</span>
               )}
@@ -1902,7 +1922,6 @@ const ImmissionePolizzaPage = () => {
               disabled={!selectedAccountExecutiveId}
               placeholder="0,00"
               className="h-8 text-xs font-mono"
-              title="Quota provvigione spettante all'Account Executive. Sommata alla % Produttore, il residuo va a Consulbrokers SPA."
             />
             {(() => {
               const sum = (parseFloat(percentualeCommerciale) || 0) + (parseFloat(percentualeAE) || 0);
@@ -1918,6 +1937,7 @@ const ImmissionePolizzaPage = () => {
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1.5">
               % Brokeraggio
+              <FieldHint>Quota di brokeraggio del Produttore. Default popolato da "% Provv. Consulenza" dell'anagrafica professionale.</FieldHint>
               {percentualeBrokeraggioAuto && (
                 <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
               )}
@@ -1928,7 +1948,6 @@ const ImmissionePolizzaPage = () => {
               onChange={(e) => { setPercentualeBrokeraggio(e.target.value); setPercentualeBrokeraggioAuto(false); }}
               placeholder="0,00"
               className="h-8 text-xs font-mono"
-              title="Quota di brokeraggio del Produttore — default da % Provv. Consulenza"
             />
           </div>
           <div className="space-y-1.5">
