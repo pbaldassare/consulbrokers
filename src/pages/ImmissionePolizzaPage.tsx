@@ -428,6 +428,7 @@ const ImmissionePolizzaPage = () => {
   }, [clienteDettaglio]);
   const gruppoFinanziarioMancante = !!selectedClienteId && !tipoSoggetto;
   const cigObbligatorio = tipoSoggetto === "ente";
+  const cigValido = !cigRif.trim() || isValidCigWithFlag(cigRif, cigTemporaneo);
   const saveBlockReason = !selectedClienteId
     ? "Seleziona prima un cliente"
     : gruppoFinanziarioMancante
@@ -436,7 +437,9 @@ const ImmissionePolizzaPage = () => {
         ? "Il N° Polizza è obbligatorio"
         : (cigObbligatorio && !cigRif.trim())
           ? "Per i clienti di tipo Ente il CIG è obbligatorio"
-          : null;
+          : (cigRif.trim() && !cigValido)
+            ? "Il CIG deve essere di 10 caratteri alfanumerici (o spunta 'CIG temporaneo')"
+            : null;
 
   // (eredità AE/Specialist/Produttore spostata sotto le query)
 
