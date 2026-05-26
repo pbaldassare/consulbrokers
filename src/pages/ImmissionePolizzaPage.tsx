@@ -138,7 +138,7 @@ const ImmissionePolizzaPage = () => {
         const netto = g.premio_netto != null ? Number(g.premio_netto) : 0;
         const tasse = g.premio_imposte != null ? Number(g.premio_imposte) : 0;
         const ssnFromAi = (g as any).ssn != null ? Number((g as any).ssn) : null;
-        const ssnAuto = ssnAttivo && netto > 0 ? +(((netto + tasse) * aliquotaSsn) / 100).toFixed(2) : 0;
+        const ssnAuto = ssnAttivo && netto > 0 ? +((netto * aliquotaSsn) / 100).toFixed(2) : 0;
         return {
           ...emptyGaranziaRow(),
           codice: match?.codice ?? (codice || null),
