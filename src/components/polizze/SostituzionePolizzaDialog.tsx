@@ -427,7 +427,9 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
       queryClient.invalidateQueries({ queryKey: ["portafoglio-storico"] });
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["veicoli-polizza", titoloId] });
+      queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sostituita"];
+      if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
       if (titoloConguaglioId) parts.push("titolo conguaglio creato");
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
       toast.success(parts.join(" · "));
