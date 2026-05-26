@@ -31,3 +31,8 @@ Campo "Nuovo numero polizza (opzionale)" presente in:
 - `RiattivazionePolizzaDialog` (causale `riattivazione`)
 
 In `TitoloDetail` la sezione "Numeri polizza storici" (collapsible, nascosta se vuota) mostra la cronologia letta da `titoli_numeri_storici`.
+
+## Sostituzione — campi per ramo
+
+- **RCA Auto** (rilevato da `veicoli_polizza` o `targa_telaio`): blocco veicolo completo (targa, telaio, marca, modello, versione, tipo, alimentazione, cc, kW, CV, posti, immatricolazione, classe BM, provincia). Aggiorna `veicoli_polizza` + snapshot in `titoli_sostituzioni.parametri_new`.
+- **Altri rami** (Vita, Trasporti, Property, Infortuni…): blocco generico con `descrizione`, `ubicazione_rischio`, `valore_assicurato`, `riferimento_oggetto`. Solo snapshot in `titoli_sostituzioni.parametri_new`, no modifiche a tabelle dedicate.
