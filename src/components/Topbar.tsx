@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import GlobalSearch from "./GlobalSearch";
 import NotificheDropdown from "./NotificheDropdown";
+import ThemeToggle from "./ThemeToggle";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -64,7 +65,10 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-4 shrink-0">
+        <ThemeToggle />
         <NotificheDropdown />
+
+
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
