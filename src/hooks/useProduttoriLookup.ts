@@ -20,9 +20,10 @@ export const useProduttoriLookup = () => {
         .eq("attivo", true);
       if (error) throw error;
       const opts = (data || []).map((p: any) => {
+        const personName = `${p.cognome || ""} ${p.nome || ""}`.trim();
         const label =
+          personName ||
           (p.ragione_sociale && p.ragione_sociale.trim()) ||
-          `${p.cognome || ""} ${p.nome || ""}`.trim() ||
           "—";
         return { value: p.id as string, label };
       });
