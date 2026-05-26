@@ -1,75 +1,59 @@
 ## Obiettivo
 
-Quando una compagnia, a seguito di **Sostituzione** o **Sospensione/Riattivazione**, emette un nuovo numero di polizza, l'operatore deve poterlo inserire nei rispettivi dialog. La polizza resta la **stessa** (stesso record `titoli`, stesso `id`, stesse quietanze): cambia solo `numero_titolo` corrente, e il vecchio numero viene **archiviato** in una nuova tabella `titoli_numeri_storici`, visibile in dettaglio polizza.
+Oggi la **Sospensione** genera solo una riga in `movimenti_polizza` (tipo `SO`). Non esiste un record in `titoli` corrispondente, quindi l'evento non compare nell'estratto conto cliente / agenzia / produttore e non è gestibile come gli altri titoli (messa a cassa, distinte, ecc.).
 
-In più, il dialog di **Sostituzione** deve mostrare i campi specifici per ramo (oggi mostra solo "Descrizione nuovo oggetto"): per RCA Auto va mostrato il blocco veicolo + conducente identico a quello di Immissione; per gli altri rami i campi tipici del ramo (vedi sotto).
+Vogliamo che la sospensione sia **sempre** registrata come un vero **titolo** (anche se l'importo è 0 €), speculare a come la Riattivazione genera già il titolo "Oneri di Riattivazione".
 
-## 1. Database
+## 1. SospensionePolizzaDialog — nuovo campo "Oneri di sospensione"
 
-Nuova tabella `titoli_numeri_storici`:
-- `titolo_id` → `titoli.id` (ON DELETE CASCADE)
-- `numero_precedente` text (era `numero_titolo` prima del cambio)
-- `numero_nuovo` text (quello impostato dopo)
-- `cambiato_il` timestamp
-- `cambiato_da_user_id` uuid
-- `causale` text — enum applicativo: `sostituzione | sospensione | riattivazione`
-- `motivo` text nullable
-- `riferimento_id` uuid nullable (es. id `titoli_sostituzioni`)
+Aggiungo nel dialog (colonna sinistra, sotto "Motivo"):
 
-GRANT + RLS: SELECT/INSERT authenticated, ALL service_role, DELETE solo admin/responsabile_sede.
+- **Oneri di sospensione (€)** — input numerico, default `0`, accetta anche `0` come valore valido.
+- Etichetta nota: *"Verrà creato un titolo di sospensione anche se l'importo è 0."*
 
-Nessuna modifica a `titoli`: il "nuovo numero corrente" sovrascrive `numero_titolo` (idem si propaga su tutte le quietanze figlie tramite update `WHERE numero_titolo = vecchio`).
+## 2. Mutation: insert titolo SO sempre
 
-## 2. Sostituzione (`SostituzionePolizzaDialog`)
+Dopo i passaggi attuali (cancellazione quietanze future, update stato, nuovo numero, upload documento), **prima** della riga `movimenti_polizza`, inserisco un nuovo record in `titoli`:
 
-Aggiungo in cima al form, opzionale:
-- **Nuovo numero polizza** (text, default = numero attuale). Validazione: se diverso dal corrente e non vuoto.
-- Se cambiato → mutation aggiorna `titoli.numero_titolo` su tutte le righe con `numero_titolo = old` (madre + quietanze + conguaglio appena creato) e inserisce riga in `titoli_numeri_storici` con `causale='sostituzione'` e `riferimento_id = titoli_sostituzioni.id`.
+- `numero_titolo` = stesso della rata madre (post-eventuale rinumerazione)
+- `riga` = max(`riga`) esistente per quel `numero_titolo` + 1
+- `note` = `"Sospensione polizza"` (+ motivo se presente)
+- `premio_lordo` = oneri inseriti (0 di default)
+- `premio_netto`, `accessori`, `tasse` = 0 se oneri = 0, altrimenti `premio_lordo = oneri` con `premio_netto = oneri` e tasse 0 (sospensioni non hanno imposte)
+- `sostituisce_polizza` = `numero_titolo` corrente, `sostituisce_riga` = riga madre (per legarlo logicamente)
+- `data_decorrenza` / `garanzia_da` / `garanzia_a` = `data_sospensione` (single-day)
+- `data_scadenza` = `data_sospensione`
+- `frazionamento` = `"Unica"`
+- `stato` = `attivo` (così entra in **Carico del Mese** ed è disponibile per messa a cassa)
+- `data_messa_cassa` = NULL
+- Split commerciale / provvigioni: copia 1:1 dai campi della rata madre (`anagrafica_commerciale_id`, `account_executive_id`, `ufficio_id`, `cliente_id`, `compagnia_id`, `ramo_id`, `gruppo_ramo_id`, ecc.), così l'E/C aggancia gli stessi soggetti.
+- Provvigioni: 0 (non maturano provvigioni sulla sospensione) — `provvigione_*` lasciati a 0.
 
-Aggiungo blocco **"Nuovi parametri oggetto"** ramo-aware (reuse dei componenti già presenti in `ImmissionePolizzaPage`):
-- **RCA Auto** (gruppo ramo RCA/AUTO o flag): sezione completa Veicolo (`MarcaModelloCombobox`, targa, telaio, alimentazione, potenza, cilindrata, anno immatricolazione, tipo veicolo→settore, uso `rca_usi`, classe BM, sinistri ultimi 5 anni) + Conducente (CF, nome, cognome, data nascita, comune nascita, patente, anno patente). Snapshot in `titoli_sostituzioni.parametri_precedenti/nuovi`; update `veicoli_polizza`.
-- **Trasporti**: tratta, merce, valore.
-- **Vita**: beneficiari (testo libero).
-- **Altri rami**: textarea "Descrizione nuovo oggetto" (come oggi).
-- Mapping ramo→sezione centralizzato in nuovo helper `src/lib/sostituzioneFieldsByRamo.ts` (ramo non riconosciuto → solo descrizione).
+Lego l'id del nuovo titolo SO alla riga `movimenti_polizza` esistente (campo `titolo_id` già presente), in modo che dalla card movimenti si possa atterrare sul nuovo titolo.
 
-Validazione: per RCA almeno targa+marca+modello obbligatori.
+## 3. Log & feedback
 
-## 3. Sospensione (`SospensionePolizzaDialog`) e Riattivazione (`RiattivazionePolizzaDialog`)
+- `logAttivita` aggiunge `titolo_sospensione_id` e `oneri_sospensione` in `dettagli_json`.
+- Toast: aggiunge "titolo di sospensione creato (€ X,XX)".
+- Invalidate query estese a `portafoglio-carico`, `titoli`, `ec-*` (estratti conto già coperti dalle invalidate `portafoglio`).
 
-Aggiungo campo opzionale **"Nuovo numero polizza"** (default = corrente).
-- In Sospensione: se inserito e diverso → update `numero_titolo` su tutte le righe della polizza + insert in `titoli_numeri_storici` con `causale='sospensione'`.
-- In Riattivazione: idem con `causale='riattivazione'`.
-- Quietanze cancellate dalle regole esistenti (default +10 mesi) restano invariate; la futura quietanza auto-generata erediterà il nuovo numero.
+## 4. Conseguenze su UI esistente
 
-## 4. UI dettaglio polizza (`TitoloDetail`)
+- **TitoloDetail della polizza madre**: la card "Numeri polizza storici" è invariata. Il titolo di sospensione apparirà come riga separata (stesso `numero_titolo`) nelle viste polizze e nella tab "Quietanze" (con badge "Sospensione" derivato da `note`).
+- **Polizze / Carico del Mese**: il titolo SO compare normalmente e può essere messo a cassa con il flusso standard, anche se a 0 €.
+- **E/C cliente / agenzia / produttore**: compare riga con importo 0 € (o oneri) → richiesta esplicita dell'utente.
 
-Nuova card/tab **"Numeri polizza storici"** (sotto "Operazioni"): tabella read-only con `numero_precedente → numero_nuovo`, data, utente, causale, motivo. Compare solo se ci sono record.
+## 5. File toccati
 
-Header polizza mostra sempre `numero_titolo` corrente (già lo fa). Niente cambi al routing.
+- `src/components/polizze/SospensionePolizzaDialog.tsx` — nuovo state `oneriSospensione`, input UI, mutation estesa con insert titolo SO.
+- `.lovable/memory/insurance/policy-suspension-rules.md` — aggiungo sezione "Titolo di sospensione" (sempre creato, anche a 0 €, speculare a Riattivazione).
+- `public/version.json` — bump.
 
-## 5. Memoria
+## Note / decisioni
 
-Aggiorno `mem://insurance/policy-replacement-extinction-rules.md` e `mem://insurance/policy-suspension-rules.md` con le nuove regole, e creo `mem://insurance/policy-number-history.md`.
+- **Nessuna migrazione DB**: si usano campi `titoli` già esistenti. Nessuna nuova colonna.
+- **Nessun cambiamento al flusso quietanze future**: continuano a essere cancellate come oggi.
+- **`PolizzaEditorInline.commit("sospensione")` → snapshot**: resta sulla polizza madre, invariato.
+- Se la rata madre è già `incassato`/`stornato` (UI bloccata) il dialog non si apre, quindi nessun edge case extra.
 
-## Dettagli tecnici
-
-- Tutte le mutation client-side in una sola transazione logica: prima upsert numeri_storici, poi update massivo `titoli SET numero_titolo = :new WHERE numero_titolo = :old`. Se l'aggiornamento fallisce per unicità (improbabile, non c'è UNIQUE), rollback applicativo con messaggio.
-- `assertSameTitolo` non impattato (lavora su `id`, non su `numero_titolo`).
-- `sostituisce_polizza` esistenti che referenziano il vecchio numero vengono aggiornati allo stesso modo (stesso `UPDATE ... WHERE sostituisce_polizza = old`).
-- Per il blocco RCA condiviso introduco un componente riutilizzabile `RcaVeicoloConducenteForm` estratto da `ImmissionePolizzaPage`, usato sia in Immissione sia nel nuovo Sostituzione (refactor leggero, stesse props/stato controllato).
-
-## File toccati
-
-- migration: `titoli_numeri_storici` (CREATE + GRANT + RLS + 3 policy)
-- `src/components/polizze/SostituzionePolizzaDialog.tsx` (campo numero, blocco ramo-aware, mutation)
-- `src/components/polizze/SospensionePolizzaDialog.tsx` (campo numero + propagazione)
-- `src/components/polizze/RiattivazionePolizzaDialog.tsx` (campo numero + propagazione)
-- `src/components/polizze/RcaVeicoloConducenteForm.tsx` (nuovo, estratto)
-- `src/pages/ImmissionePolizzaPage.tsx` (sostituisce blocco RCA con il nuovo componente)
-- `src/pages/TitoloDetail.tsx` (card "Numeri polizza storici")
-- `src/lib/sostituzioneFieldsByRamo.ts` (nuovo helper)
-- `src/lib/aggiornaNumeroPolizza.ts` (nuovo helper transazionale)
-- memorie
-
-Conferma se ok, oppure dimmi se vuoi limitare il "form esteso" a soli RCA in prima iterazione e rinviare gli altri rami.
+Confermi così, oppure preferisci che il titolo SO sia creato solo quando oneri > 0?

@@ -63,10 +63,13 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
   const [limiteRiattivazione, setLimiteRiattivazione] = useState(addMonthsISO(todayISO, 10));
   const [limiteManual, setLimiteManual] = useState(false);
   const [motivo, setMotivo] = useState("Sospensione su richiesta cliente");
+  const [oneriSospensione, setOneriSospensione] = useState<string>("0");
   const [nuovoNumeroPolizza, setNuovoNumeroPolizza] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+
+  const oneriNum = Number((oneriSospensione || "0").replace(",", ".")) || 0;
 
   useEffect(() => {
     if (open) {
@@ -74,6 +77,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       setLimiteRiattivazione(addMonthsISO(todayISO, 10));
       setLimiteManual(false);
       setMotivo("Sospensione su richiesta cliente");
+      setOneriSospensione("0");
       setNuovoNumeroPolizza(numeroPolizza || "");
       setFile(null);
       setDisplayName("");
@@ -116,7 +120,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
 
       const { data: titoloRow, error: errFetch } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, riga")
+        .select("id, numero_titolo, riga, cliente_id, cliente_anagrafica_id, compagnia_id, compagnia_rapporto_id, codice_rapporto, ramo_id, prodotto_id, prodotto_nome, ufficio_id, ae_anagrafica_id, anagrafica_commerciale_id, commerciale_id, percentuale_commerciale, percentuale_riparto, tipo_portafoglio, tipo_mandatario")
         .eq("id", titoloId)
         .single();
       if (errFetch) throw errFetch;
@@ -185,16 +189,67 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         documentoNome = finalName;
       }
 
-      // 4. Movimento SO
+      // 4. Titolo di Sospensione (sempre creato, anche con importo 0)
+      const numeroEffettivo = (nuovoNumeroPolizza && nuovoNumeroPolizza !== titoloRow.numero_titolo)
+        ? nuovoNumeroPolizza
+        : titoloRow.numero_titolo;
+      const { data: maxRigaRow } = await supabase
+        .from("titoli")
+        .select("riga")
+        .eq("numero_titolo", numeroEffettivo)
+        .order("riga", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const rigaSosp = ((maxRigaRow?.riga as number | undefined) ?? titoloRow.riga ?? 0) + 1;
+
+      const { data: insSosp, error: errSosp } = await supabase
+        .from("titoli")
+        .insert({
+          numero_titolo: numeroEffettivo,
+          cliente_id: titoloRow.cliente_id,
+          cliente_anagrafica_id: titoloRow.cliente_anagrafica_id,
+          compagnia_id: titoloRow.compagnia_id,
+          compagnia_rapporto_id: titoloRow.compagnia_rapporto_id,
+          codice_rapporto: titoloRow.codice_rapporto,
+          ramo_id: titoloRow.ramo_id,
+          prodotto_id: titoloRow.prodotto_id,
+          prodotto_nome: titoloRow.prodotto_nome,
+          ufficio_id: titoloRow.ufficio_id,
+          ae_anagrafica_id: titoloRow.ae_anagrafica_id,
+          anagrafica_commerciale_id: titoloRow.anagrafica_commerciale_id,
+          commerciale_id: titoloRow.commerciale_id,
+          percentuale_commerciale: titoloRow.percentuale_commerciale,
+          percentuale_riparto: titoloRow.percentuale_riparto,
+          garanzia_da: dataSospensione,
+          garanzia_a: dataSospensione,
+          data_decorrenza: dataSospensione,
+          data_scadenza: dataSospensione,
+          frazionamento: "Unica",
+          premio_lordo: oneriNum,
+          premio_netto: oneriNum,
+          riga: rigaSosp,
+          sostituisce_polizza: numeroEffettivo,
+          sostituisce_riga: titoloRow.riga,
+          stato: "attivo",
+          note: `Sospensione polizza${motivo ? ": " + motivo : ""}`,
+          tipo_portafoglio: titoloRow.tipo_portafoglio,
+          tipo_mandatario: titoloRow.tipo_mandatario,
+        } as any)
+        .select("id")
+        .single();
+      if (errSosp) throw errSosp;
+      const titoloSospensioneId = insSosp!.id;
+
+      // 5. Movimento SO (collegato al nuovo titolo SO)
       await supabase.from("movimenti_polizza").insert({
-        titolo_id: titoloId,
+        titolo_id: titoloSospensioneId,
         tipo_documento: "SO",
         data_movimento: dataSospensione,
-        descrizione: `Sospensione polizza${motivo ? ": " + motivo : ""}${documentoNome ? ` (allegato: ${documentoNome})` : ""}`,
+        descrizione: `Sospensione polizza${motivo ? ": " + motivo : ""}${oneriNum > 0 ? ` (oneri ${oneriNum.toFixed(2)} €)` : ""}${documentoNome ? ` (allegato: ${documentoNome})` : ""}`,
         stato: "sospeso",
       } as any);
 
-      // 5. Log attività
+      // 6. Log attività
       await logAttivita({
         azione: "sospensione_polizza",
         entita_tipo: "titolo",
@@ -203,6 +258,8 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
           data_sospensione: dataSospensione,
           limite_riattivazione: limiteRiattivazione,
           motivo,
+          oneri_sospensione: oneriNum,
+          titolo_sospensione_id: titoloSospensioneId,
           quietanze_eliminate: quietanzeEliminate,
           documento_id: documentoId,
           documento_nome: documentoNome,
@@ -212,9 +269,9 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
         },
       });
 
-      return { quietanzeEliminate, documentoNome, numeroCambiato };
+      return { quietanzeEliminate, documentoNome, numeroCambiato, titoloSospensioneId, oneriNum };
     },
-    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato }) => {
+    onSuccess: ({ quietanzeEliminate, documentoNome, numeroCambiato, oneriNum: o }) => {
       queryClient.invalidateQueries({ queryKey: ["titolo"] });
       queryClient.invalidateQueries({ queryKey: ["movimenti-polizza", titoloId] });
       queryClient.invalidateQueries({ queryKey: ["timeline", "titolo", titoloId] });
@@ -225,6 +282,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
       queryClient.invalidateQueries({ queryKey: ["portafoglio-carico"] });
       queryClient.invalidateQueries({ queryKey: ["titoli-numeri-storici", titoloId] });
       const parts: string[] = ["Polizza sospesa"];
+      parts.push(`titolo sospensione creato (€ ${o.toFixed(2)})`);
       if (numeroCambiato) parts.push(`nuovo numero polizza ${nuovoNumeroPolizza}`);
       if (quietanzeEliminate.length > 0) parts.push(`${quietanzeEliminate.length} quietanze future rimosse`);
       if (documentoNome) parts.push(`allegato "${documentoNome}" caricato`);
@@ -264,6 +322,12 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
               <div className="space-y-1.5">
                 <Label htmlFor="motivo-sosp-dlg">Motivo</Label>
                 <Textarea id="motivo-sosp-dlg" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo della sospensione (opzionale)" rows={3} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="oneri-sosp-dlg">Oneri di sospensione (€)</Label>
+                <Input id="oneri-sosp-dlg" type="number" min="0" step="0.01" value={oneriSospensione} onChange={(e) => setOneriSospensione(e.target.value)} className="tabular-nums" />
+                <p className="text-xs text-muted-foreground">Verrà comunque creato un titolo di sospensione, anche se l'importo è 0 €, così appare in Carico del Mese ed estratti conto.</p>
               </div>
 
               <div className="space-y-1.5 border-t pt-3">
