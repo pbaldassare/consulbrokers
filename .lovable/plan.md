@@ -1,32 +1,38 @@
-# Anteprima PDF — passare a iframe nativo (drop pdfjs)
+## Obiettivo
 
-## Stato
+Su tutti gli indirizzi del cliente (Sede, Residenza, Alternativo, Fiscale) e Prospect, rendere chiaro che si può **scegliere un suggerimento Google** oppure **compilare tutto a mano**. Niente toggle: i 4 campi (Indirizzo, CAP, Città, Provincia) restano sempre visibili e indipendenti, con un piccolo helper text che lo dichiari, e un fallback automatico quando Google non risponde.
 
-- **Download PDF**: funziona (file `EC_COMUNE_DI_AGNONE_2026-05-26.pdf` allegato è valido).
-- **Anteprima in-dialog**: ancora `a.toHex is not a function` da `pdfjs-dist@5.7` anche dopo aver montato `/pdfjs/standard_fonts/` (regressione nota di pdfjs v5 nel renderer Canvas su PDF generati da `pdf-lib`).
+## Cosa cambia
 
-## Decisione
+### 1. `AddressAutocomplete.tsx`
+- Aggiungo prop opzionale `helperText` (default: *"Seleziona un suggerimento Google oppure compila i campi a mano qui sotto"*) renderizzato sotto l'input in stile `text-xs text-muted-foreground`.
+- Quando Google fallisce (chiave mancante, `gm_authFailure`, timeout caricamento) → invece di mostrare solo "Autocomplete non disponibile" mostro un banner leggero giallo *"Suggerimenti Google non disponibili — compila i campi manualmente"*. L'input resta perfettamente usabile come `<Input>` libero (già lo è, ma rimuovo l'icona "loader" e disabilito la chiamata predictions).
+- Nessuna modifica al contratto `onChange` / `onSelect` → i form esistenti continuano a funzionare.
 
-Smettere di usare pdfjs per la preview: il browser ha già un viewer PDF nativo affidabile (Chrome/Edge/Firefox/Safari). Lo usiamo via `<iframe>` su un Blob URL — zero dipendenze, zero workers, zero font esterni, render istantaneo, identico al PDF scaricato.
+### 2. Form che usano `AddressAutocomplete`
+Per ciascun blocco indirizzo:
+- Raggruppo Indirizzo + CAP + Città + Provincia in una piccola "card" con header sottile *"Indirizzo (Sede / Residenza / Alternativo / Fiscale)"* + helper *"Compila Google o a mano"*.
+- I 4 Input restano editabili a mano come oggi; aggiungo `autoComplete="off"` per evitare conflitti.
+- Quando l'utente seleziona un suggerimento Google, CAP/Città/Provincia vengono pre-compilati ma rimangono modificabili (già è così — lo confermo).
 
-## Cambiamenti
+File toccati:
+- `src/components/clienti/NuovoClienteDialog.tsx` — Indirizzo Residenza (Privato), Indirizzo Sede (Azienda/Ente), Indirizzo Alternativo, Indirizzo Fiscale.
+- `src/pages/ClienteDetail.tsx` — stessi blocchi in modifica.
+- `src/pages/ProspectList.tsx` — indirizzo prospect.
 
-### `src/components/PdfPreview.tsx` — riscritto in 30 righe
-- Niente più `pdfjs-dist`, niente `standardFontDataUrl`, niente canvas loop.
-- Riceve `data: Uint8Array | null`.
-- In `useEffect`: crea `new Blob([data], { type: "application/pdf" })`, `URL.createObjectURL(blob)`, salva in state.
-- Cleanup: `URL.revokeObjectURL(url)` su unmount/cambio dati.
-- Render: `<iframe src={url} title="Anteprima PDF" className="w-full h-full border-0" />`.
-- Fallback se `data` null: messaggio "Caricamento anteprima…".
+### 3. Validazione
+Nessun cambio alle validazioni esistenti (`indirizzo`, `cap`, `citta`, `provincia` restano required dove già lo sono). L'utente può quindi salvare con dati interamente digitati a mano.
 
-### Altri PDF preview
-- Verifico che `PdfPreview` sia usato solo dalla pagina E/C cliente (grep): se sì, nessun altro file da toccare. Se è usato anche da `ECAgenziaPdfPage` / `AgenzieInPagamentoPage`, beneficia automaticamente del fix.
+## Cosa NON cambia
 
-### Pulizia (opzionale, non bloccante)
-- Posso rimuovere la cartella `public/pdfjs/standard_fonts/` (non più necessaria) e mantenere `pdfjs-dist` solo se è ancora usata altrove (es. `DocumentLibrary`). Verificherò con un grep prima di rimuovere.
+- Niente migrazioni DB.
+- Niente toggle / switch UI.
+- Niente nuovi campi in tabella `clienti`.
+- Gli altri usi di `AddressAutocomplete` (Sedi, Compagnie, Specialist, Sinistri, Template, Precontrattuale) restano invariati — l'helper text è opt-in via prop.
 
 ## Verifica
 
-1. `/contabilita/ec-cliente/pdf?clienteId=f59cb208-...` → click **Anteprima** → si apre il dialog con il PDF renderizzato dal viewer nativo del browser (toolbar print/download del browser visibile in alto).
-2. Stesso flusso su E/C Agenzia / Agenzie in pagamento (se usano `PdfPreview`).
-3. **Stampa** e **Scarica**: invariati, già funzionano.
+1. `/archivi/clienti` → **Nuovo Cliente** → Azienda: l'Indirizzo Sede mostra l'helper, scrivere "Via Roma 1" e selezionare suggerimento compila CAP/Città/Provincia; poi correggere a mano il CAP → resta editabile; salva → record creato.
+2. Stesso flusso su Privato (Residenza) e Ente (Sede).
+3. Aprire **Modifica Cliente** → modificare i 4 campi a mano senza usare il popup Google → salva → dati persistiti.
+4. Simulare Google KO (network throttle / chiave invalida) → banner giallo, i 4 campi restano compilabili a mano e il salvataggio funziona.
