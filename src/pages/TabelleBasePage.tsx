@@ -192,7 +192,7 @@ const RamiTab = () => {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload = { codice, descrizione, gruppo_ramo_id: gruppoId && gruppoId !== "none" ? gruppoId : null, aliquota_tasse_ramo: parseFloat(aliquotaRamo) || 0, aliquota_tasse_ard: parseFloat(aliquotaArd) || 0 };
+      const payload = { codice, descrizione, gruppo_ramo_id: gruppoId && gruppoId !== "none" ? gruppoId : null, aliquota_tasse_ramo: parseFloat(aliquotaRamo) || 0, ssn_attivo: ssnAttivo, aliquota_ssn: ssnAttivo ? (parseFloat(aliquotaSsn) || 0) : null };
       if (editing) {
         const { error } = await supabase.from("rami").update(payload).eq("id", editing.id);
         if (error) throw error;
@@ -229,8 +229,8 @@ const RamiTab = () => {
     onError: (e: any) => toast.error("Errore"),
   });
 
-  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setGruppoId(""); setAliquotaRamo("0"); setAliquotaArd("0"); setOpen(true); };
-  const openEdit = (r: any) => { setEditing(r); setCodice(r.codice); setDescrizione(r.descrizione); setGruppoId(r.gruppo_ramo_id || ""); setAliquotaRamo(String(r.aliquota_tasse_ramo ?? 0)); setAliquotaArd(String(r.aliquota_tasse_ard ?? 0)); setOpen(true); };
+  const openNew = () => { setEditing(null); setCodice(""); setDescrizione(""); setGruppoId(""); setAliquotaRamo("0"); setSsnAttivo(false); setAliquotaSsn("10.50"); setOpen(true); };
+  const openEdit = (r: any) => { setEditing(r); setCodice(r.codice); setDescrizione(r.descrizione); setGruppoId(r.gruppo_ramo_id || ""); setAliquotaRamo(String(r.aliquota_tasse_ramo ?? 0)); setSsnAttivo(!!r.ssn_attivo); setAliquotaSsn(r.aliquota_ssn != null ? String(r.aliquota_ssn) : "10.50"); setOpen(true); };
   const closeDialog = () => { setOpen(false); setEditing(null); };
 
   return (
@@ -253,7 +253,7 @@ const RamiTab = () => {
               <TableHead>Descrizione</TableHead>
               <TableHead>Gruppo Ramo</TableHead>
               <TableHead className="w-28 text-right">% Tasse Ramo</TableHead>
-              <TableHead className="w-28 text-right">% Tasse ARD</TableHead>
+              <TableHead className="w-28 text-center">SSN</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
             </TableRow>
@@ -275,7 +275,13 @@ const RamiTab = () => {
                   )}
                 </TableCell>
                 <TableCell className="text-right font-mono">{r.aliquota_tasse_ramo ?? 0}%</TableCell>
-                <TableCell className="text-right font-mono">{r.aliquota_tasse_ard ?? 0}%</TableCell>
+                <TableCell className="text-center">
+                  {r.ssn_attivo ? (
+                    <Badge variant="default" className="font-mono">{Number(r.aliquota_ssn ?? 10.5).toFixed(2)}%</Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-center">
                   <Switch checked={r.attivo} onCheckedChange={(v) => toggleAttivo.mutate({ id: r.id, attivo: v })} />
                 </TableCell>
@@ -309,7 +315,21 @@ const RamiTab = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>% Tasse Ramo</Label><Input type="number" step="0.01" value={aliquotaRamo} onChange={(e) => setAliquotaRamo(e.target.value)} /></div>
-                <div><Label>% Tasse ARD</Label><Input type="number" step="0.01" value={aliquotaArd} onChange={(e) => setAliquotaArd(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label className="flex items-center justify-between">
+                    <span>Contributo SSN</span>
+                    <Switch checked={ssnAttivo} onCheckedChange={setSsnAttivo} />
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={aliquotaSsn}
+                    onChange={(e) => setAliquotaSsn(e.target.value)}
+                    disabled={!ssnAttivo}
+                    placeholder="% SSN (es. 10,50)"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Calcolato sul lordo (netto+tasse). Tipico RCA Auto: 10,50%.</p>
+                </div>
               </div>
             </div>
             <DialogFooter>
