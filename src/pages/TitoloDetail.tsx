@@ -1143,6 +1143,7 @@ const TitoloDetail = () => {
       firma: p.firma != null ? String(p.firma) : "",
       rata: p.rata != null ? String(p.rata) : "",
       annuo: p.annuo != null ? String(p.annuo) : "",
+      ssn: p.ssn != null ? String(p.ssn) : "",
       ordine: p.ordine ?? 0,
       _existing: true,
     }));
@@ -1153,7 +1154,7 @@ const TitoloDetail = () => {
   const addPremiRow = () => {
     setPremiRows((prev) => [
       ...prev,
-      { garanzia: "", capitale: "", tasso: "", firma: "", rata: "", annuo: "", ordine: prev.length, _existing: false, _new: true },
+      { garanzia: "", capitale: "", tasso: "", firma: "", rata: "", annuo: "", ssn: "", ordine: prev.length, _existing: false, _new: true },
     ]);
   };
 
@@ -1199,6 +1200,7 @@ const TitoloDetail = () => {
           firma: r.firma === "" ? null : Number(r.firma),
           rata: r.rata === "" ? null : Number(r.rata),
           annuo: r.annuo === "" ? null : Number(r.annuo),
+          ssn: r.ssn === "" || r.ssn == null ? 0 : Number(r.ssn),
           ordine: i,
         }));
       if (toUpsert.length) {

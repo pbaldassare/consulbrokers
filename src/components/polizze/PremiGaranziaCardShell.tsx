@@ -20,6 +20,14 @@ export interface GaranziaRow {
   aliquotaTasse: number;
   /** Id del sottoramo selezionato (rami.id). Usato per derivare titoli.ramo_id in immissione. */
   sottoramoId?: string | null;
+  /** Contributo SSN per la riga (importo €) — popolato solo se il sottoramo ha ssn_attivo */
+  ssn?: string;
+  /** % SSN applicata (cache dal sottoramo, es. 10.50) */
+  aliquotaSsn?: number;
+  /** True se il sottoramo prevede SSN */
+  ssnAttivo?: boolean;
+  /** True se l'utente ha modificato manualmente l'importo SSN (no autorecalc) */
+  ssnManualOverride?: boolean;
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
@@ -29,6 +37,10 @@ export const emptyGaranziaRow = (): GaranziaRow => ({
   tasse: "",
   aliquotaTasse: 0,
   sottoramoId: null,
+  ssn: "",
+  aliquotaSsn: 0,
+  ssnAttivo: false,
+  ssnManualOverride: false,
 });
 
 export interface PremiGaranziaCardShellProps {
@@ -98,8 +110,10 @@ export function PremiGaranziaCardShell({
 
   const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totTasse = rows.reduce((s, r) => s + (parseFloat(r.tasse || "0") || 0), 0);
+  const totSsn = rows.reduce((s, r) => s + (parseFloat(r.ssn || "0") || 0), 0);
   const add = parseFloat(addizionali || "0") || 0;
-  const lordo = totNetto + totTasse + add;
+  const lordo = totNetto + totTasse + totSsn + add;
+  const hasSsnRows = rows.some((r) => r.ssnAttivo);
 
   // Catalogo sottorami filtrato per gruppo ramo selezionato.
   // I sottorami compongono le righe garanzia che formano il premio.
@@ -109,7 +123,7 @@ export function PremiGaranziaCardShell({
     queryFn: async () => {
       const { data } = await supabase
         .from("rami")
-        .select("id, codice, descrizione, aliquota_tasse_ramo")
+        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn")
         .eq("attivo", true)
         .eq("gruppo_ramo_id", gruppoRamoId!)
         .order("codice");
@@ -140,57 +154,85 @@ export function PremiGaranziaCardShell({
     onRowsChange(next.length ? next : [emptyGaranziaRow()]);
   };
 
+  const calcSsn = (netto: number, tasse: number, aliquotaSsn: number) =>
+    aliquotaSsn > 0 ? +(((netto + tasse) * aliquotaSsn) / 100).toFixed(2) : 0;
+
   const handleGaranziaSelect = (idx: number, sottoramoId: string) => {
     const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
     if (!sel) return;
     const aliquota = Number(sel.aliquota_tasse_ramo) || 0;
+    const ssnAttivo = !!sel.ssn_attivo;
+    const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     const netto = parseFloat(rows[idx]?.netto || "0") || 0;
+    const tasseCalc = netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(rows[idx]?.tasse || "0") || 0);
     updateRow(idx, {
       sottoramoId: sel.id,
       codice: sel.codice,
       descrizione: sel.descrizione,
       aliquotaTasse: aliquota,
-      tasse: netto > 0 && aliquota > 0 ? ((netto * aliquota) / 100).toFixed(2) : rows[idx]?.tasse || "",
+      tasse: netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || "",
+      ssnAttivo,
+      aliquotaSsn,
+      ssn: ssnAttivo && netto > 0 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : "",
+      ssnManualOverride: false,
     });
   };
 
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (value === "") {
-      updateRow(idx, { netto: "", tasse: "" });
+      updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
     const netto = parseFloat(value);
     const aliquota = r?.aliquotaTasse || 0;
+    const tasseNew = aliquota > 0 && !isNaN(netto) ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(r?.tasse || "0") || 0);
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(netto, tasseNew, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
     updateRow(idx, {
       netto: value,
-      tasse: aliquota > 0 && !isNaN(netto) ? ((netto * aliquota) / 100).toFixed(2) : r?.tasse || "",
+      tasse: aliquota > 0 && !isNaN(netto) ? tasseNew.toFixed(2) : r?.tasse || "",
+      ssn: ssnNew,
     });
   };
 
   const handleTasseChange = (idx: number, value: string) => {
-    // Override manuale delle tasse: lascia il netto invariato; il Lordo si ricalcola
-    // automaticamente dalla somma netto+tasse nel render. L'aliquota mostrata diventa
-    // quella effettiva (tax/netto*100).
-    updateRow(idx, { tasse: value });
+    const r = rows[idx];
+    const netto = parseFloat(r?.netto || "0") || 0;
+    const tasse = parseFloat(value || "0") || 0;
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(netto, tasse, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
+    updateRow(idx, { tasse: value, ssn: ssnNew });
+  };
+
+  const handleSsnChange = (idx: number, value: string) => {
+    updateRow(idx, { ssn: value, ssnManualOverride: true });
   };
 
   const handleLordoChange = (idx: number, value: string) => {
     const r = rows[idx];
     if (value === "") {
-      updateRow(idx, { netto: "", tasse: "" });
+      updateRow(idx, { netto: "", tasse: "", ssn: r?.ssnManualOverride ? r.ssn : "" });
       return;
     }
     const lordo = parseFloat(value);
     if (isNaN(lordo)) return;
     const aliquota = r?.aliquotaTasse || 0;
+    // Risolve netto+tasse a partire dal lordo riga (SSN escluso: trattato come riga separata)
+    let nettoCalc: number; let tasseCalc: number;
     if (aliquota > 0) {
-      const netto = lordo / (1 + aliquota / 100);
-      const tasse = lordo - netto;
-      updateRow(idx, { netto: netto.toFixed(2), tasse: tasse.toFixed(2) });
+      nettoCalc = lordo / (1 + aliquota / 100);
+      tasseCalc = lordo - nettoCalc;
     } else {
-      updateRow(idx, { netto: lordo.toFixed(2), tasse: "0.00" });
+      nettoCalc = lordo;
+      tasseCalc = 0;
     }
+    const ssnNew = r?.ssnAttivo && !r?.ssnManualOverride
+      ? calcSsn(nettoCalc, tasseCalc, r.aliquotaSsn || 0).toFixed(2)
+      : (r?.ssn || "");
+    updateRow(idx, { netto: nettoCalc.toFixed(2), tasse: tasseCalc.toFixed(2), ssn: ssnNew });
   };
 
   return (
@@ -224,10 +266,11 @@ export function PremiGaranziaCardShell({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[34%]">Voce</TableHead>
+                <TableHead className="w-[30%]">Voce</TableHead>
                 <TableHead className="text-right">Premio Netto</TableHead>
-                <TableHead className="text-right w-[110px]">Aliquota %</TableHead>
+                <TableHead className="text-right w-[90px]">Aliquota %</TableHead>
                 <TableHead className="text-right">Tasse €</TableHead>
+                {hasSsnRows && <TableHead className="text-right w-[110px]">SSN €</TableHead>}
                 <TableHead className="text-right">Premio Lordo</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
@@ -236,10 +279,11 @@ export function PremiGaranziaCardShell({
               {rows.map((r, idx) => {
                 const netto = parseFloat(r.netto || "0") || 0;
                 const tax = parseFloat(r.tasse || "0") || 0;
+                const ssnRow = parseFloat(r.ssn || "0") || 0;
                 // L'aliquota è fissa: viene dal DB (ramo/sottoramo) e non si ricalcola
                 // dai valori immessi. Sono netto/tasse/lordo a muoversi in base all'aliquota.
                 const aliquotaFissa = r.aliquotaTasse || 0;
-                const lordoRow = netto + tax;
+                const lordoRow = netto + tax + ssnRow;
                 const zebra = idx % 2 === 0
                   ? (isQuietanza ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-teal-50/50 dark:bg-teal-950/15")
                   : "bg-card";
@@ -290,6 +334,28 @@ export function PremiGaranziaCardShell({
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
+                    {hasSsnRows && (
+                      <TableCell className="text-right">
+                        {r.ssnAttivo ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              inputMode="decimal"
+                              value={r.ssn || ""}
+                              onChange={(e) => handleSsnChange(idx, e.target.value)}
+                              className="h-8 text-right font-mono ml-auto w-24"
+                              title={`SSN ${(r.aliquotaSsn ?? 10.5).toFixed(2)}% sul lordo (netto+tasse)`}
+                            />
+                            <span className="text-[9px] text-muted-foreground font-mono">
+                              {(r.aliquotaSsn ?? 10.5).toFixed(2)}%{r.ssnManualOverride ? " · manuale" : ""}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       <Input
                         type="number"
@@ -326,7 +392,7 @@ export function PremiGaranziaCardShell({
         </div>
 
         {/* Totali */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 border-t bg-muted/20">
+        <div className={cn("grid grid-cols-2 gap-2 p-3 border-t bg-muted/20", hasSsnRows ? "md:grid-cols-5" : "md:grid-cols-4")}>
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Netto</Label>
             <p className="text-sm font-mono font-semibold mt-0.5">{totNetto.toFixed(2)} €</p>
@@ -335,6 +401,12 @@ export function PremiGaranziaCardShell({
             <Label className="text-[10px] uppercase text-muted-foreground">Totale Tasse</Label>
             <p className="text-sm font-mono font-semibold mt-0.5">{totTasse.toFixed(2)} €</p>
           </div>
+          {hasSsnRows && (
+            <div className="rounded-md border bg-card p-2">
+              <Label className="text-[10px] uppercase text-muted-foreground">Totale SSN</Label>
+              <p className="text-sm font-mono font-semibold mt-0.5">{totSsn.toFixed(2)} €</p>
+            </div>
+          )}
           <div className="rounded-md border bg-card p-2">
             <Label className="text-[10px] uppercase text-muted-foreground">Addizionali</Label>
             <Input

@@ -133,6 +133,12 @@ const ImmissionePolizzaPage = () => {
       const rows: GaranziaRow[] = d.garanzie.map((g) => {
         const codice = (g.codice_sottoramo || "").trim();
         const match = codice ? ramiPerGruppo.find((r: any) => r.codice === codice) : null;
+        const ssnAttivo = !!match?.ssn_attivo;
+        const aliquotaSsn = ssnAttivo ? (Number(match?.aliquota_ssn) || 10.5) : 0;
+        const netto = g.premio_netto != null ? Number(g.premio_netto) : 0;
+        const tasse = g.premio_imposte != null ? Number(g.premio_imposte) : 0;
+        const ssnFromAi = (g as any).ssn != null ? Number((g as any).ssn) : null;
+        const ssnAuto = ssnAttivo && netto > 0 ? +(((netto + tasse) * aliquotaSsn) / 100).toFixed(2) : 0;
         return {
           ...emptyGaranziaRow(),
           codice: match?.codice ?? (codice || null),
@@ -141,6 +147,10 @@ const ImmissionePolizzaPage = () => {
           netto: g.premio_netto != null ? String(g.premio_netto) : "",
           tasse: g.premio_imposte != null ? String(g.premio_imposte) : "",
           aliquotaTasse: typeof g.aliquota_tasse_pct === "number" ? g.aliquota_tasse_pct : 0,
+          ssnAttivo,
+          aliquotaSsn,
+          ssn: ssnFromAi != null ? String(ssnFromAi) : (ssnAuto > 0 ? ssnAuto.toFixed(2) : ""),
+          ssnManualOverride: ssnFromAi != null,
         };
       });
       setPremiFirmaRows(rows);
@@ -564,7 +574,7 @@ const ImmissionePolizzaPage = () => {
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id").eq("attivo", true).order("codice");
+      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn").eq("attivo", true).order("codice");
       return data || [];
     },
   });
@@ -655,19 +665,21 @@ const ImmissionePolizzaPage = () => {
   const isProvvigioneModified = false;
 
   // --- Computed: derive scalars from row arrays ---
-  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse") =>
-    arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
+  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse" | "ssn") =>
+    arr.reduce((s, r) => s + (parseFloat((r as any)[k] || "0") || 0), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
   const tasseNum = sumNum(premiFirmaRows, "tasse");
+  const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
   const tasse = tasseNum ? String(tasseNum) : "";
   const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
   const tasseQNum = sumNum(premiQuietanzaRows, "tasse");
+  const ssnQuietanzaNum = sumNum(premiQuietanzaRows, "ssn");
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
 
-  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum;
-  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
+  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum + ssnFirmaNum;
+  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum + ssnQuietanzaNum;
 
   // --- Matrice provvigioni per Rapporto + Gruppo Ramo: pct per sottoramo ---
   type MatriceProvv = {
@@ -962,6 +974,7 @@ const ImmissionePolizzaPage = () => {
         premio_netto: premioNetto ? parseFloat(premioNetto) : null,
         addizionali: addizionali ? parseFloat(addizionali) : 0,
         tasse: tasse ? parseFloat(tasse) : null,
+        ssn_firma: ssnFirmaNum || 0,
         premio_lordo: totFirma || null,
         valuta,
         provvigioni_firma: provvFirma || null,
@@ -981,6 +994,7 @@ const ImmissionePolizzaPage = () => {
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
         addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
+        ssn_quietanza: ssnQuietanzaNum || 0,
         provvigioni_quietanza: provvQuietanza || null,
         brokeraggio_firma: brokFirma || null,
         brokeraggio_quietanza: brokQuietanza || null,
@@ -1087,6 +1101,8 @@ const ImmissionePolizzaPage = () => {
             rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
             annuo: 0,
             ordine: idx,
+            aliquota_tasse_pct: r.aliquotaTasse || null,
+            ssn: parseFloat(r.ssn || "0") || 0,
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
