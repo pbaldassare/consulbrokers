@@ -120,7 +120,7 @@ export const SospensionePolizzaDialog = ({ open, onOpenChange, titoloId, numeroP
 
       const { data: titoloRow, error: errFetch } = await supabase
         .from("titoli")
-        .select("id, numero_titolo, riga")
+        .select("id, numero_titolo, riga, cliente_id, cliente_anagrafica_id, compagnia_id, compagnia_rapporto_id, codice_rapporto, ramo_id, prodotto_id, prodotto_nome, ufficio_id, ae_anagrafica_id, anagrafica_commerciale_id, commerciale_id, percentuale_commerciale, percentuale_riparto, tipo_portafoglio, tipo_mandatario")
         .eq("id", titoloId)
         .single();
       if (errFetch) throw errFetch;
