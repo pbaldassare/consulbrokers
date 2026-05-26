@@ -553,7 +553,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
         payload.referente_telefono = referenteTelefono || null;
         payload.referente_email = referenteEmail || null;
         if (tipoCliente === "ente") {
-          payload.codice_cig = codiceCig || null;
+          payload.codice_cig = codiceCig ? normalizeCig(codiceCig) : null;
+          payload.cig_temporaneo = cigTemporaneo;
         }
       }
       const { data, error } = await supabase.from("clienti").insert(payload as any).select("id, nome, cognome, ragione_sociale").single();
