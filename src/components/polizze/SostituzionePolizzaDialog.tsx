@@ -488,26 +488,85 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
               />
             </div>
 
+            {/* Nuovo numero polizza (se la compagnia ne emette uno diverso) */}
+            <div className="border rounded-md p-3 space-y-2 bg-muted/20">
+              <Label htmlFor="sost-nuovo-numero">Nuovo numero polizza (opzionale)</Label>
+              <Input
+                id="sost-nuovo-numero"
+                value={nuovoNumeroPolizza}
+                onChange={(e) => setNuovoNumeroPolizza(e.target.value)}
+                placeholder={numeroPolizza || "Lascia vuoto per mantenere il numero attuale"}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Se la compagnia emette un nuovo numero a seguito della sostituzione, inseriscilo qui.
+                Numero attuale: <span className="font-mono">{numeroPolizza || "—"}</span>.
+                Il vecchio numero verrà archiviato nello storico della polizza.
+              </p>
+            </div>
+
             {/* Nuovi parametri oggetto */}
             <div className="border rounded-md p-3 space-y-3">
               <div className="text-sm font-semibold">Nuovi parametri oggetto</div>
               {isRca ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-targa">Targa</Label>
-                    <Input id="sost-targa" value={targa} onChange={(e) => setTarga(e.target.value.toUpperCase())} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-telaio">Telaio</Label>
-                    <Input id="sost-telaio" value={telaio} onChange={(e) => setTelaio(e.target.value.toUpperCase())} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-marca">Marca</Label>
-                    <Input id="sost-marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sost-modello">Modello</Label>
-                    <Input id="sost-modello" value={modello} onChange={(e) => setModello(e.target.value)} />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-targa">Targa</Label>
+                      <Input id="sost-targa" value={targa} onChange={(e) => setTarga(e.target.value.toUpperCase())} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-telaio">Telaio</Label>
+                      <Input id="sost-telaio" value={telaio} onChange={(e) => setTelaio(e.target.value.toUpperCase())} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-marca">Marca</Label>
+                      <Input id="sost-marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-modello">Modello</Label>
+                      <Input id="sost-modello" value={modello} onChange={(e) => setModello(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-versione">Versione / Allestimento</Label>
+                      <Input id="sost-versione" value={versione} onChange={(e) => setVersione(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-tipo-veicolo">Tipo veicolo</Label>
+                      <Input id="sost-tipo-veicolo" value={tipoVeicolo} onChange={(e) => setTipoVeicolo(e.target.value)} placeholder="Autovettura, Autocarro…" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-alim">Alimentazione</Label>
+                      <Input id="sost-alim" value={tipoAlimentazione} onChange={(e) => setTipoAlimentazione(e.target.value)} placeholder="Benzina, Diesel, Elettrico…" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-cc">Cilindrata (cc)</Label>
+                      <Input id="sost-cc" type="number" inputMode="numeric" value={cilindrata} onChange={(e) => setCilindrata(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-kw">Potenza (kW)</Label>
+                      <Input id="sost-kw" type="number" inputMode="numeric" value={potenzaKw} onChange={(e) => setPotenzaKw(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-cv">Potenza (CV)</Label>
+                      <Input id="sost-cv" type="number" inputMode="numeric" value={potenzaCv} onChange={(e) => setPotenzaCv(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-posti">Posti</Label>
+                      <Input id="sost-posti" type="number" inputMode="numeric" value={posti} onChange={(e) => setPosti(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-imm">Data immatricolazione</Label>
+                      <Input id="sost-imm" type="date" value={dataImmatricolazione} onChange={(e) => setDataImmatricolazione(e.target.value)} className="tabular-nums" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-bm">Classe BM</Label>
+                      <Input id="sost-bm" value={classeBm} onChange={(e) => setClasseBm(e.target.value)} placeholder="es. 1" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-prov">Provincia di circolazione</Label>
+                      <Input id="sost-prov" value={provinciaCircolazione} onChange={(e) => setProvinciaCircolazione(e.target.value.toUpperCase())} maxLength={2} placeholder="es. VE" />
+                    </div>
                   </div>
                 </div>
               ) : (
