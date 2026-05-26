@@ -2584,8 +2584,10 @@ const TitoloDetail = () => {
         {editingComm ? (
           (() => {
             const sumPerc = splitsForm.reduce((acc, s) => acc + (Number(s.percentuale) || 0), 0);
-            const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
-            const overflow = sumPerc > 100.001;
+            const aePerc = aeForm.ae_anagrafica_id ? Math.max(0, Number(aeForm.percentuale_ae) || 0) : 0;
+            const sumTot = sumPerc + aePerc;
+            const consulPerc = Math.max(0, Math.round((100 - sumTot) * 100) / 100);
+            const overflow = sumTot > 100.001;
             const dupIds = (() => {
               const seen = new Map<string, number>();
               splitsForm.forEach(s => { if (s.anagrafica_commerciale_id) seen.set(s.anagrafica_commerciale_id, (seen.get(s.anagrafica_commerciale_id) || 0) + 1); });
@@ -2651,10 +2653,36 @@ const TitoloDetail = () => {
                   + Aggiungi produttore
                 </Button>
 
+                {/* Account Executive — secondo intermediario provvigionato (riga distinta, residuo a Consul) */}
+                <div className="grid grid-cols-12 gap-2 items-end p-2 border rounded-md bg-sky-50/40 dark:bg-sky-950/10">
+                  <div className="col-span-12 md:col-span-7">
+                    <Label className="text-[11px]">Account Executive</Label>
+                    <SearchableSelect
+                      options={[{ value: "", label: "— Nessun AE —" }, ...(aeLookup as any[])]}
+                      value={aeForm.ae_anagrafica_id || ""}
+                      onValueChange={(v) => setAeForm(p => ({ ...p, ae_anagrafica_id: v || null }))}
+                      placeholder="Seleziona Account Executive..."
+                    />
+                  </div>
+                  <div className="col-span-12 md:col-span-5">
+                    <Label className="text-[11px]">% AE</Label>
+                    <Input
+                      type="number" min={0} max={100} step={0.01}
+                      value={aeForm.percentuale_ae}
+                      onChange={(e) => setAeForm(p => ({ ...p, percentuale_ae: Number(e.target.value) || 0 }))}
+                      disabled={!aeForm.ae_anagrafica_id}
+                      placeholder="0,00"
+                    />
+                  </div>
+                </div>
+
                 <div className={cn("p-3 rounded-md border text-sm", overflow ? "border-red-400 bg-red-50 dark:bg-red-950/20 text-red-800" : "bg-muted/40")}>
                   <div className="flex justify-between"><span>Totale produttori:</span> <strong className="font-mono tabular-nums">{sumPerc.toFixed(2)}%</strong></div>
+                  {aePerc > 0 && (
+                    <div className="flex justify-between"><span>Account Executive:</span> <strong className="font-mono tabular-nums">{aePerc.toFixed(2)}%</strong></div>
+                  )}
                   <div className="flex justify-between"><span>Consulbrokers SPA (residuo):</span> <strong className="font-mono tabular-nums">{consulPerc.toFixed(2)}%</strong></div>
-                  {overflow && <div className="text-xs mt-1">⚠ La somma supera 100% — riduci le percentuali per salvare.</div>}
+                  {overflow && <div className="text-xs mt-1">⚠ La somma (Produttori + AE) supera 100% — riduci le percentuali per salvare.</div>}
                 </div>
 
                 <div className="flex gap-2">
