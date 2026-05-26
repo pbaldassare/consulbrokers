@@ -86,7 +86,7 @@ const CATEGORIE: Record<CategoriaKey, { label: string; icon: React.ComponentType
   all:             { label: "Tutti",          icon: List,      tipi: null,                                            defaultTipo: "incasso_clienti" },
 };
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE gestito da useServerPagination (default 25)
 
 const emptyForm: Partial<ContoBancario> = {
   etichetta: "",
