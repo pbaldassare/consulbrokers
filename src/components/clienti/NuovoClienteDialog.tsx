@@ -154,6 +154,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   const [partitaIva, setPartitaIva] = useState("");
   const [codiceFiscaleAzienda, setCodiceFiscaleAzienda] = useState("");
   const [codiceCig, setCodiceCig] = useState("");
+  const [cigTemporaneo, setCigTemporaneo] = useState(false);
   const [codiceSdi, setCodiceSdi] = useState("");
   const [formaGiuridica, setFormaGiuridica] = useState("");
   const [indirizzoSede, setIndirizzoSede] = useState("");
