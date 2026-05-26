@@ -661,53 +661,8 @@ const AnagraficheInternePage = () => {
   };
 
   const renderFormFields = () => {
-    if (isAE) {
-      return (
-        <>
-          {renderUfficioSelect()}
-          <Tabs defaultValue="dati">
-            <TabsList className="grid grid-cols-3">
-              <TabsTrigger value="dati">Dati</TabsTrigger>
-              <TabsTrigger value="rui">RUI & Banca</TabsTrigger>
-              <TabsTrigger value="contatti">Contatti & Note</TabsTrigger>
-            </TabsList>
-            <TabsContent value="dati" className="space-y-3 mt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Codice</Label><Input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value })} /></div>
-                <div><Label>Sigla</Label><Input value={form.sigla} onChange={(e) => setForm({ ...form, sigla: e.target.value })} /></div>
-                <div className="col-span-2"><Label>Descrizione (Ragione Sociale)</Label><Input value={form.ragione_sociale} onChange={(e) => setForm({ ...form, ragione_sociale: e.target.value })} /></div>
-                <div><Label>Cognome</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
-                <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-              </div>
-            </TabsContent>
-            <TabsContent value="rui" className="space-y-3 mt-3">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">Dati RUI</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Nome RUI</Label><Input value={form.nome_rui} onChange={(e) => setForm({ ...form, nome_rui: e.target.value })} /></div>
-                <div><Label>Data iscrizione RUI</Label><DateField value={form.data_iscrizione_rui} onChange={(v) => setForm({ ...form, data_iscrizione_rui: v })} /></div>
-                <div><Label>Numero RUI</Label><Input value={form.numero_rui} onChange={(e) => setForm({ ...form, numero_rui: e.target.value })} /></div>
-                <div><Label>Sezione RUI</Label><Input value={form.sezione_rui} onChange={(e) => setForm({ ...form, sezione_rui: e.target.value })} placeholder="Es. B" /></div>
-              </div>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-4 mb-2">Dati Bancari</p>
-              <div className="grid grid-cols-1 gap-3">
-                <div><Label>Banca (riga 1)</Label><Input value={form.banca_riga1} onChange={(e) => setForm({ ...form, banca_riga1: e.target.value })} /></div>
-                <div><Label>Banca (riga 2)</Label><Input value={form.banca_riga2} onChange={(e) => setForm({ ...form, banca_riga2: e.target.value })} /></div>
-                <div><Label>Banca (riga 3)</Label><Input value={form.banca_riga3} onChange={(e) => setForm({ ...form, banca_riga3: e.target.value })} /></div>
-              </div>
-            </TabsContent>
-            <TabsContent value="contatti" className="space-y-3 mt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
-                <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              </div>
-              <div><Label>Note</Label><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></div>
-            </TabsContent>
-          </Tabs>
-        </>
-      );
-    }
+    if (isAE || isCorr) {
 
-    if (isCorr) {
       return (
         <>
           {renderUfficioSelect()}
