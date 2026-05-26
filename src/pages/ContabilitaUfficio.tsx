@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { buildIncassiCoperturePdf, type IncassiCoperturaGruppo } from "@/lib/incassi-coperture-pdf";
+import { fmtEuro } from "@/lib/formatCurrency";
 import PdfPreview from "@/components/PdfPreview";
 
 type TitoloCassa = {
