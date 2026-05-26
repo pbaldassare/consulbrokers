@@ -5704,6 +5704,7 @@ export type Database = {
       }
       rami: {
         Row: {
+          aliquota_ssn: number | null
           aliquota_tasse_ard: number | null
           aliquota_tasse_ramo: number | null
           attivo: boolean
@@ -5712,8 +5713,10 @@ export type Database = {
           descrizione: string
           gruppo_ramo_id: string | null
           id: string
+          ssn_attivo: boolean
         }
         Insert: {
+          aliquota_ssn?: number | null
           aliquota_tasse_ard?: number | null
           aliquota_tasse_ramo?: number | null
           attivo?: boolean
@@ -5722,8 +5725,10 @@ export type Database = {
           descrizione: string
           gruppo_ramo_id?: string | null
           id?: string
+          ssn_attivo?: boolean
         }
         Update: {
+          aliquota_ssn?: number | null
           aliquota_tasse_ard?: number | null
           aliquota_tasse_ramo?: number | null
           attivo?: boolean
@@ -5732,6 +5737,7 @@ export type Database = {
           descrizione?: string
           gruppo_ramo_id?: string | null
           id?: string
+          ssn_attivo?: boolean
         }
         Relationships: [
           {
@@ -6858,6 +6864,8 @@ export type Database = {
           sostituisce_polizza: string | null
           sostituisce_riga: number | null
           specialist: string | null
+          ssn_firma: number
+          ssn_quietanza: number
           stato: string
           storno_appendice: string | null
           storno_polizza: string | null
@@ -6971,6 +6979,8 @@ export type Database = {
           sostituisce_polizza?: string | null
           sostituisce_riga?: number | null
           specialist?: string | null
+          ssn_firma?: number
+          ssn_quietanza?: number
           stato?: string
           storno_appendice?: string | null
           storno_polizza?: string | null
@@ -7084,6 +7094,8 @@ export type Database = {
           sostituisce_polizza?: string | null
           sostituisce_riga?: number | null
           specialist?: string | null
+          ssn_firma?: number
+          ssn_quietanza?: number
           stato?: string
           storno_appendice?: string | null
           storno_polizza?: string | null
