@@ -217,22 +217,11 @@ export function VociRcaCard({ titoloId, premioLordoTitolo, provinciaCliente, onT
 
   useEffect(() => {
     if (isLoading) return;
-    if (isQuietanza) return; // la riga RCA Quietanza viene creata dal trigger
-    if (!useAutoTaxFormula) return; // rami non-auto: nessuna riga principale auto-creata
-    const hasRca = voci.some((v) => v.is_rca_principale);
-    if (!hasRca) {
-      supabase.from("premi_garanzia_polizza" as any).insert({
-        titolo_id: titoloId,
-        garanzia: RCA_LABEL_EFFECTIVE,
-        codice_garanzia: RCA_CODE,
-        is_rca_principale: true,
-        firma: 0,
-        ordine: 0,
-        tipo_premio: "firma",
-      }).then(() => invalidateBoth());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, voci, titoloId, isQuietanza, useAutoTaxFormula]);
+  // Nota: la riga "RCA Auto / principale" non viene più auto-creata.
+  // Il sottoramo (es. QA, PI, RV*) si seleziona direttamente come voce di garanzia.
+  // Le polizze esistenti con riga `is_rca_principale=true` continuano a funzionare
+  // (formula IPT+SSN applicata in calcolaLordo), ma per le nuove polizze la voce
+  // principale è semplicemente la riga del sottoramo RCA scelta dall'utente.
 
   const upsertMut = useMutation({
     mutationFn: async (v: Partial<Voce> & { id: string }) => {
