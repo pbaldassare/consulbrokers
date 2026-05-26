@@ -1,36 +1,38 @@
 ---
 name: Policy commission split
-description: Split provvigioni titolo tra Commerciale, Consulbrokers SPA (admin) e caso speciale "commerciale = admin"
+description: Split provvigioni titolo tra Produttori, Account Executive e Consulbrokers SPA (residuo). AE = secondo intermediario provvigionato.
 type: feature
 ---
 
 ## Regola
 
-Quando un titolo passa a `incassato`, l'edge function `calcola-provvigioni` genera righe in `provvigioni_generate` partendo da `titoli.provvigioni_quietanza` e `titoli.percentuale_commerciale`:
+Quando un titolo passa a `incassato`, l'edge function `calcola-provvigioni` genera righe in `provvigioni_generate` partendo da `titoli.provvigioni_quietanza`:
 
-- Se esiste un commerciale (`anagrafica_commerciale_id` o `commerciale_id`) e `% < 100`:
-  - Riga `tipo_destinatario = 'commerciale'`, importo = `provvQ * %comm/100`, `user_id = commerciale_id`
-  - Riga `tipo_destinatario = 'admin'`, importo = differenza, `user_id = NULL` → quota di **Consulbrokers SPA** (casa madre)
-- Se non c'è commerciale o `% = 100` → 1 riga `'admin'` con il 100%.
+- **Produttori** (da `titoli_split_commerciali` o fallback singolo `anagrafica_commerciale_id` + `percentuale_commerciale`) → righe `tipo_destinatario = 'commerciale'`.
+- **Account Executive** (`titoli.ae_anagrafica_id` + `titoli.percentuale_ae`, se > 0) → riga `tipo_destinatario = 'ae'`, `anagrafica_commerciale_id = ae_anagrafica_id`.
+- **Consulbrokers SPA (admin)** → riga `tipo_destinatario = 'admin'` con il **residuo** `100 − Σ% produttori − % AE`.
 
-## Caso speciale: commerciale = admin
+Vincolo: `Σ% produttori + % AE ≤ 100` (validato in UI: Immissione + TitoloDetail editor).
 
-Se `anagrafica_commerciale_id == admin_anagrafica_id` (lette da `impostazioni_sistema.admin_anagrafica_id`, valore JSON `{"anagrafica_id": "..."}`), Consul è anche l'intermediario:
-- Si generano **comunque 2 righe** per fini statistici.
-- Riga `commerciale` con `solo_statistico = true` (NON va nei totali economici/pagamenti).
-- Riga `admin` con l'importo **intero** (`provvigioni_quietanza`), `solo_statistico = false`.
+## Caso speciale: produttore o AE = admin
+
+Se `anagrafica_commerciale_id` (produttore o AE) == `admin_anagrafica_id` (da `impostazioni_sistema.admin_anagrafica_id`):
+- La riga del soggetto viene marcata `solo_statistico = true` (NON va nei totali economici/pagamenti).
+- La sua quota economica viene **sommata alla riga admin** (residuo + statistiche).
 
 ## Filtro report/pagamenti
 
-Per totali e distinte di pagamento usare `solo_statistico = false` (non più `tipo_destinatario != 'consul'`). Le righe `'consul'` legacy storiche restano in DB e contano come quota admin (fallback "no commerciale").
+Usare sempre `solo_statistico = false`. L'AE è pagabile come destinatario al pari del Produttore (badge "AE" distinto in UI).
 
-## Setting di riferimento
+## Schema
 
-`impostazioni_sistema.chiave = 'admin_anagrafica_id'` →  
-attualmente: `b5029abb-72dd-454f-bbd1-2d758964a379` (CONSULBROKERS & PARTNERS SPA, `anagrafiche_professionali`).
+- `titoli.percentuale_ae numeric DEFAULT 0` (migrazione 2026-05-26).
+- `provvigioni_generate.tipo_destinatario` CHECK include `'ae'`.
 
 ## File chiave
 
-- `supabase/functions/calcola-provvigioni/index.ts` — generazione righe
-- `src/pages/TitoloDetail.tsx` — UI sezione "Commerciale & Provvigioni" con badge "split solo statistico" e label `Provv. Consulbrokers SPA`
-- `src/pages/ProvvigioniMaturatePage.tsx` — filtro `solo_statistico = false`, badge per `commerciale | admin | consul (legacy) | sede`
+- `supabase/functions/calcola-provvigioni/index.ts` — generazione righe (produttori + AE + admin).
+- `src/pages/ImmissionePolizzaPage.tsx` — input "% AE" accanto a "% Produttore".
+- `src/pages/TitoloDetail.tsx` — editor Commerciale con riga AE + display card "Account Executive".
+- `src/pages/ProvvigioniMaturatePage.tsx` — gestione badge `ae`.
+
