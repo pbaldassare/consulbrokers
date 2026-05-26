@@ -758,41 +758,78 @@ const ImmissionePolizzaPage = () => {
     return () => { cancelled = true; };
   }, [selectedAE, selectedRamoData?.codice]);
 
-  // --- Auto-lookup % Provvigione (Rapporto + Ramo + Sottoramo) ---
-  const firstSottoramoForProvv =
-    premiFirmaRows.find((r) => r.sottoramoId)?.sottoramoId ||
-    premiQuietanzaRows.find((r) => r.sottoramoId)?.sottoramoId ||
-    null;
-
-  // Re-abilita auto-lookup quando cambiano rapporto / gruppo ramo / sottoramo
+  // --- Matrice Provvigioni (Rapporto + Gruppo Ramo) caricata una sola volta ---
   useEffect(() => {
     setPercentualeProvvigioneAuto(true);
-  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv]);
+  }, [selectedRapportoId, selectedGruppoRamoId]);
 
   useEffect(() => {
-    if (!percentualeProvvigioneAuto) return;
     if (!selectedRapportoId || !selectedGruppoRamoId) {
-      setPercentualeProvvigione("");
+      setProvvMatrice(null);
       setProvvigioneFonte("");
       setProvvigioneWarning("");
       return;
     }
     let cancelled = false;
     (async () => {
-      try {
-        const res = await resolvePercentualeProvvigione({
-          compagnia_rapporto_id: selectedRapportoId,
-          gruppo_ramo_id: selectedGruppoRamoId,
-          ramo_id: firstSottoramoForProvv,
-        });
-        if (cancelled) return;
-        setPercentualeProvvigione(res.percentuale ? String(res.percentuale) : "");
-        setProvvigioneFonte(res.fonte || "");
-        setProvvigioneWarning(res.warning || "");
-      } catch { /* silent */ }
+      const { data } = await supabase
+        .from("provvigioni_compagnia_ramo")
+        .select("ramo_id, percentuale_provvigione")
+        .eq("compagnia_rapporto_id", selectedRapportoId)
+        .eq("gruppo_ramo_id", selectedGruppoRamoId)
+        .eq("attiva", true);
+      if (cancelled) return;
+      const rows = (data || []) as Array<{ ramo_id: string | null; percentuale_provvigione: number }>;
+      if (!rows.length) {
+        setProvvMatrice(null);
+        setProvvigioneFonte("");
+        setProvvigioneWarning("Nessuna provvigione configurata per Compagnia/Agenzia + Ramo selezionati.");
+        return;
+      }
+      const pctByRamoId = new Map<string, number>();
+      let pctDefault: number | null = null;
+      const counts = new Map<number, number>();
+      for (const r of rows) {
+        const p = Number(r.percentuale_provvigione);
+        if (r.ramo_id) pctByRamoId.set(r.ramo_id, p);
+        else pctDefault = p;
+        counts.set(p, (counts.get(p) || 0) + 1);
+      }
+      let bestP = 0, bestC = 0;
+      for (const [p, c] of counts) if (c > bestC) { bestC = c; bestP = p; }
+      const isUniform = counts.size === 1;
+      setProvvMatrice({ pctByRamoId, pctDefault, pctPrevalente: bestP, isUniform, totalRows: rows.length });
+      setProvvigioneFonte(
+        isUniform
+          ? `matrice ${rows.length} sottorami al ${bestP}% (uniforme)`
+          : `matrice ${rows.length} sottorami — % calcolata per riga sul sottoramo`
+      );
     })();
     return () => { cancelled = true; };
-  }, [selectedRapportoId, selectedGruppoRamoId, firstSottoramoForProvv, percentualeProvvigioneAuto]);
+  }, [selectedRapportoId, selectedGruppoRamoId]);
+
+  // Sincronizza display % Agenzia (media ponderata) + warning quando in auto
+  useEffect(() => {
+    if (!percentualeProvvigioneAuto) return;
+    const totNetto = premioNettoNum + premioNettoQNum;
+    if (provvMatrice && totNetto > 0) {
+      const avg = ((provvFirma + provvQuietanza) / totNetto) * 100;
+      const rounded = String(Math.round(avg * 1000) / 1000);
+      setPercentualeProvvigione((prev) => (prev === rounded ? prev : rounded));
+    } else if (!provvMatrice) {
+      setPercentualeProvvigione((prev) => (prev === "" ? prev : ""));
+    }
+    if (provvMatrice && !provvMatrice.isUniform) {
+      const allRows = [...premiFirmaRows, ...premiQuietanzaRows].filter(
+        (r) => (parseFloat(r.netto || "0") || 0) > 0
+      );
+      const unmatched = allRows.some((r) => !resolveRowPct(r).matched);
+      const msg = unmatched
+        ? "Alcune righe usano l'aliquota prevalente — seleziona il Sottoramo per la % esatta."
+        : "";
+      setProvvigioneWarning((prev) => (prev === msg ? prev : msg));
+    }
+  }, [percentualeProvvigioneAuto, provvMatrice, premioNettoNum, premioNettoQNum, provvFirma, provvQuietanza, premiFirmaRows, premiQuietanzaRows]);
 
   // --- Frazionamento helpers + auto-calcolo Periodo ---
   const FRAZIONAMENTO_OPTIONS = [
