@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
 import PageBreadcrumb from "./PageBreadcrumb";
+import CommandPalette from "./CommandPalette";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 const MainLayout = () => {
@@ -11,6 +12,7 @@ const MainLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <CommandPalette />
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div
         className={`transition-all duration-200 ${

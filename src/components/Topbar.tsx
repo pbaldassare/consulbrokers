@@ -52,7 +52,12 @@ const Topbar = ({ onToggleSidebar }: TopbarProps) => {
       </button>
 
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-        <div className="flex-1 min-w-0 max-w-xl"><GlobalSearch /></div>
+        <div className="flex-1 min-w-0 max-w-xl relative">
+          <GlobalSearch />
+          <kbd className="hidden md:flex pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            ⌘K
+          </kbd>
+        </div>
         <Badge variant={isDev ? "destructive" : "default"} className="hidden sm:inline-flex text-[10px] px-2 py-0.5 uppercase tracking-wider">
           {appEnv}
         </Badge>
