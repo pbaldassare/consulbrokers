@@ -166,7 +166,8 @@ const RamiTab = () => {
   const [descrizione, setDescrizione] = useState("");
   const [gruppoId, setGruppoId] = useState("");
   const [aliquotaRamo, setAliquotaRamo] = useState("0");
-  const [aliquotaArd, setAliquotaArd] = useState("0");
+  const [ssnAttivo, setSsnAttivo] = useState(false);
+  const [aliquotaSsn, setAliquotaSsn] = useState("10.50");
   const [search, setSearch] = useState("");
 
   const { data: rami = [], isLoading } = useQuery({
