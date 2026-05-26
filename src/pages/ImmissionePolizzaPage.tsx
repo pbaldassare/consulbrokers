@@ -743,6 +743,7 @@ const ImmissionePolizzaPage = () => {
     if (!selectedRapportoId || !selectedGruppoRamoId) {
       setPercentualeProvvigione("");
       setProvvigioneFonte("");
+      setProvvigioneWarning("");
       return;
     }
     let cancelled = false;
@@ -756,6 +757,7 @@ const ImmissionePolizzaPage = () => {
         if (cancelled) return;
         setPercentualeProvvigione(res.percentuale ? String(res.percentuale) : "");
         setProvvigioneFonte(res.fonte || "");
+        setProvvigioneWarning(res.warning || "");
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
