@@ -974,6 +974,7 @@ const ImmissionePolizzaPage = () => {
         premio_netto: premioNetto ? parseFloat(premioNetto) : null,
         addizionali: addizionali ? parseFloat(addizionali) : 0,
         tasse: tasse ? parseFloat(tasse) : null,
+        ssn_firma: ssnFirmaNum || 0,
         premio_lordo: totFirma || null,
         valuta,
         provvigioni_firma: provvFirma || null,
@@ -993,6 +994,7 @@ const ImmissionePolizzaPage = () => {
         premio_netto_quietanza: premioNettoQuietanza ? parseFloat(premioNettoQuietanza) : null,
         addizionali_quietanza: addizionaliQuietanza ? parseFloat(addizionaliQuietanza) : null,
         tasse_quietanza: tasseQuietanza ? parseFloat(tasseQuietanza) : null,
+        ssn_quietanza: ssnQuietanzaNum || 0,
         provvigioni_quietanza: provvQuietanza || null,
         brokeraggio_firma: brokFirma || null,
         brokeraggio_quietanza: brokQuietanza || null,
@@ -1099,6 +1101,8 @@ const ImmissionePolizzaPage = () => {
             rata: tipo === "quietanza" ? parseFloat(r.netto || "0") || 0 : 0,
             annuo: 0,
             ordine: idx,
+            aliquota_tasse_pct: r.aliquotaTasse || null,
+            ssn: parseFloat(r.ssn || "0") || 0,
           }));
       const premiPayload = [
         ...buildPremiInsert(premiFirmaRows, "firma"),
