@@ -14,6 +14,7 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       <CommandPalette />
+      <RecentEntitiesTracker />
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div
         className={`transition-all duration-200 ${
