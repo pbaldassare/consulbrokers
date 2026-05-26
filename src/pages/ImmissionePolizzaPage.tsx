@@ -670,8 +670,39 @@ const ImmissionePolizzaPage = () => {
 
   const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum;
   const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
-  const provvFirma = percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione) / 100) : 0;
-  const provvQuietanza = percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione) / 100) : 0;
+
+  // --- Matrice provvigioni per Rapporto + Gruppo Ramo: pct per sottoramo ---
+  type MatriceProvv = {
+    pctByRamoId: Map<string, number>;
+    pctDefault: number | null;
+    pctPrevalente: number;
+    isUniform: boolean;
+    totalRows: number;
+  };
+  const [provvMatrice, setProvvMatrice] = useState<MatriceProvv | null>(null);
+
+  const resolveRowPct = (row: GaranziaRow): { pct: number; matched: boolean } => {
+    if (!provvMatrice) return { pct: 0, matched: false };
+    if (row.sottoramoId && provvMatrice.pctByRamoId.has(row.sottoramoId)) {
+      return { pct: provvMatrice.pctByRamoId.get(row.sottoramoId)!, matched: true };
+    }
+    if (provvMatrice.pctDefault != null) return { pct: provvMatrice.pctDefault, matched: true };
+    return { pct: provvMatrice.pctPrevalente, matched: provvMatrice.isUniform };
+  };
+
+  const calcProvvAuto = (rows: GaranziaRow[]) =>
+    rows.reduce((s, r) => {
+      const netto = parseFloat(r.netto || "0") || 0;
+      return s + (netto * resolveRowPct(r).pct) / 100;
+    }, 0);
+
+  const provvFirma = percentualeProvvigioneAuto
+    ? calcProvvAuto(premiFirmaRows)
+    : (percentualeProvvigione ? (premioNettoNum * parseFloat(percentualeProvvigione)) / 100 : 0);
+  const provvQuietanza = percentualeProvvigioneAuto
+    ? calcProvvAuto(premiQuietanzaRows)
+    : (percentualeProvvigione ? (premioNettoQNum * parseFloat(percentualeProvvigione)) / 100 : 0);
+
   const brokFirma = percentualeBrokeraggio ? (premioNettoNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
   const brokQuietanza = percentualeBrokeraggio ? (premioNettoQNum * parseFloat(percentualeBrokeraggio) / 100) : 0;
 
