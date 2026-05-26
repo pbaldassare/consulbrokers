@@ -4,16 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
-
-const fmtEuro = (v: any) =>
-  v == null || isNaN(Number(v))
-    ? "—"
-    : new Intl.NumberFormat("it-IT", {
-        style: "currency",
-        currency: "EUR",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(Number(v));
+import { fmtEuro } from "@/lib/formatCurrency";
 
 interface PolizzaHeaderCardProps {
   /** Titolo già caricato (preferito quando disponibile). */
