@@ -70,6 +70,7 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [nuovoNumero, setNuovoNumero] = useState("");
 
   useEffect(() => {
     if (!open) return;
