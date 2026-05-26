@@ -187,3 +187,73 @@
     background: linear-gradient(135deg, hsl(199 58% 26%), hsl(199 58% 34%));
   }
 }
+
+/* =====================================================================
+   Print-friendly CSS — applicato a tutto, ottimizzato per E/C, distinte,
+   report. La sidebar, la topbar, i pulsanti azione e gli elementi
+   marcati `.print:hidden` (Tailwind) vengono nascosti in stampa.
+   ===================================================================== */
+@media print {
+  :root {
+    /* Forza tema chiaro in stampa per leggibilità anche se l'utente
+       sta usando dark mode. */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 30%;
+    --border: 0 0% 80%;
+    --primary: 199 58% 22%;
+    --primary-foreground: 0 0% 100%;
+  }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Chrome di app — non si stampano */
+  header, aside, nav,
+  [data-sidebar],
+  .app-sidebar,
+  .topbar,
+  .print\:hidden,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+  /* Main usa tutta la pagina */
+  main, .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+  /* Card: niente ombre, bordo sottile */
+  .card, [class*="rounded"] {
+    box-shadow: none !important;
+    border-color: #ccc !important;
+    page-break-inside: avoid;
+  }
+  /* Tabelle leggibili: bordi visibili, no hover */
+  table { border-collapse: collapse !important; width: 100% !important; }
+  table, th, td { border: 1px solid #999 !important; }
+  th, td { padding: 4px 6px !important; }
+  thead { display: table-header-group; } /* ripete header su pagine multiple */
+  tr, td, th { page-break-inside: avoid; }
+  /* Link: mostra URL accanto */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #555;
+  }
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after { content: ""; }
+  /* Niente sticky/fixed in stampa */
+  .sticky, .fixed { position: static !important; }
+  /* Page break helpers */
+  .page-break-before { page-break-before: always; }
+  .page-break-after { page-break-after: always; }
+  .avoid-break { page-break-inside: avoid; }
+}
