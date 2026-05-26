@@ -1,58 +1,64 @@
-## Diagnosi
+## Obiettivo
 
-Ho controllato `src/components/AppSidebar.tsx`, `src/routes/*` e tutto `src/`. Nel codice **NON esistono più** le voci legacy:
+Calcolare le **provvigioni per ogni riga garanzia** in base alla matrice `provvigioni_compagnia_ramo` (Rapporto Compagnia/Agenzia + Gruppo Ramo + Sottoramo della riga), applicarle al **Premio Netto di quella riga**, e mostrarne la **somma nel totale provvigioni** delle card Firma e Quietanza.
 
-- ❌ `FATTURAPA` — assente in sidebar
-- ❌ `CONT. GENERALE` — assente in sidebar
-- ❌ `FORNITORI` — assente in sidebar  
-- ❌ `BANCA IMPORT` — assente in sidebar
+Oggi invece viene usata **una sola %** (quella prevalente del gruppo) applicata all'intero netto, ignorando che ogni sottoramo può avere un'aliquota diversa (es. Cattolica/Campobasso × ZQ: QA = 8%, 093 = 20%, resto 12%).
 
-Le rotte `/fatturapa/*`, `/contabilita-generale/*`, `/fornitori/*`, `/banca-import/*` sono già redirect → `/contabilita` in `src/routes/contabilita.tsx`.
+## Cosa cambia
 
-La sidebar attuale ha: Home, Assistente IA, Area CFO, Trattative, Bandi Pubblici, Chat, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche.
+### 1. Mappa % per sottoramo (nuovo hook in `ImmissionePolizzaPage.tsx`)
 
-**Lo screenshot mostra però la VECCHIA sidebar** con FATTURAPA + CONT. GENERALE + Comunicazioni + ARCHIVI come gruppo separato. Questo significa che il tuo browser sta caricando un **bundle JS vecchio in cache** (HTTP cache + eventuale Service Worker residuo). Il sistema di version-check esiste (`AppVersionGuard` + `versionCheck.ts`), ma:
+Quando cambiano `selectedRapportoId` + `selectedGruppoRamoId`, eseguire **una sola query** a `provvigioni_compagnia_ramo` e costruire:
 
-1. In **dev/preview** (`IS_DEV=true`) è disattivato → la preview Lovable non forza il reload.
-2. Anche in produzione, se l'`index.html` viene servito dalla cache del browser con `VITE_APP_VERSION` vecchio, il check confronta vecchio↔vecchio e non scatta.
-3. Il kill-switch SW (`/sw.js`) funziona solo se l'utente ha un SW registrato; se il browser ha solo cache HTTP del bundle, non basta.
-
-## Cosa farò
-
-### 1. `index.html` — disabilitare cache HTML
-Aggiungo meta cache-control per impedire al browser di servire un `index.html` vecchio:
-```html
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-<meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" />
 ```
-Così ad ogni apertura il browser richiede sempre l'HTML fresco; gli asset JS hashati di Vite poi si caricano automaticamente nuovi.
+pctByRamoId: Map<ramo_id, percentuale>
+pctDefault:  number | null   // riga con ramo_id NULL, se esiste
+pctPrevalente: number        // % più frequente nel gruppo (fallback)
+```
 
-### 2. `versionCheck.ts` — attivare check anche in preview
-Rimuovo il bypass `IS_DEV` per il path `id-preview--*.lovable.app` e `*.lovable.app`: in quegli ambienti il bundle è statico (non HMR), quindi il check ha senso. Resta disattivato SOLO quando hostname è `localhost`.
+### 2. Risoluzione % per riga
 
-### 3. Boot one-shot purge
-Al primo mount di `AppVersionGuard`, eseguo **una volta** `purgeClientCaches()` se in `localStorage` non c'è il flag `__cbnet_purged_2026_05_26`. Questo garantisce che ogni utente con bundle stantio venga "ripulito" alla prossima apertura, poi non più.
+Per ogni `GaranziaRow` (Firma e Quietanza):
+- se `row.sottoramoId` ha match in `pctByRamoId` → usa quella %
+- altrimenti `pctDefault` se presente
+- altrimenti `pctPrevalente` (con flag "approssimato")
 
-### 4. Registrazione kill-switch SW garantita
-In `main.tsx` aggiungo (se non c'è già) la registrazione di `/sw.js` all'avvio, che disinstalla qualunque vecchio SW e cancella `caches`. Idempotente.
+Salvato in `row.percAuto` (nuovo campo opzionale di `GaranziaRow`, solo runtime, non persistito).
 
-### 5. Bump versione `manifest.json` query param
-Cambio `manifest.json?v=2` → `?v=3` in `index.html` per forzare refetch del manifest PWA.
+### 3. Calcolo totali
 
-## File toccati
+```
+provvFirma     = Σ (row.netto × row.percAuto / 100)   su premiFirmaRows
+provvQuietanza = Σ (row.netto × row.percAuto / 100)   su premiQuietanzaRows
+```
 
-- `index.html` (meta cache + bump manifest)
-- `src/lib/versionCheck.ts` (logica IS_DEV ristretta a localhost)
-- `src/components/AppVersionGuard.tsx` (purge one-shot al boot)
-- `src/main.tsx` (registrazione `/sw.js` kill-switch)
+Sostituisce il calcolo attuale `premioNettoNum × percentualeProvvigione / 100`.
 
-## Cosa NON farò
+La "% Agenzia" mostrata in header diventa la **media ponderata** sul netto totale (display only), calcolata da `provvFirma / premioNettoNum × 100`. Resta il badge `auto` con fonte (es. "calcolata per riga dalla matrice").
 
-- Non tocco `AppSidebar.tsx` (è già corretto)
-- Non tocco la business logic
-- Non rimuovo `/sw.js` (serve come kill-switch per chi ha vecchi SW)
+### 4. Override manuale
 
-## Effetto atteso
+Due livelli, additivi:
+- **Override globale** (comportamento attuale): se l'utente digita in "% Agenzia", `percentualeProvvigioneAuto=false` e la stessa % viene applicata a tutte le righe (sovrascrive `row.percAuto`). Bottone `↻ Auto` ripristina il calcolo per-riga.
+- **Override per riga** (fuori scope di questo cambio): non aggiunto ora, si valuta dopo se serve.
 
-Alla prossima apertura: il browser scarica `index.html` fresco (no-cache), `AppVersionGuard` esegue la purge one-shot, eventuali SW vecchi vengono unregistered, le cache vengono svuotate, e vedi subito la sidebar corretta senza FATTURAPA/CONT. GENERALE.
+### 5. UI
+
+- Tooltip/sublabel sotto "% Agenzia": "Calcolata per riga dalla matrice — clicca per dettaglio" (apre un piccolo Popover con tabella `Sottoramo → % → Netto → Provv` già esistente nell'aiuto provvigioni; se non c'è, semplice testo nel banner fonte).
+- Banner warning ⚠ mostrato solo se almeno una riga è fallback prevalente (sottoramo non scelto o non in matrice).
+
+### 6. Salvataggio
+
+Nessun cambio schema. `titoli.percentuale_provvigione` continua a contenere la media ponderata (come oggi `percentualeProvvigione`). `premi_garanzia_polizza` non riceve nuovi campi.
+
+## File da modificare
+
+- `src/pages/ImmissionePolizzaPage.tsx` — nuovo hook che carica la mappa, calcolo `provvFirma`/`provvQuietanza` per somma riga, propagazione della media ponderata in `percentualeProvvigione` quando in modalità auto.
+- `src/lib/resolveProvvigione.ts` — esportare una funzione `resolveMatricePerRapportoGruppo(rapportoId, gruppoRamoId)` che ritorna `{ pctByRamoId, pctDefault, pctPrevalente, isUniform }`. La funzione attuale `resolvePercentualeProvvigione` resta come fallback per casi singoli.
+- `src/components/polizze/PremiGaranziaCardShell.tsx` — nessun cambio funzionale obbligatorio; opzionale: passare `fonteAuto` con messaggio "calcolata per riga".
+
+## Fuori scope
+
+- Override per-riga della % (potenziale step successivo).
+- Modifica `TitoloDetail.tsx` / polizze esistenti (allineamento separato, come da memoria).
+- Calcolo Commerciale/Brokeraggio: restano sul netto totale come oggi.
