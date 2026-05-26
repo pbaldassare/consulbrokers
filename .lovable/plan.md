@@ -1,64 +1,28 @@
-## Obiettivo
+# Rimozione campi "Riga" e "Appendice" dalle UI
 
-Calcolare le **provvigioni per ogni riga garanzia** in base alla matrice `provvigioni_compagnia_ramo` (Rapporto Compagnia/Agenzia + Gruppo Ramo + Sottoramo della riga), applicarle al **Premio Netto di quella riga**, e mostrarne la **somma nel totale provvigioni** delle card Firma e Quietanza.
-
-Oggi invece viene usata **una sola %** (quella prevalente del gruppo) applicata all'intero netto, ignorando che ogni sottoramo può avere un'aliquota diversa (es. Cattolica/Campobasso × ZQ: QA = 8%, 093 = 20%, resto 12%).
-
-## Cosa cambia
-
-### 1. Mappa % per sottoramo (nuovo hook in `ImmissionePolizzaPage.tsx`)
-
-Quando cambiano `selectedRapportoId` + `selectedGruppoRamoId`, eseguire **una sola query** a `provvigioni_compagnia_ramo` e costruire:
-
-```
-pctByRamoId: Map<ramo_id, percentuale>
-pctDefault:  number | null   // riga con ramo_id NULL, se esiste
-pctPrevalente: number        // % più frequente nel gruppo (fallback)
-```
-
-### 2. Risoluzione % per riga
-
-Per ogni `GaranziaRow` (Firma e Quietanza):
-- se `row.sottoramoId` ha match in `pctByRamoId` → usa quella %
-- altrimenti `pctDefault` se presente
-- altrimenti `pctPrevalente` (con flag "approssimato")
-
-Salvato in `row.percAuto` (nuovo campo opzionale di `GaranziaRow`, solo runtime, non persistito).
-
-### 3. Calcolo totali
-
-```
-provvFirma     = Σ (row.netto × row.percAuto / 100)   su premiFirmaRows
-provvQuietanza = Σ (row.netto × row.percAuto / 100)   su premiQuietanzaRows
-```
-
-Sostituisce il calcolo attuale `premioNettoNum × percentualeProvvigione / 100`.
-
-La "% Agenzia" mostrata in header diventa la **media ponderata** sul netto totale (display only), calcolata da `provvFirma / premioNettoNum × 100`. Resta il badge `auto` con fonte (es. "calcolata per riga dalla matrice").
-
-### 4. Override manuale
-
-Due livelli, additivi:
-- **Override globale** (comportamento attuale): se l'utente digita in "% Agenzia", `percentualeProvvigioneAuto=false` e la stessa % viene applicata a tutte le righe (sovrascrive `row.percAuto`). Bottone `↻ Auto` ripristina il calcolo per-riga.
-- **Override per riga** (fuori scope di questo cambio): non aggiunto ora, si valuta dopo se serve.
-
-### 5. UI
-
-- Tooltip/sublabel sotto "% Agenzia": "Calcolata per riga dalla matrice — clicca per dettaglio" (apre un piccolo Popover con tabella `Sottoramo → % → Netto → Provv` già esistente nell'aiuto provvigioni; se non c'è, semplice testo nel banner fonte).
-- Banner warning ⚠ mostrato solo se almeno una riga è fallback prevalente (sottoramo non scelto o non in matrice).
-
-### 6. Salvataggio
-
-Nessun cambio schema. `titoli.percentuale_provvigione` continua a contenere la media ponderata (come oggi `percentualeProvvigione`). `premi_garanzia_polizza` non riceve nuovi campi.
+I campi `titoli.riga` (default `0`) e `titoli.appendice` (default `"000"`) restano nel DB con i loro default per non rompere insert, audit, storno/sostituzione e movimenti. Tolgo solo la UI ovunque compaia.
 
 ## File da modificare
 
-- `src/pages/ImmissionePolizzaPage.tsx` — nuovo hook che carica la mappa, calcolo `provvFirma`/`provvQuietanza` per somma riga, propagazione della media ponderata in `percentualeProvvigione` quando in modalità auto.
-- `src/lib/resolveProvvigione.ts` — esportare una funzione `resolveMatricePerRapportoGruppo(rapportoId, gruppoRamoId)` che ritorna `{ pctByRamoId, pctDefault, pctPrevalente, isUniform }`. La funzione attuale `resolvePercentualeProvvigione` resta come fallback per casi singoli.
-- `src/components/polizze/PremiGaranziaCardShell.tsx` — nessun cambio funzionale obbligatorio; opzionale: passare `fonteAuto` con messaggio "calcolata per riga".
+### 1. `src/pages/ImmissionePolizzaPage.tsx`
+- Rimuovo gli input "Riga" e "Appendice" nella sezione Contratto (~1484-1491).
+- Rimuovo gli state `riga`/`appendice` (linee 177-178).
+- Nei payload insert (linee 942-943, 1031-1032) invio i default fissi `riga: 0`, `appendice: "000"`.
+
+### 2. `src/pages/TitoloDetail.tsx`
+- Rimuovo le righe "Riga"/"Appendice" dalle card Contratto view+edit (2133-2134, 2209-2213).
+- Rimuovo "Riga"/"Appendice" nei box Sostituzione e Storno (3020-3024).
+- Rimuovo le colonne "Riga" e "Appendice" dalla tabella Movimenti (3088-3089 + header).
+- Banner sostituzione (1552): tolgo `/ riga {sostituisce_riga}`.
+- Pulsante Appendici (1611): tolgo querystring `&riga=`.
+
+### 3. `src/pages/PortafoglioCaricoPage.tsx`
+- Tolgo `/ {sostituisce_riga}` dalla cella "Sostituisce" (461) e dalla `select(...)` (138).
+
+### 4. `src/pages/AppendiciPolizzaPage.tsx`
+- Rimuovo `searchParams.get("riga")` e la riga "Riga: …" nell'intestazione (39, 272). La pagina (gestione appendici contrattuali) resta invariata: NON tocco `appendici_polizza`.
 
 ## Fuori scope
-
-- Override per-riga della % (potenziale step successivo).
-- Modifica `TitoloDetail.tsx` / polizze esistenti (allineamento separato, come da memoria).
-- Calcolo Commerciale/Brokeraggio: restano sul netto totale come oggi.
+- **Trattative/Quotazioni:** non contengono i campi, nulla da fare.
+- **Schema DB / trigger auto-quietanza / storno:** invariati.
+- **Pagina Appendici contrattuali (`appendici_polizza`):** è feature diversa, resta.

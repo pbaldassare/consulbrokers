@@ -135,7 +135,7 @@ const PortafoglioCaricoPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("v_portafoglio_titoli" as any)
-        .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza, sostituisce_riga")
+        .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
         .gte("data_scadenza", caricoStart)
         .lte("data_scadenza", caricoEnd)
         .eq("stato", "in_attesa_rinnovo")
@@ -458,7 +458,7 @@ const PortafoglioCaricoPage = () => {
                     <TableCell>{fmtDate(p.data_scadenza)}</TableCell>
                     <TableCell className="text-right">{fmtCurrency(p.premio_lordo)}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                      {p.sostituisce_polizza}{p.sostituisce_riga != null ? ` / ${p.sostituisce_riga}` : ""}
+                      {p.sostituisce_polizza}
                     </TableCell>
                   </TableRow>
                 ))}

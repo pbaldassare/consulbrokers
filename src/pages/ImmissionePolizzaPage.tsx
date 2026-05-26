@@ -174,8 +174,6 @@ const ImmissionePolizzaPage = () => {
 
   // Form state — Polizza
   const [numeroPolizza, setNumeroPolizza] = useState("");
-  const [riga, setRiga] = useState("0");
-  const [appendice, setAppendice] = useState("000");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
   const scannedFileRef = useRef<File | null>(null);
@@ -939,8 +937,8 @@ const ImmissionePolizzaPage = () => {
     try {
       const payload: Record<string, any> = {
         numero_titolo: numeroPolizza || null,
-        riga: parseInt(riga) || 0,
-        appendice: appendice || "000",
+        riga: 0,
+        appendice: "000",
         // gruppo_compagnia_id non è una colonna di titoli: si deriva via compagnia_rapporti
         compagnia_id: selectedCompagnia || null,
         compagnia_rapporto_id: isBrokerLike ? (selectedRapportoId || null) : null,
@@ -1028,8 +1026,8 @@ const ImmissionePolizzaPage = () => {
       // Create first movimento "Polizza Base"
       await supabase.from("movimenti_polizza").insert({
         titolo_id: newTitolo.id,
-        riga: parseInt(riga) || 0,
-        appendice: appendice || "000",
+        riga: 0,
+        appendice: "000",
         data_movimento: new Date().toISOString().split("T")[0],
         data_effetto: durataDa || null,
         data_scadenza: durataA || null,
@@ -1480,14 +1478,6 @@ const ImmissionePolizzaPage = () => {
             {!numeroPolizza.trim() && (
               <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
             )}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Riga</Label>
-            <Input value={riga} onChange={(e) => setRiga(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Appendice</Label>
-            <Input value={appendice} onChange={(e) => setAppendice(e.target.value)} className="h-8 text-xs" />
           </div>
           {isRCA && (
             <div className="space-y-1.5">
