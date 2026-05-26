@@ -39,10 +39,9 @@ function detect(pathname: string): Match | null {
 async function resolveLabel(m: Match): Promise<{ label: string; sub?: string } | null> {
   try {
     switch (m.kind) {
-      case "cliente":
-      case "prospect": {
+      case "cliente": {
         const { data } = await supabase
-          .from("profiles")
+          .from("clienti")
           .select("ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
           .eq("id", m.id)
           .maybeSingle();
@@ -50,21 +49,32 @@ async function resolveLabel(m: Match): Promise<{ label: string; sub?: string } |
         const label =
           data.ragione_sociale ||
           [data.cognome, data.nome].filter(Boolean).join(" ") ||
-          "Anagrafica";
+          "Cliente";
+        return { label, sub: data.codice_fiscale || data.partita_iva || undefined };
+      }
+      case "prospect": {
+        const { data } = await supabase
+          .from("prospect")
+          .select("ragione_sociale, cognome, nome, codice_fiscale, partita_iva")
+          .eq("id", m.id)
+          .maybeSingle();
+        if (!data) return null;
+        const label =
+          data.ragione_sociale ||
+          [data.cognome, data.nome].filter(Boolean).join(" ") ||
+          "Prospect";
         return { label, sub: data.codice_fiscale || data.partita_iva || undefined };
       }
       case "polizza": {
         const { data } = await supabase
           .from("titoli")
-          .select("numero_polizza, prodotto_nome, compagnie:compagnia_id(ragione_sociale)")
+          .select("numero_titolo, descrizione_polizza, prodotto_nome")
           .eq("id", m.id)
           .maybeSingle();
         if (!data) return null;
-        // @ts-ignore
-        const compagnia = data.compagnie?.ragione_sociale;
         return {
-          label: data.numero_polizza || "Polizza",
-          sub: [compagnia, data.prodotto_nome].filter(Boolean).join(" · ") || undefined,
+          label: data.numero_titolo || "Polizza",
+          sub: data.descrizione_polizza || data.prodotto_nome || undefined,
         };
       }
       case "sinistro": {
@@ -79,20 +89,23 @@ async function resolveLabel(m: Match): Promise<{ label: string; sub?: string } |
       case "trattativa": {
         const { data } = await supabase
           .from("trattative")
-          .select("oggetto, numero_trattativa")
+          .select("prodotto, sottoprodotto, stato")
           .eq("id", m.id)
           .maybeSingle();
         if (!data) return null;
-        return { label: data.oggetto || data.numero_trattativa || "Trattativa" };
+        return {
+          label: data.prodotto || "Trattativa",
+          sub: [data.sottoprodotto, data.stato].filter(Boolean).join(" · ") || undefined,
+        };
       }
       case "compagnia": {
         const { data } = await supabase
           .from("compagnie")
-          .select("ragione_sociale, codice_compagnia")
+          .select("nome, codice")
           .eq("id", m.id)
           .maybeSingle();
         if (!data) return null;
-        return { label: data.ragione_sociale || "Compagnia", sub: data.codice_compagnia || undefined };
+        return { label: data.nome || "Compagnia", sub: data.codice || undefined };
       }
     }
   } catch {
