@@ -5,6 +5,7 @@ import Topbar from "./Topbar";
 import PageBreadcrumb from "./PageBreadcrumb";
 import CommandPalette from "./CommandPalette";
 import RecentEntitiesTracker from "./RecentEntitiesTracker";
+import GlobalShortcuts from "./GlobalShortcuts";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useNavigationHistoryTracker } from "@/hooks/useNavigationHistory";
 
@@ -17,6 +18,8 @@ const MainLayout = () => {
     <div className="min-h-screen bg-background">
       <CommandPalette />
       <RecentEntitiesTracker />
+      <GlobalShortcuts />
+
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div
         className={`transition-all duration-200 ${
