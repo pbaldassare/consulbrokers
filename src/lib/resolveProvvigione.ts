@@ -52,6 +52,26 @@ export async function resolvePercentualeProvvigione(
     if (def) {
       return { percentuale: Number(def.percentuale_provvigione), livello: 2, fonte: "default ramo del rapporto" };
     }
+    // Fallback senza sottoramo: % prevalente nel gruppo
+    if (!ramo_id) {
+      const counts = new Map<number, number>();
+      for (const r of provvRows as any[]) {
+        const p = Number(r.percentuale_provvigione);
+        counts.set(p, (counts.get(p) || 0) + 1);
+      }
+      let bestP = 0, bestC = 0;
+      for (const [p, c] of counts) if (c > bestC) { bestC = c; bestP = p; }
+      const total = (provvRows as any[]).length;
+      const isUniform = counts.size === 1;
+      return {
+        percentuale: bestP,
+        livello: 2,
+        fonte: isUniform
+          ? `uniforme nel gruppo (${total} sottorami)`
+          : `aliquota prevalente del gruppo (${bestC}/${total} sottorami al ${bestP}%)`,
+        warning: isUniform ? undefined : "Seleziona il Sottoramo per la % esatta (esistono eccezioni nel gruppo).",
+      };
+    }
   }
 
   // 3: % globale del rapporto
