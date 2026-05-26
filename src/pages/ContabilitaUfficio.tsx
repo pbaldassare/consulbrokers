@@ -94,8 +94,7 @@ const ContabilitaUfficio = () => {
     { count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0 }
   );
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+  const fmt = fmtEuro;
 
   const toggleExpand = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
