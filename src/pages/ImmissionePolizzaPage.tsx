@@ -1862,7 +1862,7 @@ const ImmissionePolizzaPage = () => {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1.5">
-              % Commerciale
+              % Produttore
               {percentualeCommercialeAuto && (
                 <span className="inline-flex items-center rounded-sm bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase">auto</span>
               )}
@@ -1874,6 +1874,33 @@ const ImmissionePolizzaPage = () => {
               disabled={selectedCommerciale === "__sede__"}
               className="h-8 text-xs font-mono"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              % AE
+              {!selectedAccountExecutiveId && (
+                <span className="text-[9px] text-muted-foreground">(seleziona AE)</span>
+              )}
+            </Label>
+            <Input
+              type="number" step="0.01" min="0" max="100"
+              value={percentualeAE}
+              onChange={(e) => setPercentualeAE(e.target.value)}
+              disabled={!selectedAccountExecutiveId}
+              placeholder="0,00"
+              className="h-8 text-xs font-mono"
+              title="Quota provvigione spettante all'Account Executive. Sommata alla % Produttore, il residuo va a Consulbrokers SPA."
+            />
+            {(() => {
+              const sum = (parseFloat(percentualeCommerciale) || 0) + (parseFloat(percentualeAE) || 0);
+              if (sum > 100.001) {
+                return <p className="text-[10px] text-red-600 mt-0.5">Somma {sum.toFixed(2)}% &gt; 100%</p>;
+              }
+              if (selectedAccountExecutiveId && (parseFloat(percentualeAE) || 0) > 0) {
+                return <p className="text-[10px] text-muted-foreground mt-0.5">Consul residuo: {(100 - sum).toFixed(2)}%</p>;
+              }
+              return null;
+            })()}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1.5">
