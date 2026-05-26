@@ -96,9 +96,9 @@ interface EntityPreviewProps {
 }
 
 const EntityPreview = ({ uuid, parentSegment, fullPath }: EntityPreviewProps) => {
-  const { recents, pinned } = useRecentEntities();
+  const { recent, pinned } = useRecentEntities();
   const [info, setInfo] = useState<EntityInfo | null>(() => {
-    const hit = [...pinned, ...recents].find((r) => r.id === uuid);
+    const hit = [...pinned, ...recent].find((r) => r.id === uuid);
     return hit ? { label: hit.label, sub: hit.sub } : null;
   });
   const [loading, setLoading] = useState(false);
