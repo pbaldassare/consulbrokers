@@ -241,6 +241,7 @@ const ImmissionePolizzaPage = () => {
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
   const [percentualeProvvigioneAuto, setPercentualeProvvigioneAuto] = useState(true);
   const [provvigioneFonte, setProvvigioneFonte] = useState<string>("");
+  const [provvigioneWarning, setProvvigioneWarning] = useState<string>("");
 
   // Brokeraggio (quota del Produttore — default da anagrafiche_professionali.percentuale_consulenza)
   const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
@@ -742,6 +743,7 @@ const ImmissionePolizzaPage = () => {
     if (!selectedRapportoId || !selectedGruppoRamoId) {
       setPercentualeProvvigione("");
       setProvvigioneFonte("");
+      setProvvigioneWarning("");
       return;
     }
     let cancelled = false;
@@ -755,6 +757,7 @@ const ImmissionePolizzaPage = () => {
         if (cancelled) return;
         setPercentualeProvvigione(res.percentuale ? String(res.percentuale) : "");
         setProvvigioneFonte(res.fonte || "");
+        setProvvigioneWarning(res.warning || "");
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
@@ -1580,6 +1583,9 @@ const ImmissionePolizzaPage = () => {
               percentualeCommercialeAuto,
               produttoreIsSede: isSede,
               ramoLabel: selectedRamoData?.descrizione || null,
+              fonteAuto: provvigioneFonte || null,
+              warningAuto: provvigioneWarning || null,
+              onResetAuto: () => setPercentualeProvvigioneAuto(true),
             };
             return (
               <>
