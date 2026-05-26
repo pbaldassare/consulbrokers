@@ -1549,7 +1549,7 @@ const TitoloDetail = () => {
             <p className="text-sm text-muted-foreground">
               Questo titolo è un rinnovo della polizza{" "}
               <span className="font-mono font-semibold">{t.sostituisce_polizza}</span>
-              {t.sostituisce_riga != null ? <> / riga {t.sostituisce_riga}</> : null}.
+              .
               Diventerà <strong>attivo automaticamente</strong> quando la polizza precedente verrà messa a cassa,
               e solo allora apparirà nel <em>Carico del Mese</em> di scadenza.
             </p>
@@ -1608,7 +1608,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
               <Ban className="w-4 h-4 mr-1" /> Estinzione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&riga=${encodeURIComponent(t.riga || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
             </Button>
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
@@ -2130,8 +2130,6 @@ const TitoloDetail = () => {
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
             
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
-            <FieldRow label="Riga" value={fmt(t.riga)} />
-            <FieldRow label="Appendice" value={fmt(t.appendice)} />
             {t.cliente_anagrafica && (
               <>
                 <div className="col-span-2 flex justify-between py-1">
@@ -2203,14 +2201,6 @@ const TitoloDetail = () => {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Numero Polizza</Label>
               <div className="text-sm font-mono py-2">{fmt(t.numero_titolo)}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Riga</Label>
-              <div className="text-sm font-mono py-2">{fmt(t.riga)}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Appendice</Label>
-              <div className="text-sm font-mono py-2">{fmt(t.appendice)}</div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
@@ -3017,11 +3007,7 @@ const TitoloDetail = () => {
         <SectionCollapsible title="Sostituzioni / Storni" icon={RefreshCw} defaultOpen={false}>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
             <FieldRow label="Sostituisce Polizza" value={fmt(t.sostituisce_polizza)} />
-            <FieldRow label="Riga" value={fmt(t.sostituisce_riga)} />
-            <FieldRow label="Appendice" value={fmt(t.sostituisce_appendice)} />
             <FieldRow label="Storno Polizza" value={fmt(t.storno_polizza)} />
-            <FieldRow label="Riga" value={fmt(t.storno_riga)} />
-            <FieldRow label="Appendice" value={fmt(t.storno_appendice)} />
           </div>
         </SectionCollapsible>
       )}
@@ -3065,8 +3051,6 @@ const TitoloDetail = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12">Rg</TableHead>
-                <TableHead className="w-16">App</TableHead>
                 <TableHead>Data Mov.</TableHead>
                 <TableHead>Effetto</TableHead>
                 <TableHead>Scadenza</TableHead>
@@ -3085,8 +3069,6 @@ const TitoloDetail = () => {
             <TableBody>
               {(movimentiPolizza as any[]).map((m: any) => (
                 <TableRow key={m.id}>
-                  <TableCell className="font-mono text-xs">{m.riga}</TableCell>
-                  <TableCell className="font-mono text-xs">{m.appendice}</TableCell>
                   <TableCell className="text-xs">{fmtDate(m.data_movimento)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(m.data_effetto)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(m.data_scadenza)}</TableCell>

@@ -36,7 +36,7 @@ const AppendiciPolizzaPage = () => {
   const { user } = useAuth();
 
   const paramPolizza = searchParams.get("polizza") || "";
-  const paramRiga = searchParams.get("riga") || "";
+  
   const paramClienteId = searchParams.get("clienteId") || "";
   const paramTitoloId = searchParams.get("titoloId") || "";
 
@@ -269,7 +269,7 @@ const AppendiciPolizzaPage = () => {
         <div className="flex items-center gap-6 flex-wrap text-sm">
           <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{clienteLabel}</span></div>
           <div><span className="text-muted-foreground">Polizza:</span> <span className="font-mono font-medium">{paramPolizza || "—"}</span></div>
-          <div><span className="text-muted-foreground">Riga:</span> <span className="font-mono">{paramRiga || "—"}</span></div>
+          
         </div>
       </PolizzaSection>
 
