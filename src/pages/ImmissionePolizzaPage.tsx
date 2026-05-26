@@ -680,6 +680,32 @@ const ImmissionePolizzaPage = () => {
     totalRows: number;
   };
   const [provvMatrice, setProvvMatrice] = useState<MatriceProvv | null>(null);
+  // Rapporto effettivo per matrice provvigioni: per monomandatarie deriva dalla coppia (compagnia, gruppo madre)
+  const [resolvedRapportoId, setResolvedRapportoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!selectedCompagnia || !selectedGruppoCompagniaId) {
+        if (!cancelled) setResolvedRapportoId(null);
+        return;
+      }
+      if (isBrokerLike) {
+        if (!cancelled) setResolvedRapportoId(selectedRapportoId || null);
+        return;
+      }
+      const { data } = await supabase
+        .from("compagnia_rapporti")
+        .select("id")
+        .eq("compagnia_id", selectedCompagnia)
+        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
+        .eq("attivo", true)
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setResolvedRapportoId((data as any)?.id || null);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, isBrokerLike]);
 
   const resolveRowPct = (row: GaranziaRow): { pct: number; matched: boolean } => {
     if (!provvMatrice) return { pct: 0, matched: false };
@@ -761,10 +787,10 @@ const ImmissionePolizzaPage = () => {
   // --- Matrice Provvigioni (Rapporto + Gruppo Ramo) caricata una sola volta ---
   useEffect(() => {
     setPercentualeProvvigioneAuto(true);
-  }, [selectedRapportoId, selectedGruppoRamoId]);
+  }, [resolvedRapportoId, selectedGruppoRamoId]);
 
   useEffect(() => {
-    if (!selectedRapportoId || !selectedGruppoRamoId) {
+    if (!resolvedRapportoId || !selectedGruppoRamoId) {
       setProvvMatrice(null);
       setProvvigioneFonte("");
       setProvvigioneWarning("");
@@ -775,7 +801,7 @@ const ImmissionePolizzaPage = () => {
       const { data } = await supabase
         .from("provvigioni_compagnia_ramo")
         .select("ramo_id, percentuale_provvigione")
-        .eq("compagnia_rapporto_id", selectedRapportoId)
+        .eq("compagnia_rapporto_id", resolvedRapportoId)
         .eq("gruppo_ramo_id", selectedGruppoRamoId)
         .eq("attiva", true);
       if (cancelled) return;
@@ -806,7 +832,7 @@ const ImmissionePolizzaPage = () => {
       );
     })();
     return () => { cancelled = true; };
-  }, [selectedRapportoId, selectedGruppoRamoId]);
+  }, [resolvedRapportoId, selectedGruppoRamoId]);
 
   // Sincronizza display % Agenzia (media ponderata) + warning quando in auto
   useEffect(() => {
