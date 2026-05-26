@@ -58,7 +58,7 @@ const ECProduttoriContabPage = () => {
       const { data, error } = await supabase
         .from("provvigioni_generate")
         .select("user_id, anagrafica_commerciale_id, importo_provvigione, tipo_destinatario, solo_statistico, titolo_id, titoli!provvigioni_generate_titolo_id_fkey(id, numero_titolo, riga, appendice, sostituisce_polizza, premio_lordo, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, ramo_id, cliente_anagrafica_id, produttore_id, anagrafica_commerciale_id, rami:ramo_id(descrizione, codice), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale))")
-        .eq("tipo_destinatario", "commerciale")
+        .in("tipo_destinatario", ["commerciale", "ae"])
         .eq("solo_statistico", false);
       if (error) throw error;
       return (data || []).filter((p: any) => {

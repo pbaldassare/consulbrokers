@@ -34,5 +34,8 @@ Usare sempre `solo_statistico = false`. L'AE è pagabile come destinatario al pa
 - `supabase/functions/calcola-provvigioni/index.ts` — generazione righe (produttori + AE + admin).
 - `src/pages/ImmissionePolizzaPage.tsx` — input "% AE" accanto a "% Produttore".
 - `src/pages/TitoloDetail.tsx` — editor Commerciale con riga AE + display card "Account Executive".
-- `src/pages/ProvvigioniMaturatePage.tsx` — gestione badge `ae`.
+- `src/pages/ProvvigioniMaturatePage.tsx` — badge "Account Executive" (indigo) + filtro Tipo include `ae`.
+- `src/components/provvigioni/ProvvigioniFiltersBar.tsx` — opzione filtro Tipo `ae`.
+- `src/pages/contabilita/ECProduttoriContabPage.tsx` — E/C Produttori include sia `commerciale` che `ae` (AE riceve E/C come Produttore).
+
 

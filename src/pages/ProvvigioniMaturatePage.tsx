@@ -19,13 +19,15 @@ import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
-    case "commerciale": return <Badge className="bg-blue-100 text-blue-800 border-blue-300" variant="outline">Commerciale</Badge>;
+    case "commerciale": return <Badge className="bg-blue-100 text-blue-800 border-blue-300" variant="outline">Produttore</Badge>;
+    case "ae": return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300" variant="outline">Account Executive</Badge>;
     case "admin": return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300" variant="outline">Consulbrokers SPA</Badge>;
     case "sede": return <Badge className="bg-purple-100 text-purple-800 border-purple-300" variant="outline">Sede</Badge>;
     case "consul": return <Badge className="bg-amber-100 text-amber-800 border-amber-300" variant="outline">Consul (legacy)</Badge>;
     default: return <Badge variant="outline">—</Badge>;
   }
 };
+
 
 // PAGE_SIZE gestita da usePagination (default 25)
 
@@ -141,9 +143,10 @@ const ProvvigioniMaturatePage = () => {
   ), [filtered]);
   const byRamo = useMemo(() => aggBy((p) => p.titoli?.ramo_id, (p) => p.titoli?.rami?.descrizione || "—"), [filtered]);
   const byTipo = useMemo(() => aggBy((p) => p.tipo_destinatario, (p) => {
-    const map: any = { admin: "Consulbrokers SPA", commerciale: "Commerciale", sede: "Sede", consul: "Consul (legacy)" };
+    const map: any = { admin: "Consulbrokers SPA", commerciale: "Produttore", ae: "Account Executive", sede: "Sede", consul: "Consul (legacy)" };
     return map[p.tipo_destinatario] || p.tipo_destinatario || "—";
   }), [filtered]);
+
 
   const { page, setPage, pages, pageRows, resetPage } = usePagination(filtered);
 
