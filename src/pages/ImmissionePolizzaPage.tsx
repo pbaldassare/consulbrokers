@@ -31,6 +31,7 @@ import { UserPlus, Sparkles } from "lucide-react";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
 import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
+import { FieldHint } from "@/components/ui/field-hint";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
