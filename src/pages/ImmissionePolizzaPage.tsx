@@ -241,6 +241,7 @@ const ImmissionePolizzaPage = () => {
   const [percentualeProvvigione, setPercentualeProvvigione] = useState("");
   const [percentualeProvvigioneAuto, setPercentualeProvvigioneAuto] = useState(true);
   const [provvigioneFonte, setProvvigioneFonte] = useState<string>("");
+  const [provvigioneWarning, setProvvigioneWarning] = useState<string>("");
 
   // Brokeraggio (quota del Produttore — default da anagrafiche_professionali.percentuale_consulenza)
   const [percentualeBrokeraggio, setPercentualeBrokeraggio] = useState("");
