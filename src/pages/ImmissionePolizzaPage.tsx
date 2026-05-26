@@ -787,10 +787,10 @@ const ImmissionePolizzaPage = () => {
   // --- Matrice Provvigioni (Rapporto + Gruppo Ramo) caricata una sola volta ---
   useEffect(() => {
     setPercentualeProvvigioneAuto(true);
-  }, [selectedRapportoId, selectedGruppoRamoId]);
+  }, [resolvedRapportoId, selectedGruppoRamoId]);
 
   useEffect(() => {
-    if (!selectedRapportoId || !selectedGruppoRamoId) {
+    if (!resolvedRapportoId || !selectedGruppoRamoId) {
       setProvvMatrice(null);
       setProvvigioneFonte("");
       setProvvigioneWarning("");
@@ -801,7 +801,7 @@ const ImmissionePolizzaPage = () => {
       const { data } = await supabase
         .from("provvigioni_compagnia_ramo")
         .select("ramo_id, percentuale_provvigione")
-        .eq("compagnia_rapporto_id", selectedRapportoId)
+        .eq("compagnia_rapporto_id", resolvedRapportoId)
         .eq("gruppo_ramo_id", selectedGruppoRamoId)
         .eq("attiva", true);
       if (cancelled) return;
