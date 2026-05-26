@@ -1614,7 +1614,10 @@ const ImmissionePolizzaPage = () => {
             }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Limite Mora</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Limite Mora
+              <FieldHint>Ultima data utile per il pagamento prima della decadenza della copertura. Si ricalcola automaticamente da Data Competenza + GG Mora.</FieldHint>
+            </Label>
             <Input type="date" value={limiteMora} onChange={(e) => {
               const v = e.target.value;
               setLimiteMora(v);
@@ -1628,14 +1631,20 @@ const ImmissionePolizzaPage = () => {
             }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Tacito Rinnovo</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Tacito Rinnovo
+              <FieldHint>Se attivo, la polizza si rinnova automaticamente alla scadenza salvo disdetta nei termini contrattuali.</FieldHint>
+            </Label>
             <div className="flex items-center gap-2 h-8">
               <Switch checked={tacitoRinnovo} onCheckedChange={setTacitoRinnovo} />
               <span className="text-xs text-muted-foreground">{tacitoRinnovo ? "Sì" : "No"}</span>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">GG Mora</Label>
+            <Label className="text-xs flex items-center gap-1">
+              GG Mora
+              <FieldHint>Giorni di tolleranza dopo la scadenza entro cui il pagamento è ancora valido. Default 15. Aggiornandolo ricalcola il Limite Mora.</FieldHint>
+            </Label>
             <Input type="number" min="0" value={moraGiorni} onChange={(e) => {
               const v = e.target.value;
               setMoraGiorni(v);
@@ -1648,7 +1657,10 @@ const ImmissionePolizzaPage = () => {
             }} className="h-8 text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Disdetta (mesi)</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Disdetta (mesi)
+              <FieldHint>Mesi di preavviso richiesti per la disdetta della polizza prima della scadenza.</FieldHint>
+            </Label>
             <Input type="number" value={disdettaMesi} onChange={(e) => setDisdettaMesi(e.target.value)} placeholder="0" className="h-8 text-xs" />
           </div>
         </div>
