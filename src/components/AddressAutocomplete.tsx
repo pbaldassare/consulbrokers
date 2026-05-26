@@ -577,9 +577,13 @@ const AddressAutocomplete = ({
           ))}
         </div>
       )}
-      {error && (
-        <p className="text-xs text-destructive mt-1">{error} — inserisci CAP, città e provincia manualmente.</p>
-      )}
+      {error ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+          Suggerimenti Google non disponibili — compila i campi manualmente qui sotto.
+        </p>
+      ) : helperText ? (
+        <p className="text-xs text-muted-foreground mt-1">{helperText}</p>
+      ) : null}
       {selectionWarning && !error && (
         <p className="text-xs text-muted-foreground mt-1">{selectionWarning}</p>
       )}
