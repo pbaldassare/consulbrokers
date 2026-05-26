@@ -121,8 +121,8 @@ export default function ContiBancariPage() {
   const [categoria, setCategoria] = useState<CategoriaKey>("consul");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const { page, setPage, pageSize, range, resetPage } = useServerPagination(25, [categoria, search, soloAttivi]);
   const [soloAttivi, setSoloAttivi] = useState(true);
+  const { page, setPage, pageSize, range, resetPage } = useServerPagination(25, [categoria, search, soloAttivi]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<Partial<ContoBancario>>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ContoBancario | null>(null);
