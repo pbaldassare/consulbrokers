@@ -24,7 +24,7 @@ const statoBadge: Record<string, string> = {
   respinto: "bg-red-100 text-red-800",
 };
 
-const fmt = (v: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+
 
 export default function ClienteSinistri() {
   const { user } = useAuth();
