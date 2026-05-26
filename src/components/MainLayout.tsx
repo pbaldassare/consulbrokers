@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Topbar from "./Topbar";
 import PageBreadcrumb from "./PageBreadcrumb";
+import CommandPalette from "./CommandPalette";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 const MainLayout = () => {
