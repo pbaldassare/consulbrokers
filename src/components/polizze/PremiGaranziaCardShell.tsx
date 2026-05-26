@@ -59,6 +59,12 @@ export interface PremiGaranziaCardShellProps {
   ramoLabel?: string | null;
   /** True se la % Commerciale è stata letta dal DB (produttori_provvigioni_ramo / percentuale_base) */
   percentualeCommercialeAuto?: boolean;
+  /** Descrizione fonte dell'auto-lookup (es. "match esatto rapporto+ramo+sottoramo") */
+  fonteAuto?: string | null;
+  /** Warning del resolver (es. "Seleziona il Sottoramo per la % esatta") */
+  warningAuto?: string | null;
+  /** Callback per riattivare auto dopo un override manuale */
+  onResetAuto?: () => void;
 }
 
 export function PremiGaranziaCardShell({
