@@ -665,19 +665,21 @@ const ImmissionePolizzaPage = () => {
   const isProvvigioneModified = false;
 
   // --- Computed: derive scalars from row arrays ---
-  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse") =>
-    arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
+  const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse" | "ssn") =>
+    arr.reduce((s, r) => s + (parseFloat((r as any)[k] || "0") || 0), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
   const tasseNum = sumNum(premiFirmaRows, "tasse");
+  const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
   const premioNetto = premioNettoNum ? String(premioNettoNum) : "";
   const tasse = tasseNum ? String(tasseNum) : "";
   const premioNettoQNum = sumNum(premiQuietanzaRows, "netto");
   const tasseQNum = sumNum(premiQuietanzaRows, "tasse");
+  const ssnQuietanzaNum = sumNum(premiQuietanzaRows, "ssn");
   const premioNettoQuietanza = premioNettoQNum ? String(premioNettoQNum) : "";
   const tasseQuietanza = tasseQNum ? String(tasseQNum) : "";
 
-  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum;
-  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum;
+  const totFirma = premioNettoNum + (parseFloat(addizionali || "0") || 0) + tasseNum + ssnFirmaNum;
+  const totQuietanza = premioNettoQNum + (parseFloat(addizionaliQuietanza || "0") || 0) + tasseQNum + ssnQuietanzaNum;
 
   // --- Matrice provvigioni per Rapporto + Gruppo Ramo: pct per sottoramo ---
   type MatriceProvv = {
