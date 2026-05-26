@@ -680,6 +680,32 @@ const ImmissionePolizzaPage = () => {
     totalRows: number;
   };
   const [provvMatrice, setProvvMatrice] = useState<MatriceProvv | null>(null);
+  // Rapporto effettivo per matrice provvigioni: per monomandatarie deriva dalla coppia (compagnia, gruppo madre)
+  const [resolvedRapportoId, setResolvedRapportoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!selectedCompagnia || !selectedGruppoCompagniaId) {
+        if (!cancelled) setResolvedRapportoId(null);
+        return;
+      }
+      if (isBrokerLike) {
+        if (!cancelled) setResolvedRapportoId(selectedRapportoId || null);
+        return;
+      }
+      const { data } = await supabase
+        .from("compagnia_rapporti")
+        .select("id")
+        .eq("compagnia_id", selectedCompagnia)
+        .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
+        .eq("attivo", true)
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setResolvedRapportoId((data as any)?.id || null);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, isBrokerLike]);
 
   const resolveRowPct = (row: GaranziaRow): { pct: number; matched: boolean } => {
     if (!provvMatrice) return { pct: 0, matched: false };
