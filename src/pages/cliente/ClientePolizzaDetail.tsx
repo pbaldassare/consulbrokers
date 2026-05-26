@@ -12,6 +12,7 @@ import UploadDocPolizzaDialog from "@/components/cliente/UploadDocPolizzaDialog"
 import DocPreviewDialog from "@/components/cliente/DocPreviewDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { fmtEuro as fmt } from "@/lib/formatCurrency";
 
 const statoBadge: Record<string, string> = {
   attivo: "bg-emerald-100 text-emerald-800",
