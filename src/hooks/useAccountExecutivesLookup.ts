@@ -20,9 +20,10 @@ export const useAccountExecutivesLookup = () => {
         .eq("attivo", true);
       if (error) throw error;
       const opts = (data || []).map((p: any) => {
+        const personName = `${p.cognome || ""} ${p.nome || ""}`.trim();
         const label =
+          personName ||
           (p.ragione_sociale && p.ragione_sociale.trim()) ||
-          `${p.cognome || ""} ${p.nome || ""}`.trim() ||
           p.sigla ||
           p.codice ||
           "—";
