@@ -582,14 +582,51 @@ export const SostituzionePolizzaDialog = ({ open, onOpenChange, titoloId, numero
                   </div>
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="sost-descrizione">Descrizione nuovo oggetto</Label>
-                  <Textarea
-                    id="sost-descrizione"
-                    value={descrizioneOggetto}
-                    onChange={(e) => setDescrizioneOggetto(e.target.value)}
-                    rows={2}
-                  />
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sost-descrizione">Descrizione nuovo oggetto / partita</Label>
+                    <Textarea
+                      id="sost-descrizione"
+                      value={descrizioneOggetto}
+                      onChange={(e) => setDescrizioneOggetto(e.target.value)}
+                      rows={2}
+                      placeholder="Es. nuovo immobile, nuova merce trasportata, nuovo beneficiario…"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-ubicazione">Ubicazione / tratta del rischio</Label>
+                      <Input
+                        id="sost-ubicazione"
+                        value={ubicazioneRischio}
+                        onChange={(e) => setUbicazioneRischio(e.target.value)}
+                        placeholder="Indirizzo immobile, tratta trasporto, sede attività…"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sost-valore">Valore assicurato / massimale (€)</Label>
+                      <Input
+                        id="sost-valore"
+                        type="number"
+                        step="0.01"
+                        value={valoreAssicurato}
+                        onChange={(e) => setValoreAssicurato(e.target.value)}
+                        className="tabular-nums"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sost-rif">Riferimento (matricola / beneficiario / contraente terzo)</Label>
+                    <Input
+                      id="sost-rif"
+                      value={riferimentoOggetto}
+                      onChange={(e) => setRiferimentoOggetto(e.target.value)}
+                      placeholder="Opzionale — utile per Vita (beneficiario), Trasporti (merce), Property (matricola)…"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Questi campi vengono archiviati nello snapshot della sostituzione (visibile nella sezione "Sostituzioni / Storni" della polizza).
+                  </p>
                 </div>
               )}
             </div>
