@@ -335,6 +335,9 @@ const ECClientePdfPage = () => {
               )}
             </table>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Luogo e data</Label>
             <Input value={luogoData} onChange={(e) => setLuogoData(e.target.value)} placeholder="Es: Napoli, 18/03/2026" />
