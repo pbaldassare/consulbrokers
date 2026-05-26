@@ -85,6 +85,9 @@ export function PremiGaranziaCardShell({
   produttoreIsSede,
   ramoLabel,
   percentualeCommercialeAuto,
+  fonteAuto,
+  warningAuto,
+  onResetAuto,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
   const [totFocus, setTotFocus] = useState(false);
