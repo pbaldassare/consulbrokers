@@ -145,6 +145,9 @@ export const RiattivazionePolizzaDialog = ({ open, onOpenChange, titoloId, numer
       if (!titoloRow) throw new Error("Titolo non caricato");
       if (titoloRow.stato !== "sospeso") throw new Error("La polizza non è sospesa. Solo le polizze sospese possono essere riattivate.");
 
+      // 0. Snapshot pre-evento + applica modifiche inline (date / garanzie)
+      const snapshotId = await editorRef.current?.commit("riattivazione");
+
       // 1. Riattiva rata sospesa
       const { error: errUp } = await supabase
         .from("titoli")
