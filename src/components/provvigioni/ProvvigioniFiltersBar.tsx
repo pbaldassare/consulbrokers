@@ -114,10 +114,12 @@ export const ProvvigioniFiltersBar = ({
               onValueChange={(v) => set({ tipoDestinatario: v })}
               options={[
                 { value: "admin", label: "Consulbrokers SPA" },
-                { value: "commerciale", label: "Commerciale" },
+                { value: "commerciale", label: "Produttore" },
+                { value: "ae", label: "Account Executive" },
                 { value: "sede", label: "Sede" },
                 { value: "consul", label: "Consul (legacy)" },
               ]}
+
               placeholder="Tipo"
               allLabel="Tutti i tipi"
               className="w-[200px] h-9"
