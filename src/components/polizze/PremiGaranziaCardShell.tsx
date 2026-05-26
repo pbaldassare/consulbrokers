@@ -110,8 +110,10 @@ export function PremiGaranziaCardShell({
 
   const totNetto = rows.reduce((s, r) => s + (parseFloat(r.netto || "0") || 0), 0);
   const totTasse = rows.reduce((s, r) => s + (parseFloat(r.tasse || "0") || 0), 0);
+  const totSsn = rows.reduce((s, r) => s + (parseFloat(r.ssn || "0") || 0), 0);
   const add = parseFloat(addizionali || "0") || 0;
-  const lordo = totNetto + totTasse + add;
+  const lordo = totNetto + totTasse + totSsn + add;
+  const hasSsnRows = rows.some((r) => r.ssnAttivo);
 
   // Catalogo sottorami filtrato per gruppo ramo selezionato.
   // I sottorami compongono le righe garanzia che formano il premio.
@@ -121,7 +123,7 @@ export function PremiGaranziaCardShell({
     queryFn: async () => {
       const { data } = await supabase
         .from("rami")
-        .select("id, codice, descrizione, aliquota_tasse_ramo")
+        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn")
         .eq("attivo", true)
         .eq("gruppo_ramo_id", gruppoRamoId!)
         .order("codice");
