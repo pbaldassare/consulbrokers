@@ -121,18 +121,16 @@ export default function ContiBancariPage() {
   const [categoria, setCategoria] = useState<CategoriaKey>("consul");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, range, resetPage } = useServerPagination(25, [categoria, search, soloAttivi]);
   const [soloAttivi, setSoloAttivi] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<Partial<ContoBancario>>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ContoBancario | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 350);
+    const t = setTimeout(() => { setSearch(searchInput.trim()); }, 350);
     return () => clearTimeout(t);
   }, [searchInput]);
-
-  useEffect(() => { setPage(0); }, [categoria, soloAttivi]);
 
   const { data: counts } = useQuery({
     queryKey: ["conti_bancari_counts", soloAttivi],
