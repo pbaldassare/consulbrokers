@@ -387,6 +387,49 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        if (fnName === "list_enum_values") {
+          const tn = (args.table_name ?? "").trim();
+          const cn = (args.column_name ?? "").trim();
+          let payload: any;
+          let err: string | null = null;
+          try {
+            const { data, error: rpcError } = await supabase.rpc("ai_list_enum_values", {
+              p_table: tn,
+              p_column: cn,
+            });
+            if (rpcError) { err = rpcError.message; payload = { error: err }; }
+            else payload = { table: tn, column: cn, values: data };
+          } catch (e) {
+            err = e instanceof Error ? e.message : String(e);
+            payload = { error: err };
+          }
+          toolCallsLog.push({
+            tool: "list_enum_values",
+            table: `${tn}.${cn}`,
+            rows: Array.isArray(payload?.values) ? payload.values.length : 0,
+            ms: Math.round(performance.now() - t0),
+            error: err ?? undefined,
+          });
+          messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(payload) });
+          continue;
+        }
+
+        if (fnName === "render_chart" || fnName === "render_table" || fnName === "render_metrics") {
+          // Tool di rendering: l'output è il payload stesso (echo).
+          // Il frontend lo legge da tool_calls e lo renderizza come blocco.
+          toolCallsLog.push({
+            tool: fnName,
+            block: args,
+            ms: Math.round(performance.now() - t0),
+          } as any);
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ ok: true, rendered: fnName }),
+          });
+          continue;
+        }
+
         if (fnName !== "query_database") {
           messages.push({
             role: "tool",
