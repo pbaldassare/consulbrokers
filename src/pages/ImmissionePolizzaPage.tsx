@@ -191,6 +191,8 @@ const ImmissionePolizzaPage = () => {
       classe_bm?: string; cv?: number; kw?: number; cc?: number; posti?: number;
       peso_motrice?: number; peso_rimorchio?: number; peso_totale?: number;
       alimentazione?: string; tipologia_guida?: string;
+      franchigia?: number; massimale_1?: number; massimale_2?: number; massimale_3?: number;
+      peius?: boolean; temporanea?: boolean; carico_scarico?: boolean; competizione?: boolean; rimorchio?: boolean;
     };
     const cond = (d as any).conducente as undefined | {
       nome?: string; cognome?: string; codice_fiscale?: string; indirizzo?: string;
@@ -202,53 +204,71 @@ const ImmissionePolizzaPage = () => {
       (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String((m.ramo as any).codice || ""))) ||
       !!(v && (v.targa || v.telaio || v.marca));
     if (ramoIsAuto) {
-      // Apre la sezione RCA anche se l'utente ha selezionato un ramo non-ZQ ma ha forzato "Polizza Auto"
       setPolizzaAuto(true);
     }
+    const prefilledKeys: string[] = [];
+    let vCount = 0, cCount = 0;
     if (v && (v.targa || v.telaio || v.marca)) {
-      // Forza il flag "Polizza Auto" così la sezione RCA si apre
       setPolizzaAuto(true);
-      if (v.targa) { setVTarga(v.targa.toUpperCase()); if (!d.targa) setTargaTelaio(v.targa.toUpperCase()); }
-      if (v.telaio) setVTelaio(v.telaio.toUpperCase());
-      if (v.marca) setVMarca(v.marca.toUpperCase());
-      if (v.modello) setVModello(v.modello.toUpperCase());
-      if (v.versione) setVVersione(v.versione);
-      if (v.descrizione) setVDescrizione(v.descrizione);
+      if (v.targa) { setVTarga(v.targa.toUpperCase()); if (!d.targa) setTargaTelaio(v.targa.toUpperCase()); prefilledKeys.push("vTarga"); vCount++; }
+      if (v.telaio) { setVTelaio(v.telaio.toUpperCase()); prefilledKeys.push("vTelaio"); vCount++; }
+      if (v.marca) { setVMarca(v.marca.toUpperCase()); prefilledKeys.push("vMarca"); vCount++; }
+      if (v.modello) { setVModello(v.modello.toUpperCase()); prefilledKeys.push("vModello"); vCount++; }
+      if (v.versione) { setVVersione(v.versione); prefilledKeys.push("vVersione"); vCount++; }
+      if (v.descrizione) { setVDescrizione(v.descrizione); prefilledKeys.push("vDescrizione"); vCount++; }
       if (v.tipo_veicolo) {
         setVTipoVeicolo(v.tipo_veicolo.toUpperCase());
         setVSettore(v.tipo_veicolo);
+        prefilledKeys.push("vTipoVeicolo"); vCount++;
       }
-      if (v.data_immatricolazione) setVDataImmatricolazione(v.data_immatricolazione);
-      if (v.anno_acquisto) setVAnnoAcquisto(String(v.anno_acquisto));
-      if (v.provincia_circolazione) setVProvinciaCircolazione(v.provincia_circolazione.toUpperCase());
-      if (v.classe_bm) setVClasseBm(String(v.classe_bm));
-      if (v.cv != null) setVCv(String(v.cv));
-      if (v.kw != null) setVKw(String(v.kw));
-      if (v.cc != null) setVCc(String(v.cc));
-      if (v.posti != null) setVPosti(String(v.posti));
-      if (v.peso_motrice != null) setVPesoMotrice(String(v.peso_motrice));
-      if (v.peso_rimorchio != null) setVPesoRimorchio(String(v.peso_rimorchio));
-      if (v.peso_totale != null) setVPesoTotale(String(v.peso_totale));
-      if (v.alimentazione) setVTipoAlimentazione(v.alimentazione);
-      if (v.tipologia_guida) setVTipologiaGuida(v.tipologia_guida);
-      // Uso: vUso è uuid FK; l'AI manda descrizione → l'utente sceglierà nel dropdown
+      if (v.data_immatricolazione) { setVDataImmatricolazione(v.data_immatricolazione); prefilledKeys.push("vDataImmatricolazione"); vCount++; }
+      if (v.anno_acquisto) { setVAnnoAcquisto(String(v.anno_acquisto)); prefilledKeys.push("vAnnoAcquisto"); vCount++; }
+      if (v.provincia_circolazione) { setVProvinciaCircolazione(v.provincia_circolazione.toUpperCase()); prefilledKeys.push("vProvinciaCircolazione"); vCount++; }
+      if (v.classe_bm) { setVClasseBm(String(v.classe_bm)); prefilledKeys.push("vClasseBm"); vCount++; }
+      if (v.cv != null) { setVCv(String(v.cv)); prefilledKeys.push("vCv"); vCount++; }
+      if (v.kw != null) { setVKw(String(v.kw)); prefilledKeys.push("vKw"); vCount++; }
+      if (v.cc != null) { setVCc(String(v.cc)); prefilledKeys.push("vCc"); vCount++; }
+      if (v.posti != null) { setVPosti(String(v.posti)); prefilledKeys.push("vPosti"); vCount++; }
+      if (v.peso_motrice != null) { setVPesoMotrice(String(v.peso_motrice)); prefilledKeys.push("vPesoMotrice"); vCount++; }
+      if (v.peso_rimorchio != null) { setVPesoRimorchio(String(v.peso_rimorchio)); prefilledKeys.push("vPesoRimorchio"); vCount++; }
+      if (v.peso_totale != null) { setVPesoTotale(String(v.peso_totale)); prefilledKeys.push("vPesoTotale"); vCount++; }
+      if (v.alimentazione) { setVTipoAlimentazione(v.alimentazione); prefilledKeys.push("vTipoAlimentazione"); vCount++; }
+      if (v.tipologia_guida) { setVTipologiaGuida(v.tipologia_guida); prefilledKeys.push("vTipologiaGuida"); vCount++; }
+      if (v.franchigia != null) { setVFranchigia(String(v.franchigia)); prefilledKeys.push("vFranchigia"); vCount++; }
+      if (v.massimale_1 != null) { setVMass1(String(v.massimale_1)); prefilledKeys.push("vMass1"); vCount++; }
+      if (v.massimale_2 != null) { setVMass2(String(v.massimale_2)); prefilledKeys.push("vMass2"); vCount++; }
+      if (v.massimale_3 != null) { setVMass3(String(v.massimale_3)); prefilledKeys.push("vMass3"); vCount++; }
+      if (v.peius != null) { setVPeius(!!v.peius); if (v.peius) vCount++; }
+      if (v.temporanea != null) { setVTemporanea(!!v.temporanea); if (v.temporanea) vCount++; }
+      if (v.carico_scarico != null) { setVCaricoScarico(!!v.carico_scarico); if (v.carico_scarico) vCount++; }
+      if (v.competizione != null) { setVCompetizione(!!v.competizione); if (v.competizione) vCount++; }
+      if (v.rimorchio != null) { setVRimorchio(!!v.rimorchio); if (v.rimorchio) vCount++; }
     }
     if (cond) {
-      if (cond.nome) setCNome(cond.nome);
-      if (cond.cognome) setCCognome(cond.cognome);
-      if (cond.indirizzo) setCIndirizzo(cond.indirizzo);
-      if (cond.cap) setCCap(cond.cap);
-      if (cond.citta) setCCitta(cond.citta);
-      if (cond.provincia) setCProvincia(cond.provincia.toUpperCase());
-      if (cond.data_nascita) setCDataNascita(cond.data_nascita);
-      if (cond.tipo_patente) setCTipoPatente(cond.tipo_patente);
-      if (cond.data_rilascio_patente) setCDataRilascioPatente(cond.data_rilascio_patente);
+      if (cond.nome) { setCNome(cond.nome); prefilledKeys.push("cNome"); cCount++; }
+      if (cond.cognome) { setCCognome(cond.cognome); prefilledKeys.push("cCognome"); cCount++; }
+      if (cond.indirizzo) { setCIndirizzo(cond.indirizzo); prefilledKeys.push("cIndirizzo"); cCount++; }
+      if (cond.cap) { setCCap(cond.cap); prefilledKeys.push("cCap"); cCount++; }
+      if (cond.citta) { setCCitta(cond.citta); prefilledKeys.push("cCitta"); cCount++; }
+      if (cond.provincia) { setCProvincia(cond.provincia.toUpperCase()); prefilledKeys.push("cProvincia"); cCount++; }
+      if (cond.data_nascita) { setCDataNascita(cond.data_nascita); prefilledKeys.push("cDataNascita"); cCount++; }
+      if (cond.tipo_patente) { setCTipoPatente(cond.tipo_patente); prefilledKeys.push("cTipoPatente"); cCount++; }
+      if (cond.data_rilascio_patente) { setCDataRilascioPatente(cond.data_rilascio_patente); prefilledKeys.push("cDataRilascioPatente"); cCount++; }
     }
+    // Fallback: se provincia_circolazione manca ma c'è quella del conducente, usala
+    if (v && !v.provincia_circolazione && cond?.provincia) {
+      setVProvinciaCircolazione(cond.provincia.toUpperCase());
+      prefilledKeys.push("vProvinciaCircolazione");
+    }
+    if (prefilledKeys.length) markAiPrefilled(...prefilledKeys);
 
     toast.success(m.isNewCliente && !m.cliente?.id
       ? "Dati applicati. Completa la creazione del nuovo cliente (Gruppo Finanziario obbligatorio)."
-      : ramoIsAuto && v ? "Dati polizza + veicolo applicati al form" : "Dati applicati al form");
+      : ramoIsAuto && (vCount || cCount)
+        ? `AI ha compilato ${vCount} campi veicolo + ${cCount} campi conducente`
+        : "Dati applicati al form");
   };
+
 
   // Form state — Cliente
   const [aiCfLookup, setAiCfLookup] = useState(""); // CF/P.IVA arrivato da import AI per auto-selezione
