@@ -182,8 +182,13 @@ const ImmissionePolizzaPage = () => {
       tipo_patente?: string; data_rilascio_patente?: string;
     };
     const ramoIsAuto =
+      !!m.polizzaAuto ||
       (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String((m.ramo as any).codice || ""))) ||
       !!(v && (v.targa || v.telaio || v.marca));
+    if (ramoIsAuto) {
+      // Apre la sezione RCA anche se l'utente ha selezionato un ramo non-ZQ ma ha forzato "Polizza Auto"
+      setPolizzaAuto(true);
+    }
     if (v && (v.targa || v.telaio || v.marca)) {
       // Forza il flag "Polizza Auto" così la sezione RCA si apre
       setPolizzaAuto(true);
