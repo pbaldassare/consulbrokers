@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1429,10 +1430,7 @@ export default function ClienteDetail() {
     );
   };
 
-  const aeOptions = (anagraficheAEProd as any[])
-    .filter((a) => a.tipo === "account_executive")
-    .map((a) => ({ value: a.id, label: buildAnagraficaLabel(a) }))
-    .sort((a, b) => a.label.localeCompare(b.label, "it"));
+  // aeOptions/aeIsFallback definiti dopo `editFields` (dipendono da ef.ufficio_id)
 
   const produttoreOptions = (anagraficheAEProd as any[])
     .filter((a) => a.tipo === "corrispondente")
@@ -1641,6 +1639,13 @@ export default function ClienteDetail() {
   };
 
   const ef = editFields;
+
+  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
+  const { data: aeLookupData } = useAccountExecutivesLookup(
+    (ef as any)?.ufficio_id ?? null
+  );
+  const aeOptions = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
   const readOnly = !editMode;
 
   // Tracks the last CF auto-filled (declared above before early return)
@@ -2098,6 +2103,11 @@ export default function ClienteDetail() {
                       clearLabel="— Nessuno —"
                       options={aeOptions}
                     />
+                  )}
+                  {!readOnly && aeIsFallback && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
+                    </p>
                   )}
                 </div>
 

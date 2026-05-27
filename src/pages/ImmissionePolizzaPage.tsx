@@ -783,7 +783,10 @@ const ImmissionePolizzaPage = () => {
   });
 
   // Account Executive: fonte canonica = anagrafiche_professionali (tipo='account_executive')
-  const { data: aeAnagraficheList } = useAccountExecutivesLookup();
+  // Filtrata per Sede del cliente; fallback automatico a tutti gli AE attivi.
+  const { data: aeLookupData } = useAccountExecutivesLookup(selectedUfficioId);
+  const aeAnagraficheList = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   // Eredita AE, Specialist e Produttore dal cliente
   useEffect(() => {
@@ -1586,10 +1589,16 @@ const ImmissionePolizzaPage = () => {
               onValueChange={setSelectedAccountExecutiveId}
               placeholder="— Seleziona Account Executive —"
               clearable
-              options={aeAnagraficheList || []}
+              options={aeAnagraficheList}
             />
+            {aeIsFallback && (
+              <p className="text-[10px] text-muted-foreground">
+                Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 min-w-0">
+
             <Label className="text-xs">Produttore</Label>
             <SearchableSelect
               className="h-8 text-xs w-full"
