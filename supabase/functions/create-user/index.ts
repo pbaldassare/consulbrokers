@@ -55,12 +55,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roles } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
       .eq("role", "admin");
+
 
     if (!roles || roles.length === 0) {
       return new Response(JSON.stringify({ error: "Accesso non autorizzato" }), {
