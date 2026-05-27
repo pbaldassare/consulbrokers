@@ -94,9 +94,19 @@ const TOOL = {
             description: "BENZINA | DIESEL | GPL | METANO | ELETTRICA | IBRIDA | IBRIDA_BENZINA | IBRIDA_DIESEL",
           },
           tipologia_guida: { type: "string", description: "Es: ESPERTA, LIBERA, ESCLUSIVA" },
+          franchigia: { type: "number", description: "Importo franchigia RCA in euro" },
+          massimale_1: { type: "number", description: "Massimale principale RCA (es. 6.450.000)" },
+          massimale_2: { type: "number", description: "Massimale persone (se distinto)" },
+          massimale_3: { type: "number", description: "Massimale cose (se distinto)" },
+          peius: { type: "boolean", description: "Clausola peius presente" },
+          temporanea: { type: "boolean", description: "Polizza temporanea" },
+          carico_scarico: { type: "boolean", description: "Rischio carico/scarico operante" },
+          competizione: { type: "boolean", description: "Veicolo da competizione" },
+          rimorchio: { type: "boolean", description: "Con rimorchio" },
         },
         additionalProperties: false,
       },
+
 
       // Blocco CONDUCENTE (solo RCA Auto)
       conducente: {
