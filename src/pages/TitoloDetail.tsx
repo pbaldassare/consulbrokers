@@ -316,7 +316,12 @@ const TitoloDetail = () => {
   const [aeForm, setAeForm] = useState<{ ae_anagrafica_id: string | null; percentuale_ae: number }>({
     ae_anagrafica_id: null, percentuale_ae: 0,
   });
-  const { data: aeLookup = [] } = useAccountExecutivesLookup();
+  // AE: filtrato per Sede del titolo/cliente con fallback automatico
+  const { data: aeLookupData } = useAccountExecutivesLookup(
+    (contrattoForm as any)?.ufficio_id ?? null
+  );
+  const aeLookup = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   const { data: anagraficheComm = [] } = useQuery({
     queryKey: ["anagrafiche-commerciali"],
