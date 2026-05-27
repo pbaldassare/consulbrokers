@@ -1,54 +1,19 @@
-## C3 — Split TitoloDetail.tsx (3460 LOC) — refactor conservativo
+## Problema
 
-Obiettivo: ridurre la complessità del file senza toccare logica, query, mutation o markup. Solo estrazione di blocchi presentazionali in sotto-componenti dello stesso folder, con prop typing strict.
+Nel dettaglio cliente la CTA "Nuova Polizza" è disponibile solo dentro il tab Polizze (header card + empty state). Quando il tab attivo è un altro o la lista è lunga, non è immediato lanciare l'immissione polizza con cliente già pre-selezionato.
 
-### Strategia
+## Fix
 
-NON usare React.lazy, NON cambiare ordine di useEffect/useState, NON modificare query keys, NON refactor di mutation. Solo "cut & paste" di blocchi JSX + props pass-through.
+**`src/pages/ClienteDetail.tsx` — header pagina**
+- Aggiungere `<NuovaPolizzaButton clienteId={id} size="sm" />` nell'area azioni dell'header (accanto a `Modifica` / `Attivo`), sempre visibile, indipendente dal tab selezionato.
+- Mantenere le due CTA esistenti dentro il tab Polizze (header card + empty state) per non rompere il flusso attuale.
 
-Tutti i nuovi componenti vivono in `src/components/titolo/sections/` per non disturbare gli import esistenti di `@/components/titolo/TitoloTabs`.
+## Note
 
-### Sezioni da estrarre (in ordine di rischio crescente)
+- `NuovaPolizzaButton` esiste già e gestisce `?clienteId=...` → l'immissione si apre con cliente pre-collegato.
+- Nessuna modifica RBAC: l'azione era già accessibile, qui la rendiamo solo più raggiungibile.
+- Bump `public/version.json`.
 
-1. **`TitoloHeaderBar`** — header con back button, badges (stato, sospesa, stornata, quietanza/madre), numero polizza, contraente. ~80 righe. Props: `titolo`, `polizzaMadre`, `onBack`. Rischio: minimo.
+## Verifica
 
-2. **`TitoloOperazioniCard`** — la Card "Operazioni" (righe 1632-1880 ca.): bottoni Sospendi/Riattiva/Sostituisci/Estingui/Storna/Regolazione + i relativi `Dialog` lift state. Props: `titolo`, `canEdit`, callbacks per ricarica. Rischio: medio (molti dialog), ma sono già componenti standalone — passiamo solo `open/onOpenChange`.
-
-3. **`TitoloPolizzaPanel`** — wrapper attorno a `<PolizzaSection>` con i suoi handler `onChange` e `onSave` (la sezione condivisa con Immissione). Già componente, basta estrarre il binding. Rischio: basso.
-
-4. **`TitoloQuietanzaPanel`** — pannello "Isolamento Quietanza" (banner + dati rata) presente quando `isQuietanza`. Rischio: basso.
-
-5. **`TitoloProvvigioniCard`** — riepilogo provvigioni generate (lettura `provvigioni_generate`). Rischio: basso (solo read).
-
-Mutation, query, useState, useEffect, useMemo, helper locali (`assertSameTitolo`, calcoli mora, ricalcolo frazionamento) RIMANGONO nel componente padre. Si passano callback già esistenti via props.
-
-### Cosa NON tocco in questo step
-
-- `TitoloTabs` (già estratto, ok).
-- `VociRcaCard`, `PolizzaSection`, dialog di operazione (già componenti).
-- Auto-quietanza, sync firma→quietanza, guard `assertSameTitolo`.
-- Nessuna estrazione di hook custom (rinviato a C3b se serve).
-
-### Verifica
-
-1. Build green.
-2. Smoke nel preview: apertura titolo, modifica un campo, salvataggio, apertura dialog Sospendi, chiusura.
-3. Diff: ogni sezione estratta deve essere byte-identica al JSX precedente, solo "scope lift" delle prop.
-
-### File toccati
-
-| File | Tipo |
-|---|---|
-| `src/components/titolo/sections/TitoloHeaderBar.tsx` | nuovo |
-| `src/components/titolo/sections/TitoloOperazioniCard.tsx` | nuovo |
-| `src/components/titolo/sections/TitoloPolizzaPanel.tsx` | nuovo |
-| `src/components/titolo/sections/TitoloQuietanzaPanel.tsx` | nuovo |
-| `src/components/titolo/sections/TitoloProvvigioniCard.tsx` | nuovo |
-| `src/pages/TitoloDetail.tsx` | sostituzione blocchi JSX con i nuovi componenti |
-| `public/version.json` | bump |
-
-Target: TitoloDetail.tsx scende da ~3460 a ~1900-2100 LOC senza cambiamenti di comportamento.
-
-### Domanda
-
-Procedo con questo ambito (5 sezioni, solo presentazionali) o preferisci limitarmi a 1-2 sezioni a basso rischio (Header + Quietanza) come primo step prudente?
+Apertura `/archivi/clienti/{id}`: il bottone "Nuova Polizza" è visibile nell'header sia sul tab Anagrafica sia su Polizze; click → `/portafoglio/immissione?clienteId={id}`.
