@@ -166,9 +166,67 @@ const ImmissionePolizzaPage = () => {
     }
     if (d.premio_quietanza_accessori != null) setAddizionaliQuietanza(String(d.premio_quietanza_accessori));
     if (d.targa) setTargaTelaio(d.targa);
+
+    // === RCA Auto: applica blocco veicolo + conducente ===
+    const v = (d as any).veicolo as undefined | {
+      targa?: string; telaio?: string; marca?: string; modello?: string; versione?: string;
+      descrizione?: string; tipo_veicolo?: string; uso_descrizione?: string;
+      data_immatricolazione?: string; anno_acquisto?: string; provincia_circolazione?: string;
+      classe_bm?: string; cv?: number; kw?: number; cc?: number; posti?: number;
+      peso_motrice?: number; peso_rimorchio?: number; peso_totale?: number;
+      alimentazione?: string; tipologia_guida?: string;
+    };
+    const cond = (d as any).conducente as undefined | {
+      nome?: string; cognome?: string; codice_fiscale?: string; indirizzo?: string;
+      cap?: string; citta?: string; provincia?: string; data_nascita?: string;
+      tipo_patente?: string; data_rilascio_patente?: string;
+    };
+    const ramoIsAuto =
+      (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String((m.ramo as any).codice || ""))) ||
+      !!(v && (v.targa || v.telaio || v.marca));
+    if (v && (v.targa || v.telaio || v.marca)) {
+      // Forza il flag "Polizza Auto" così la sezione RCA si apre
+      setPolizzaAuto(true);
+      if (v.targa) { setVTarga(v.targa.toUpperCase()); if (!d.targa) setTargaTelaio(v.targa.toUpperCase()); }
+      if (v.telaio) setVTelaio(v.telaio.toUpperCase());
+      if (v.marca) setVMarca(v.marca.toUpperCase());
+      if (v.modello) setVModello(v.modello.toUpperCase());
+      if (v.versione) setVVersione(v.versione);
+      if (v.descrizione) setVDescrizione(v.descrizione);
+      if (v.tipo_veicolo) {
+        setVTipoVeicolo(v.tipo_veicolo.toUpperCase());
+        setVSettore(v.tipo_veicolo);
+      }
+      if (v.data_immatricolazione) setVDataImmatricolazione(v.data_immatricolazione);
+      if (v.anno_acquisto) setVAnnoAcquisto(String(v.anno_acquisto));
+      if (v.provincia_circolazione) setVProvinciaCircolazione(v.provincia_circolazione.toUpperCase());
+      if (v.classe_bm) setVClasseBm(String(v.classe_bm));
+      if (v.cv != null) setVCv(String(v.cv));
+      if (v.kw != null) setVKw(String(v.kw));
+      if (v.cc != null) setVCc(String(v.cc));
+      if (v.posti != null) setVPosti(String(v.posti));
+      if (v.peso_motrice != null) setVPesoMotrice(String(v.peso_motrice));
+      if (v.peso_rimorchio != null) setVPesoRimorchio(String(v.peso_rimorchio));
+      if (v.peso_totale != null) setVPesoTotale(String(v.peso_totale));
+      if (v.alimentazione) setVTipoAlimentazione(v.alimentazione);
+      if (v.tipologia_guida) setVTipologiaGuida(v.tipologia_guida);
+      // Uso: vUso è uuid FK; l'AI manda descrizione → l'utente sceglierà nel dropdown
+    }
+    if (cond) {
+      if (cond.nome) setCNome(cond.nome);
+      if (cond.cognome) setCCognome(cond.cognome);
+      if (cond.indirizzo) setCIndirizzo(cond.indirizzo);
+      if (cond.cap) setCCap(cond.cap);
+      if (cond.citta) setCCitta(cond.citta);
+      if (cond.provincia) setCProvincia(cond.provincia.toUpperCase());
+      if (cond.data_nascita) setCDataNascita(cond.data_nascita);
+      if (cond.tipo_patente) setCTipoPatente(cond.tipo_patente);
+      if (cond.data_rilascio_patente) setCDataRilascioPatente(cond.data_rilascio_patente);
+    }
+
     toast.success(m.isNewCliente && !m.cliente?.id
       ? "Dati applicati. Completa la creazione del nuovo cliente (Gruppo Finanziario obbligatorio)."
-      : "Dati applicati al form");
+      : ramoIsAuto && v ? "Dati polizza + veicolo applicati al form" : "Dati applicati al form");
   };
 
   // Form state — Cliente
