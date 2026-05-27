@@ -20,18 +20,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey =
-      Deno.env.get("SUPABASE_ANON_KEY") ??
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
-      serviceRoleKey;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+      Deno.env.get("SUPABASE_SECRET_KEY");
 
-    const anonClient = createClient(supabaseUrl, anonKey);
+    console.log("[create-user] env check", {
+      hasUrl: !!supabaseUrl,
+      hasServiceRoleKey: !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+      hasSecretKey: !!Deno.env.get("SUPABASE_SECRET_KEY"),
+      hasAnonKey: !!Deno.env.get("SUPABASE_ANON_KEY"),
+      hasPublishableKey: !!Deno.env.get("SUPABASE_PUBLISHABLE_KEY"),
+    });
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: "Configurazione server mancante: SUPABASE_URL o SERVICE_ROLE_KEY non disponibili" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Valida il JWT del chiamante usando l'admin client (non serve l'anon key)
     const {
       data: { user: caller },
       error: authError,
-    } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
+    } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
 
     if (authError || !caller) {
       return new Response(JSON.stringify({ error: "Non autenticato" }), {
