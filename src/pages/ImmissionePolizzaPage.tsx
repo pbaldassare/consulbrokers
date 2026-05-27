@@ -1589,9 +1589,13 @@ const ImmissionePolizzaPage = () => {
               onValueChange={setSelectedAccountExecutiveId}
               placeholder="— Seleziona Account Executive —"
               clearable
-              options={aeAnagraficheList || []}
+              options={aeAnagraficheList}
             />
-          </div>
+            {aeIsFallback && (
+              <p className="text-[10px] text-muted-foreground">
+                Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
+              </p>
+            )}
           <div className="space-y-1.5 min-w-0">
             <Label className="text-xs">Produttore</Label>
             <SearchableSelect
