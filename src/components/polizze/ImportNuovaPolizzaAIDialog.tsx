@@ -750,6 +750,25 @@ export function ImportNuovaPolizzaAIDialog({
               </p>
             </div>
 
+            {/* Switch Polizza Auto — auto-ON quando ramo ZQ; resta editabile */}
+            <div className="border rounded-lg p-3 flex items-start gap-3 bg-muted/20">
+              <Switch
+                id="forza-polizza-auto"
+                checked={forzaPolizzaAuto}
+                onCheckedChange={(v) => { setForzaPolizzaAuto(!!v); setPolizzaAutoTouched(true); }}
+              />
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="forza-polizza-auto" className="text-xs font-semibold cursor-pointer">
+                  Polizza Auto {selectedGruppoRamoCodice === "ZQ" && <Badge variant="secondary" className="ml-1 text-[10px]">auto da ramo ZQ</Badge>}
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Attivalo se la polizza è una RCA Auto (o contiene un veicolo identificato): l'AI proverà
+                  a estrarre <strong>targa, telaio, marca, modello, classe BM, alimentazione, cv/kw/cc, posti</strong> e il
+                  conducente — <strong>solo se realmente presenti nel PDF</strong>, senza inventarli.
+                </p>
+              </div>
+            </div>
+
             {/* Dropzone — disabilitata finché manca il Ramo */}
             <div
               onDragOver={(e) => { if (!selectedGruppoRamoId) return; e.preventDefault(); setDragOver(true); }}
