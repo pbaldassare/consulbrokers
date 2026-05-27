@@ -21,7 +21,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
+import { CLASSI_MERITO, TIPI_VEICOLO, PROVINCE_IT, TIPI_PATENTE, defaultPatenteForVeicolo, isTargaItValid } from "@/lib/rcaConstants";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { parseCF } from "@/lib/parseCF";
+import { lookupComune } from "@/lib/comuniItaliani";
+
 // resolvePercentualeProvvigione non più usato: matrice caricata inline per calcolo per-riga
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
