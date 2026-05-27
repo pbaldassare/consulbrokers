@@ -179,10 +179,7 @@ Deno.serve(async (req) => {
 
     if (profileError) {
       await adminClient.auth.admin.deleteUser(newUserId);
-      return new Response(JSON.stringify({ error: `Errore creazione profilo: ${profileError.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: `Errore creazione profilo: ${profileError.message}` }, 400);
     }
 
     const { error: roleError } = await adminClient.from("user_roles").insert({
@@ -206,18 +203,14 @@ Deno.serve(async (req) => {
       console.error("Error logging activity:", logError.message);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        user_id: newUserId,
-        message: "Utente creato con successo.",
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (err) {
-    return new Response(JSON.stringify({ error: `Errore interno: ${err.message}` }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return jsonResponse({
+      success: true,
+      user_id: newUserId,
+      message: "Utente creato con successo.",
     });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[create-user] unhandled error", message);
+    return jsonResponse({ error: `Errore interno: ${message}` }, 500);
   }
 });
