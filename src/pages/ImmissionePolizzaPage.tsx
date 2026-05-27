@@ -32,6 +32,7 @@ import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { ImportNuovaPolizzaAIDialog, type MatchResult } from "@/components/polizze/ImportNuovaPolizzaAIDialog";
 import { isValidCigWithFlag, normalizeCig } from "@/lib/validateCig";
 import { FieldHint } from "@/components/ui/field-hint";
+import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
 
 const ImmissionePolizzaPage = () => {
   const navigate = useNavigate();
