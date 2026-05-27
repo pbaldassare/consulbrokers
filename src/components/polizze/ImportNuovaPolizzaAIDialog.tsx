@@ -455,12 +455,16 @@ export function ImportNuovaPolizzaAIDialog({
       setPhase(25, "Conversione base64…");
       const b64 = btoa(bin);
       setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
+      const isZQ = String(gruppoRamoCtx?.codice || "").toUpperCase() === "ZQ";
+      const wantsVeicolo = forzaPolizzaAuto || isZQ;
+      if (wantsVeicolo) log("info", `Polizza Auto attiva — l'AI estrarrà i dati veicolo/conducente se presenti.`);
       const { data: resp, error } = await supabase.functions.invoke("parse-polizza-completa", {
         body: {
           fileBase64: b64,
           mimeType: file.type || "application/pdf",
           gruppo_ramo: gruppoRamoCtx,
           sottorami_ammessi: sottoramiAmmessi,
+          forza_veicolo: wantsVeicolo,
         },
       });
       if (error) throw error;
