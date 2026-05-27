@@ -1257,6 +1257,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedUfficioId}
               onValueChange={setSelectedUfficioId}
               placeholder="— Seleziona sede —"
+              clearable
               options={(ufficiList || []).map((u: any) => ({
                 value: u.id,
                 label: `${u.codice_ufficio ? u.codice_ufficio + " - " : ""}${u.nome_ufficio}`,
@@ -1270,6 +1271,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedAccountExecutiveId}
               onValueChange={setSelectedAccountExecutiveId}
               placeholder="— Seleziona Account Executive —"
+              clearable
               options={aeAnagraficheList || []}
             />
           </div>
@@ -1280,6 +1282,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedAE}
               onValueChange={setSelectedAE}
               placeholder="— Seleziona produttore —"
+              clearable
               options={(aeList || []).map((ae: any) => ({
                 value: ae.id,
                 label: ae.ragione_sociale || `${ae.sigla || ae.codice || ""} - ${ae.cognome || ""} ${ae.nome || ""}`.trim(),
@@ -1293,6 +1296,7 @@ const ImmissionePolizzaPage = () => {
               value={selectedBackofficeId}
               onValueChange={setSelectedBackofficeId}
               placeholder="— Seleziona Specialist —"
+              clearable
               options={(backofficeList || []).map((b: any) => ({
                 value: b.id,
                 label: `${b.cognome || ""} ${b.nome || ""}`.trim(),
@@ -1301,6 +1305,7 @@ const ImmissionePolizzaPage = () => {
           </div>
         </div>
       </PolizzaSection>
+
 
       {/* TIPO — in cima perché determina i campi successivi */}
       <PolizzaSection title="Tipo Polizza" icon={Tag}>

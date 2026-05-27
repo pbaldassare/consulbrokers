@@ -25,6 +25,8 @@ interface SearchableSelectProps {
   searchValue?: string;
   onSearchChange?: (q: string) => void;
   searchPlaceholder?: string;
+  clearable?: boolean;
+  clearLabel?: string;
 }
 
 export function SearchableSelect({
@@ -38,6 +40,8 @@ export function SearchableSelect({
   searchValue,
   onSearchChange,
   searchPlaceholder = "Cerca...",
+  clearable = false,
+  clearLabel = "— Nessuno —",
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -67,6 +71,19 @@ export function SearchableSelect({
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
+              {clearable && value && (
+                <CommandItem
+                  key="__clear__"
+                  value={clearLabel}
+                  onSelect={() => {
+                    onValueChange("");
+                    setOpen(false);
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4 mt-0.5 shrink-0 opacity-0" />
+                  <span className="truncate text-muted-foreground italic">{clearLabel}</span>
+                </CommandItem>
+              )}
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
