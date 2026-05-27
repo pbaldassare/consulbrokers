@@ -391,7 +391,30 @@ const ImmissionePolizzaPage = () => {
   const [cDataRilascioPatente, setCDataRilascioPatente] = useState("");
   const [cNote, setCNote] = useState("");
 
+  // Tracciamento campi compilati dall'AI (per indicatore visivo ✨)
+  const [aiPrefilled, setAiPrefilled] = useState<Set<string>>(new Set());
+  const markAiPrefilled = (...keys: string[]) => {
+    setAiPrefilled((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.add(k));
+      return next;
+    });
+  };
+  const clearAiPrefilled = (key: string) => {
+    setAiPrefilled((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
+  // Toggle "Conducente = Contraente"
+  const [conducenteUgualeContraente, setConducenteUgualeContraente] = useState(false);
+  // Lock sincronizzazione KW/CV (se l'utente edita manualmente uno dei due)
+  const [kwCvLocked, setKwCvLocked] = useState<null | "cv" | "kw">(null);
+
   // Commerciale
+
   const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
   const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
 
