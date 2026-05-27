@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
-    const { fileBase64, mimeType, gruppo_ramo, sottorami_ammessi } = await req.json();
+    const { fileBase64, mimeType, gruppo_ramo, sottorami_ammessi, forza_veicolo } = await req.json();
     if (!fileBase64 || !mimeType) {
       return new Response(JSON.stringify({ error: "fileBase64 e mimeType richiesti" }), {
         status: 400,
@@ -203,6 +203,7 @@ Deno.serve(async (req) => {
     const dataUrl = `data:${mimeType};base64,${fileBase64}`;
     const gr = (gruppo_ramo as any) || {};
     const isZQ = String(gr?.codice || "").toUpperCase() === "ZQ";
+    const shouldExtractVeicolo = isZQ || forza_veicolo === true;
 
     let ramoContext = "";
     if (gruppo_ramo && typeof gruppo_ramo === "object") {
@@ -228,13 +229,21 @@ Deno.serve(async (req) => {
           `- "Cristalli", "Rottura cristalli", "Vetri" → EC (CRISTALLI).\n` +
           `- "Kasko", "Collisione", "Mini-kasko", "Garanzia collisione" → QK (KASKO).\n` +
           `- "Tutela legale", "Assistenza stradale", "Soccorso", "Infortuni del conducente" → spesso NON hanno sottoramo dedicato in ZQ: OMETTI codice_sottoramo (l'utente lo sceglierà).\n` +
-          `Riusa pure più volte lo stesso codice (es. più voci A.R.D. → tutte DRA).\n\n` +
-          `IMPORTANTISSIMO — DATI VEICOLO: questa è una RCA Auto, quindi compila SEMPRE il blocco 'veicolo' ` +
-          `leggendo dalla sezione 'Dati veicolo'/'Identificativi veicolo'/'Caratteristiche tecniche': ` +
-          `targa, telaio (VIN), marca, modello, tipo_veicolo, uso_descrizione, data_immatricolazione, ` +
-          `provincia_circolazione, classe_bm, cv, kw, cc, posti, alimentazione, peso_totale. ` +
-          `Se è indicato un conducente abituale, compila anche il blocco 'conducente'.`;
+          `Riusa pure più volte lo stesso codice (es. più voci A.R.D. → tutte DRA).`;
       }
+    }
+
+    if (shouldExtractVeicolo) {
+      ramoContext +=
+        `\n\nDATI VEICOLO/CONDUCENTE — l'utente ha indicato che questa è una Polizza Auto. ` +
+        `Compila il blocco 'veicolo' leggendo dalle sezioni 'Dati veicolo' / 'Identificativi veicolo' / 'Caratteristiche tecniche': ` +
+        `targa, telaio (VIN), marca, modello, versione, tipo_veicolo, uso_descrizione, data_immatricolazione, anno_acquisto, ` +
+        `provincia_circolazione, classe_bm, cv, kw, cc, posti, alimentazione, peso_motrice/rimorchio/totale, tipologia_guida. ` +
+        `REGOLA TASSATIVA: compila SOLO i campi realmente presenti e leggibili nel PDF — se un campo non c'è, OMETTILO (non inventare, non dedurre, non mettere placeholder). ` +
+        `Se è indicato un conducente abituale (diverso dal contraente), compila anche il blocco 'conducente' con la stessa regola.`;
+    } else {
+      ramoContext +=
+        `\n\nNON compilare i blocchi 'veicolo' e 'conducente': questa polizza non è classificata come Auto.`;
     }
 
     const messages = [

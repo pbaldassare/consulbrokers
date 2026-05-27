@@ -115,6 +115,8 @@ export type MatchResult = {
   gruppoFinanziarioId?: string;
   tipoCliente?: "privato" | "azienda" | "ente";
   codiceCig?: string;
+  /** True quando l'utente ha forzato "Polizza Auto" o il ramo è ZQ — apre il modale veicolo. */
+  polizzaAuto?: boolean;
 };
 
 type GruppoFinanziarioOpt = {
@@ -172,7 +174,10 @@ export function ImportNuovaPolizzaAIDialog({
   const [selectedAgenziaId, setSelectedAgenziaId] = useState<string>("");
   const [ramoCandidates, setRamoCandidates] = useState<RamoCand[]>([]);
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string>("");
+  const [selectedGruppoRamoCodice, setSelectedGruppoRamoCodice] = useState<string>("");
   const [selectedSottoramoId, setSelectedSottoramoId] = useState<string>("");
+  const [forzaPolizzaAuto, setForzaPolizzaAuto] = useState<boolean>(false);
+  const [polizzaAutoTouched, setPolizzaAutoTouched] = useState<boolean>(false);
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCigNew, setCodiceCigNew] = useState<string>("");
@@ -185,6 +190,26 @@ export function ImportNuovaPolizzaAIDialog({
       logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
     }
   }, [logs]);
+
+  // Quando l'utente sceglie un Ramo: carica il codice del gruppo e (se non è stato
+  // toccato dall'utente) attiva automaticamente "Polizza Auto" per i rami ZQ.
+  useEffect(() => {
+    if (!selectedGruppoRamoId) {
+      setSelectedGruppoRamoCodice("");
+      if (!polizzaAutoTouched) setForzaPolizzaAuto(false);
+      return;
+    }
+    (async () => {
+      const { data: gr } = await supabase
+        .from("gruppi_ramo" as any)
+        .select("codice")
+        .eq("id", selectedGruppoRamoId)
+        .maybeSingle();
+      const cod = String((gr as any)?.codice || "").toUpperCase();
+      setSelectedGruppoRamoCodice(cod);
+      if (!polizzaAutoTouched) setForzaPolizzaAuto(cod === "ZQ");
+    })();
+  }, [selectedGruppoRamoId, polizzaAutoTouched]);
 
   // Carica i gruppi finanziari quando si entra in review con cliente nuovo
   useEffect(() => {
@@ -216,7 +241,10 @@ export function ImportNuovaPolizzaAIDialog({
     setSelectedAgenziaId("");
     setRamoCandidates([]);
     setSelectedGruppoRamoId("");
+    setSelectedGruppoRamoCodice("");
     setSelectedSottoramoId("");
+    setForzaPolizzaAuto(false);
+    setPolizzaAutoTouched(false);
     setSelectedGruppoFinanziarioId("");
     setCodiceCigNew("");
   };
@@ -427,12 +455,16 @@ export function ImportNuovaPolizzaAIDialog({
       setPhase(25, "Conversione base64…");
       const b64 = btoa(bin);
       setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
+      const isZQ = String(gruppoRamoCtx?.codice || "").toUpperCase() === "ZQ";
+      const wantsVeicolo = forzaPolizzaAuto || isZQ;
+      if (wantsVeicolo) log("info", `Polizza Auto attiva — l'AI estrarrà i dati veicolo/conducente se presenti.`);
       const { data: resp, error } = await supabase.functions.invoke("parse-polizza-completa", {
         body: {
           fileBase64: b64,
           mimeType: file.type || "application/pdf",
           gruppo_ramo: gruppoRamoCtx,
           sottorami_ammessi: sottoramiAmmessi,
+          forza_veicolo: wantsVeicolo,
         },
       });
       if (error) throw error;
@@ -513,6 +545,7 @@ export function ImportNuovaPolizzaAIDialog({
           ? { gruppoRamoId: selectedGruppoRamoId, ramoId: null, label: "" }
           : null,
         isNewCliente: !lockedClienteId,
+        polizzaAuto: wantsVeicolo,
       };
 
       onApply(result);
@@ -577,6 +610,7 @@ export function ImportNuovaPolizzaAIDialog({
       gruppoFinanziarioId: effIsNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
       tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
       codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
+      polizzaAuto: forzaPolizzaAuto || selectedGruppoRamoCodice === "ZQ",
     };
   };
 
@@ -714,6 +748,25 @@ export function ImportNuovaPolizzaAIDialog({
                 ogni voce di garanzia del PDF al sottoramo corretto. I sottorami vengono presi dal PDF
                 (uno per riga, esattamente come nel form manuale).
               </p>
+            </div>
+
+            {/* Switch Polizza Auto — auto-ON quando ramo ZQ; resta editabile */}
+            <div className="border rounded-lg p-3 flex items-start gap-3 bg-muted/20">
+              <Switch
+                id="forza-polizza-auto"
+                checked={forzaPolizzaAuto}
+                onCheckedChange={(v) => { setForzaPolizzaAuto(!!v); setPolizzaAutoTouched(true); }}
+              />
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="forza-polizza-auto" className="text-xs font-semibold cursor-pointer">
+                  Polizza Auto {selectedGruppoRamoCodice === "ZQ" && <Badge variant="secondary" className="ml-1 text-[10px]">auto da ramo ZQ</Badge>}
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Attivalo se la polizza è una RCA Auto (o contiene un veicolo identificato): l'AI proverà
+                  a estrarre <strong>targa, telaio, marca, modello, classe BM, alimentazione, cv/kw/cc, posti</strong> e il
+                  conducente — <strong>solo se realmente presenti nel PDF</strong>, senza inventarli.
+                </p>
+              </div>
             </div>
 
             {/* Dropzone — disabilitata finché manca il Ramo */}
