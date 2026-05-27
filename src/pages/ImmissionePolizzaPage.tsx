@@ -783,7 +783,10 @@ const ImmissionePolizzaPage = () => {
   });
 
   // Account Executive: fonte canonica = anagrafiche_professionali (tipo='account_executive')
-  const { data: aeAnagraficheList } = useAccountExecutivesLookup();
+  // Filtrata per Sede del cliente; fallback automatico a tutti gli AE attivi.
+  const { data: aeLookupData } = useAccountExecutivesLookup(selectedUfficioId);
+  const aeAnagraficheList = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   // Eredita AE, Specialist e Produttore dal cliente
   useEffect(() => {
