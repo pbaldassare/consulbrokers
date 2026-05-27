@@ -1526,19 +1526,8 @@ const ImmissionePolizzaPage = () => {
       {/* CONTRATTO */}
       <PolizzaSection title="Contratto" icon={FileText}>
 
-        <AiDocumentScanner
-          documentType="copia_polizza"
-          entityContext={clienteDettaglio ? {
-            entityType: "polizza",
-            scopeHint: `Polizza per ${clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome ?? ""} ${clienteDettaglio.nome ?? ""}`.trim()}`,
-            expectedCF: clienteDettaglio.codice_fiscale ?? null,
-            expectedPIVA: clienteDettaglio.partita_iva ?? null,
-          } : undefined}
-          onFileReady={(file) => { scannedFileRef.current = file; }}
-          onExtracted={(data) => {
-            if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
-          }}
-        />
+
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
