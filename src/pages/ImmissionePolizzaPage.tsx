@@ -189,7 +189,7 @@ const ImmissionePolizzaPage = () => {
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
-  const scannedFileRef = useRef<File | null>(null);
+  
 
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
