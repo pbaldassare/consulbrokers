@@ -545,6 +545,7 @@ export function ImportNuovaPolizzaAIDialog({
           ? { gruppoRamoId: selectedGruppoRamoId, ramoId: null, label: "" }
           : null,
         isNewCliente: !lockedClienteId,
+        polizzaAuto: wantsVeicolo,
       };
 
       onApply(result);
@@ -609,6 +610,7 @@ export function ImportNuovaPolizzaAIDialog({
       gruppoFinanziarioId: effIsNewCliente ? selectedGruppoFinanziarioId || undefined : undefined,
       tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
       codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
+      polizzaAuto: forzaPolizzaAuto || selectedGruppoRamoCodice === "ZQ",
     };
   };
 
