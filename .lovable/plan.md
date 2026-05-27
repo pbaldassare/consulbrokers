@@ -1,26 +1,19 @@
-## 1. Limite Mora con default automatico
+# Fix totale SSN errato
 
-In `src/pages/ImmissionePolizzaPage.tsx`:
+## Problema
+Su polizza con netto 438,59 € e aliquota SSN 10,5% il totale SSN mostra **53,42 €** invece dei corretti **46,05 €**.
 
-- Aggiungere stato `limiteMoraTouched` (analogo a `dataCompetenzaTouched`).
-- Nel `onChange` di Limite Mora settare `limiteMoraTouched = true`.
-- Nell'`useEffect` che già auto-popola `dataCompetenza` (linee 911-920), aggiungere: se `!limiteMoraTouched` e ho `dataCompetenza` (o `durataDa` come fallback) e `moraGiorni`, calcolare `limite_mora = base + moraGiorni` e settarlo.
-- Anche nel `onChange` di Data Competenza, ricalcolare Limite Mora solo se `!limiteMoraTouched` (manteniamo l'attuale comportamento ma rispettiamo l'override utente).
-- Quando l'utente cambia GG Mora, ricalcolare Limite Mora come oggi (override implicito).
+Causa: in `src/components/polizze/PremiGaranziaCardShell.tsx` la funzione `calcSsn` usa `(netto + tasse) × aliquota%`, mentre per RCA la base imponibile SSN è il **solo netto** (come già documentato in `rca-voci-composizione-premio`).
 
-Risultato: aprendo l'immissione, con `durataDa = oggi`, `dataCompetenza = oggi`, `moraGiorni = 15` → `limiteMora = oggi + 15` precompilato.
+## Modifica
 
-## 2. Spacing select garanzia
+**`src/components/polizze/PremiGaranziaCardShell.tsx`**
+- `calcSsn(netto, _tasse, aliquotaSsn)` → ritorna `+(netto * aliquotaSsn / 100).toFixed(2)`. Il parametro `tasse` resta nella firma per non toccare i call-site, ma viene ignorato.
 
-In `src/components/polizze/PremiGaranziaCardShell.tsx` (riga ~290-312):
+Risultato: 438,59 × 10,5% = **46,05 €**. Totale lordo = 438,59 + 70,17 + 46,05 = 554,81 €.
 
-- Allargare la colonna "Voce": header `w-[30%]` → `w-[38%]`.
-- `SearchableSelect` del sottoramo: `min-w-[220px]` → `min-w-[280px]`, aggiungere `flex-1` per occupare la cella.
-- Wrapper riga: `gap-2` → `gap-3` e `py-1` sulla cella per dare un po' d'aria verticale.
-- Nessuna modifica logica.
+## Memory update
+- Aggiornare `mem://insurance/ssn-contribution.md`: la formula corretta è `ssn = netto × aliquota_ssn / 100` (non più su netto+tasse), allineata con `rca-voci-composizione-premio`.
 
-## File modificati
-
-- `src/pages/ImmissionePolizzaPage.tsx`
-- `src/components/polizze/PremiGaranziaCardShell.tsx`
-- `public/version.json` (bump)
+## Version bump
+- `public/version.json` → nuovo timestamp.
