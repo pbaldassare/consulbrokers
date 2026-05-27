@@ -154,8 +154,8 @@ export function PremiGaranziaCardShell({
     onRowsChange(next.length ? next : [emptyGaranziaRow()]);
   };
 
-  const calcSsn = (netto: number, tasse: number, aliquotaSsn: number) =>
-    aliquotaSsn > 0 ? +(((netto + tasse) * aliquotaSsn) / 100).toFixed(2) : 0;
+  const calcSsn = (netto: number, _tasse: number, aliquotaSsn: number) =>
+    aliquotaSsn > 0 ? +((netto * aliquotaSsn) / 100).toFixed(2) : 0;
 
   const handleGaranziaSelect = (idx: number, sottoramoId: string) => {
     const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
