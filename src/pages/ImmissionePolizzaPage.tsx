@@ -139,17 +139,29 @@ const ImmissionePolizzaPage = () => {
         const ssnAttivo = !!match?.ssn_attivo;
         const aliquotaSsn = ssnAttivo ? (Number(match?.aliquota_ssn) || 10.5) : 0;
         const netto = g.premio_netto != null ? Number(g.premio_netto) : 0;
-        const tasse = g.premio_imposte != null ? Number(g.premio_imposte) : 0;
         const ssnFromAi = (g as any).ssn != null ? Number((g as any).ssn) : null;
         const ssnAuto = ssnAttivo && netto > 0 ? +((netto * aliquotaSsn) / 100).toFixed(2) : 0;
+        // Aliquota tasse: priorità al sottoramo DB (verità canonica), poi al valore AI, poi 0.
+        const aliquotaDb = match && match.aliquota_tasse_ramo != null
+          ? Number(match.aliquota_tasse_ramo) : null;
+        const aliquotaTasse = aliquotaDb != null
+          ? aliquotaDb
+          : (typeof g.aliquota_tasse_pct === "number" ? g.aliquota_tasse_pct : 0);
+        // Tasse: se l'AI non le ha estratte e abbiamo aliquota+netto, calcolale.
+        let tasseStr = "";
+        if (g.premio_imposte != null) {
+          tasseStr = String(g.premio_imposte);
+        } else if (aliquotaTasse > 0 && netto > 0) {
+          tasseStr = (+((netto * aliquotaTasse) / 100).toFixed(2)).toFixed(2);
+        }
         return {
           ...emptyGaranziaRow(),
           codice: match?.codice ?? (codice || null),
           sottoramoId: match?.id ?? null,
           descrizione: g.descrizione || match?.descrizione || "",
           netto: g.premio_netto != null ? String(g.premio_netto) : "",
-          tasse: g.premio_imposte != null ? String(g.premio_imposte) : "",
-          aliquotaTasse: typeof g.aliquota_tasse_pct === "number" ? g.aliquota_tasse_pct : 0,
+          tasse: tasseStr,
+          aliquotaTasse,
           ssnAttivo,
           aliquotaSsn,
           ssn: ssnFromAi != null ? String(ssnFromAi) : (ssnAuto > 0 ? ssnAuto.toFixed(2) : ""),
@@ -801,7 +813,7 @@ const ImmissionePolizzaPage = () => {
   const { data: ramiList } = useQuery({
     queryKey: ["rami-list-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn").eq("attivo", true).order("codice");
+      const { data } = await supabase.from("rami").select("id, codice, descrizione, gruppo_ramo_id, ssn_attivo, aliquota_ssn, aliquota_tasse_ramo").eq("attivo", true).order("codice");
       return data || [];
     },
   });
