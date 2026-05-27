@@ -1639,6 +1639,13 @@ export default function ClienteDetail() {
   };
 
   const ef = editFields;
+
+  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
+  const { data: aeLookupData } = useAccountExecutivesLookup(
+    (ef as any)?.ufficio_id ?? null
+  );
+  const aeOptions = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
   const readOnly = !editMode;
 
   // Tracks the last CF auto-filled (declared above before early return)
