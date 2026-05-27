@@ -266,7 +266,7 @@ export function PremiGaranziaCardShell({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[30%]">Voce</TableHead>
+                <TableHead className="w-[38%]">Voce</TableHead>
                 <TableHead className="text-right">Premio Netto</TableHead>
                 <TableHead className="text-right w-[90px]">Aliquota %</TableHead>
                 <TableHead className="text-right">Tasse €</TableHead>
@@ -289,8 +289,8 @@ export function PremiGaranziaCardShell({
                   : "bg-card";
                 return (
                   <TableRow key={idx} className={cn(zebra)}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="py-2">
+                      <div className="flex items-center gap-3">
                         <ShieldCheck className={cn("h-4 w-4 flex-shrink-0", isQuietanza ? "text-amber-700" : "text-teal-700")} />
                         {gruppoRamoId ? (
                           <SearchableSelect
@@ -298,7 +298,7 @@ export function PremiGaranziaCardShell({
                             value={r.sottoramoId || ""}
                             onValueChange={(v) => handleGaranziaSelect(idx, v)}
                             placeholder={garanziaOptions.length ? "Seleziona sottoramo…" : "Caricamento…"}
-                            className="min-w-[220px]"
+                            className="flex-1 min-w-[280px]"
                           />
                         ) : (
                           <Input
@@ -306,7 +306,7 @@ export function PremiGaranziaCardShell({
                             onChange={(e) => updateRow(idx, { descrizione: e.target.value })}
                             placeholder="Seleziona prima il Ramo"
                             disabled
-                            className="h-8 text-xs flex-1 min-w-[140px]"
+                            className="h-8 text-xs flex-1 min-w-[200px]"
                           />
                         )}
                       </div>
