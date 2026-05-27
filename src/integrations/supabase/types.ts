@@ -254,6 +254,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_allowed_enums: {
+        Row: {
+          column_name: string
+          created_at: string
+          descrizione: string | null
+          table_name: string
+        }
+        Insert: {
+          column_name: string
+          created_at?: string
+          descrizione?: string | null
+          table_name: string
+        }
+        Update: {
+          column_name?: string
+          created_at?: string
+          descrizione?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       ai_chat_conversazioni: {
         Row: {
           created_at: string
@@ -8491,6 +8512,13 @@ export type Database = {
         }[]
       }
       ai_exec_select: { Args: { query_text: string }; Returns: Json }
+      ai_list_enum_values: {
+        Args: { p_column: string; p_table: string }
+        Returns: {
+          occorrenze: number
+          valore: string
+        }[]
+      }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_distribuzione_clienti_fascia: {
         Args: { _data_a?: string; _data_da?: string }

@@ -11,29 +11,35 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-const MAX_ITERATIONS = 6;
+const MAX_ITERATIONS = 10;
 const MAX_ROWS = 100;
 
 const SYSTEM_PROMPT = `Sei un assistente IA per un broker assicurativo italiano (CBnet/ConsulNet).
 Rispondi in italiano, in modo conciso e professionale.
 
-Hai due tool a disposizione:
-1) "query_database" — esegue SELECT in sola lettura (max ${MAX_ROWS} righe). Le RLS sono attive.
-2) "describe_table" — restituisce le colonne reali di una tabella. USALO se hai dubbi sui nomi
-   delle colonne PRIMA di generare SQL: eviti errori "column does not exist".
+Hai 5 tool a disposizione:
+1) "query_database"   — esegue SELECT in sola lettura (max ${MAX_ROWS} righe). Le RLS sono attive.
+2) "describe_table"   — colonne reali di tabella/vista. USALO se hai dubbi sui nomi PRIMA di generare SQL.
+3) "list_enum_values" — valori distinti realmente presenti per una colonna (whitelisted).
+                        USALO PRIMA di filtrare per stato/categoria/tipo se non sei sicuro dei valori
+                        ("indovinare" stati di solito ritorna 0 righe).
+4) "render_chart"     — visualizza un grafico (bar/line/pie) per aggregazioni o serie temporali.
+5) "render_table"     — tabella interattiva con righe cliccabili (deep-link entità).
+6) "render_metrics"   — card di KPI sintetici (totali, percentuali, conteggi).
 
 LINEE GUIDA:
-- Per domande aggregate (totali, conteggi, medie) usa SUM/COUNT/AVG/GROUP BY, NON righe grezze.
+- Per aggregati (totali, conteggi, medie) usa SUM/COUNT/AVG/GROUP BY, NON righe grezze.
 - Per le polizze usa SEMPRE la vista v_portafoglio_titoli (più ricca e leggibile di "titoli").
 - Per "le mie cose" filtra con auth.uid() (es. trattative.assegnato_a = auth.uid()).
 - Se la prima query non torna risultati, prima di rispondere "nessun dato" prova varianti:
-  ILIKE più larghi, range date estesi, rimuovere filtri opzionali.
+  list_enum_values per scoprire i valori reali, ILIKE più larghi, range date estesi.
 - Se ricevi un errore SQL "column ... does not exist", chiama describe_table per la tabella.
 - Massimo ${MAX_ITERATIONS} iterazioni di tool calls per domanda.
 
 QUANDO RISPONDI:
-- Cita i dati rilevanti (numero polizza, date gg/mm/aaaa, importi in EUR con migliaia separate).
-- Usa elenchi puntati o tabelle markdown solo se ci sono più di 3 risultati.
+- Cita i dati rilevanti: numeri polizza, date gg/mm/aaaa, importi in EUR con migliaia separate.
+- Per liste lunghe o aggregazioni usa i tool di rendering invece di tabelle markdown.
+- Quando citi UNA entità specifica usa link markdown ai path UI (vedi sezione "DEEP LINK").
 - Se non vedi nulla, dillo onestamente ("Non risulta alcun dato visibile per questa ricerca.").
 
 ${SCHEMA_CONTEXT}`;
@@ -86,6 +92,101 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_enum_values",
+      description:
+        "Restituisce i valori distinti realmente presenti in una colonna (whitelisted in ai_allowed_enums). " +
+        "Usalo prima di filtrare per stato/categoria/tipo se non sei sicuro dei valori.",
+      parameters: {
+        type: "object",
+        properties: {
+          table_name: { type: "string", description: "Nome tabella (schema public)." },
+          column_name: { type: "string", description: "Nome colonna." },
+        },
+        required: ["table_name", "column_name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "render_chart",
+      description: "Visualizza un grafico (bar/line/pie) nella risposta. Usalo per aggregazioni o serie temporali.",
+      parameters: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["bar", "line", "pie"] },
+          title: { type: "string" },
+          x_label: { type: "string" },
+          y_label: { type: "string" },
+          data: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { label: { type: "string" }, value: { type: "number" } },
+              required: ["label", "value"],
+            },
+          },
+        },
+        required: ["kind", "data"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "render_table",
+      description:
+        "Visualizza una tabella interattiva. Con link_template (es. '/titoli/{id}') le righe diventano cliccabili.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          columns: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { key: { type: "string" }, label: { type: "string" } },
+              required: ["key", "label"],
+            },
+          },
+          rows: { type: "array", items: { type: "object" } },
+          link_template: { type: "string", description: "Pattern URL con segnaposto {colonna}." },
+        },
+        required: ["columns", "rows"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "render_metrics",
+      description: "Visualizza una serie di KPI numerici (1-6 metriche).",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          metrics: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                value: { type: ["string", "number"] },
+                hint: { type: "string" },
+                tone: { type: "string", enum: ["default", "success", "warning", "danger"] },
+              },
+              required: ["label", "value"],
+            },
+          },
+        },
+        required: ["metrics"],
+      },
+    },
+  },
 ];
 
 async function callGemini(messages: any[]) {
@@ -96,7 +197,7 @@ async function callGemini(messages: any[]) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3-flash-preview",
       messages,
       tools,
       tool_choice: "auto",
@@ -187,6 +288,7 @@ Deno.serve(async (req) => {
       rows?: number;
       ms?: number;
       error?: string;
+      block?: any;
     }> = [];
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
@@ -282,6 +384,49 @@ Deno.serve(async (req) => {
             role: "tool",
             tool_call_id: tc.id,
             content: JSON.stringify(payload),
+          });
+          continue;
+        }
+
+        if (fnName === "list_enum_values") {
+          const tn = (args.table_name ?? "").trim();
+          const cn = (args.column_name ?? "").trim();
+          let payload: any;
+          let err: string | null = null;
+          try {
+            const { data, error: rpcError } = await supabase.rpc("ai_list_enum_values", {
+              p_table: tn,
+              p_column: cn,
+            });
+            if (rpcError) { err = rpcError.message; payload = { error: err }; }
+            else payload = { table: tn, column: cn, values: data };
+          } catch (e) {
+            err = e instanceof Error ? e.message : String(e);
+            payload = { error: err };
+          }
+          toolCallsLog.push({
+            tool: "list_enum_values",
+            table: `${tn}.${cn}`,
+            rows: Array.isArray(payload?.values) ? payload.values.length : 0,
+            ms: Math.round(performance.now() - t0),
+            error: err ?? undefined,
+          });
+          messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(payload) });
+          continue;
+        }
+
+        if (fnName === "render_chart" || fnName === "render_table" || fnName === "render_metrics") {
+          // Tool di rendering: l'output è il payload stesso (echo).
+          // Il frontend lo legge da tool_calls e lo renderizza come blocco.
+          toolCallsLog.push({
+            tool: fnName,
+            block: args,
+            ms: Math.round(performance.now() - t0),
+          } as any);
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ ok: true, rendered: fnName }),
           });
           continue;
         }
