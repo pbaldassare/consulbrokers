@@ -14,8 +14,8 @@ import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, Do
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
-import AiDocumentScanner from "@/components/AiDocumentScanner";
-import type { DocumentType } from "@/components/AiDocumentScanner";
+
+
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -189,7 +189,7 @@ const ImmissionePolizzaPage = () => {
   const [numeroPolizza, setNumeroPolizza] = useState("");
   const [tipoOperazione, setTipoOperazione] = useState("polizza");
   const [polizzaAuto, setPolizzaAuto] = useState(false);
-  const scannedFileRef = useRef<File | null>(null);
+  
 
   // Contratto
   const [selectedCompagnia, setSelectedCompagnia] = useState("");
@@ -1526,19 +1526,8 @@ const ImmissionePolizzaPage = () => {
       {/* CONTRATTO */}
       <PolizzaSection title="Contratto" icon={FileText}>
 
-        <AiDocumentScanner
-          documentType="copia_polizza"
-          entityContext={clienteDettaglio ? {
-            entityType: "polizza",
-            scopeHint: `Polizza per ${clienteDettaglio.ragione_sociale || `${clienteDettaglio.cognome ?? ""} ${clienteDettaglio.nome ?? ""}`.trim()}`,
-            expectedCF: clienteDettaglio.codice_fiscale ?? null,
-            expectedPIVA: clienteDettaglio.partita_iva ?? null,
-          } : undefined}
-          onFileReady={(file) => { scannedFileRef.current = file; }}
-          onExtracted={(data) => {
-            if (data.numero_polizza) setNumeroPolizza(data.numero_polizza as string);
-          }}
-        />
+
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
