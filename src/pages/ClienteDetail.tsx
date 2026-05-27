@@ -1430,12 +1430,7 @@ export default function ClienteDetail() {
     );
   };
 
-  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
-  const { data: aeLookupData } = useAccountExecutivesLookup(
-    (editFields as any)?.ufficio_id ?? null
-  );
-  const aeOptions = aeLookupData?.options ?? [];
-  const aeIsFallback = aeLookupData?.isFallback ?? false;
+  // aeOptions/aeIsFallback definiti dopo `editFields` (dipendono da ef.ufficio_id)
 
   const produttoreOptions = (anagraficheAEProd as any[])
     .filter((a) => a.tipo === "corrispondente")
