@@ -315,6 +315,159 @@ const ImmissionePolizzaPage = () => {
   const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
   const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
 
+  // === Autosave bozza locale (localStorage) ===
+  const draftKey = `immissione:v1:${selectedClienteId || preselectedClienteId || "new"}`;
+  const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const draftHydratedKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (draftHydratedKeyRef.current === draftKey) return;
+    draftHydratedKeyRef.current = draftKey;
+    const loaded = loadDraft<Record<string, any>>(draftKey);
+    if (loaded?.data) {
+      const d = loaded.data;
+      const setters: Record<string, (v: any) => void> = {
+        selectedAE: setSelectedAE,
+        selectedAccountExecutiveId: setSelectedAccountExecutiveId,
+        selectedClienteId: setSelectedClienteId,
+        selectedUfficioId: setSelectedUfficioId,
+        selectedBackofficeId: setSelectedBackofficeId,
+        numeroPolizza: setNumeroPolizza,
+        tipoOperazione: setTipoOperazione,
+        polizzaAuto: setPolizzaAuto,
+        selectedCompagnia: setSelectedCompagnia,
+        selectedGruppoCompagniaId: setSelectedGruppoCompagniaId,
+        selectedRapportoId: setSelectedRapportoId,
+        selectedRamo: setSelectedRamo,
+        selectedGruppoRamoId: setSelectedGruppoRamoId,
+        prodottoNome: setProdottoNome,
+        cigRif: setCigRif,
+        cigTemporaneo: setCigTemporaneo,
+        vincolo: setVincolo,
+        targaTelaio: setTargaTelaio,
+        descrizionePolizza: setDescrizionePolizza,
+        durataDa: setDurataDa,
+        durataA: setDurataA,
+        durataATouched: setDurataATouched,
+        anniDurata: setAnniDurata,
+        tacitoRinnovo: setTacitoRinnovo,
+        frazionamento: setFrazionamento,
+        moraGiorni: setMoraGiorni,
+        garanziaDa: setGaranziaDa,
+        garanziaDaTouched: setGaranziaDaTouched,
+        garanziaA: setGaranziaA,
+        garanziaATouched: setGaranziaATouched,
+        dataCompetenza: setDataCompetenza,
+        dataCompetenzaTouched: setDataCompetenzaTouched,
+        limiteMora: setLimiteMora,
+        limiteMoraTouched: setLimiteMoraTouched,
+        disdettaMesi: setDisdettaMesi,
+        regolazione: setRegolazione,
+        tipoLetteraRegolazione: setTipoLetteraRegolazione,
+        tipoScadenza: setTipoScadenza,
+        giorniPresentazione: setGiorniPresentazione,
+        periodicita: setPeriodicita,
+        libroMatricola: setLibroMatricola,
+        premiFirmaRows: setPremiFirmaRows,
+        premiQuietanzaRows: setPremiQuietanzaRows,
+        addizionali: setAddizionali,
+        valuta: setValuta,
+        addizionaliQuietanza: setAddizionaliQuietanza,
+        rimborso: setRimborso,
+        indicizzata: setIndicizzata,
+        noCalcoloTasse: setNoCalcoloTasse,
+        pagDirettoCompagnia: setPagDirettoCompagnia,
+        emissioneFee: setEmissioneFee,
+        formatoElettronico: setFormatoElettronico,
+        cambio: setCambio,
+        percentualeCommercialeAuto: setPercentualeCommercialeAuto,
+        percentualeProvvigione: setPercentualeProvvigione,
+        percentualeProvvigioneAuto: setPercentualeProvvigioneAuto,
+        percentualeBrokeraggio: setPercentualeBrokeraggio,
+        percentualeBrokeraggioAuto: setPercentualeBrokeraggioAuto,
+        percentualeAE: setPercentualeAE,
+        vSettore: setVSettore,
+        vTipoVeicolo: setVTipoVeicolo,
+        vUso: setVUso,
+        vMarca: setVMarca,
+        vModello: setVModello,
+        vVersione: setVVersione,
+        vTarga: setVTarga,
+        vTelaio: setVTelaio,
+        vDescrizione: setVDescrizione,
+        vDataImmatricolazione: setVDataImmatricolazione,
+        vAnnoAcquisto: setVAnnoAcquisto,
+        vProvinciaCircolazione: setVProvinciaCircolazione,
+        vClasseBm: setVClasseBm,
+        vMass1: setVMass1,
+        vMass2: setVMass2,
+        vMass3: setVMass3,
+        vPeius: setVPeius,
+        vFranchigia: setVFranchigia,
+        vTemporanea: setVTemporanea,
+        vCaricoScarico: setVCaricoScarico,
+        vCompetizione: setVCompetizione,
+        vRimorchio: setVRimorchio,
+        vCv: setVCv,
+        vKw: setVKw,
+        vCc: setVCc,
+        vPosti: setVPosti,
+        vPesoMotrice: setVPesoMotrice,
+        vPesoRimorchio: setVPesoRimorchio,
+        vPesoTotale: setVPesoTotale,
+        vTipologiaGuida: setVTipologiaGuida,
+        vTipoAlimentazione: setVTipoAlimentazione,
+        cNome: setCNome,
+        cCognome: setCCognome,
+        cIndirizzo: setCIndirizzo,
+        cCap: setCCap,
+        cCitta: setCCitta,
+        cProvincia: setCProvincia,
+        cDataNascita: setCDataNascita,
+        cTipoPatente: setCTipoPatente,
+        cDataRilascioPatente: setCDataRilascioPatente,
+        cNote: setCNote,
+        selectedCommerciale: setSelectedCommerciale,
+        percentualeCommerciale: setPercentualeCommerciale,
+      };
+      for (const k of Object.keys(d)) {
+        const fn = setters[k];
+        if (fn && d[k] !== undefined) fn(d[k]);
+      }
+      setDraftRestoredAt(loaded.ts);
+    }
+    setDraftHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  const draftSnapshot = {
+    selectedAE, selectedAccountExecutiveId, selectedClienteId, selectedUfficioId, selectedBackofficeId,
+    numeroPolizza, tipoOperazione, polizzaAuto,
+    selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, selectedRamo, selectedGruppoRamoId, prodottoNome,
+    cigRif, cigTemporaneo, vincolo, targaTelaio, descrizionePolizza,
+    durataDa, durataA, durataATouched, anniDurata, tacitoRinnovo, frazionamento, moraGiorni,
+    garanziaDa, garanziaDaTouched, garanziaA, garanziaATouched, dataCompetenza, dataCompetenzaTouched,
+    limiteMora, limiteMoraTouched, disdettaMesi,
+    regolazione, tipoLetteraRegolazione, tipoScadenza, giorniPresentazione, periodicita, libroMatricola,
+    premiFirmaRows, premiQuietanzaRows, addizionali, valuta, addizionaliQuietanza,
+    rimborso, indicizzata, noCalcoloTasse, pagDirettoCompagnia, emissioneFee, formatoElettronico, cambio,
+    percentualeCommercialeAuto,
+    percentualeProvvigione, percentualeProvvigioneAuto,
+    percentualeBrokeraggio, percentualeBrokeraggioAuto,
+    percentualeAE,
+    vSettore, vTipoVeicolo, vUso, vMarca, vModello, vVersione, vTarga, vTelaio, vDescrizione,
+    vDataImmatricolazione, vAnnoAcquisto, vProvinciaCircolazione, vClasseBm,
+    vMass1, vMass2, vMass3, vPeius, vFranchigia, vTemporanea, vCaricoScarico, vCompetizione, vRimorchio,
+    vCv, vKw, vCc, vPosti, vPesoMotrice, vPesoRimorchio, vPesoTotale, vTipologiaGuida, vTipoAlimentazione,
+    cNome, cCognome, cIndirizzo, cCap, cCitta, cProvincia, cDataNascita, cTipoPatente, cDataRilascioPatente, cNote,
+    selectedCommerciale, percentualeCommerciale,
+  };
+
+  useDraftPersistence(draftKey, draftSnapshot, { enabled: draftHydrated });
+
+
+
   // --- Queries ---
 
   const { data: clienteData } = useQuery({
