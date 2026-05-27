@@ -1,39 +1,65 @@
-# Estrazione dati veicolo nell'Import AI (Polizza Auto)
+# Migliorare estrazione dati veicolo (PDF Cattolica & simili)
 
-## Obiettivo
-Nel dialog "Importa polizza da PDF (AI)" l'utente deve poter dire esplicitamente "è una polizza auto" anche quando il Ramo non è ZQ, e in entrambi i casi (flag attivo **oppure** ramo R.C.A.) l'AI deve estrarre i dati veicolo/conducente **solo se presenti nel PDF**, senza inventarli. All'apply, il form Immissione apre automaticamente la sezione RCA Auto e popola solo i campi trovati.
+## Problema
+Sul PDF Cattolica `184667297` i dati veicolo ci sono ma con etichette non standard:
+- **Targa** solo nell'header `Polizza n. ... Targa / Telaio n. HD076XZ` (non in una sezione "veicolo")
+- **Marca + Modello** in **una sola colonna** `VOLKSWAGEN CRAFTER 35 2.0 BITDI 177CV 4M…`
+- Sinonimi non riconosciuti: `CAVALLI FISCALI`→cv, `POTENZA IN KW`→kw, `CLASSE DI MERITO UNIVERSALE`→classe_bm, `TIPO DI GUIDA`→tipologia_guida, `TIPOLOGIA`→tipo_veicolo, `USO`→uso_descrizione, `DATA PRIMA IMMATRICOLAZIONE`→data_immatricolazione
+
+Risultato: l'AI lascia i campi vuoti perché non trova le esatte chiavi che cercavamo.
 
 ## Modifiche
 
-### 1. `src/components/polizze/ImportNuovaPolizzaAIDialog.tsx`
-- Aggiungere uno **Switch "Polizza Auto"** nello step Setup, sotto/accanto al selettore Ramo. Stato locale `forzaPolizzaAuto: boolean`, default `false`.
-- Auto-attivazione: quando l'utente seleziona un Ramo del gruppo `ZQ`, lo switch viene messo a `true` automaticamente (e resta editabile, in modo che l'utente possa forzarlo anche su rami non-ZQ — es. infortuni conducente legato a un veicolo).
-- Passare il flag alla edge function nel body (`forza_veicolo: boolean`).
-- Nella `MatchResult` aggiungere `polizzaAuto?: boolean` (= `forzaPolizzaAuto || isZQ`), così la pagina sa che deve aprire la sezione auto anche se il Ramo non è ZQ.
-- Nello step Summary mostrare le card "Veicolo" e "Conducente" **solo se** ci sono effettivamente campi popolati (logica `hasVeicolo`/`hasConducente` già presente); nessun campo inventato, niente placeholder.
+### `supabase/functions/parse-polizza-completa/index.ts`
+Estendere SOLO il prompt del blocco `shouldExtractVeicolo` (no nuove tabelle, no nuovi campi). Aggiungere una **mappa di sinonimi italiani** che l'AI deve riconoscere quando legge il PDF:
 
-### 2. `supabase/functions/parse-polizza-completa/index.ts`
-- Accettare nel body un nuovo parametro `forza_veicolo: boolean`.
-- Estendere la condizione che oggi è solo `isZQ` a `shouldExtractVeicolo = isZQ || forza_veicolo`.
-- Quando `shouldExtractVeicolo === true`: aggiungere al prompt le istruzioni esistenti per il blocco `veicolo`/`conducente`, **ma** rafforzare che i campi vanno compilati **solo se realmente presenti nel testo del PDF** (no allucinazioni: targa, telaio, marca, modello, classe BM, cv/kw/cc, posti, alimentazione, immatricolazione, provincia, uso). Se un campo non è scritto, lasciarlo `undefined`.
-- Quando `shouldExtractVeicolo === false`: lo schema tool resta uguale ma il prompt dice esplicitamente di **non** compilare i blocchi `veicolo`/`conducente`.
+```
+SINONIMI PER IL BLOCCO 'veicolo' (riconosci queste etichette nel PDF):
+- "Targa", "Targa veicolo", "Targa / Telaio n.", header "Polizza n. ... Targa/Telaio n. XXXX" → targa
+- "Telaio", "VIN", "N. telaio" → telaio
+- "Tipologia", "Tipo veicolo", "Categoria" → tipo_veicolo
+- "Uso", "Uso del veicolo", "Destinazione" → uso_descrizione
+- "Marca/Modello", "Marca e modello", "Modello" (colonna unica):
+    * il PRIMO TOKEN è la marca (es. "VOLKSWAGEN"),
+    * tutto il resto è modello+versione (es. "CRAFTER 35 2.0 BITDI 177CV 4M…")
+    * copia inoltre la stringa completa in 'descrizione'.
+- "Data prima immatricolazione", "Immatricolazione", "Data immatricolazione" → data_immatricolazione (YYYY-MM-DD)
+- "Alimentazione", "Carburante" → alimentazione
+- "Cavalli fiscali", "CV fiscali", "CV" → cv (numero intero)
+- "Potenza in KW", "KW", "Potenza kW" → kw (numero intero)
+- "Cilindrata", "CC", "Cilindrata cm³" → cc
+- "Posti", "N. posti", "Posti a sedere" → posti
+- "Classe di merito universale", "CU", "Classe CU" → classe_bm (1-18)
+- "Tipo di guida", "Tipologia guida", "Guida" → tipologia_guida (es. "Conducente qualsiasi", "Esperta", "Esclusiva")
+- "Provincia di circolazione", "Provincia immatricolazione" → provincia_circolazione (2 lettere)
+- "Valore assicurato veicolo", "Valore veicolo" → NON c'è campo dedicato, ometti.
 
-### 3. `src/pages/ImmissionePolizzaPage.tsx`
-- In `handleAIImportApply`:
-  - Se `match.polizzaAuto === true` → `setPolizzaAuto(true)` (apre la sezione RCA anche se il ramo selezionato non è ZQ).
-  - Mantenere la logica già presente: per ogni campo `v*`/`c*` settare lo stato **solo se** il valore corrispondente è presente in `parsed.veicolo`/`parsed.conducente` (nessun reset di campi non forniti).
-  - L'ordine resta: prima `setPolizzaAuto(true)` → poi al tick successivo (microtask) il `useEffect([isRCA])` non azzera i dati appena impostati (già gestito perché i set veicolo arrivano dopo).
+REGOLA TASSATIVA (già presente, da ribadire): NON inventare nulla.
+Se un'etichetta non compare nel PDF, OMETTI il campo. Numeri puliti
+senza unità di misura (es. "130", non "130 KW"). Date YYYY-MM-DD.
+```
 
-### 4. `public/version.json`
-- Bump timestamp.
+Inoltre:
+- Forzare l'AI a cercare la targa **anche nell'header di pagina** quando manca dalla sezione "Veicolo".
+- Aggiungere esempio: `"Targa / Telaio n. HD076XZ" → targa: "HD076XZ"`.
+
+### Bump `public/version.json`.
 
 ## Fuori scope
-- Nessuna nuova tabella o campo DB.
-- Niente sezioni Vita/Trasporti.
-- Nessun cambio alla UI manuale di Immissione oltre all'apertura automatica della sezione RCA.
+- Nessuna modifica al frontend: i campi sono già tutti gestiti in `handleAIImportApply`.
+- Nessuna nuova colonna DB.
+- Nessun OCR aggiuntivo: il PDF è già testuale.
 
-## Test rapidi
-1. Ramo ZQ + PDF RCA con targa → veicolo e conducente popolati, sezione RCA aperta.
-2. Ramo non-ZQ (es. Infortuni) + Switch Polizza Auto ON + PDF con targa → veicolo popolato, sezione RCA aperta.
-3. Ramo ZQ + PDF senza dati veicolo leggibili → nessun campo inventato, sezione aperta ma vuota.
-4. Ramo non-ZQ + Switch OFF → nessun blocco veicolo in output, sezione RCA chiusa.
+## Verifica
+Re-test sul PDF `COMUNE DI AGNONE HD076XZ`: ci si aspetta:
+- targa = `HD076XZ`
+- tipo_veicolo = `AUTOVETTURA`
+- uso_descrizione = `Privato`
+- marca = `VOLKSWAGEN`
+- modello = `CRAFTER 35 2.0 BITDI 177CV 4M. PM-TA KOMBI CON RAMPA MANUALE`
+- descrizione = stringa completa
+- data_immatricolazione = `2026-05-18`
+- alimentazione = `Diesel`
+- cv = `20`, kw = `130`, classe_bm = `14`
+- tipologia_guida = `Conducente qualsiasi`
+- telaio, cc, posti = omessi (non presenti)
