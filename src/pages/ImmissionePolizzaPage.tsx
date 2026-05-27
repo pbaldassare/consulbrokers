@@ -1318,6 +1318,33 @@ const ImmissionePolizzaPage = () => {
         </Button>
       </div>
 
+      {draftRestoredAt && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <span>
+            Bozza ripristinata del{" "}
+            {new Date(draftRestoredAt).toLocaleString("it-IT", {
+              day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+            })}
+            . Le modifiche vengono salvate automaticamente nel browser.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => {
+              clearDraft(draftKey);
+              setDraftRestoredAt(null);
+              window.location.reload();
+            }}
+          >
+            Scarta bozza
+          </Button>
+        </div>
+      )}
+
+
+
       <ImportNuovaPolizzaAIDialog
         open={aiImportOpen}
         onOpenChange={setAiImportOpen}
