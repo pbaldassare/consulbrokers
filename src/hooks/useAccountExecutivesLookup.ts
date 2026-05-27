@@ -29,6 +29,7 @@ export const useAccountExecutivesLookup = () => {
           "—";
         return { value: p.id as string, label };
       });
+
       opts.sort((a, b) => a.label.localeCompare(b.label, "it"));
       return opts;
     },
