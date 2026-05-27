@@ -1430,10 +1430,12 @@ export default function ClienteDetail() {
     );
   };
 
-  const aeOptions = (anagraficheAEProd as any[])
-    .filter((a) => a.tipo === "account_executive")
-    .map((a) => ({ value: a.id, label: buildAnagraficaLabel(a) }))
-    .sort((a, b) => a.label.localeCompare(b.label, "it"));
+  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
+  const { data: aeLookupData } = useAccountExecutivesLookup(
+    (editFields as any)?.ufficio_id ?? null
+  );
+  const aeOptions = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   const produttoreOptions = (anagraficheAEProd as any[])
     .filter((a) => a.tipo === "corrispondente")
