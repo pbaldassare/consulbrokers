@@ -337,6 +337,33 @@ export type Database = {
           },
         ]
       }
+      ai_user_memory: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       aliquote_provinciali_rca: {
         Row: {
           aggiornato_il: string
@@ -8519,6 +8546,7 @@ export type Database = {
           valore: string
         }[]
       }
+      ai_user_briefing: { Args: never; Returns: Json }
       archivia_notifiche_vecchie: { Args: never; Returns: Json }
       cfo_distribuzione_clienti_fascia: {
         Args: { _data_a?: string; _data_da?: string }
