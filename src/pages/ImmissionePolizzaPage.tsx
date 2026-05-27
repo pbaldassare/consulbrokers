@@ -1619,9 +1619,9 @@ const ImmissionePolizzaPage = () => {
             <Input type="date" value={dataCompetenza} onChange={(e) => {
               const v = e.target.value;
               setDataCompetenza(v); setDataCompetenzaTouched(true);
-              // Ricalcola Limite Mora se ho GG Mora
+              // Ricalcola Limite Mora se non è stato modificato manualmente
               const gg = parseInt(moraGiorni || "0") || 0;
-              if (v && gg >= 0) {
+              if (v && gg >= 0 && !limiteMoraTouched) {
                 const d = new Date(v); d.setDate(d.getDate() + gg);
                 setLimiteMora(d.toISOString().slice(0, 10));
               }
@@ -1635,6 +1635,7 @@ const ImmissionePolizzaPage = () => {
             <Input type="date" value={limiteMora} onChange={(e) => {
               const v = e.target.value;
               setLimiteMora(v);
+              setLimiteMoraTouched(true);
               // Ricalcola GG Mora dalla differenza con base = data_competenza || garanzia_da
               const base = dataCompetenza || garanziaDa;
               if (v && base) {
