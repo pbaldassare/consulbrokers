@@ -316,9 +316,9 @@ const TitoloDetail = () => {
   const [aeForm, setAeForm] = useState<{ ae_anagrafica_id: string | null; percentuale_ae: number }>({
     ae_anagrafica_id: null, percentuale_ae: 0,
   });
-  // AE: filtrato per Sede del titolo/cliente con fallback automatico
+  // AE: filtrato per Sede del titolo con fallback automatico
   const { data: aeLookupData } = useAccountExecutivesLookup(
-    (contrattoForm as any)?.ufficio_id ?? null
+    (titolo as any)?.ufficio_id ?? null
   );
   const aeLookup = aeLookupData?.options ?? [];
   const aeIsFallback = aeLookupData?.isFallback ?? false;
