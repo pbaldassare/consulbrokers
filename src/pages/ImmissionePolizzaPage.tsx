@@ -14,8 +14,8 @@ import { Search, Car, Receipt, User, Info, Users, FileText, Calendar, Shield, Do
 import { PremiGaranziaCardShell, emptyGaranziaRow, type GaranziaRow } from "@/components/polizze/PremiGaranziaCardShell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { RamoSottoramoSelect } from "@/components/polizze/RamoSottoramoSelect";
-import AiDocumentScanner from "@/components/AiDocumentScanner";
-import type { DocumentType } from "@/components/AiDocumentScanner";
+
+
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
