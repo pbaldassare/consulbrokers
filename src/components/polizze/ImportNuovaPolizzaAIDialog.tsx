@@ -191,6 +191,26 @@ export function ImportNuovaPolizzaAIDialog({
     }
   }, [logs]);
 
+  // Quando l'utente sceglie un Ramo: carica il codice del gruppo e (se non è stato
+  // toccato dall'utente) attiva automaticamente "Polizza Auto" per i rami ZQ.
+  useEffect(() => {
+    if (!selectedGruppoRamoId) {
+      setSelectedGruppoRamoCodice("");
+      if (!polizzaAutoTouched) setForzaPolizzaAuto(false);
+      return;
+    }
+    (async () => {
+      const { data: gr } = await supabase
+        .from("gruppi_ramo" as any)
+        .select("codice")
+        .eq("id", selectedGruppoRamoId)
+        .maybeSingle();
+      const cod = String((gr as any)?.codice || "").toUpperCase();
+      setSelectedGruppoRamoCodice(cod);
+      if (!polizzaAutoTouched) setForzaPolizzaAuto(cod === "ZQ");
+    })();
+  }, [selectedGruppoRamoId, polizzaAutoTouched]);
+
   // Carica i gruppi finanziari quando si entra in review con cliente nuovo
   useEffect(() => {
     if (step !== "review") return;
