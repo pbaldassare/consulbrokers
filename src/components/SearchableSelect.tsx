@@ -40,6 +40,8 @@ export function SearchableSelect({
   searchValue,
   onSearchChange,
   searchPlaceholder = "Cerca...",
+  clearable = false,
+  clearLabel = "— Nessuno —",
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
