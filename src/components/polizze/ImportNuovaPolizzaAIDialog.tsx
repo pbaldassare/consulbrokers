@@ -23,6 +23,44 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { fmtEuro as fmtEur } from "@/lib/formatCurrency";
 
+export type ParsedVeicolo = {
+  targa?: string;
+  telaio?: string;
+  marca?: string;
+  modello?: string;
+  versione?: string;
+  descrizione?: string;
+  tipo_veicolo?: string;
+  uso_descrizione?: string;
+  data_immatricolazione?: string;
+  anno_acquisto?: string;
+  provincia_circolazione?: string;
+  classe_bm?: string;
+  cv?: number;
+  kw?: number;
+  cc?: number;
+  posti?: number;
+  peso_motrice?: number;
+  peso_rimorchio?: number;
+  peso_totale?: number;
+  alimentazione?: string;
+  tipologia_guida?: string;
+};
+
+export type ParsedConducente = {
+  nome?: string;
+  cognome?: string;
+  codice_fiscale?: string;
+  indirizzo?: string;
+  cap?: string;
+  citta?: string;
+  provincia?: string;
+  data_nascita?: string;
+  tipo_patente?: string;
+  data_rilascio_patente?: string;
+  note?: string;
+};
+
 export type ParsedPolizzaData = {
   compagnia?: string;
   intermediario?: string;
@@ -53,7 +91,17 @@ export type ParsedPolizzaData = {
   premio_quietanza_imposte?: number;
   premio_quietanza_lordo?: number;
   targa?: string;
-  garanzie?: { descrizione: string; codice_sottoramo?: string; premio_netto?: number; premio_imposte?: number; aliquota_tasse_pct?: number }[];
+  veicolo?: ParsedVeicolo;
+  conducente?: ParsedConducente;
+  garanzie?: {
+    descrizione: string;
+    codice_sottoramo?: string;
+    premio_netto?: number;
+    premio_imposte?: number;
+    aliquota_tasse_pct?: number;
+    ssn?: number;
+    match_confidence?: "alta" | "media" | "manuale";
+  }[];
 };
 
 export type MatchResult = {
