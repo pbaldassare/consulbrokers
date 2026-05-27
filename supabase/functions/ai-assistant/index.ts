@@ -92,6 +92,101 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_enum_values",
+      description:
+        "Restituisce i valori distinti realmente presenti in una colonna (whitelisted in ai_allowed_enums). " +
+        "Usalo prima di filtrare per stato/categoria/tipo se non sei sicuro dei valori.",
+      parameters: {
+        type: "object",
+        properties: {
+          table_name: { type: "string", description: "Nome tabella (schema public)." },
+          column_name: { type: "string", description: "Nome colonna." },
+        },
+        required: ["table_name", "column_name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "render_chart",
+      description: "Visualizza un grafico (bar/line/pie) nella risposta. Usalo per aggregazioni o serie temporali.",
+      parameters: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["bar", "line", "pie"] },
+          title: { type: "string" },
+          x_label: { type: "string" },
+          y_label: { type: "string" },
+          data: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { label: { type: "string" }, value: { type: "number" } },
+              required: ["label", "value"],
+            },
+          },
+        },
+        required: ["kind", "data"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "render_table",
+      description:
+        "Visualizza una tabella interattiva. Con link_template (es. '/titoli/{id}') le righe diventano cliccabili.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          columns: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { key: { type: "string" }, label: { type: "string" } },
+              required: ["key", "label"],
+            },
+          },
+          rows: { type: "array", items: { type: "object" } },
+          link_template: { type: "string", description: "Pattern URL con segnaposto {colonna}." },
+        },
+        required: ["columns", "rows"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "render_metrics",
+      description: "Visualizza una serie di KPI numerici (1-6 metriche).",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          metrics: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                value: { type: ["string", "number"] },
+                hint: { type: "string" },
+                tone: { type: "string", enum: ["default", "success", "warning", "danger"] },
+              },
+              required: ["label", "value"],
+            },
+          },
+        },
+        required: ["metrics"],
+      },
+    },
+  },
 ];
 
 async function callGemini(messages: any[]) {
