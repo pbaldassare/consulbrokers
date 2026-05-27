@@ -25,6 +25,8 @@ interface SearchableSelectProps {
   searchValue?: string;
   onSearchChange?: (q: string) => void;
   searchPlaceholder?: string;
+  clearable?: boolean;
+  clearLabel?: string;
 }
 
 export function SearchableSelect({
