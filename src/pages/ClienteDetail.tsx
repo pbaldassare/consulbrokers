@@ -2104,6 +2104,11 @@ export default function ClienteDetail() {
                       options={aeOptions}
                     />
                   )}
+                  {!readOnly && aeIsFallback && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
+                    </p>
+                  )}
                 </div>
 
                 {/* Produttore */}
