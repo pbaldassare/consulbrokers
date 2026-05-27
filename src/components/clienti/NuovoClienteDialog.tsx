@@ -272,7 +272,9 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   });
 
   const { data: produttoriOpts = [] } = useProduttoriLookup();
-  const { data: aeOpts = [] } = useAccountExecutivesLookup();
+  const { data: aeLookupData } = useAccountExecutivesLookup(ufficioClienteId || null);
+  const aeOpts = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   const { data: ufficiList = [] } = useQuery({
     queryKey: ["uffici_lookup_nuovo_cliente"],
