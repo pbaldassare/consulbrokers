@@ -6,6 +6,41 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function readKeyFromJsonEnv(envName: string): string | undefined {
+  const raw = Deno.env.get(envName);
+  if (!raw) return undefined;
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const defaultKey = parsed.default;
+    if (typeof defaultKey === "string" && defaultKey.trim()) return defaultKey.trim();
+
+    const firstStringKey = Object.values(parsed).find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+    return firstStringKey?.trim();
+  } catch {
+    return raw.trim() || undefined;
+  }
+}
+
+function getSupabaseAdminConfig() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim();
+  const serviceRoleKey =
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() ||
+    readKeyFromJsonEnv("SUPABASE_SECRET_KEYS") ||
+    Deno.env.get("SUPABASE_SECRET_KEY")?.trim();
+
+  return { supabaseUrl, serviceRoleKey };
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,27 +55,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey =
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
-      Deno.env.get("SUPABASE_SECRET_KEY");
+    const { supabaseUrl, serviceRoleKey } = getSupabaseAdminConfig();
 
     console.log("[create-user] env check", {
       hasUrl: !!supabaseUrl,
       hasServiceRoleKey: !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+      hasSecretKeysJson: !!Deno.env.get("SUPABASE_SECRET_KEYS"),
       hasSecretKey: !!Deno.env.get("SUPABASE_SECRET_KEY"),
       hasAnonKey: !!Deno.env.get("SUPABASE_ANON_KEY"),
       hasPublishableKey: !!Deno.env.get("SUPABASE_PUBLISHABLE_KEY"),
     });
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(
-        JSON.stringify({ error: "Configurazione server mancante: SUPABASE_URL o SERVICE_ROLE_KEY non disponibili" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "Configurazione server mancante: SUPABASE_URL o chiave admin Supabase non disponibili" }, 500);
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     // Valida il JWT del chiamante usando l'admin client (non serve l'anon key)
     const {
@@ -49,10 +81,7 @@ Deno.serve(async (req) => {
     } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
 
     if (authError || !caller) {
-      return new Response(JSON.stringify({ error: "Non autenticato" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Non autenticato" }, 401);
     }
 
     const { data: roles } = await adminClient
@@ -63,10 +92,7 @@ Deno.serve(async (req) => {
 
 
     if (!roles || roles.length === 0) {
-      return new Response(JSON.stringify({ error: "Accesso non autorizzato" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Accesso non autorizzato" }, 403);
     }
 
     const body = await req.json();
