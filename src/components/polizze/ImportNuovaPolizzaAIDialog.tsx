@@ -771,66 +771,132 @@ export function ImportNuovaPolizzaAIDialog({
           </div>
         )}
 
-        {/* STEP SUMMARY: riepilogo semplice dei dati estratti (i dati sono già stati applicati al form) */}
-        {step === "summary" && (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-teal-200 dark:border-teal-900 bg-teal-50 dark:bg-teal-950/30 p-3 text-sm text-teal-800 dark:text-teal-200 flex gap-2 items-start">
-              <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+        {/* STEP SUMMARY: riepilogo esteso dei dati estratti (dati già applicati al form) */}
+        {step === "summary" && (() => {
+          const v = data.veicolo || {};
+          const c = data.conducente || {};
+          const hasVeicolo = !!(v.targa || v.telaio || v.marca || v.modello || v.tipo_veicolo);
+          const hasConducente = !!(c.nome || c.cognome || c.codice_fiscale);
+          const grComp = gruppoCompagniaCandidates.find((g) => g.id === selectedGruppoCompagniaId);
+          const agenzia = agenziaCandidates.find((a) => a.id === selectedAgenziaId);
+          const Row = ({ label, value }: { label: string; value: any }) => (
+            <div className="grid grid-cols-[180px_1fr] gap-2 px-3 py-1.5 text-xs">
+              <span className="text-muted-foreground">{label}</span>
+              <span className="font-medium break-words">{value || <span className="text-muted-foreground">—</span>}</span>
+            </div>
+          );
+          const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="px-3 py-1.5 bg-muted/50 text-[11px] font-semibold uppercase tracking-wide">{title}</div>
+              <div className="divide-y">{children}</div>
+            </div>
+          );
+          const confBadge = (cf?: "alta" | "media" | "manuale") => {
+            if (cf === "alta") return <Badge className="bg-teal-600 hover:bg-teal-700 text-white">alta</Badge>;
+            if (cf === "media") return <Badge variant="secondary" className="bg-amber-100 text-amber-900 hover:bg-amber-100">media</Badge>;
+            return <Badge variant="outline" className="text-amber-700 border-amber-400">manuale</Badge>;
+          };
+          return (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-teal-200 dark:border-teal-900 bg-teal-50 dark:bg-teal-950/30 p-3 text-sm text-teal-800 dark:text-teal-200 flex gap-2 items-start">
+                <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold">Dati importati nel form</div>
+                  <div className="text-xs opacity-80">Verifica qui sotto cosa l'AI ha estratto dal PDF. Puoi chiudere e correggere direttamente nel form.</div>
+                </div>
+              </div>
+
+              <Section title="Anagrafica polizza">
+                <Row label="Numero polizza" value={data.numero_polizza} />
+                <Row label="Compagnia (PDF)" value={data.compagnia} />
+                <Row label="Gruppo compagnia" value={grComp?.label} />
+                <Row label="Agenzia" value={agenzia?.label} />
+                <Row label="Prodotto" value={data.prodotto} />
+                <Row label="Contraente" value={data.contraente_nome} />
+                <Row label="CF / P.IVA" value={[data.contraente_codice_fiscale, data.contraente_partita_iva].filter(Boolean).join(" / ")} />
+                <Row label="Indirizzo" value={[data.contraente_indirizzo, data.contraente_cap, data.contraente_comune, data.contraente_provincia].filter(Boolean).join(" — ")} />
+                <Row label="Email / Tel" value={[data.contraente_email, data.contraente_telefono].filter(Boolean).join(" / ")} />
+              </Section>
+
+              <Section title="Periodo & Premi">
+                <Row label="Decorrenza → Scadenza" value={`${data.decorrenza || "—"} → ${data.scadenza || "—"}`} />
+                <Row label="Frazionamento" value={data.frazionamento} />
+                <Row label="Tacito rinnovo" value={typeof data.tacito_rinnovo === "boolean" ? (data.tacito_rinnovo ? "Sì" : "No") : null} />
+                <Row label="Prossima quietanza" value={data.prossima_quietanza} />
+                <Row label="Premio firma" value={`netto ${fmtEur(data.premio_firma_netto)} · acc ${fmtEur(data.premio_firma_accessori)} · imp ${fmtEur(data.premio_firma_imposte)} · LORDO ${fmtEur(data.premio_firma_lordo)}`} />
+                <Row label="Premio quietanza" value={`netto ${fmtEur(data.premio_quietanza_netto)} · acc ${fmtEur(data.premio_quietanza_accessori)} · imp ${fmtEur(data.premio_quietanza_imposte)} · LORDO ${fmtEur(data.premio_quietanza_lordo)}`} />
+              </Section>
+
+              {hasVeicolo && (
+                <Section title="Veicolo (RCA Auto)">
+                  <Row label="Targa / Telaio" value={[v.targa, v.telaio].filter(Boolean).join(" / ")} />
+                  <Row label="Marca / Modello" value={[v.marca, v.modello, v.versione].filter(Boolean).join(" ")} />
+                  <Row label="Tipo veicolo" value={v.tipo_veicolo} />
+                  <Row label="Uso" value={v.uso_descrizione} />
+                  <Row label="Immatricolazione" value={v.data_immatricolazione} />
+                  <Row label="Provincia circolazione" value={v.provincia_circolazione} />
+                  <Row label="Classe BM" value={v.classe_bm} />
+                  <Row label="CV / KW / CC" value={[v.cv, v.kw, v.cc].filter((x) => x != null).join(" / ")} />
+                  <Row label="Posti" value={v.posti} />
+                  <Row label="Alimentazione" value={v.alimentazione} />
+                  <Row label="Peso totale" value={v.peso_totale} />
+                </Section>
+              )}
+
+              {hasConducente && (
+                <Section title="Conducente abituale">
+                  <Row label="Nome" value={[c.cognome, c.nome].filter(Boolean).join(" ")} />
+                  <Row label="Codice fiscale" value={c.codice_fiscale} />
+                  <Row label="Data nascita" value={c.data_nascita} />
+                  <Row label="Indirizzo" value={[c.indirizzo, c.cap, c.citta, c.provincia].filter(Boolean).join(" — ")} />
+                  <Row label="Patente" value={[c.tipo_patente, c.data_rilascio_patente].filter(Boolean).join(" — rilasciata ")} />
+                </Section>
+              )}
+
               <div>
-                <div className="font-semibold">Dati importati nel form</div>
-                <div className="text-xs opacity-80">Controlla qui sotto cosa l'AI ha estratto dal PDF. Puoi chiudere e completare/correggere direttamente nel form.</div>
-              </div>
-            </div>
-
-            <div className="border rounded-lg divide-y text-sm">
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Numero polizza</span><span className="font-medium">{data.numero_polizza || "—"}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Compagnia</span><span className="font-medium">{data.compagnia || "—"}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Contraente</span><span className="font-medium">{data.contraente_nome || "—"}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">CF / P.IVA</span><span className="font-medium">{[data.contraente_codice_fiscale, data.contraente_partita_iva].filter(Boolean).join(" / ") || "—"}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Decorrenza → Scadenza</span><span className="font-medium">{(data.decorrenza || "—") + " → " + (data.scadenza || "—")}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Frazionamento</span><span className="font-medium">{data.frazionamento || "—"}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Premio firma (lordo)</span><span className="font-medium">{fmtEur(data.premio_firma_lordo)}</span></div>
-              <div className="grid grid-cols-2 gap-2 p-2"><span className="text-muted-foreground">Premio quietanza (lordo)</span><span className="font-medium">{fmtEur(data.premio_quietanza_lordo)}</span></div>
-            </div>
-
-            <div>
-              <div className="text-xs font-semibold mb-1">Garanzie estratte ({data.garanzie?.length || 0})</div>
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="text-left p-2">Descrizione</th>
-                      <th className="text-left p-2 w-24">Sottoramo</th>
-                      <th className="text-right p-2 w-24">Netto</th>
-                      <th className="text-right p-2 w-24">Imposte</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data.garanzie || []).map((g, i) => (
-                      <tr key={i} className={i % 2 ? "bg-muted/20" : ""}>
-                        <td className="p-2">{g.descrizione}</td>
-                        <td className="p-2">
-                          {g.codice_sottoramo
-                            ? <Badge variant="secondary" className="font-mono">{g.codice_sottoramo}</Badge>
-                            : <span className="text-amber-600">—</span>}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">{fmtEur(g.premio_netto)}</td>
-                        <td className="p-2 text-right tabular-nums">{fmtEur(g.premio_imposte)}</td>
+                <div className="text-xs font-semibold mb-1">Garanzie estratte ({data.garanzie?.length || 0})</div>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2">Descrizione</th>
+                        <th className="text-left p-2 w-24">Sottoramo</th>
+                        <th className="text-left p-2 w-24">Match</th>
+                        <th className="text-right p-2 w-24">Netto</th>
+                        <th className="text-right p-2 w-24">Imposte</th>
                       </tr>
-                    ))}
-                    {(!data.garanzie || data.garanzie.length === 0) && (
-                      <tr><td colSpan={4} className="p-3 text-center text-muted-foreground">Nessuna garanzia estratta</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {(data.garanzie || []).map((g, i) => (
+                        <tr key={i} className={i % 2 ? "bg-muted/20" : ""}>
+                          <td className="p-2">{g.descrizione}</td>
+                          <td className="p-2">
+                            {g.codice_sottoramo
+                              ? <Badge variant="secondary" className="font-mono">{g.codice_sottoramo}</Badge>
+                              : <span className="text-amber-600">—</span>}
+                          </td>
+                          <td className="p-2">{confBadge(g.match_confidence)}</td>
+                          <td className="p-2 text-right tabular-nums">{fmtEur(g.premio_netto)}</td>
+                          <td className="p-2 text-right tabular-nums">{fmtEur(g.premio_imposte)}</td>
+                        </tr>
+                      ))}
+                      {(!data.garanzie || data.garanzie.length === 0) && (
+                        <tr><td colSpan={5} className="p-3 text-center text-muted-foreground">Nessuna garanzia estratta</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  <strong>Match</strong>: <em>alta</em> = sottoramo certo (AI o regola sinonimo) · <em>media</em> = best-guess fuzzy, controlla nel form · <em>manuale</em> = scegli tu nel form.
+                </p>
               </div>
-            </div>
 
-            <DialogFooter>
-              <Button onClick={() => { onOpenChange(false); reset(); }}>Chiudi</Button>
-            </DialogFooter>
-          </div>
-        )}
+              <DialogFooter>
+                <Button onClick={() => { onOpenChange(false); reset(); }}>Chiudi</Button>
+              </DialogFooter>
+            </div>
+          );
+        })()}
 
       </DialogContent>
     </Dialog>
