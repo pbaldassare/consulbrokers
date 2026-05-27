@@ -236,15 +236,34 @@ Deno.serve(async (req) => {
     if (shouldExtractVeicolo) {
       ramoContext +=
         `\n\nDATI VEICOLO/CONDUCENTE — l'utente ha indicato che questa è una Polizza Auto. ` +
-        `Compila il blocco 'veicolo' leggendo dalle sezioni 'Dati veicolo' / 'Identificativi veicolo' / 'Caratteristiche tecniche': ` +
-        `targa, telaio (VIN), marca, modello, versione, tipo_veicolo, uso_descrizione, data_immatricolazione, anno_acquisto, ` +
-        `provincia_circolazione, classe_bm, cv, kw, cc, posti, alimentazione, peso_motrice/rimorchio/totale, tipologia_guida. ` +
-        `REGOLA TASSATIVA: compila SOLO i campi realmente presenti e leggibili nel PDF — se un campo non c'è, OMETTILO (non inventare, non dedurre, non mettere placeholder). ` +
-        `Se è indicato un conducente abituale (diverso dal contraente), compila anche il blocco 'conducente' con la stessa regola.`;
+        `Compila il blocco 'veicolo' cercando i dati in QUALSIASI sezione del PDF (intestazione, tabelle "Veicolo", "Dati veicolo", "Identificativi veicolo", "Caratteristiche tecniche", "Dati assicurativi").\n\n` +
+        `MAPPA SINONIMI ITALIANI (riconosci queste etichette esattamente come sono):\n` +
+        `- "Targa", "Targa veicolo", "Targa / Telaio n.", header tipo "Polizza n. XXX Targa / Telaio n. AB123CD" → targa (es. "Targa / Telaio n. HD076XZ" → targa: "HD076XZ"). CERCA SEMPRE NELL'HEADER DI PAGINA se non la trovi nella sezione veicolo.\n` +
+        `- "Telaio", "VIN", "N. telaio", "Numero telaio" → telaio\n` +
+        `- "Tipologia", "Tipo veicolo", "Categoria", "Genere" → tipo_veicolo (es. AUTOVETTURA, AUTOCARRO, MOTOCICLO)\n` +
+        `- "Uso", "Uso del veicolo", "Destinazione", "Uso veicolo" → uso_descrizione (es. "Privato", "Trasporto cose c/proprio")\n` +
+        `- "Marca/Modello", "Marca e modello", "Modello" QUANDO È UNA COLONNA UNICA che contiene marca+modello+versione (es. "VOLKSWAGEN CRAFTER 35 2.0 BITDI 177CV 4M. PM-TA KOMBI"):\n` +
+        `    * estrai il PRIMO TOKEN come 'marca' (es. "VOLKSWAGEN")\n` +
+        `    * estrai TUTTO IL RESTO come 'modello' (es. "CRAFTER 35 2.0 BITDI 177CV 4M. PM-TA KOMBI")\n` +
+        `    * copia la stringa COMPLETA anche in 'descrizione'\n` +
+        `- "Data prima immatricolazione", "Immatricolazione", "Data immatricolazione" → data_immatricolazione (YYYY-MM-DD)\n` +
+        `- "Alimentazione", "Carburante" → alimentazione (es. "Diesel", "Benzina", "Elettrico")\n` +
+        `- "Cavalli fiscali", "CV fiscali", "CV" → cv (numero intero, senza unità)\n` +
+        `- "Potenza in KW", "KW", "Potenza kW", "kW" → kw (numero intero, senza unità)\n` +
+        `- "Cilindrata", "CC", "Cilindrata cm³", "cm3" → cc (numero intero)\n` +
+        `- "Posti", "N. posti", "Posti a sedere", "Numero posti" → posti (numero intero)\n` +
+        `- "Classe di merito universale", "CU", "Classe CU", "Classe Universale" → classe_bm (intero 1-18)\n` +
+        `- "Tipo di guida", "Tipologia guida", "Guida" → tipologia_guida (es. "Conducente qualsiasi", "Esperta", "Esclusiva")\n` +
+        `- "Provincia di circolazione", "Provincia immatricolazione" → provincia_circolazione (2 lettere maiuscole)\n` +
+        `- "Anno acquisto" → anno_acquisto; "Peso motrice/rimorchio/totale" → campi peso_* corrispondenti.\n\n` +
+        `REGOLA TASSATIVA: compila SOLO i campi realmente presenti e leggibili nel PDF — se un'etichetta non compare, OMETTI il campo (non inventare, non dedurre, non mettere placeholder). ` +
+        `Numeri SENZA unità di misura (es. "130", non "130 KW"). Date YYYY-MM-DD. Targa/telaio in MAIUSCOLO senza spazi.\n` +
+        `Se è indicato un conducente abituale (diverso dal contraente), compila anche il blocco 'conducente' con la stessa regola di non invenzione.`;
     } else {
       ramoContext +=
         `\n\nNON compilare i blocchi 'veicolo' e 'conducente': questa polizza non è classificata come Auto.`;
     }
+
 
     const messages = [
       {
