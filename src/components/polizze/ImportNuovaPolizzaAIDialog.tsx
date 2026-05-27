@@ -115,6 +115,8 @@ export type MatchResult = {
   gruppoFinanziarioId?: string;
   tipoCliente?: "privato" | "azienda" | "ente";
   codiceCig?: string;
+  /** True quando l'utente ha forzato "Polizza Auto" o il ramo è ZQ — apre il modale veicolo. */
+  polizzaAuto?: boolean;
 };
 
 type GruppoFinanziarioOpt = {
@@ -172,7 +174,10 @@ export function ImportNuovaPolizzaAIDialog({
   const [selectedAgenziaId, setSelectedAgenziaId] = useState<string>("");
   const [ramoCandidates, setRamoCandidates] = useState<RamoCand[]>([]);
   const [selectedGruppoRamoId, setSelectedGruppoRamoId] = useState<string>("");
+  const [selectedGruppoRamoCodice, setSelectedGruppoRamoCodice] = useState<string>("");
   const [selectedSottoramoId, setSelectedSottoramoId] = useState<string>("");
+  const [forzaPolizzaAuto, setForzaPolizzaAuto] = useState<boolean>(false);
+  const [polizzaAutoTouched, setPolizzaAutoTouched] = useState<boolean>(false);
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCigNew, setCodiceCigNew] = useState<string>("");
@@ -216,7 +221,10 @@ export function ImportNuovaPolizzaAIDialog({
     setSelectedAgenziaId("");
     setRamoCandidates([]);
     setSelectedGruppoRamoId("");
+    setSelectedGruppoRamoCodice("");
     setSelectedSottoramoId("");
+    setForzaPolizzaAuto(false);
+    setPolizzaAutoTouched(false);
     setSelectedGruppoFinanziarioId("");
     setCodiceCigNew("");
   };
