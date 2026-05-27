@@ -1290,7 +1290,9 @@ const ImmissionePolizzaPage = () => {
 
 
       toast.success("Polizza registrata con successo");
+      clearDraft(draftKey);
       navigate(`/titoli/${newTitolo.id}`);
+
     } catch (err: any) {
       console.error("Errore salvataggio polizza:", err);
       toast.error(err.message || "Errore nel salvataggio della polizza");
