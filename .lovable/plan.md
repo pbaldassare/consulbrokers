@@ -1,19 +1,26 @@
-## Problema
+## 1. Limite Mora con default automatico
 
-Nelle select di `Cliente & Sede` (Sede/Ufficio, Account Executive, Produttore, Specialist) non c'è un modo esplicito per svuotare un valore già scelto: se si seleziona per errore una sede o un AE, non si riesce più a tornare allo stato "vuoto" senza ricaricare la pagina.
+In `src/pages/ImmissionePolizzaPage.tsx`:
 
-## Fix
+- Aggiungere stato `limiteMoraTouched` (analogo a `dataCompetenzaTouched`).
+- Nel `onChange` di Limite Mora settare `limiteMoraTouched = true`.
+- Nell'`useEffect` che già auto-popola `dataCompetenza` (linee 911-920), aggiungere: se `!limiteMoraTouched` e ho `dataCompetenza` (o `durataDa` come fallback) e `moraGiorni`, calcolare `limite_mora = base + moraGiorni` e settarlo.
+- Anche nel `onChange` di Data Competenza, ricalcolare Limite Mora solo se `!limiteMoraTouched` (manteniamo l'attuale comportamento ma rispettiamo l'override utente).
+- Quando l'utente cambia GG Mora, ricalcolare Limite Mora come oggi (override implicito).
 
-**`src/components/SearchableSelect.tsx`** — aggiungere prop opzionale `clearable?: boolean`. Quando `true` e `value` è valorizzato, mostrare in cima alla lista una voce `— Nessuno —` che chiama `onValueChange("")` e chiude il popover. Default `false` (zero impatto sui chiamanti esistenti).
+Risultato: aprendo l'immissione, con `durataDa = oggi`, `dataCompetenza = oggi`, `moraGiorni = 15` → `limiteMora = oggi + 15` precompilato.
 
-**`src/pages/ImmissionePolizzaPage.tsx`** (linee 1255-1300) — passare `clearable` alle 4 select: Sede (Ufficio), Account Executive, Produttore, Specialist.
+## 2. Spacing select garanzia
 
-## Note
+In `src/components/polizze/PremiGaranziaCardShell.tsx` (riga ~290-312):
 
-- Pattern non distruttivo: tutti gli altri usi di `SearchableSelect` restano invariati.
-- "Sede (Ufficio) *" resta obbligatoria a livello di salvataggio, ma diventa svuotabile per correggere errori prima del submit.
-- Bump `public/version.json`.
+- Allargare la colonna "Voce": header `w-[30%]` → `w-[38%]`.
+- `SearchableSelect` del sottoramo: `min-w-[220px]` → `min-w-[280px]`, aggiungere `flex-1` per occupare la cella.
+- Wrapper riga: `gap-2` → `gap-3` e `py-1` sulla cella per dare un po' d'aria verticale.
+- Nessuna modifica logica.
 
-## Verifica
+## File modificati
 
-Su `/portafoglio/immissione?clienteId=...`: selezionare poi cliccare `— Nessuno —` nelle 4 select → trigger torna a placeholder; nessun errore console.
+- `src/pages/ImmissionePolizzaPage.tsx`
+- `src/components/polizze/PremiGaranziaCardShell.tsx`
+- `public/version.json` (bump)

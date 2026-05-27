@@ -221,6 +221,7 @@ const ImmissionePolizzaPage = () => {
   const [dataCompetenza, setDataCompetenza] = useState("");
   const [dataCompetenzaTouched, setDataCompetenzaTouched] = useState(false);
   const [limiteMora, setLimiteMora] = useState("");
+  const [limiteMoraTouched, setLimiteMoraTouched] = useState(false);
   const [disdettaMesi, setDisdettaMesi] = useState("");
 
   // Regolazione
