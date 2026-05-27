@@ -2098,7 +2098,7 @@ export default function ClienteDetail() {
                         upsertCodiceCommercialeMutation.mutate({ ruolo: "AE", anagrafica_id: v || null })
                       }
                       placeholder="— Nessuno —"
-                      allowClear
+                      clearable
                       clearLabel="— Nessuno —"
                       options={aeOptions}
                     />
@@ -2123,7 +2123,7 @@ export default function ClienteDetail() {
                         })
                       }
                       placeholder="— Nessuno —"
-                      allowClear
+                      clearable
                       clearLabel="— Nessuno —"
                       options={produttoreOptions}
                     />
