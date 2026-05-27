@@ -288,6 +288,7 @@ Deno.serve(async (req) => {
       rows?: number;
       ms?: number;
       error?: string;
+      block?: any;
     }> = [];
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
