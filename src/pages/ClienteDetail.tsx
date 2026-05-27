@@ -1362,6 +1362,90 @@ export default function ClienteDetail() {
     onError: (err: any) => toast.error(err.message || "Errore aggiornamento Specialist"),
   });
 
+  // AE + Produttore correnti per il cliente (gestiti nella card "Assegnazioni Gestionali")
+  const { data: codiciCommerciali = [] } = useQuery({
+    queryKey: ["codici_commerciali", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        .select("ruolo, anagrafica_id")
+        .eq("cliente_id", id)
+        .in("ruolo", ["AE", "Produttore Sede"]);
+      return (data || []) as any[];
+    },
+    enabled: !!id,
+  });
+
+  const { data: anagraficheAEProd = [] } = useQuery({
+    queryKey: ["anagrafiche-ae-produttore"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anagrafiche_professionali")
+        .select("id, tipo, nome, cognome, ragione_sociale, sigla, codice")
+        .in("tipo", ["account_executive", "corrispondente"])
+        .eq("attivo", true);
+      return (data || []) as any[];
+    },
+  });
+
+  const upsertCodiceCommercialeMutation = useMutation({
+    mutationFn: async ({ ruolo, anagrafica_id }: { ruolo: string; anagrafica_id: string | null }) => {
+      if (!id) return;
+      if (!anagrafica_id) {
+        const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+          .delete()
+          .eq("cliente_id", id)
+          .eq("ruolo", ruolo);
+        if (error) throw error;
+        return;
+      }
+      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        .upsert(
+          { cliente_id: id, ruolo, anagrafica_id, profilo_id: null },
+          { onConflict: "cliente_id,ruolo" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["codici_commerciali", id] });
+      toast.success("Assegnazione salvata");
+    },
+    onError: (err: any) => toast.error(err.message || "Errore salvataggio"),
+  });
+
+  const aeAnagraficaId =
+    (codiciCommerciali as any[]).find((c) => c.ruolo === "AE")?.anagrafica_id || "";
+  const produttoreAnagraficaId =
+    (codiciCommerciali as any[]).find((c) => c.ruolo === "Produttore Sede")?.anagrafica_id || "";
+
+  const aeOptions = (anagraficheAEProd as any[])
+    .filter((a) => a.tipo === "account_executive")
+    .map((a) => ({
+      value: a.id,
+      label:
+        (a.ragione_sociale && a.ragione_sociale.trim()) ||
+        `${a.cognome || ""} ${a.nome || ""}`.trim() ||
+        a.sigla ||
+        a.codice ||
+        "—",
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "it"));
+
+  const produttoreOptions = (anagraficheAEProd as any[])
+    .filter((a) => a.tipo === "corrispondente")
+    .map((a) => ({
+      value: a.id,
+      label:
+        (a.ragione_sociale && a.ragione_sociale.trim()) ||
+        `${a.cognome || ""} ${a.nome || ""}`.trim() ||
+        a.sigla ||
+        a.codice ||
+        "—",
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "it"));
+
+
+
   const [editFields, setEditFields] = useState<Record<string, any>>({});
   // Tracks the last CF auto-filled, used only to avoid spamming the toast.
   // Must be declared before any early return to keep hook order stable.
