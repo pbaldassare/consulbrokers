@@ -102,17 +102,11 @@ Deno.serve(async (req) => {
     if (action === "reset-password") {
       const { user_id, password } = body;
       if (!user_id || !password) {
-        return new Response(JSON.stringify({ error: "user_id e password obbligatori" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "user_id e password obbligatori" }, 400);
       }
       const { error: updErr } = await adminClient.auth.admin.updateUserById(user_id, { password });
       if (updErr) {
-        return new Response(JSON.stringify({ error: `Errore reset password: ${updErr.message}` }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: `Errore reset password: ${updErr.message}` }, 400);
       }
       await adminClient.from("log_attivita").insert({
         user_id: caller.id,
@@ -121,10 +115,7 @@ Deno.serve(async (req) => {
         entita_id: user_id,
         dettagli_json: { reset_by: caller.email },
       });
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ success: true });
     }
 
     const {
@@ -136,10 +127,7 @@ Deno.serve(async (req) => {
     } = body;
 
     if (!email || !nome || !cognome || !ruolo) {
-      return new Response(
-        JSON.stringify({ error: "Campi obbligatori mancanti: nome, cognome, email, ruolo" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "Campi obbligatori mancanti: nome, cognome, email, ruolo" }, 400);
     }
 
     const userPassword = password || "Temp123!";
@@ -151,10 +139,11 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
-      return new Response(JSON.stringify({ error: `Errore creazione utente: ${createError.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const alreadyRegistered = createError.message?.toLowerCase().includes("already") || createError.message?.toLowerCase().includes("registered");
+      return jsonResponse(
+        { error: alreadyRegistered ? "Email già registrata: usa un indirizzo diverso o resetta l'utente esistente" : `Errore creazione utente: ${createError.message}` },
+        alreadyRegistered ? 409 : 400,
+      );
     }
 
     const newUserId = newUser.user.id;
