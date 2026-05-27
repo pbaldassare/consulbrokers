@@ -94,9 +94,19 @@ const TOOL = {
             description: "BENZINA | DIESEL | GPL | METANO | ELETTRICA | IBRIDA | IBRIDA_BENZINA | IBRIDA_DIESEL",
           },
           tipologia_guida: { type: "string", description: "Es: ESPERTA, LIBERA, ESCLUSIVA" },
+          franchigia: { type: "number", description: "Importo franchigia RCA in euro" },
+          massimale_1: { type: "number", description: "Massimale principale RCA (es. 6.450.000)" },
+          massimale_2: { type: "number", description: "Massimale persone (se distinto)" },
+          massimale_3: { type: "number", description: "Massimale cose (se distinto)" },
+          peius: { type: "boolean", description: "Clausola peius presente" },
+          temporanea: { type: "boolean", description: "Polizza temporanea" },
+          carico_scarico: { type: "boolean", description: "Rischio carico/scarico operante" },
+          competizione: { type: "boolean", description: "Veicolo da competizione" },
+          rimorchio: { type: "boolean", description: "Con rimorchio" },
         },
         additionalProperties: false,
       },
+
 
       // Blocco CONDUCENTE (solo RCA Auto)
       conducente: {
@@ -255,7 +265,11 @@ Deno.serve(async (req) => {
         `- "Classe di merito universale", "CU", "Classe CU", "Classe Universale" → classe_bm (intero 1-18)\n` +
         `- "Tipo di guida", "Tipologia guida", "Guida" → tipologia_guida (es. "Conducente qualsiasi", "Esperta", "Esclusiva")\n` +
         `- "Provincia di circolazione", "Provincia immatricolazione" → provincia_circolazione (2 lettere maiuscole)\n` +
-        `- "Anno acquisto" → anno_acquisto; "Peso motrice/rimorchio/totale" → campi peso_* corrispondenti.\n\n` +
+        `- "Anno acquisto" → anno_acquisto; "Peso motrice/rimorchio/totale" → campi peso_* corrispondenti.\n` +
+        `- "Massimale", "Somma assicurata RCA", "Massimale Unico" → massimale_1; massimali persone/cose distinti → massimale_2 e massimale_3.\n` +
+        `- "Franchigia" → franchigia (numero in euro).\n` +
+        `- Flag/clausole booleane: "Peius"/"Clausola Peius" → peius; "Polizza temporanea"/"Temporanea" → temporanea; "Carico e scarico"/"Operazioni carico/scarico" → carico_scarico; "Competizione"/"Veicolo da gara" → competizione; "Con rimorchio"/"Traino rimorchio" → rimorchio.\n\n` +
+
         `REGOLA TASSATIVA: compila SOLO i campi realmente presenti e leggibili nel PDF — se un'etichetta non compare, OMETTI il campo (non inventare, non dedurre, non mettere placeholder). ` +
         `Numeri SENZA unità di misura (es. "130", non "130 KW"). Date YYYY-MM-DD. Targa/telaio in MAIUSCOLO senza spazi.\n` +
         `Se è indicato un conducente abituale (diverso dal contraente), compila anche il blocco 'conducente' con la stessa regola di non invenzione.`;

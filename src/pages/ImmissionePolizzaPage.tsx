@@ -21,7 +21,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CLASSI_MERITO, TIPI_VEICOLO } from "@/lib/rcaConstants";
+import { CLASSI_MERITO, TIPI_VEICOLO, PROVINCE_IT, TIPI_PATENTE, defaultPatenteForVeicolo, isTargaItValid } from "@/lib/rcaConstants";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { parseCF } from "@/lib/parseCF";
+import { lookupComune } from "@/lib/comuniItaliani";
+
 // resolvePercentualeProvvigione non più usato: matrice caricata inline per calcolo per-riga
 import { MarcaCombobox, ModelloCombobox } from "@/components/rca/MarcaModelloCombobox";
 import { useRcaUsi } from "@/hooks/useRcaLookups";
@@ -187,6 +191,8 @@ const ImmissionePolizzaPage = () => {
       classe_bm?: string; cv?: number; kw?: number; cc?: number; posti?: number;
       peso_motrice?: number; peso_rimorchio?: number; peso_totale?: number;
       alimentazione?: string; tipologia_guida?: string;
+      franchigia?: number; massimale_1?: number; massimale_2?: number; massimale_3?: number;
+      peius?: boolean; temporanea?: boolean; carico_scarico?: boolean; competizione?: boolean; rimorchio?: boolean;
     };
     const cond = (d as any).conducente as undefined | {
       nome?: string; cognome?: string; codice_fiscale?: string; indirizzo?: string;
@@ -198,53 +204,71 @@ const ImmissionePolizzaPage = () => {
       (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String((m.ramo as any).codice || ""))) ||
       !!(v && (v.targa || v.telaio || v.marca));
     if (ramoIsAuto) {
-      // Apre la sezione RCA anche se l'utente ha selezionato un ramo non-ZQ ma ha forzato "Polizza Auto"
       setPolizzaAuto(true);
     }
+    const prefilledKeys: string[] = [];
+    let vCount = 0, cCount = 0;
     if (v && (v.targa || v.telaio || v.marca)) {
-      // Forza il flag "Polizza Auto" così la sezione RCA si apre
       setPolizzaAuto(true);
-      if (v.targa) { setVTarga(v.targa.toUpperCase()); if (!d.targa) setTargaTelaio(v.targa.toUpperCase()); }
-      if (v.telaio) setVTelaio(v.telaio.toUpperCase());
-      if (v.marca) setVMarca(v.marca.toUpperCase());
-      if (v.modello) setVModello(v.modello.toUpperCase());
-      if (v.versione) setVVersione(v.versione);
-      if (v.descrizione) setVDescrizione(v.descrizione);
+      if (v.targa) { setVTarga(v.targa.toUpperCase()); if (!d.targa) setTargaTelaio(v.targa.toUpperCase()); prefilledKeys.push("vTarga"); vCount++; }
+      if (v.telaio) { setVTelaio(v.telaio.toUpperCase()); prefilledKeys.push("vTelaio"); vCount++; }
+      if (v.marca) { setVMarca(v.marca.toUpperCase()); prefilledKeys.push("vMarca"); vCount++; }
+      if (v.modello) { setVModello(v.modello.toUpperCase()); prefilledKeys.push("vModello"); vCount++; }
+      if (v.versione) { setVVersione(v.versione); prefilledKeys.push("vVersione"); vCount++; }
+      if (v.descrizione) { setVDescrizione(v.descrizione); prefilledKeys.push("vDescrizione"); vCount++; }
       if (v.tipo_veicolo) {
         setVTipoVeicolo(v.tipo_veicolo.toUpperCase());
         setVSettore(v.tipo_veicolo);
+        prefilledKeys.push("vTipoVeicolo"); vCount++;
       }
-      if (v.data_immatricolazione) setVDataImmatricolazione(v.data_immatricolazione);
-      if (v.anno_acquisto) setVAnnoAcquisto(String(v.anno_acquisto));
-      if (v.provincia_circolazione) setVProvinciaCircolazione(v.provincia_circolazione.toUpperCase());
-      if (v.classe_bm) setVClasseBm(String(v.classe_bm));
-      if (v.cv != null) setVCv(String(v.cv));
-      if (v.kw != null) setVKw(String(v.kw));
-      if (v.cc != null) setVCc(String(v.cc));
-      if (v.posti != null) setVPosti(String(v.posti));
-      if (v.peso_motrice != null) setVPesoMotrice(String(v.peso_motrice));
-      if (v.peso_rimorchio != null) setVPesoRimorchio(String(v.peso_rimorchio));
-      if (v.peso_totale != null) setVPesoTotale(String(v.peso_totale));
-      if (v.alimentazione) setVTipoAlimentazione(v.alimentazione);
-      if (v.tipologia_guida) setVTipologiaGuida(v.tipologia_guida);
-      // Uso: vUso è uuid FK; l'AI manda descrizione → l'utente sceglierà nel dropdown
+      if (v.data_immatricolazione) { setVDataImmatricolazione(v.data_immatricolazione); prefilledKeys.push("vDataImmatricolazione"); vCount++; }
+      if (v.anno_acquisto) { setVAnnoAcquisto(String(v.anno_acquisto)); prefilledKeys.push("vAnnoAcquisto"); vCount++; }
+      if (v.provincia_circolazione) { setVProvinciaCircolazione(v.provincia_circolazione.toUpperCase()); prefilledKeys.push("vProvinciaCircolazione"); vCount++; }
+      if (v.classe_bm) { setVClasseBm(String(v.classe_bm)); prefilledKeys.push("vClasseBm"); vCount++; }
+      if (v.cv != null) { setVCv(String(v.cv)); prefilledKeys.push("vCv"); vCount++; }
+      if (v.kw != null) { setVKw(String(v.kw)); prefilledKeys.push("vKw"); vCount++; }
+      if (v.cc != null) { setVCc(String(v.cc)); prefilledKeys.push("vCc"); vCount++; }
+      if (v.posti != null) { setVPosti(String(v.posti)); prefilledKeys.push("vPosti"); vCount++; }
+      if (v.peso_motrice != null) { setVPesoMotrice(String(v.peso_motrice)); prefilledKeys.push("vPesoMotrice"); vCount++; }
+      if (v.peso_rimorchio != null) { setVPesoRimorchio(String(v.peso_rimorchio)); prefilledKeys.push("vPesoRimorchio"); vCount++; }
+      if (v.peso_totale != null) { setVPesoTotale(String(v.peso_totale)); prefilledKeys.push("vPesoTotale"); vCount++; }
+      if (v.alimentazione) { setVTipoAlimentazione(v.alimentazione); prefilledKeys.push("vTipoAlimentazione"); vCount++; }
+      if (v.tipologia_guida) { setVTipologiaGuida(v.tipologia_guida); prefilledKeys.push("vTipologiaGuida"); vCount++; }
+      if (v.franchigia != null) { setVFranchigia(String(v.franchigia)); prefilledKeys.push("vFranchigia"); vCount++; }
+      if (v.massimale_1 != null) { setVMass1(String(v.massimale_1)); prefilledKeys.push("vMass1"); vCount++; }
+      if (v.massimale_2 != null) { setVMass2(String(v.massimale_2)); prefilledKeys.push("vMass2"); vCount++; }
+      if (v.massimale_3 != null) { setVMass3(String(v.massimale_3)); prefilledKeys.push("vMass3"); vCount++; }
+      if (v.peius != null) { setVPeius(!!v.peius); if (v.peius) vCount++; }
+      if (v.temporanea != null) { setVTemporanea(!!v.temporanea); if (v.temporanea) vCount++; }
+      if (v.carico_scarico != null) { setVCaricoScarico(!!v.carico_scarico); if (v.carico_scarico) vCount++; }
+      if (v.competizione != null) { setVCompetizione(!!v.competizione); if (v.competizione) vCount++; }
+      if (v.rimorchio != null) { setVRimorchio(!!v.rimorchio); if (v.rimorchio) vCount++; }
     }
     if (cond) {
-      if (cond.nome) setCNome(cond.nome);
-      if (cond.cognome) setCCognome(cond.cognome);
-      if (cond.indirizzo) setCIndirizzo(cond.indirizzo);
-      if (cond.cap) setCCap(cond.cap);
-      if (cond.citta) setCCitta(cond.citta);
-      if (cond.provincia) setCProvincia(cond.provincia.toUpperCase());
-      if (cond.data_nascita) setCDataNascita(cond.data_nascita);
-      if (cond.tipo_patente) setCTipoPatente(cond.tipo_patente);
-      if (cond.data_rilascio_patente) setCDataRilascioPatente(cond.data_rilascio_patente);
+      if (cond.nome) { setCNome(cond.nome); prefilledKeys.push("cNome"); cCount++; }
+      if (cond.cognome) { setCCognome(cond.cognome); prefilledKeys.push("cCognome"); cCount++; }
+      if (cond.indirizzo) { setCIndirizzo(cond.indirizzo); prefilledKeys.push("cIndirizzo"); cCount++; }
+      if (cond.cap) { setCCap(cond.cap); prefilledKeys.push("cCap"); cCount++; }
+      if (cond.citta) { setCCitta(cond.citta); prefilledKeys.push("cCitta"); cCount++; }
+      if (cond.provincia) { setCProvincia(cond.provincia.toUpperCase()); prefilledKeys.push("cProvincia"); cCount++; }
+      if (cond.data_nascita) { setCDataNascita(cond.data_nascita); prefilledKeys.push("cDataNascita"); cCount++; }
+      if (cond.tipo_patente) { setCTipoPatente(cond.tipo_patente); prefilledKeys.push("cTipoPatente"); cCount++; }
+      if (cond.data_rilascio_patente) { setCDataRilascioPatente(cond.data_rilascio_patente); prefilledKeys.push("cDataRilascioPatente"); cCount++; }
     }
+    // Fallback: se provincia_circolazione manca ma c'è quella del conducente, usala
+    if (v && !v.provincia_circolazione && cond?.provincia) {
+      setVProvinciaCircolazione(cond.provincia.toUpperCase());
+      prefilledKeys.push("vProvinciaCircolazione");
+    }
+    if (prefilledKeys.length) markAiPrefilled(...prefilledKeys);
 
     toast.success(m.isNewCliente && !m.cliente?.id
       ? "Dati applicati. Completa la creazione del nuovo cliente (Gruppo Finanziario obbligatorio)."
-      : ramoIsAuto && v ? "Dati polizza + veicolo applicati al form" : "Dati applicati al form");
+      : ramoIsAuto && (vCount || cCount)
+        ? `AI ha compilato ${vCount} campi veicolo + ${cCount} campi conducente`
+        : "Dati applicati al form");
   };
+
 
   // Form state — Cliente
   const [aiCfLookup, setAiCfLookup] = useState(""); // CF/P.IVA arrivato da import AI per auto-selezione
@@ -387,7 +411,30 @@ const ImmissionePolizzaPage = () => {
   const [cDataRilascioPatente, setCDataRilascioPatente] = useState("");
   const [cNote, setCNote] = useState("");
 
+  // Tracciamento campi compilati dall'AI (per indicatore visivo ✨)
+  const [aiPrefilled, setAiPrefilled] = useState<Set<string>>(new Set());
+  const markAiPrefilled = (...keys: string[]) => {
+    setAiPrefilled((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.add(k));
+      return next;
+    });
+  };
+  const clearAiPrefilled = (key: string) => {
+    setAiPrefilled((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
+  // Toggle "Conducente = Contraente"
+  const [conducenteUgualeContraente, setConducenteUgualeContraente] = useState(false);
+  // Lock sincronizzazione KW/CV (se l'utente edita manualmente uno dei due)
+  const [kwCvLocked, setKwCvLocked] = useState<null | "cv" | "kw">(null);
+
   // Commerciale
+
   const [selectedCommerciale, setSelectedCommerciale] = useState("__sede__");
   const [percentualeCommerciale, setPercentualeCommerciale] = useState("100");
 
@@ -614,7 +661,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
         .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, ufficio_id, gruppo_finanziario_id, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, ufficio_id, gruppo_finanziario_id, indirizzo, cap, citta, provincia, data_nascita, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
         .eq("id", selectedClienteId)
         .maybeSingle();
       return data as any;
@@ -2237,143 +2284,382 @@ const ImmissionePolizzaPage = () => {
 
 
       {/* === SEZIONI RCA AUTO === */}
-      {isRCA && (
+      {isRCA && (() => {
+        // Helper: classe campo per evidenziare i valori riempiti dall'AI
+        const aiCls = (key: string) =>
+          aiPrefilled.has(key) ? "border-l-2 border-l-primary bg-primary/[0.03]" : "";
+        const aiBadge = (key: string) =>
+          aiPrefilled.has(key) ? (
+            <Sparkles className="inline-block h-3 w-3 text-primary ml-1" />
+          ) : null;
+        // Sincronizzazione KW ↔ CV (1 KW ≈ 1.36 CV fiscali)
+        const handleCvChange = (val: string) => {
+          setVCv(val); clearAiPrefilled("vCv"); setKwCvLocked("cv");
+          if (kwCvLocked !== "kw") {
+            const n = parseFloat(val);
+            if (!isNaN(n) && n > 0) { setVKw(String(Math.round(n / 1.36))); clearAiPrefilled("vKw"); }
+          }
+        };
+        const handleKwChange = (val: string) => {
+          setVKw(val); clearAiPrefilled("vKw"); setKwCvLocked("kw");
+          if (kwCvLocked !== "cv") {
+            const n = parseFloat(val);
+            if (!isNaN(n) && n > 0) { setVCv(String(Math.round(n * 1.36))); clearAiPrefilled("vCv"); }
+          }
+        };
+        // Auto somma pesi
+        const handlePesoChange = (which: "m" | "r", val: string) => {
+          if (which === "m") { setVPesoMotrice(val); clearAiPrefilled("vPesoMotrice"); }
+          else { setVPesoRimorchio(val); clearAiPrefilled("vPesoRimorchio"); }
+          const m = parseFloat(which === "m" ? val : vPesoMotrice) || 0;
+          const r = parseFloat(which === "r" ? val : vPesoRimorchio) || 0;
+          if (m && r) { setVPesoTotale(String(m + r)); clearAiPrefilled("vPesoTotale"); }
+        };
+        // Validazione targa
+        const targaValid = !vTarga || isTargaItValid(vTarga);
+        const telaioValid = !vTelaio || vTelaio.replace(/\s/g, "").length === 17;
+        // Toggle Conducente = Contraente
+        const applyConducenteFromContraente = (checked: boolean) => {
+          setConducenteUgualeContraente(checked);
+          if (!checked || !clienteDettaglio) return;
+          const c: any = clienteDettaglio;
+          setCNome(c.nome || ""); clearAiPrefilled("cNome");
+          setCCognome(c.cognome || ""); clearAiPrefilled("cCognome");
+          if (c.indirizzo) { setCIndirizzo(c.indirizzo); clearAiPrefilled("cIndirizzo"); }
+          if (c.cap) { setCCap(c.cap); clearAiPrefilled("cCap"); }
+          if (c.citta) { setCCitta(c.citta); clearAiPrefilled("cCitta"); }
+          if (c.provincia) { setCProvincia(String(c.provincia).toUpperCase()); clearAiPrefilled("cProvincia"); }
+          if (c.data_nascita) { setCDataNascita(c.data_nascita); clearAiPrefilled("cDataNascita"); }
+          // Se data nascita assente, prova a derivarla dal CF
+          if (!c.data_nascita && c.codice_fiscale) {
+            const parsed = parseCF(c.codice_fiscale);
+            if (parsed) {
+              setCDataNascita(parsed.dataNascita);
+              const comune = lookupComune(parsed.codiceCatastale);
+              if (comune && !c.provincia) setCProvincia(comune.provincia);
+            }
+          }
+          // Default patente per tipo veicolo
+          if (!cTipoPatente) setCTipoPatente(defaultPatenteForVeicolo(vTipoVeicolo));
+        };
+        // Indirizzo conducente da Google Maps
+        const handleAddressSelect = (parts: { indirizzo: string; cap: string; citta: string; provincia: string }) => {
+          if (parts.cap) { setCCap(parts.cap); clearAiPrefilled("cCap"); }
+          if (parts.citta) { setCCitta(parts.citta); clearAiPrefilled("cCitta"); }
+          if (parts.provincia) {
+            setCProvincia(parts.provincia.toUpperCase());
+            clearAiPrefilled("cProvincia");
+            // Pre-popola provincia di circolazione se vuota
+            if (!vProvinciaCircolazione) {
+              setVProvinciaCircolazione(parts.provincia.toUpperCase());
+              clearAiPrefilled("vProvinciaCircolazione");
+            }
+          }
+        };
+        const provinciaCircDiverge =
+          vProvinciaCircolazione && cProvincia && vProvinciaCircolazione !== cProvincia;
+
+        return (
         <>
           {/* Banner intro RCA */}
-          <div className="rounded-lg border-2 border-primary/30 bg-primary/5 px-4 py-3 flex items-center gap-3 mt-2">
+          <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-4 py-2.5 flex items-center gap-3 mt-2">
             <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
               <Car className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-bold text-primary uppercase tracking-wide">Sezione RCA Auto</p>
-              <p className="text-xs text-muted-foreground">Compila i dati specifici del veicolo, delle garanzie e del conducente.</p>
+              <p className="text-xs text-muted-foreground">Compila i dati di veicolo e conducente — i campi con <Sparkles className="inline h-3 w-3 text-primary" /> sono stati riempiti dall'AI.</p>
             </div>
           </div>
 
           {/* DATI VEICOLO */}
           <PolizzaSection title="Dati Veicolo" icon={Car}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tipo Veicolo</Label>
-                <SearchableSelect className="h-8 text-xs" value={vTipoVeicolo} onValueChange={(v) => { setVTipoVeicolo(v); setVSettore(v); }} placeholder="—"
-                  options={TIPI_VEICOLO} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Uso</Label>
-                <SearchableSelect className="h-8 text-xs" value={vUso} onValueChange={setVUso} placeholder="—"
-                  options={rcaUsi || []} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Provincia Circolazione</Label>
-                <Input value={vProvinciaCircolazione} onChange={(e) => setVProvinciaCircolazione(e.target.value)} className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Marca</Label>
-                <MarcaCombobox className="h-8 text-xs" value={vMarca} onValueChange={(v) => { setVMarca(v); setVModello(""); }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Modello</Label>
-                <ModelloCombobox className="h-8 text-xs" marca={vMarca} value={vModello} onValueChange={setVModello} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Versione</Label>
-                <Input value={vVersione} onChange={(e) => setVVersione(e.target.value)} className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Targa</Label>
-                <Input value={vTarga} onChange={(e) => setVTarga(e.target.value.toUpperCase())} className="h-8 text-xs font-mono" />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Veicolo (descrizione)</Label>
-                <Input value={vDescrizione} onChange={(e) => setVDescrizione(e.target.value)} placeholder="es. AUDI A1 GIALLA" className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Telaio</Label>
-                <Input value={vTelaio} onChange={(e) => setVTelaio(e.target.value)} className="h-8 text-xs font-mono" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Classe B/M</Label>
-                <SearchableSelect className="h-8 text-xs" value={vClasseBm} onValueChange={setVClasseBm} placeholder="—"
-                  options={CLASSI_MERITO} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Immatricolazione</Label>
-                <Input type="date" value={vDataImmatricolazione} onChange={(e) => setVDataImmatricolazione(e.target.value)} className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Anno Acquisto</Label>
-                <Input type="number" value={vAnnoAcquisto} onChange={(e) => setVAnnoAcquisto(e.target.value)} className="h-8 text-xs" />
-              </div>
-            </div>
-            {/* Massimali */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">Massimale 1</Label><Input type="number" step="0.01" value={vMass1} onChange={(e) => setVMass1(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Massimale 2</Label><Input type="number" step="0.01" value={vMass2} onChange={(e) => setVMass2(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Massimale 3</Label><Input type="number" step="0.01" value={vMass3} onChange={(e) => setVMass3(e.target.value)} className="h-8 text-xs font-mono" /></div>
-            </div>
-            {/* Flags */}
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {[
-                { id: "v-peius", label: "Peius", checked: vPeius, onChange: setVPeius },
-                { id: "v-temporanea", label: "Temporanea", checked: vTemporanea, onChange: setVTemporanea },
-                { id: "v-caricoscarico", label: "Carico/Scarico", checked: vCaricoScarico, onChange: setVCaricoScarico },
-                { id: "v-competizione", label: "Competizione", checked: vCompetizione, onChange: setVCompetizione },
-                { id: "v-rimorchio", label: "Rimorchio", checked: vRimorchio, onChange: setVRimorchio },
-              ].map((flag) => (
-                <div key={flag.id} className="flex items-center gap-1.5">
-                  <Checkbox id={flag.id} checked={flag.checked} onCheckedChange={(v) => flag.onChange(v === true)} />
-                  <Label htmlFor={flag.id} className="font-normal cursor-pointer text-xs">{flag.label}</Label>
+            {/* Sub: Identificazione */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Identificazione</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Tipo Veicolo{aiBadge("vTipoVeicolo")}</Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipoVeicolo")}`} value={vTipoVeicolo}
+                    onValueChange={(v) => { setVTipoVeicolo(v); setVSettore(v); clearAiPrefilled("vTipoVeicolo"); }}
+                    placeholder="—" options={TIPI_VEICOLO} />
                 </div>
-              ))}
-            </div>
-            <div className="space-y-1.5"><Label className="text-xs">Franchigia</Label><Input type="number" step="0.01" value={vFranchigia} onChange={(e) => setVFranchigia(e.target.value)} className="h-8 text-xs font-mono w-40" /></div>
-            {/* Dati tecnici */}
-            <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">CV</Label><Input type="number" value={vCv} onChange={(e) => setVCv(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">KW</Label><Input type="number" value={vKw} onChange={(e) => setVKw(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">CC</Label><Input type="number" value={vCc} onChange={(e) => setVCc(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Posti</Label><Input type="number" value={vPosti} onChange={(e) => setVPosti(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Peso Mot.</Label><Input type="number" value={vPesoMotrice} onChange={(e) => setVPesoMotrice(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Peso Rim.</Label><Input type="number" value={vPesoRimorchio} onChange={(e) => setVPesoRimorchio(e.target.value)} className="h-8 text-xs font-mono" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Peso Tot.</Label><Input type="number" value={vPesoTotale} onChange={(e) => setVPesoTotale(e.target.value)} className="h-8 text-xs font-mono" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tipologia Guida</Label>
-                <SearchableSelect className="h-8 text-xs" value={vTipologiaGuida} onValueChange={setVTipologiaGuida} placeholder="—"
-                  options={["Libera","Esperta","Esclusiva"].map(v => ({ value: v, label: v }))} />
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Marca{aiBadge("vMarca")}</Label>
+                  <MarcaCombobox className={`h-9 text-sm ${aiCls("vMarca")}`} value={vMarca}
+                    onValueChange={(v) => { setVMarca(v); setVModello(""); clearAiPrefilled("vMarca"); }} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Modello{aiBadge("vModello")}</Label>
+                  <ModelloCombobox className={`h-9 text-sm ${aiCls("vModello")}`} marca={vMarca} value={vModello}
+                    onValueChange={(v) => { setVModello(v); clearAiPrefilled("vModello"); }} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Versione{aiBadge("vVersione")}</Label>
+                  <Input value={vVersione} onChange={(e) => { setVVersione(e.target.value); clearAiPrefilled("vVersione"); }}
+                    className={`h-9 text-sm ${aiCls("vVersione")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">
+                    Targa{aiBadge("vTarga")}
+                    {vTarga && !targaValid && <span className="ml-1 text-[10px] text-amber-600">⚠ formato</span>}
+                  </Label>
+                  <Input value={vTarga} onChange={(e) => { setVTarga(e.target.value.toUpperCase()); clearAiPrefilled("vTarga"); }}
+                    className={`h-9 text-sm font-mono uppercase ${aiCls("vTarga")} ${vTarga && !targaValid ? "border-amber-500" : ""}`} placeholder="AB123CD" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">
+                    Telaio (VIN){aiBadge("vTelaio")}
+                    {vTelaio && !telaioValid && <span className="ml-1 text-[10px] text-amber-600">⚠ 17 car.</span>}
+                  </Label>
+                  <Input value={vTelaio} onChange={(e) => { setVTelaio(e.target.value.toUpperCase()); clearAiPrefilled("vTelaio"); }}
+                    className={`h-9 text-sm font-mono uppercase ${aiCls("vTelaio")} ${vTelaio && !telaioValid ? "border-amber-500" : ""}`} maxLength={17} />
+                </div>
+                <div className="space-y-1 sm:col-span-2 md:col-span-3 lg:col-span-2">
+                  <Label className="text-[11px] font-medium text-foreground/80">Descrizione completa{aiBadge("vDescrizione")}</Label>
+                  <Input value={vDescrizione} onChange={(e) => { setVDescrizione(e.target.value); clearAiPrefilled("vDescrizione"); }}
+                    placeholder="es. AUDI A1 1.6 TDI SPORTBACK" className={`h-9 text-sm ${aiCls("vDescrizione")}`} />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tipo Alimentazione</Label>
-                <SearchableSelect className="h-8 text-xs" value={vTipoAlimentazione} onValueChange={setVTipoAlimentazione} placeholder="—"
-                  options={["Benzina","Diesel","GPL","Metano","Ibrido","Elettrico"].map(v => ({ value: v, label: v }))} />
+            </div>
+
+            {/* Sub: Circolazione */}
+            <div className="pt-3 border-t border-border/40">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Circolazione</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Uso</Label>
+                  <SearchableSelect className="h-9 text-sm" value={vUso} onValueChange={setVUso} placeholder="—"
+                    options={rcaUsi || []} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">
+                    Provincia Circolazione{aiBadge("vProvinciaCircolazione")}
+                    {provinciaCircDiverge && <span className="ml-1 text-[10px] text-amber-600" title="Differisce dalla residenza del conducente">⚠</span>}
+                  </Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vProvinciaCircolazione")}`} value={vProvinciaCircolazione}
+                    onValueChange={(v) => { setVProvinciaCircolazione(v); clearAiPrefilled("vProvinciaCircolazione"); }}
+                    placeholder="—" options={PROVINCE_IT} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Classe B/M{aiBadge("vClasseBm")}</Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vClasseBm")}`} value={vClasseBm}
+                    onValueChange={(v) => { setVClasseBm(v); clearAiPrefilled("vClasseBm"); }}
+                    placeholder="—" options={CLASSI_MERITO} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Immatricolazione{aiBadge("vDataImmatricolazione")}</Label>
+                  <Input type="date" value={vDataImmatricolazione}
+                    onChange={(e) => { setVDataImmatricolazione(e.target.value); clearAiPrefilled("vDataImmatricolazione"); }}
+                    className={`h-9 text-sm ${aiCls("vDataImmatricolazione")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Anno Acquisto{aiBadge("vAnnoAcquisto")}</Label>
+                  <Input type="number" value={vAnnoAcquisto}
+                    onChange={(e) => { setVAnnoAcquisto(e.target.value); clearAiPrefilled("vAnnoAcquisto"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vAnnoAcquisto")}`} />
+                </div>
+              </div>
+            </div>
+
+            {/* Sub: Caratteristiche tecniche */}
+            <div className="pt-3 border-t border-border/40">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Caratteristiche tecniche</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">CV{aiBadge("vCv")}</Label>
+                  <Input type="number" value={vCv} onChange={(e) => handleCvChange(e.target.value)}
+                    className={`h-9 text-sm font-mono ${aiCls("vCv")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">KW{aiBadge("vKw")}</Label>
+                  <Input type="number" value={vKw} onChange={(e) => handleKwChange(e.target.value)}
+                    className={`h-9 text-sm font-mono ${aiCls("vKw")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">CC{aiBadge("vCc")}</Label>
+                  <Input type="number" value={vCc} onChange={(e) => { setVCc(e.target.value); clearAiPrefilled("vCc"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vCc")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Posti{aiBadge("vPosti")}</Label>
+                  <Input type="number" value={vPosti} onChange={(e) => { setVPosti(e.target.value); clearAiPrefilled("vPosti"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vPosti")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Peso Mot.{aiBadge("vPesoMotrice")}</Label>
+                  <Input type="number" value={vPesoMotrice} onChange={(e) => handlePesoChange("m", e.target.value)}
+                    className={`h-9 text-sm font-mono ${aiCls("vPesoMotrice")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Peso Rim.{aiBadge("vPesoRimorchio")}</Label>
+                  <Input type="number" value={vPesoRimorchio} onChange={(e) => handlePesoChange("r", e.target.value)}
+                    className={`h-9 text-sm font-mono ${aiCls("vPesoRimorchio")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Peso Tot.{aiBadge("vPesoTotale")}</Label>
+                  <Input type="number" value={vPesoTotale} onChange={(e) => { setVPesoTotale(e.target.value); clearAiPrefilled("vPesoTotale"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vPesoTotale")}`} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mt-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Tipologia Guida{aiBadge("vTipologiaGuida")}</Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipologiaGuida")}`} value={vTipologiaGuida}
+                    onValueChange={(v) => { setVTipologiaGuida(v); clearAiPrefilled("vTipologiaGuida"); }}
+                    placeholder="—" options={["Libera","Esperta","Esclusiva"].map(v => ({ value: v, label: v }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Alimentazione{aiBadge("vTipoAlimentazione")}</Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipoAlimentazione")}`} value={vTipoAlimentazione}
+                    onValueChange={(v) => { setVTipoAlimentazione(v); clearAiPrefilled("vTipoAlimentazione"); }}
+                    placeholder="—" options={["Benzina","Diesel","GPL","Metano","Ibrido","Elettrico"].map(v => ({ value: v, label: v }))} />
+                </div>
+              </div>
+            </div>
+
+            {/* Sub: Coperture */}
+            <div className="pt-3 border-t border-border/40">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Coperture e massimali</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Massimale 1{aiBadge("vMass1")}</Label>
+                  <Input type="number" step="0.01" value={vMass1} onChange={(e) => { setVMass1(e.target.value); clearAiPrefilled("vMass1"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vMass1")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Massimale 2{aiBadge("vMass2")}</Label>
+                  <Input type="number" step="0.01" value={vMass2} onChange={(e) => { setVMass2(e.target.value); clearAiPrefilled("vMass2"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vMass2")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Massimale 3{aiBadge("vMass3")}</Label>
+                  <Input type="number" step="0.01" value={vMass3} onChange={(e) => { setVMass3(e.target.value); clearAiPrefilled("vMass3"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vMass3")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Franchigia{aiBadge("vFranchigia")}</Label>
+                  <Input type="number" step="0.01" value={vFranchigia} onChange={(e) => { setVFranchigia(e.target.value); clearAiPrefilled("vFranchigia"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("vFranchigia")}`} />
+                </div>
+              </div>
+              <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-3">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Clausole</div>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {[
+                    { id: "v-peius", label: "Peius", checked: vPeius, onChange: setVPeius },
+                    { id: "v-temporanea", label: "Temporanea", checked: vTemporanea, onChange: setVTemporanea },
+                    { id: "v-caricoscarico", label: "Carico/Scarico", checked: vCaricoScarico, onChange: setVCaricoScarico },
+                    { id: "v-competizione", label: "Competizione", checked: vCompetizione, onChange: setVCompetizione },
+                    { id: "v-rimorchio", label: "Rimorchio", checked: vRimorchio, onChange: setVRimorchio },
+                  ].map((flag) => (
+                    <div key={flag.id} className="flex items-center gap-1.5">
+                      <Checkbox id={flag.id} checked={flag.checked} onCheckedChange={(v) => flag.onChange(v === true)} />
+                      <Label htmlFor={flag.id} className="font-normal cursor-pointer text-sm">{flag.label}</Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </PolizzaSection>
-
-          {/* Le righe garanzia (Firma + Quietanza) sono ora gestite nella sezione Importi */}
 
           {/* DATI CONDUCENTE */}
           <PolizzaSection title="Dati Conducente" icon={UserCheck}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">Nome</Label><Input value={cNome} onChange={(e) => setCNome(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Cognome</Label><Input value={cCognome} onChange={(e) => setCCognome(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5 col-span-2"><Label className="text-xs">Indirizzo</Label><Input value={cIndirizzo} onChange={(e) => setCIndirizzo(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">CAP</Label><Input value={cCap} onChange={(e) => setCCap(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Città</Label><Input value={cCitta} onChange={(e) => setCCitta(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Provincia</Label><Input value={cProvincia} onChange={(e) => setCProvincia(e.target.value)} className="h-8 text-xs w-20" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Data Nascita</Label><Input type="date" value={cDataNascita} onChange={(e) => setCDataNascita(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tipo Patente</Label>
-                <SearchableSelect className="h-8 text-xs" value={cTipoPatente} onValueChange={setCTipoPatente} placeholder="—"
-                  options={["AM","A1","A2","A","B","BE","C","CE","D","DE"].map(v => ({ value: v, label: v }))} />
+            {/* Toggle Conducente = Contraente */}
+            {clienteDettaglio && (
+              <div className="rounded-md border border-border/60 bg-muted/30 p-3 flex items-center gap-2">
+                <Checkbox id="cond-uguale-contraente" checked={conducenteUgualeContraente}
+                  onCheckedChange={(v) => applyConducenteFromContraente(v === true)} />
+                <Label htmlFor="cond-uguale-contraente" className="text-sm font-medium cursor-pointer">
+                  Conducente = Contraente
+                </Label>
+                <span className="text-xs text-muted-foreground">— copia automaticamente nome, indirizzo, CAP, città, provincia e data di nascita (anche da CF)</span>
               </div>
-              <div className="space-y-1.5"><Label className="text-xs">Data Rilascio Patente</Label><Input type="date" value={cDataRilascioPatente} onChange={(e) => setCDataRilascioPatente(e.target.value)} className="h-8 text-xs" /></div>
-              <div className="space-y-1.5 col-span-2"><Label className="text-xs">Note</Label><Input value={cNote} onChange={(e) => setCNote(e.target.value)} className="h-8 text-xs" /></div>
+            )}
+
+            {/* Sub: Anagrafica */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Anagrafica</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Nome{aiBadge("cNome")}</Label>
+                  <Input value={cNome} onChange={(e) => { setCNome(e.target.value); clearAiPrefilled("cNome"); }}
+                    className={`h-9 text-sm ${aiCls("cNome")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Cognome{aiBadge("cCognome")}</Label>
+                  <Input value={cCognome} onChange={(e) => { setCCognome(e.target.value); clearAiPrefilled("cCognome"); }}
+                    className={`h-9 text-sm ${aiCls("cCognome")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Data Nascita{aiBadge("cDataNascita")}</Label>
+                  <Input type="date" value={cDataNascita}
+                    onChange={(e) => { setCDataNascita(e.target.value); clearAiPrefilled("cDataNascita"); }}
+                    className={`h-9 text-sm ${aiCls("cDataNascita")}`} />
+                </div>
+              </div>
+            </div>
+
+            {/* Sub: Residenza (Google Maps) */}
+            <div className="pt-3 border-t border-border/40">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Residenza</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-[11px] font-medium text-foreground/80">Indirizzo{aiBadge("cIndirizzo")}</Label>
+                  <AddressAutocomplete
+                    value={cIndirizzo}
+                    onChange={(v) => { setCIndirizzo(v); clearAiPrefilled("cIndirizzo"); }}
+                    onSelect={handleAddressSelect}
+                    placeholder="Digita per cercare l'indirizzo…"
+                    className={`h-9 text-sm pr-8 ${aiCls("cIndirizzo")}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">CAP{aiBadge("cCap")}</Label>
+                  <Input value={cCap} onChange={(e) => { setCCap(e.target.value); clearAiPrefilled("cCap"); }}
+                    className={`h-9 text-sm font-mono ${aiCls("cCap")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Città{aiBadge("cCitta")}</Label>
+                  <Input value={cCitta} onChange={(e) => { setCCitta(e.target.value); clearAiPrefilled("cCitta"); }}
+                    className={`h-9 text-sm ${aiCls("cCitta")}`} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Provincia{aiBadge("cProvincia")}</Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("cProvincia")}`} value={cProvincia}
+                    onValueChange={(v) => { setCProvincia(v); clearAiPrefilled("cProvincia"); }}
+                    placeholder="—" options={PROVINCE_IT} />
+                </div>
+              </div>
+            </div>
+
+            {/* Sub: Patente */}
+            <div className="pt-3 border-t border-border/40">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Patente</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Tipo Patente{aiBadge("cTipoPatente")}</Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("cTipoPatente")}`} value={cTipoPatente}
+                    onValueChange={(v) => { setCTipoPatente(v); clearAiPrefilled("cTipoPatente"); }}
+                    placeholder={`— (default ${defaultPatenteForVeicolo(vTipoVeicolo)})`} options={TIPI_PATENTE} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-foreground/80">Data Rilascio{aiBadge("cDataRilascioPatente")}</Label>
+                  <Input type="date" value={cDataRilascioPatente}
+                    onChange={(e) => { setCDataRilascioPatente(e.target.value); clearAiPrefilled("cDataRilascioPatente"); }}
+                    className={`h-9 text-sm ${aiCls("cDataRilascioPatente")}`} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-[11px] font-medium text-foreground/80">Note</Label>
+                  <Input value={cNote} onChange={(e) => setCNote(e.target.value)} className="h-9 text-sm" />
+                </div>
+              </div>
             </div>
           </PolizzaSection>
         </>
-      )}
+        );
+      })()}
+
 
       {/* ACTIONS */}
       <div className="flex flex-col gap-2 pt-2">
