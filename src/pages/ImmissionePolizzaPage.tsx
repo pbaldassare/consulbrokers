@@ -917,6 +917,14 @@ const ImmissionePolizzaPage = () => {
     if (!garanziaDaTouched) setGaranziaDa(durataDa);
     if (!garanziaATouched) setGaranziaA(addMonthsISO(durataDa, mesiGar));
     if (!dataCompetenzaTouched) setDataCompetenza(durataDa);
+    if (!limiteMoraTouched) {
+      const base = (!dataCompetenzaTouched ? durataDa : (dataCompetenza || durataDa));
+      const gg = parseInt(moraGiorni || "0") || 0;
+      if (base) {
+        const d = new Date(base); d.setDate(d.getDate() + gg);
+        setLimiteMora(d.toISOString().slice(0, 10));
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [durataDa, anniDurata, frazionamento]);
 
