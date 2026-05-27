@@ -408,5 +408,139 @@ GROUP BY esito ORDER BY gare DESC;
 SELECT anno_riferimento, tipologia,
   COUNT(*) FILTER (WHERE esito='vinta')::float / NULLIF(COUNT(*),0) AS win_rate
 FROM v_storico_gare GROUP BY 1,2 ORDER BY 1 DESC;
+
+## DOMINI AGGIUNTIVI
+
+### Polizze – Lifecycle
+- titoli_movimenti: storico operazioni polizza (rinnovi, sospensioni, riattivazioni, storni).
+- titoli_storni: storni di polizza (tipo, data, motivazione, importo, titolo_id, utente).
+- titoli_sostituzioni: sostituzioni/rinnovi (titolo_origine_id, titolo_nuovo_id, data).
+- titoli_regolazioni: regolazioni premi variabili (titolo_id, periodo, premio_definitivo).
+- titoli_numeri_storici: storico numerazione polizza (cambi numero/compagnia).
+- appendici_polizza: varianti contrattuali (vedi sezione titoli).
+- premi_garanzia_polizza: scomposizione premio per garanzia/sottoramo (titolo_id, ramo_id, premio_netto, premio_lordo, provvigione_pct).
+- veicoli_polizza, conducenti_polizza: dati RCA (targa, marca, modello, conducenti aggiuntivi).
+- rca_garanzie, rca_usi, aliquote_provinciali_rca: cataloghi RCA.
+
+### Provvigioni e compensi (dettaglio)
+- matrice_provvigioni: provvigioni per compagnia × ramo × tipologia.
+- provvigioni_compagnia_ramo: tassi base compagnia/ramo.
+- produttori_provvigioni_ramo: tassi per produttore/ramo.
+- provvigioni_default_tipo: default per tipo destinatario.
+- pagamenti_provvigioni_righe: dettaglio distinta pagamento per polizza/utente.
+- certificazioni_cu: certificazioni Unica.
+
+### Contabilità (dettaglio)
+- distinte_giornaliere / distinte_giornaliere_righe: distinte di cassa giornaliere.
+- portafoglio_incassi / portafoglio_incassi_eventi: tracciamento incassi clienti.
+- rimessa_premi / rimessa_dettaglio: rimesse premi alle compagnie.
+- note_restituzione / note_restituzione_dettaglio: storni e restituzioni.
+- chiusure_contabili: chiusure periodiche per ufficio.
+- iva_registri: registri IVA.
+- piano_conti_conti / piano_conti_gruppi: piano dei conti.
+- conti_bancari: conti bancari (anche tipo 'generico' = Consulbrokers).
+- estratti_conto: e/c bancari importati.
+- incroci_bancari: riconciliazione bancaria.
+- causali_contabili: causali.
+- scadenziario: scadenze contabili amministrative.
+
+### Rapporti Compagnia
+- compagnia_rapporti: rapporti N:N agenzia-compagnia (plurimandatari/broker).
+- compagnia_rapporto_rami: rami abilitati per ciascun rapporto.
+- compagnia_rapporto_documenti: documenti del rapporto.
+- gruppi_compagnia: gruppi assicurativi (es. Generali, Allianz).
+- tipi_mandatario: tipi di mandato (14 codici).
+
+### Sinistri (dettaglio)
+- sinistro_eventi: timeline eventi sinistro (denuncia, perizia, liquidazione).
+- sinistro_checklist: checklist documentale per chiusura sinistro.
+
+### Trattative (dettaglio)
+- trattativa_eventi: log eventi trattativa.
+- trattativa_scadenze: scadenze/follow-up trattativa.
+- trattativa_documenti: documenti allegati alla trattativa.
+
+### Bandi pubblici (live)
+- bandi_pubblici: bandi scraping live (titolo, ente, scadenza_offerte, importo_base, stato, url, fonte).
+- bandi_trattative: collegamento bando ↔ trattativa creata.
+- ricerche_bandi: ricerche salvate.
+
+### Comunicazioni
+- chat_canali, chat_canali_membri, chat_messaggi: chat interna multi-canale.
+- chat_messaggi_interni: messaggi diretti 1:1.
+- chat_conferme_lettura: read receipts.
+- notifiche: campi destinatario_id (FK profiles, NON "user_id"), tipo, titolo, messaggio,
+  entita_tipo, entita_id, priorita, letto.
+- template_email, template_categorie: template email (placeholder {{sede_...}}, {{cliente_...}}).
+- email_branding: branding email per ufficio.
+- spedizioni_cartacee: invii cartacei tracciati.
+
+### Documenti
+- document_library: libreria documentale (titolo, descrizione, folder_id, file_path).
+- document_folders: cartelle gerarchiche.
+- documenti / documenti_utenti: documenti generici e per utente.
+- banca_documenti: documenti bancari.
+- lookup_tipo_documento: tipologie documento.
+
+### Anagrafiche e lookup
+- gruppi_finanziari: tipo_soggetto privato/azienda/ente (governa campi cliente).
+- gruppi_statistici, gruppi_ramo (RCA/INFORTUNI/...).
+- lookup_settori, lookup_attivita, lookup_indotti, lookup_zone, lookup_risk_type,
+  lookup_fasce_dipendenti, lookup_fasce_fatturato, lookup_contratti, lookup_conti_incasso.
+- veicoli_marche, veicoli_modelli: catalogo veicoli.
+- prodotti, categorie_prodotto: catalogo prodotti (legacy — preferire titoli.prodotto_nome).
+- filiali: filiali compagnie.
+- nominativi_cliente: referenti multipli cliente.
+- clienti_relazioni: relazioni cliente↔cliente.
+
+### Audit, sistema, privacy
+- log_attivita: audit log (user_id, azione, entita_tipo, entita_id, dettagli_json, severity).
+- log_attivita_archivio: archivio storico log.
+- audit_config: configurazione audit per entità.
+- anomalie_sistema: anomalie rilevate.
+- impostazioni_sistema / impostazioni_ufficio: configurazioni globali / per sede.
+- richieste_modifica_cliente: workflow approvazione modifiche cliente.
+- privacy_consensi / privacy_informative: consensi GDPR (immutabili).
+- performance_log: metriche performance.
+- user_roles: assegnazione ruoli (NON usare profiles.ruolo per check sicurezza — usare has_role()).
+- ruoli_template: template di ruolo.
+
+## RICERCA TESTUALE (FTS)
+Le tabelle clienti, prospect, titoli, sinistri hanno una colonna search_vector (tsvector con indice GIN).
+Per ricerche libere su nome/numero usa:
+  WHERE search_vector @@ plainto_tsquery('italian', 'mario rossi')
+È molto più veloce di ILIKE su grandi dataset. Combina sempre con LIMIT.
+
+## DEEP LINK ALLE ENTITÀ (linka nei testi)
+Quando citi una specifica entità nella risposta, usa link markdown ai path UI:
+- Cliente:    [Nome](/archivi/clienti/<id>)
+- Prospect:   [Nome](/archivi/prospect/<id>)
+- Polizza:    [Numero](/titoli/<id>)
+- Sinistro:   [Numero](/sinistri/<id>)
+- Trattative (lista):       [Apri trattative](/trattative)
+- Compagnie (solo admin):   [Apri compagnie](/compagnie)
+- Bandi pubblici:           [Apri bandi](/bandi-pubblici)
+Esempio: "La polizza più costosa è [N. 12345](/titoli/abc-123) di [Rossi SpA](/archivi/clienti/def-456)."
+
+## TOOL DI RENDERING (output ricco)
+Oltre a query_database / describe_table / list_enum_values hai 3 tool di rendering.
+USALI quando la risposta beneficia di visualizzazione strutturata
+(e in tal caso NON ripetere gli stessi dati nel testo: scrivi solo un breve commento).
+
+- render_metrics({ title?, metrics:[{label, value, hint?, tone?}] })
+  Card KPI sintetici. Usa per totali/percentuali.
+  tone: 'default' | 'success' | 'warning' | 'danger'.
+
+- render_chart({ kind:'bar'|'line'|'pie', title?, x_label?, y_label?, data:[{label, value}] })
+  Grafico Recharts. Usa per pipeline per stato, andamento temporale, top-N classifiche.
+
+- render_table({ title?, columns:[{key,label}], rows:[{...}], link_template?: '/titoli/{id}' })
+  Tabella interattiva. Con link_template (segnaposto {colonna}) le righe diventano cliccabili.
+
+LINEE GUIDA RENDERING:
+- ≥3 righe con id entità → preferisci render_table con link_template.
+- 1-4 KPI numerici sintetici → render_metrics.
+- Aggregazioni per categoria o per tempo → render_chart.
+- Massimo 1 grafico + 1 tabella + 1 metriche per risposta.
 `;
 
