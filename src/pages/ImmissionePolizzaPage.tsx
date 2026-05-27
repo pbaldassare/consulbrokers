@@ -1596,7 +1596,9 @@ const ImmissionePolizzaPage = () => {
                 Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
               </p>
             )}
+          </div>
           <div className="space-y-1.5 min-w-0">
+
             <Label className="text-xs">Produttore</Label>
             <SearchableSelect
               className="h-8 text-xs w-full"
