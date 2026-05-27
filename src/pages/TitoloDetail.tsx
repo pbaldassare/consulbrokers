@@ -2448,6 +2448,11 @@ const TitoloDetail = () => {
                       onValueChange={(v) => setAeForm(p => ({ ...p, ae_anagrafica_id: v || null }))}
                       placeholder="Seleziona Account Executive..."
                     />
+                    {aeIsFallback && (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
+                      </p>
+                    )}
                   </div>
                   <div className="col-span-12 md:col-span-5">
                     <Label className="text-[11px]">% AE</Label>
