@@ -48,6 +48,7 @@ import { TitoloTabs } from "@/components/titolo/TitoloTabs";
 import { TitoloHeaderBar } from "@/components/titolo/sections/TitoloHeaderBar";
 import { TitoloScopeBanners } from "@/components/titolo/sections/TitoloScopeBanners";
 import { TitoloQuietanzePanel } from "@/components/titolo/sections/TitoloQuietanzePanel";
+import { TitoloDataPersistenceInfo } from "@/components/titolo/sections/TitoloDataPersistenceInfo";
 import { isQuietanza as isQuietanzaTitolo, groupTitoliByPolizza } from "@/lib/quietanze";
 
 // Guard difensivo: garantisce che ogni mutation aggiorni SOLO il record corrente.
