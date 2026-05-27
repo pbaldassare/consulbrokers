@@ -2082,12 +2082,54 @@ export default function ClienteDetail() {
                     </>
                   )}
                 </div>
+
+                {/* Account Executive */}
+                <div>
+                  <Label className="text-xs">Account Executive</Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {aeOptions.find((o) => o.value === aeAnagraficaId)?.label || "—"}
+                    </p>
+                  ) : (
+                    <SearchableSelect
+                      className="h-8 text-xs"
+                      value={aeAnagraficaId}
+                      onValueChange={(v) =>
+                        upsertCodiceCommercialeMutation.mutate({ ruolo: "AE", anagrafica_id: v || null })
+                      }
+                      placeholder="— Nessuno —"
+                      allowClear
+                      clearLabel="— Nessuno —"
+                      options={aeOptions}
+                    />
+                  )}
+                </div>
+
+                {/* Produttore */}
+                <div>
+                  <Label className="text-xs">Produttore</Label>
+                  {readOnly ? (
+                    <p className="text-sm mt-1">
+                      {produttoreOptions.find((o) => o.value === produttoreAnagraficaId)?.label || "—"}
+                    </p>
+                  ) : (
+                    <SearchableSelect
+                      className="h-8 text-xs"
+                      value={produttoreAnagraficaId}
+                      onValueChange={(v) =>
+                        upsertCodiceCommercialeMutation.mutate({
+                          ruolo: "Produttore Sede",
+                          anagrafica_id: v || null,
+                        })
+                      }
+                      placeholder="— Nessuno —"
+                      allowClear
+                      clearLabel="— Nessuno —"
+                      options={produttoreOptions}
+                    />
+                  )}
+                </div>
               </div>
-              {!readOnly && (
-                <p className="text-[10px] text-muted-foreground mt-3">
-                  L'assegnazione di Account Executive e Produttore si gestisce nella sezione "Rete Commerciale".
-                </p>
-              )}
             </CardContent>
           </Card>
 
