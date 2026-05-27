@@ -232,8 +232,22 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       if (!newUser.cognome || !newUser.email) throw new Error("Cognome ed email sono obbligatori");
       if (!newUser.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
       if (!newUser.password || newUser.password.length < 6) throw new Error("Password minimo 6 caratteri");
+
+      // Pre-check: email già usata in profiles?
+      const emailNorm = newUser.email.trim().toLowerCase();
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("nome, cognome, ruolo")
+        .ilike("email", emailNorm)
+        .maybeSingle();
+      if (existing) {
+        const who = `${existing.nome || ""} ${existing.cognome || ""}`.trim() || "(senza nome)";
+        throw new Error(`Email già registrata: ${emailNorm} → ${who} (ruolo: ${existing.ruolo}). Usa un'email diversa.`);
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
+
       const res = await supabase.functions.invoke("create-user", {
         body: {
           nome: newUser.nome,
