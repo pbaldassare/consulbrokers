@@ -1418,31 +1418,27 @@ export default function ClienteDetail() {
   const produttoreAnagraficaId =
     (codiciCommerciali as any[]).find((c) => c.ruolo === "Produttore Sede")?.anagrafica_id || "";
 
+  const buildAnagraficaLabel = (a: any) => {
+    const person = `${a.cognome || ""} ${a.nome || ""}`.trim();
+    return (
+      person ||
+      (a.ragione_sociale && a.ragione_sociale.trim()) ||
+      a.sigla ||
+      a.codice ||
+      "—"
+    );
+  };
+
   const aeOptions = (anagraficheAEProd as any[])
     .filter((a) => a.tipo === "account_executive")
-    .map((a) => ({
-      value: a.id,
-      label:
-        (a.ragione_sociale && a.ragione_sociale.trim()) ||
-        `${a.cognome || ""} ${a.nome || ""}`.trim() ||
-        a.sigla ||
-        a.codice ||
-        "—",
-    }))
+    .map((a) => ({ value: a.id, label: buildAnagraficaLabel(a) }))
     .sort((a, b) => a.label.localeCompare(b.label, "it"));
 
   const produttoreOptions = (anagraficheAEProd as any[])
     .filter((a) => a.tipo === "corrispondente")
-    .map((a) => ({
-      value: a.id,
-      label:
-        (a.ragione_sociale && a.ragione_sociale.trim()) ||
-        `${a.cognome || ""} ${a.nome || ""}`.trim() ||
-        a.sigla ||
-        a.codice ||
-        "—",
-    }))
+    .map((a) => ({ value: a.id, label: buildAnagraficaLabel(a) }))
     .sort((a, b) => a.label.localeCompare(b.label, "it"));
+
 
 
 
