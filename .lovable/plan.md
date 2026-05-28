@@ -1,47 +1,26 @@
-## Problema
+# Due email per rapporto compagnia/agenzia
 
-La pagina "Storico E/C Agenzie" legge da `documenti` filtrando `categoria = 'EC Agenzia'`. La funzione `storePdfFor` in `AgenzieInPagamentoPage.tsx`:
+## Obiettivo
+Ogni rapporto agenzia/compagnia deve avere due indirizzi email distinti:
+1. **Email Messe a Cassa** — destinatario comunicazioni di messa in pagamento dalla compagnia
+2. **Email Estratto Conto** — destinatario invio E/C agenzia
 
-1. fa `upload(..., { upsert: true })` sul bucket `rimesse-pdf` → idempotente (sovrascrive),
-2. fa `update` di `rimessa_premi.pdf_url` → idempotente,
-3. **fa SEMPRE `INSERT` in `documenti`** → NON idempotente.
+## Modifiche DB (`compagnia_rapporti`)
+- Aggiunta colonna `email_messe_a_cassa text`
+- Aggiunta colonna `email_estratto_conto text`
+- Backfill: per **tutti i rapporti esistenti** valorizzo entrambe le colonne a `pscarpelli@gmail.com`
+- Trigger di sync con `compagnie` aggiornato per propagare i nuovi campi sui rapporti principali (agenzia/direzione 1:1), così la coerenza è mantenuta.
 
-Se l'utente clicca "Conferma pagamento" due volte (o ritenta dopo un errore — es. il check constraint `in_pagamento` mancante di prima), il PDF viene riarchiviato e nasce una **seconda riga `documenti`** → due voci in Storico per la stessa rimessa.
+Nota: il campo esistente `email_referente` resta com'è (referente persona), i nuovi due campi sono indirizzi funzionali separati.
 
-## Fix
+## Modifiche UI
+File: `src/components/compagnie/RapportiCompagniaDialog.tsx`
+- Aggiunta nel form dialog di due input email affiancati nella sezione referente:
+  - "Email Messe a Cassa" (con hint: usata per ricevere comunicazioni di messa in pagamento)
+  - "Email Estratto Conto" (con hint: usata per invio E/C agenzia)
+- Validazione formato email (non bloccante se vuoto, ma raccomandato)
+- In tabella rapporti aggiungo tooltip/colonna compatta o le mostro solo in dialog (per non rompere il layout). Default: solo in dialog + icona ✉ nella riga se entrambe presenti.
 
-**`src/pages/contabilita/AgenzieInPagamentoPage.tsx` — `storePdfFor`**
-
-Prima dell'INSERT in `documenti` cercare un record esistente per quella rimessa:
-
-```ts
-const { data: existing } = await supabase
-  .from("documenti")
-  .select("id")
-  .eq("bucket_name", "rimesse-pdf")
-  .eq("path_storage", path)
-  .maybeSingle();
-
-if (existing) {
-  await supabase.from("documenti")
-    .update({ caricato_da: user?.id || null, updated_at: new Date().toISOString() })
-    .eq("id", existing.id);
-} else {
-  await supabase.from("documenti").insert({ ...campi attuali... });
-}
-```
-
-Così:
-- prima conferma → INSERT,
-- successive conferme/retry della stessa rimessa → UPDATE dello stesso record,
-- Storico mostra una sola riga per rimessa.
-
-Inoltre il bottone "Conferma pagamento" del dialog è già `disabled={confermaPagamentoMutation.isPending}`, quindi il doppio click in-flight è già coperto; il problema vero erano i retry dopo errore, gestiti dal blocco sopra.
-
-## Pulizia dati esistenti (opzionale)
-
-Dalla screenshot esistono già righe duplicate (es. 28/05 14:18 e 26/05 08:41 per stessa agenzia/rimessa). Le tengo o le pulisco con una migration che cancella le duplicate più vecchie per `(bucket_name='rimesse-pdf', path_storage)` lasciando la più recente?
-
-## Fuori scopo
-
-Non tocco `ECAgenziaPdfPage.handleSalva` (E/C manuale, non legato a rimessa): lì ogni click salva volutamente un PDF datato `Date.now()_name`, è progettato come export.
+## Note
+- Nessuna logica di invio cambia ora: i campi vengono solo persistiti. Il wiring verso `gestione-rimessa` (messa a cassa) e `ECAgenziaPdfPage` (E/C) può essere fatto in un passo successivo se vuoi.
+- Se confermi, procedo con migration + edit del dialog.
