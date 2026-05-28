@@ -316,12 +316,9 @@ const TitoloDetail = () => {
   const [aeForm, setAeForm] = useState<{ ae_anagrafica_id: string | null; percentuale_ae: number }>({
     ae_anagrafica_id: null, percentuale_ae: 0,
   });
-  // AE: filtrato per Sede del titolo con fallback automatico
-  const { data: aeLookupData } = useAccountExecutivesLookup(
-    (titolo as any)?.ufficio_id ?? null
-  );
+  // AE: lista globale, indipendente dalla Sede del titolo
+  const { data: aeLookupData } = useAccountExecutivesLookup();
   const aeLookup = aeLookupData?.options ?? [];
-  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   const { data: anagraficheComm = [] } = useQuery({
     queryKey: ["anagrafiche-commerciali"],
@@ -2448,11 +2445,6 @@ const TitoloDetail = () => {
                       onValueChange={(v) => setAeForm(p => ({ ...p, ae_anagrafica_id: v || null }))}
                       placeholder="Seleziona Account Executive..."
                     />
-                    {aeIsFallback && (
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
-                      </p>
-                    )}
                   </div>
                   <div className="col-span-12 md:col-span-5">
                     <Label className="text-[11px]">% AE</Label>

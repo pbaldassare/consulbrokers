@@ -272,9 +272,8 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
   });
 
   const { data: produttoriOpts = [] } = useProduttoriLookup();
-  const { data: aeLookupData } = useAccountExecutivesLookup(ufficioClienteId || null);
+  const { data: aeLookupData } = useAccountExecutivesLookup();
   const aeOpts = aeLookupData?.options ?? [];
-  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   const { data: ufficiList = [] } = useQuery({
     queryKey: ["uffici_lookup_nuovo_cliente"],
@@ -967,11 +966,6 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                     placeholder="Seleziona AE..."
                     options={aeOpts}
                   />
-                  {aeIsFallback && (
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

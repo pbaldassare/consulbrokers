@@ -199,11 +199,15 @@ const AnagraficheInternePage = () => {
         { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
         { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
       ]);
-      const resolvedUfficioId = isCorr
-        ? (form.ufficio_id || null)
-        : isProduttore
-          ? (form.ufficio_id || profile?.ufficio_id || null)
-          : (profile?.ufficio_id || null);
+      // Account Executive: SEMPRE indipendenti dalla Sede (ufficio_id = NULL).
+      // Corrispondenti: Sede opzionale. Altri ruoli commerciali: Sede dell'utente o quella scelta.
+      const resolvedUfficioId = isAE
+        ? null
+        : isCorr
+          ? (form.ufficio_id || null)
+          : isProduttore
+            ? (form.ufficio_id || profile?.ufficio_id || null)
+            : (profile?.ufficio_id || null);
 
       if (isProduttore && !isCorr && !isAE && !resolvedUfficioId) {
         throw new Error("Selezionare un ufficio per il produttore");
@@ -273,12 +277,15 @@ const AnagraficheInternePage = () => {
         { label: "Codice Fiscale", value: form.codice_fiscale, kind: "cf-azienda" },
         { label: "Partita IVA", value: form.partita_iva, kind: "piva" },
       ]);
-      const resolvedUfficioId = isCorr
-        ? (form.ufficio_id || null)
-        : isProduttore
-          ? (form.ufficio_id || profile?.ufficio_id || null)
-          : (profile?.ufficio_id || null);
-      if (isProduttore && !isCorr && !resolvedUfficioId) {
+      // AE sempre senza Sede; corrispondente opzionale; altri ruoli commerciali obbligatoria.
+      const resolvedUfficioId = isAE
+        ? null
+        : isCorr
+          ? (form.ufficio_id || null)
+          : isProduttore
+            ? (form.ufficio_id || profile?.ufficio_id || null)
+            : (profile?.ufficio_id || null);
+      if (isProduttore && !isCorr && !isAE && !resolvedUfficioId) {
         throw new Error("Sede obbligatoria: assegna una Sede prima di salvare");
       }
 
@@ -637,8 +644,10 @@ const AnagraficheInternePage = () => {
 
   const renderUfficioSelect = () => {
     if (!isProduttore) return null;
+    // Account Executive: nessuna Sede. Sono globali per definizione.
+    if (isAE) return null;
     const isAdminUser = profile?.ruolo === "admin";
-    const isOptional = isCorr || isAE;
+    const isOptional = isCorr;
     return (
       <div className="mb-4">
         <Label>

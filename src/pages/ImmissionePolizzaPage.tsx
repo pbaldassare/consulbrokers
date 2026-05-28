@@ -782,11 +782,10 @@ const ImmissionePolizzaPage = () => {
     },
   });
 
-  // Account Executive: fonte canonica = anagrafiche_professionali (tipo='account_executive')
-  // Filtrata per Sede del cliente; fallback automatico a tutti gli AE attivi.
-  const { data: aeLookupData } = useAccountExecutivesLookup(selectedUfficioId);
+  // Account Executive: fonte canonica = anagrafiche_professionali (tipo='account_executive').
+  // Indipendenti dalla Sede: lista globale di tutti gli AE attivi.
+  const { data: aeLookupData } = useAccountExecutivesLookup();
   const aeAnagraficheList = aeLookupData?.options ?? [];
-  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   // Eredita AE, Specialist e Produttore dal cliente
   useEffect(() => {
@@ -1591,11 +1590,6 @@ const ImmissionePolizzaPage = () => {
               clearable
               options={aeAnagraficheList}
             />
-            {aeIsFallback && (
-              <p className="text-[10px] text-muted-foreground">
-                Nessun AE collegato alla Sede: mostro tutti gli AE attivi.
-              </p>
-            )}
           </div>
           <div className="space-y-1.5 min-w-0">
 
