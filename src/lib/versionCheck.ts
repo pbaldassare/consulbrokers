@@ -155,7 +155,9 @@ export async function refreshToLatestVersion(reason = "manual update requested")
     await purgeClientCaches();
   } finally {
     if (!forceReload(reason)) {
-      window.location.href = `${window.location.pathname}?__v=${Date.now()}`;
+      const url = new URL(window.location.href);
+      url.searchParams.set("__v", Date.now().toString());
+      window.location.href = url.toString();
     }
   }
 }
