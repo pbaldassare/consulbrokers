@@ -1,33 +1,40 @@
 ---
 name: TitoloDetail allineato a ImmissionePolizzaPage
-description: Pagina dettaglio polizza usa lo stesso wrapper sezione (PolizzaSection) della pagina di immissione, niente più "voce libera", e blocca le modifiche dirette quando la polizza è messa a cassa / stornata.
+description: TitoloDetail usa PolizzaSection (wrapper) e PremiGaranziaCardShell (stesso componente della pagina di immissione) per la sezione Importi/Composizione Premio. SSN per riga via rami.ssn_attivo; lock quando messa a cassa/stornata.
 type: feature
 ---
 
-## Look & feel
+## Look & feel sezioni
 
-`SectionCollapsible` interno in `src/pages/TitoloDetail.tsx` è ora un thin wrapper sopra `PolizzaSection` (`@/components/polizze/PolizzaSection`). Tutte le sezioni (Contratto, Periodo, Regolazione, Importi, Provvigioni, Veicolo, Premi per Garanzia) hanno lo stesso bordo teal, header e collapsible della pagina di immissione, mantenendo l'API legacy `{title, icon, children, defaultOpen}`.
+`SectionCollapsible` interno in `src/pages/TitoloDetail.tsx` è un thin wrapper sopra `PolizzaSection`. Tutte le sezioni (Contratto, Periodo, Regolazione, Importi, Provvigioni, Veicolo) hanno bordo teal, header e collapsible identici a `ImmissionePolizzaPage`.
 
-## Voce libera rimossa
+## Composizione Premio (Firma + Quietanza)
 
-`VociRcaCard` non espone più il pulsante **"Voce libera"** (era usato solo per rami non-auto). Le voci si aggiungono unicamente dal catalogo sottorami (`Aggiungi voce` → popover `rca_garanzie` filtrate per `gruppo_ramo`), in continuità con `PremiGaranziaCardShell` di immissione (memoria `sottoramo-as-garanzia-row`).
+Il blocco "Composizione Premio" in TitoloDetail è incapsulato in **`src/components/polizze/TitoloImportiPremiBlock.tsx`** e usa **`PremiGaranziaCardShell`** — esattamente lo stesso componente della pagina di immissione.
+
+- Carica le righe da `premi_garanzia_polizza` (tipo_premio firma/quietanza) e arricchisce ogni riga con i metadata del sottoramo (`rami.id`, `ssn_attivo`, `aliquota_ssn`, `aliquota_tasse_ramo`) tramite una query sul gruppo ramo del titolo.
+- Salvataggio: delete+insert per tipo, debounce 700 ms; aggiorna `titoli.premio_netto/tasse/ssn_firma/premio_lordo` (Firma) e i corrispettivi `_quietanza`. `premio_lordo = netto + tasse + ssn + addizionali`.
+- SSN per riga: visibile se il sottoramo ha `ssn_attivo=true`. Override manuale rilevato con tolleranza 0,01 €.
+- Provvigioni: il footer della shell mostra `Totale Provvigione` formattato con `toFixed(2)` e la `% Agenzia` su netto; salva `titoli.provvigioni_firma` (e `percentuale_provvigione`) / `provvigioni_quietanza`.
+- Buttons "Copia / Sincronizza da Firma" nella card Quietanza; badge "Sincronizzata" quando le righe coincidono.
+
+Legacy `VociRcaCard` non è più usato in TitoloDetail (il file resta nel repo ma è deprecato per questa sezione).
 
 ## Lock messa-a-cassa
-
-Derivato in TitoloDetail:
 
 ```ts
 const isLocked = !!t.data_messa_cassa || t.stato === "incassato" || t.stato === "stornato";
 ```
 
 Quando true:
+- Banner ambra in cima alla pagina.
+- Pulsanti **Modifica** delle sezioni `disabled` con tooltip.
+- In `TitoloImportiPremiBlock`: pulsanti "Copia / Sincronizza" disabilitati e nessuna persistenza onChange.
 
-- Banner ambra in cima alla pagina che spiega lo stato.
-- Tutti i pulsanti **Modifica** delle sezioni (Contratto, Periodo, Regolazione, Provvigioni Commerciale, Importi, Veicolo) sono `disabled` con tooltip *"Polizza messa a cassa: modifiche bloccate"*.
-
-Restano disponibili le operazioni dedicate (Annulla Messa a Cassa, Annulla Incasso, Rinnovo, Storno, Sospensione/Riattivazione) che gestiscono le transizioni di stato.
+Restano disponibili le operazioni dedicate (Annulla Messa a Cassa, Annulla Incasso, Rinnovo, Storno, Sospensione/Riattivazione).
 
 ## File
 
-- `src/pages/TitoloDetail.tsx` — wrapper sezione, isLocked, banner, guard sui pulsanti Modifica.
-- `src/components/polizze/VociRcaCard.tsx` — rimosso pulsante "Voce libera" (linee ~1088).
+- `src/pages/TitoloDetail.tsx` — usa `TitoloImportiPremiBlock` nella sezione Importi.
+- `src/components/polizze/TitoloImportiPremiBlock.tsx` — wrapper di `PremiGaranziaCardShell` con caricamento/save su `premi_garanzia_polizza` e aggregati su `titoli`.
+- `src/components/polizze/PremiGaranziaCardShell.tsx` — componente condiviso con `ImmissionePolizzaPage`.
