@@ -73,6 +73,8 @@ interface RapportoForm {
   referente_compagnia: string;
   email_referente: string;
   telefono_referente: string;
+  email_messe_a_cassa: string;
+  email_estratto_conto: string;
   note: string;
 }
 
