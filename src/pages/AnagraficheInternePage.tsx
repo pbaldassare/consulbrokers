@@ -386,7 +386,7 @@ const AnagraficheInternePage = () => {
       percentuale_base: item.percentuale_base?.toString() || "",
       percentuale_consulenza: item.percentuale_consulenza?.toString() || "",
       codice_fornitore: item.codice_fornitore || "",
-      percentuale_ra: item.percentuale_ra?.toString() || "",
+      percentuale_ra: item.percentuale_ra?.toString() || "4.60",
       abi: item.abi || "",
       cab: item.cab || "",
       iban: item.iban || "",
