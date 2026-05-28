@@ -106,7 +106,7 @@ const ECClientePdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, durata_da, data_messa_cassa, data_decorrenza_rinnovo, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome)")
+        .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, durata_da, data_messa_cassa, data_decorrenza_rinnovo, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione))")
         .eq("cliente_anagrafica_id", clienteId)
         .not("data_messa_cassa", "is", null);
       if (titoliIds.length > 0) {
@@ -132,7 +132,7 @@ const ECClientePdfPage = () => {
         polizza: t.numero_titolo || "",
         ramo,
         rischio,
-        compagnia: t.compagnie?.nome || "",
+        compagnia: t.compagnie?.gruppi_compagnia?.descrizione || t.compagnie?.gruppo_compagnia || t.compagnie?.nome || "",
         effetto,
         premio: Number(t.premio_lordo) || 0,
       };
