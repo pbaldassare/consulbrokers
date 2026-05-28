@@ -142,6 +142,8 @@ const emptyForm: CompagniaForm = {
   nome: "", nome_sede: "", codice: "", nome_segue: "", indirizzo: "", cap: "", comune: "", provincia: "",
   nazione: "ITALIA", stato: "Attivo", telefono: "", fax: "", cellulare: "", note: "",
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
+  email_messe_a_cassa: "pscarpelli@consulbrokers.it",
+  email_estratto_conto: "pscarpelli@consulbrokers.it",
   codice_fiscale: "", partita_iva: "", iscrizione_rui_sez: "", iscrizione_rui_num: "",
   pagamento: "", tipo_pagamento: "", percentuale_ra: "",
   gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
