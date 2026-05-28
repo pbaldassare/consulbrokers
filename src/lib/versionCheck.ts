@@ -183,6 +183,9 @@ async function runLatestVersionCheck(): Promise<boolean> {
   notifyVersionStatus({ state: "stale", info, reason });
   await purgeClientCaches();
   const reloading = forceReload(reason, info.server);
+  if (reloading) {
+    window.setTimeout(() => notifyVersionStatus({ state: "reload-blocked", info, reason }), 2_500);
+  }
   if (!reloading) notifyVersionStatus({ state: "reload-blocked", info, reason });
   return !reloading;
 }
