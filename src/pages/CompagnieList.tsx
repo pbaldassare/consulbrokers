@@ -180,6 +180,8 @@ function dbToForm(c: any): CompagniaForm {
     pec: c.pec || "",
     mail_ec: c.mail_ec || "",
     mail_avvisi: c.mail_avvisi || "",
+    email_messe_a_cassa: c.email_messe_a_cassa || "pscarpelli@consulbrokers.it",
+    email_estratto_conto: c.email_estratto_conto || "pscarpelli@consulbrokers.it",
     codice_fiscale: c.codice_fiscale || "",
     partita_iva: c.partita_iva || "",
     iscrizione_rui_sez: c.iscrizione_rui_sez || "",
