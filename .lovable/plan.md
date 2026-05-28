@@ -1,34 +1,32 @@
-# Fix: banner "Gruppo Finanziario mancante" su cliente che ce l'ha
+Problema individuato: il cliente Agnone ha davvero il Gruppo Finanziario salvato in DB (`AZ_PART_PUB`, tipo `ente`). Il blocco resta perché la query frontend di `ImmissionePolizzaPage` fallisce con errore 400: sta chiedendo colonne inesistenti su `clienti` (`indirizzo`, `cap`, `citta`, `provincia`). Quando la query fallisce, `clienteDettaglio` non viene popolato e la UI interpreta il cliente come senza Gruppo Finanziario.
 
-## Causa reale
-Il cliente Agnone in DB ha tutto correttamente impostato:
-- `tipo_cliente = 'ente'`
-- `gruppo_finanziario_id` → `AZ_PART_PUB · Azienda Partecipata Pubblica` (`tipo_soggetto = 'ente'`)
+Piano di fix:
 
-Però la query frontend usa l'embed PostgREST:
-```ts
-.select("..., gruppi_finanziari(id, codice, nome, tipo_soggetto)")
-```
-e sulla tabella `public.gruppi_finanziari` **non esistono GRANT** per nessun ruolo (`anon`, `authenticated`, `service_role`). Le policy RLS dicono "Authenticated can read = true", ma senza GRANT a livello di tabella PostgREST rifiuta comunque l'accesso → l'embed restituisce `null`.
+1. Correggere la query del dettaglio cliente in `ImmissionePolizzaPage`
+   - Sostituire i campi inesistenti con quelli reali:
+     - `indirizzo_residenza`, `cap_residenza`, `citta_residenza`, `provincia_residenza`
+     - `indirizzo_sede`, `cap_sede`, `citta_sede`, `provincia_sede`
+   - Mantenere `gruppo_finanziario_id`, `tipo_cliente` e l’embed del Gruppo Finanziario.
 
-Risultato:
-- Il badge sotto al cliente mostra "⚠ Gruppo finanziario mancante"
-- `tipoSoggetto` resta `null` (anche il fallback su `tipo_cliente` non basta perché in alcuni branch del codice si guarda direttamente `gruppi_finanziari`)
-- `saveBlockReason` mostra il banner "non ha un Gruppo Finanziario"
+2. Rendere robusto il recupero del Gruppo Finanziario
+   - Usare l’hint esplicito della FK nell’embed:
+     `gruppi_finanziari!clienti_gruppo_finanziario_id_fkey(id, codice, nome, tipo_soggetto)`
+   - Se l’embed non torna ma `gruppo_finanziario_id` esiste, fare una seconda query mirata su `gruppi_finanziari`.
+   - Mostrare il banner “mancante” solo se manca davvero `gruppo_finanziario_id`, non se è fallita una query.
 
-## Intervento (1 migration, nessun codice toccato)
-```sql
-GRANT SELECT ON public.gruppi_finanziari TO authenticated;
-GRANT ALL    ON public.gruppi_finanziari TO service_role;
-```
-(Non concedo `anon`: la tabella non è mai usata in contesti non autenticati.)
+3. Correggere il copia-dati “Conducente = Contraente”
+   - Per privati usare i campi residenza.
+   - Per aziende/enti usare i campi sede.
+   - Così non userà più `c.indirizzo`, `c.cap`, `c.citta`, `c.provincia` che non esistono sulla tabella clienti.
 
-## Verifica post-migration
-1. Riapertura di `/portafoglio/immissione?clienteId=…Agnone…`:
-   - badge mostra "Ente · AZ_PART_PUB Azienda Partecipata Pubblica"
-   - banner di blocco salvataggio sparisce
-   - CIG/Rif. resta visibile con asterisco (Ente)
-2. Nessuna modifica a regole CIG (10 caratteri / flag temporaneo) né a logiche di save.
+4. Riapplicare/garantire i permessi Data API su `gruppi_finanziari`
+   - La lettura DB mostra che i grant attivi risultano ancora assenti.
+   - Aggiungere in migration idempotente:
+     - utenti autenticati possono leggere `gruppi_finanziari`
+     - `service_role` ha accesso completo
+   - Nessun accesso anonimo.
 
-## Note
-Nessuna modifica a file applicativi: il bug è puramente di privilegi DB.
+5. Verifica finale
+   - Ricaricare `/portafoglio/immissione?clienteId=f59cb208-126c-4e8e-a62d-6226d3707185`.
+   - Confermare che compare il badge “Ente · AZ_PART_PUB” e sparisce il blocco.
+   - Verificare che CIG/Rif. mantenga le regole già richieste: 10 caratteri e flag provvisorio.
