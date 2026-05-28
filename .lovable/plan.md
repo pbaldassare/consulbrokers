@@ -1,20 +1,12 @@
-Il problema non è più il filtro per Sede: nel DB l’Account Executive di Campobasso esiste ed è attivo, con `ufficio_id = NULL`.
+Due fix in `ImmissionePolizzaPage`:
 
-Il problema reale è nella label/search della tendina: la select mostra/cerca solo `cognome + nome` (`Tallini iole`) e ignora `ragione_sociale`, dove c’è il riferimento “Sede Campobasso executive”. Quindi cercando “Campobasso” non lo trovi.
+1. Campo CIG per cliente Ente
+   - Il cliente "Comune di Agnone" è già `tipo_soggetto = 'ente'` (gruppo finanziario "Azienda Partecipata Pubblica"), quindi `cigObbligatorio` deve risultare `true` e il campo CIG/Rif. + checkbox "CIG temporaneo" devono comparire nella sezione Contratto.
+   - Verifica in build che il blocco CIG appaia effettivamente; se non appare, rendere più robusta la derivazione di `tipoSoggetto` leggendo anche `clienti.tipo_cliente = 'ente'` come fallback (oggi dipende solo dal join `gruppi_finanziari.tipo_soggetto`).
+   - Rendere il blocco CIG visivamente più evidente quando obbligatorio (badge "Obbligatorio per Enti").
 
-Piano di intervento:
-
-1. Aggiornare `useAccountExecutivesLookup`
-   - mantenere la query globale su tutti gli AE attivi
-   - includere `ragione_sociale`, `sigla`, `codice` dentro `searchText`
-   - mostrare `ragione_sociale` come descrizione sotto il nome, così “Tallini iole” sarà riconoscibile come Campobasso
-
-2. Verificare la select in `ImmissionePolizzaPage`
-   - lasciare la lista globale `useAccountExecutivesLookup()` senza parametro Sede
-   - assicurare che `SearchableSelect` riceva opzioni con `label`, `description`, `searchText`
-
-3. Forzare aggiornamento bundle
-   - aggiornare versione release/version.json per evitare che la preview resti su bundle vecchio
-
-4. Controllo finale
-   - verificare che cercando “Campobasso” nella select Account Executive appaia l’AE collegato alla ragione sociale “Sede Campobasso executive”.
+2. Spostare la Targa fuori dalla riga del N° Polizza
+   - Rimuovere il campo "Targa/Telaio" inline che oggi compare accanto a "N° Polizza" quando `isRCA` (righe ~1822-1827).
+   - Lasciare la targa SOLO nella sezione Veicolo (campo `vTarga` già presente) e nella sezione Conducente, dove serve.
+   - Mantenere la sincronizzazione: il valore `targaTelaio` (campo legacy salvato in `titoli.targa_telaio`) viene allineato automaticamente a `vTarga` quando l'utente la digita in sezione Veicolo, così il salvataggio resta corretto senza UI duplicata.
+   - La riga "N° Polizza" torna a tutta larghezza (rimuove la `grid-cols-5` quando non serve).

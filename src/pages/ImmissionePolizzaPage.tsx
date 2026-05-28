@@ -702,10 +702,18 @@ const ImmissionePolizzaPage = () => {
     }
   }, [clienteDettaglio?.ufficio_id]);
 
-  // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori)
+  // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori).
+  // Fallback: se il GF non è ancora assegnato ma il cliente è marcato `tipo_cliente='ente'`,
+  // consideralo comunque Ente così il campo CIG appare ed è obbligatorio.
   const tipoSoggetto: "privato" | "azienda" | "ente" | null = useMemo(() => {
     const gf: any = (clienteDettaglio as any)?.gruppi_finanziari;
-    return (gf?.tipo_soggetto as any) ?? null;
+    const fromGf = (gf?.tipo_soggetto as any) ?? null;
+    if (fromGf) return fromGf;
+    const tc = (clienteDettaglio as any)?.tipo_cliente;
+    if (tc === "ente") return "ente";
+    if (tc === "azienda") return "azienda";
+    if (tc === "privato") return "privato";
+    return null;
   }, [clienteDettaglio]);
   const gruppoFinanziarioMancante = !!selectedClienteId && !tipoSoggetto;
   const cigObbligatorio = tipoSoggetto === "ente";
@@ -918,6 +926,11 @@ const ImmissionePolizzaPage = () => {
       setSelectedRapportoId("");
     }
   }, [rapportiAgenzia, selectedCompagnia, isBrokerLike]);
+
+  // Sync targa veicolo → campo legacy targa_telaio salvato in titoli (UI Targa è solo in sezione Veicolo)
+  useEffect(() => {
+    if (vTarga) setTargaTelaio(vTarga);
+  }, [vTarga]);
 
 
   // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
@@ -1803,8 +1816,8 @@ const ImmissionePolizzaPage = () => {
 
         </div>
 
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-          <div className="space-y-1.5 col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
             <Label className="text-xs">N° Polizza <span className="text-destructive">*</span></Label>
             <div className="relative">
               <Input
@@ -1819,12 +1832,6 @@ const ImmissionePolizzaPage = () => {
               <p className="text-[10px] text-destructive mt-0.5">Obbligatorio</p>
             )}
           </div>
-          {isRCA && (
-            <div className="space-y-1.5">
-              <Label className="text-xs flex items-center gap-1"><Car className="h-3 w-3 text-primary" />Targa/Telaio</Label>
-              <Input value={targaTelaio} onChange={(e) => setTargaTelaio(e.target.value.toUpperCase())} className="h-8 text-xs font-mono" />
-            </div>
-          )}
         </div>
 
         <div className={`grid ${cigObbligatorio ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
