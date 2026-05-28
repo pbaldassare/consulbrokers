@@ -183,6 +183,7 @@ export function ImportNuovaPolizzaAIDialog({
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCigNew, setCodiceCigNew] = useState<string>("");
+  const [sourcePdf, setSourcePdf] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const logScrollRef = useRef<HTMLDivElement>(null);
