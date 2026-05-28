@@ -312,7 +312,6 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           <>
             <h1 className="text-xl font-bold text-white tracking-tight">CBnet</h1>
             <p className="text-[10px] text-white/50 uppercase tracking-widest mt-0.5">Gestionale</p>
-            <p className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-white/40">Build aggiornato 07:05</p>
           </>
         )}
         {collapsed && (
