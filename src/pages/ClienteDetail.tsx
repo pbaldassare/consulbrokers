@@ -1430,7 +1430,7 @@ export default function ClienteDetail() {
     );
   };
 
-  // aeOptions/aeIsFallback definiti dopo `editFields` (dipendono da ef.ufficio_id)
+  // aeOptions definito dopo `editFields` (lista AE globale)
 
   const produttoreOptions = (anagraficheAEProd as any[])
     .filter((a) => a.tipo === "corrispondente")
@@ -1616,13 +1616,10 @@ export default function ClienteDetail() {
 
   // Auto-provisioning removed — activation is now manual via "Area Riservata" card
 
-  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
+  // AE: lista globale, indipendente dalla Sede del cliente
   // NOTA: deve stare PRIMA di qualsiasi early return per rispettare le regole hooks
-  const { data: aeLookupData } = useAccountExecutivesLookup(
-    (editFields as any)?.ufficio_id ?? null
-  );
+  const { data: aeLookupData } = useAccountExecutivesLookup();
   const aeOptions = aeLookupData?.options ?? [];
-  const aeIsFallback = aeLookupData?.isFallback ?? false;
 
   if (!cliente) return null;
 
