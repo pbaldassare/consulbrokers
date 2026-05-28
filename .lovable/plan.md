@@ -1,32 +1,43 @@
-## Obiettivo
-Negli Estratti Conto Clienti devono comparire **solo i titoli (polizze e quietanze) effettivamente messi a cassa** — non l'intero portafoglio. Anche KPI/totali devono essere calcolati solo su questi.
+## Problema
+Sulla polizza 184667297 la card "Premio Lordo" mostra **1971,08 €** (aggregato corretto: netto 1686,81 + tasse 238,22 + SSN 46,05) ma l'header in alto mostra **Importo Firma 1925,03 €**. Causa: `titoli.premio_lordo` in DB è ancora il vecchio valore (senza SSN). Polizza già `incassato` → `TitoloImportiPremiBlock` è in `isLocked` e non riallinea.
 
-## Stato attuale
-- `ECClientiContabPage.tsx` legge tutti i `titoli` del cliente (nessun filtro su `data_messa_cassa`); i filtri "Competenza" usano impropriamente `data_incasso` / `created_at`. Risultato: Totale Dare 63.013 € con Totale Avere 0 € (mostra anche polizze non incassate).
-- `ECClientePdfPage.tsx` (PDF E/C cliente) seleziona i titoli filtrando per `garanzia_da`, senza richiedere messa a cassa.
-- Le pagine E/C Agenzie / Produttori / Compagnia già filtrano correttamente su `data_messa_cassa` (nessuna modifica).
-- `ECClientiStoricoPage.tsx` legge solo PDF archiviati: non tocco.
+Inoltre `provvigioni_firma` salva valori a 10 decimali (es. `188,5672000000`).
+
+Regola che il cliente esprime:
+- **Cliente paga sempre il LORDO** → header e E/C Cliente devono mostrare `premio_lordo = netto + tasse + ssn + addizionali`.
+- **E/C Agenzie sempre al NETTO delle provvigioni** → la rimessa alla Compagnia è `premio_lordo − provvigioni` (logica già presente nel PDF E/C Agenzia, ma con `premio_lordo` errato il netto risultava sbagliato).
+
+Conteggio attuale: **11 titoli su 32** hanno `premio_lordo` divergente dalla somma dei componenti.
 
 ## Modifiche
 
-### 1. `src/pages/contabilita/ECClientiContabPage.tsx`
-- Aggiungere `.not("data_messa_cassa", "is", null)` alla query `titoli` così entrano solo le quietanze/polizze messe a cassa.
-- Cambiare i filtri "Competenza dal/al" perché agiscano su `data_messa_cassa` (oggi `data_incasso`).
-- Rimuovere il filtro "Scadenza dal/al" su `created_at` (non significativo per messa a cassa) o riallinearlo a `data_decorrenza_rinnovo` — proposto: lasciarlo agganciato a `garanzia_da` come "Scadenza copertura".
-- KPI, totali e righe restano calcolati sul set filtrato (di fatto già lo fanno → automaticamente conformi).
+### 1. Migrazione DB (riallineamento dati esistenti)
+- Update `titoli` impostando `premio_lordo = round(coalesce(premio_netto,0)+coalesce(tasse,0)+coalesce(ssn_firma,0)+coalesce(addizionali,0), 2)` dove diverge di > 0,01 €.
+- Arrotondare `provvigioni_firma` e `provvigioni_quietanza` a 2 decimali per tutti i record.
 
-### 2. `src/pages/contabilita/ECClientePdfPage.tsx`
-- Nella query titoli aggiungere `.not("data_messa_cassa", "is", null)`.
-- Quando `periodoDal/periodoAl` arrivano via querystring, filtrare su `data_messa_cassa` invece che `garanzia_da` (allineamento con la pagina elenco).
-- Ordinamento per `data_messa_cassa asc`.
+### 2. Trigger DB (mantenimento futuro)
+- Trigger `BEFORE INSERT OR UPDATE ON titoli`:
+  - Ricalcola `premio_lordo = round(netto+tasse+ssn_firma+addizionali, 2)` ogni volta che cambia uno dei componenti (o quando `premio_lordo` non quadra).
+  - Arrotonda `provvigioni_firma`, `provvigioni_quietanza`, `percentuale_provvigione` a 2/4 decimali (importi 2, percentuali 4).
+- Non modifica i titoli con stato `incassato` per i campi diversi da `premio_lordo` (consistenza forte: il lordo deve sempre essere la somma reale).
 
-### 3. Memoria
-- Aggiornare `mem://accounting/financial-statements-module` (o creare nota `ec-clienti-messa-a-cassa`) annotando che gli E/C Clienti includono solo titoli con `data_messa_cassa` valorizzata, coerentemente con E/C Agenzie/Produttori.
+### 3. Frontend
+- `TitoloImportiPremiBlock`: anche con `isLocked = true`, ricalcola `premio_lordo` (sola colonna sicura) quando le righe `premi_garanzia_polizza` aggregate divergono dal DB. Non riscrive netto/tasse/SSN per non alterare lo storico.
+- `PolizzaHeaderCard`: nessun cambio (già legge `t.premio_lordo`, che dopo migrazione sarà corretto).
+
+### 4. Verifica E/C Agenzie
+- `ECAgenziaPdfPage` espone già `premio` e `provvigioni` separati; il netto rimessa = `premio - provvigioni - r.a.`. Dopo la migrazione i totali saranno coerenti. Nessuna modifica codice.
+
+### 5. Memoria
+- Nuova memoria `mem://accounting/lordo-cliente-netto-agenzia` con le due regole:
+  - Cliente: addebita sempre il lordo (`titoli.premio_lordo` = netto+tasse+SSN+addizionali).
+  - Agenzia: rimessa = lordo − provvigioni (− R.A.).
 
 ## Non incluso
-- Nessun cambio a schema DB, RLS, edge functions.
-- Nessuna modifica a Storico E/C, E/C Agenzie, E/C Produttori, E/C Compagnia (già corretti).
+- Nessun cambio a UI cards Premio/Quietanza (già corrette).
+- Nessun cambio agli E/C Clienti (allineati al filtro `data_messa_cassa` nella patch precedente).
 
 ## Verifica
-- Aprire `/contabilita/ec-clienti`: KPI Totale Dare deve scendere a somma dei soli titoli messi a cassa; Totale Avere deve coincidere con gli incassi effettivi (saldo ≈ 0 sui clienti con tutto in cassa).
-- Generare PDF E/C cliente: elenco e totale riflettono solo le rate in cassa nel periodo.
+- Polizza 184667297: header passa da 1925,03 € a **1971,08 €**; provvigioni 188,57.
+- E/C Agenzia per questa polizza: premio 1971,08 − provvigioni 188,57 = **1782,51 €** rimessa.
+- Query di controllo: `select count(*) from titoli where abs(premio_lordo-(premio_netto+tasse+ssn_firma+addizionali))>0.01` → 0.

@@ -244,7 +244,7 @@ export function TitoloImportiPremiBlock({
     const importo = round2((sumNetto * pct) / 100);
     await supabase
       .from("titoli")
-      .update({ provvigioni_firma: importo, percentuale_provvigione: pct })
+      .update({ provvigioni_firma: importo })
       .eq("id", titoloId);
     await qc.refetchQueries({ queryKey: ["titolo", titoloId] });
   };
