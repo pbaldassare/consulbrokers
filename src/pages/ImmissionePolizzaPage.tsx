@@ -554,9 +554,20 @@ const ImmissionePolizzaPage = () => {
         selectedCommerciale: setSelectedCommerciale,
         percentualeCommerciale: setPercentualeCommerciale,
       };
+      // Campi che hanno un default ereditato dall'anagrafica cliente:
+      // se la bozza ha valore vuoto/null, NON sovrascrivere così che vinca
+      // il default proveniente da `clienti.ufficio_id` / `codici_commerciali_cliente`.
+      const skipIfEmptyKeys = new Set([
+        "selectedUfficioId",
+        "selectedAE",
+        "selectedAccountExecutiveId",
+        "selectedBackofficeId",
+      ]);
       for (const k of Object.keys(d)) {
         const fn = setters[k];
-        if (fn && d[k] !== undefined) fn(d[k]);
+        if (!fn || d[k] === undefined) continue;
+        if (skipIfEmptyKeys.has(k) && (d[k] === null || d[k] === "")) continue;
+        fn(d[k]);
       }
       setDraftRestoredAt(loaded.ts);
     }
@@ -695,11 +706,12 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedClienteId]);
 
-  // Eredita ufficio dal cliente
+  // Eredita ufficio dal cliente (solo se non già impostato manualmente o da bozza)
   useEffect(() => {
-    if (clienteDettaglio?.ufficio_id) {
+    if (clienteDettaglio?.ufficio_id && !selectedUfficioId) {
       setSelectedUfficioId(clienteDettaglio.ufficio_id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteDettaglio?.ufficio_id]);
 
   // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori).
@@ -816,7 +828,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
 
-    if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+    if (bo?.profilo_id && !selectedBackofficeId) setSelectedBackofficeId(bo.profilo_id as string);
 
     // Produttore: prima anagrafica_id, poi fallback per nome verso aeList (anagrafiche corrispondenti)
     if (prod?.anagrafica_id) {
