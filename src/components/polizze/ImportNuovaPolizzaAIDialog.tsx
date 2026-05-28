@@ -552,6 +552,7 @@ export function ImportNuovaPolizzaAIDialog({
           : null,
         isNewCliente: !lockedClienteId,
         polizzaAuto: wantsVeicolo,
+        sourcePdf: sourcePdf ?? { name: file.name, base64: b64, mimeType: file.type || "application/pdf" },
       };
 
       onApply(result);
