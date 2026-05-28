@@ -1759,9 +1759,9 @@ export type Database = {
           nome_rapporto: string | null
           note: string | null
           percentuale_provvigione: number | null
+          percentuale_ra: number | null
           rami_abilitati: string[] | null
           referente_compagnia: string | null
-          ritenuta_acconto: number | null
           sede_cap: string | null
           sede_citta: string | null
           sede_denominazione: string | null
@@ -1791,9 +1791,9 @@ export type Database = {
           nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
+          percentuale_ra?: number | null
           rami_abilitati?: string[] | null
           referente_compagnia?: string | null
-          ritenuta_acconto?: number | null
           sede_cap?: string | null
           sede_citta?: string | null
           sede_denominazione?: string | null
@@ -1823,9 +1823,9 @@ export type Database = {
           nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
+          percentuale_ra?: number | null
           rami_abilitati?: string[] | null
           referente_compagnia?: string | null
-          ritenuta_acconto?: number | null
           sede_cap?: string | null
           sede_citta?: string | null
           sede_denominazione?: string | null
@@ -2012,7 +2012,6 @@ export type Database = {
           percentuale_ra: number | null
           provincia: string | null
           ra_ec_negativi: boolean | null
-          ritenuta_acconto: number
           stato: string | null
           telefono: string | null
           tipo: string
@@ -2065,7 +2064,6 @@ export type Database = {
           percentuale_ra?: number | null
           provincia?: string | null
           ra_ec_negativi?: boolean | null
-          ritenuta_acconto?: number
           stato?: string | null
           telefono?: string | null
           tipo?: string
@@ -2118,7 +2116,6 @@ export type Database = {
           percentuale_ra?: number | null
           provincia?: string | null
           ra_ec_negativi?: boolean | null
-          ritenuta_acconto?: number
           stato?: string | null
           telefono?: string | null
           tipo?: string
