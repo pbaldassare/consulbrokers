@@ -250,6 +250,7 @@ export function ImportNuovaPolizzaAIDialog({
     setPolizzaAutoTouched(false);
     setSelectedGruppoFinanziarioId("");
     setCodiceCigNew("");
+    setSourcePdf(null);
   };
 
   const log = (level: LogEntry["level"], msg: string) =>
