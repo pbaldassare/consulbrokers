@@ -50,9 +50,13 @@ const ImmissionePolizzaPage = () => {
   // Nonce per forzare il remount del NuovoClienteDialog quando arriva un nuovo prefill,
   // evitando race condition tra chiusura/riapertura e useEffect interni.
   const [nuovoClienteNonce, setNuovoClienteNonce] = useState(0);
+  // PDF originale caricato dal flusso "Scansione AI Polizza": viene archiviato
+  // come documento del titolo subito dopo la creazione della polizza.
+  const [aiSourcePdf, setAiSourcePdf] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
 
   const handleAIImportApply = (m: MatchResult) => {
     const d = m.data;
+    if (m.sourcePdf) setAiSourcePdf(m.sourcePdf);
     if (m.cliente?.id) {
       setSelectedClienteId(m.cliente.id);
     } else if (m.isNewCliente) {
