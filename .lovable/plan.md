@@ -1,13 +1,34 @@
-Rendo il campo **CIG/Rif.** sempre visibile nella sezione Contratto della pagina Immissione Polizza, accanto a Vincolo, mantenendo tutte le regole già presenti:
+# Fix: banner "Gruppo Finanziario mancante" su cliente che ce l'ha
 
-- Validazione esistente: 10 caratteri alfanumerici (`isValidCigWithFlag` + `normalizeCig`).
-- Flag **"CIG temporaneo (formato libero)"** che sblocca il formato libero fino a 40 caratteri.
-- Asterisco rosso + bordo destructive + messaggio "Obbligatorio per Enti" e blocco salvataggio (`saveBlockReason`) **solo quando il cliente è di tipo Ente** (`cigObbligatorio`).
-- Per clienti privati/azienda: campo opzionale, nessun asterisco, nessun errore se vuoto.
+## Causa reale
+Il cliente Agnone in DB ha tutto correttamente impostato:
+- `tipo_cliente = 'ente'`
+- `gruppo_finanziario_id` → `AZ_PART_PUB · Azienda Partecipata Pubblica` (`tipo_soggetto = 'ente'`)
 
-Modifica unica in `src/pages/ImmissionePolizzaPage.tsx`:
-- Rimuovo il wrapper `{cigObbligatorio && (...)}` attorno al blocco CIG.
-- Cambio le classi del grid contenitore a `grid-cols-1 md:grid-cols-2` fisso così CIG e Vincolo restano sempre affiancati.
-- L'asterisco, il bordo rosso e l'hint "Obbligatorio per Enti" restano condizionati a `cigObbligatorio`; il messaggio di formato non valido resta condizionato a `cigRif` non vuoto.
+Però la query frontend usa l'embed PostgREST:
+```ts
+.select("..., gruppi_finanziari(id, codice, nome, tipo_soggetto)")
+```
+e sulla tabella `public.gruppi_finanziari` **non esistono GRANT** per nessun ruolo (`anon`, `authenticated`, `service_role`). Le policy RLS dicono "Authenticated can read = true", ma senza GRANT a livello di tabella PostgREST rifiuta comunque l'accesso → l'embed restituisce `null`.
 
-Nessuna modifica al database, al payload di salvataggio o alla logica `saveBlockReason`.
+Risultato:
+- Il badge sotto al cliente mostra "⚠ Gruppo finanziario mancante"
+- `tipoSoggetto` resta `null` (anche il fallback su `tipo_cliente` non basta perché in alcuni branch del codice si guarda direttamente `gruppi_finanziari`)
+- `saveBlockReason` mostra il banner "non ha un Gruppo Finanziario"
+
+## Intervento (1 migration, nessun codice toccato)
+```sql
+GRANT SELECT ON public.gruppi_finanziari TO authenticated;
+GRANT ALL    ON public.gruppi_finanziari TO service_role;
+```
+(Non concedo `anon`: la tabella non è mai usata in contesti non autenticati.)
+
+## Verifica post-migration
+1. Riapertura di `/portafoglio/immissione?clienteId=…Agnone…`:
+   - badge mostra "Ente · AZ_PART_PUB Azienda Partecipata Pubblica"
+   - banner di blocco salvataggio sparisce
+   - CIG/Rif. resta visibile con asterisco (Ente)
+2. Nessuna modifica a regole CIG (10 caratteri / flag temporaneo) né a logiche di save.
+
+## Note
+Nessuna modifica a file applicativi: il bug è puramente di privilegi DB.
