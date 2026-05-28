@@ -343,15 +343,31 @@ const AgenzieInPagamentoPage = () => {
     const { error: updErr } = await supabase.from("rimessa_premi").update({ pdf_url: signed?.signedUrl || path } as any).eq("id", rimessa.id);
     if (updErr) throw new Error(`Update rimessa_premi: ${updErr.message}`);
 
-    const { error: docErr } = await supabase.from("documenti").insert({
-      nome_file: `RIM-${rimessa.id.slice(0, 8).toUpperCase()}.pdf`,
-      path_storage: path,
-      bucket_name: "rimesse-pdf",
-      categoria: "EC Agenzia",
-      entita_id: rimessa.compagnia_id,
-      caricato_da: user?.id || null,
-    } as any);
-    if (docErr) throw new Error(`Archivio documenti: ${docErr.message}`);
+    // Idempotente: se esiste già una riga per (bucket, path), aggiorna; altrimenti inserisci
+    const { data: existing } = await supabase
+      .from("documenti")
+      .select("id")
+      .eq("bucket_name", "rimesse-pdf")
+      .eq("path_storage", path)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updDocErr } = await supabase
+        .from("documenti")
+        .update({ caricato_da: user?.id || null } as any)
+        .eq("id", (existing as any).id);
+      if (updDocErr) throw new Error(`Archivio documenti: ${updDocErr.message}`);
+    } else {
+      const { error: docErr } = await supabase.from("documenti").insert({
+        nome_file: `RIM-${rimessa.id.slice(0, 8).toUpperCase()}.pdf`,
+        path_storage: path,
+        bucket_name: "rimesse-pdf",
+        categoria: "EC Agenzia",
+        entita_id: rimessa.compagnia_id,
+        caricato_da: user?.id || null,
+      } as any);
+      if (docErr) throw new Error(`Archivio documenti: ${docErr.message}`);
+    }
   };
 
   const runConfermaPagamento = async ({ ids, data }: { ids: string[]; data: string }) => {
