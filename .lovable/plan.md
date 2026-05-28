@@ -1,27 +1,20 @@
-## Piano
+Il problema non è più il filtro per Sede: nel DB l’Account Executive di Campobasso esiste ed è attivo, con `ufficio_id = NULL`.
 
-1. **Correggere la gestione anagrafica degli Account Executive**
-   - In `AnagraficheInternePage`, quando il tipo è `account_executive`, salvare sempre `ufficio_id: null` sia in creazione sia in modifica.
-   - La Sede non deve più essere obbligatoria, né ereditata automaticamente dal profilo utente, per gli Account Executive.
-   - La Sede resta invece valida per i Produttori/Responsabili Sede secondo le regole attuali.
+Il problema reale è nella label/search della tendina: la select mostra/cerca solo `cognome + nome` (`Tallini iole`) e ignora `ragione_sociale`, dove c’è il riferimento “Sede Campobasso executive”. Quindi cercando “Campobasso” non lo trovi.
 
-2. **Ripulire le tendine AE dai residui di fallback per Sede**
-   - In `NuovoClienteDialog`, `ImmissionePolizzaPage` e `TitoloDetail`, rimuovere i testi tipo “Nessun AE collegato alla Sede...” perché ormai non deve più esistere alcun collegamento AE-Sede.
-   - Usare il lookup globale già presente: tutti gli AE attivi da `anagrafiche_professionali` con `tipo='account_executive'`.
+Piano di intervento:
 
-3. **Normalizzare i dati esistenti nel database**
-   - Aggiungere una migration che imposta `ufficio_id = NULL` per tutti gli Account Executive già presenti:
+1. Aggiornare `useAccountExecutivesLookup`
+   - mantenere la query globale su tutti gli AE attivi
+   - includere `ragione_sociale`, `sigla`, `codice` dentro `searchText`
+   - mostrare `ragione_sociale` come descrizione sotto il nome, così “Tallini iole” sarà riconoscibile come Campobasso
 
-   ```sql
-   UPDATE public.anagrafiche_professionali
-   SET ufficio_id = NULL
-   WHERE tipo = 'account_executive'
-     AND ufficio_id IS NOT NULL;
-   ```
+2. Verificare la select in `ImmissionePolizzaPage`
+   - lasciare la lista globale `useAccountExecutivesLookup()` senza parametro Sede
+   - assicurare che `SearchableSelect` riceva opzioni con `label`, `description`, `searchText`
 
-   Questo è il pezzo necessario perché gli AE già legati a Campobasso o ad altre sedi diventino visibili globalmente anche con le policy RLS esistenti.
+3. Forzare aggiornamento bundle
+   - aggiornare versione release/version.json per evitare che la preview resti su bundle vecchio
 
-4. **Verifica finale**
-   - Cercare nel codice ogni residuo di filtro/commento AE per Sede.
-   - Verificare che le query AE non contengano `.eq('ufficio_id', ...)` o logiche equivalenti.
-   - Aggiornare la release/versione solo se serve forzare il refresh del bundle dopo la modifica.
+4. Controllo finale
+   - verificare che cercando “Campobasso” nella select Account Executive appaia l’AE collegato alla ragione sociale “Sede Campobasso executive”.
