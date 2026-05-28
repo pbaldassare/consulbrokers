@@ -106,15 +106,16 @@ const ECClientePdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, durata_da, data_decorrenza_rinnovo, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome)")
-        .eq("cliente_anagrafica_id", clienteId);
+        .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, durata_da, data_messa_cassa, data_decorrenza_rinnovo, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome)")
+        .eq("cliente_anagrafica_id", clienteId)
+        .not("data_messa_cassa", "is", null);
       if (titoliIds.length > 0) {
         q = q.in("id", titoliIds);
       } else {
-        if (periodoDal) q = q.gte("garanzia_da", periodoDal);
-        if (periodoAl) q = q.lte("garanzia_da", periodoAl);
+        if (periodoDal) q = q.gte("data_messa_cassa", periodoDal);
+        if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
       }
-      const { data, error } = await q.order("garanzia_da", { ascending: true });
+      const { data, error } = await q.order("data_messa_cassa", { ascending: true });
       if (error) throw error;
       return data || [];
     },
