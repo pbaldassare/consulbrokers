@@ -1083,7 +1083,7 @@ const TitoloDetail = () => {
   ].map((v) => ({ value: v, label: v }));
   const CLASSI_BM_OPTS = Array.from({ length: 18 }, (_, i) => ({ value: String(i + 1), label: `Classe ${i + 1}` }));
   const ALIMENTAZIONE_OPTS = ["BENZINA","DIESEL","GPL","METANO","ELETTRICA","IBRIDA","IBRIDA PLUG-IN","BIFUEL","ALTRO"].map((v) => ({ value: v, label: v }));
-  const TIPOLOGIA_GUIDA_OPTS = ["LIBERA","ESCLUSIVA","ESPERTA"].map((v) => ({ value: v, label: v }));
+  const TIPOLOGIA_GUIDA_OPTS = ["LIBERA","ESPERTA"].map((v) => ({ value: v, label: v }));
 
   const startEditVeicolo = () => {
     const v: any = veicolo || { titolo_id: id };

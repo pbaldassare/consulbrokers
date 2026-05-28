@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
         `- "Cilindrata", "CC", "Cilindrata cm³", "cm3" → cc (numero intero)\n` +
         `- "Posti", "N. posti", "Posti a sedere", "Numero posti" → posti (numero intero)\n` +
         `- "Classe di merito universale", "CU", "Classe CU", "Classe Universale" → classe_bm (intero 1-18)\n` +
-        `- "Tipo di guida", "Tipologia guida", "Guida" → tipologia_guida (es. "Conducente qualsiasi", "Esperta", "Esclusiva")\n` +
+        `- "Tipo di guida", "Tipologia guida", "Guida" → tipologia_guida. VALORI AMMESSI: "Libera" o "Esperta". Mappa "Conducente qualsiasi"/"Guida libera" → "Libera"; "Esperta"/"Esclusiva"/"Conducente unico"/"Conducente esperto" → "Esperta".\n` +
         `- "Provincia di circolazione", "Provincia immatricolazione" → provincia_circolazione (2 lettere maiuscole)\n` +
         `- "Anno acquisto" → anno_acquisto; "Peso motrice/rimorchio/totale" → campi peso_* corrispondenti.\n` +
         `- "Massimale", "Somma assicurata RCA", "Massimale Unico" → massimale_1; massimali persone/cose distinti → massimale_2 e massimale_3.\n` +
