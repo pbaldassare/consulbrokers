@@ -89,6 +89,7 @@ const emptyForm: RapportoForm = {
   data_fine: "",
   attivo: true,
   percentuale_provvigione: "",
+  percentuale_ra: "4.60",
   conto_bancario_id: null,
   conto_etichetta: "",
   conto_banca: "",
