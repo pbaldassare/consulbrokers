@@ -117,6 +117,8 @@ export type MatchResult = {
   codiceCig?: string;
   /** True quando l'utente ha forzato "Polizza Auto" o il ramo è ZQ — apre il modale veicolo. */
   polizzaAuto?: boolean;
+  /** PDF originale caricato per la scansione AI: viene archiviato nei documenti della polizza al salvataggio. */
+  sourcePdf?: { name: string; base64: string; mimeType: string };
 };
 
 type GruppoFinanziarioOpt = {
@@ -181,6 +183,7 @@ export function ImportNuovaPolizzaAIDialog({
   const [gruppiFinanziari, setGruppiFinanziari] = useState<GruppoFinanziarioOpt[]>([]);
   const [selectedGruppoFinanziarioId, setSelectedGruppoFinanziarioId] = useState<string>("");
   const [codiceCigNew, setCodiceCigNew] = useState<string>("");
+  const [sourcePdf, setSourcePdf] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const logScrollRef = useRef<HTMLDivElement>(null);
@@ -247,6 +250,7 @@ export function ImportNuovaPolizzaAIDialog({
     setPolizzaAutoTouched(false);
     setSelectedGruppoFinanziarioId("");
     setCodiceCigNew("");
+    setSourcePdf(null);
   };
 
   const log = (level: LogEntry["level"], msg: string) =>
@@ -454,6 +458,8 @@ export function ImportNuovaPolizzaAIDialog({
       for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       setPhase(25, "Conversione base64…");
       const b64 = btoa(bin);
+      // Conserva il PDF originale: verrà archiviato fra i documenti della polizza al salvataggio.
+      setSourcePdf({ name: file.name, base64: b64, mimeType: file.type || "application/pdf" });
       setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
       const isZQ = String(gruppoRamoCtx?.codice || "").toUpperCase() === "ZQ";
       const wantsVeicolo = forzaPolizzaAuto || isZQ;
@@ -546,6 +552,7 @@ export function ImportNuovaPolizzaAIDialog({
           : null,
         isNewCliente: !lockedClienteId,
         polizzaAuto: wantsVeicolo,
+        sourcePdf: sourcePdf ?? { name: file.name, base64: b64, mimeType: file.type || "application/pdf" },
       };
 
       onApply(result);
@@ -611,6 +618,7 @@ export function ImportNuovaPolizzaAIDialog({
       tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
       codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
       polizzaAuto: forzaPolizzaAuto || selectedGruppoRamoCodice === "ZQ",
+      sourcePdf: sourcePdf ?? undefined,
     };
   };
 
