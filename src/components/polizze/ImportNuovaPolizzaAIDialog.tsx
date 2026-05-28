@@ -117,6 +117,8 @@ export type MatchResult = {
   codiceCig?: string;
   /** True quando l'utente ha forzato "Polizza Auto" o il ramo è ZQ — apre il modale veicolo. */
   polizzaAuto?: boolean;
+  /** PDF originale caricato per la scansione AI: viene archiviato nei documenti della polizza al salvataggio. */
+  sourcePdf?: { name: string; base64: string; mimeType: string };
 };
 
 type GruppoFinanziarioOpt = {
