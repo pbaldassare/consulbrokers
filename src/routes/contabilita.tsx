@@ -38,13 +38,8 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />
     <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
 
-    {/* Legacy redirects: vecchie pagine rimosse definitivamente */}
     <Route path="/rimessa-premi" element={<Navigate to="/contabilita/storico-rimesse" replace />} />
     <Route path="/rimessa-premi/:id" element={<Navigate to="/contabilita/storico-rimesse" replace />} />
-    <Route path="/contabilita-generale/*" element={<Navigate to="/contabilita" replace />} />
-    <Route path="/fatturapa/*" element={<Navigate to="/contabilita" replace />} />
-    <Route path="/fornitori/*" element={<Navigate to="/contabilita" replace />} />
-    <Route path="/banca-import/*" element={<Navigate to="/contabilita" replace />} />
     <Route path="/report-iva" element={<ReportIVA />} />
   </>
 );
