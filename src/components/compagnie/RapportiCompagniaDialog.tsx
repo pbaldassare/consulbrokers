@@ -304,6 +304,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         referente_compagnia: form.referente_compagnia || null,
         email_referente: form.email_referente || null,
         telefono_referente: form.telefono_referente || null,
+        email_messe_a_cassa: form.email_messe_a_cassa || null,
+        email_estratto_conto: form.email_estratto_conto || null,
         note: form.note || null,
       };
 
