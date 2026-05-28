@@ -435,6 +435,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       data_fine: r.data_fine || "",
       attivo: r.attivo ?? true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
+      percentuale_ra: r.percentuale_ra?.toString() || "4.60",
       conto_bancario_id: r.conto_bancario_id || null,
       conto_etichetta: "",
       conto_banca: "",
