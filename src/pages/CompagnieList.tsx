@@ -98,6 +98,8 @@ interface CompagniaForm {
   pec: string;
   mail_ec: string;
   mail_avvisi: string;
+  email_messe_a_cassa: string;
+  email_estratto_conto: string;
   codice_fiscale: string;
   partita_iva: string;
   iscrizione_rui_sez: string;
