@@ -1759,6 +1759,7 @@ export type Database = {
           nome_rapporto: string | null
           note: string | null
           percentuale_provvigione: number | null
+          percentuale_ra: number | null
           rami_abilitati: string[] | null
           referente_compagnia: string | null
           sede_cap: string | null
@@ -1790,6 +1791,7 @@ export type Database = {
           nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
+          percentuale_ra?: number | null
           rami_abilitati?: string[] | null
           referente_compagnia?: string | null
           sede_cap?: string | null
@@ -1821,6 +1823,7 @@ export type Database = {
           nome_rapporto?: string | null
           note?: string | null
           percentuale_provvigione?: number | null
+          percentuale_ra?: number | null
           rami_abilitati?: string[] | null
           referente_compagnia?: string | null
           sede_cap?: string | null

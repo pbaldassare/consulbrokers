@@ -56,6 +56,7 @@ interface RapportoForm {
   data_fine: string;
   attivo: boolean;
   percentuale_provvigione: string;
+  percentuale_ra: string;
   conto_bancario_id: string | null;
   conto_etichetta: string;
   conto_banca: string;
@@ -88,6 +89,7 @@ const emptyForm: RapportoForm = {
   data_fine: "",
   attivo: true,
   percentuale_provvigione: "",
+  percentuale_ra: "4.60",
   conto_bancario_id: null,
   conto_etichetta: "",
   conto_banca: "",
@@ -296,6 +298,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         data_fine: form.data_fine || null,
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
+        percentuale_ra: form.percentuale_ra !== "" ? Number(form.percentuale_ra) : 4.60,
         sede_denominazione: form.sede_denominazione || null,
         sede_indirizzo: form.sede_indirizzo || null,
         sede_cap: form.sede_cap || null,
@@ -433,6 +436,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       data_fine: r.data_fine || "",
       attivo: r.attivo ?? true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
+      percentuale_ra: r.percentuale_ra?.toString() || "4.60",
       conto_bancario_id: r.conto_bancario_id || null,
       conto_etichetta: "",
       conto_banca: "",
@@ -513,6 +517,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       data_fine: "",
       attivo: true,
       percentuale_provvigione: r.percentuale_provvigione?.toString() || "",
+      percentuale_ra: r.percentuale_ra?.toString() || "4.60",
       conto_bancario_id: null, // forza creazione nuovo record conto
       conto_etichetta: conto?.etichetta || "",
       conto_banca: conto?.banca || "",
@@ -980,7 +985,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Data Inizio</Label>
                     <Input
@@ -1004,6 +1009,16 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                       step="0.01"
                       value={form.percentuale_provvigione}
                       onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">% Ritenuta d'acconto</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="4.60"
+                      value={form.percentuale_ra}
+                      onChange={(e) => setForm((p) => ({ ...p, percentuale_ra: e.target.value }))}
                     />
                   </div>
                 </div>

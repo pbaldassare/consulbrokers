@@ -137,7 +137,7 @@ const emptyForm = {
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
   nome_rui: "", iscrizione_rui: "", data_iscrizione_rui: "", numero_rui: "", sezione_rui: "",
   // Produttori / commerciali
-  percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "",
+  percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "4.60",
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
 
@@ -250,7 +250,7 @@ const AnagraficheInternePage = () => {
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
-        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
+        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
@@ -325,7 +325,7 @@ const AnagraficheInternePage = () => {
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
-        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
+        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
@@ -386,7 +386,7 @@ const AnagraficheInternePage = () => {
       percentuale_base: item.percentuale_base?.toString() || "",
       percentuale_consulenza: item.percentuale_consulenza?.toString() || "",
       codice_fornitore: item.codice_fornitore || "",
-      percentuale_ra: item.percentuale_ra?.toString() || "",
+      percentuale_ra: item.percentuale_ra?.toString() || "4.60",
       abi: item.abi || "",
       cab: item.cab || "",
       iban: item.iban || "",
