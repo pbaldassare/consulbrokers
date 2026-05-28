@@ -1749,6 +1749,8 @@ export type Database = {
           created_by: string | null
           data_fine: string | null
           data_inizio: string | null
+          email_estratto_conto: string | null
+          email_messe_a_cassa: string | null
           email_referente: string | null
           gruppo_compagnia_id: string
           iban_dedicato: string | null
@@ -1778,6 +1780,8 @@ export type Database = {
           created_by?: string | null
           data_fine?: string | null
           data_inizio?: string | null
+          email_estratto_conto?: string | null
+          email_messe_a_cassa?: string | null
           email_referente?: string | null
           gruppo_compagnia_id: string
           iban_dedicato?: string | null
@@ -1807,6 +1811,8 @@ export type Database = {
           created_by?: string | null
           data_fine?: string | null
           data_inizio?: string | null
+          email_estratto_conto?: string | null
+          email_messe_a_cassa?: string | null
           email_referente?: string | null
           gruppo_compagnia_id?: string
           iban_dedicato?: string | null

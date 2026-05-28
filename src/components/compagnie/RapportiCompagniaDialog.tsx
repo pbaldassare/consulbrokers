@@ -73,6 +73,8 @@ interface RapportoForm {
   referente_compagnia: string;
   email_referente: string;
   telefono_referente: string;
+  email_messe_a_cassa: string;
+  email_estratto_conto: string;
   note: string;
 }
 
@@ -103,6 +105,8 @@ const emptyForm: RapportoForm = {
   referente_compagnia: "",
   email_referente: "",
   telefono_referente: "",
+  email_messe_a_cassa: "",
+  email_estratto_conto: "",
   note: "",
 };
 
@@ -300,6 +304,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         referente_compagnia: form.referente_compagnia || null,
         email_referente: form.email_referente || null,
         telefono_referente: form.telefono_referente || null,
+        email_messe_a_cassa: form.email_messe_a_cassa || null,
+        email_estratto_conto: form.email_estratto_conto || null,
         note: form.note || null,
       };
 
@@ -444,6 +450,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
       telefono_referente: r.telefono_referente || "",
+      email_messe_a_cassa: r.email_messe_a_cassa || "",
+      email_estratto_conto: r.email_estratto_conto || "",
       note: r.note || "",
     });
     // Carica rami abilitati dal DB e raggruppa per gruppo_ramo_id
@@ -522,6 +530,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
       telefono_referente: r.telefono_referente || "",
+      email_messe_a_cassa: r.email_messe_a_cassa || "",
+      email_estratto_conto: r.email_estratto_conto || "",
       note: r.note || "",
     });
     // Copia rami abilitati
@@ -1118,6 +1128,33 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                     />
                   </div>
                 </div>
+
+                <div className="space-y-3 border rounded-md p-3 bg-muted/10">
+                  <Label className="text-sm font-medium">Indirizzi Email Funzionali</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Email Messe a Cassa</Label>
+                      <Input
+                        type="email"
+                        placeholder="messeacassa@compagnia.it"
+                        value={form.email_messe_a_cassa}
+                        onChange={(e) => setForm((p) => ({ ...p, email_messe_a_cassa: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-muted-foreground">Destinatario comunicazioni di messa in pagamento</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Email Estratto Conto</Label>
+                      <Input
+                        type="email"
+                        placeholder="estrattoconto@compagnia.it"
+                        value={form.email_estratto_conto}
+                        onChange={(e) => setForm((p) => ({ ...p, email_estratto_conto: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-muted-foreground">Destinatario invio E/C agenzia</p>
+                    </div>
+                  </div>
+                </div>
+
 
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Note</Label>
