@@ -1,26 +1,22 @@
-# Due email per rapporto compagnia/agenzia
+# Eliminazione completa polizza 184667297
 
-## Obiettivo
-Ogni rapporto agenzia/compagnia deve avere due indirizzi email distinti:
-1. **Email Messe a Cassa** — destinatario comunicazioni di messa in pagamento dalla compagnia
-2. **Email Estratto Conto** — destinatario invio E/C agenzia
+## Stato attuale
+Due titoli trovati con numero `184667297`:
+- `01fbb860-7d18-4ad5-918a-c3cb0d421704` — stato `incassato`, premio 1971,08€, **data_messa_cassa 2026-05-28** (residuo dell'ultima messa a cassa)
+- `5ce9667e-136e-4b3c-855f-39ddd7023246` — stato `attivo`, premio 1925,03€, `sostituisce_polizza=184667297` (quietanza successiva)
 
-## Modifiche DB (`compagnia_rapporti`)
-- Aggiunta colonna `email_messe_a_cassa text`
-- Aggiunta colonna `email_estratto_conto text`
-- Backfill: per **tutti i rapporti esistenti** valorizzo entrambe le colonne a `pscarpelli@gmail.com`
-- Trigger di sync con `compagnie` aggiornato per propagare i nuovi campi sui rapporti principali (agenzia/direzione 1:1), così la coerenza è mantenuta.
+Riferimenti collegati: 1 `rimessa_dettaglio`, 1 `provvigioni_generate`, 4 `log_attivita`.
 
-Nota: il campo esistente `email_referente` resta com'è (referente persona), i nuovi due campi sono indirizzi funzionali separati.
+## Migration di pulizia (in un singolo DO $$ block)
+1. DELETE da `rimessa_dettaglio` per i due titolo_id (rimuove la riga dalla rimessa/estratto conto agenzia)
+2. DELETE da `provvigioni_generate` per i due titolo_id (rimuove dall'estratto conto produttore/AE)
+3. DELETE da `log_attivita` con `entita_id` nei due titoli
+4. DELETE da `titoli` per i due id
 
-## Modifiche UI
-File: `src/components/compagnie/RapportiCompagniaDialog.tsx`
-- Aggiunta nel form dialog di due input email affiancati nella sezione referente:
-  - "Email Messe a Cassa" (con hint: usata per ricevere comunicazioni di messa in pagamento)
-  - "Email Estratto Conto" (con hint: usata per invio E/C agenzia)
-- Validazione formato email (non bloccante se vuoto, ma raccomandato)
-- In tabella rapporti aggiungo tooltip/colonna compatta o le mostro solo in dialog (per non rompere il layout). Default: solo in dialog + icona ✉ nella riga se entrambe presenti.
+Le altre dipendenze (movimenti_contabili, sinistri, documenti, premi per garanzia, split commerciali, snapshot, quietanze isolate, ecc.) vengono pulite via CASCADE.
 
-## Note
-- Nessuna logica di invio cambia ora: i campi vengono solo persistiti. Il wiring verso `gestione-rimessa` (messa a cassa) e `ECAgenziaPdfPage` (E/C) può essere fatto in un passo successivo se vuoi.
-- Se confermi, procedo con migration + edit del dialog.
+## Effetti attesi
+- Polizza scomparsa da Portafoglio Attive / Storico / Carico
+- Riga rimossa da E/C Agenzia, E/C Cliente, E/C Compagnia, E/C Produttore
+- Nessuna provvigione residua
+- Nessuna voce in Storico Rimesse riferita a questi titoli
