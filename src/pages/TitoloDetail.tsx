@@ -1301,7 +1301,11 @@ const TitoloDetail = () => {
       }
       if (nuovoStato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
+        // Notifica formale all'agenzia/rapporto (non bloccante)
+        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } })
+          .catch((e) => console.warn("notifica messa a cassa fallita:", e));
       }
+
       // Cerca quietanza generata automaticamente dal trigger DB
       let quietanzaGenerata: { id: string; data_decorrenza: string | null; data_scadenza: string | null } | null = null;
       if (nuovoStato === "incassato" && titolo?.numero_titolo) {
