@@ -10,6 +10,7 @@
 const VERSION_STORAGE_PREFIX = "__cbnet_version_";
 const RELOAD_FLAG = `${VERSION_STORAGE_PREFIX}reload_ts`;
 const RELOAD_THROTTLE_MS = 5_000;
+const RELOAD_ATTEMPT = `${VERSION_STORAGE_PREFIX}reload_attempt`;
 const STORAGE_KEYS_TO_KEEP = (k: string) =>
   k.startsWith("sb-") || k.startsWith("supabase.") || k.startsWith(VERSION_STORAGE_PREFIX);
 
@@ -22,6 +23,25 @@ const IS_LOCAL_DEV =
   (window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1");
 let versionCheckPromise: Promise<boolean> | null = null;
+
+export type VersionStatus =
+  | { state: "idle" | "checking" | "current"; info?: VersionInfo }
+  | { state: "stale" | "reload-blocked"; info: VersionInfo; reason: string };
+
+const listeners = new Set<(status: VersionStatus) => void>();
+
+function notifyVersionStatus(status: VersionStatus): void {
+  listeners.forEach((listener) => {
+    try {
+      listener(status);
+    } catch {}
+  });
+}
+
+export function subscribeToVersionStatus(listener: (status: VersionStatus) => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 
 export interface VersionInfo {
@@ -85,6 +105,16 @@ export async function purgeClientCaches(): Promise<void> {
   } catch {}
 }
 
+export async function getServiceWorkerDiagnostics(): Promise<{ registrations: number; cacheNames: string[] }> {
+  const [registrations, cacheNames] = await Promise.all([
+    "serviceWorker" in navigator
+      ? navigator.serviceWorker.getRegistrations().catch(() => [])
+      : Promise.resolve([]),
+    typeof caches !== "undefined" ? caches.keys().catch(() => []) : Promise.resolve([]),
+  ]);
+  return { registrations: registrations.length, cacheNames };
+}
+
 function readVersionStorage(key: string): string | null {
   try {
     return localStorage.getItem(key) ?? sessionStorage.getItem(key);
@@ -113,9 +143,21 @@ export function forceReload(reason: string, _serverVersion?: string | null): boo
 
   const url = new URL(window.location.href);
   url.searchParams.set("__v", Date.now().toString());
+  url.searchParams.delete("sw-cleanup");
   console.warn(`[versionCheck] forcing reload: ${reason}`);
   window.location.replace(url.toString());
   return true;
+}
+
+export async function refreshToLatestVersion(reason = "manual update requested"): Promise<void> {
+  try {
+    writeVersionStorage(RELOAD_ATTEMPT, String(Date.now()));
+    await purgeClientCaches();
+  } finally {
+    if (!forceReload(reason)) {
+      window.location.href = `${window.location.pathname}?__v=${Date.now()}`;
+    }
+  }
 }
 
 /**
@@ -125,14 +167,22 @@ export function forceReload(reason: string, _serverVersion?: string | null): boo
 async function runLatestVersionCheck(): Promise<boolean> {
   if (IS_LOCAL_DEV) return true;
 
+  notifyVersionStatus({ state: "checking" });
   const info = await getVersionInfo();
   console.info(
     `[versionCheck] bundle=${info.bundle} server=${info.server ?? "n/a"} match=${info.match}`,
   );
-  if (info.match) return true;
+  if (info.match) {
+    notifyVersionStatus({ state: "current", info });
+    return true;
+  }
 
+  const reason = `bundle ${info.bundle} != server ${info.server}`;
+  notifyVersionStatus({ state: "stale", info, reason });
   await purgeClientCaches();
-  return !forceReload(`bundle ${info.bundle} != server ${info.server}`, info.server);
+  const reloading = forceReload(reason, info.server);
+  if (!reloading) notifyVersionStatus({ state: "reload-blocked", info, reason });
+  return !reloading;
 }
 
 export async function ensureLatestVersion(): Promise<boolean> {
