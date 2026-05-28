@@ -298,6 +298,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         data_fine: form.data_fine || null,
         attivo: form.attivo,
         percentuale_provvigione: form.percentuale_provvigione ? Number(form.percentuale_provvigione) : null,
+        percentuale_ra: form.percentuale_ra !== "" ? Number(form.percentuale_ra) : 4.60,
         sede_denominazione: form.sede_denominazione || null,
         sede_indirizzo: form.sede_indirizzo || null,
         sede_cap: form.sede_cap || null,
