@@ -241,7 +241,10 @@ const PortafoglioCaricoPage = () => {
         ok++;
         // Genera provvigioni per ogni polizza messa a cassa
         supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: p.id } }).catch(() => {});
+        // Notifica formale all'agenzia/rapporto
+        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: p.id } }).catch(() => {});
       }
+
     }
     if (ok > 0) {
       await logAttivita({
