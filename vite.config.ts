@@ -8,7 +8,7 @@ import { APP_RELEASE_VERSION } from "./src/lib/appRelease";
 // Timestamp condiviso fra VITE_APP_VERSION (embedded nel bundle) e
 // public/version.json (servito statico). Permette al client di confrontare
 // la propria versione con quella sul server.
-const APP_VERSION = APP_RELEASE_VERSION;
+const APP_VERSION = `${APP_RELEASE_VERSION}__${new Date().toISOString()}`;
 
 /**
  * Plugin che scrive `version.json` sia in `public/` (per dev server)
