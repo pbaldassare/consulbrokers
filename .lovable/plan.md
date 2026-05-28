@@ -1,18 +1,26 @@
-Annullamento totale della polizza 184667297 (cliente non assegnato — record di test).
+## Obiettivo
+Per le polizze RCA Auto: i campi veicolo (Targa, Tipo Veicolo, Uso, Tipologia Guida, Alimentazione, ecc.) devono (a) essere estratti dall'IA quando possibile, (b) salvarsi correttamente in `veicoli_polizza`, (c) essere riproposti in `TitoloDetail` con la STESSA grafica/layout di `ImmissionePolizzaPage`. Inoltre rimuovere l'opzione "Esclusiva" da Tipologia Guida e renderla obbligatoria per RCA.
 
-Record trovati in DB:
-- Titolo madre `654a1a9e-9a5b-4f1a-80a6-5e794c233ac9`: rata Annuale 20/05/2026-2027, premio 1925,20€, stato `incassato`, messa a cassa 28/05/2026.
-- Quietanza successiva auto-generata `f5f55cb7-0a6d-4f7c-9b57-81e92b392001`: rata 20/05/2027-2028, stato `attivo`, `sostituisce_polizza=184667297`.
+## Modifiche
 
-Effetti collegati (solo per i due titoli sopra):
-- `movimenti_polizza`: 1 riga
-- `premi_garanzia_polizza`: 56 righe
-- `veicoli_polizza`: 1 riga
-- Nessuna provvigione generata, nessuna distinta rimessa, nessun pagamento, nessuna appendice, nessuno storno, nessun sinistro.
+### 1. ImmissionePolizzaPage.tsx
+- Rimuovere `"Esclusiva"` dalle opzioni `Tipologia Guida` → restano `Libera`, `Esperta` (riga 2537).
+- Aggiungere validazione: se ramo = RCA Auto e `vTipologiaGuida` vuoto → blocco salvataggio con toast "Tipologia Guida obbligatoria per RCA Auto".
+- Marcare label `Tipologia Guida *`, `Targa *`, `Tipo Veicolo *`, `Uso *` (asterisco rosso) quando RCA.
+- Estendere validazione blocco salvataggio anche su `vTarga`, `vTipoVeicolo`, `vUso` quando RCA.
 
-Azione:
-1. Cancello le righe collegate (`movimenti_polizza`, `premi_garanzia_polizza`, `veicoli_polizza`) per i due titoli.
-2. Cancello i due record `titoli`. Questo rimuove la rata incassata e la quietanza futura → spariscono da Polizze Attive, Carico del Mese, Storico, Messa a Cassa e da qualunque vista derivata.
-3. Verifica finale: query di conta su tutte le tabelle figlie e su `titoli` per `numero_titolo='184667297'` → deve tornare zero ovunque.
+### 2. parse-polizza-completa (edge function)
+- Già estrae `targa`, `tipo_veicolo`, `uso_descrizione`, `tipologia_guida`. Rafforzare prompt: cercare la targa anche nell'header polizza ("Polizza n. XXX – Targa AB123CD") e includere SEMPRE il blocco veicolo per RCA Auto. Normalizzare `tipologia_guida` mappando "Esclusiva"/"Conducente unico" → `Esperta` (l'opzione Esclusiva non esiste più). Mappare `uso_descrizione` → id `rca_usi` lato client (già fa lookup).
+- (Solo prompt/normalizzazione, no breaking change.)
 
-Nota: nessun effetto cassa/banca esterno da invertire perché non esistono `provvigioni_generate`, `rimessa_dettaglio`, `dettaglio_riparto` né distinte associate.
+### 3. TitoloDetail.tsx
+- Rimuovere `"ESCLUSIVA"` da `TIPOLOGIA_GUIDA_OPTS` (riga 1086).
+- Allineare il rendering della sezione Veicolo al layout di `ImmissionePolizzaPage` (stesse sezioni "Caratteristiche Tecniche", "Coperture e Massimali", "Clausole", "Dati Conducente", stessi label e ordine campi) così che dopo il salvataggio il dettaglio mostri esattamente la stessa UI dell'immissione (sola differenza: read-only fuori dalla modalità edit).
+- Garantire che tutti i campi (`targa`, `telaio`, `marca`, `modello`, `versione`, `tipo_veicolo`, `uso`, `tipologia_guida`, `tipo_alimentazione`, CV/KW/CC/posti, pesi, massimali, franchigia, clausole, dati conducente) siano letti da `veicoli_polizza` + `conducenti_polizza` e mostrati.
+
+### 4. DB — veicoli_polizza
+- Lo schema esistente copre già tutti i campi. Verificare presenza colonne `targa`, `telaio`, `marca`, `modello`, `versione`, `tipo_veicolo`, `uso` (uuid FK rca_usi), `tipologia_guida`, `tipo_alimentazione`, `cv`, `kw`, `cc`, `posti`, `peso_motrice`, `peso_rimorchio`, `peso_totale`, `massimale_1/2/3`, `franchigia`, flag clausole. Nessuna migrazione prevista salvo eventuali colonne mancanti rilevate in fase di build.
+
+## Note
+- Nessuna modifica ai dati esistenti. Le polizze legacy con `tipologia_guida = "Esclusiva"` resteranno leggibili (verrà mostrato il valore raw); in edit verrà richiesto di scegliere fra Libera/Esperta.
+- L'estrazione AI della targa è già attiva: viene anche copiata in `titoli.targa_telaio` (campo legacy) per compatibilità lista polizze.
