@@ -706,11 +706,12 @@ const ImmissionePolizzaPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedClienteId]);
 
-  // Eredita ufficio dal cliente
+  // Eredita ufficio dal cliente (solo se non già impostato manualmente o da bozza)
   useEffect(() => {
-    if (clienteDettaglio?.ufficio_id) {
+    if (clienteDettaglio?.ufficio_id && !selectedUfficioId) {
       setSelectedUfficioId(clienteDettaglio.ufficio_id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteDettaglio?.ufficio_id]);
 
   // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori).
