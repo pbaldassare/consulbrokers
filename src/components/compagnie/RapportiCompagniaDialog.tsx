@@ -56,6 +56,7 @@ interface RapportoForm {
   data_fine: string;
   attivo: boolean;
   percentuale_provvigione: string;
+  percentuale_ra: string;
   conto_bancario_id: string | null;
   conto_etichetta: string;
   conto_banca: string;
