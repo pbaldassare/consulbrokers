@@ -702,10 +702,18 @@ const ImmissionePolizzaPage = () => {
     }
   }, [clienteDettaglio?.ufficio_id]);
 
-  // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori)
+  // Tipo soggetto derivato dal Gruppo Finanziario del cliente (governa i campi obbligatori).
+  // Fallback: se il GF non è ancora assegnato ma il cliente è marcato `tipo_cliente='ente'`,
+  // consideralo comunque Ente così il campo CIG appare ed è obbligatorio.
   const tipoSoggetto: "privato" | "azienda" | "ente" | null = useMemo(() => {
     const gf: any = (clienteDettaglio as any)?.gruppi_finanziari;
-    return (gf?.tipo_soggetto as any) ?? null;
+    const fromGf = (gf?.tipo_soggetto as any) ?? null;
+    if (fromGf) return fromGf;
+    const tc = (clienteDettaglio as any)?.tipo_cliente;
+    if (tc === "ente") return "ente";
+    if (tc === "azienda") return "azienda";
+    if (tc === "privato") return "privato";
+    return null;
   }, [clienteDettaglio]);
   const gruppoFinanziarioMancante = !!selectedClienteId && !tipoSoggetto;
   const cigObbligatorio = tipoSoggetto === "ente";
