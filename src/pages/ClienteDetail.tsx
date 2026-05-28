@@ -1616,6 +1616,14 @@ export default function ClienteDetail() {
 
   // Auto-provisioning removed — activation is now manual via "Area Riservata" card
 
+  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
+  // NOTA: deve stare PRIMA di qualsiasi early return per rispettare le regole hooks
+  const { data: aeLookupData } = useAccountExecutivesLookup(
+    (editFields as any)?.ufficio_id ?? null
+  );
+  const aeOptions = aeLookupData?.options ?? [];
+  const aeIsFallback = aeLookupData?.isFallback ?? false;
+
   if (!cliente) return null;
 
   // Tipo cliente EFFETTIVO derivato live dal Gruppo Finanziario (governa l'intero layout anagrafica)
@@ -1640,13 +1648,8 @@ export default function ClienteDetail() {
 
   const ef = editFields;
 
-  // AE filtrati per Sede del cliente (fallback automatico a tutti gli AE attivi)
-  const { data: aeLookupData } = useAccountExecutivesLookup(
-    (ef as any)?.ufficio_id ?? null
-  );
-  const aeOptions = aeLookupData?.options ?? [];
-  const aeIsFallback = aeLookupData?.isFallback ?? false;
   const readOnly = !editMode;
+
 
   // Tracks the last CF auto-filled (declared above before early return)
 
