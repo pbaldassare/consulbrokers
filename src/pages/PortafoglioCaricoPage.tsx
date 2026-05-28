@@ -175,6 +175,10 @@ const PortafoglioCaricoPage = () => {
 
       // Genera provvigioni automaticamente
       supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: titoloId } }).catch(() => {});
+      // Notifica formale all'agenzia/rapporto
+      supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: titoloId } }).catch(() => {});
+
+
 
       toast.success("Polizza messa a cassa");
       invalidateQueries();
