@@ -1,40 +1,32 @@
 ## Obiettivo
-Allineare la sezione **Importi / Composizione Premio** di `TitoloDetail` a quella di `ImmissionePolizzaPage`, in modo che:
-- la grafica sia identica (stesso componente, stesso layout 2 card Firma+Quietanza),
-- l'SSN venga calcolato e mostrato per ogni riga con flag `rami.ssn_attivo` e sommato nel Totale Tasse e nel Premio Lordo,
-- le provvigioni siano formattate a 2 decimali nell'input.
+Negli Estratti Conto Clienti devono comparire **solo i titoli (polizze e quietanze) effettivamente messi a cassa** — non l'intero portafoglio. Anche KPI/totali devono essere calcolati solo su questi.
 
-## 1. Sostituire `VociRcaCard` con `PremiGaranziaCardShell` in `TitoloDetail.tsx`
-- Rimuovere import di `VociRcaCard`; importare `PremiGaranziaCardShell` + `emptyGaranziaRow` + `GaranziaRow`.
-- Mantenere la sezione "Importi" con due `PolizzaSection` figli (Firma + Quietanza) come fa Immissione.
-- Caricare le righe esistenti da `premi_garanzia_polizza` (`tipo_premio='firma'` / `'quietanza'`) e mapparle a `GaranziaRow` (sottoramo_id, codice, descrizione, netto, tasse, aliquota_tasse, ssn).
-- Persistere le modifiche: stesso pattern di Immissione (upsert su `premi_garanzia_polizza`) + aggiornare `titoli.premio_netto/tasse/ssn_firma/premio_lordo` e gli analoghi `_quietanza` aggregando le righe (riusando i totali esposti dal componente o ricalcolandoli con la stessa formula `ssn = (netto+tasse)*aliquota_ssn/100`).
-- Trigger DB `premi_garanzia_sync_quietanza` continua a gestire il mirror Firma→Quietanza automaticamente.
+## Stato attuale
+- `ECClientiContabPage.tsx` legge tutti i `titoli` del cliente (nessun filtro su `data_messa_cassa`); i filtri "Competenza" usano impropriamente `data_incasso` / `created_at`. Risultato: Totale Dare 63.013 € con Totale Avere 0 € (mostra anche polizze non incassate).
+- `ECClientePdfPage.tsx` (PDF E/C cliente) seleziona i titoli filtrando per `garanzia_da`, senza richiedere messa a cassa.
+- Le pagine E/C Agenzie / Produttori / Compagnia già filtrano correttamente su `data_messa_cassa` (nessuna modifica).
+- `ECClientiStoricoPage.tsx` legge solo PDF archiviati: non tocco.
 
-## 2. Lock messa-a-cassa
-Mantenere il comportamento già esistente: passare a `PremiGaranziaCardShell` un prop `readOnly` (se non presente, aggiungerlo) o disabilitare i pulsanti "Aggiungi voce" / inputs quando `isLocked` è true, coerente con il banner ambra già presente.
+## Modifiche
 
-## 3. Provvigioni: formattazione a 2 decimali
-Nei due input "Provvigioni Firma" e "Provvigioni Quietanza" (sotto le card), normalizzare il valore visualizzato con `Number(v).toFixed(2)` come `defaultValue` (e mantenere `step="0.01"`). Applicare la stessa pulizia ovunque nella pagina compaiano provvigioni come input editabile (anche `provvigioni_firma/quietanza` nel form `importiForm`).
+### 1. `src/pages/contabilita/ECClientiContabPage.tsx`
+- Aggiungere `.not("data_messa_cassa", "is", null)` alla query `titoli` così entrano solo le quietanze/polizze messe a cassa.
+- Cambiare i filtri "Competenza dal/al" perché agiscano su `data_messa_cassa` (oggi `data_incasso`).
+- Rimuovere il filtro "Scadenza dal/al" su `created_at` (non significativo per messa a cassa) o riallinearlo a `data_decorrenza_rinnovo` — proposto: lasciarlo agganciato a `garanzia_da` come "Scadenza copertura".
+- KPI, totali e righe restano calcolati sul set filtrato (di fatto già lo fanno → automaticamente conformi).
 
-## 4. Rimozione legacy
-- Eliminare dalla sezione Importi di `TitoloDetail` ogni riferimento al concetto di "riga RCA principale auto" e ai campi `imposta_provinciale`/`ssn` letti dalla sola riga RCA, perché ora il calcolo è per riga via `rami.ssn_attivo`.
-- Non rimuovere `VociRcaCard` dal repo (potrebbe essere usato altrove); rimuovere solo l'uso in `TitoloDetail`.
+### 2. `src/pages/contabilita/ECClientePdfPage.tsx`
+- Nella query titoli aggiungere `.not("data_messa_cassa", "is", null)`.
+- Quando `periodoDal/periodoAl` arrivano via querystring, filtrare su `data_messa_cassa` invece che `garanzia_da` (allineamento con la pagina elenco).
+- Ordinamento per `data_messa_cassa asc`.
 
-## 5. Aggiornamento memoria
-Aggiornare `mem://insurance/titolo-detail-allineato-immissione` e `mem://insurance/sottoramo-as-garanzia-row` segnalando che ora anche TitoloDetail usa `PremiGaranziaCardShell` con SSN per riga; rimuovere la nota "allineamento successivo".
+### 3. Memoria
+- Aggiornare `mem://accounting/financial-statements-module` (o creare nota `ec-clienti-messa-a-cassa`) annotando che gli E/C Clienti includono solo titoli con `data_messa_cassa` valorizzata, coerentemente con E/C Agenzie/Produttori.
 
-## File coinvolti
-- `src/pages/TitoloDetail.tsx` — sostituzione card Importi, mapping righe DB ↔ `GaranziaRow`, salvataggio, lock, formattazione provvigioni.
-- `src/components/polizze/PremiGaranziaCardShell.tsx` — eventuale aggiunta prop `readOnly` se manca.
-- `.lovable/memory/insurance/titolo-detail-allineato-immissione.md`, `.lovable/memory/insurance/sottoramo-as-garanzia-row.md` — aggiornamento.
+## Non incluso
+- Nessun cambio a schema DB, RLS, edge functions.
+- Nessuna modifica a Storico E/C, E/C Agenzie, E/C Produttori, E/C Compagnia (già corretti).
 
-## Non in scope
-- Modifiche al parser AI (già OK).
-- Nessuna migration DB: schema `premi_garanzia_polizza` + flag `rami.ssn_attivo` già pronti.
-- Sezione Veicolo/RCA: non si tocca, è già allineata.
-
-## Risultato atteso sulla polizza 184667297
-- Premio Lordo torna a ~1971€ perché l'SSN delle righe RCA con `ssn_attivo` rientra in "Totale Tasse".
-- Le card Firma e Quietanza hanno **esattamente** lo stesso aspetto della pagina Immissione.
-- Le provvigioni mostrano `188,57` e non `188,5672000000`.
+## Verifica
+- Aprire `/contabilita/ec-clienti`: KPI Totale Dare deve scendere a somma dei soli titoli messi a cassa; Totale Avere deve coincidere con gli incassi effettivi (saldo ≈ 0 sui clienti con tutto in cassa).
+- Generare PDF E/C cliente: elenco e totale riflettono solo le rate in cassa nel periodo.
