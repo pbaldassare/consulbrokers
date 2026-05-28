@@ -705,7 +705,34 @@ function CompagniaFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             {renderField("Telefono", "telefono")}
-            {renderField("Mail Estratto Conto", "mail_ec")}
+            {renderField("Mail Estratto Conto (legacy)", "mail_ec")}
+          </div>
+
+          <div className="border-t pt-3 mt-3">
+            <Label className="text-sm font-medium text-foreground">Indirizzi Email Funzionali</Label>
+            <p className="text-xs text-muted-foreground">Usati per invio comunicazioni operative. Sovrascrivibili per singolo rapporto.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Email Messe a Cassa</Label>
+              <Input
+                type="email"
+                placeholder="messeacassa@..."
+                value={form.email_messe_a_cassa}
+                onChange={(e) => setField("email_messe_a_cassa", e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Destinatario comunicazioni di messa in pagamento</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Email Estratto Conto</Label>
+              <Input
+                type="email"
+                placeholder="estrattoconto@..."
+                value={form.email_estratto_conto}
+                onChange={(e) => setField("email_estratto_conto", e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Destinatario invio E/C agenzia</p>
+            </div>
           </div>
 
           <div className="space-y-1">
