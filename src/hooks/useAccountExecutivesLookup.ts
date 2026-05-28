@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AccountExecutiveOption = { value: string; label: string };
+export type AccountExecutiveOption = {
+  value: string;
+  label: string;
+  description?: string;
+  searchText?: string;
+};
 
 export type AccountExecutivesLookupResult = {
   options: AccountExecutiveOption[];
@@ -14,6 +19,8 @@ export type AccountExecutivesLookupResult = {
  * Fonte: `anagrafiche_professionali` (tipo='account_executive', attivo=true).
  * Restituisce SEMPRE tutti gli AE attivi: gli AE sono indipendenti dalla Sede.
  * Il parametro `_ufficioId` è ignorato (mantenuto per compatibilità di firma).
+ * Include `ragione_sociale`/`sigla`/`codice` nel searchText per consentire ricerca
+ * per Sede (es. "Campobasso") anche quando il nome AE non la contiene.
  */
 export const useAccountExecutivesLookup = (_ufficioId?: string | null) => {
   return useQuery({
@@ -28,15 +35,13 @@ export const useAccountExecutivesLookup = (_ufficioId?: string | null) => {
         .eq("attivo", true);
       if (error) throw error;
 
-      const opts = (data || []).map((p: any) => {
+      const opts: AccountExecutiveOption[] = (data || []).map((p: any) => {
         const personName = `${p.cognome || ""} ${p.nome || ""}`.trim();
-        const label =
-          personName ||
-          (p.ragione_sociale && p.ragione_sociale.trim()) ||
-          p.sigla ||
-          p.codice ||
-          "—";
-        return { value: p.id as string, label };
+        const rs = (p.ragione_sociale || "").trim();
+        const label = personName || rs || p.sigla || p.codice || "—";
+        const description = personName && rs ? rs : undefined;
+        const searchText = [rs, p.sigla, p.codice].filter(Boolean).join(" ");
+        return { value: p.id as string, label, description, searchText };
       });
       opts.sort((a, b) => a.label.localeCompare(b.label, "it"));
 
