@@ -1,8 +1,13 @@
-Il cliente selezionato è correttamente catalogato come Ente nel database (`tipo_soggetto = ente`), quindi il CIG deve comparire ed essere obbligatorio.
+Rendo il campo **CIG/Rif.** sempre visibile nella sezione Contratto della pagina Immissione Polizza, accanto a Vincolo, mantenendo tutte le regole già presenti:
 
-Piano di intervento:
+- Validazione esistente: 10 caratteri alfanumerici (`isValidCigWithFlag` + `normalizeCig`).
+- Flag **"CIG temporaneo (formato libero)"** che sblocca il formato libero fino a 40 caratteri.
+- Asterisco rosso + bordo destructive + messaggio "Obbligatorio per Enti" e blocco salvataggio (`saveBlockReason`) **solo quando il cliente è di tipo Ente** (`cigObbligatorio`).
+- Per clienti privati/azienda: campo opzionale, nessun asterisco, nessun errore se vuoto.
 
-1. Correggere la query del dettaglio cliente in `ImmissionePolizzaPage.tsx` includendo anche `tipo_cliente`, perché oggi il fallback a Ente esiste nel codice ma la colonna non viene caricata.
-2. Rendere più robusta la lettura del `tipo_soggetto` dal gruppo finanziario, gestendo sia relazione singola sia array Supabase, così `cigObbligatorio` diventa true quando il cliente è Ente.
-3. Lasciare il campo CIG nella sezione `Contratto`, subito dopo N° Polizza e prima di Vincolo: per il Comune di Agnone comparirà con asterisco rosso e bloccherà il salvataggio se vuoto.
-4. Verificare che il payload continui a salvare `cig_rif` e `cig_temporaneo` su `titoli` senza modifiche al database.
+Modifica unica in `src/pages/ImmissionePolizzaPage.tsx`:
+- Rimuovo il wrapper `{cigObbligatorio && (...)}` attorno al blocco CIG.
+- Cambio le classi del grid contenitore a `grid-cols-1 md:grid-cols-2` fisso così CIG e Vincolo restano sempre affiancati.
+- L'asterisco, il bordo rosso e l'hint "Obbligatorio per Enti" restano condizionati a `cigObbligatorio`; il messaggio di formato non valido resta condizionato a `cigRif` non vuoto.
+
+Nessuna modifica al database, al payload di salvataggio o alla logica `saveBlockReason`.
