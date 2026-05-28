@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
-import { VociRcaCard } from "@/components/polizze/VociRcaCard";
+import { TitoloImportiPremiBlock } from "@/components/polizze/TitoloImportiPremiBlock";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
