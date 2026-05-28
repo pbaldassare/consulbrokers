@@ -1266,6 +1266,12 @@ const ImmissionePolizzaPage = () => {
       toast.error("Seleziona il Rapporto Agenzia");
       return;
     }
+    if (isRCA) {
+      if (!vTipoVeicolo) { toast.error("Tipo Veicolo obbligatorio per RCA Auto"); return; }
+      if (!vTarga) { toast.error("Targa obbligatoria per RCA Auto"); return; }
+      if (!vUso) { toast.error("Uso obbligatorio per RCA Auto"); return; }
+      if (!vTipologiaGuida) { toast.error("Tipologia Guida obbligatoria per RCA Auto"); return; }
+    }
     const rapportoSel = (rapportiAgenzia || []).find((r: any) => r.id === selectedRapportoId);
     setSaving(true);
     try {
