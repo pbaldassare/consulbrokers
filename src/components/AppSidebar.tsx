@@ -92,6 +92,22 @@ type SidebarEntry =
   | { type: "single"; item: SidebarSingleItem }
   | { type: "group"; group: SidebarGroupDef };
 
+// Path/label legacy DEFINITIVAMENTE RIMOSSI. Mai mostrare, anche se arrivano
+// da cache, storage, o configurazioni vecchie.
+const LEGACY_PATH_PREFIXES = [
+  "/contabilita-generale",
+  "/fatturapa",
+  "/fornitori",
+  "/banca-import",
+  "/area-cfo",
+  "/cfo",
+  "/provvigioni-sede",
+];
+const LEGACY_LABEL_RE = /CONT\.?\s*GENERALE|FATTURAPA|AREA\s*CFO|PROVVIGIONI\s*CONSUL/i;
+export const isLegacyPath = (path?: string) =>
+  !!path && LEGACY_PATH_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+export const isLegacyLabel = (label?: string) => !!label && LEGACY_LABEL_RE.test(label);
+
 const sidebarEntries: SidebarEntry[] = [
   { type: "single", item: { label: "Home", path: "/", icon: LayoutDashboard, permissionKey: "dashboard" } },
   { type: "single", item: { label: "Assistente IA", path: "/ai-assistant", icon: Sparkles, permissionKey: "dashboard" } },
@@ -323,6 +339,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
             const item = entry.item;
+            if (isLegacyPath(item.path) || isLegacyLabel(item.label)) return null;
             if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles)) return null;
             return (
               <RouterNavLink
@@ -353,9 +370,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           }
 
           const group = entry.group;
+          if (isLegacyLabel(group.label)) return null;
           if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles)) return null;
           const visibleChildren = group.children.filter(
-            (child) => !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
+            (child) =>
+              !isLegacyPath(child.path) &&
+              !isLegacyLabel(child.label) &&
+              !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
           );
           if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);
