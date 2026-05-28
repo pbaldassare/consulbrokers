@@ -105,6 +105,8 @@ const emptyForm: RapportoForm = {
   referente_compagnia: "",
   email_referente: "",
   telefono_referente: "",
+  email_messe_a_cassa: "",
+  email_estratto_conto: "",
   note: "",
 };
 
