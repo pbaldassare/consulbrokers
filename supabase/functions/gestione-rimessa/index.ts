@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
       let titoliQ = supabaseAdmin
         .from("titoli")
-        .select("id, importo_incassato")
+        .select("id, importo_incassato, premio_lordo")
         .eq("stato", "incassato")
         .eq("compagnia_id", compagnia_id);
       if (titoli_ids && Array.isArray(titoli_ids) && titoli_ids.length > 0) {
@@ -77,13 +77,18 @@ Deno.serve(async (req) => {
         .select("titolo_id, rimessa_premi!inner(stato)")
         .neq("rimessa_premi.stato", "annullata");
       const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
-      const available = (titoli || []).filter((t: any) => !usedIds.has(t.id));
+      const available = (titoli || [])
+        .filter((t: any) => !usedIds.has(t.id))
+        .map((t: any) => ({
+          id: t.id,
+          importo: Number(t.importo_incassato ?? t.premio_lordo) || 0,
+        }));
 
       if (available.length === 0) {
         return json({ error: "Nessun titolo disponibile (già incluso in altra rimessa o non incassato)" }, 400);
       }
 
-      const totale = available.reduce((s: number, t: any) => s + (Number(t.importo_incassato) || 0), 0);
+      const totale = available.reduce((s: number, t: any) => s + t.importo, 0);
       const today = new Date().toISOString().slice(0, 10);
 
       const { data: rimessa, error: rErr } = await supabaseAdmin
@@ -104,10 +109,11 @@ Deno.serve(async (req) => {
       const dettagli = available.map((t: any) => ({
         rimessa_id: rimessa.id,
         titolo_id: t.id,
-        importo: Number(t.importo_incassato) || 0,
+        importo: t.importo,
       }));
       const { error: dErr } = await supabaseAdmin.from("rimessa_dettaglio").insert(dettagli);
       if (dErr) throw dErr;
+
 
       if (created_by) {
         await supabaseAdmin.from("log_attivita").insert({
@@ -395,11 +401,11 @@ Deno.serve(async (req) => {
     if (action === "crea") {
       if (!compagnia_id) throw new Error("compagnia_id richiesto");
 
-      let available: { id: string; importo_incassato: number }[] = [];
+      let available: { id: string; importo: number }[] = [];
 
       let q = supabaseAdmin
         .from("titoli")
-        .select("id, importo_incassato")
+        .select("id, importo_incassato, premio_lordo")
         .eq("stato", "incassato")
         .eq("compagnia_id", compagnia_id);
       if (titoli_ids && Array.isArray(titoli_ids) && titoli_ids.length > 0) {
@@ -416,11 +422,16 @@ Deno.serve(async (req) => {
         .select("titolo_id, rimessa_premi!inner(stato)")
         .neq("rimessa_premi.stato", "annullata");
       const usedIds = new Set((usedTitoli || []).map((r: any) => r.titolo_id));
-      available = (titoli || []).filter((t: any) => !usedIds.has(t.id));
+      available = (titoli || [])
+        .filter((t: any) => !usedIds.has(t.id))
+        .map((t: any) => ({
+          id: t.id,
+          importo: Number(t.importo_incassato ?? t.premio_lordo) || 0,
+        }));
 
       if (available.length === 0) return json({ error: "Nessun titolo disponibile" }, 400);
 
-      const totale = available.reduce((s: number, t: any) => s + (Number(t.importo_incassato) || 0), 0);
+      const totale = available.reduce((s: number, t: any) => s + t.importo, 0);
       const totalePagato = importo_pagato != null ? Number(importo_pagato) : totale;
       const today = new Date().toISOString().slice(0, 10);
 
@@ -445,10 +456,11 @@ Deno.serve(async (req) => {
       const dettagli = available.map((t: any) => ({
         rimessa_id: rimessa.id,
         titolo_id: t.id,
-        importo: Number(t.importo_incassato) || 0,
+        importo: t.importo,
       }));
       const { error: dErr } = await supabaseAdmin.from("rimessa_dettaglio").insert(dettagli);
       if (dErr) throw dErr;
+
 
       if (created_by) {
         await supabaseAdmin.from("log_attivita").insert({
