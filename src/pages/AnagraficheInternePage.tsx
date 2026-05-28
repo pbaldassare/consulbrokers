@@ -137,7 +137,7 @@ const emptyForm = {
   sigla: "", banca_riga1: "", banca_riga2: "", banca_riga3: "",
   nome_rui: "", iscrizione_rui: "", data_iscrizione_rui: "", numero_rui: "", sezione_rui: "",
   // Produttori / commerciali
-  percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "",
+  percentuale_base: "", percentuale_consulenza: "", codice_fornitore: "", percentuale_ra: "4.60",
   abi: "", cab: "", iban: "", intestatario_cc: "",
 };
 
