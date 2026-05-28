@@ -458,6 +458,8 @@ export function ImportNuovaPolizzaAIDialog({
       for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       setPhase(25, "Conversione base64…");
       const b64 = btoa(bin);
+      // Conserva il PDF originale: verrà archiviato fra i documenti della polizza al salvataggio.
+      setSourcePdf({ name: file.name, base64: b64, mimeType: file.type || "application/pdf" });
       setPhase(40, "Invio a Gemini per analisi (con catalogo sottorami)…");
       const isZQ = String(gruppoRamoCtx?.codice || "").toUpperCase() === "ZQ";
       const wantsVeicolo = forzaPolizzaAuto || isZQ;
