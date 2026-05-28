@@ -1449,8 +1449,40 @@ const ImmissionePolizzaPage = () => {
       }
 
 
+      // Archivia il PDF della scansione AI fra i documenti della polizza
+      if (aiSourcePdf) {
+        try {
+          const bin = atob(aiSourcePdf.base64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const safeName =
+            (aiSourcePdf.name || `polizza-${numeroPolizza || newTitolo.id}.pdf`)
+              .replace(/\s+/g, "_")
+              .replace(/[^\w.\-]/g, "");
+          const path = `${newTitolo.id}/${Date.now()}_${safeName}`;
+          const { error: upErr } = await supabase.storage
+            .from("documenti_titoli")
+            .upload(path, bytes, { contentType: aiSourcePdf.mimeType || "application/pdf", upsert: true });
+          if (upErr) throw upErr;
+          const { error: docErr } = await supabase.from("documenti").insert({
+            entita_tipo: "titolo",
+            entita_id: newTitolo.id,
+            bucket_name: "documenti_titoli",
+            path_storage: path,
+            nome_file: safeName,
+            categoria: "polizza_originale",
+            visibile_al_cliente: false,
+          } as any);
+          if (docErr) throw docErr;
+        } catch (e: any) {
+          console.error("Archiviazione PDF AI fallita:", e);
+          toast.warning("Polizza creata ma archiviazione PDF AI fallita: " + (e?.message || "errore"));
+        }
+      }
+
       toast.success("Polizza registrata con successo");
       clearDraft(draftKey);
+      setAiSourcePdf(null);
       navigate(`/titoli/${newTitolo.id}`);
 
     } catch (err: any) {
