@@ -927,6 +927,11 @@ const ImmissionePolizzaPage = () => {
     }
   }, [rapportiAgenzia, selectedCompagnia, isBrokerLike]);
 
+  // Sync targa veicolo → campo legacy targa_telaio salvato in titoli (UI Targa è solo in sezione Veicolo)
+  useEffect(() => {
+    if (vTarga) setTargaTelaio(vTarga);
+  }, [vTarga]);
+
 
   // Gruppo ramo selezionato (verità: selectedGruppoRamoId; selectedRamo derivato da righe garanzia in save)
   const selectedRamoData = ramiList?.find((r) => r.id === selectedRamo);
