@@ -250,7 +250,7 @@ const AnagraficheInternePage = () => {
         percentuale_base: form.percentuale_base ? Number(form.percentuale_base) : 0,
         percentuale_consulenza: form.percentuale_consulenza ? Number(form.percentuale_consulenza) : 0,
         codice_fornitore: form.codice_fornitore || null,
-        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 0,
+        percentuale_ra: form.percentuale_ra ? Number(form.percentuale_ra) : 4.60,
         abi: form.abi || null,
         cab: form.cab || null,
         iban: form.iban || null,
