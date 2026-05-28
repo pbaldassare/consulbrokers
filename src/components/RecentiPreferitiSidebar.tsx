@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { Star, Clock, X, Pin, PinOff, User, FileText, AlertTriangle, Handshake, Building2 } from "lucide-react";
 import { useRecentEntities, type EntityKind, type RecentEntity } from "@/hooks/useRecentEntities";
+import { isLegacyPath, isLegacyLabel } from "./AppSidebar";
 
 const ICONS: Record<EntityKind, typeof User> = {
   cliente: User,
@@ -58,7 +59,9 @@ const Row = ({
 };
 
 const RecentiPreferitiSidebar = ({ collapsed }: Props) => {
-  const { recent, pinned, togglePin, removeRecent } = useRecentEntities();
+  const { recent: recentRaw, pinned: pinnedRaw, togglePin, removeRecent } = useRecentEntities();
+  const recent = recentRaw.filter((r) => !isLegacyPath(r.path) && !isLegacyLabel(r.label));
+  const pinned = pinnedRaw.filter((p) => !isLegacyPath(p.path) && !isLegacyLabel(p.label));
 
   if (collapsed) return null;
   if (recent.length === 0 && pinned.length === 0) return null;

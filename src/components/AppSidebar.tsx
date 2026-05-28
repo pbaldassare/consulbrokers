@@ -339,6 +339,7 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         {sidebarEntries.map((entry) => {
           if (entry.type === "single") {
             const item = entry.item;
+            if (isLegacyPath(item.path) || isLegacyLabel(item.label)) return null;
             if (!isVisible(item.permissionKey, item.adminOnly, item.hideForRoles)) return null;
             return (
               <RouterNavLink
@@ -369,9 +370,13 @@ const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           }
 
           const group = entry.group;
+          if (isLegacyLabel(group.label)) return null;
           if (!isVisible(group.permissionKey, group.adminOnly, group.hideForRoles)) return null;
           const visibleChildren = group.children.filter(
-            (child) => !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
+            (child) =>
+              !isLegacyPath(child.path) &&
+              !isLegacyLabel(child.label) &&
+              !(child.hideForRoles && currentRole && child.hideForRoles.includes(currentRole))
           );
           if (visibleChildren.length === 0) return null;
           const isOpen = openGroups.has(group.label);
