@@ -2406,8 +2406,10 @@ const ImmissionePolizzaPage = () => {
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Identificazione</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
                 <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Tipo Veicolo{aiBadge("vTipoVeicolo")}</Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipoVeicolo")}`} value={vTipoVeicolo}
+                  <Label className="text-[11px] font-medium text-foreground/80">
+                    Tipo Veicolo{isRCA && <span className="text-destructive ml-0.5">*</span>}{aiBadge("vTipoVeicolo")}
+                  </Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipoVeicolo")} ${isRCA && !vTipoVeicolo ? "border-amber-500" : ""}`} value={vTipoVeicolo}
                     onValueChange={(v) => { setVTipoVeicolo(v); setVSettore(v); clearAiPrefilled("vTipoVeicolo"); }}
                     placeholder="—" options={TIPI_VEICOLO} />
                 </div>
@@ -2428,11 +2430,11 @@ const ImmissionePolizzaPage = () => {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium text-foreground/80">
-                    Targa{aiBadge("vTarga")}
+                    Targa{isRCA && <span className="text-destructive ml-0.5">*</span>}{aiBadge("vTarga")}
                     {vTarga && !targaValid && <span className="ml-1 text-[10px] text-amber-600">⚠ formato</span>}
                   </Label>
                   <Input value={vTarga} onChange={(e) => { setVTarga(e.target.value.toUpperCase()); clearAiPrefilled("vTarga"); }}
-                    className={`h-9 text-sm font-mono uppercase ${aiCls("vTarga")} ${vTarga && !targaValid ? "border-amber-500" : ""}`} placeholder="AB123CD" />
+                    className={`h-9 text-sm font-mono uppercase ${aiCls("vTarga")} ${(vTarga && !targaValid) || (isRCA && !vTarga) ? "border-amber-500" : ""}`} placeholder="AB123CD" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium text-foreground/80">
@@ -2455,8 +2457,10 @@ const ImmissionePolizzaPage = () => {
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Circolazione</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
                 <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Uso</Label>
-                  <SearchableSelect className="h-9 text-sm" value={vUso} onValueChange={setVUso} placeholder="—"
+                  <Label className="text-[11px] font-medium text-foreground/80">
+                    Uso{isRCA && <span className="text-destructive ml-0.5">*</span>}
+                  </Label>
+                  <SearchableSelect className={`h-9 text-sm ${isRCA && !vUso ? "border-amber-500" : ""}`} value={vUso} onValueChange={setVUso} placeholder="—"
                     options={rcaUsi || []} />
                 </div>
                 <div className="space-y-1">
@@ -2531,10 +2535,12 @@ const ImmissionePolizzaPage = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 mt-3">
                 <div className="space-y-1">
-                  <Label className="text-[11px] font-medium text-foreground/80">Tipologia Guida{aiBadge("vTipologiaGuida")}</Label>
-                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipologiaGuida")}`} value={vTipologiaGuida}
+                  <Label className="text-[11px] font-medium text-foreground/80">
+                    Tipologia Guida{isRCA && <span className="text-destructive ml-0.5">*</span>}{aiBadge("vTipologiaGuida")}
+                  </Label>
+                  <SearchableSelect className={`h-9 text-sm ${aiCls("vTipologiaGuida")} ${isRCA && !vTipologiaGuida ? "border-amber-500" : ""}`} value={vTipologiaGuida}
                     onValueChange={(v) => { setVTipologiaGuida(v); clearAiPrefilled("vTipologiaGuida"); }}
-                    placeholder="—" options={["Libera","Esperta","Esclusiva"].map(v => ({ value: v, label: v }))} />
+                    placeholder="—" options={["Libera","Esperta"].map(v => ({ value: v, label: v }))} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium text-foreground/80">Alimentazione{aiBadge("vTipoAlimentazione")}</Label>
