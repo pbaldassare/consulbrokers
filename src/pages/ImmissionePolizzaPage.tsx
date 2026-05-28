@@ -828,7 +828,7 @@ const ImmissionePolizzaPage = () => {
       }
     }
 
-    if (bo?.profilo_id) setSelectedBackofficeId(bo.profilo_id as string);
+    if (bo?.profilo_id && !selectedBackofficeId) setSelectedBackofficeId(bo.profilo_id as string);
 
     // Produttore: prima anagrafica_id, poi fallback per nome verso aeList (anagrafiche corrispondenti)
     if (prod?.anagrafica_id) {
