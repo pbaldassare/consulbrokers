@@ -1981,6 +1981,8 @@ export type Database = {
           comune: string | null
           conto_bancario_id: string | null
           created_at: string | null
+          email_estratto_conto: string | null
+          email_messe_a_cassa: string | null
           escluso_all4: boolean | null
           fax: string | null
           firma_digitale: string | null
@@ -2031,6 +2033,8 @@ export type Database = {
           comune?: string | null
           conto_bancario_id?: string | null
           created_at?: string | null
+          email_estratto_conto?: string | null
+          email_messe_a_cassa?: string | null
           escluso_all4?: boolean | null
           fax?: string | null
           firma_digitale?: string | null
@@ -2081,6 +2085,8 @@ export type Database = {
           comune?: string | null
           conto_bancario_id?: string | null
           created_at?: string | null
+          email_estratto_conto?: string | null
+          email_messe_a_cassa?: string | null
           escluso_all4?: boolean | null
           fax?: string | null
           firma_digitale?: string | null

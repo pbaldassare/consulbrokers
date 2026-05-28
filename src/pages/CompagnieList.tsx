@@ -98,6 +98,8 @@ interface CompagniaForm {
   pec: string;
   mail_ec: string;
   mail_avvisi: string;
+  email_messe_a_cassa: string;
+  email_estratto_conto: string;
   codice_fiscale: string;
   partita_iva: string;
   iscrizione_rui_sez: string;
@@ -140,6 +142,8 @@ const emptyForm: CompagniaForm = {
   nome: "", nome_sede: "", codice: "", nome_segue: "", indirizzo: "", cap: "", comune: "", provincia: "",
   nazione: "ITALIA", stato: "Attivo", telefono: "", fax: "", cellulare: "", note: "",
   mail: "", pec: "", mail_ec: "", mail_avvisi: "",
+  email_messe_a_cassa: "pscarpelli@consulbrokers.it",
+  email_estratto_conto: "pscarpelli@consulbrokers.it",
   codice_fiscale: "", partita_iva: "", iscrizione_rui_sez: "", iscrizione_rui_num: "",
   pagamento: "", tipo_pagamento: "", percentuale_ra: "",
   gruppo_compagnia: "", gruppo_compagnia_id: "", tipo_mandatario: "", gruppo_statistico: "",
@@ -176,6 +180,8 @@ function dbToForm(c: any): CompagniaForm {
     pec: c.pec || "",
     mail_ec: c.mail_ec || "",
     mail_avvisi: c.mail_avvisi || "",
+    email_messe_a_cassa: c.email_messe_a_cassa || "pscarpelli@consulbrokers.it",
+    email_estratto_conto: c.email_estratto_conto || "pscarpelli@consulbrokers.it",
     codice_fiscale: c.codice_fiscale || "",
     partita_iva: c.partita_iva || "",
     iscrizione_rui_sez: c.iscrizione_rui_sez || "",
@@ -227,6 +233,8 @@ function formToPayload(form: CompagniaForm) {
     pec: form.pec || null,
     mail_ec: form.mail_ec || null,
     mail_avvisi: form.mail_avvisi || null,
+    email_messe_a_cassa: form.email_messe_a_cassa || null,
+    email_estratto_conto: form.email_estratto_conto || null,
     codice_fiscale: form.codice_fiscale || null,
     partita_iva: form.partita_iva || null,
     iscrizione_rui_sez: form.iscrizione_rui_sez || null,
@@ -697,7 +705,34 @@ function CompagniaFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             {renderField("Telefono", "telefono")}
-            {renderField("Mail Estratto Conto", "mail_ec")}
+            {renderField("Mail Estratto Conto (legacy)", "mail_ec")}
+          </div>
+
+          <div className="border-t pt-3 mt-3">
+            <Label className="text-sm font-medium text-foreground">Indirizzi Email Funzionali</Label>
+            <p className="text-xs text-muted-foreground">Usati per invio comunicazioni operative. Sovrascrivibili per singolo rapporto.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Email Messe a Cassa</Label>
+              <Input
+                type="email"
+                placeholder="messeacassa@..."
+                value={form.email_messe_a_cassa}
+                onChange={(e) => setField("email_messe_a_cassa", e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Destinatario comunicazioni di messa in pagamento</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Email Estratto Conto</Label>
+              <Input
+                type="email"
+                placeholder="estrattoconto@..."
+                value={form.email_estratto_conto}
+                onChange={(e) => setField("email_estratto_conto", e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Destinatario invio E/C agenzia</p>
+            </div>
           </div>
 
           <div className="space-y-1">
