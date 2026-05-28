@@ -985,7 +985,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Data Inizio</Label>
                     <Input
@@ -1009,6 +1009,16 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
                       step="0.01"
                       value={form.percentuale_provvigione}
                       onChange={(e) => setForm((p) => ({ ...p, percentuale_provvigione: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">% Ritenuta d'acconto</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="4.60"
+                      value={form.percentuale_ra}
+                      onChange={(e) => setForm((p) => ({ ...p, percentuale_ra: e.target.value }))}
                     />
                   </div>
                 </div>
