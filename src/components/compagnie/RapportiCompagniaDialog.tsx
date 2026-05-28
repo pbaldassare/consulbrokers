@@ -528,6 +528,8 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
       referente_compagnia: r.referente_compagnia || "",
       email_referente: r.email_referente || "",
       telefono_referente: r.telefono_referente || "",
+      email_messe_a_cassa: r.email_messe_a_cassa || "",
+      email_estratto_conto: r.email_estratto_conto || "",
       note: r.note || "",
     });
     // Copia rami abilitati
