@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { purgeClientCaches, forceReload } from "@/lib/versionCheck";
+import { refreshToLatestVersion } from "@/lib/versionCheck";
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
@@ -22,12 +22,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
   }
 
   private reload = async () => {
-    try {
-      await purgeClientCaches();
-    } catch {}
-    if (!forceReload("user clicked reload from error boundary")) {
-      window.location.reload();
-    }
+    await refreshToLatestVersion("user clicked reload from error boundary");
   };
 
   private goHome = () => {

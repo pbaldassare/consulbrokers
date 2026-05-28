@@ -3,11 +3,12 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
 import { componentTagger } from "lovable-tagger";
+import { APP_RELEASE_VERSION } from "./src/lib/appRelease";
 
 // Timestamp condiviso fra VITE_APP_VERSION (embedded nel bundle) e
 // public/version.json (servito statico). Permette al client di confrontare
 // la propria versione con quella sul server.
-const APP_VERSION = new Date().toISOString();
+const APP_VERSION = `${APP_RELEASE_VERSION}__${new Date().toISOString()}`;
 
 /**
  * Plugin che scrive `version.json` sia in `public/` (per dev server)
@@ -39,6 +40,18 @@ function writeVersionJson(): Plugin {
   };
 }
 
+function forcePreviewFullReload(): Plugin {
+  return {
+    name: "force-preview-full-reload",
+    apply: "serve",
+    handleHotUpdate(ctx) {
+      if (ctx.file.includes("node_modules") || ctx.file.includes(".git")) return;
+      ctx.server.ws.send({ type: "full-reload", path: "*" });
+      return [];
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
@@ -47,6 +60,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
     hmr: {
       overlay: false,
     },
@@ -54,6 +72,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     writeVersionJson(),
+    forcePreviewFullReload(),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
