@@ -672,7 +672,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
         .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id, gruppo_finanziario_id, indirizzo, cap, citta, provincia, data_nascita, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id, gruppo_finanziario_id, indirizzo_residenza, cap_residenza, citta_residenza, provincia_residenza, indirizzo_sede, cap_sede, citta_sede, provincia_sede, data_nascita, gruppi_finanziari!clienti_gruppo_finanziario_id_fkey(id, codice, nome, tipo_soggetto)")
         .eq("id", selectedClienteId)
         .maybeSingle();
       return data as any;
@@ -2347,10 +2347,15 @@ const ImmissionePolizzaPage = () => {
           const c: any = clienteDettaglio;
           setCNome(c.nome || ""); clearAiPrefilled("cNome");
           setCCognome(c.cognome || ""); clearAiPrefilled("cCognome");
-          if (c.indirizzo) { setCIndirizzo(c.indirizzo); clearAiPrefilled("cIndirizzo"); }
-          if (c.cap) { setCCap(c.cap); clearAiPrefilled("cCap"); }
-          if (c.citta) { setCCitta(c.citta); clearAiPrefilled("cCitta"); }
-          if (c.provincia) { setCProvincia(String(c.provincia).toUpperCase()); clearAiPrefilled("cProvincia"); }
+          const isPrivato = (c.tipo_cliente || "") === "privato";
+          const ind = isPrivato ? c.indirizzo_residenza : (c.indirizzo_sede || c.indirizzo_residenza);
+          const cap = isPrivato ? c.cap_residenza : (c.cap_sede || c.cap_residenza);
+          const citta = isPrivato ? c.citta_residenza : (c.citta_sede || c.citta_residenza);
+          const prov = isPrivato ? c.provincia_residenza : (c.provincia_sede || c.provincia_residenza);
+          if (ind) { setCIndirizzo(ind); clearAiPrefilled("cIndirizzo"); }
+          if (cap) { setCCap(cap); clearAiPrefilled("cCap"); }
+          if (citta) { setCCitta(citta); clearAiPrefilled("cCitta"); }
+          if (prov) { setCProvincia(String(prov).toUpperCase()); clearAiPrefilled("cProvincia"); }
           if (c.data_nascita) { setCDataNascita(c.data_nascita); clearAiPrefilled("cDataNascita"); }
           // Se data nascita assente, prova a derivarla dal CF
           if (!c.data_nascita && c.codice_fiscale) {
@@ -2358,7 +2363,7 @@ const ImmissionePolizzaPage = () => {
             if (parsed) {
               setCDataNascita(parsed.dataNascita);
               const comune = lookupComune(parsed.codiceCatastale);
-              if (comune && !c.provincia) setCProvincia(comune.provincia);
+              if (comune && !prov) setCProvincia(comune.provincia);
             }
           }
           // Default patente per tipo veicolo
