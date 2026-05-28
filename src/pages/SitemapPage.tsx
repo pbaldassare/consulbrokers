@@ -214,7 +214,7 @@ const sezioni = [
     area: "Provvigioni",
     icon: Receipt,
     pagine: [
-      { nome: "Provvigioni Consul", desc: "Gestione provvigioni per sede con dettaglio per agenzia e ramo", ruoli: ["admin", "ufficio"] },
+      { nome: "Provvigioni Maturate", desc: "Provvigioni maturate per produttore con dettaglio per agenzia e ramo", ruoli: ["admin", "ufficio"] },
       { nome: "Pagamenti Provvigioni", desc: "Registrazione e monitoraggio pagamenti provvigioni ai produttori", ruoli: ["admin", "ufficio"] },
     ],
   },
@@ -272,7 +272,6 @@ const sezioni = [
     area: "Altre Funzioni",
     icon: Send,
     pagine: [
-      { nome: "Area CFO", desc: "Cruscotto finanziario con indicatori economici aggregati", ruoli: ["admin", "cfo"] },
       { nome: "Notifiche", desc: "Centro notifiche con avvisi di sistema, scadenze e comunicazioni", ruoli: ["admin", "ufficio", "contabilita", "produttore", "backoffice", "corrispondente"] },
       { nome: "Comunicazioni", desc: "Invio e gestione comunicazioni email/PEC a clienti e agenzie", ruoli: ["admin", "ufficio", "backoffice"] },
       { nome: "Spedizioni", desc: "Tracciamento spedizioni documenti e corrispondenza", ruoli: ["admin", "ufficio", "backoffice"] },

@@ -24,7 +24,6 @@ import PagamentiProvvigioniList from "@/pages/PagamentiProvvigioniList";
 import PagamentoProvvigioneDetail from "@/pages/PagamentoProvvigioneDetail";
 import SitemapPage from "@/pages/SitemapPage";
 import StoricoGarePage from "@/pages/StoricoGarePage";
-import AreaCFO from "@/pages/AreaCFO";
 
 export const sistemaRoutes = (
   <>
@@ -44,8 +43,8 @@ export const sistemaRoutes = (
     <Route path="/sitemap" element={<RoleGuard allowedRoles={["admin"]}><SitemapPage /></RoleGuard>} />
 
     {/* STANDALONE */}
-    <Route path="/area-cfo" element={<RoleGuard allowedRoles={["admin", "cfo"]}><AreaCFO /></RoleGuard>} />
-    <Route path="/cfo" element={<Navigate to="/area-cfo" replace />} />
+    <Route path="/area-cfo" element={<Navigate to="/" replace />} />
+    <Route path="/cfo" element={<Navigate to="/" replace />} />
     <Route path="/portafoglio/gestione-polizze" element={<Navigate to="/portafoglio/attive" replace />} />
     <Route path="/anomalie-ko" element={<AnomalieKO />} />
     <Route path="/note-restituzione" element={<NoteRestituzioneList />} />
