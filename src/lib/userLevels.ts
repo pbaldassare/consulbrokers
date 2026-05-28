@@ -47,7 +47,6 @@ export const PERMISSION_GROUPS = [
   {
     label: "Reportistica",
     items: [
-      { key: "cfo_area", label: "Area CFO" },
       { key: "report", label: "Report centralizzato" },
       { key: "estrazioni", label: "Estrazioni & Stampe" },
     ],
@@ -113,7 +112,7 @@ export const LEVELS: LevelConfig[] = [
     borderClass: "border-amber-500/30",
     defaultPermissions: onlyKeys([
       "titoli", "sinistri", "trattative", "contabilita", "rimesse",
-      "ec_clienti", "chiusure", "cfo_area", "report", "estrazioni",
+      "ec_clienti", "chiusure", "report", "estrazioni",
       "provvigioni", "documentale",
     ]),
     defaultVisibility: "all",
