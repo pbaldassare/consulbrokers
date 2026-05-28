@@ -554,9 +554,20 @@ const ImmissionePolizzaPage = () => {
         selectedCommerciale: setSelectedCommerciale,
         percentualeCommerciale: setPercentualeCommerciale,
       };
+      // Campi che hanno un default ereditato dall'anagrafica cliente:
+      // se la bozza ha valore vuoto/null, NON sovrascrivere così che vinca
+      // il default proveniente da `clienti.ufficio_id` / `codici_commerciali_cliente`.
+      const skipIfEmptyKeys = new Set([
+        "selectedUfficioId",
+        "selectedAE",
+        "selectedAccountExecutiveId",
+        "selectedBackofficeId",
+      ]);
       for (const k of Object.keys(d)) {
         const fn = setters[k];
-        if (fn && d[k] !== undefined) fn(d[k]);
+        if (!fn || d[k] === undefined) continue;
+        if (skipIfEmptyKeys.has(k) && (d[k] === null || d[k] === "")) continue;
+        fn(d[k]);
       }
       setDraftRestoredAt(loaded.ts);
     }
