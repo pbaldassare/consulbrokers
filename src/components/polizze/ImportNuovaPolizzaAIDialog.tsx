@@ -618,6 +618,7 @@ export function ImportNuovaPolizzaAIDialog({
       tipoCliente: effIsNewCliente ? tipoClienteAuto : undefined,
       codiceCig: effIsNewCliente && cigRequired ? codiceCigNew.trim() || undefined : undefined,
       polizzaAuto: forzaPolizzaAuto || selectedGruppoRamoCodice === "ZQ",
+      sourcePdf: sourcePdf ?? undefined,
     };
   };
 
