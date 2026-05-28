@@ -1,26 +1,22 @@
-Obiettivo: eliminare davvero le pagine legacy visibili dopo refresh e rendere il caricamento immune da cache/PWA obsolete.
+Hai ragione: dallo screenshot il browser sta ancora mostrando un bundle/sidebar vecchio con `CONT. GENERALE`, `FATTURAPA`, `Area CFO` e `Provvigioni Consul`, mentre nel sorgente attuale `AppSidebar.tsx` non contiene più quelle voci. Quindi il problema non è solo “route vecchie”: è anche un vecchio bundle che resta visibile nella preview/pubblicato.
 
-1. Ripulire la sidebar
-- Rimuovere dalla navigazione le voci legacy ancora presenti nello screenshot/codice: `Area CFO`, `Provvigioni Consul` e ogni altra voce non più voluta.
-- Mantenere solo le sezioni attuali già previste: Home, Trattative, Portafoglio, Archivio Documentale, Anagrafiche Utenti, Sinistri, Contabilità, Sistema, Provvigioni, Notifiche.
-- Aggiornare eventuali label residue nella sitemap per non far riapparire nomi vecchi tramite ricerca interna o pagine elenco.
+Piano di intervento:
 
-2. Blindare le vecchie route
-- Le route legacy già redirette (`/contabilita-generale`, `/fatturapa`, `/fornitori`, `/banca-import`) resteranno redirette.
-- Aggiungere/normalizzare redirect anche per route legacy ancora raggiungibili dalla sidebar, ad esempio `/area-cfo` e `/provvigioni-sede`, verso pagine attuali coerenti.
-- Non cancellare dati o tabelle DB: si rimuove l’accesso UI/route alle pagine vecchie, senza rompere relazioni storiche.
+1. **Pulizia definitiva dei riferimenti legacy rimasti**
+   - Rimuovere anche le route redirect residue per pagine eliminate da mesi: `/contabilita-generale/*`, `/fatturapa/*`, `/fornitori/*`, `/banca-import/*`, oltre a `/area-cfo`, `/cfo`, `/provvigioni-sede`.
+   - Farle cadere nella gestione standard 404/redirect globale, invece di mantenerle come pagine “conosciute”.
+   - Eliminare riferimenti testuali legacy rimasti in `.lovable/plan.md` se continuano a confondere il contesto.
 
-3. Sistemare il refresh alla radice
-- Rendere `version.json` deterministico per ogni avvio/build, ma senza dipendere da un timestamp calcolato solo quando Vite parte: così il client rileva sempre bundle vecchio vs server nuovo.
-- Rafforzare il controllo versione all’avvio e al ritorno focus: se il bundle è vecchio, svuota cache/browser cache storage e forza reload cache-busted.
-- Correggere la discrepanza commenti/logica del throttle e ridurre i casi in cui l’app resta bloccata su una versione vecchia.
+2. **Blindare il menu contro voci stale**
+   - Aggiungere una blacklist esplicita dei path legacy nel layer di navigazione/sidebar, così anche se una configurazione vecchia o dati persistiti provano a renderli, non appaiono.
+   - Verificare anche `RecentiPreferitiSidebar`, perché potrebbe riproporre link vecchi da storage/preferiti/recenti anche dopo la rimozione dal menu principale.
 
-4. Disattivare definitivamente il rischio PWA cache
-- Rimuovere il manifest dal `index.html` oppure renderlo innocuo se non serve come PWA installabile.
-- Tenere i kill-switch `sw.js` e `service-worker.js` per disinstallare vecchi service worker già installati nei browser degli utenti.
-- Aggiungere header no-store coerenti per i file statici critici dove configurabile.
+3. **Forzare refresh reale del bundle**
+   - Aumentare `APP_RELEASE_VERSION` e aggiornare `public/version.json`.
+   - Verificare che `AppVersionGuard` e `versionCheck` svuotino service worker, cache storage, localStorage/sessionStorage non essenziali e ricarichino con cache-bust.
+   - Se necessario, rendere il purge più aggressivo solo per chi ha ancora route/menu legacy salvati.
 
-5. Verifica
-- Cercare nuovamente nel codice le stringhe legacy per assicurarsi che non siano più in sidebar/route navigabili.
-- Controllare che il meccanismo di versione e purge cache sia coerente.
-- Riavviare la preview se necessario, così il nuovo bundle viene servito subito.
+4. **Verifica finale**
+   - Cercare nel codice tutte le occorrenze di `fatturapa`, `contabilita-generale`, `CONT. GENERALE`, `Area CFO`, `Provvigioni Consul`, `provvigioni-sede`.
+   - Confermare che nessuna voce legacy sia renderizzabile dal menu e che gli URL vecchi non abbiano più una route dedicata.
+   - Lasciare solo le pagine attuali di contabilità e provvigioni.
