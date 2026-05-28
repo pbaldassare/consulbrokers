@@ -672,7 +672,7 @@ const ImmissionePolizzaPage = () => {
       if (!selectedClienteId) return null;
       const { data } = await supabase
         .from("clienti")
-        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, ufficio_id, gruppo_finanziario_id, indirizzo, cap, citta, provincia, data_nascita, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
+        .select("id, nome, cognome, ragione_sociale, codice_fiscale, partita_iva, tipo_cliente, ufficio_id, gruppo_finanziario_id, indirizzo, cap, citta, provincia, data_nascita, gruppi_finanziari(id, codice, nome, tipo_soggetto)")
         .eq("id", selectedClienteId)
         .maybeSingle();
       return data as any;
@@ -718,7 +718,8 @@ const ImmissionePolizzaPage = () => {
   // Fallback: se il GF non è ancora assegnato ma il cliente è marcato `tipo_cliente='ente'`,
   // consideralo comunque Ente così il campo CIG appare ed è obbligatorio.
   const tipoSoggetto: "privato" | "azienda" | "ente" | null = useMemo(() => {
-    const gf: any = (clienteDettaglio as any)?.gruppi_finanziari;
+    const gfRaw: any = (clienteDettaglio as any)?.gruppi_finanziari;
+    const gf: any = Array.isArray(gfRaw) ? gfRaw[0] : gfRaw;
     const fromGf = (gf?.tipo_soggetto as any) ?? null;
     if (fromGf) return fromGf;
     const tc = (clienteDettaglio as any)?.tipo_cliente;
