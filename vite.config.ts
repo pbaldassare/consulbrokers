@@ -5,10 +5,11 @@ import fs from "fs";
 import { componentTagger } from "lovable-tagger";
 import { APP_RELEASE_VERSION } from "./src/lib/appRelease";
 
-// Timestamp condiviso fra VITE_APP_VERSION (embedded nel bundle) e
-// public/version.json (servito statico). Permette al client di confrontare
-// la propria versione con quella sul server.
-const APP_VERSION = `${APP_RELEASE_VERSION}__${new Date().toISOString()}`;
+// Versione STABILE condivisa fra VITE_APP_VERSION (embedded nel bundle) e
+// public/version.json (servito statico). Deve restare identica fra build
+// successive con lo stesso APP_RELEASE_VERSION, altrimenti il client va in
+// loop di reload per mismatch versione.
+const APP_VERSION = APP_RELEASE_VERSION;
 
 /**
  * Plugin che scrive `version.json` sia in `public/` (per dev server)
