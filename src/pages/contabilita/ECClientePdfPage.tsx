@@ -108,14 +108,15 @@ const ECClientePdfPage = () => {
         .from("titoli")
         .select("id, numero_titolo, prodotto_nome, descrizione_polizza, premio_lordo, garanzia_da, durata_da, data_messa_cassa, data_decorrenza_rinnovo, ramo_id, compagnia_id, rami:ramo_id(codice, descrizione), compagnie:compagnia_id(nome, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione))")
         .eq("cliente_anagrafica_id", clienteId)
-        .not("data_messa_cassa", "is", null);
+        .is("data_messa_cassa", null)
+        .is("sostituisce_polizza", null);
       if (titoliIds.length > 0) {
         q = q.in("id", titoliIds);
       } else {
-        if (periodoDal) q = q.gte("data_messa_cassa", periodoDal);
-        if (periodoAl) q = q.lte("data_messa_cassa", periodoAl);
+        if (periodoDal) q = q.gte("garanzia_da", periodoDal);
+        if (periodoAl) q = q.lte("garanzia_da", periodoAl);
       }
-      const { data, error } = await q.order("data_messa_cassa", { ascending: true });
+      const { data, error } = await q.order("garanzia_da", { ascending: true });
       if (error) throw error;
       return data || [];
     },
