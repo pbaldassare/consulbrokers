@@ -73,16 +73,17 @@ const ECClientiContabPage = () => {
     queryFn: async () => {
       let query = supabase
         .from("titoli")
-        .select("id, premio_lordo, importo_incassato, stato, data_incasso, ufficio_id, produttore_id, cliente_anagrafica_id, clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale)")
-        .not("cliente_anagrafica_id", "is", null);
+        .select("id, premio_lordo, importo_incassato, stato, data_incasso, data_messa_cassa, garanzia_da, ufficio_id, produttore_id, cliente_anagrafica_id, clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale)")
+        .not("cliente_anagrafica_id", "is", null)
+        .not("data_messa_cassa", "is", null);
 
       if (filters.ufficio_id) query = query.eq("ufficio_id", filters.ufficio_id);
       if (filters.cliente_id) query = query.eq("cliente_anagrafica_id", filters.cliente_id);
       if (filters.produttore_id) query = query.eq("produttore_id", filters.produttore_id);
-      if (filters.competenza_dal) query = query.gte("data_incasso", format(filters.competenza_dal, "yyyy-MM-dd"));
-      if (filters.competenza_al) query = query.lte("data_incasso", format(filters.competenza_al, "yyyy-MM-dd"));
-      if (filters.scadenza_dal) query = query.gte("created_at", format(filters.scadenza_dal, "yyyy-MM-dd"));
-      if (filters.scadenza_al) query = query.lte("created_at", format(filters.scadenza_al, "yyyy-MM-dd"));
+      if (filters.competenza_dal) query = query.gte("data_messa_cassa", format(filters.competenza_dal, "yyyy-MM-dd"));
+      if (filters.competenza_al) query = query.lte("data_messa_cassa", format(filters.competenza_al, "yyyy-MM-dd"));
+      if (filters.scadenza_dal) query = query.gte("garanzia_da", format(filters.scadenza_dal, "yyyy-MM-dd"));
+      if (filters.scadenza_al) query = query.lte("garanzia_da", format(filters.scadenza_al, "yyyy-MM-dd"));
 
       const { data: titoli, error } = await query;
       if (error) throw error;
