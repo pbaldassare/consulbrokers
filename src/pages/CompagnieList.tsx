@@ -233,6 +233,8 @@ function formToPayload(form: CompagniaForm) {
     pec: form.pec || null,
     mail_ec: form.mail_ec || null,
     mail_avvisi: form.mail_avvisi || null,
+    email_messe_a_cassa: form.email_messe_a_cassa || null,
+    email_estratto_conto: form.email_estratto_conto || null,
     codice_fiscale: form.codice_fiscale || null,
     partita_iva: form.partita_iva || null,
     iscrizione_rui_sez: form.iscrizione_rui_sez || null,
