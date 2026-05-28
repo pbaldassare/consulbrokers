@@ -1,22 +1,26 @@
-# Eliminazione completa polizza 184667297
+# Email Messe a Cassa / Estratto Conto a livello di Compagnia
 
-## Stato attuale
-Due titoli trovati con numero `184667297`:
-- `01fbb860-7d18-4ad5-918a-c3cb0d421704` — stato `incassato`, premio 1971,08€, **data_messa_cassa 2026-05-28** (residuo dell'ultima messa a cassa)
-- `5ce9667e-136e-4b3c-855f-39ddd7023246` — stato `attivo`, premio 1925,03€, `sostituisce_polizza=184667297` (quietanza successiva)
+## Obiettivo
+I due indirizzi email (Messe a Cassa, Estratto Conto) devono essere presenti **anche sulla form della Compagnia/Agenzia/Broker/Direzione**, non solo nei rapporti. Default per tutte le righe esistenti (compagnie + rapporti): `pscarpelli@consulbrokers.it`.
 
-Riferimenti collegati: 1 `rimessa_dettaglio`, 1 `provvigioni_generate`, 4 `log_attivita`.
+## DB
+1. `ALTER TABLE public.compagnie ADD COLUMN email_messe_a_cassa text, email_estratto_conto text`
+2. Backfill `compagnie`: tutte le righe → `pscarpelli@consulbrokers.it` su entrambi i campi
+3. Backfill `compagnia_rapporti`: aggiorno tutte le righe esistenti a `pscarpelli@consulbrokers.it` (sovrascrivendo il precedente default `pscarpelli@gmail.com`)
 
-## Migration di pulizia (in un singolo DO $$ block)
-1. DELETE da `rimessa_dettaglio` per i due titolo_id (rimuove la riga dalla rimessa/estratto conto agenzia)
-2. DELETE da `provvigioni_generate` per i due titolo_id (rimuove dall'estratto conto produttore/AE)
-3. DELETE da `log_attivita` con `entita_id` nei due titoli
-4. DELETE da `titoli` per i due id
+Nessuna logica di sync automatica tra `compagnie` e `compagnia_rapporti`: il rapporto può sovrascrivere l'email della compagnia madre, se vuoto cade sull'email della compagnia.
 
-Le altre dipendenze (movimenti_contabili, sinistri, documenti, premi per garanzia, split commerciali, snapshot, quietanze isolate, ecc.) vengono pulite via CASCADE.
+## UI
+`src/pages/CompagnieList.tsx` (form Modifica/Nuova compagnia, tab **Anagrafica**):
+- Aggiungo sezione "Indirizzi Email Funzionali" con due campi email affiancati:
+  - "Email Messe a Cassa" (hint: comunicazioni di messa in pagamento dalla compagnia)
+  - "Email Estratto Conto" (hint: invio E/C agenzia)
+- Visibile per **tutti i tipi** (agenzia, broker, direzione, plurimandataria)
+- Default in `formInit` = `pscarpelli@consulbrokers.it` per nuove compagnie
 
-## Effetti attesi
-- Polizza scomparsa da Portafoglio Attive / Storico / Carico
-- Riga rimossa da E/C Agenzia, E/C Cliente, E/C Compagnia, E/C Produttore
-- Nessuna provvigione residua
-- Nessuna voce in Storico Rimesse riferita a questi titoli
+`RapportiCompagniaDialog.tsx`: già aggiornato nella scorsa iterazione, lascio inalterato (resta come override per-rapporto).
+
+## Risultato
+- Form Modifica Agenzia/Broker/Direzione/Plurimandataria mostra i due campi email
+- Tutte le agenzie esistenti hanno già `pscarpelli@consulbrokers.it` salvato
+- Tutti i rapporti esistenti hanno il nuovo default `pscarpelli@consulbrokers.it`
