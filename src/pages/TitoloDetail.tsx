@@ -153,7 +153,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -1941,6 +1941,9 @@ const TitoloDetail = () => {
 
         {!editingContratto ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+            <FieldRow label="Compagnia" value={
+              <span>{(t.compagnia_diretta as any)?.gruppi_compagnia?.descrizione || (t.compagnia_diretta as any)?.gruppo_compagnia || "—"}</span>
+            } />
             <FieldRow label="Agenzia / Agenzia di rif." value={
               <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
