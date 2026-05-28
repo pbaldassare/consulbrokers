@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
-import { VociRcaCard } from "@/components/polizze/VociRcaCard";
+import { TitoloImportiPremiBlock } from "@/components/polizze/TitoloImportiPremiBlock";
 import { ImportPolizzaAiButton } from "@/components/polizze/ImportPolizzaAiButton";
 import { PolizzaSection } from "@/components/polizze/PolizzaSection";
 import { SospensionePolizzaDialog } from "@/components/polizze/SospensionePolizzaDialog";
@@ -2775,113 +2775,23 @@ const TitoloDetail = () => {
           </div>
         )}
 
-        {/* Composizione voci per garanzia - Firma + Quietanza, sempre presenti.
-            Per RCA Auto/Natanti calcolo IPT+SSN; per gli altri rami formula semplice. */}
-        {(() => {
-          const _ramo = (t as any).ramo;
-          const _isAuto = isRamoAuto(_ramo);
-          const _aliqRamo = Number((_ramo as any)?.aliquota_tasse_ramo ?? 0) || undefined;
-          return (
-          <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
-            <p className="text-xs text-muted-foreground">
-              ℹ️ {_isAuto ? (
-                <>Per le polizze <strong>{isRamoNatante(_ramo) ? "RC Natanti / Nautica" : "RCA Auto"}</strong> i premi sono calcolati come somma delle singole garanzie.</>
-              ) : (
-                <>Le voci di garanzia disponibili sono filtrate sul <strong>Gruppo Ramo</strong> della polizza ({_ramo?.descrizione || "—"}). Aggiungi una voce per ogni garanzia compresa nel premio.</>
-              )} La <strong>Quietanza</strong> è inizialmente uno specchio della <strong>Firma</strong> e si aggiorna automaticamente; ogni voce della Quietanza modificata a mano viene marcata come "personalizzata" e non viene più sovrascritta.
-            </p>
-            <div className="space-y-4">
-              <VociRcaCard
-                tipoPremio="firma"
-                titolo={_isAuto ? undefined : `Premi per Garanzia — Firma${_ramo?.descrizione ? ` (${_ramo.descrizione})` : ""}`}
-                mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
-                useAutoTaxFormula={_isAuto}
-                aliquotaDefault={_aliqRamo}
-                titoloId={t.id}
-                premioLordoTitolo={(t as any).premio_lordo}
-                provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
-                addizionaliValue={!_isAuto ? (t as any).addizionali : undefined}
-                onAddizionaliChange={!_isAuto ? async (v) => {
-                  const { error } = await supabase.from("titoli").update({ addizionali: v }).eq("id", t.id);
-                  if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
-                } : undefined}
-                onTotaliChange={(tot) => {
-                  setVociRcaTotali(tot);
-                  if (editingImporti) return;
-                  if (vociRcaSyncTimer.current) clearTimeout(vociRcaSyncTimer.current);
-                  vociRcaSyncTimer.current = setTimeout(async () => {
-                    const curNetto = Number((titolo as any)?.premio_netto ?? 0);
-                    const curTasse = Number((titolo as any)?.tasse ?? 0);
-                    const curLordo = Number((titolo as any)?.premio_lordo ?? 0);
-                    if (
-                      Math.abs(curNetto - tot.netto) < 0.01 &&
-                      Math.abs(curTasse - tot.tasse) < 0.01 &&
-                      Math.abs(curLordo - tot.lordo) < 0.01
-                    ) return;
-                    const { error } = await supabase
-                      .from("titoli")
-                      .update({ premio_netto: tot.netto, tasse: tot.tasse, premio_lordo: tot.lordo })
-                      .eq("id", t.id);
-                    if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
-                  }, 800);
-                }}
-                provvigioniValue={(t as any).provvigioni_firma}
-                onProvvigioniChange={async (v) => {
-                  const { error } = await supabase.from("titoli").update({ provvigioni_firma: v }).eq("id", t.id);
-                  if (!error) {
-                    await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
-                    toast.success("Provvigioni Firma aggiornate");
-                  } else toast.error("Errore aggiornamento provvigioni");
-                }}
-              />
-              {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
-              <VociRcaCard
-                tipoPremio="quietanza"
-                titolo={_isAuto ? undefined : `Premi per Garanzia — Quietanza${_ramo?.descrizione ? ` (${_ramo.descrizione})` : ""}`}
-                mainLabel={_isAuto ? getMainVoceLabel(_ramo) : undefined}
-                useAutoTaxFormula={_isAuto}
-                aliquotaDefault={_aliqRamo}
-                titoloId={t.id}
-                provinciaCliente={(t as any).cliente_anagrafica?.provincia_residenza || (t as any).cliente_anagrafica?.provincia}
-                addizionaliValue={!_isAuto ? (t as any).addizionali_quietanza : undefined}
-                onAddizionaliChange={!_isAuto ? async (v) => {
-                  const { error } = await supabase.from("titoli").update({ addizionali_quietanza: v }).eq("id", t.id);
-                  if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
-                } : undefined}
-                onTotaliChange={(tot) => {
-                  if (editingImporti) return;
-                  if (vociRcaQuietanzaTimer.current) clearTimeout(vociRcaQuietanzaTimer.current);
-                  vociRcaQuietanzaTimer.current = setTimeout(async () => {
-                    const curNetto = Number((titolo as any)?.premio_netto_quietanza ?? 0);
-                    const curTasse = Number((titolo as any)?.tasse_quietanza ?? 0);
-                    if (
-                      Math.abs(curNetto - tot.netto) < 0.01 &&
-                      Math.abs(curTasse - tot.tasse) < 0.01
-                    ) return;
-                    const { error } = await supabase
-                      .from("titoli")
-                      .update({
-                        premio_netto_quietanza: tot.netto,
-                        tasse_quietanza: tot.tasse,
-                      })
-                      .eq("id", t.id);
-                    if (!error) queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
-                  }, 800);
-                }}
-                provvigioniValue={(t as any).provvigioni_quietanza}
-                onProvvigioniChange={async (v) => {
-                  const { error } = await supabase.from("titoli").update({ provvigioni_quietanza: v }).eq("id", t.id);
-                  if (!error) {
-                    await queryClient.refetchQueries({ queryKey: ["titolo", t.id] });
-                    toast.success("Provvigioni Quietanza aggiornate");
-                  } else toast.error("Errore aggiornamento provvigioni");
-                }}
-              />
-              {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
-            </div>
-          </div>
-          );
-        })()}
+        {/* Composizione voci per garanzia — Firma + Quietanza.
+            Stesso componente di ImmissionePolizzaPage: SSN per riga (rami.ssn_attivo),
+            provvigioni con 2 decimali, totale lordo = netto + tasse + ssn + addizionali. */}
+        <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
+          <TitoloImportiPremiBlock
+            titoloId={t.id}
+            gruppoRamoId={((t as any).ramo as any)?.gruppo_ramo_id || null}
+            ramoDescrizione={((t as any).ramo as any)?.descrizione || null}
+            isLocked={isLocked}
+            addizionaliFirma={(t as any).addizionali}
+            addizionaliQuietanza={(t as any).addizionali_quietanza}
+            provvigioniFirma={(t as any).provvigioni_firma}
+            provvigioniQuietanza={(t as any).provvigioni_quietanza}
+          />
+          {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
+          {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
+        </div>
       </SectionCollapsible>
         );
       })()}

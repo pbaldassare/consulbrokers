@@ -1,26 +1,40 @@
 ## Obiettivo
-Per le polizze RCA Auto: i campi veicolo (Targa, Tipo Veicolo, Uso, Tipologia Guida, Alimentazione, ecc.) devono (a) essere estratti dall'IA quando possibile, (b) salvarsi correttamente in `veicoli_polizza`, (c) essere riproposti in `TitoloDetail` con la STESSA grafica/layout di `ImmissionePolizzaPage`. Inoltre rimuovere l'opzione "Esclusiva" da Tipologia Guida e renderla obbligatoria per RCA.
+Allineare la sezione **Importi / Composizione Premio** di `TitoloDetail` a quella di `ImmissionePolizzaPage`, in modo che:
+- la grafica sia identica (stesso componente, stesso layout 2 card Firma+Quietanza),
+- l'SSN venga calcolato e mostrato per ogni riga con flag `rami.ssn_attivo` e sommato nel Totale Tasse e nel Premio Lordo,
+- le provvigioni siano formattate a 2 decimali nell'input.
 
-## Modifiche
+## 1. Sostituire `VociRcaCard` con `PremiGaranziaCardShell` in `TitoloDetail.tsx`
+- Rimuovere import di `VociRcaCard`; importare `PremiGaranziaCardShell` + `emptyGaranziaRow` + `GaranziaRow`.
+- Mantenere la sezione "Importi" con due `PolizzaSection` figli (Firma + Quietanza) come fa Immissione.
+- Caricare le righe esistenti da `premi_garanzia_polizza` (`tipo_premio='firma'` / `'quietanza'`) e mapparle a `GaranziaRow` (sottoramo_id, codice, descrizione, netto, tasse, aliquota_tasse, ssn).
+- Persistere le modifiche: stesso pattern di Immissione (upsert su `premi_garanzia_polizza`) + aggiornare `titoli.premio_netto/tasse/ssn_firma/premio_lordo` e gli analoghi `_quietanza` aggregando le righe (riusando i totali esposti dal componente o ricalcolandoli con la stessa formula `ssn = (netto+tasse)*aliquota_ssn/100`).
+- Trigger DB `premi_garanzia_sync_quietanza` continua a gestire il mirror Firma→Quietanza automaticamente.
 
-### 1. ImmissionePolizzaPage.tsx
-- Rimuovere `"Esclusiva"` dalle opzioni `Tipologia Guida` → restano `Libera`, `Esperta` (riga 2537).
-- Aggiungere validazione: se ramo = RCA Auto e `vTipologiaGuida` vuoto → blocco salvataggio con toast "Tipologia Guida obbligatoria per RCA Auto".
-- Marcare label `Tipologia Guida *`, `Targa *`, `Tipo Veicolo *`, `Uso *` (asterisco rosso) quando RCA.
-- Estendere validazione blocco salvataggio anche su `vTarga`, `vTipoVeicolo`, `vUso` quando RCA.
+## 2. Lock messa-a-cassa
+Mantenere il comportamento già esistente: passare a `PremiGaranziaCardShell` un prop `readOnly` (se non presente, aggiungerlo) o disabilitare i pulsanti "Aggiungi voce" / inputs quando `isLocked` è true, coerente con il banner ambra già presente.
 
-### 2. parse-polizza-completa (edge function)
-- Già estrae `targa`, `tipo_veicolo`, `uso_descrizione`, `tipologia_guida`. Rafforzare prompt: cercare la targa anche nell'header polizza ("Polizza n. XXX – Targa AB123CD") e includere SEMPRE il blocco veicolo per RCA Auto. Normalizzare `tipologia_guida` mappando "Esclusiva"/"Conducente unico" → `Esperta` (l'opzione Esclusiva non esiste più). Mappare `uso_descrizione` → id `rca_usi` lato client (già fa lookup).
-- (Solo prompt/normalizzazione, no breaking change.)
+## 3. Provvigioni: formattazione a 2 decimali
+Nei due input "Provvigioni Firma" e "Provvigioni Quietanza" (sotto le card), normalizzare il valore visualizzato con `Number(v).toFixed(2)` come `defaultValue` (e mantenere `step="0.01"`). Applicare la stessa pulizia ovunque nella pagina compaiano provvigioni come input editabile (anche `provvigioni_firma/quietanza` nel form `importiForm`).
 
-### 3. TitoloDetail.tsx
-- Rimuovere `"ESCLUSIVA"` da `TIPOLOGIA_GUIDA_OPTS` (riga 1086).
-- Allineare il rendering della sezione Veicolo al layout di `ImmissionePolizzaPage` (stesse sezioni "Caratteristiche Tecniche", "Coperture e Massimali", "Clausole", "Dati Conducente", stessi label e ordine campi) così che dopo il salvataggio il dettaglio mostri esattamente la stessa UI dell'immissione (sola differenza: read-only fuori dalla modalità edit).
-- Garantire che tutti i campi (`targa`, `telaio`, `marca`, `modello`, `versione`, `tipo_veicolo`, `uso`, `tipologia_guida`, `tipo_alimentazione`, CV/KW/CC/posti, pesi, massimali, franchigia, clausole, dati conducente) siano letti da `veicoli_polizza` + `conducenti_polizza` e mostrati.
+## 4. Rimozione legacy
+- Eliminare dalla sezione Importi di `TitoloDetail` ogni riferimento al concetto di "riga RCA principale auto" e ai campi `imposta_provinciale`/`ssn` letti dalla sola riga RCA, perché ora il calcolo è per riga via `rami.ssn_attivo`.
+- Non rimuovere `VociRcaCard` dal repo (potrebbe essere usato altrove); rimuovere solo l'uso in `TitoloDetail`.
 
-### 4. DB — veicoli_polizza
-- Lo schema esistente copre già tutti i campi. Verificare presenza colonne `targa`, `telaio`, `marca`, `modello`, `versione`, `tipo_veicolo`, `uso` (uuid FK rca_usi), `tipologia_guida`, `tipo_alimentazione`, `cv`, `kw`, `cc`, `posti`, `peso_motrice`, `peso_rimorchio`, `peso_totale`, `massimale_1/2/3`, `franchigia`, flag clausole. Nessuna migrazione prevista salvo eventuali colonne mancanti rilevate in fase di build.
+## 5. Aggiornamento memoria
+Aggiornare `mem://insurance/titolo-detail-allineato-immissione` e `mem://insurance/sottoramo-as-garanzia-row` segnalando che ora anche TitoloDetail usa `PremiGaranziaCardShell` con SSN per riga; rimuovere la nota "allineamento successivo".
 
-## Note
-- Nessuna modifica ai dati esistenti. Le polizze legacy con `tipologia_guida = "Esclusiva"` resteranno leggibili (verrà mostrato il valore raw); in edit verrà richiesto di scegliere fra Libera/Esperta.
-- L'estrazione AI della targa è già attiva: viene anche copiata in `titoli.targa_telaio` (campo legacy) per compatibilità lista polizze.
+## File coinvolti
+- `src/pages/TitoloDetail.tsx` — sostituzione card Importi, mapping righe DB ↔ `GaranziaRow`, salvataggio, lock, formattazione provvigioni.
+- `src/components/polizze/PremiGaranziaCardShell.tsx` — eventuale aggiunta prop `readOnly` se manca.
+- `.lovable/memory/insurance/titolo-detail-allineato-immissione.md`, `.lovable/memory/insurance/sottoramo-as-garanzia-row.md` — aggiornamento.
+
+## Non in scope
+- Modifiche al parser AI (già OK).
+- Nessuna migration DB: schema `premi_garanzia_polizza` + flag `rami.ssn_attivo` già pronti.
+- Sezione Veicolo/RCA: non si tocca, è già allineata.
+
+## Risultato atteso sulla polizza 184667297
+- Premio Lordo torna a ~1971€ perché l'SSN delle righe RCA con `ssn_attivo` rientra in "Totale Tasse".
+- Le card Firma e Quietanza hanno **esattamente** lo stesso aspetto della pagina Immissione.
+- Le provvigioni mostrano `188,57` e non `188,5672000000`.
