@@ -60,7 +60,7 @@ serve(async (req) => {
         premio_lordo, importo_incassato,
         data_messa_cassa, data_pagamento, tipo_pagamento, banca_pagamento,
         garanzia_da, garanzia_a, data_competenza, data_scadenza,
-        compagnia_id, compagnia_rapporto_id, ramo_id, ufficio_id, account_executive_id,
+        compagnia_id, compagnia_rapporto_id, ramo_id, ufficio_id, ae_anagrafica_id,
         cliente_anagrafica_id,
         clienti!titoli_cliente_anagrafica_id_fkey(id, cognome, nome, ragione_sociale, codice_fiscale, partita_iva),
         compagnie(id, nome, email_messe_a_cassa),
