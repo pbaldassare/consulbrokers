@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAttivita } from "@/lib/logAttivita";
 import { annullaMessaACassa } from "@/lib/annullaMessaACassa";
+import { annullaPolizza } from "@/lib/annullaPolizza";
 import { FRAZIONAMENTI, derivaFrazionamentoDaRate, frazionamentoToRate } from "@/lib/frazionamento";
 import { fmtEuro } from "@/lib/formatCurrency";
 import { useAccountExecutivesLookup } from "@/hooks/useAccountExecutivesLookup";
