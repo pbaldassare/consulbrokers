@@ -1,65 +1,65 @@
 ## Obiettivo
-Quando l'utente clicca **Annullamento** sulla polizza, oggi `changeStatoMutation.mutate("annullato")` si limita a settare `stato='annullato'` e a resettare i campi di messa a cassa. Le quietanze figlie, le provvigioni, i movimenti contabili e i dettagli rimessa restano in DB → la polizza appare ancora negli E/C, nei totali provvigioni, nei carichi rimessa.
-
-Servirà un cleanup a cascata: la polizza madre resta come record `titoli` (in stato `annullato`) per mantenere il `log_attivita` agganciato, ma tutto il resto viene eliminato.
+Quando si clicca **Annullamento** su una polizza/quietanza, oggi viene solo settato `stato='annullato'`. Servirà un cleanup a cascata totale: polizza/quietanza resta come record `titoli` in stato `annullato` (per tenere agganciato il `log_attivita`), tutto il resto viene eliminato — **anche provvigioni e rimesse già pagate**.
 
 ## Implementazione
 
 ### 1. Nuova funzione `src/lib/annullaPolizza.ts`
-Cascade cleanup atomico (lato client, una transazione logica con rollback manuale via log):
 
 ```ts
 annullaPolizza(titoloId: string): Promise<AnnullaPolizzaResult>
 ```
 
 Steps:
-1. **Carica il titolo madre** (`numero_titolo`, `riga`) — per trovare quietanze figlie via `sostituisce_polizza = numero_titolo AND sostituisce_riga = riga`.
-2. **Trova tutte le quietanze figlie** (ricorsivamente: anche figlie di figlie).
-3. **Set di id da pulire** = `[titoloMadre, ...quietanze]`.
-4. **Blocco se rimesse pagate**: query `rimessa_dettaglio` JOIN `rimesse` su quegli id → se esiste una rimessa con `stato='pagata'` → return `{ok:false, error:"…rimessa già pagata, impossibile annullare"}`.
-5. **Blocco se provvigioni pagate**: `provvigioni_generate` con `pagata=true` AND `titolo_id IN (...)` → return errore.
-6. **Delete cascata** (ordine):
-   - `rimessa_dettaglio` WHERE `titolo_id IN (...)`
+1. **Carica il titolo** (`numero_titolo`, `riga`, `sostituisce_polizza`).
+2. **Trova ricorsivamente le quietanze figlie** via `sostituisce_polizza = numero_titolo AND sostituisce_riga = riga` (poi figlie di figlie).
+3. `idsToClean = [titoloId, ...quietanze]`.
+4. **Cascade delete senza blocchi** (ordine importante per FK):
+   - `pagamenti_provvigioni_righe` WHERE `provvigione_id IN (SELECT id FROM provvigioni_generate WHERE titolo_id IN (...))`
    - `provvigioni_generate` WHERE `titolo_id IN (...)`
+   - `rimessa_dettaglio` WHERE `titolo_id IN (...)`
    - `movimenti_contabili` WHERE `riferimento_tipo='titolo' AND riferimento_id IN (...)`
    - `movimenti_polizza` WHERE `titolo_id IN (...)`
    - `titoli_split_commerciali` WHERE `titolo_id IN (...)`
-   - Quietanze figlie: `titoli` WHERE `id IN (quietanze)` (delete fisica)
-7. **Update polizza madre**: `stato='annullato'`, reset di tutti i campi messa a cassa (come fa già `annullaMessaACassa`).
-8. **Log unico** in `log_attivita`:
+   - Quietanze figlie: `DELETE FROM titoli WHERE id IN (quietanze)`
+5. **Update titolo madre/quietanza target**: `stato='annullato'` + reset campi messa a cassa (`data_messa_cassa`, `data_incasso`, `data_pagamento`, `importo_incassato`, `tipo_pagamento`, `banca_pagamento`, `conferimento_gestito=false`, `data_conferimento_gestito=null`).
+6. **Log unico** in `log_attivita`:
    ```
    azione: "annullamento_polizza_cascade"
    entita_tipo: "titolo"
-   entita_id: titoloId  // madre
+   entita_id: titoloId
    severity: "warning"
-   dettagli_json: { quietanze_eliminate, provvigioni_eliminate, movimenti_eliminati, rimessa_dettagli_eliminati, splits_eliminati }
+   dettagli_json: { quietanze_eliminate, provvigioni_eliminate, pagamenti_righe_eliminate, rimessa_dettagli_eliminati, movimenti_eliminati, splits_eliminati, includeva_provvigioni_pagate: boolean }
    ```
-9. Return contatori.
+7. Return contatori.
 
-### 2. `src/pages/TitoloDetail.tsx`
-Sostituire l'`onClick` dell'`AlertDialogAction` "Annulla polizza" (riga ~1560):
+**Nota**: la funzione gestisce sia la polizza madre (`riga = polizza originale`) che una quietanza singola — la logica ricorsiva al punto 2 si limita ai discendenti del titolo target, quindi annullando una quietanza non si tocca la madre né le sorelle.
+
+### 2. `src/pages/TitoloDetail.tsx` (riga 1560)
+
+Sostituire l'`onClick` dell'`AlertDialogAction` "Conferma Annullamento":
 
 ```tsx
 onClick={async () => {
   const res = await annullaPolizza(id!);
   if (!res.ok) { toast.error(res.error); return; }
-  toast.success(`Polizza annullata (${res.quietanzeEliminate} quietanze, ${res.provvigioniEliminate} provv., ${res.movimentiEliminati} mov. rimossi)`);
-  queryClient.invalidateQueries(); // ricarica tutto
+  toast.success(
+    `Polizza annullata: ${res.quietanzeEliminate} quietanze, ${res.provvigioniEliminate} provvigioni, ${res.movimentiEliminati} movimenti rimossi`
+  );
+  queryClient.invalidateQueries();
 }}
 ```
 
-Rimuovere quindi la chiamata a `changeStatoMutation.mutate("annullato")` in quel punto. Il resto del `changeStatoMutation` resta com'è per gli altri stati.
+Aggiornare il testo dell'`AlertDialogDescription` per avvisare che verranno eliminate anche le provvigioni/rimesse già pagate:
 
-### 3. Aggiornare memoria
-`mem://insurance/policy-cancellation-cascade.md` + entry in `mem://index.md`:
-> Annullamento polizza esegue cascade-delete su quietanze figlie, provvigioni, movimenti contabili, movimenti_polizza, rimessa_dettaglio, splits. Polizza madre resta come stato 'annullato' per tracciamento log_attivita. Bloccato se rimesse o provvigioni già pagate.
+> "Annullando la polizza {numero} verranno eliminati: quietanze successive, provvigioni (anche se già pagate), righe rimessa, movimenti contabili ed estratti conto collegati. Resterà solo il log dell'operazione. Confermi?"
 
-## Domande di chiarimento
+Import: `import { annullaPolizza } from "@/lib/annullaPolizza";`
 
-1. **Provvigioni/rimesse già pagate**: confermi che in quel caso devo **bloccare** l'annullamento (mostrando errore), oppure preferisci che proceda comunque eliminando anche quelle (perdendo traccia del pagato)?
-2. **Annullamento di una quietanza singola** (non della madre): per ora il bottone Annullamento sulla quietanza figlia farà cascade solo su quella riga + sue eventuali figlie successive, non sulla madre. OK?
+### 3. Memoria
+Nuovo file `mem://insurance/policy-cancellation-cascade.md` + entry in `mem://index.md`:
+> Annullamento polizza/quietanza → cascade-delete di provvigioni_generate, pagamenti_provvigioni_righe, rimessa_dettaglio, movimenti_contabili, movimenti_polizza, titoli_split_commerciali e quietanze discendenti. Anche le provvigioni/rimesse già pagate vengono eliminate. Il titolo target resta in stato 'annullato' come ancoraggio per log_attivita. Annullamento su quietanza singola tocca solo quella riga + discendenti.
 
 ## Fuori scope
-- Non tocco `annullaMessaACassa` (resta per annullare solo l'incasso senza annullare la polizza).
-- Non modifico i trigger DB esistenti (`trg_titoli_normalizza_importi`, auto-quietanza).
-- Non tocco `pagamenti_provvigioni` / `pagamenti_provvigioni_righe` (riferiscono `provvigioni_generate.id`: se ci sono pagamenti emessi → blocco al punto 5).
+- `annullaMessaACassa` resta invariato.
+- Nessuna modifica a trigger DB.
+- Nessuna modifica a `pagamenti_provvigioni` (header distinta) — vengono toccate solo le righe.
