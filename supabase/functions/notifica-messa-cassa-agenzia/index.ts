@@ -89,11 +89,11 @@ serve(async (req) => {
 
     // AE (specialist)
     let aeNome = "";
-    if (t.account_executive_id) {
+    if (t.ae_anagrafica_id) {
       const { data: ae } = await supabase
         .from("anagrafiche_professionali")
         .select("nome, cognome, ragione_sociale")
-        .eq("id", t.account_executive_id)
+        .eq("id", t.ae_anagrafica_id)
         .maybeSingle();
       if (ae) {
         aeNome = (ae as any).ragione_sociale || `${(ae as any).nome ?? ""} ${(ae as any).cognome ?? ""}`.trim();
