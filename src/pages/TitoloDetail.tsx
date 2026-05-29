@@ -1553,12 +1553,22 @@ const TitoloDetail = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Conferma Annullamento</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Sei sicuro di voler annullare la polizza {t.numero_titolo}? Questa azione è irreversibile.
+                    Annullando la polizza {t.numero_titolo} verranno <strong>eliminati</strong>: quietanze successive, provvigioni (anche se già pagate), righe rimessa, movimenti contabili ed estratti conto collegati. Resterà solo il log dell'operazione come traccia. Questa azione è irreversibile.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Annulla</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => changeStatoMutation.mutate("annullato")} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  <AlertDialogAction
+                    onClick={async () => {
+                      const res = await annullaPolizza(id!);
+                      if (!res.ok) { toast.error(res.error || "Errore annullamento"); return; }
+                      toast.success(
+                        `Polizza annullata: ${res.quietanzeEliminate ?? 0} quietanze, ${res.provvigioniEliminate ?? 0} provvigioni, ${res.movimentiEliminati ?? 0} movimenti, ${res.rimessaDettagliEliminati ?? 0} righe rimessa rimossi${res.includevaProvvigioniPagate ? " (incluse provvigioni già pagate)" : ""}`
+                      );
+                      queryClient.invalidateQueries();
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
                     Conferma Annullamento
                   </AlertDialogAction>
                 </AlertDialogFooter>
