@@ -94,7 +94,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           },
         });
         supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: t.id } }).catch(() => {});
-        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } }).catch((e) => console.error("notifica messa a cassa failed", e));
+        supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })
+          .then((res: any) => {
+            if (res?.error) toast.warning(`Notifica non inviata (${t.numero_titolo ?? t.id}): ${res.error.message ?? res.error}`);
+          })
+          .catch((e) => toast.warning(`Notifica fallita (${t.numero_titolo ?? t.id}): ${e?.message ?? e}`));
       }
     }
     setLoading(false);

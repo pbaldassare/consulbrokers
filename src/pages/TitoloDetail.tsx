@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2 } from "lucide-react";
+import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
 import ChatTab from "@/components/ChatTab";
@@ -1302,9 +1302,13 @@ const TitoloDetail = () => {
       }
       if (nuovoStato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
-        // Notifica formale all'agenzia/rapporto (non bloccante)
+        // Notifica formale all'agenzia/rapporto (non bloccante, ma con feedback errore)
         supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } })
-          .catch((e) => console.warn("notifica messa a cassa fallita:", e));
+          .then((res: any) => {
+            if (res?.error) toast.warning(`Notifica messa a cassa non inviata: ${res.error.message ?? res.error}`);
+            else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
+          })
+          .catch((e) => toast.warning(`Notifica messa a cassa fallita: ${e?.message ?? e}`));
       }
 
       // Cerca quietanza generata automaticamente dal trigger DB
@@ -1585,6 +1589,26 @@ const TitoloDetail = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!t.data_messa_cassa}
+              title={!t.data_messa_cassa ? "Disponibile solo dopo la messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
+              onClick={async () => {
+                const tid = toast.loading("Invio notifica messa a cassa...");
+                const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } });
+                toast.dismiss(tid);
+                if (res?.error) {
+                  toast.error(`Notifica non inviata: ${res.error.message ?? res.error}`);
+                } else {
+                  toast.success(`Notifica inviata a ${res?.data?.recipient ?? "destinatario"}`);
+                  queryClient.invalidateQueries({ queryKey: ["log-attivita", t.id] });
+                }
+              }}
+            >
+              <Mail className="w-4 h-4 mr-1" /> Reinvia notifica
+            </Button>
 
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
             {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (

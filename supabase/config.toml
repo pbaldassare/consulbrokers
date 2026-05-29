@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.seed-comune-varese-polizze]
 verify_jwt = false
+
+[functions.notifica-messa-cassa-agenzia]
+verify_jwt = false
