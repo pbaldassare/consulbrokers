@@ -10,6 +10,9 @@ import {
   FileText,
   XCircle,
   AlertTriangle,
+  DollarSign,
+  Banknote,
+  Ban,
 } from "lucide-react";
 
 /**
@@ -66,6 +69,30 @@ export function TitoloDataPersistenceInfo() {
       movimento: "— (gap noto: nessun movimento dedicato 'ST' viene attualmente generato)",
       collegate: "attivita_log",
       note: "Lo storno aggiorna solo lo stato del titolo. Non viene creata una riga in movimenti_polizza con tipo_documento='ST'.",
+    },
+    {
+      icon: DollarSign,
+      nome: "Messa a Cassa / Incasso",
+      header: "titoli — campi: stato='incassato' (o 'attivo' per poliennali), data_messa_cassa, data_pagamento, data_incasso, importo_incassato, tipo_pagamento, banca_pagamento",
+      movimento: "movimenti_contabili (riferimento_tipo='titolo') + trigger auto-genera quietanza successiva nei titoli (frazionamento)",
+      collegate: "log_attivita + notifica_messa_cassa_inviata (edge function notifica-messa-cassa-agenzia)",
+      note: "Protezione anti-doppio-incasso: trigger DB blocca un secondo incasso senza prima annullare quello in corso (admin only).",
+    },
+    {
+      icon: Banknote,
+      nome: "Rimessa Premi (verso compagnia/agenzia)",
+      header: "rimessa_premi — campi: stato, totale_importi, data_pagamento_rimessa, iban_utilizzato, xml_output, pdf_url",
+      movimento: "rimessa_dettaglio — righe { rimessa_id, titolo_id, importo } per ogni titolo incluso",
+      collegate: "log_attivita ('rimessa_in_pagamento') + Storage 'rimesse-pdf' + flussi_compagnie (XML)",
+      note: "Un titolo è eleggibile per rimessa solo se messo a cassa (data_messa_cassa) e non già incluso in altra rimessa non annullata.",
+    },
+    {
+      icon: Ban,
+      nome: "Annullamento Polizza (cascade)",
+      header: "titoli — campi: stato='annullato' + reset data_messa_cassa/data_incasso/data_pagamento/importo_incassato/tipo_pagamento/banca_pagamento/conferimento_gestito",
+      movimento: "RPC transazionale annulla_polizza_cascade — elimina: pagamenti_provvigioni_righe, provvigioni_generate, rimessa_dettaglio, movimenti_contabili, movimenti_polizza, titoli_split_commerciali, quietanze discendenti (delete fisica) + testate rimessa_premi rimaste vuote",
+      collegate: "log_attivita (azione='annullamento_polizza_cascade', severity='warning', conteggi in dettagli_json)",
+      note: "Operazione irreversibile. Il titolo madre resta in stato 'annullato' come ancora per il log; tutto il resto è eliminato fisicamente (anche provvigioni già pagate).",
     },
   ];
 
