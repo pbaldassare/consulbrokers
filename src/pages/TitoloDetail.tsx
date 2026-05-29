@@ -1590,6 +1590,26 @@ const TitoloDetail = () => {
               </AlertDialogContent>
             </AlertDialog>
 
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!t.data_messa_cassa}
+              title={!t.data_messa_cassa ? "Disponibile solo dopo la messa a cassa" : "Reinvia email di notifica all'agenzia/compagnia"}
+              onClick={async () => {
+                const tid = toast.loading("Invio notifica messa a cassa...");
+                const res: any = await supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } });
+                toast.dismiss(tid);
+                if (res?.error) {
+                  toast.error(`Notifica non inviata: ${res.error.message ?? res.error}`);
+                } else {
+                  toast.success(`Notifica inviata a ${res?.data?.recipient ?? "destinatario"}`);
+                  queryClient.invalidateQueries({ queryKey: ["log-attivita", t.id] });
+                }
+              }}
+            >
+              <Mail className="w-4 h-4 mr-1" /> Reinvia notifica
+            </Button>
+
             {/* ===== Sotto-sezione Messa a Cassa unificata ===== */}
             {(t.stato === "attivo" || t.stato === "incassato") && showMessaACassa && (
               <div className="w-full mt-2 pt-4 border-t">
