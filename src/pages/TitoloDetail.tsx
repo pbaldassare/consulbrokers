@@ -1545,7 +1545,13 @@ const TitoloDetail = () => {
             />
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                  disabled={t.stato === "annullato"}
+                  title={t.stato === "annullato" ? "Polizza già annullata" : undefined}
+                >
                   <XCircle className="w-4 h-4 mr-1" /> Annullamento
                 </Button>
               </AlertDialogTrigger>
@@ -1553,7 +1559,11 @@ const TitoloDetail = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Conferma Annullamento</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Annullando la polizza {t.numero_titolo} verranno <strong>eliminati</strong>: quietanze successive, provvigioni (anche se già pagate), righe rimessa, movimenti contabili ed estratti conto collegati. Resterà solo il log dell'operazione come traccia. Questa azione è irreversibile.
+                    Annullando la polizza {t.numero_titolo} verranno <strong>eliminati in transazione</strong>:
+                    quietanze successive, provvigioni (anche se già pagate), righe pagamento provvigioni,
+                    righe rimessa, testate rimessa rimaste vuote, movimenti contabili, movimenti polizza
+                    e split commerciali collegati. Resterà solo il log dell'operazione come traccia.
+                    Questa azione è irreversibile.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -1563,7 +1573,8 @@ const TitoloDetail = () => {
                       const res = await annullaPolizza(id!);
                       if (!res.ok) { toast.error(res.error || "Errore annullamento"); return; }
                       toast.success(
-                        `Polizza annullata: ${res.quietanzeEliminate ?? 0} quietanze, ${res.provvigioniEliminate ?? 0} provvigioni, ${res.movimentiEliminati ?? 0} movimenti, ${res.rimessaDettagliEliminati ?? 0} righe rimessa rimossi${res.includevaProvvigioniPagate ? " (incluse provvigioni già pagate)" : ""}`
+                        `Polizza annullata — eliminati: ${res.quietanzeEliminate ?? 0} quietanze, ${res.provvigioniEliminate ?? 0} provvigioni (${res.pagamentiRigheEliminate ?? 0} righe pagamento), ${res.rimessaDettagliEliminati ?? 0} righe rimessa, ${res.rimesseTestateEliminate ?? 0} testate rimessa, ${res.movimentiEliminati ?? 0} movimenti contabili, ${res.movimentiPolizzaEliminati ?? 0} movimenti polizza, ${res.splitsEliminati ?? 0} split${res.includevaProvvigioniPagate ? " (incluse provvigioni già pagate)" : ""}.`,
+                        { duration: 8000 }
                       );
                       queryClient.invalidateQueries();
                     }}
