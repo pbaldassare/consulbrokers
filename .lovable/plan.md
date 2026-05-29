@@ -1,35 +1,43 @@
-Dalla verifica sulla polizza aperta `184667297` risulta che l'annullamento ha già lavorato: il titolo è in stato `annullato`, le righe collegate sono a zero, e il log `annullamento_polizza_cascade` indica che sono state eliminate 1 quietanza, 1 provvigione, 1 riga rimessa e 1 movimento polizza. Il problema è che il flusso è poco chiaro in UI e l'annullamento oggi è client-side, quindi non è abbastanza robusto/trasparente.
+# Piano: notifica messa a cassa — fix + reinvio
 
-## Piano
+## Stato attuale (verificato)
 
-1. **Spostare l'annullamento in una funzione DB transazionale**
-   - Creare una RPC `annulla_polizza_cascade(titolo_id)` che esegue tutto in una sola transazione.
-   - Raccolta ricorsiva delle quietanze discendenti.
-   - Eliminazione di: righe pagamento provvigioni, provvigioni generate, righe rimessa, movimenti contabili, movimenti polizza, split commerciali, quietanze figlie.
-   - Reset del titolo principale e stato finale `annullato`.
-   - Scrittura di un solo log con i conteggi eliminati.
+- Polizza 184667297 (`4469957b…`): messa a cassa registrata il 29/05/2026, stato `incassato`.
+- Nessuna entry `notifica_messa_cassa_inviata` in `log_attivita`, nessun log della edge function `notifica-messa-cassa-agenzia` → la funzione **non è mai stata invocata con successo**.
+- Il codice client invoca correttamente la funzione sia da `TitoloDetail.tsx:1306` sia da `MessaCassaDialog.tsx:97`, ma in fire-and-forget (`.catch(...)`), quindi un errore viene ingoiato silenziosamente.
+- La funzione esiste in `supabase/functions/notifica-messa-cassa-agenzia/index.ts` ma **non è dichiarata in `supabase/config.toml`** (a differenza di `send-email` che ha `verify_jwt = false`). Probabilmente non è mai stata realmente deployata, oppure è in stato JWT-protected e l'invoke da client fallisce.
 
-2. **Gestire anche le testate rimessa rimaste vuote**
-   - Dopo aver cancellato `rimessa_dettaglio`, ricalcolare o annullare/eliminare le `rimessa_premi` rimaste senza righe.
-   - Così la parte “rimesse a cassa” non resta sporca con testate vuote o totali incoerenti.
+## Obiettivi
 
-3. **Aggiornare `annullaPolizza.ts`**
-   - Sostituire la catena di delete client-side con una chiamata unica alla RPC.
-   - Restituire alla UI i conteggi effettivi cancellati.
-   - Evitare stati parziali se un delete fallisce a metà.
+1. **Capire e sistemare** il flusso automatico della notifica al momento della messa a cassa.
+2. **Aggiungere bottone "Reinvia notifica messa a cassa"** nel pannello Operazioni di `TitoloDetail`, visibile solo se la polizza è già messa a cassa.
 
-4. **Migliorare la UI dopo conferma annullamento**
-   - Disabilitare il bottone “Annullamento” quando il titolo è già `annullato`.
-   - Dopo l’annullamento, aggiornare subito titolo, quietanze, provvigioni, rimesse e movimenti.
-   - Mostrare un messaggio più esplicito: cosa è stato eliminato e cosa resta come log.
+## Cosa cambia
 
-5. **Rendere visibile la parte “messa a cassa / rimesse”**
-   - Integrare nel pannello “Dove sono salvati i dati” le righe mancanti per:
-     - Messa a Cassa
-     - Rimessa premi / righe rimessa
-     - Annullamento polizza
-   - Aggiungere, nel dettaglio polizza, un piccolo riepilogo dinamico dei collegamenti contabili presenti o eliminati, così non sembra che “non si vedano”.
+### 1. Deploy + config edge function
+- Aggiungere in `supabase/config.toml` la sezione `[functions.notifica-messa-cassa-agenzia]` con `verify_jwt = false` (è chiamata dal client autenticato ma non necessita di validazione JWT — internamente usa service role).
+- Redeploy esplicito di `notifica-messa-cassa-agenzia` per assicurarsi che la versione corrente sia attiva.
+- Test diretto via curl con `titolo_id = 4469957b-0d8b-49df-808d-673be95c965e` per verificare che parta la mail e venga loggata.
 
-6. **Verifica finale**
-   - Controllare una polizza annullata: stato `annullato`, nessuna quietanza/provvigione/rimessa/movimento collegato, log presente.
-   - Controllare una polizza non annullata: mostra correttamente eventuali righe rimessa/messa a cassa prima dell’annullamento.
+### 2. Visibilità errori nel client
+In `TitoloDetail.tsx` e `MessaCassaDialog.tsx`: trasformare il `.catch()` silenzioso in un `toast.warning(...)` non bloccante con il messaggio di errore, in modo che se la mail non parte l'utente lo veda subito (resta non bloccante per la messa a cassa).
+
+### 3. Bottone "Reinvia notifica" in TitoloDetail
+- Nella card **Operazioni** (`src/pages/TitoloDetail.tsx`), aggiungere bottone `Reinvia notifica messa a cassa` (icona Mail), abilitato solo se `t.data_messa_cassa` valorizzato.
+- Handler: chiama `supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: t.id } })` con feedback toast (success con destinatario / error con messaggio).
+- Dopo successo: invalida la query `log_attivita` se presente, per mostrare subito l'entry nuova nel tab "Log Attività".
+
+### 4. Pannello "Dove sono salvati i dati"
+- Aggiungere/aggiornare l'entry "Messa a Cassa/Notifica" con riferimento esplicito alla funzione `notifica-messa-cassa-agenzia` e al campo destinatario risolto (rapporto.email_messe_a_cassa → compagnia.email_messe_a_cassa → fallback `pscarpelli@consulbrokers.it`).
+
+## Verifica
+
+1. Curl diretto della funzione sul titolo 184667297 → status 200, `recipient` valorizzato, entry `notifica_messa_cassa_inviata` in `log_attivita`.
+2. Aprire la pagina del titolo, cliccare "Reinvia notifica" → toast "Notifica inviata a <email>".
+3. Mettere a cassa una nuova polizza di test → controllare log function e `log_attivita`.
+
+## Fuori scope
+
+- Non modifico la logica di risoluzione destinatario nell'edge function (rapporto → compagnia → fallback resta invariata).
+- Non tocco `send-email` né il template HTML.
+- Non aggiungo gestione bounce/retry: la chiamata resta fire-and-forget con bottone manuale di reinvio come fallback.
