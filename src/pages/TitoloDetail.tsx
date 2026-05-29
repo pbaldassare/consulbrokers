@@ -1302,9 +1302,13 @@ const TitoloDetail = () => {
       }
       if (nuovoStato === "incassato") {
         await supabase.functions.invoke("calcola-provvigioni", { body: { titolo_id: id } });
-        // Notifica formale all'agenzia/rapporto (non bloccante)
+        // Notifica formale all'agenzia/rapporto (non bloccante, ma con feedback errore)
         supabase.functions.invoke("notifica-messa-cassa-agenzia", { body: { titolo_id: id } })
-          .catch((e) => console.warn("notifica messa a cassa fallita:", e));
+          .then((res: any) => {
+            if (res?.error) toast.warning(`Notifica messa a cassa non inviata: ${res.error.message ?? res.error}`);
+            else if (res?.data?.recipient) toast.success(`Notifica inviata a ${res.data.recipient}`);
+          })
+          .catch((e) => toast.warning(`Notifica messa a cassa fallita: ${e?.message ?? e}`));
       }
 
       // Cerca quietanza generata automaticamente dal trigger DB
