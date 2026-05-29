@@ -10,6 +10,9 @@ import {
   FileText,
   XCircle,
   AlertTriangle,
+  DollarSign,
+  Banknote,
+  Ban,
 } from "lucide-react";
 
 /**
