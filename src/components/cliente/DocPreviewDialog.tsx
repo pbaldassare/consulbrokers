@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Loader2 } from "lucide-react";
+import PdfPreview from "@/components/PdfPreview";
 
 interface Props {
   open: boolean;
