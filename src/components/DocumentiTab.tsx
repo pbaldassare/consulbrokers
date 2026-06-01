@@ -68,6 +68,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
 
   const { data: documenti } = useQuery({
