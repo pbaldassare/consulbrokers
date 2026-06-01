@@ -126,7 +126,7 @@ export function PremiGaranziaCardShell({
     queryFn: async () => {
       const { data } = await supabase
         .from("rami")
-        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn")
+        .select("id, codice, descrizione, aliquota_tasse_ramo, ssn_attivo, aliquota_ssn, escludi_provvigioni")
         .eq("attivo", true)
         .eq("gruppo_ramo_id", gruppoRamoId!)
         .order("codice");
@@ -136,7 +136,7 @@ export function PremiGaranziaCardShell({
 
   const garanziaOptions = (catalogo as any[]).map((s: any) => ({
     value: s.id as string,
-    label: `${s.codice} — ${s.descrizione}`,
+    label: `${s.codice} — ${s.descrizione}${s.escludi_provvigioni ? " · esente" : ""}`,
   }));
 
   const updateRow = (idx: number, patch: Partial<GaranziaRow>) => {
@@ -163,23 +163,26 @@ export function PremiGaranziaCardShell({
   const handleGaranziaSelect = (idx: number, sottoramoId: string) => {
     const sel = (catalogo as any[]).find((s: any) => s.id === sottoramoId);
     if (!sel) return;
-    const aliquota = Number(sel.aliquota_tasse_ramo) || 0;
-    const ssnAttivo = !!sel.ssn_attivo;
+    const escludi = !!sel.escludi_provvigioni;
+    const aliquota = escludi ? 0 : (Number(sel.aliquota_tasse_ramo) || 0);
+    const ssnAttivo = !escludi && !!sel.ssn_attivo;
     const aliquotaSsn = ssnAttivo ? (Number(sel.aliquota_ssn) || 10.5) : 0;
     const netto = parseFloat(rows[idx]?.netto || "0") || 0;
-    const tasseCalc = netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : (parseFloat(rows[idx]?.tasse || "0") || 0);
+    const tasseCalc = !escludi && netto > 0 && aliquota > 0 ? +((netto * aliquota) / 100).toFixed(2) : 0;
     updateRow(idx, {
       sottoramoId: sel.id,
       codice: sel.codice,
       descrizione: sel.descrizione,
       aliquotaTasse: aliquota,
-      tasse: netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || "",
+      tasse: escludi ? "0" : (netto > 0 && aliquota > 0 ? tasseCalc.toFixed(2) : rows[idx]?.tasse || ""),
       ssnAttivo,
       aliquotaSsn,
       ssn: ssnAttivo && netto > 0 ? calcSsn(netto, tasseCalc, aliquotaSsn).toFixed(2) : "",
       ssnManualOverride: false,
+      escludiProvvigioni: escludi,
     });
   };
+
 
   const handleNettoChange = (idx: number, value: string) => {
     const r = rows[idx];
