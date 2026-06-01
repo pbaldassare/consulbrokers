@@ -26,6 +26,22 @@ export async function resolvePercentualeProvvigione(
 ): Promise<ProvvigioneResolveResult> {
   const { compagnia_rapporto_id, gruppo_ramo_id, ramo_id } = input;
 
+  // Sottorami "esenti" (Contributo Forzoso, Oneri, ...): provvigione sempre 0
+  if (ramo_id) {
+    const { data: ramoRow } = await supabase
+      .from("rami")
+      .select("escludi_provvigioni")
+      .eq("id", ramo_id)
+      .maybeSingle();
+    if ((ramoRow as any)?.escludi_provvigioni) {
+      return {
+        percentuale: 0,
+        livello: 5,
+        fonte: "sottoramo esente (CF/Oneri)",
+      };
+    }
+  }
+
   if (!compagnia_rapporto_id || !gruppo_ramo_id) {
     return {
       percentuale: 0,
