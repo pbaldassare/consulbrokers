@@ -15,6 +15,7 @@ export interface RamoOption {
   codice: string;
   descrizione: string;
   gruppo_ramo_id: string | null;
+  escludi_provvigioni: boolean;
 }
 
 export function useGruppiRamo() {
@@ -42,7 +43,7 @@ export function useRamiAll() {
     queryFn: async (): Promise<RamoOption[]> => {
       const { data } = await supabase
         .from("rami")
-        .select("id, codice, descrizione, gruppo_ramo_id, attivo")
+        .select("id, codice, descrizione, gruppo_ramo_id, attivo, escludi_provvigioni")
         .eq("attivo", true)
         .order("codice");
       return (data || []).map((r: any) => ({
@@ -51,6 +52,7 @@ export function useRamiAll() {
         codice: r.codice,
         descrizione: r.descrizione,
         gruppo_ramo_id: r.gruppo_ramo_id || null,
+        escludi_provvigioni: !!r.escludi_provvigioni,
       }));
     },
     staleTime: 1000 * 60 * 30,
