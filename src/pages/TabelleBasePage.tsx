@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, User, Building2, Landmark, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Building2, Landmark, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 const matchSearch = (q: string, fields: (string | null | undefined | number)[]) => {
   const s = (q || "").trim().toLowerCase();
@@ -169,6 +169,18 @@ const RamiTab = () => {
   const [ssnAttivo, setSsnAttivo] = useState(false);
   const [aliquotaSsn, setAliquotaSsn] = useState("10.50");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<null | "codice" | "descrizione" | "gruppo" | "tasse">(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const toggleSort = (key: "codice" | "descrizione" | "gruppo" | "tasse") => {
+    if (sortKey !== key) { setSortKey(key); setSortDir("asc"); return; }
+    if (sortDir === "asc") { setSortDir("desc"); return; }
+    setSortKey(null); setSortDir("asc");
+  };
+  const SortIcon = ({ k }: { k: "codice" | "descrizione" | "gruppo" | "tasse" }) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="w-3 h-3 ml-1" /> : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
 
   const { data: rami = [], isLoading } = useQuery({
     queryKey: ["rami-list"],
@@ -249,10 +261,18 @@ const RamiTab = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-32">Codice</TableHead>
-              <TableHead>Descrizione</TableHead>
-              <TableHead>Gruppo Ramo</TableHead>
-              <TableHead className="w-28 text-right">% Tasse Ramo</TableHead>
+              <TableHead className="w-32">
+                <button type="button" onClick={() => toggleSort("codice")} className="inline-flex items-center hover:text-foreground">Codice<SortIcon k="codice" /></button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("descrizione")} className="inline-flex items-center hover:text-foreground">Descrizione<SortIcon k="descrizione" /></button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("gruppo")} className="inline-flex items-center hover:text-foreground">Gruppo Ramo<SortIcon k="gruppo" /></button>
+              </TableHead>
+              <TableHead className="w-28 text-right">
+                <button type="button" onClick={() => toggleSort("tasse")} className="inline-flex items-center hover:text-foreground ml-auto">% Tasse Ramo<SortIcon k="tasse" /></button>
+              </TableHead>
               <TableHead className="w-28 text-center">SSN</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
@@ -261,9 +281,23 @@ const RamiTab = () => {
           <TableBody>
             {(() => {
               const filtered = (rami as any[]).filter((r: any) => matchSearch(search, [r.codice, r.descrizione, r.gruppi_ramo?.codice, r.gruppi_ramo?.descrizione]));
+              const sorted = sortKey ? [...filtered].sort((a: any, b: any) => {
+                const dir = sortDir === "asc" ? 1 : -1;
+                if (sortKey === "tasse") {
+                  return ((Number(a.aliquota_tasse_ramo) || 0) - (Number(b.aliquota_tasse_ramo) || 0)) * dir;
+                }
+                const getKey = (x: any) => {
+                  if (sortKey === "codice") return String(x.codice ?? "");
+                  if (sortKey === "descrizione") return String(x.descrizione ?? "");
+                  // gruppo: codice gruppo poi descrizione; null in fondo
+                  const g = x.gruppi_ramo;
+                  return g ? `${g.codice ?? ""} ${g.descrizione ?? ""}` : "\uFFFF";
+                };
+                return getKey(a).localeCompare(getKey(b), "it", { numeric: true, sensitivity: "base" }) * dir;
+              }) : filtered;
               if (isLoading) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
-              if (filtered.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun ramo inserito"}</TableCell></TableRow>);
-              return filtered.map((r: any) => (
+              if (sorted.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun ramo inserito"}</TableCell></TableRow>);
+              return sorted.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono font-semibold">{r.codice}</TableCell>
                 <TableCell>{r.descrizione}</TableCell>
