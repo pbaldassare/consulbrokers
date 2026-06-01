@@ -141,6 +141,39 @@ const ECAgenziaPdfPage = () => {
     }
   }, [titoli]); // eslint-disable-line
 
+  // Pre-popola Sede Mittente con l'ufficio più frequente fra i titoli inclusi.
+  // Fallback: prima sede contenente "napoli". L'utente può sovrascrivere dal dropdown.
+  useEffect(() => {
+    if (sedeNome) return;
+    if (!tutteSedi || tutteSedi.length === 0) return;
+    if (!titoli) return;
+
+    const counts = new Map<string, number>();
+    for (const t of titoli as any[]) {
+      if (t.ufficio_id) counts.set(t.ufficio_id, (counts.get(t.ufficio_id) || 0) + 1);
+    }
+    let chosenId: string | null = null;
+    if (counts.size > 0) {
+      chosenId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    }
+    let u: any = chosenId ? (tutteSedi as any[]).find((s) => s.id === chosenId) : null;
+    if (!u) {
+      u = (tutteSedi as any[]).find(
+        (s) =>
+          (s.nome_ufficio || "").toLowerCase().includes("napoli") ||
+          (s.citta || "").toLowerCase().includes("napoli"),
+      );
+    }
+    if (!u) return;
+    setSedeNome(u.nome_ufficio || "");
+    setSedeIndirizzo(u.indirizzo || "");
+    setSedeCap(u.cap || "");
+    setSedeCitta(u.citta || "");
+    setSedeProvincia(u.provincia || "");
+    setSedeEmail(u.email || "");
+    setSedeTelefono(u.telefono || "");
+  }, [titoli, tutteSedi]); // eslint-disable-line
+
   useEffect(() => {
     if (compagnia?.codice && !riferimento) {
       setRiferimento(`${compagnia.codice}/${format(new Date(), "yyMMdd")}`);
