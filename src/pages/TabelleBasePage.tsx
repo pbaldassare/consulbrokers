@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, User, Building2, Landmark, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Building2, Landmark, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 const matchSearch = (q: string, fields: (string | null | undefined | number)[]) => {
   const s = (q || "").trim().toLowerCase();
