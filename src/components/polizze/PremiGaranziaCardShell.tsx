@@ -28,6 +28,8 @@ export interface GaranziaRow {
   ssnAttivo?: boolean;
   /** True se l'utente ha modificato manualmente l'importo SSN (no autorecalc) */
   ssnManualOverride?: boolean;
+  /** True se il sottoramo è "esente" (Contributo Forzoso, Oneri): tasse e provvigioni forzate a 0 */
+  escludiProvvigioni?: boolean;
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
@@ -41,6 +43,7 @@ export const emptyGaranziaRow = (): GaranziaRow => ({
   aliquotaSsn: 0,
   ssnAttivo: false,
   ssnManualOverride: false,
+  escludiProvvigioni: false,
 });
 
 export interface PremiGaranziaCardShellProps {
