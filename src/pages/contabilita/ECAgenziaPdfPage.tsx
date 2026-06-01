@@ -90,23 +90,7 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Sede mittente: SEMPRE Napoli (tutti i pagamenti rimesse partono da lì).
-  // L'utente può comunque sovrascrivere selezionando un'altra sede dal dropdown sotto.
-  const { data: sede } = useQuery({
-    queryKey: ["ec-pdf-sede-napoli"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("uffici")
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
-        .or("nome_ufficio.ilike.%napoli%,citta.ilike.%napoli%")
-        .eq("attivo", true)
-        .limit(1)
-        .maybeSingle();
-      return data as any;
-    },
-  });
-
-  // Tutte le sedi (per selezione)
+  // Tutte le sedi (per selezione manuale + lookup default)
   const { data: tutteSedi } = useQuery({
     queryKey: ["ec-pdf-tutte-sedi"],
     queryFn: async () => {
@@ -118,19 +102,6 @@ const ECAgenziaPdfPage = () => {
       return data || [];
     },
   });
-
-  // Pre-popola override sede al primo caricamento
-  useEffect(() => {
-    if (sede && !sedeNome) {
-      setSedeNome(sede.nome_ufficio || "");
-      setSedeIndirizzo(sede.indirizzo || "");
-      setSedeCap(sede.cap || "");
-      setSedeCitta(sede.citta || "");
-      setSedeProvincia(sede.provincia || "");
-      setSedeEmail(sede.email || "");
-      setSedeTelefono(sede.telefono || "");
-    }
-  }, [sede]); // eslint-disable-line
 
   // Titoli — se titoliIds presenti li usa, altrimenti tutti gli incassati dell'agenzia (filtrati per periodo se passato), escludendo quelli già in rimessa
   const { data: titoli } = useQuery({
