@@ -19,7 +19,7 @@ interface ActionCard {
 
 const actions: ActionCard[] = [
   { label: "Portafoglio per Cliente", description: "Estrazione portafoglio raggruppato per cliente", icon: Users, path: "/portafoglio/estrazioni/per-cliente" },
-  { label: "Portafoglio per Agenzia", description: "Estrazione portafoglio raggruppato per agenzia", icon: Building2, path: "/portafoglio/estrazioni/per-agenzia" },
+  { label: "Portafoglio per Agenzia", description: "Estrazione portafoglio raggruppato per agenzia", icon: Building2, path: "/portafoglio/estrazioni/per-compagnia" },
   { label: "Premi e Provvigioni", description: "Stampa riepilogo premi e provvigioni", icon: DollarSign, path: "/portafoglio/estrazioni/premi-provvigioni" },
   { label: "Premi Scoperti e Garantiti", description: "Report premi scoperti e garantiti", icon: ShieldCheck, path: "/portafoglio/estrazioni/premi-scoperti-garantiti" },
   { label: "E/C Clienti", description: "Estratto conto clienti", icon: FileSpreadsheet, path: "/portafoglio/estrazioni/ec-clienti" },
