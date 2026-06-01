@@ -335,8 +335,10 @@ export function PremiGaranziaCardShell({
                         type="number"
                         step="0.01"
                         inputMode="decimal"
-                        value={r.tasse}
+                        value={r.escludiProvvigioni ? "0.00" : r.tasse}
                         onChange={(e) => handleTasseChange(idx, e.target.value)}
+                        disabled={r.escludiProvvigioni}
+                        title={r.escludiProvvigioni ? "Voce esente: tasse forzate a 0" : undefined}
                         className="h-8 text-right font-mono ml-auto w-24"
                       />
                     </TableCell>
