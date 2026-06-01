@@ -124,7 +124,7 @@ export function useDashboardData(ruolo: string) {
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).in("stato", ["attivo", "incassato"]).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_messa_cassa", ieri).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("stato", "attivo").is("data_messa_cassa", null).lte("data_scadenza", endOfMonth).limit(10000),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("stato", "attivo").is("data_messa_cassa", null).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).limit(10000),
     ]);
 
     const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
