@@ -11,6 +11,7 @@ import { Upload, Download, Trash2, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
+import PdfPreview from "@/components/PdfPreview";
 
 interface DocumentiTabProps {
   entitaTipo: string;
@@ -67,6 +68,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
 
   const { data: documenti } = useQuery({
@@ -153,14 +155,22 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
 
     const { data, error } = await supabase.storage.from(doc.bucket_name).download(doc.path_storage);
     if (error) { toast.error(error.message); return; }
-    const blobUrl = URL.createObjectURL(data);
-    setPreviewUrl(blobUrl);
+    if (isPdf) {
+      const buf = new Uint8Array(await data.arrayBuffer());
+      setPreviewPdfData(buf);
+      setPreviewUrl(null);
+    } else {
+      const blobUrl = URL.createObjectURL(data);
+      setPreviewUrl(blobUrl);
+      setPreviewPdfData(null);
+    }
     setPreviewDoc(doc);
   };
 
   const closePreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    setPreviewPdfData(null);
     setPreviewDoc(null);
   };
 
@@ -234,16 +244,18 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
 
       {/* Dialog anteprima documento */}
       <Dialog open={!!previewDoc} onOpenChange={(open) => !open && closePreview()}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>{previewDoc?.nome_file}</DialogTitle>
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle className="truncate">{previewDoc?.nome_file}</DialogTitle>
           </DialogHeader>
-          <div className="flex items-center justify-center overflow-auto max-h-[75vh]">
+          <div className="flex-1 overflow-hidden">
             {previewIsImage && previewUrl && (
-              <img src={previewUrl} alt={previewDoc?.nome_file} className="max-w-full max-h-[70vh] object-contain rounded" />
+              <div className="flex items-center justify-center h-full overflow-auto bg-muted/40 p-3">
+                <img src={previewUrl} alt={previewDoc?.nome_file} className="max-w-full max-h-full object-contain rounded" />
+              </div>
             )}
-            {!previewIsImage && previewUrl && (
-              <iframe src={previewUrl} className="w-full h-[70vh] rounded border border-border" title={previewDoc?.nome_file} />
+            {!previewIsImage && previewPdfData && (
+              <PdfPreview data={previewPdfData} fileName={previewDoc?.nome_file} />
             )}
           </div>
         </DialogContent>

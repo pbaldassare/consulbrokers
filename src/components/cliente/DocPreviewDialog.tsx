@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Loader2 } from "lucide-react";
+import PdfPreview from "@/components/PdfPreview";
 
 interface Props {
   open: boolean;
@@ -46,7 +47,7 @@ export default function DocPreviewDialog({ open, onOpenChange, doc }: Props) {
           ) : !url ? (
             <p className="text-sm text-muted-foreground">Anteprima non disponibile</p>
           ) : isPdf ? (
-            <iframe src={url} className="w-full h-full" title={doc?.nome_file} />
+            <PdfPreview url={url} fileName={doc?.nome_file} />
           ) : isImage ? (
             <img src={url} alt={doc?.nome_file} className="max-h-full max-w-full object-contain" />
           ) : (
