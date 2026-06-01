@@ -169,6 +169,18 @@ const RamiTab = () => {
   const [ssnAttivo, setSsnAttivo] = useState(false);
   const [aliquotaSsn, setAliquotaSsn] = useState("10.50");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<null | "codice" | "descrizione" | "gruppo" | "tasse">(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const toggleSort = (key: "codice" | "descrizione" | "gruppo" | "tasse") => {
+    if (sortKey !== key) { setSortKey(key); setSortDir("asc"); return; }
+    if (sortDir === "asc") { setSortDir("desc"); return; }
+    setSortKey(null); setSortDir("asc");
+  };
+  const SortIcon = ({ k }: { k: "codice" | "descrizione" | "gruppo" | "tasse" }) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="w-3 h-3 ml-1" /> : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
 
   const { data: rami = [], isLoading } = useQuery({
     queryKey: ["rami-list"],
