@@ -261,10 +261,18 @@ const RamiTab = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-32">Codice</TableHead>
-              <TableHead>Descrizione</TableHead>
-              <TableHead>Gruppo Ramo</TableHead>
-              <TableHead className="w-28 text-right">% Tasse Ramo</TableHead>
+              <TableHead className="w-32">
+                <button type="button" onClick={() => toggleSort("codice")} className="inline-flex items-center hover:text-foreground">Codice<SortIcon k="codice" /></button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("descrizione")} className="inline-flex items-center hover:text-foreground">Descrizione<SortIcon k="descrizione" /></button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("gruppo")} className="inline-flex items-center hover:text-foreground">Gruppo Ramo<SortIcon k="gruppo" /></button>
+              </TableHead>
+              <TableHead className="w-28 text-right">
+                <button type="button" onClick={() => toggleSort("tasse")} className="inline-flex items-center hover:text-foreground ml-auto">% Tasse Ramo<SortIcon k="tasse" /></button>
+              </TableHead>
               <TableHead className="w-28 text-center">SSN</TableHead>
               <TableHead className="w-24 text-center">Attivo</TableHead>
               <TableHead className="w-28 text-right">Azioni</TableHead>
@@ -273,9 +281,23 @@ const RamiTab = () => {
           <TableBody>
             {(() => {
               const filtered = (rami as any[]).filter((r: any) => matchSearch(search, [r.codice, r.descrizione, r.gruppi_ramo?.codice, r.gruppi_ramo?.descrizione]));
+              const sorted = sortKey ? [...filtered].sort((a: any, b: any) => {
+                const dir = sortDir === "asc" ? 1 : -1;
+                if (sortKey === "tasse") {
+                  return ((Number(a.aliquota_tasse_ramo) || 0) - (Number(b.aliquota_tasse_ramo) || 0)) * dir;
+                }
+                const getKey = (x: any) => {
+                  if (sortKey === "codice") return String(x.codice ?? "");
+                  if (sortKey === "descrizione") return String(x.descrizione ?? "");
+                  // gruppo: codice gruppo poi descrizione; null in fondo
+                  const g = x.gruppi_ramo;
+                  return g ? `${g.codice ?? ""} ${g.descrizione ?? ""}` : "\uFFFF";
+                };
+                return getKey(a).localeCompare(getKey(b), "it", { numeric: true, sensitivity: "base" }) * dir;
+              }) : filtered;
               if (isLoading) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
-              if (filtered.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun ramo inserito"}</TableCell></TableRow>);
-              return filtered.map((r: any) => (
+              if (sorted.length === 0) return (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun ramo inserito"}</TableCell></TableRow>);
+              return sorted.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono font-semibold">{r.codice}</TableCell>
                 <TableCell>{r.descrizione}</TableCell>
