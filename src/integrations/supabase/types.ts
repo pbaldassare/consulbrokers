@@ -5777,6 +5777,7 @@ export type Database = {
           codice: string
           created_at: string | null
           descrizione: string
+          escludi_provvigioni: boolean
           gruppo_ramo_id: string | null
           id: string
           ssn_attivo: boolean
@@ -5789,6 +5790,7 @@ export type Database = {
           codice: string
           created_at?: string | null
           descrizione: string
+          escludi_provvigioni?: boolean
           gruppo_ramo_id?: string | null
           id?: string
           ssn_attivo?: boolean
@@ -5801,6 +5803,7 @@ export type Database = {
           codice?: string
           created_at?: string | null
           descrizione?: string
+          escludi_provvigioni?: boolean
           gruppo_ramo_id?: string | null
           id?: string
           ssn_attivo?: boolean
