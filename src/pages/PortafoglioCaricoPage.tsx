@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass } from "lucide-react";
-import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
+
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
