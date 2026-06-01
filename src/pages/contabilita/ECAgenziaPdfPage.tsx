@@ -90,23 +90,7 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Sede mittente: SEMPRE Napoli (tutti i pagamenti rimesse partono da lì).
-  // L'utente può comunque sovrascrivere selezionando un'altra sede dal dropdown sotto.
-  const { data: sede } = useQuery({
-    queryKey: ["ec-pdf-sede-napoli"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("uffici")
-        .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
-        .or("nome_ufficio.ilike.%napoli%,citta.ilike.%napoli%")
-        .eq("attivo", true)
-        .limit(1)
-        .maybeSingle();
-      return data as any;
-    },
-  });
-
-  // Tutte le sedi (per selezione)
+  // Tutte le sedi (per selezione manuale + lookup default)
   const { data: tutteSedi } = useQuery({
     queryKey: ["ec-pdf-tutte-sedi"],
     queryFn: async () => {
@@ -119,19 +103,6 @@ const ECAgenziaPdfPage = () => {
     },
   });
 
-  // Pre-popola override sede al primo caricamento
-  useEffect(() => {
-    if (sede && !sedeNome) {
-      setSedeNome(sede.nome_ufficio || "");
-      setSedeIndirizzo(sede.indirizzo || "");
-      setSedeCap(sede.cap || "");
-      setSedeCitta(sede.citta || "");
-      setSedeProvincia(sede.provincia || "");
-      setSedeEmail(sede.email || "");
-      setSedeTelefono(sede.telefono || "");
-    }
-  }, [sede]); // eslint-disable-line
-
   // Titoli — se titoliIds presenti li usa, altrimenti tutti gli incassati dell'agenzia (filtrati per periodo se passato), escludendo quelli già in rimessa
   const { data: titoli } = useQuery({
     queryKey: ["ec-pdf-titoli", compagniaId, titoliIds.join(","), periodoDal, periodoAl],
@@ -139,7 +110,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
       if (titoliIds.length > 0) {
@@ -169,6 +140,39 @@ const ECAgenziaPdfPage = () => {
       setPeriodoTesto(`${mesiIt[d.getMonth()]} ${d.getFullYear()}`);
     }
   }, [titoli]); // eslint-disable-line
+
+  // Pre-popola Sede Mittente con l'ufficio più frequente fra i titoli inclusi.
+  // Fallback: prima sede contenente "napoli". L'utente può sovrascrivere dal dropdown.
+  useEffect(() => {
+    if (sedeNome) return;
+    if (!tutteSedi || tutteSedi.length === 0) return;
+    if (!titoli) return;
+
+    const counts = new Map<string, number>();
+    for (const t of titoli as any[]) {
+      if (t.ufficio_id) counts.set(t.ufficio_id, (counts.get(t.ufficio_id) || 0) + 1);
+    }
+    let chosenId: string | null = null;
+    if (counts.size > 0) {
+      chosenId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    }
+    let u: any = chosenId ? (tutteSedi as any[]).find((s) => s.id === chosenId) : null;
+    if (!u) {
+      u = (tutteSedi as any[]).find(
+        (s) =>
+          (s.nome_ufficio || "").toLowerCase().includes("napoli") ||
+          (s.citta || "").toLowerCase().includes("napoli"),
+      );
+    }
+    if (!u) return;
+    setSedeNome(u.nome_ufficio || "");
+    setSedeIndirizzo(u.indirizzo || "");
+    setSedeCap(u.cap || "");
+    setSedeCitta(u.citta || "");
+    setSedeProvincia(u.provincia || "");
+    setSedeEmail(u.email || "");
+    setSedeTelefono(u.telefono || "");
+  }, [titoli, tutteSedi]); // eslint-disable-line
 
   useEffect(() => {
     if (compagnia?.codice && !riferimento) {
