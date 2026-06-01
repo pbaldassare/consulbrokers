@@ -11,7 +11,7 @@ import BandiPubbliciPage from "@/pages/BandiPubbliciPage";
 import CalendarioTrattativePage from "@/pages/CalendarioTrattativePage";
 import StoricoTrattativePage from "@/pages/StoricoTrattativePage";
 import ContiBancariPage from "@/pages/anagrafiche/ContiBancariPage";
-import RichiesteModificaList from "@/pages/RichiesteModificaList";
+
 
 export const archiviRoutes = (
   <>
