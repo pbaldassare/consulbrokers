@@ -18,8 +18,8 @@ export interface AdminData {
   incassiIeriImporto: number;
   incassiMeseCount: number;
   incassiMeseImporto: number;
-  raccoltaPremiAnno: number;
-  nuoviClientiMese: number;
+  polizzeDaCassaCount: number;
+  polizzeDaCassaImporto: number;
   chatNonRisposte: ChatNonRisposta[];
 }
 
@@ -118,15 +118,13 @@ export function useDashboardData(ruolo: string) {
       { data: rinnoviOggi, count: rinnoviOggiCount },
       { data: incassiIeri, count: incassiIeriCount },
       { data: incassiMese, count: incassiMeseCount },
-      { data: raccoltaAnno },
-      { count: nuoviClientiMese },
+      { data: polizzeDaCassa, count: polizzeDaCassaCount },
     ] = await Promise.all([
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_scadenza", startOfMonth).lte("data_scadenza", endOfMonth).in("stato", ["attivo", "incassato"]).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_scadenza", oggi).in("stato", ["attivo", "incassato"]).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("data_messa_cassa", ieri).limit(10000),
       supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).gte("data_messa_cassa", startOfMonth).lte("data_messa_cassa", endOfMonth).limit(10000),
-      supabase.from("v_portafoglio_titoli").select("premio_lordo").gte("data_messa_cassa", startOfYear).limit(10000),
-      supabase.from("clienti").select("*", { count: "exact", head: true }).gte("created_at", startOfMonth),
+      supabase.from("v_portafoglio_titoli").select("premio_lordo", { count: "exact" }).eq("stato", "attivo").is("data_messa_cassa", null).lte("data_scadenza", endOfMonth).limit(10000),
     ]);
 
     const sumPremio = (arr: any[] | null) => (arr || []).reduce((s: number, t: any) => s + (t.premio_lordo || 0), 0);
@@ -186,8 +184,8 @@ export function useDashboardData(ruolo: string) {
       incassiIeriImporto: sumPremio(incassiIeri),
       incassiMeseCount: incassiMeseCount ?? incassiMese?.length ?? 0,
       incassiMeseImporto: sumPremio(incassiMese),
-      raccoltaPremiAnno: sumPremio(raccoltaAnno),
-      nuoviClientiMese: nuoviClientiMese || 0,
+      polizzeDaCassaCount: polizzeDaCassaCount ?? polizzeDaCassa?.length ?? 0,
+      polizzeDaCassaImporto: sumPremio(polizzeDaCassa),
       chatNonRisposte,
     });
   };

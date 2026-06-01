@@ -149,13 +149,9 @@ const AdminDashboard = ({ loading, data }: { loading: boolean; data: ReturnType<
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard label="Rinnovi del Mese" value={String(d?.rinnoviMeseCount ?? 0)} sub={fmt(d?.rinnoviMeseImporto ?? 0)} icon={Calendar} variant="blue" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-        <SummaryCard label="Rinnovi di Oggi" value={String(d?.rinnoviOggiCount ?? 0)} sub={fmt(d?.rinnoviOggiImporto ?? 0)} icon={Calendar} variant="green" loading={loading} onClick={() => navigate("/portafoglio/carico")} />	
-        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} onClick={() => navigate("/portafoglio/carico")} />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <KpiCard label="Raccolta Premi Anno" value={fmt(d?.raccoltaPremiAnno ?? 0)} sub="Incassato anno corrente" variant="teal" icon={BarChart3} loading={loading} onClick={() => navigate("/provvigioni-maturate")} />
-        <KpiCard label="Nuovi Clienti Mese" value={String(d?.nuoviClientiMese ?? 0)} sub="Questo mese" variant="yellow" icon={Users} loading={loading} onClick={() => navigate("/clienti")} />
+        <SummaryCard label="Polizze da Mettere a Cassa" value={String(d?.polizzeDaCassaCount ?? 0)} sub={fmt(d?.polizzeDaCassaImporto ?? 0)} icon={FileWarning} variant="yellow" loading={loading} onClick={() => navigate("/portafoglio/attive?stato=non_incassate")} />
+        <SummaryCard label="Incassi Ieri" value={String(d?.incassiIeriCount ?? 0)} sub={fmt(d?.incassiIeriImporto ?? 0)} icon={DollarSign} variant="orange" loading={loading} onClick={() => navigate("/contabilita/storico-rimesse?periodo=ieri")} />
+        <SummaryCard label="Incassi del Mese" value={String(d?.incassiMeseCount ?? 0)} sub={fmt(d?.incassiMeseImporto ?? 0)} icon={DollarSign} variant="teal" loading={loading} onClick={() => navigate("/contabilita/storico-rimesse?periodo=mese")} />
       </div>
       {/* Chat Non Risposte */}
       <div className="bg-card rounded-lg border border-border p-5">
