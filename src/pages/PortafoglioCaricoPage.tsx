@@ -82,13 +82,15 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
+  const dateColumn = filtroStato === "incassato" ? "data_messa_cassa" : "data_scadenza";
+
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroStato, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
         { count: "exact" }
-      ).gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
+      ).gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
 
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
@@ -111,7 +113,7 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo, sostituisce_polizza")
-        .gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd).in("stato", ["attivo", "incassato"]);
+        .gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
       }
@@ -327,9 +329,12 @@ const PortafoglioCaricoPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Carico del Mese</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {filtroStato === "incassato" ? "Incassi del Mese" : filtroStato === "attivo" ? "Polizze da Mettere a Cassa" : "Carico del Mese"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Polizze in scadenza a <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
+            {filtroStato === "incassato" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
+            <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
