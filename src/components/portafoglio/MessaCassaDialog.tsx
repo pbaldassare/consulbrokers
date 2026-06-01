@@ -150,6 +150,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
                 <SelectItem value="contanti">Contanti</SelectItem>
                 <SelectItem value="pos">POS</SelectItem>
                 <SelectItem value="bonifico">Bonifico</SelectItem>
+                <SelectItem value="assegno">Assegno</SelectItem>
               </SelectContent>
             </Select>
           </div>
