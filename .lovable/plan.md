@@ -1,44 +1,44 @@
-## Obiettivo
+## Problemi
 
-Dashboard Admin: tenere solo **4 card cliccabili** che linkano alle pagine corrispondenti. Rimuovere il blocco "Raccolta Premi Anno" + "Nuovi Clienti Mese".
+1. **Polizze da Mettere a Cassa**: la query KPI include tutto lo scaduto, non solo il mese; il link punta a `/portafoglio/attive` (pagina sbagliata) con un query string che la pagina non legge.
+2. **Incassi del Mese / Incassi Ieri**: linkano a `/contabilita/storico-rimesse` che mostra le *rimesse* (non i titoli incassati) e ignora il query string `?periodo=...`.
 
-## Card finali (in ordine)
+Le pagine `PortafoglioCaricoPage` e `StoricoRimessePage` non leggono affatto `useSearchParams`, quindi i query string attuali sono inerti.
 
-| Card | Valore / Sotto | Link |
-|------|----------------|------|
-| Rinnovi del Mese | count + €  premio | `/portafoglio/carico` |
-| Polizze da Mettere a Cassa | count + € premio | `/portafoglio/attive?stato=non_incassate` |
-| Incassi di Ieri | count + € | `/contabilita/storico-rimesse?periodo=ieri` |
-| Incassi del Mese | count + € | `/contabilita/storico-rimesse?periodo=mese` |
+## Soluzione
 
-Tutte e quattro restano `SummaryCard` (variante visuale già esistente), griglia `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`.
+Allineare i KPI al concetto di **Carico del Mese** (titoli con `data_scadenza` nel mese corrente) e linkare tutti alla stessa pagina con il filtro corretto pre-applicato via URL.
 
-## Modifiche a `src/hooks/useDashboardData.ts`
+### 1. `src/hooks/useDashboardData.ts` — query `polizzeDaCassa`
 
-1. **`AdminData`**: rimuovere `raccoltaPremiAnno` e `nuoviClientiMese`; aggiungere:
-   - `polizzeDaCassaCount: number`
-   - `polizzeDaCassaImporto: number`
-2. **`loadAdmin`**:
-   - Rimuovere le query `raccoltaAnno` e `nuoviClientiMese`.
-   - Aggiungere query "polizze da mettere a cassa": `v_portafoglio_titoli` con `stato = 'attivo'`, `data_messa_cassa IS NULL`, `data_scadenza <= endOfMonth` (include scadute e in scadenza nel mese corrente). `select premio_lordo, { count: 'exact' }`, `limit(10000)`.
-   - Aggiornare `setAdmin({...})` di conseguenza.
+Restringere ai titoli del mese:
+- `stato = 'attivo'`
+- `data_messa_cassa IS NULL`
+- `data_scadenza` tra `startOfMonth` e `endOfMonth` (sostituire l'attuale `lte(endOfMonth)` con range completo).
 
-## Modifiche a `src/pages/Dashboard.tsx`
+### 2. `src/pages/PortafoglioCaricoPage.tsx` — supporto query string
 
-1. `AdminDashboard`: sostituire la 3ª e 4ª `SummaryCard` se serve riordinare, mantenere 4 totali:
-   - Rinnovi Mese → `/portafoglio/carico`
-   - Polizze da Mettere a Cassa → `/portafoglio/attive` (passare query string `?stato=non_incassate` se la pagina la supporta; altrimenti solo `/portafoglio/attive`)
-   - Incassi Ieri → `/contabilita/storico-rimesse`
-   - Incassi Mese → `/contabilita/storico-rimesse`
-2. **Eliminare** il blocco `<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">` con i due `KpiCard` (Raccolta Premi Anno + Nuovi Clienti Mese).
-3. Lasciare invariato il pannello "Chat Non Risposte".
+- Aggiungere `import { useSearchParams } from "react-router-dom"`.
+- All'avvio, leggere `?stato=attivo|incassato|tutti` e inizializzare `filtroStato` di conseguenza (default `tutti`, come ora).
+- Quando l'utente cambia il filtro tramite UI, aggiornare anche il query string (`setSearchParams`).
+
+### 3. `src/pages/Dashboard.tsx` — link delle 4 card Admin
+
+| Card | Nuovo link |
+|------|------------|
+| Rinnovi del Mese | `/portafoglio/carico` (tutti) |
+| Polizze da Mettere a Cassa | `/portafoglio/carico?stato=attivo` |
+| Incassi Ieri | `/portafoglio/carico?stato=incassato` |
+| Incassi del Mese | `/portafoglio/carico?stato=incassato` |
+
+Tutti puntano alla stessa pagina "Carico del Mese" con il filtro pre-applicato, coerente con il conteggio mostrato in dashboard.
 
 ## File toccati
 
 - `src/hooks/useDashboardData.ts`
+- `src/pages/PortafoglioCaricoPage.tsx`
 - `src/pages/Dashboard.tsx`
 
 ## Note
 
-- Le altre dashboard (ufficio, produttore, contabilità, cfo, cliente) restano invariate — saranno configurate dopo come richiesto.
-- Se la pagina `/portafoglio/attive` non supporta il filtro `?stato=non_incassate`, il link punterà alla pagina senza query string e potremo aggiungere il filtro come step successivo.
+- "Incassi Ieri" mostrerà tutte le polizze incassate del mese (non solo ieri) perché la pagina Carico filtra per mese; il numero della KPI resta accurato sul giorno di ieri. Se vuoi un filtro "solo ieri" separato lo aggiungiamo in un secondo step (richiederebbe un nuovo controllo data nella pagina Carico).
