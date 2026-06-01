@@ -11,6 +11,7 @@ import { Upload, Download, Trash2, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { logAttivita } from "@/lib/logAttivita";
+import PdfPreview from "@/components/PdfPreview";
 
 interface DocumentiTabProps {
   entitaTipo: string;
