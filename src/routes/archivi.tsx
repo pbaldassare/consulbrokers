@@ -11,7 +11,7 @@ import BandiPubbliciPage from "@/pages/BandiPubbliciPage";
 import CalendarioTrattativePage from "@/pages/CalendarioTrattativePage";
 import StoricoTrattativePage from "@/pages/StoricoTrattativePage";
 import ContiBancariPage from "@/pages/anagrafiche/ContiBancariPage";
-import RichiesteModificaList from "@/pages/RichiesteModificaList";
+
 
 export const archiviRoutes = (
   <>
@@ -22,7 +22,7 @@ export const archiviRoutes = (
     <Route path="/prospect/:id" element={<ProspectDetail />} />
     <Route path="/archivi/clienti" element={<ClientiList />} />
     <Route path="/archivi/clienti/deduplica" element={<DeduplicaClientiPage />} />
-    <Route path="/archivi/clienti/richieste-modifica" element={<RichiesteModificaList />} />
+    
     <Route path="/archivi/clienti/:id" element={<ClienteDetail />} />
     <Route path="/archivi/anagrafiche-agenzie" element={<AnagraficheCompagniePage />} />
     <Route path="/archivi/anagrafiche-amministrative" element={<AnagraficheInternePage />} />
