@@ -1,44 +1,21 @@
-## Problemi
+## Fix: conti bancari non visibili in nessun tab
 
-1. **Polizze da Mettere a Cassa**: la query KPI include tutto lo scaduto, non solo il mese; il link punta a `/portafoglio/attive` (pagina sbagliata) con un query string che la pagina non legge.
-2. **Incassi del Mese / Incassi Ieri**: linkano a `/contabilita/storico-rimesse` che mostra le *rimesse* (non i titoli incassati) e ignora il query string `?periodo=...`.
+**Causa root (confermata da network logs):** la query in `ContiBancariPage.tsx` riceve `PGRST201 — Could not embed because more than one relationship was found for 'conti_bancari' and 'compagnie'`. Esistono due FK fra le due tabelle:
 
-Le pagine `PortafoglioCaricoPage` e `StoricoRimessePage` non leggono affatto `useSearchParams`, quindi i query string attuali sono inerti.
+1. `conti_bancari.compagnia_id → compagnie.id` (quella che vogliamo)
+2. `compagnie.conto_bancario_id → conti_bancari.id` (relazione inversa)
 
-## Soluzione
+PostgREST non sa quale usare → risponde HTTP 300 → la lista resta vuota in tutti i tab, anche se i contatori (che non usano embed) mostrano i numeri reali (Consulbrokers 4, Agenzie 10, Tutti 14).
 
-Allineare i KPI al concetto di **Carico del Mese** (titoli con `data_scadenza` nel mese corrente) e linkare tutti alla stessa pagina con il filtro corretto pre-applicato via URL.
+**Fix (1 sola riga, `src/pages/anagrafiche/ContiBancariPage.tsx` riga 164):**
 
-### 1. `src/hooks/useDashboardData.ts` — query `polizzeDaCassa`
+Disambiguare l'embed indicando la FK esatta:
 
-Restringere ai titoli del mese:
-- `stato = 'attivo'`
-- `data_messa_cassa IS NULL`
-- `data_scadenza` tra `startOfMonth` e `endOfMonth` (sostituire l'attuale `lte(endOfMonth)` con range completo).
+```ts
+.select(
+  "*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti(id,codice_mandato,gruppo_compagnia:gruppi_compagnia(descrizione))",
+  { count: "exact" }
+)
+```
 
-### 2. `src/pages/PortafoglioCaricoPage.tsx` — supporto query string
-
-- Aggiungere `import { useSearchParams } from "react-router-dom"`.
-- All'avvio, leggere `?stato=attivo|incassato|tutti` e inizializzare `filtroStato` di conseguenza (default `tutti`, come ora).
-- Quando l'utente cambia il filtro tramite UI, aggiornare anche il query string (`setSearchParams`).
-
-### 3. `src/pages/Dashboard.tsx` — link delle 4 card Admin
-
-| Card | Nuovo link |
-|------|------------|
-| Rinnovi del Mese | `/portafoglio/carico` (tutti) |
-| Polizze da Mettere a Cassa | `/portafoglio/carico?stato=attivo` |
-| Incassi Ieri | `/portafoglio/carico?stato=incassato` |
-| Incassi del Mese | `/portafoglio/carico?stato=incassato` |
-
-Tutti puntano alla stessa pagina "Carico del Mese" con il filtro pre-applicato, coerente con il conteggio mostrato in dashboard.
-
-## File toccati
-
-- `src/hooks/useDashboardData.ts`
-- `src/pages/PortafoglioCaricoPage.tsx`
-- `src/pages/Dashboard.tsx`
-
-## Note
-
-- "Incassi Ieri" mostrerà tutte le polizze incassate del mese (non solo ieri) perché la pagina Carico filtra per mese; il numero della KPI resta accurato sul giorno di ieri. Se vuoi un filtro "solo ieri" separato lo aggiungiamo in un secondo step (richiederebbe un nuovo controllo data nella pagina Carico).
+Nessun'altra modifica: filtri, paginazione, UI e contatori restano invariati. Dopo il fix i 14 conti già presenti in DB compaiono nei rispettivi tab.
