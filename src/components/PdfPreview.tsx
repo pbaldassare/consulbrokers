@@ -1,4 +1,22 @@
 import { useEffect, useRef, useState } from "react";
+
+// Polyfill per Uint8Array.prototype.toHex / fromHex usati da pdfjs-dist 5.x
+// (proposta TC39 non ancora in Chrome stabile)
+if (typeof Uint8Array !== "undefined" && !(Uint8Array.prototype as any).toHex) {
+  (Uint8Array.prototype as any).toHex = function () {
+    let s = "";
+    for (let i = 0; i < this.length; i++) s += this[i].toString(16).padStart(2, "0");
+    return s;
+  };
+}
+if (typeof Uint8Array !== "undefined" && !(Uint8Array as any).fromHex) {
+  (Uint8Array as any).fromHex = (hex: string) => {
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return out;
+  };
+}
+
 import * as pdfjsLib from "pdfjs-dist";
 // @ts-ignore - Vite ?url import returns string
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
