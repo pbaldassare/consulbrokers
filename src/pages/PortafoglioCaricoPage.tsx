@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass } from "lucide-react";
 import { NuovaPolizzaButton } from "@/components/shared/NuovaPolizzaButton";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
@@ -32,7 +32,12 @@ const PortafoglioCaricoPage = () => {
   const [sortField, setSortField] = useState("data_scadenza");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
-  const [filtroStato, setFiltroStato] = useState("tutti");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStato = (() => {
+    const s = searchParams.get("stato");
+    return s === "attivo" || s === "incassato" || s === "tutti" ? s : "tutti";
+  })();
+  const [filtroStato, setFiltroStato] = useState(initialStato);
   const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -488,7 +493,13 @@ const PortafoglioCaricoPage = () => {
             className="pl-9"
           />
         </div>
-        <Select value={filtroStato} onValueChange={(v) => { setFiltroStato(v); setPage(0); }}>
+        <Select value={filtroStato} onValueChange={(v) => {
+          setFiltroStato(v);
+          setPage(0);
+          const next = new URLSearchParams(searchParams);
+          if (v === "tutti") next.delete("stato"); else next.set("stato", v);
+          setSearchParams(next, { replace: true });
+        }}>
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="Stato incasso" />
           </SelectTrigger>
