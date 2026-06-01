@@ -110,7 +110,7 @@ const ECAgenziaPdfPage = () => {
     queryFn: async () => {
       let q = supabase
         .from("titoli")
-        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
+        .select("id, numero_titolo, riga, premio_lordo, provvigioni_firma, provvigioni_quietanza, tipo_pagamento, data_messa_cassa, garanzia_da, garanzia_a, durata_da, durata_a, descrizione_polizza, cig_rif, cliente_anagrafica_id, ramo_id, ufficio_id, rami:ramo_id(codice, descrizione), clienti_anagrafica:cliente_anagrafica_id(nome, cognome, ragione_sociale)")
         .eq("compagnia_id", compagniaId)
         .eq("stato", "incassato");
       if (titoliIds.length > 0) {
