@@ -155,14 +155,22 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
 
     const { data, error } = await supabase.storage.from(doc.bucket_name).download(doc.path_storage);
     if (error) { toast.error(error.message); return; }
-    const blobUrl = URL.createObjectURL(data);
-    setPreviewUrl(blobUrl);
+    if (isPdf) {
+      const buf = new Uint8Array(await data.arrayBuffer());
+      setPreviewPdfData(buf);
+      setPreviewUrl(null);
+    } else {
+      const blobUrl = URL.createObjectURL(data);
+      setPreviewUrl(blobUrl);
+      setPreviewPdfData(null);
+    }
     setPreviewDoc(doc);
   };
 
   const closePreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    setPreviewPdfData(null);
     setPreviewDoc(null);
   };
 
