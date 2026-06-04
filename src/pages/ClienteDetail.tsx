@@ -2160,6 +2160,8 @@ export default function ClienteDetail() {
                 ]} />
                 {isPrivato ? (
                   <>
+                    <FieldInput label="Nome" field="nome" required />
+                    <FieldInput label="Cognome" field="cognome" required />
                     <FieldInput
                       label="Codice Fiscale"
                       field="codice_fiscale"
@@ -2189,6 +2191,7 @@ export default function ClienteDetail() {
                   </>
                 ) : (
                   <>
+                    <FieldInput label="Ragione Sociale" field="ragione_sociale" required />
                     <FieldInput label="Partita IVA" field="partita_iva" required />
                     <FieldInput label="Codice Fiscale" field="codice_fiscale_azienda" required />
                     <FieldInput label="Codice SDI" field="codice_sdi" />
