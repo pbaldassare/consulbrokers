@@ -1720,6 +1720,7 @@ export default function ClienteDetail() {
       ]
     : [
         { field: "ufficio_id", label: "Sede", ok: !!ef.ufficio_id },
+        { field: "ragione_sociale", label: "Ragione Sociale", ok: !!(ef.ragione_sociale || "").trim() },
         { field: "gruppo_finanziario_id", label: "Gruppo Finanziario", ok: !!ef.gruppo_finanziario_id },
         { field: "specialist_id", label: "Specialist", ok: specialistAssigned },
         { field: "email", label: "Email", ok: emailOk },
