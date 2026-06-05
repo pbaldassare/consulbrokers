@@ -64,7 +64,7 @@ function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick }: { buc
   return <FileText className={`h-8 w-8 text-muted-foreground ${base}`} onClick={onClick} />;
 }
 
-export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnly = false }: DocumentiTabProps) {
+export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketName, readOnly = false }: DocumentiTabProps) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -74,18 +74,25 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
   const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
 
+  // Catena di id su cui leggere (es. polizza madre + tutte le quietanze). Fallback: solo entitaId.
+  const idsForRead = (entitaIds && entitaIds.length > 0) ? entitaIds : [entitaId];
+  // Upload viene sempre attribuito al primo id (per i titoli = madre della catena, stabile).
+  const uploadEntitaId = (entitaIds && entitaIds.length > 0) ? entitaIds[0] : entitaId;
+  const idsKey = [...idsForRead].sort().join(",");
+
   const { data: documenti } = useQuery({
-    queryKey: ["documenti", entitaTipo, entitaId],
+    queryKey: ["documenti", entitaTipo, idsKey],
     queryFn: async () => {
       const { data } = await supabase
         .from("documenti")
         .select("*, profiles:caricato_da(nome, cognome)")
         .eq("entita_tipo", entitaTipo)
-        .eq("entita_id", entitaId)
+        .in("entita_id", idsForRead)
         .order("created_at", { ascending: false });
       return data || [];
     },
   });
+
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
