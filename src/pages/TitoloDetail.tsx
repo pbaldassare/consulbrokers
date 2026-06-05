@@ -3158,7 +3158,9 @@ const TitoloDetail = () => {
         provvigioni={provvigioni}
         appendiciPolizza={appendiciPolizza}
         navigate={navigate}
+        chainIds={chainIds}
       />
+
 
       <SospensionePolizzaDialog
         open={sospensioneOpen}
