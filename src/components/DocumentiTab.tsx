@@ -16,9 +16,12 @@ import PdfPreview from "@/components/PdfPreview";
 interface DocumentiTabProps {
   entitaTipo: string;
   entitaId: string;
+  /** Se valorizzato, la query legge i documenti di TUTTI gli id elencati (catena polizza+quietanze). L'upload viene comunque salvato sul primo id (madre). */
+  entitaIds?: string[];
   bucketName?: string;
   readOnly?: boolean;
 }
+
 
 const BUCKET_MAP: Record<string, string> = {
   cliente: "documenti_clienti",
