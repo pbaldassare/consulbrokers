@@ -20,13 +20,16 @@ interface TitoloTabsProps {
   provvigioni: any[];
   appendiciPolizza: any[];
   navigate: (path: string) => void;
+  /** Id della catena (madre + tutte le quietanze) per condividere documenti su tutta la polizza. */
+  chainIds?: string[];
 }
 
 /**
  * Estratto da TitoloDetail.tsx (lines 3143-3280) per ridurre la complessità del file principale.
  * Comportamento e markup identici all'originale.
  */
-export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate }: TitoloTabsProps) => {
+export const TitoloTabs = ({ id, t, movimentiPolizza, provvigioni, appendiciPolizza, navigate, chainIds }: TitoloTabsProps) => {
+
   // Lazy mount: ogni tab si monta solo la prima volta che viene aperto, poi resta in cache.
   const [tab, setTab] = useState<string>("movimenti");
   const [mounted, setMounted] = useState<Record<string, boolean>>({ movimenti: true });
