@@ -144,14 +144,14 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
 
   const toggleVisibilita = async (doc: any) => {
     await supabase.from("documenti").update({ visibile_al_cliente: !doc.visibile_al_cliente }).eq("id", doc.id);
-    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
   };
 
   const handleDelete = async (doc: any) => {
     await supabase.storage.from(doc.bucket_name).remove([doc.path_storage]);
     await supabase.from("documenti").delete().eq("id", doc.id);
     toast.success("Documento eliminato");
-    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
   };
 
   const openPreview = async (doc: any) => {
