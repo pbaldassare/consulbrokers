@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type DocType = "preventivo" | "quietanza" | "riepilogo_polizza" | "sir";
+type DocType = "preventivo" | "quietanza" | "riepilogo_polizza" | "sir" | "sospesi";
 
 interface Body {
   tipo: DocType;
@@ -15,6 +15,8 @@ interface Body {
   titolo_id?: string;
   sinistro_id?: string;
   dati_sir?: any;
+  dati?: any[];
+  filtri?: any;
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -38,6 +40,7 @@ const TITLES: Record<DocType, string> = {
   quietanza: "QUIETANZA DI PAGAMENTO",
   riepilogo_polizza: "RIEPILOGO POLIZZA",
   sir: "REPORT SANITARIO SIR",
+  sospesi: "REPORT POLIZZE SOSPESE",
 };
 
 serve(async (req) => {
@@ -46,7 +49,7 @@ serve(async (req) => {
   try {
     const body = (await req.json()) as Body;
     const { tipo, cliente_id, titolo_id } = body;
-    if (!tipo || !["preventivo", "quietanza", "riepilogo_polizza", "sir"].includes(tipo)) {
+    if (!tipo || !["preventivo", "quietanza", "riepilogo_polizza", "sir", "sospesi"].includes(tipo)) {
       return new Response(JSON.stringify({ error: "tipo non valido" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -108,7 +111,7 @@ serve(async (req) => {
 
     // Build PDF
     const pdf = await PDFDocument.create();
-    const page = pdf.addPage([595, 842]); // A4
+    let page = pdf.addPage([595, 842]); // A4
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
     const { width, height } = page.size();
@@ -253,7 +256,36 @@ serve(async (req) => {
       section("4. Invalidità / Decesso");
       row("Inv. Temporanea", ds.invalidita_temporanea ? `Sì (${ds.invalidita_temporanea_giorni || 0} gg)` : "No");
       row("Inv. Permanente", ds.invalidita_permanente ? `Sì (${ds.invalidita_permanente_pct || 0} %)` : "No");
-      row("Decesso", ds.morte ? `Sì (in data ${fmtDate(ds.data_morte)})` : "No");
+    } else if (tipo === "sospesi") {
+      section("Filtri Applicati");
+      const flt = body.filtri || {};
+      for (const [k, v] of Object.entries(flt)) {
+        row(k, String(v));
+      }
+
+      y -= 10;
+      section("Polizze Sospese");
+      
+      const datiSospesi = body.dati || [];
+      if (datiSospesi.length === 0) {
+        page.drawText("Nessuna polizza sospesa", { x: left, y, size: 10, font, color: textColor });
+        y -= 20;
+      } else {
+        for (const d of datiSospesi) {
+          if (y < 100) {
+            page = pdf.addPage([595, 842]);
+            y = 780;
+            page.drawText("REPORT POLIZZE SOSPESE (Continua)", { x: left, y, size: 8, font: fontBold, color: rgb(color.r, color.g, color.b) });
+            y -= 15;
+          }
+          page.drawText(`Polizza: ${d.numero_polizza || "—"} | Cliente: ${d.cliente || "—"}`, { x: left, y, size: 9, font: fontBold, color: textColor });
+          y -= 12;
+          page.drawText(`Compagnia: ${d.compagnia || "—"} | Ramo: ${d.ramo || "—"} | Premio: ${fmtMoney(d.premio_lordo)}`, { x: left, y, size: 8, font, color: labelColor });
+          y -= 12;
+          page.drawText(`Sospesa il: ${d.data_sospensione || "—"} (${d.giorni_sospeso || "0 gg"}) | Responsabile: ${d.responsabile || "—"}`, { x: left, y, size: 8, font, color: labelColor });
+          y -= 18;
+        }
+      }
     } else {
       // Body specifico per tipo
       section(tipo === "preventivo" ? "Offerta" : tipo === "quietanza" ? "Conferma di pagamento" : "Riepilogo");

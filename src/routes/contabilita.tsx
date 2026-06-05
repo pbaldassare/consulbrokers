@@ -15,6 +15,8 @@ import ECProduttoriContabPage from "@/pages/contabilita/ECProduttoriContabPage";
 import ECProduttoriStoricoPage from "@/pages/contabilita/ECProduttoriStoricoPage";
 import StoricoRimessePage from "@/pages/contabilita/StoricoRimessePage";
 
+import StampaSospesiPage from "@/pages/contabilita/StampaSospesiPage";
+
 import ReportIVA from "@/pages/ReportIVA";
 import { Navigate } from "react-router-dom";
 import { Printer, ListChecks, FileOutput } from "lucide-react";
@@ -36,7 +38,7 @@ export const contabilitaRoutes = (
     <Route path="/contabilita/ec-produttori" element={<ECProduttoriContabPage />} />
     <Route path="/contabilita/ec-produttore/storico" element={<ECProduttoriStoricoPage />} />
     <Route path="/contabilita/storico-rimesse" element={<StoricoRimessePage />} />
-    <Route path="/contabilita/stampa-sospesi" element={<PlaceholderPage title="Stampa Sospesi" description="Stampa movimenti sospesi" icon={FileOutput} />} />
+    <Route path="/contabilita/stampa-sospesi" element={<StampaSospesiPage />} />
 
     <Route path="/rimessa-premi" element={<Navigate to="/contabilita/storico-rimesse" replace />} />
     <Route path="/rimessa-premi/:id" element={<Navigate to="/contabilita/storico-rimesse" replace />} />

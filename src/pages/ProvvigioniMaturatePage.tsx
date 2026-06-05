@@ -1,11 +1,29 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Users, CreditCard, ArrowRight, Briefcase, Receipt } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { DatePicker } from "@/components/contabilita/DatePicker";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { toast } from "sonner";
+import { logAttivita } from "@/lib/logAttivita";
+
+import { TrendingUp, Users, CreditCard, ArrowRight, Briefcase, Receipt, Coins, Check, FileText } from "lucide-react";
 import { format, subMonths, startOfMonth } from "date-fns";
 import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +34,16 @@ import { ProvvigioniFiltersBar, defaultFilters, ProvvigioniFilters } from "@/com
 import { ProvvigioniBarChart, ProvvigioniLineChart, ProvvigioniPieChart } from "@/components/provvigioni/ProvvigioniCharts";
 import { KpiCardSkeleton, ChartSkeleton, TableRowsSkeleton } from "@/components/provvigioni/ProvvigioniSkeletons";
 import { useProduttoriLookup } from "@/hooks/useProduttoriLookup";
+
+const pagatoSchema = z.object({
+  dataPagamento: z.date({
+    required_error: "La data di pagamento è obbligatoria",
+  }),
+  metodo: z.string().min(1, "Il metodo di pagamento è obbligatorio"),
+  note: z.string().optional(),
+});
+
+type PagatoFormValues = z.infer<typeof pagatoSchema>;
 
 const tipoBadge = (tipo: string | null) => {
   switch (tipo) {
@@ -33,7 +61,23 @@ const tipoBadge = (tipo: string | null) => {
 
 const ProvvigioniMaturatePage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<ProvvigioniFilters>(defaultFilters());
+  
+  // Stati per azioni bulk
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [modalePagamentoOpen, setModalePagamentoOpen] = useState(false);
+  const [generandoDistinta, setGenerandoDistinta] = useState(false);
+
+  // Form per modale pagamento
+  const form = useForm<PagatoFormValues>({
+    resolver: zodResolver(pagatoSchema),
+    defaultValues: {
+      dataPagamento: new Date(),
+      metodo: "bonifico",
+      note: "",
+    },
+  });
   
 
   // Lookups
@@ -148,7 +192,189 @@ const ProvvigioniMaturatePage = () => {
   }), [filtered]);
 
 
+  const provvigioniSelezionateDettaglio = useMemo(() => {
+    return provvigioni.filter((p: any) => selectedIds.includes(p.id));
+  }, [provvigioni, selectedIds]);
+
+  const totaleSelezionato = useMemo(() => {
+    return provvigioniSelezionateDettaglio.reduce((s: number, p: any) => s + (p.importo_provvigione || 0), 0);
+  }, [provvigioniSelezionateDettaglio]);
+
+  const pagamentoMutation = useMutation({
+    mutationFn: async (values: PagatoFormValues) => {
+      if (selectedIds.length === 0) throw new Error("Nessuna provvigione selezionata");
+
+      const provsToPay = provvigioni.filter((p: any) => selectedIds.includes(p.id));
+      
+      const groups: Record<string, typeof provsToPay> = {};
+      for (const p of provsToPay) {
+        const uId = p.user_id;
+        if (!uId) continue;
+        if (!groups[uId]) groups[uId] = [];
+        groups[uId].push(p);
+      }
+
+      const userIds = Object.keys(groups);
+      if (userIds.length === 0) {
+        throw new Error("Nessun utente valido associato alle provvigioni selezionate");
+      }
+
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Utente non autenticato");
+
+      const { data: userProfiles } = await supabase
+        .from("profiles")
+        .select("id, ufficio_id")
+        .in("id", userIds);
+
+      const ufficioMap: Record<string, string | null> = {};
+      if (userProfiles) {
+        for (const up of userProfiles) {
+          ufficioMap[up.id] = up.ufficio_id;
+        }
+      }
+
+      for (const uId of userIds) {
+        const groupProvs = groups[uId];
+        const totale = groupProvs.reduce((sum, p) => sum + (p.importo_provvigione || 0), 0);
+        
+        const dates = groupProvs.map(p => p.calcolata_il).filter(Boolean).map(d => new Date(d));
+        const minDate = dates.length ? new Date(Math.min(...dates.map(d => d.getTime()))) : new Date();
+        const maxDate = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : new Date();
+
+        const { data: distinta, error: errTestata } = await supabase
+          .from("pagamenti_provvigioni")
+          .insert({
+            pagato_a_user_id: uId,
+            ufficio_id: ufficioMap[uId] || null,
+            periodo_da: format(minDate, "yyyy-MM-dd"),
+            periodo_a: format(maxDate, "yyyy-MM-dd"),
+            totale_importo: totale,
+            metodo: values.metodo,
+            note: values.note || null,
+            creato_da: currentUser.id,
+            created_at: format(values.dataPagamento, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")
+          })
+          .select()
+          .single();
+
+        if (errTestata) throw errTestata;
+
+        const righe = groupProvs.map(p => ({
+          pagamento_id: distinta.id,
+          provvigione_id: p.id,
+          importo: p.importo_provvigione || 0,
+          created_at: format(values.dataPagamento, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")
+        }));
+
+        const { error: errRighe } = await supabase
+          .from("pagamenti_provvigioni_righe")
+          .insert(righe);
+        
+        if (errRighe) throw errRighe;
+
+        const groupIds = groupProvs.map(p => p.id);
+        const { error: errUpdate } = await supabase
+          .from("provvigioni_generate")
+          .update({ pagata: true })
+          .in("id", groupIds);
+
+        if (errUpdate) throw errUpdate;
+
+        await logAttivita({
+          azione: "creazione_distinta_provvigioni_bulk",
+          entita_tipo: "pagamenti_provvigioni",
+          entita_id: distinta.id,
+          dettagli_json: { righe: groupIds.length, totale },
+        });
+      }
+
+      return true;
+    },
+    onSuccess: () => {
+      toast.success("Pagamenti provvigioni registrati con successo");
+      queryClient.invalidateQueries({ queryKey: ["provvigioni-maturate"] });
+      queryClient.invalidateQueries({ queryKey: ["provvigioni-maturate-trend"] });
+      setSelectedIds([]);
+      setModalePagamentoOpen(false);
+      form.reset();
+    },
+    onError: (err: any) => {
+      console.error(err);
+      toast.error("Errore durante la registrazione dei pagamenti: " + err.message);
+    }
+  });
+
+  const onConfermaPagamento = (values: PagatoFormValues) => {
+    pagamentoMutation.mutate(values);
+  };
+
+  const handleGeneraDistintaPDF = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      setGenerandoDistinta(true);
+      toast.loading("Generazione distinta PDF in corso...");
+
+      const { data, error } = await supabase.functions.invoke("genera-distinta-pdf", {
+        body: {
+          provvigioni_ids: selectedIds
+        }
+      });
+
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Errore sconosciuto");
+
+      const base64Data = data.content;
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `distinta_provvigioni_${format(new Date(), "yyyyMMdd")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast.dismiss();
+      toast.success("Distinta PDF scaricata con successo");
+    } catch (err: any) {
+      console.error(err);
+      toast.dismiss();
+      toast.error("Errore durante la generazione della distinta PDF: " + err.message);
+    } finally {
+      setGenerandoDistinta(false);
+    }
+  };
+
   const { page, setPage, pages, pageRows, resetPage } = usePagination(filtered);
+
+  const selectableRows = useMemo(() => {
+    return pageRows.filter((p: any) => !p.pagata);
+  }, [pageRows]);
+
+  const isAllSelected = useMemo(() => {
+    return selectableRows.length > 0 && selectableRows.every(p => selectedIds.includes(p.id));
+  }, [selectableRows, selectedIds]);
+
+  const handleToggleAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(prev => prev.filter(id => !selectableRows.some(r => r.id === id)));
+    } else {
+      const idsToAdd = selectableRows.map(p => p.id).filter(id => !selectedIds.includes(id));
+      setSelectedIds(prev => [...prev, ...idsToAdd]);
+    }
+  };
+
+  const handleToggleRow = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
 
   const labelDa = format(new Date(filters.da), "dd/MM/yyyy");
   const labelA = format(new Date(filters.a), "dd/MM/yyyy");
@@ -200,11 +426,55 @@ const ProvvigioniMaturatePage = () => {
         </>
       )}
 
+      {/* Barra Azioni Bulk */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/10 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <Coins className="w-5 h-5 text-primary" />
+            <span className="text-sm font-medium text-foreground">
+              {selectedIds.length} {selectedIds.length === 1 ? "provvigione selezionata" : "provvigioni selezionate"} (Totale: {fmtEuro(totaleSelezionato)})
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => setModalePagamentoOpen(true)}
+            >
+              <Check className="w-4 h-4 mr-1.5" /> Segna come pagato
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-blue-200 hover:bg-blue-50 text-blue-700 hover:text-blue-800 dark:border-blue-900/50 dark:hover:bg-blue-950/20"
+              onClick={handleGeneraDistintaPDF}
+              disabled={generandoDistinta}
+            >
+              <FileText className="w-4 h-4 mr-1.5" /> Genera distinta PDF
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setSelectedIds([])}
+            >
+              Deseleziona tutto
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={handleToggleAll}
+                  />
+                </TableHead>
                 <TableHead>Polizza</TableHead>
                 <TableHead>Compagnia</TableHead>
                 <TableHead>Ramo</TableHead>
@@ -219,14 +489,21 @@ const ProvvigioniMaturatePage = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="p-0"><TableRowsSkeleton rows={8} cellTypes={["short","text","text","text","num","short","badge","text","num","badge"]} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="p-0"><TableRowsSkeleton rows={8} cellTypes={["checkbox","short","text","text","text","num","short","badge","text","num","badge"]} /></TableCell></TableRow>
               ) : pageRows.length === 0 ? (
-                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nessuna provvigione per i filtri selezionati</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nessuna provvigione per i filtri selezionati</TableCell></TableRow>
               ) : (
                 pageRows.map((p: any, i: number) => {
                   const cli = p.titoli?.clienti?.ragione_sociale || `${p.titoli?.clienti?.cognome || ""} ${p.titoli?.clienti?.nome || ""}`.trim();
                   return (
                     <TableRow key={p.id} className={i % 2 === 0 ? "bg-muted/30" : ""}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(p.id)}
+                          onCheckedChange={() => handleToggleRow(p.id)}
+                          disabled={p.pagata}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{p.titoli?.numero_titolo || "—"}</TableCell>
                       <TableCell>{p.titoli?.compagnie?.nome || "—"}</TableCell>
                       <TableCell>{p.titoli?.rami?.descrizione || "—"}</TableCell>
@@ -260,6 +537,98 @@ const ProvvigioniMaturatePage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Modale Conferma Pagamento */}
+      <Dialog open={modalePagamentoOpen} onOpenChange={setModalePagamentoOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coins className="w-5 h-5 text-emerald-600" /> Conferma Pagamento Provvigioni
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+            <div className="text-sm text-muted-foreground">
+              Stai per registrare il pagamento per <strong>{selectedIds.length}</strong> provvigioni per un importo totale di <strong className="text-foreground text-base">{fmtEuro(totaleSelezionato)}</strong>.
+            </div>
+            
+            {/* Lista provvigioni selezionate */}
+            <div className="border rounded-md max-h-40 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Polizza</TableHead>
+                    <TableHead>Destinatario</TableHead>
+                    <TableHead className="text-right">Importo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {provvigioniSelezionateDettaglio.map((p: any) => {
+                    const destName = p.profiles ? `${p.profiles.cognome || ""} ${p.profiles.nome || ""}`.trim() : (p.titoli?.produttore_nome || "—");
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">{p.titoli?.numero_titolo || "—"}</TableCell>
+                        <TableCell className="text-xs">{destName}</TableCell>
+                        <TableCell className="text-right font-mono font-medium text-xs">{fmtEuro(p.importo_provvigione)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <form onSubmit={form.handleSubmit(onConfermaPagamento)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data Pagamento</Label>
+                  <DatePicker
+                    value={form.watch("dataPagamento")}
+                    onChange={(d) => form.setValue("dataPagamento", d || new Date())}
+                    placeholder="Seleziona data"
+                  />
+                  {form.formState.errors.dataPagamento && (
+                    <p className="text-xs text-rose-500">{form.formState.errors.dataPagamento.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="metodo">Metodo Pagamento</Label>
+                  <Select
+                    value={form.watch("metodo")}
+                    onValueChange={(v) => form.setValue("metodo", v)}
+                  >
+                    <SelectTrigger id="metodo">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bonifico">Bonifico</SelectItem>
+                      <SelectItem value="contanti">Contanti</SelectItem>
+                      <SelectItem value="altro">Altro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="note">Note</Label>
+                <Textarea
+                  id="note"
+                  placeholder="Note opzionali..."
+                  {...form.register("note")}
+                  rows={3}
+                />
+              </div>
+
+              <DialogFooter className="pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setModalePagamentoOpen(false)}>
+                  Annulla
+                </Button>
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={pagamentoMutation.isPending}>
+                  {pagamentoMutation.isPending ? "Registrazione..." : "Conferma Pagamento"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
