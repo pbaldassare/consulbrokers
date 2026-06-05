@@ -100,7 +100,7 @@ export default function SinistriList() {
     try {
       let q = supabase.from("titoli").select(`
         id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
-        prodotti(nome_prodotto, agenzie(id, nome)),
+        prodotti(nome_prodotto, compagnie(id, nome)),
         profiles!titoli_cliente_id_fkey(nome, cognome),
         clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
       `).eq("stato", "attivo").limit(50);

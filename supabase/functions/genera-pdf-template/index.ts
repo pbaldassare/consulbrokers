@@ -7,12 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type DocType = "preventivo" | "quietanza" | "riepilogo_polizza";
+type DocType = "preventivo" | "quietanza" | "riepilogo_polizza" | "sir";
 
 interface Body {
   tipo: DocType;
   cliente_id?: string;
   titolo_id?: string;
+  sinistro_id?: string;
+  dati_sir?: any;
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -35,6 +37,7 @@ const TITLES: Record<DocType, string> = {
   preventivo: "PREVENTIVO ASSICURATIVO",
   quietanza: "QUIETANZA DI PAGAMENTO",
   riepilogo_polizza: "RIEPILOGO POLIZZA",
+  sir: "REPORT SANITARIO SIR",
 };
 
 serve(async (req) => {
@@ -43,7 +46,7 @@ serve(async (req) => {
   try {
     const body = (await req.json()) as Body;
     const { tipo, cliente_id, titolo_id } = body;
-    if (!tipo || !["preventivo", "quietanza", "riepilogo_polizza"].includes(tipo)) {
+    if (!tipo || !["preventivo", "quietanza", "riepilogo_polizza", "sir"].includes(tipo)) {
       return new Response(JSON.stringify({ error: "tipo non valido" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -91,6 +94,16 @@ serve(async (req) => {
           .maybeSingle();
         cliente = c;
       }
+    }
+
+    let sinistro: any = null;
+    if (body.sinistro_id) {
+      const { data: s } = await admin
+        .from("sinistri")
+        .select("id, numero_sinistro, data_evento, luogo_sinistro, clienti(id, nome, cognome, ragione_sociale)")
+        .eq("id", body.sinistro_id)
+        .maybeSingle();
+      sinistro = s;
     }
 
     // Build PDF
@@ -209,30 +222,65 @@ serve(async (req) => {
       row("Premio lordo", fmtMoney(titolo.premio_lordo));
     }
 
-    // Body specifico per tipo
-    section(tipo === "preventivo" ? "Offerta" : tipo === "quietanza" ? "Conferma di pagamento" : "Riepilogo");
-    const introTextByType: Record<DocType, string> = {
-      preventivo: "Con la presente Vi sottoponiamo l'offerta assicurativa relativa al rischio in oggetto, alle condizioni e ai premi sotto riportati. Il presente preventivo ha validità di 30 giorni dalla data di emissione, salvo verifica positiva delle condizioni di rischio.",
-      quietanza: "Con la presente si conferma l'avvenuto incasso del premio relativo alla polizza in oggetto. Il presente documento ha valore di quietanza ai sensi dell'art. 1199 c.c. La copertura assicurativa si intende regolarmente in essere alle condizioni contrattuali sottoscritte.",
-      riepilogo_polizza: "Il presente documento riepiloga i dati essenziali della polizza in oggetto. Si invita il Cliente a verificare la correttezza delle informazioni e a segnalare tempestivamente eventuali discordanze.",
-    };
-    const intro = introTextByType[tipo];
-    const wrap = (txt: string, maxChars = 95): string[] => {
-      const words = txt.split(" ");
-      const lines: string[] = [];
-      let cur = "";
-      for (const w of words) {
-        if ((cur + " " + w).trim().length > maxChars) {
-          lines.push(cur.trim());
-          cur = w;
-        } else cur += " " + w;
+    if (tipo === "sir") {
+      section("1. Dati Infortunato");
+      const ds = body.dati_sir || {};
+      row("Nominativo", `${ds.cognome || ""} ${ds.nome || ""}`.trim());
+      row("Codice Fiscale", ds.codice_fiscale || "");
+      row("Data Nascita", fmtDate(ds.data_nascita));
+      row("Luogo Nascita", ds.luogo_nascita || "");
+      row("Professione", ds.professione || "");
+      row("Indirizzo", ds.indirizzo || "");
+
+      section("2. Dettagli Evento");
+      row("Data Accadimento", fmtDate(ds.data_evento));
+      row("Luogo Accadimento", ds.luogo_evento || "");
+      row("Testimoni", ds.testimoni || "Nessuno");
+      
+      y -= 10;
+      page.drawText("Dinamica dell'evento:", { x: left, y, size: 9, font, color: labelColor });
+      y -= 12;
+      page.drawText(ds.dinamica || "—", { x: left, y, size: 10, font: fontBold, color: textColor });
+      y -= 20;
+
+      section("3. Valutazione Medica");
+      row("Medico Curante", ds.medico_curante || "");
+      row("Struttura Sanitaria", ds.struttura_sanitaria || "");
+      row("Diagnosi Clinica", ds.diagnosi || "");
+      row("Giorni Prognosi", String(ds.prognosi_giorni || 0));
+      row("Fine Prognosi", fmtDate(ds.data_fine_prognosi));
+
+      section("4. Invalidità / Decesso");
+      row("Inv. Temporanea", ds.invalidita_temporanea ? `Sì (${ds.invalidita_temporanea_giorni || 0} gg)` : "No");
+      row("Inv. Permanente", ds.invalidita_permanente ? `Sì (${ds.invalidita_permanente_pct || 0} %)` : "No");
+      row("Decesso", ds.morte ? `Sì (in data ${fmtDate(ds.data_morte)})` : "No");
+    } else {
+      // Body specifico per tipo
+      section(tipo === "preventivo" ? "Offerta" : tipo === "quietanza" ? "Conferma di pagamento" : "Riepilogo");
+      const introTextByType: Record<DocType, string> = {
+        preventivo: "Con la presente Vi sottoponiamo l'offerta assicurativa relativa al rischio in oggetto, alle condizioni e ai premi sotto riportati. Il presente preventivo ha validità di 30 giorni dalla data di emissione, salvo verifica positiva delle condizioni di rischio.",
+        quietanza: "Con la presente si conferma l'avvenuto incasso del premio relativo alla polizza in oggetto. Il presente documento ha valore di quietanza ai sensi dell'art. 1199 c.c. La copertura assicurativa si intende regolarmente in essere alle condizioni contrattuali sottoscritte.",
+        riepilogo_polizza: "Il presente documento riepiloga i dati essenziali della polizza in oggetto. Si invita il Cliente a verificare la correttezza delle informazioni e a segnalare tempestivamente eventuali discordanze.",
+        sir: "N/D"
+      };
+      const intro = introTextByType[tipo];
+      const wrap = (txt: string, maxChars = 95): string[] => {
+        const words = txt.split(" ");
+        const lines: string[] = [];
+        let cur = "";
+        for (const w of words) {
+          if ((cur + " " + w).trim().length > maxChars) {
+            lines.push(cur.trim());
+            cur = w;
+          } else cur += " " + w;
+        }
+        if (cur.trim()) lines.push(cur.trim());
+        return lines;
+      };
+      for (const ln of wrap(intro)) {
+        page.drawText(ln, { x: left, y, size: 10, font, color: textColor });
+        y -= 14;
       }
-      if (cur.trim()) lines.push(cur.trim());
-      return lines;
-    };
-    for (const ln of wrap(intro)) {
-      page.drawText(ln, { x: left, y, size: 10, font, color: textColor });
-      y -= 14;
     }
 
     // Footer

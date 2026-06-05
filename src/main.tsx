@@ -15,4 +15,10 @@ try {
   }
 } catch {}
 
+import { supabase } from "@/integrations/supabase/client";
+
+if (typeof window !== "undefined") {
+  (window as any).supabase = supabase;
+}
+
 createRoot(document.getElementById("root")!).render(<App />);

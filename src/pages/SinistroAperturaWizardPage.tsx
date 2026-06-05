@@ -1,0 +1,932 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { supabase } from "@/integrations/supabase/client";
+import { useDraftPersistence, loadDraft, clearDraft } from "@/hooks/useDraftPersistence";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { FilePlus, Search, ArrowLeft, ArrowRight, Trash2, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+
+const DRAFT_KEY = "sinistri:apertura:bozza";
+
+const tipiSinistro = [
+  "incidente_stradale", "furto", "incendio", "danni_acqua", "RC_terzi",
+  "infortunio", "grandine", "atti_vandalici", "responsabilita_civile", "altro"
+];
+
+const tipoLabels: Record<string, string> = {
+  incidente_stradale: "Incidente Stradale",
+  furto: "Furto",
+  incendio: "Incendio",
+  danni_acqua: "Danni Acqua",
+  RC_terzi: "RC Terzi",
+  infortunio: "Infortunio",
+  grandine: "Grandine",
+  atti_vandalici: "Atti Vandalici",
+  responsabilita_civile: "Responsabilità Civile",
+  altro: "Altro"
+};
+
+// Schema di validazione Zod
+const wizardSchema = z.object({
+  // Step 1
+  titolo_id: z.string().min(1, "Seleziona una polizza collegata"),
+  
+  // Step 2
+  data_evento: z.string().min(1, "La data accadimento è obbligatoria"),
+  data_denuncia: z.string().min(1, "La data denuncia è obbligatoria"),
+  tipo_sinistro: z.string().min(1, "Il tipo sinistro è obbligatorio"),
+  numero_sinistro_compagnia: z.string().optional(),
+  descrizione: z.string().min(20, "La descrizione deve contenere almeno 20 caratteri"),
+  luogo_sinistro: z.string().min(1, "Il luogo accadimento è obbligatorio"),
+  importo_riserva: z.preprocess((val) => (val === "" || val === undefined ? undefined : Number(val)), z.number().min(0, "L'importo non può essere negativo").optional()),
+  
+  // Step 3
+  documenti: z.array(
+    z.object({
+      nome_file: z.string(),
+      path_temp: z.string(), // path locale temporaneo o base64
+      categoria: z.string().min(1, "La categoria è obbligatoria"),
+      descrizione: z.string().optional(),
+      file_base64: z.string().optional() // Usato per persistere il file nella bozza
+    })
+  ).optional(),
+  
+  // Step 4
+  responsabile_id: z.string().min(1, "Il responsabile interno è obbligatorio"),
+  liquidatore_id: z.string().min(1, "Il liquidatore è obbligatorio"),
+  note_interne: z.string().optional(),
+  priorita: z.enum(["normale", "alta", "urgente"])
+});
+
+type WizardFormValues = z.infer<typeof wizardSchema>;
+
+export default function SinistroAperturaWizardPage() {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Polizza selezionata (visualizzazione)
+  const [selectedPolizzaData, setSelectedPolizzaData] = useState<any>(null);
+  
+  // Stato ricerca polizze (Step 1)
+  const [polizzaSearchText, setPolizzaSearchText] = useState("");
+  const [polizzeList, setPolizzeList] = useState<any[]>([]);
+  const [polizzeLoading, setPolizzeLoading] = useState(false);
+
+  // Inizializzazione React Hook Form
+  const { register, control, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<WizardFormValues>({
+    resolver: zodResolver(wizardSchema),
+    defaultValues: {
+      titolo_id: "",
+      data_evento: "",
+      data_denuncia: "",
+      tipo_sinistro: "",
+      numero_sinistro_compagnia: "",
+      descrizione: "",
+      luogo_sinistro: "",
+      importo_riserva: undefined,
+      documenti: [],
+      responsabile_id: "",
+      liquidatore_id: "",
+      note_interne: "",
+      priorita: "normale"
+    }
+  });
+
+  const { fields: docFields, append: appendDoc, remove: removeDoc } = useFieldArray({
+    control,
+    name: "documenti"
+  });
+
+  // Watch dei valori critici
+  const watchTitoloId = watch("titolo_id");
+  const watchDocumenti = watch("documenti");
+  const watchValues = watch();
+
+  // 1. Carica bozza se esistente
+  useEffect(() => {
+    const draft = loadDraft<WizardFormValues>(DRAFT_KEY);
+    if (draft?.data) {
+      const d = draft.data;
+      Object.keys(d).forEach((key) => {
+        setValue(key as keyof WizardFormValues, (d as any)[key]);
+      });
+      // Se c'è una polizza già selezionata nella bozza, carichiamo le sue info
+      if (d.titolo_id) {
+        supabase.from("titoli").select(`
+          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
+          prodotti(nome_prodotto, compagnie(id, nome)),
+          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
+        `).eq("id", d.titolo_id).maybeSingle().then(({ data }) => {
+          if (data) setSelectedPolizzaData(data);
+        });
+      }
+      toast.success("Bozza caricata localmente");
+    }
+    setDraftLoaded(true);
+  }, [setValue]);
+
+  // 2. Abilita salvataggio automatico bozza
+  useDraftPersistence(DRAFT_KEY, watchValues, { enabled: draftLoaded });
+
+  // Query per lookup tipo documento (Step 3)
+  const { data: lookupTipiDoc = [] } = useQuery({
+    queryKey: ["lookup-tipo-documento-wizard"],
+    queryFn: async () => {
+      const { data } = await supabase.from("lookup_tipo_documento").select("id, codice, descrizione").eq("attivo", true).order("descrizione");
+      return data || [];
+    }
+  });
+
+  // Query per lookup responsabili interni da profiles (Step 4)
+  const { data: responsabiliList = [] } = useQuery({
+    queryKey: ["profiles-responsabili-wizard"],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("id, nome, cognome, ruolo").eq("attivo", true).order("cognome");
+      return data || [];
+    }
+  });
+
+  // Query per liquidatori da anagrafiche_professionali (Step 4)
+  const { data: liquidatoriList = [] } = useQuery({
+    queryKey: ["anagrafiche-liquidatori-wizard"],
+    queryFn: async () => {
+      const { data } = await supabase.from("anagrafiche_professionali").select("id, nome, cognome, ragione_sociale").eq("tipo", "liquidatore").eq("attivo", true).order("cognome");
+      return data || [];
+    }
+  });
+
+  // Ricerca polizze in tempo reale (Step 1)
+  const handleCercaPolizze = async () => {
+    if (!polizzaSearchText.trim()) {
+      toast.warning("Inserisci un criterio di ricerca");
+      return;
+    }
+    setPolizzeLoading(true);
+    try {
+      let q = supabase.from("titoli").select(`
+        id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
+        prodotti(nome_prodotto, compagnie(id, nome)),
+        clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
+      `).eq("stato", "attivo").limit(100);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      let results = data || [];
+      if (polizzaSearchText) {
+        const term = polizzaSearchText.toLowerCase();
+        results = results.filter((p: any) => {
+          const numMatch = p.numero_titolo?.toLowerCase().includes(term);
+          const c = p.clienti;
+          const clientMatch = c && `${c.cognome || ""} ${c.nome || ""} ${c.ragione_sociale || ""}`.toLowerCase().includes(term);
+          return numMatch || clientMatch;
+        });
+      }
+
+      setPolizzeList(results.slice(0, 25));
+      if (results.length === 0) {
+        toast.info("Nessuna polizza attiva trovata con questi criteri");
+      }
+    } catch (err: any) {
+      console.error("Errore ricerca polizze:", err);
+      toast.error("Errore nella ricerca polizze: " + err.message);
+    } finally {
+      setPolizzeLoading(false);
+    }
+  };
+
+  const selezionaPolizza = (polizza: any) => {
+    setSelectedPolizzaData(polizza);
+    setValue("titolo_id", polizza.id);
+    toast.success(`Polizza N° ${polizza.numero_titolo} selezionata`);
+  };
+
+  // Gestione caricamento file (Step 3)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Content = event.target?.result as string;
+        // Appendiamo all'array del form
+        appendDoc({
+          nome_file: file.name,
+          path_temp: URL.createObjectURL(file), // Usato temporaneamente per anteprima o download locale
+          categoria: "",
+          descrizione: "",
+          file_base64: base64Content // Salvato nella bozza
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    // Resettiamo l'input file
+    e.target.value = "";
+  };
+
+  // Funzione per validare ed avanzare negli step
+  const handleNextStep = async () => {
+    let fieldsToValidate: any[] = [];
+    if (currentStep === 1) {
+      fieldsToValidate = ["titolo_id"];
+    } else if (currentStep === 2) {
+      fieldsToValidate = ["data_evento", "data_denuncia", "tipo_sinistro", "descrizione", "luogo_sinistro", "importo_riserva"];
+    } else if (currentStep === 3) {
+      fieldsToValidate = ["documenti"];
+    } else if (currentStep === 4) {
+      fieldsToValidate = ["responsabile_id", "liquidatore_id", "priorita"];
+    }
+
+    const isValid = await trigger(fieldsToValidate);
+    if (isValid) {
+      setCurrentStep((prev) => (prev + 1) as any);
+    } else {
+      toast.error("Controlla i campi obbligatori o con errori");
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep((prev) => (prev - 1) as any);
+  };
+
+  // Reset del wizard e cancellazione bozza
+  const handleAnnulla = () => {
+    clearDraft(DRAFT_KEY);
+    toast.info("Apertura sinistro annullata e bozza cancellata");
+    navigate("/sinistri");
+  };
+
+  // Salvataggio finale del sinistro (Step 5)
+  const onSubmitForm = async (values: WizardFormValues) => {
+    setSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Utente non autenticato");
+
+      // Recuperiamo la polizza e il cliente associato
+      const compagniaId = selectedPolizzaData?.prodotti?.compagnie?.id || null;
+      const clienteAnagraficaId = selectedPolizzaData?.cliente_anagrafica_id || null;
+
+      // 1. Inserimento del sinistro in Supabase
+      const payloadSinistro = {
+        numero_sinistro: `SIN-${format(new Date(), "yyyy")}-${Math.floor(1000 + Math.random() * 9000)}`, // Generazione codice
+        titolo_id: values.titolo_id,
+        cliente_anagrafica_id: clienteAnagraficaId,
+        compagnia_id: compagniaId,
+        tipo_sinistro: values.tipo_sinistro,
+        descrizione: values.descrizione,
+        luogo_sinistro: values.luogo_sinistro,
+        data_evento: values.data_evento,
+        data_denuncia: values.data_denuncia,
+        data_apertura: format(new Date(), "yyyy-MM-dd"),
+        importo_riserva: values.importo_riserva || null,
+        responsabile_id: values.responsabile_id,
+        liquidatore_id: values.liquidatore_id,
+        stato: "aperto",
+        aperto_da_cliente: false
+      };
+
+      const { data: newSinistro, error: errorSinistro } = await supabase
+        .from("sinistri")
+        .insert(payloadSinistro)
+        .select("id, numero_sinistro")
+        .single();
+
+      if (errorSinistro) throw errorSinistro;
+
+      // 2. Inserimento evento automatico di apertura
+      const payloadEvento = {
+        sinistro_id: newSinistro.id,
+        tipo_evento: "apertura",
+        data_scadenza: format(new Date(), "yyyy-MM-dd"),
+        stato: "completato",
+        note: `Apertura automatica pratica sinistro ${newSinistro.numero_sinistro}. Priorità: ${values.priorita.toUpperCase()}. Note interne: ${values.note_interne || "Nessuna"}`
+      };
+
+      const { error: errorEvento } = await supabase
+        .from("sinistro_eventi")
+        .insert(payloadEvento);
+
+      if (errorEvento) throw errorEvento;
+
+      // 3. Upload documenti se presenti
+      if (values.documenti && values.documenti.length > 0) {
+        for (const doc of values.documenti) {
+          if (!doc.file_base64) continue;
+          
+          // Convertiamo base64 in Blob
+          const base64Data = doc.file_base64.split(",")[1];
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: "application/octet-stream" });
+          
+          const storagePath = `sinistro/${newSinistro.id}/${Date.now()}_${doc.nome_file}`;
+          
+          // Upload su Supabase Storage bucket documenti_sinistri
+          const { error: uploadErr } = await supabase.storage
+            .from("documenti_sinistri")
+            .upload(storagePath, blob);
+
+          if (uploadErr) throw uploadErr;
+
+          // Inserimento metadati del documento nel DB
+          const { error: docDbErr } = await supabase.from("documenti").insert({
+            nome_file: doc.nome_file,
+            path_storage: storagePath,
+            bucket_name: "documenti_sinistri",
+            entita_tipo: "sinistro",
+            entita_id: newSinistro.id,
+            caricato_da: user.id,
+            categoria: doc.categoria,
+            descrizione: doc.descrizione || null
+          });
+
+          if (docDbErr) throw docDbErr;
+        }
+      }
+
+      // 4. Rimozione bozza da localStorage
+      clearDraft(DRAFT_KEY);
+
+      toast.success(`Sinistro ${newSinistro.numero_sinistro} aperto con successo!`);
+      navigate(`/sinistri/${newSinistro.id}`);
+    } catch (err: any) {
+      toast.error("Errore durante l'apertura del sinistro: " + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getClienteNome = (c: any) => {
+    if (!c) return "—";
+    if (c.tipo_cliente === "azienda" && c.ragione_sociale) return c.ragione_sociale;
+    return `${c.cognome || ""} ${c.nome || ""}`.trim() || "—";
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Header Wizard */}
+      <div className="flex items-center justify-between pb-4 border-b">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <FilePlus className="h-6 w-6 text-primary" /> Apertura Nuovo Sinistro
+          </h1>
+          <p className="text-muted-foreground">Procedura guidata per l'apertura di un sinistro su polizza attiva</p>
+        </div>
+        <Button variant="outline" onClick={() => setCancelDialogOpen(true)} className="text-destructive border-destructive hover:bg-destructive/10">
+          Annulla apertura
+        </Button>
+      </div>
+
+      {/* Barra di Progresso */}
+      <div className="relative">
+        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-muted -translate-y-1/2" />
+        <div 
+          className="absolute top-1/2 left-0 h-0.5 bg-primary -translate-y-1/2 transition-all duration-300"
+          style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
+        />
+        <div className="relative flex justify-between">
+          {[1, 2, 3, 4, 5].map((stepIndex) => (
+            <div key={stepIndex} className="flex flex-col items-center">
+              <div 
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border-2 z-10 transition-all ${
+                  currentStep === stepIndex 
+                    ? "bg-primary border-primary text-primary-foreground shadow-md ring-4 ring-primary/20" 
+                    : currentStep > stepIndex 
+                      ? "bg-primary border-primary text-primary-foreground" 
+                      : "bg-background border-muted text-muted-foreground"
+                }`}
+              >
+                {stepIndex}
+              </div>
+              <span className={`text-[10px] font-medium mt-2 hidden sm:block ${currentStep === stepIndex ? "text-primary font-bold" : "text-muted-foreground"}`}>
+                {stepIndex === 1 && "Polizza"}
+                {stepIndex === 2 && "Dati Sinistro"}
+                {stepIndex === 3 && "Documenti"}
+                {stepIndex === 4 && "Assegnazione"}
+                {stepIndex === 5 && "Riepilogo"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Corpo del Form */}
+      <form onSubmit={handleSubmit(onSubmitForm)}>
+        <Card className="shadow-md border-t-4 border-t-primary">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              {currentStep === 1 && "Step 1: Ricerca e Collegamento Polizza"}
+              {currentStep === 2 && "Step 2: Dettagli dell'Accadimento"}
+              {currentStep === 3 && "Step 3: Documenti Iniziali"}
+              {currentStep === 4 && "Step 4: Assegnazione Pratica e Priorità"}
+              {currentStep === 5 && "Step 5: Riepilogo e Conferma"}
+            </CardTitle>
+            <CardDescription>
+              {currentStep === 1 && "Cerca la polizza attiva digitando il numero o il nome del contraente."}
+              {currentStep === 2 && "Fornisci tutte le informazioni relative a quando, dove e come si è verificato il sinistro."}
+              {currentStep === 3 && "Carica referti, foto o denunce firmate. Questo step è facoltativo."}
+              {currentStep === 4 && "Assegna la pratica a un addetto interno e ad un liquidatore di riferimento."}
+              {currentStep === 5 && "Verifica la correttezza di tutti i dati prima dell'apertura formale della pratica."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            
+            {/* STEP 1: POLIZZA COLLEGATA */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Cerca per Numero Polizza, Nome / Cognome / Ragione Sociale cliente..." 
+                      value={polizzaSearchText}
+                      onChange={(e) => setPolizzaSearchText(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCercaPolizze())}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button type="button" onClick={handleCercaPolizze} disabled={polizzeLoading}>
+                    {polizzeLoading ? "Ricerca..." : "Cerca Polizze"}
+                  </Button>
+                </div>
+
+                {polizzeList.length > 0 && (
+                  <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="table-header-colored">
+                        <TableRow>
+                          <TableHead>N° Polizza</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Prodotto</TableHead>
+                          <TableHead>Compagnia</TableHead>
+                          <TableHead className="text-right">Azioni</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {polizzeList.map((p) => (
+                          <TableRow key={p.id} className={watchTitoloId === p.id ? "bg-accent/40" : ""}>
+                            <TableCell className="font-semibold">{p.numero_titolo}</TableCell>
+                            <TableCell>{getClienteNome(p.clienti)}</TableCell>
+                            <TableCell>{p.prodotti?.nome_prodotto || "—"}</TableCell>
+                            <TableCell>{p.prodotti?.compagnie?.nome || "—"}</TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant={watchTitoloId === p.id ? "default" : "outline"} 
+                                onClick={() => selezionaPolizza(p)}
+                              >
+                                {watchTitoloId === p.id ? "Selezionata" : "Seleziona"}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {selectedPolizzaData && (
+                  <div className="p-4 bg-muted/50 rounded-lg border space-y-2 mt-4">
+                    <h4 className="font-semibold text-sm text-primary">Polizza Selezionata per il Sinistro</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Numero Polizza:</span>
+                        <p className="font-semibold">{selectedPolizzaData.numero_titolo}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Contraente:</span>
+                        <p className="font-semibold">{getClienteNome(selectedPolizzaData.clienti)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Stato Polizza:</span>
+                        <p className="font-semibold capitalize"><Badge variant="outline">{selectedPolizzaData.stato}</Badge></p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {errors.titolo_id && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-3 w-3" /> {errors.titolo_id.message}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* STEP 2: DATI SINISTRO */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="data_evento">Data Accadimento *</Label>
+                    <Input type="date" id="data_evento" {...register("data_evento")} />
+                    {errors.data_evento && <p className="text-xs text-destructive">{errors.data_evento.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="data_denuncia">Data Denuncia *</Label>
+                    <Input type="date" id="data_denuncia" {...register("data_denuncia")} />
+                    {errors.data_denuncia && <p className="text-xs text-destructive">{errors.data_denuncia.message}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_sinistro">Tipo Sinistro *</Label>
+                    <Select 
+                      value={watch("tipo_sinistro")} 
+                      onValueChange={(val) => setValue("tipo_sinistro", val, { shouldValidate: true })}
+                    >
+                      <SelectTrigger id="tipo_sinistro">
+                        <SelectValue placeholder="Seleziona tipo sinistro..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tipiSinistro.map((t) => (
+                          <SelectItem key={t} value={t}>{tipoLabels[t] || t.replace(/_/g, " ")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.tipo_sinistro && <p className="text-xs text-destructive">{errors.tipo_sinistro.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numero_sinistro_compagnia">Numero Sinistro Compagnia (opzionale)</Label>
+                    <Input id="numero_sinistro_compagnia" placeholder="Es. AN-2026-X8" {...register("numero_sinistro_compagnia")} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="luogo_sinistro">Luogo Accadimento *</Label>
+                    <Input id="luogo_sinistro" placeholder="Città, indirizzo o località..." {...register("luogo_sinistro")} />
+                    {errors.luogo_sinistro && <p className="text-xs text-destructive">{errors.luogo_sinistro.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="importo_riserva">Importo Riserva Iniziale (€, opzionale)</Label>
+                    <Input type="number" step="0.01" id="importo_riserva" placeholder="0.00" {...register("importo_riserva")} />
+                    {errors.importo_riserva && <p className="text-xs text-destructive">{errors.importo_riserva.message}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="descrizione">Descrizione Accadimento (min 20 caratteri) *</Label>
+                  <Textarea 
+                    id="descrizione" 
+                    placeholder="Descrivi dettagliatamente come e cosa è accaduto..." 
+                    rows={4} 
+                    {...register("descrizione")}
+                  />
+                  <p className="text-[10px] text-muted-foreground text-right">
+                    {(watch("descrizione") || "").length}/20 caratteri minimi
+                  </p>
+                  {errors.descrizione && <p className="text-xs text-destructive">{errors.descrizione.message}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: DOCUMENTI INIZIALI */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center hover:bg-muted/10 transition-colors">
+                  <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium">Trascina qui i tuoi documenti o clicca per sfogliare</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">Supportati file PDF, immagini (JPG, PNG)</p>
+                  <Input 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,image/*" 
+                    onChange={handleFileUpload} 
+                    className="hidden" 
+                    id="file-upload-input"
+                  />
+                  <Label htmlFor="file-upload-input" asChild>
+                    <Button type="button" variant="secondary">Seleziona File</Button>
+                  </Label>
+                </div>
+
+                {watchDocumenti && watchDocumenti.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm">File Caricati Temporaneamente:</h4>
+                    <div className="space-y-3">
+                      {docFields.map((field, idx) => (
+                        <div key={field.id} className="p-3 border rounded-lg flex flex-col md:flex-row gap-3 items-start md:items-center bg-card shadow-sm">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FileText className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-xs font-semibold truncate" title={field.nome_file}>{field.nome_file}</span>
+                          </div>
+                          <div className="w-full md:w-48 shrink-0">
+                            <Select 
+                              value={watch(`documenti.${idx}.categoria`)} 
+                              onValueChange={(val) => setValue(`documenti.${idx}.categoria`, val, { shouldValidate: true })}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Tipo documento..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {lookupTipiDoc.map((type: any) => (
+                                  <SelectItem key={type.id} value={type.codice}>{type.descrizione}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {errors.documenti?.[idx]?.categoria && (
+                              <p className="text-[10px] text-destructive mt-0.5">{errors.documenti[idx]?.categoria?.message}</p>
+                            )}
+                          </div>
+                          <div className="w-full md:flex-1">
+                            <Input 
+                              placeholder="Breve descrizione..." 
+                              className="h-8 text-xs" 
+                              {...register(`documenti.${idx}.descrizione`)}
+                            />
+                          </div>
+                          <Button 
+                            type="button" 
+                            size="icon" 
+                            variant="ghost" 
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                            onClick={() => removeDoc(idx)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 4: ASSEGNAZIONE */}
+            {currentStep === 4 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Responsabile Interno *</Label>
+                    <SearchableSelect
+                      value={watch("responsabile_id")}
+                      onValueChange={(val) => setValue("responsabile_id", val, { shouldValidate: true })}
+                      placeholder="Seleziona responsabile..."
+                      options={responsabiliList.map((r: any) => ({
+                        value: r.id,
+                        label: `${r.cognome || ""} ${r.nome || ""}`.trim(),
+                        description: `Ruolo: ${r.ruolo}`
+                      }))}
+                    />
+                    {errors.responsabile_id && <p className="text-xs text-destructive">{errors.responsabile_id.message}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Liquidatore Esterno *</Label>
+                    <SearchableSelect
+                      value={watch("liquidatore_id")}
+                      onValueChange={(val) => setValue("liquidatore_id", val, { shouldValidate: true })}
+                      placeholder="Seleziona liquidatore..."
+                      options={liquidatoriList.map((l: any) => ({
+                        value: l.id,
+                        label: l.ragione_sociale || `${l.cognome || ""} ${l.nome || ""}`.trim()
+                      }))}
+                    />
+                    {errors.liquidatore_id && <p className="text-xs text-destructive">{errors.liquidatore_id.message}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Priorità di Apertura *</Label>
+                  <RadioGroup 
+                    value={watch("priorita")} 
+                    onValueChange={(val) => setValue("priorita", val as any)}
+                    className="grid grid-cols-3 gap-4 pt-2"
+                  >
+                    <Label htmlFor="priorita-normale" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30">
+                      <RadioGroupItem value="normale" id="priorita-normale" />
+                      <span>Normale</span>
+                    </Label>
+                    <Label htmlFor="priorita-alta" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 text-orange-600">
+                      <RadioGroupItem value="alta" id="priorita-alta" />
+                      <span>Alta</span>
+                    </Label>
+                    <Label htmlFor="priorita-urgente" className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 text-destructive">
+                      <RadioGroupItem value="urgente" id="priorita-urgente" />
+                      <span className="font-bold">Urgente</span>
+                    </Label>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="note_interne">Note Interne Operatore (opzionale)</Label>
+                  <Textarea 
+                    id="note_interne" 
+                    placeholder="Annotazioni non visibili al cliente..." 
+                    rows={3} 
+                    {...register("note_interne")}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: RIEPILOGO E CONFERMA */}
+            {currentStep === 5 && (
+              <div className="space-y-6">
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex gap-3 items-start">
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <h4 className="font-semibold text-primary">Pronto per l'Apertura</h4>
+                    <p className="text-muted-foreground mt-0.5">Rivedi i dati inseriti. Puoi cliccare su "Modifica" a destra di ogni sezione per correggere eventuali informazioni.</p>
+                  </div>
+                </div>
+
+                {/* Sezione 1: Polizza */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-4 py-2 flex justify-between items-center border-b">
+                    <span className="text-sm font-semibold text-primary">1. Polizza e Cliente</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(1)} className="text-xs h-7">Modifica</Button>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Numero Polizza</span>
+                      <p className="font-semibold mt-0.5">{selectedPolizzaData?.numero_titolo || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Cliente</span>
+                      <p className="font-semibold mt-0.5">{selectedPolizzaData ? getClienteNome(selectedPolizzaData.clienti) : "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Prodotto</span>
+                      <p className="font-semibold mt-0.5">{selectedPolizzaData?.prodotti?.nome_prodotto || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sezione 2: Dati Sinistro */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-4 py-2 flex justify-between items-center border-b">
+                    <span className="text-sm font-semibold text-primary">2. Dati del Sinistro</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(2)} className="text-xs h-7">Modifica</Button>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Data Accadimento</span>
+                      <p className="font-semibold mt-0.5">{watch("data_evento") ? format(new Date(watch("data_evento")), "dd/MM/yyyy") : "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Data Denuncia</span>
+                      <p className="font-semibold mt-0.5">{watch("data_denuncia") ? format(new Date(watch("data_denuncia")), "dd/MM/yyyy") : "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Tipo Sinistro</span>
+                      <p className="font-semibold mt-0.5 capitalize">{tipoLabels[watch("tipo_sinistro")] || watch("tipo_sinistro")?.replace(/_/g, " ") || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Numero Compagnia</span>
+                      <p className="font-semibold mt-0.5">{watch("numero_sinistro_compagnia") || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Luogo</span>
+                      <p className="font-semibold mt-0.5">{watch("luogo_sinistro") || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Importo Riserva</span>
+                      <p className="font-semibold mt-0.5 font-mono">
+                        {watch("importo_riserva") ? `€ ${Number(watch("importo_riserva")).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : "—"}
+                      </p>
+                    </div>
+                    <div className="col-span-1 md:col-span-3">
+                      <span className="text-muted-foreground">Descrizione Accadimento</span>
+                      <p className="mt-1 bg-muted/30 p-2.5 rounded border text-muted-foreground leading-relaxed">{watch("descrizione") || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sezione 3: Documenti */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-4 py-2 flex justify-between items-center border-b">
+                    <span className="text-sm font-semibold text-primary">3. Documenti allegati ({watchDocumenti?.length || 0})</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(3)} className="text-xs h-7">Modifica</Button>
+                  </div>
+                  <div className="p-4 text-xs">
+                    {watchDocumenti && watchDocumenti.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {watchDocumenti.map((doc, idx) => (
+                          <div key={idx} className="flex justify-between py-1 border-b last:border-0">
+                            <span className="font-medium">{doc.nome_file}</span>
+                            <span className="text-muted-foreground font-semibold">
+                              {lookupTipiDoc.find((t: any) => t.codice === doc.categoria)?.descrizione || doc.categoria}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center italic py-2">Nessun documento caricato per questo sinistro.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sezione 4: Assegnazione */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-4 py-2 flex justify-between items-center border-b">
+                    <span className="text-sm font-semibold text-primary">4. Gestione e Assegnazione</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(4)} className="text-xs h-7">Modifica</Button>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Responsabile Interno</span>
+                      <p className="font-semibold mt-0.5">
+                        {(() => {
+                          const resp = responsabiliList.find((r: any) => r.id === watch("responsabile_id"));
+                          return resp ? `${resp.cognome || ""} ${resp.nome || ""}`.trim() : "—";
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Liquidatore Esterno</span>
+                      <p className="font-semibold mt-0.5">
+                        {(() => {
+                          const liq = liquidatoriList.find((l: any) => l.id === watch("liquidatore_id"));
+                          return liq ? liq.ragione_sociale || `${liq.cognome || ""} ${liq.nome || ""}`.trim() : "—";
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Priorità</span>
+                      <p className="font-semibold mt-0.5 capitalize">
+                        <Badge variant={watch("priorita") === "urgente" ? "destructive" : watch("priorita") === "alta" ? "default" : "outline"}>
+                          {watch("priorita")}
+                        </Badge>
+                      </p>
+                    </div>
+                    {watch("note_interne") && (
+                      <div className="col-span-1 md:col-span-3">
+                        <span className="text-muted-foreground">Note Operatore</span>
+                        <p className="mt-1 text-muted-foreground italic bg-muted/10 p-2 border rounded">{watch("note_interne")}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </CardContent>
+          <CardFooter className="flex justify-between border-t py-4 bg-muted/10">
+            {currentStep > 1 ? (
+              <Button type="button" variant="outline" onClick={handlePrevStep} disabled={submitting}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Indietro
+              </Button>
+            ) : (
+              <div /> // Spazio per layout
+            )}
+
+            {currentStep < 5 ? (
+              <Button type="button" onClick={handleNextStep}>
+                Avanti <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button type="submit" className="btn-primary-gradient" disabled={submitting}>
+                {submitting ? "Creazione in corso..." : "Conferma e Apri Sinistro"}
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+      </form>
+
+      {/* Modale AlertDialog di conferma per l'annullamento */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sei sicuro di voler annullare?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tutti i dati non salvati andranno persi. La bozza locale del sinistro verrà definitivamente cancellata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAnnulla} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Conferma Annullamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
