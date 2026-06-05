@@ -107,7 +107,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const path = `${entitaTipo}/${entitaId}/${Date.now()}_${file.name}`;
+      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, file);
       if (uploadErr) throw uploadErr;
       const { error: insertErr } = await supabase.from("documenti").insert({
@@ -115,13 +115,14 @@ export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketNa
         path_storage: path,
         bucket_name: bucket,
         entita_tipo: entitaTipo,
-        entita_id: entitaId,
+        entita_id: uploadEntitaId,
         caricato_da: user?.id,
       });
       if (insertErr) throw insertErr;
-      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: entitaId, dettagli_json: { nome_file: file.name } });
+      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: uploadEntitaId, dettagli_json: { nome_file: file.name } });
       toast.success("Documento caricato");
-      qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
+      qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
+
     } catch (err: any) {
       toast.error(err.message);
     } finally {
