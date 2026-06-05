@@ -16,9 +16,12 @@ import PdfPreview from "@/components/PdfPreview";
 interface DocumentiTabProps {
   entitaTipo: string;
   entitaId: string;
+  /** Se valorizzato, la query legge i documenti di TUTTI gli id elencati (catena polizza+quietanze). L'upload viene comunque salvato sul primo id (madre). */
+  entitaIds?: string[];
   bucketName?: string;
   readOnly?: boolean;
 }
+
 
 const BUCKET_MAP: Record<string, string> = {
   cliente: "documenti_clienti",
@@ -61,7 +64,7 @@ function DocumentThumbnail({ bucketName, pathStorage, nomeFile, onClick }: { buc
   return <FileText className={`h-8 w-8 text-muted-foreground ${base}`} onClick={onClick} />;
 }
 
-export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnly = false }: DocumentiTabProps) {
+export default function DocumentiTab({ entitaTipo, entitaId, entitaIds, bucketName, readOnly = false }: DocumentiTabProps) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -71,18 +74,25 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
   const [previewPdfData, setPreviewPdfData] = useState<Uint8Array | null>(null);
   const bucket = bucketName || BUCKET_MAP[entitaTipo] || "documenti_generali";
 
+  // Catena di id su cui leggere (es. polizza madre + tutte le quietanze). Fallback: solo entitaId.
+  const idsForRead = (entitaIds && entitaIds.length > 0) ? entitaIds : [entitaId];
+  // Upload viene sempre attribuito al primo id (per i titoli = madre della catena, stabile).
+  const uploadEntitaId = (entitaIds && entitaIds.length > 0) ? entitaIds[0] : entitaId;
+  const idsKey = [...idsForRead].sort().join(",");
+
   const { data: documenti } = useQuery({
-    queryKey: ["documenti", entitaTipo, entitaId],
+    queryKey: ["documenti", entitaTipo, idsKey],
     queryFn: async () => {
       const { data } = await supabase
         .from("documenti")
         .select("*, profiles:caricato_da(nome, cognome)")
         .eq("entita_tipo", entitaTipo)
-        .eq("entita_id", entitaId)
+        .in("entita_id", idsForRead)
         .order("created_at", { ascending: false });
       return data || [];
     },
   });
+
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -97,7 +107,7 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const path = `${entitaTipo}/${entitaId}/${Date.now()}_${file.name}`;
+      const path = `${entitaTipo}/${uploadEntitaId}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from(bucket).upload(path, file);
       if (uploadErr) throw uploadErr;
       const { error: insertErr } = await supabase.from("documenti").insert({
@@ -105,13 +115,14 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
         path_storage: path,
         bucket_name: bucket,
         entita_tipo: entitaTipo,
-        entita_id: entitaId,
+        entita_id: uploadEntitaId,
         caricato_da: user?.id,
       });
       if (insertErr) throw insertErr;
-      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: entitaId, dettagli_json: { nome_file: file.name } });
+      await logAttivita({ azione: "upload_documento", entita_tipo: entitaTipo, entita_id: uploadEntitaId, dettagli_json: { nome_file: file.name } });
       toast.success("Documento caricato");
-      qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
+      qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
+
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -133,14 +144,14 @@ export default function DocumentiTab({ entitaTipo, entitaId, bucketName, readOnl
 
   const toggleVisibilita = async (doc: any) => {
     await supabase.from("documenti").update({ visibile_al_cliente: !doc.visibile_al_cliente }).eq("id", doc.id);
-    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
   };
 
   const handleDelete = async (doc: any) => {
     await supabase.storage.from(doc.bucket_name).remove([doc.path_storage]);
     await supabase.from("documenti").delete().eq("id", doc.id);
     toast.success("Documento eliminato");
-    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, entitaId] });
+    qc.invalidateQueries({ queryKey: ["documenti", entitaTipo, idsKey] });
   };
 
   const openPreview = async (doc: any) => {

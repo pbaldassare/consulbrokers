@@ -1429,6 +1429,14 @@ const TitoloDetail = () => {
     : 0;
   const totRate = catenaCorrente ? catenaCorrente.all.length : 1;
   const madre = catenaCorrente?.madre || null;
+  // Catena di id (madre per prima, poi le rate) per condividere i Documenti su tutta la polizza+quietanze.
+  const chainIds: string[] = catenaCorrente
+    ? [
+        ...(catenaCorrente.madre ? [catenaCorrente.madre.id] : []),
+        ...catenaCorrente.all.filter((x) => x.id !== catenaCorrente.madre?.id).map((x) => x.id),
+      ]
+    : [t.id];
+
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -3150,7 +3158,9 @@ const TitoloDetail = () => {
         provvigioni={provvigioni}
         appendiciPolizza={appendiciPolizza}
         navigate={navigate}
+        chainIds={chainIds}
       />
+
 
       <SospensionePolizzaDialog
         open={sospensioneOpen}
