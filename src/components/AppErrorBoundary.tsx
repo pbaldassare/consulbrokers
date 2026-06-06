@@ -4,6 +4,7 @@ import { refreshToLatestVersion } from "@/lib/versionCheck";
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
+  section?: string;
 }
 
 interface AppErrorBoundaryState {
@@ -18,7 +19,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[AppErrorBoundary] React crash", error, info);
+    console.error(`[AppErrorBoundary] React crash in section: ${this.props.section || "Root"}`, error, info);
   }
 
   private reload = async () => {
@@ -32,11 +33,15 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
   render() {
     if (!this.state.error) return this.props.children;
 
+    const title = this.props.section 
+      ? `Si è verificato un errore nella sezione ${this.props.section}` 
+      : "Si è verificato un errore";
+
     return (
       <main className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
         <section className="w-full max-w-lg border bg-card rounded-lg shadow-lg p-6 space-y-4">
           <div className="space-y-2">
-            <h1 className="text-xl font-semibold">Si è verificato un errore</h1>
+            <h1 className="text-xl font-semibold">{title}</h1>
             <p className="text-sm text-muted-foreground">
               L'applicazione ha intercettato un crash imprevisto. Puoi ricaricare la pagina senza perdere la sessione.
             </p>

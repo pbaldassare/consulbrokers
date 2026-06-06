@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import AuthGuard from "./components/AuthGuard";
 import MainLayout from "./components/MainLayout";
@@ -39,14 +39,31 @@ const App = () => (
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/mio-profilo" element={<MioProfilo />} />
                 <Route path="/ai-assistant" element={<AiAssistantPage />} />
-                {archiviRoutes}
-                {portafoglioRoutes}
-                {sinistriRoutes}
-                {contabilitaRoutes}
-                {sistemaRoutes}
+                
+                <Route element={<AppErrorBoundary section="Archivi"><Outlet /></AppErrorBoundary>}>
+                  {archiviRoutes}
+                </Route>
+                <Route element={<AppErrorBoundary section="Portafoglio"><Outlet /></AppErrorBoundary>}>
+                  {portafoglioRoutes}
+                </Route>
+                <Route element={<AppErrorBoundary section="Sinistri"><Outlet /></AppErrorBoundary>}>
+                  {sinistriRoutes}
+                </Route>
+                <Route element={<AppErrorBoundary section="Contabilità"><Outlet /></AppErrorBoundary>}>
+                  {contabilitaRoutes}
+                </Route>
+                <Route element={<AppErrorBoundary section="Sistema"><Outlet /></AppErrorBoundary>}>
+                  {sistemaRoutes}
+                </Route>
               </Route>
-              {clienteRoutes}
-              {prospectRoutes}
+              
+              <Route element={<AppErrorBoundary section="Cliente"><Outlet /></AppErrorBoundary>}>
+                {clienteRoutes}
+              </Route>
+              <Route element={<AppErrorBoundary section="Prospect"><Outlet /></AppErrorBoundary>}>
+                {prospectRoutes}
+              </Route>
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
