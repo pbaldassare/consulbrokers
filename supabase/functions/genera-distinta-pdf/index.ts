@@ -52,7 +52,7 @@ serve(async (req) => {
       let page = pdf.addPage([595, 842]);
       const font = await pdf.embedFont(StandardFonts.Helvetica);
       const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
-      const { width, height } = page.size();
+      const { width, height } = page.getSize();
 
       const left = 40;
       let y = height - 50;

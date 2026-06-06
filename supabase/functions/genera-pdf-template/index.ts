@@ -114,7 +114,7 @@ serve(async (req) => {
     let page = pdf.addPage([595, 842]); // A4
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
-    const { width, height } = page.size();
+    const { width, height } = page.getSize();
 
     // Header band
     page.drawRectangle({
