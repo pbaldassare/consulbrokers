@@ -217,31 +217,34 @@ export default function SinistroAperturaWizardPage() {
     setPolizzeLoading(true);
     try {
       const search = polizzaSearchText.trim();
-      // Build Supabase query with proper FK relationships and filter active/sospeso states
-      let q = supabase
+
+      // Query semplificata con FK esplicita
+      const { data, error } = await supabase
         .from("titoli")
         .select(`
           id,
-          numero_titolo as numero_polizza,
-          cliente_anagrafica_id as cliente_id,
-          clienti!titoli_cliente_anagrafica_id_fkey(id, nome, cognome, ragione_sociale),
-          compagnie!titoli_compagnia_id_fkey(id, nome),
-          rami!titoli_ramo_id_fkey(id, nome),
-          stato
+          numero_titolo,
+          stato,
+          cliente_id,
+          compagnia_id,
+          ramo_id,
+          clienti(nome, cognome, ragione_sociale),
+          compagnie(nome),
+          rami(nome)
         `)
         .in("stato", ["attivo", "sospeso"])
-        .limit(100);
+        .ilike("numero_titolo", `%${search}%`)
+        .range(0, 24);
 
-      // Apply search across numero_polizza and client fields
-      if (search) {
-        const escaped = search.replace(/['"\\]/g, "\\$&");
-        q = q.or(`numero_titolo.ilike.%${escaped}%,clienti.cognome.ilike.%${escaped}%,clienti.nome.ilike.%${escaped}%,clienti.ragione_sociale.ilike.%${escaped}%`);
-      }
-
-      const { data, error } = await q;
       if (error) throw error;
 
-      const results = (data || []).slice(0, 25);
+      const results = (data || []).map((p: any) => ({
+        ...p,
+        clienteNome: p.clienti
+          ? `${p.clienti.cognome || ""} ${p.clienti.nome || ""} ${p.clienti.ragione_sociale || ""}`.trim()
+          : "Cliente non trovato",
+      }));
+
       setPolizzeList(results);
       if (results.length === 0) {
         toast.info("Nessuna polizza attiva trovata con questi criteri");
