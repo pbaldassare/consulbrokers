@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -458,58 +458,31 @@ export default function SinistroAperturaWizardPage() {
             {/* STEP 1: POLIZZA COLLEGATA */}
             {currentStep === 1 && (
               <div className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Cerca per Numero Polizza, Nome / Cognome / Ragione Sociale cliente..." 
-                      value={polizzaSearchText}
-                      onChange={(e) => setPolizzaSearchText(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCercaPolizze())}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Button type="button" onClick={handleCercaPolizze} disabled={polizzeLoading}>
-                    {polizzeLoading ? "Ricerca..." : "Cerca Polizze"}
-                  </Button>
-                </div>
-
-                {polizzeList.length > 0 && (
-                  <div className="border rounded-lg max-h-[300px] overflow-y-auto">
-                    <Table>
-                      <TableHeader className="table-header-colored">
-                        <TableRow>
-                          <TableHead>N° Polizza</TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead>Prodotto</TableHead>
-                          <TableHead>Compagnia</TableHead>
-                          <TableHead className="text-right">Azioni</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {polizzeList.map((p) => (
-                          <TableRow key={p.id} className={watchTitoloId === p.id ? "bg-accent/40" : ""}>
-                            <TableCell className="font-semibold">{p.numero_titolo}</TableCell>
-                            <TableCell>{getClienteNome(p.clienti)}</TableCell>
-                            <TableCell>{p.prodotti?.nome_prodotto || "—"}</TableCell>
-                            <TableCell>{p.prodotti?.compagnie?.nome || "—"}</TableCell>
-                            <TableCell className="text-right">
-                              <Button 
-                                type="button" 
-                                size="sm" 
-                                variant={watchTitoloId === p.id ? "default" : "outline"} 
-                                onClick={() => selezionaPolizza(p)}
-                              >
-                                {watchTitoloId === p.id ? "Selezionata" : "Seleziona"}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-
+                {/* SearchableSelect for live search and selection */}
+                <SearchableSelect
+                  options={polizzeList.map(p => ({
+                    value: p.id,
+                    label: p.numero_titolo,
+                    description: `${getClienteNome(p.clienti)} - ${p.prodotti?.nome_prodotto || "—"}`,
+                    searchText: `${p.numero_titolo} ${getClienteNome(p.clienti)} ${p.prodotti?.nome_prodotto || ""}`,
+                  }))}
+                  value={watchTitoloId ?? ""}
+                  onValueChange={(val) => {
+                    const selected = polizzeList.find(p => p.id === val);
+                    if (selected) selezionaPolizza(selected);
+                  }}
+                  placeholder="Cerca polizza..."
+                  searchValue={polizzaSearchText}
+                  onSearchChange={(q) => {
+                    setPolizzaSearchText(q);
+                    // Optionally trigger search with debounce
+                    // handleCercaPolizze();
+                  }}
+                  clearable={true}
+                  clearLabel="— Nessuna Polizza —"
+                  className="w-full"
+                />
+                {/* Show selected polizza details */}
                 {selectedPolizzaData && (
                   <div className="p-4 bg-muted/50 rounded-lg border space-y-2 mt-4">
                     <h4 className="font-semibold text-sm text-primary">Polizza Selezionata per il Sinistro</h4>
