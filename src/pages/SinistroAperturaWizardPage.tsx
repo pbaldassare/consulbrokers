@@ -84,7 +84,8 @@ export default function SinistroAperturaWizardPage() {
   
   // Polizza selezionata (visualizzazione)
   const [selectedPolizzaData, setSelectedPolizzaData] = useState<any>(null);
-  
+  const [preselectedCliente, setPreselectedCliente] = useState<any>(null);
+
   // Stato ricerca polizze (Step 1)
   const [polizzaSearchText, setPolizzaSearchText] = useState("");
   const [polizzeList, setPolizzeList] = useState<any[]>([]);
@@ -109,6 +110,40 @@ export default function SinistroAperturaWizardPage() {
       priorita: "normale"
     }
   });
+
+  // URL param for cliente preselection
+  const [searchParams] = useSearchParams();
+  const preselectedClienteId = searchParams.get('cliente_id');
+
+  useEffect(() => {
+    if (preselectedClienteId) {
+      // fetch client info
+      supabase.from('clienti')
+        .select('cognome, nome, ragione_sociale')
+        .eq('id', preselectedClienteId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setPreselectedCliente(data);
+        });
+      // fetch polizze for this client
+      supabase.from('titoli')
+        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
+          prodotti(nome_prodotto, compagnie(id, nome)),
+          clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
+        .eq('stato', 'attivo')
+        .eq('cliente_anagrafica_id', preselectedClienteId)
+        .limit(100)
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setPolizzeList(data.slice(0, 25));
+            if (data.length > 0) {
+              const first = data[0];
+              selezionaPolizza(first);
+            }
+          }
+        });
+    }
+  }, [preselectedClienteId]);
 
   const { fields: docFields, append: appendDoc, remove: removeDoc } = useFieldArray({
     control,
@@ -458,6 +493,11 @@ export default function SinistroAperturaWizardPage() {
             {/* STEP 1: POLIZZA COLLEGATA */}
             {currentStep === 1 && (
               <div className="space-y-4">
+                {preselectedCliente && (
+                  <Badge variant="secondary" className="mb-2">
+                    Cliente preselezionato: {getClienteNome(preselectedCliente)}
+                  </Badge>
+                )}
                 {/* SearchableSelect for live search and selection */}
                 <SearchableSelect
                   options={polizzeList.map(p => ({
