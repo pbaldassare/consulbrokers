@@ -216,27 +216,33 @@ export default function SinistroAperturaWizardPage() {
     }
     setPolizzeLoading(true);
     try {
-      let q = supabase.from("titoli").select(`
-        id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
-        prodotti(nome_prodotto, compagnie(id, nome)),
-        clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
-      `).eq("stato", "attivo").limit(100);
+      const search = polizzaSearchText.trim();
+      // Build Supabase query with proper FK relationships and filter active/sospeso states
+      let q = supabase
+        .from("titoli")
+        .select(`
+          id,
+          numero_titolo as numero_polizza,
+          cliente_anagrafica_id as cliente_id,
+          clienti!titoli_cliente_anagrafica_id_fkey(id, nome, cognome, ragione_sociale),
+          compagnie!titoli_compagnia_id_fkey(id, nome),
+          rami!titoli_ramo_id_fkey(id, nome),
+          stato
+        `)
+        .in("stato", ["attivo", "sospeso"])
+        .limit(100);
+
+      // Apply search across numero_polizza and client fields
+      if (search) {
+        const escaped = search.replace(/['"\\]/g, "\\$&");
+        q = q.or(`numero_titolo.ilike.%${escaped}%,clienti.cognome.ilike.%${escaped}%,clienti.nome.ilike.%${escaped}%,clienti.ragione_sociale.ilike.%${escaped}%`);
+      }
 
       const { data, error } = await q;
       if (error) throw error;
 
-      let results = data || [];
-      if (polizzaSearchText) {
-        const term = polizzaSearchText.toLowerCase();
-        results = results.filter((p: any) => {
-          const numMatch = p.numero_titolo?.toLowerCase().includes(term);
-          const c = p.clienti;
-          const clientMatch = c && `${c.cognome || ""} ${c.nome || ""} ${c.ragione_sociale || ""}`.toLowerCase().includes(term);
-          return numMatch || clientMatch;
-        });
-      }
-
-      setPolizzeList(results.slice(0, 25));
+      const results = (data || []).slice(0, 25);
+      setPolizzeList(results);
       if (results.length === 0) {
         toast.info("Nessuna polizza attiva trovata con questi criteri");
       }
