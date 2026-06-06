@@ -102,7 +102,7 @@ const ProvvigioniMaturatePage = () => {
             id, numero_titolo, premio_lordo, data_messa_cassa, stato, produttore_nome, ramo_id, compagnia_id, cliente_id, anagrafica_commerciale_id,
             compagnie!titoli_compagnia_id_fkey(nome),
             rami!titoli_ramo_id_fkey(codice, descrizione),
-            clienti:clienti!titoli_cliente_id_fkey(id, nome, cognome, ragione_sociale),
+            clienti:clienti!titoli_cliente_anagrafica_id_fkey(id, nome, cognome, ragione_sociale),
             anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, nome, cognome, ragione_sociale)
           ),
           profiles!provvigioni_generate_user_id_fkey(nome, cognome)
