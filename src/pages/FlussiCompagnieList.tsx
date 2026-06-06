@@ -50,13 +50,13 @@ const FlussiCompagnieList = () => {
     queryKey: ["flussi_compagnia", filtroStato],
     queryFn: async () => {
       let q = supabase
-        .from("flussi_compagnia" as any)
+        .from("flussi_compagnia")
         .select("*, agenzie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
         .order("created_at", { ascending: false });
       if (filtroStato !== "tutti") q = q.eq("stato", filtroStato);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as any[];
+      return (data || []);
     },
   });
 
@@ -64,7 +64,7 @@ const FlussiCompagnieList = () => {
     mutationFn: async () => {
       const myUfficio = await supabase.rpc("get_my_ufficio_id");
       const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase.from("flussi_compagnia" as any).insert([{
+      const { data, error } = await supabase.from("flussi_compagnia").insert([{
         compagnia_id: form.compagnia_id,
         ufficio_id: myUfficio.data,
         tipo_flusso: form.tipo_flusso,
@@ -211,8 +211,8 @@ const FlussiCompagnieList = () => {
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nessun flusso trovato</TableCell></TableRow>
               ) : flussi.map((f: any) => (
                 <TableRow key={f.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/flussi-agenzie/${f.id}`)}>
-                  <TableCell className="font-medium">{(f.compagnie as any)?.nome || "-"}</TableCell>
-                  <TableCell>{(f.uffici as any)?.nome_ufficio || "-"}</TableCell>
+                  <TableCell className="font-medium">{f.compagnie?.nome || "-"}</TableCell>
+                  <TableCell>{f.uffici?.nome_ufficio || "-"}</TableCell>
                   <TableCell className="capitalize">{f.tipo_flusso?.replace("_", " ")}</TableCell>
                   <TableCell>{f.periodo}</TableCell>
                   <TableCell className="uppercase">{f.formato}</TableCell>

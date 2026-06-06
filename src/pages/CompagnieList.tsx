@@ -489,7 +489,7 @@ function CompagniaFormDialog({
     queryKey: ["gruppi_compagnia_lookup"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .select("id, descrizione, codice")
         .eq("attivo", true)
         .order("descrizione");
@@ -852,7 +852,7 @@ function AgenzieCollegateDialog({
     queryFn: async () => {
       if (!gruppoId) return [];
       const { data, error } = await supabase
-        .from("compagnia_rapporti" as any)
+        .from("compagnia_rapporti")
         .select("id, codice_rapporto, tipo_rapporto, rami_abilitati, data_inizio, data_fine, attivo, percentuale_provvigione, compagnia_id, compagnie:compagnia_id(id, codice, nome, nome_sede)")
         .eq("gruppo_compagnia_id", gruppoId)
         .order("attivo", { ascending: false })
@@ -992,7 +992,7 @@ function AgenzieCollegateDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(rapporti as any[]).map((r, idx) => (
+                  {(rapporti).map((r, idx) => (
                     <TableRow key={r.id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
                       <TableCell className="font-medium">{r.compagnie?.nome || "—"}</TableCell>
                       <TableCell className="font-mono text-xs">{r.codice_rapporto || "—"}</TableCell>
@@ -1052,7 +1052,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
     queryKey: ["agenzie-madri-list"],
     queryFn: async () => {
       const { data: gruppiData, error } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .select("id, codice, descrizione, attivo")
         .order("descrizione");
       if (error) throw error;
@@ -1072,7 +1072,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
       // Conteggio relazioni N:N attive (rapporti plurimandatari)
       const { data: rapportiData } = await supabase
-        .from("compagnia_rapporti" as any)
+        .from("compagnia_rapporti")
         .select("compagnia_id, gruppo_compagnia_id")
         .eq("attivo", true);
 
@@ -1105,14 +1105,14 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       const norm = form.descrizione.trim().toUpperCase();
       // Check anti-duplicato case-insensitive
       const { data: existing } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => (g.descrizione || "").trim().toUpperCase() === norm)) {
         throw new Error("Esiste già una compagnia assicurativa con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .insert({ codice: form.codice || null, descrizione: form.descrizione.trim(), attivo: form.attivo });
       if (error) throw error;
     },
@@ -1132,14 +1132,14 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       const norm = form.descrizione.trim().toUpperCase();
       // Check anti-duplicato case-insensitive (escluso il record corrente)
       const { data: existing } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .select("id, descrizione")
         .ilike("descrizione", form.descrizione.trim());
       if ((existing || []).some((g: any) => g.id !== editId && (g.descrizione || "").trim().toUpperCase() === norm)) {
         throw new Error("Esiste già una compagnia assicurativa con questo nome (confronto senza distinzione di maiuscole/minuscole)");
       }
       const { error } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .update({ codice: form.codice || null, descrizione: form.descrizione.trim(), attivo: form.attivo })
         .eq("id", editId);
       if (error) throw error;
@@ -1157,7 +1157,7 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("gruppi_compagnia" as any).delete().eq("id", id);
+      const { error } = await supabase.from("gruppi_compagnia").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1384,7 +1384,7 @@ const CompagnieList = () => {
     queryKey: ["gruppi_compagnia_map"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("gruppi_compagnia" as any)
+        .from("gruppi_compagnia")
         .select("id, descrizione, codice");
       const map: Record<string, { descrizione: string; codice: string | null; is_pluri: boolean }> = {};
       (data || []).forEach((g: any) => {
@@ -1399,7 +1399,7 @@ const CompagnieList = () => {
   const { data: rapportiCounts = {} } = useQuery({
     queryKey: ["compagnia_rapporti_counts"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_rapporti_counts_per_compagnia" as any);
+      const { data, error } = await supabase.rpc("get_rapporti_counts_per_compagnia");
       if (error) throw error;
       const counts: Record<string, { tot: number; attivi: number }> = {};
       (data || []).forEach((r: any) => {
@@ -1500,7 +1500,7 @@ const CompagnieList = () => {
   };
 
   const handleOpenAgenziaById = (compagniaId: string) => {
-    const c = (compagnie as any[]).find((x) => x.id === compagniaId);
+    const c = (compagnie).find((x) => x.id === compagniaId);
     if (c) {
       openEdit(c);
     } else {
@@ -1511,12 +1511,12 @@ const CompagnieList = () => {
   const filteredAnagrafica = compagnie.filter((c: any) => {
     const matchNome = !searchNome || c.nome?.toLowerCase().includes(searchNome.toLowerCase()) || c.nome_sede?.toLowerCase().includes(searchNome.toLowerCase());
     const matchCodice = !searchCodice || c.codice?.toLowerCase().startsWith(searchCodice.toLowerCase());
-    const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri);
+    const matchPluri = !onlyPluri || (c.gruppo_compagnia_id && gruppiMap[c.gruppo_compagnia_id]?.is_pluri);
     const matchTipo = filterTipo === "all" || c.tipo === filterTipo;
     return matchNome && matchCodice && matchPluri && matchTipo;
   });
 
-  const pluriCount = compagnie.filter((c: any) => (gruppiMap as any)[c.gruppo_compagnia_id]?.is_pluri).length;
+  const pluriCount = compagnie.filter((c: any) => gruppiMap[c.gruppo_compagnia_id]?.is_pluri).length;
 
   return (
     <div className="space-y-6">
@@ -1526,7 +1526,7 @@ const CompagnieList = () => {
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
             <span className="font-semibold">{compagnie.length}</span> agenzie ·{" "}
-            <span className="font-semibold">{Object.keys(gruppiMap as any).length}</span> compagnie assicurative
+            <span className="font-semibold">{Object.keysgruppiMap.length}</span> compagnie assicurative
           </p>
         </div>
         {activeTab === "anagrafica" && (
@@ -1641,8 +1641,8 @@ const CompagnieList = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredAnagrafica.map((c: any) => {
-                      const grp = c.gruppo_compagnia_id ? (gruppiMap as any)[c.gruppo_compagnia_id] : null;
-                      const rc = (rapportiCounts as any)[c.id] || { tot: 0, attivi: 0 };
+                      const grp = c.gruppo_compagnia_id ? gruppiMap[c.gruppo_compagnia_id] : null;
+                      const rc = rapportiCounts[c.id] || { tot: 0, attivi: 0 };
                       return (
                         <TableRow
                           key={c.id}

@@ -85,9 +85,9 @@ const StoricoTrattativePage = () => {
     const rows = filtered.map((t) => [
       t.cliente_id ? "Cliente" : "Prospect",
       getSoggettoName(t),
-      (t as any).ramo?.descrizione || t.prodotto || "",
-      (t as any).compagnia_rel?.nome || t.compagnia || "",
-      (t as any).ufficio?.nome_ufficio || "",
+      t.ramo?.descrizione || t.prodotto || "",
+      t.compagnia_rel?.nome || t.compagnia || "",
+      t.ufficio?.nome_ufficio || "",
       t.premio_previsto || "",
       getStatoLabel(t.stato),
       t.fonte || "",
@@ -212,9 +212,9 @@ const StoricoTrattativePage = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{getSoggettoName(t)}</TableCell>
-                  <TableCell className="text-muted-foreground">{(t as any).ramo?.descrizione || t.prodotto || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{(t as any).ufficio?.nome_ufficio || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{t.ramo?.descrizione || t.prodotto || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{t.compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{t.ufficio?.nome_ufficio || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center text-xs font-medium px-2.5 py-0.5 rounded-full text-white ${getStatoColor(t.stato)}`}>

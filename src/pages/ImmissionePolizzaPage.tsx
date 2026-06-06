@@ -147,7 +147,7 @@ const ImmissionePolizzaPage = () => {
         const ssnAttivo = !!match?.ssn_attivo;
         const aliquotaSsn = ssnAttivo ? (Number(match?.aliquota_ssn) || 10.5) : 0;
         const netto = g.premio_netto != null ? Number(g.premio_netto) : 0;
-        const ssnFromAi = (g as any).ssn != null ? Number((g as any).ssn) : null;
+        const ssnFromAi = g.ssn != null ? Number(g.ssn) : null;
         const ssnAuto = ssnAttivo && netto > 0 ? +((netto * aliquotaSsn) / 100).toFixed(2) : 0;
         // Aliquota tasse: priorità al sottoramo DB (verità canonica), poi al valore AI, poi 0.
         const aliquotaDb = match && match.aliquota_tasse_ramo != null
@@ -188,7 +188,7 @@ const ImmissionePolizzaPage = () => {
     if (d.targa) setTargaTelaio(d.targa);
 
     // === RCA Auto: applica blocco veicolo + conducente ===
-    const v = (d as any).veicolo as undefined | {
+    const v = d.veicolo as undefined | {
       targa?: string; telaio?: string; marca?: string; modello?: string; versione?: string;
       descrizione?: string; tipo_veicolo?: string; uso_descrizione?: string;
       data_immatricolazione?: string; anno_acquisto?: string; provincia_circolazione?: string;
@@ -198,14 +198,14 @@ const ImmissionePolizzaPage = () => {
       franchigia?: number; massimale_1?: number; massimale_2?: number; massimale_3?: number;
       peius?: boolean; temporanea?: boolean; carico_scarico?: boolean; competizione?: boolean; rimorchio?: boolean;
     };
-    const cond = (d as any).conducente as undefined | {
+    const cond = d.conducente as undefined | {
       nome?: string; cognome?: string; codice_fiscale?: string; indirizzo?: string;
       cap?: string; citta?: string; provincia?: string; data_nascita?: string;
       tipo_patente?: string; data_rilascio_patente?: string;
     };
     const ramoIsAuto =
       !!m.polizzaAuto ||
-      (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String((m.ramo as any).codice || ""))) ||
+      (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String(m.ramo.codice || ""))) ||
       !!(v && (v.targa || v.telaio || v.marca));
     if (ramoIsAuto) {
       setPolizzaAuto(true);
@@ -722,11 +722,11 @@ const ImmissionePolizzaPage = () => {
   // Fallback: se il GF non è ancora assegnato ma il cliente è marcato `tipo_cliente='ente'`,
   // consideralo comunque Ente così il campo CIG appare ed è obbligatorio.
   const tipoSoggetto: "privato" | "azienda" | "ente" | null = useMemo(() => {
-    const gfRaw: any = (clienteDettaglio as any)?.gruppi_finanziari;
+    const gfRaw: any = clienteDettaglio?.gruppi_finanziari;
     const gf: any = Array.isArray(gfRaw) ? gfRaw[0] : gfRaw;
     const fromGf = (gf?.tipo_soggetto as any) ?? null;
     if (fromGf) return fromGf;
-    const tc = (clienteDettaglio as any)?.tipo_cliente;
+    const tc = clienteDettaglio?.tipo_cliente;
     if (tc === "ente") return "ente";
     if (tc === "azienda") return "azienda";
     if (tc === "privato") return "privato";
@@ -823,7 +823,7 @@ const ImmissionePolizzaPage = () => {
     if (ae?.anagrafica_id) {
       setSelectedAccountExecutiveId(ae.anagrafica_id as string);
     } else if (ae && Array.isArray(aeAnagraficheList) && aeAnagraficheList.length > 0 && !selectedAccountExecutiveId) {
-      const aeProfile: any = (ae as any).profiles;
+      const aeProfile: any = ae.profiles;
       if (aeProfile) {
         const target = `${aeProfile.cognome || ""} ${aeProfile.nome || ""}`.trim().toLowerCase();
         if (target) {
@@ -839,11 +839,11 @@ const ImmissionePolizzaPage = () => {
     if (prod?.anagrafica_id) {
       setSelectedAE(prod.anagrafica_id as string);
     } else if (prod && Array.isArray(aeList) && aeList.length > 0 && !selectedAE) {
-      const prodProfile: any = (prod as any).profiles;
+      const prodProfile: any = prod.profiles;
       if (prodProfile) {
         const target = `${prodProfile.cognome || ""} ${prodProfile.nome || ""}`.trim().toLowerCase();
         if (target) {
-          const match = (aeList as any[]).find((a: any) => {
+          const match = (aeList).find((a: any) => {
             const label = (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`).trim().toLowerCase();
             return label === target;
           });
@@ -867,11 +867,11 @@ const ImmissionePolizzaPage = () => {
     enabled: !!selectedGruppoCompagniaId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnia_rapporti" as any)
+        .from("compagnia_rapporti")
         .select("compagnia_id")
         .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
         .eq("attivo", true);
-      const ids = Array.from(new Set(((data as any[]) || []).map((r) => r.compagnia_id).filter(Boolean)));
+      const ids = Array.from(new Set(((data) || []).map((r) => r.compagnia_id).filter(Boolean)));
       return ids as string[];
     },
   });
@@ -879,8 +879,8 @@ const ImmissionePolizzaPage = () => {
   const { data: gruppiCompagniaList } = useQuery({
     queryKey: ["gruppi-compagnia-immissione"],
     queryFn: async () => {
-      const { data } = await supabase.from("gruppi_compagnia" as any).select("id, codice, descrizione").eq("attivo", true).order("descrizione");
-      return ((data as any[]) || []).map((g: any) => ({ id: g.id, codice: g.codice, nome: `${g.codice ? g.codice + " - " : ""}${g.descrizione || ""}` }));
+      const { data } = await supabase.from("gruppi_compagnia").select("id, codice, descrizione").eq("attivo", true).order("descrizione");
+      return ((data) || []).map((g: any) => ({ id: g.id, codice: g.codice, nome: `${g.codice ? g.codice + " - " : ""}${g.descrizione || ""}` }));
     },
   });
 
@@ -920,13 +920,13 @@ const ImmissionePolizzaPage = () => {
     enabled: !!selectedCompagnia && isBrokerLike && !!selectedGruppoCompagniaId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnia_rapporti" as any)
+        .from("compagnia_rapporti")
         .select("id, codice_rapporto, nome_rapporto, tipo_rapporto, gruppo_compagnia_id, attivo")
         .eq("compagnia_id", selectedCompagnia)
         .eq("gruppo_compagnia_id", selectedGruppoCompagniaId)
         .eq("attivo", true)
         .order("codice_rapporto");
-      return (data as any[]) || [];
+      return (data) || [];
     },
   });
 
@@ -984,7 +984,7 @@ const ImmissionePolizzaPage = () => {
 
   // --- Computed: derive scalars from row arrays ---
   const sumNum = (arr: GaranziaRow[], k: "netto" | "tasse" | "ssn") =>
-    arr.reduce((s, r) => s + (parseFloat((r as any)[k] || "0") || 0), 0);
+    arr.reduce((s, r) => s + (parseFloat(r[k] || "0") || 0), 0);
   const premioNettoNum = sumNum(premiFirmaRows, "netto");
   const tasseNum = sumNum(premiFirmaRows, "tasse");
   const ssnFirmaNum = sumNum(premiFirmaRows, "ssn");
@@ -1030,7 +1030,7 @@ const ImmissionePolizzaPage = () => {
         .eq("attivo", true)
         .limit(1)
         .maybeSingle();
-      if (!cancelled) setResolvedRapportoId((data as any)?.id || null);
+      if (!cancelled) setResolvedRapportoId(data?.id || null);
     })();
     return () => { cancelled = true; };
   }, [selectedCompagnia, selectedGruppoCompagniaId, selectedRapportoId, isBrokerLike]);
@@ -1071,13 +1071,13 @@ const ImmissionePolizzaPage = () => {
         let pct: number | null = null;
         if (ramoCodice) {
           const { data: ppr } = await supabase
-            .from("produttori_provvigioni_ramo" as any)
+            .from("produttori_provvigioni_ramo")
             .select("percentuale_provvigione")
             .eq("anagrafica_id", selectedAE)
             .eq("ramo_codice", ramoCodice)
             .maybeSingle();
-          if (ppr && (ppr as any).percentuale_provvigione != null) {
-            pct = Number((ppr as any).percentuale_provvigione);
+          if (ppr && ppr.percentuale_provvigione != null) {
+            pct = Number(ppr.percentuale_provvigione);
           }
         }
         if (pct == null) {
@@ -1346,7 +1346,7 @@ const ImmissionePolizzaPage = () => {
           if (!selectedAE) return null;
           const ae = (aeList || []).find((a: any) => a.id === selectedAE);
           if (!ae) return null;
-          return (ae as any).ragione_sociale || `${(ae as any).cognome || ""} ${(ae as any).nome || ""}`.trim() || null;
+          return ae.ragione_sociale || `${ae.cognome || ""} ${ae.nome || ""}`.trim() || null;
         })(),
         // Account Executive: anagrafica + nome leggibile.
         ae_anagrafica_id: selectedAccountExecutiveId || null,
@@ -1359,14 +1359,14 @@ const ImmissionePolizzaPage = () => {
         ...(selectedBackofficeId ? {
           specialist: (() => {
             const b = (backofficeList || []).find((x: any) => x.id === selectedBackofficeId);
-            return b ? `${(b as any).cognome || ""} ${(b as any).nome || ""}`.trim() : null;
+            return b ? `${b.cognome || ""} ${b.nome || ""}`.trim() : null;
           })(),
         } : {}),
       };
 
       const { data: newTitolo, error } = await supabase
         .from("titoli")
-        .insert(payload as any)
+        .insertpayload
         .select("id")
         .single();
       if (error) throw error;
@@ -1445,7 +1445,7 @@ const ImmissionePolizzaPage = () => {
         ...buildPremiInsert(premiQuietanzaRows, "quietanza"),
       ];
       if (premiPayload.length > 0) {
-        await supabase.from("premi_garanzia_polizza").insert(premiPayload as any);
+        await supabase.from("premi_garanzia_polizza").insertpremiPayload;
       }
 
 
@@ -1600,7 +1600,7 @@ const ImmissionePolizzaPage = () => {
 
         {/* Badge Gruppo Finanziario del cliente selezionato */}
         {clienteDettaglio && (() => {
-          const gf: any = (clienteDettaglio as any).gruppi_finanziari;
+          const gf: any = clienteDettaglio.gruppi_finanziari;
           if (!gf) {
             return (
               <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs flex items-center gap-2">
@@ -1810,8 +1810,8 @@ const ImmissionePolizzaPage = () => {
                 </div>
               ) : (rapportiAgenzia || []).length === 1 ? (
                 <div className="h-8 px-2 flex items-center text-xs rounded-md border bg-muted/30">
-                  {(rapportiAgenzia as any[])[0].nome_rapporto || (rapportiAgenzia as any[])[0].codice_rapporto || "—"}
-                  {(rapportiAgenzia as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenzia as any[])[0].tipo_rapporto}` : ""}
+                  {(rapportiAgenzia)[0].nome_rapporto || (rapportiAgenzia)[0].codice_rapporto || "—"}
+                  {(rapportiAgenzia)[0].tipo_rapporto ? ` · ${(rapportiAgenzia)[0].tipo_rapporto}` : ""}
                 </div>
               ) : (
                 <SearchableSelect
@@ -1819,7 +1819,7 @@ const ImmissionePolizzaPage = () => {
                   value={selectedRapportoId}
                   onValueChange={(v) => setSelectedRapportoId(v)}
                   placeholder="— Seleziona rapporto —"
-                  options={(rapportiAgenzia as any[]).map((r) => ({
+                  options={(rapportiAgenzia).map((r) => ({
                     value: r.id,
                     label: r.nome_rapporto || r.codice_rapporto || "—",
                     description: [r.tipo_rapporto, r.codice_rapporto].filter(Boolean).join(" · ") || undefined,

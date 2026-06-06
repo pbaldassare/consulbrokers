@@ -74,13 +74,13 @@ const ECAgenziaPdfPage = () => {
     enabled: !!compagniaId,
     queryFn: async () => {
       if (compagnia?.conto_bancario_id) {
-        const { data } = await supabase.from("conti_bancari" as any)
+        const { data } = await supabase.from("conti_bancari")
           .select("iban, intestato_a, banca")
           .eq("id", compagnia.conto_bancario_id)
           .maybeSingle();
         if (data) return data as any;
       }
-      const { data } = await supabase.from("conti_bancari" as any)
+      const { data } = await supabase.from("conti_bancari")
         .select("iban, intestato_a, banca")
         .eq("tipo", "agenzia")
         .eq("is_default", true)
@@ -149,16 +149,16 @@ const ECAgenziaPdfPage = () => {
     if (!titoli) return;
 
     const counts = new Map<string, number>();
-    for (const t of titoli as any[]) {
+    for (const t of titoli) {
       if (t.ufficio_id) counts.set(t.ufficio_id, (counts.get(t.ufficio_id) || 0) + 1);
     }
     let chosenId: string | null = null;
     if (counts.size > 0) {
       chosenId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
     }
-    let u: any = chosenId ? (tutteSedi as any[]).find((s) => s.id === chosenId) : null;
+    let u: any = chosenId ? (tutteSedi).find((s) => s.id === chosenId) : null;
     if (!u) {
-      u = (tutteSedi as any[]).find(
+      u = (tutteSedi).find(
         (s) =>
           (s.nome_ufficio || "").toLowerCase().includes("napoli") ||
           (s.citta || "").toLowerCase().includes("napoli"),

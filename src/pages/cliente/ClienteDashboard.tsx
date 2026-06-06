@@ -51,7 +51,7 @@ const ClienteDashboard = () => {
 
   // Charts data
   const premiPerRamo = attive.reduce((acc: any[], p) => {
-    const name = (p.rami as any)?.descrizione || "Altro";
+    const name = p.rami?.descrizione || "Altro";
     const existing = acc.find(a => a.name === name);
     if (existing) existing.value += (p.premio_lordo || 0);
     else acc.push({ name, value: p.premio_lordo || 0 });
@@ -59,7 +59,7 @@ const ClienteDashboard = () => {
   }, []);
 
   const premiPerCompagnia = attive.reduce((acc: any[], p) => {
-    const name = (p.compagnie as any)?.nome || "Altro";
+    const name = p.compagnie?.nome || "Altro";
     const existing = acc.find(a => a.name === name);
     if (existing) existing.value += (p.premio_lordo || 0);
     else acc.push({ name, value: p.premio_lordo || 0 });
@@ -199,7 +199,7 @@ const ClienteDashboard = () => {
                 <div key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div>
                     <p className="text-sm font-medium">{s.numero_titolo}</p>
-                    <p className="text-xs text-muted-foreground">{(s.rami as any)?.descrizione}</p>
+                    <p className="text-xs text-muted-foreground">{s.rami?.descrizione}</p>
                   </div>
                   <div className="text-right">
                     <Badge className={s.giorni <= 30 ? "bg-red-100 text-red-800" : s.giorni <= 60 ? "bg-orange-100 text-orange-800" : "bg-yellow-100 text-yellow-800"}>

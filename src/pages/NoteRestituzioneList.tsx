@@ -73,7 +73,7 @@ const NoteRestituzioneList = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const uffId = ufficioId || (profile as any)?.ufficio_id;
+      const uffId = ufficioId || profile?.ufficio_id;
       const { data, error } = await supabase.from("note_restituzione").insert({
         ufficio_id: uffId,
         cliente_id: clienteId || null,

@@ -114,7 +114,7 @@ const NotaRestituzioneDetail = () => {
 
   const changeStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
-      const vecchio = (nota as any)?.stato;
+      const vecchio = nota?.stato;
       const { error } = await supabase.from("note_restituzione").update({ stato: nuovoStato }).eq("id", id!);
       if (error) throw error;
       await logAttivita({ azione: "cambio_stato_nota", entita_tipo: "nota_restituzione", entita_id: id!, dettagli_json: { da: vecchio, a: nuovoStato } });
@@ -133,7 +133,7 @@ const NotaRestituzioneDetail = () => {
       const { error } = await supabase.from("note_restituzione_dettaglio").insert({
         nota_id: id!,
         titolo_id: selectedTitoloId,
-        prodotto_id: (tit as any)?.prodotti?.id || null,
+        prodotto_id: tit?.prodotti?.id || null,
       });
       if (error) throw error;
     },

@@ -98,14 +98,14 @@ const ECCompagniaContabPage = () => {
     queryKey: ["conti-bancari-generico"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("conti_bancari" as any)
+        .from("conti_bancari")
         .select("id, etichetta, iban, intestato_a, banca, is_default")
         .eq("tipo", "generico")
         .eq("attivo", true)
         .order("is_default", { ascending: false })
         .order("etichetta");
       if (error) throw error;
-      return (data || []) as any[];
+      return (data || []);
     },
   });
   const contoMittenteDefault = contiMittente.find((c: any) => c.is_default) || contiMittente[0] || null;
@@ -190,14 +190,14 @@ const ECCompagniaContabPage = () => {
         // Exclude titles already included in a rimessa
         if (rimessiSet.has(t.id)) continue;
 
-        const cId = (t as any).compagnia_id as string;
+        const cId = t.compagnia_id as string;
         if (!cId) continue;
         if (filters.compagnia_id && cId !== filters.compagnia_id) continue;
-        if (filters.tipo_pagamento && (t as any).tipo_pagamento !== filters.tipo_pagamento) continue;
-        const isGestito = !!(t as any).conferimento_gestito;
-        const fondiOk = (t as any).fondi_ricevuti !== false;
+        if (filters.tipo_pagamento && t.tipo_pagamento !== filters.tipo_pagamento) continue;
+        const isGestito = !!t.conferimento_gestito;
+        const fondiOk = t.fondi_ricevuti !== false;
         void isGestito; void fondiOk;
-        const comp = (t as any).compagnie;
+        const comp = t.compagnie;
         if (!grouped[cId]) {
           grouped[cId] = {
             compagnia_id: cId,
@@ -219,9 +219,9 @@ const ECCompagniaContabPage = () => {
           data_messa_cassa: t.data_messa_cassa,
           premio_lordo: Number(t.premio_lordo) || 0,
           importo_incassato: Number(t.importo_incassato) || 0,
-          conferimento_gestito: !!(t as any).conferimento_gestito,
-          fondi_ricevuti: (t as any).fondi_ricevuti !== false,
-          tipo_pagamento: (t as any).tipo_pagamento || null,
+          conferimento_gestito: !!t.conferimento_gestito,
+          fondi_ricevuti: t.fondi_ricevuti !== false,
+          tipo_pagamento: t.tipo_pagamento || null,
         });
         const dmc = t.data_messa_cassa;
         if (dmc) {

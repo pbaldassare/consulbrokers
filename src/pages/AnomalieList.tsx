@@ -51,7 +51,7 @@ const AnomalieList = () => {
     queryKey: ["anomalie_sistema", filtroGravita, filtroStato, filtroTipo],
     queryFn: async () => {
       let q = supabase
-        .from("anomalie_sistema" as any)
+        .from("anomalie_sistema")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
@@ -62,7 +62,7 @@ const AnomalieList = () => {
 
       const { data, error } = await q;
       if (error) throw error;
-      return data as any[];
+      return data;
     },
   });
 
@@ -82,7 +82,7 @@ const AnomalieList = () => {
         update.data_risoluzione = new Date().toISOString();
         update.note_risoluzione = note || "";
       }
-      const { error } = await supabase.from("anomalie_sistema" as any).update(update).eq("id", id);
+      const { error } = await supabase.from("anomalie_sistema").update(update).eq("id", id);
       if (error) throw error;
 
       await logAttivita({
@@ -105,7 +105,7 @@ const AnomalieList = () => {
 
   const runChecks = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc("run_data_quality_checks" as any);
+      const { data, error } = await supabase.rpc("run_data_quality_checks");
       if (error) throw error;
       await logAttivita({
         azione: "controllo_qualita_dati",

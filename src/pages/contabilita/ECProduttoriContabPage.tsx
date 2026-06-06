@@ -75,12 +75,12 @@ const ECProduttoriContabPage = () => {
       grouped[a.id] = { id: a.id, codice: a.codice || "", nome: a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim(), citta: a.citta || "", fax: a.fax || "", email: a.email || "", lordo: 0, provvigioni: 0 };
     }
     for (const p of provvAll || []) {
-      const t = (p as any).titoli;
-      const anagId = (p as any).anagrafica_commerciale_id || t?.anagrafica_commerciale_id || null;
-      const key = (anagId && grouped[anagId]) ? anagId : ((p as any).user_id && grouped[(p as any).user_id]) ? (p as any).user_id : null;
+      const t = p.titoli;
+      const anagId = p.anagrafica_commerciale_id || t?.anagrafica_commerciale_id || null;
+      const key = (anagId && grouped[anagId]) ? anagId : (p.user_id && grouped[p.user_id]) ? p.user_id : null;
       if (key) {
         grouped[key].lordo += Number(t?.premio_lordo) || 0;
-        grouped[key].provvigioni += Number((p as any).importo_provvigione) || 0;
+        grouped[key].provvigioni += Number(p.importo_provvigione) || 0;
       }
     }
     let rows = Object.values(grouped).filter(r => r.lordo > 0 || r.provvigioni > 0);

@@ -199,8 +199,8 @@ const QuadraturePremi = () => {
       const s = searchText.toLowerCase();
       return (
         r.titolo.numero_titolo?.toLowerCase().includes(s) ||
-        (r.titolo.prodotti as any)?.nome_prodotto?.toLowerCase().includes(s) ||
-        (r.titolo.prodotti as any)?.compagnie?.nome?.toLowerCase().includes(s)
+        r.titolo.prodotti?.nome_prodotto?.toLowerCase().includes(s) ||
+        r.titolo.prodotti?.compagnie?.nome?.toLowerCase().includes(s)
       );
     }
     return true;
@@ -212,8 +212,8 @@ const QuadraturePremi = () => {
     const header = "Titolo;Prodotto;Agenzia;Premio Atteso;Scadenza;Gg Ritardo;Match Importo;Match Data;Score\n";
     const rows = matchResults
       .map((r) => {
-        const prod = (r.titolo.prodotti as any)?.nome_prodotto || "";
-        const comp = (r.titolo.prodotti as any)?.compagnie?.nome || "";
+        const prod = r.titolo.prodotti?.nome_prodotto || "";
+        const comp = r.titolo.prodotti?.compagnie?.nome || "";
         return `${r.titolo.numero_titolo || ""};${prod};${comp};${r.titolo.premio_lordo || 0};${r.titolo.data_scadenza || ""};${r.giorniRitardo};${r.estratto?.importo || ""};${r.estratto?.data_operazione || ""};${r.score}`;
       })
       .join("\n");
@@ -381,8 +381,8 @@ const QuadraturePremi = () => {
                           {r.titolo.numero_titolo || r.titolo.id?.slice(0, 8)}
                         </TableCell>
                         <TableCell className="text-sm">
-                          <div>{(r.titolo.prodotti as any)?.nome_prodotto || "—"}</div>
-                          <div className="text-xs text-muted-foreground">{(r.titolo.prodotti as any)?.compagnie?.nome || ""}</div>
+                          <div>{r.titolo.prodotti?.nome_prodotto || "—"}</div>
+                          <div className="text-xs text-muted-foreground">{r.titolo.prodotti?.compagnie?.nome || ""}</div>
                         </TableCell>
                         <TableCell className="font-mono text-xs">{r.titolo.data_scadenza || "—"}</TableCell>
                         <TableCell className="text-right font-mono">{fmt(r.titolo.premio_lordo || 0)}</TableCell>

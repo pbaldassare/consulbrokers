@@ -24,8 +24,27 @@ import { toast } from "sonner";
 
 /* ────────── Generic CRUD Tab ────────── */
 
+// Tabelle lookup gestite dalle tab CRUD generiche di questa pagina.
+type LookupTableName =
+  | "gruppi_ramo"
+  | "rami"
+  | "rca_usi"
+  | "rca_garanzie"
+  | "gruppi_statistici"
+  | "gruppi_finanziari"
+  | "tipi_mandatario"
+  | "tipi_rinnovo"
+  | "lookup_indotti"
+  | "lookup_attivita"
+  | "lookup_settori"
+  | "lookup_contratti"
+  | "lookup_fasce_fatturato"
+  | "lookup_fasce_dipendenti"
+  | "lookup_tipo_documento"
+  | "lookup_conti_incasso";
+
 interface SimpleLookupTabProps {
-  tableName: string;
+  tableName: LookupTableName;
   title: string;
   queryKey: string;
 }
@@ -42,21 +61,21 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
     queryKey: [queryKey],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .select("*")
         .order("codice");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
   const save = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const { error } = await (supabase.from(tableName as any) as any).update({ codice, descrizione }).eq("id", editing.id);
+        const { error } = await supabase.from(tableName).update({ codice, descrizione }).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from(tableName as any) as any).insert({ codice, descrizione });
+        const { error } = await supabase.from(tableName).insert({ codice, descrizione });
         if (error) throw error;
       }
     },
@@ -70,7 +89,7 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await (supabase.from(tableName as any) as any).update({ attivo }).eq("id", id);
+      const { error } = await supabase.from(tableName).update({ attivo }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [queryKey] }),
@@ -78,7 +97,7 @@ const SimpleLookupTab = ({ tableName, title, queryKey }: SimpleLookupTabProps) =
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from(tableName as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from(tableName).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -280,7 +299,7 @@ const RamiTab = () => {
           </TableHeader>
           <TableBody>
             {(() => {
-              const filtered = (rami as any[]).filter((r: any) => matchSearch(search, [r.codice, r.descrizione, r.gruppi_ramo?.codice, r.gruppi_ramo?.descrizione]));
+              const filtered = rami.filter((r: any) => matchSearch(search, [r.codice, r.descrizione, r.gruppi_ramo?.codice, r.gruppi_ramo?.descrizione]));
               const sorted = sortKey ? [...filtered].sort((a: any, b: any) => {
                 const dir = sortDir === "asc" ? 1 : -1;
                 if (sortKey === "tasse") {
@@ -414,11 +433,11 @@ const GruppiFinanziariTab = () => {
     queryKey: ["gruppi-finanziari"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("gruppi_finanziari" as any)
+        .from("gruppi_finanziari")
         .select("*")
         .order("codice");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
@@ -426,10 +445,10 @@ const GruppiFinanziariTab = () => {
     mutationFn: async () => {
       const payload = { codice, nome, descrizione, tipo_soggetto: tipoSoggetto };
       if (editing) {
-        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("gruppi_finanziari").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from("gruppi_finanziari" as any) as any).insert(payload);
+        const { error } = await supabase.from("gruppi_finanziari").insert(payload);
         if (error) throw error;
       }
     },
@@ -443,7 +462,7 @@ const GruppiFinanziariTab = () => {
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await (supabase.from("gruppi_finanziari" as any) as any).update({ attivo }).eq("id", id);
+      const { error } = await supabase.from("gruppi_finanziari").update({ attivo }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["gruppi-finanziari"] }),
@@ -451,7 +470,7 @@ const GruppiFinanziariTab = () => {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("gruppi_finanziari" as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from("gruppi_finanziari").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -582,7 +601,7 @@ const GruppiFinanziariTab = () => {
 /* ────────── Ordered Lookup Tab (with ordine field) ────────── */
 
 interface OrderedLookupTabProps {
-  tableName: string;
+  tableName: LookupTableName;
   title: string;
   queryKey: string;
 }
@@ -600,21 +619,21 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
     queryKey: [queryKey],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .select("*")
         .order("ordine");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
   const save = useMutation({
     mutationFn: async () => {
       if (editing) {
-        const { error } = await (supabase.from(tableName as any) as any).update({ codice, descrizione, ordine }).eq("id", editing.id);
+        const { error } = await supabase.from(tableName).update({ codice, descrizione, ordine }).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from(tableName as any) as any).insert({ codice, descrizione, ordine });
+        const { error } = await supabase.from(tableName).insert({ codice, descrizione, ordine });
         if (error) throw error;
       }
     },
@@ -629,7 +648,7 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await (supabase.from(tableName as any) as any).update({ attivo }).eq("id", id);
+      const { error } = await supabase.from(tableName).update({ attivo }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -640,7 +659,7 @@ const OrderedLookupTab = ({ tableName, title, queryKey }: OrderedLookupTabProps)
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from(tableName as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from(tableName).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -735,9 +754,9 @@ const RcaUsiTab = () => {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["rca-usi"],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("rca_usi" as any) as any).select("*").order("codice");
+      const { data, error } = await supabase.from("rca_usi").select("*").order("codice");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
@@ -745,10 +764,10 @@ const RcaUsiTab = () => {
     mutationFn: async () => {
       const payload = { codice, descrizione };
       if (editing) {
-        const { error } = await (supabase.from("rca_usi" as any) as any).update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("rca_usi").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from("rca_usi" as any) as any).insert(payload);
+        const { error } = await supabase.from("rca_usi").insert(payload);
         if (error) throw error;
       }
     },
@@ -758,7 +777,7 @@ const RcaUsiTab = () => {
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await (supabase.from("rca_usi" as any) as any).update({ attivo }).eq("id", id);
+      const { error } = await supabase.from("rca_usi").update({ attivo }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rca-usi"] }),
@@ -766,7 +785,7 @@ const RcaUsiTab = () => {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("rca_usi" as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from("rca_usi").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rca-usi"] }); toast.success("Uso eliminato"); },
@@ -801,7 +820,7 @@ const RcaUsiTab = () => {
           </TableHeader>
           <TableBody>
             {(() => {
-              const filtered = (items as any[]).filter((i) => matchSearch(search, [i.codice, i.descrizione]));
+              const filtered = items.filter((i) => matchSearch(search, [i.codice, i.descrizione]));
               if (isLoading) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
               if (filtered.length === 0) return (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento"}</TableCell></TableRow>);
               return filtered.map((item: any) => (
@@ -857,23 +876,23 @@ const RcaGaranzieTab = () => {
     queryKey: ["gruppi-ramo-lookup"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("gruppi_ramo" as any)
+        .from("gruppi_ramo")
         .select("id, codice, descrizione")
         .eq("attivo", true)
         .order("codice");
       if (error) throw error;
-      return (data || []) as any[];
+      return data || [];
     },
   });
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["rca-garanzie"],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("rca_garanzie" as any) as any)
+      const { data, error } = await supabase.from("rca_garanzie")
         .select("*, gruppi_ramo(codice, descrizione)")
         .order("codice");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
@@ -888,10 +907,10 @@ const RcaGaranzieTab = () => {
         gruppo_ramo_id: gruppoRamoId || defaultGruppoZqId,
       };
       if (editing) {
-        const { error } = await (supabase.from("rca_garanzie" as any) as any).update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("rca_garanzie").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from("rca_garanzie" as any) as any).insert(payload);
+        const { error } = await supabase.from("rca_garanzie").insert(payload);
         if (error) throw error;
       }
     },
@@ -901,7 +920,7 @@ const RcaGaranzieTab = () => {
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await (supabase.from("rca_garanzie" as any) as any).update({ attivo }).eq("id", id);
+      const { error } = await supabase.from("rca_garanzie").update({ attivo }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rca-garanzie"] }),
@@ -909,7 +928,7 @@ const RcaGaranzieTab = () => {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("rca_garanzie" as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from("rca_garanzie").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rca-garanzie"] }); toast.success("Garanzia eliminata"); },
@@ -946,7 +965,7 @@ const RcaGaranzieTab = () => {
           </TableHeader>
           <TableBody>
             {(() => {
-              const filtered = (items as any[]).filter((i) => matchSearch(search, [i.codice, i.descrizione, i.gruppi_ramo?.codice, i.gruppi_ramo?.descrizione]));
+              const filtered = items.filter((i) => matchSearch(search, [i.codice, i.descrizione, i.gruppi_ramo?.codice, i.gruppi_ramo?.descrizione]));
               if (isLoading) return (<TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Caricamento...</TableCell></TableRow>);
               if (filtered.length === 0) return (<TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{search ? "Nessun risultato" : "Nessun elemento"}</TableCell></TableRow>);
               return filtered.map((item: any) => (
@@ -1025,11 +1044,11 @@ const TipoDocumentoTab = () => {
     queryKey: ["lookup-tipo-documento"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("lookup_tipo_documento" as any)
+        .from("lookup_tipo_documento")
         .select("*")
         .order("codice");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
@@ -1038,10 +1057,10 @@ const TipoDocumentoTab = () => {
       const payload: any = { codice, descrizione, firma: firma || null };
       TIPO_DOC_FLAGS.forEach(f => { payload[f.key] = flags[f.key] ?? false; });
       if (editing) {
-        const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("lookup_tipo_documento").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).insert(payload);
+        const { error } = await supabase.from("lookup_tipo_documento").insert(payload);
         if (error) throw error;
       }
     },
@@ -1055,7 +1074,7 @@ const TipoDocumentoTab = () => {
 
   const toggleAttivo = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).update({ attivo }).eq("id", id);
+      const { error } = await supabase.from("lookup_tipo_documento").update({ attivo }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lookup-tipo-documento"] }),
@@ -1063,7 +1082,7 @@ const TipoDocumentoTab = () => {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("lookup_tipo_documento" as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from("lookup_tipo_documento").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1170,7 +1189,7 @@ const TipoDocumentoTab = () => {
 
 /* ────────── Page ────────── */
 
-const tabConfig: { value: string; label: string; tableName: string; queryKey: string; title: string; custom?: string | boolean }[] = [
+const tabConfig: { value: string; label: string; tableName: LookupTableName; queryKey: string; title: string; custom?: string | boolean }[] = [
   { value: "gruppi_ramo", label: "Gruppi Ramo", tableName: "gruppi_ramo", queryKey: "gruppi-ramo", title: "Gruppo Ramo" },
   { value: "rami", label: "Rami", tableName: "rami", queryKey: "rami-list", title: "Ramo", custom: true },
   
@@ -1199,7 +1218,7 @@ const TabelleBasePage = () => {
       await Promise.all(
         tabConfig.map(async (t) => {
           const { count, error } = await supabase
-            .from(t.tableName as any)
+            .from(t.tableName)
             .select("*", { count: "exact", head: true });
           if (!error) results[t.value] = count ?? 0;
         })

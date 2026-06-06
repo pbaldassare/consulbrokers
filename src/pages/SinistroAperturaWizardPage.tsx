@@ -161,7 +161,7 @@ export default function SinistroAperturaWizardPage() {
     if (draft?.data) {
       const d = draft.data;
       Object.keys(d).forEach((key) => {
-        setValue(key as keyof WizardFormValues, (d as any)[key]);
+        setValue(key as keyof WizardFormValues, d[key]);
       });
       // Se c'è una polizza già selezionata nella bozza, carichiamo le sue info
       if (d.titolo_id) {

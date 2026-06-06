@@ -226,7 +226,7 @@ const TitoloDetail = () => {
         .select("valore_json")
         .eq("chiave", "admin_anagrafica_id")
         .maybeSingle();
-      return ((data?.valore_json as any)?.anagrafica_id as string | null) ?? null;
+      return ((data?.valore_json as { anagrafica_id?: string | null } | null)?.anagrafica_id ?? null) ?? null;
     },
   });
 
@@ -260,7 +260,7 @@ const TitoloDetail = () => {
   const { data: numeriStorici = [] } = useQuery({
     queryKey: ["titoli-numeri-storici", id],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("titoli_numeri_storici")
         .select("*")
         .eq("titolo_id", id!)
@@ -271,7 +271,7 @@ const TitoloDetail = () => {
   });
 
   // Catena polizza: madre + tutte le quietanze sorelle (per banner + pannello "Quietanze")
-  const numeroTitolo = (titolo as any)?.numero_titolo || null;
+  const numeroTitolo = titolo?.numero_titolo || null;
   const { data: catenaTitoli = [] } = useQuery({
     queryKey: ["catena-titoli", numeroTitolo],
     queryFn: async () => {
@@ -280,7 +280,7 @@ const TitoloDetail = () => {
         .select("id, numero_titolo, riga, sostituisce_polizza, garanzia_da, garanzia_a, premio_lordo, stato, data_messa_cassa, created_at")
         .eq("numero_titolo", numeroTitolo!)
         .order("garanzia_da", { ascending: true, nullsFirst: true });
-      return (data as any[]) || [];
+      return data || [];
     },
     enabled: !!numeroTitolo,
   });
@@ -325,7 +325,7 @@ const TitoloDetail = () => {
     queryKey: ["anagrafiche-commerciali"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("anagrafiche_professionali" as any)
+        .from("anagrafiche_professionali")
         .select("id, ragione_sociale, cognome, nome, percentuale_base, tipo")
         .eq("attivo", true)
         .in("tipo", ["corrispondente", "account_executive", "executive", "produttore_sede"])
@@ -344,12 +344,12 @@ const TitoloDetail = () => {
     queryKey: ["titolo-splits", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("titoli_split_commerciali" as any)
+        .from("titoli_split_commerciali")
         .select("id, anagrafica_commerciale_id, commerciale_user_id, percentuale, ordine, anagrafica:anagrafiche_professionali!titoli_split_commerciali_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome, percentuale_base)")
         .eq("titolo_id", id!)
         .order("ordine", { ascending: true });
       if (error) throw error;
-      return (data || []) as any[];
+      return data || [];
     },
     enabled: !!id,
   });
@@ -362,18 +362,18 @@ const TitoloDetail = () => {
         commerciale_user_id: s.commerciale_user_id,
         percentuale: Number(s.percentuale) || 0,
       })));
-    } else if (titolo && (titolo as any).anagrafica_commerciale_id) {
+    } else if (titolo && titolo.anagrafica_commerciale_id) {
       setSplitsForm([{
-        anagrafica_commerciale_id: (titolo as any).anagrafica_commerciale_id,
-        commerciale_user_id: (titolo as any).commerciale_id ?? null,
+        anagrafica_commerciale_id: titolo.anagrafica_commerciale_id,
+        commerciale_user_id: titolo.commerciale_id ?? null,
         percentuale: titolo.percentuale_commerciale ?? 100,
       }]);
     } else {
       setSplitsForm([]);
     }
     setAeForm({
-      ae_anagrafica_id: (titolo as any)?.ae_anagrafica_id ?? null,
-      percentuale_ae: Number((titolo as any)?.percentuale_ae) || 0,
+      ae_anagrafica_id: titolo?.ae_anagrafica_id ?? null,
+      percentuale_ae: Number(titolo?.percentuale_ae) || 0,
     });
     setEditingComm(true);
   };
@@ -393,7 +393,7 @@ const TitoloDetail = () => {
 
       const toDelete = titoloSplits.filter((s: any) => !formIds.has(s.id));
       for (const s of toDelete) {
-        const { error } = await supabase.from("titoli_split_commerciali" as any).delete().eq("id", s.id);
+        const { error } = await supabase.from("titoli_split_commerciali").delete().eq("id", s.id);
         if (error) throw error;
       }
 
@@ -407,26 +407,26 @@ const TitoloDetail = () => {
               || cur.commerciale_user_id !== s.commerciale_user_id
               || cur.ordine !== i) {
             const { error } = await supabase
-              .from("titoli_split_commerciali" as any)
+              .from("titoli_split_commerciali")
               .update({
                 anagrafica_commerciale_id: s.anagrafica_commerciale_id,
                 commerciale_user_id: s.commerciale_user_id,
                 percentuale: s.percentuale,
                 ordine: i,
-              } as any)
+              })
               .eq("id", s.id);
             if (error) throw error;
           }
         } else {
           const { error } = await supabase
-            .from("titoli_split_commerciali" as any)
+            .from("titoli_split_commerciali")
             .insert({
               titolo_id: id!,
               anagrafica_commerciale_id: s.anagrafica_commerciale_id,
               commerciale_user_id: s.commerciale_user_id,
               percentuale: s.percentuale,
               ordine: i,
-            } as any);
+            });
           if (error) throw error;
         }
       }
@@ -435,10 +435,10 @@ const TitoloDetail = () => {
       const primary = cleaned[0];
       let nomeLeggibile: string | null = null;
       if (primary?.anagrafica_commerciale_id) {
-        const sel = (anagraficheComm as any[]).find((a: any) => a.value === primary.anagrafica_commerciale_id);
+        const sel = anagraficheComm.find((a: any) => a.value === primary.anagrafica_commerciale_id);
         nomeLeggibile = sel?.label || null;
       }
-      assertSameTitolo(id, (titolo as any)?.id, "saveCommMutation");
+      assertSameTitolo(id, titolo?.id, "saveCommMutation");
       const { error: tErr } = await supabase
         .from("titoli")
         .update({
@@ -450,10 +450,10 @@ const TitoloDetail = () => {
           ae_nome: (() => {
             if (!aeForm.ae_anagrafica_id) return null;
             const a = (aeLookup || []).find((x: any) => x.value === aeForm.ae_anagrafica_id);
-            return a ? (a as any).label : null;
+            return a ? a.label : null;
           })(),
           percentuale_ae: aePerc,
-        } as any)
+        })
         .eq("id", id!);
       if (tErr) throw tErr;
 
@@ -487,7 +487,7 @@ const TitoloDetail = () => {
 
   const saveRegMutation = useMutation({
     mutationFn: async () => {
-      assertSameTitolo(id, (titolo as any)?.id, "saveRegMutation");
+      assertSameTitolo(id, titolo?.id, "saveRegMutation");
       const { error } = await supabase
         .from("titoli")
         .update({
@@ -547,12 +547,12 @@ const TitoloDetail = () => {
     enabled: editingContratto && !!contrattoForm.compagnia_id,
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnia_rapporti" as any)
+        .from("compagnia_rapporti")
         .select("id, codice_rapporto, tipo_rapporto, attivo")
         .eq("compagnia_id", contrattoForm.compagnia_id as string)
         .eq("attivo", true)
         .order("codice_rapporto");
-      return (data as any[]) || [];
+      return data || [];
     },
   });
 
@@ -664,18 +664,18 @@ const TitoloDetail = () => {
     if (titolo) {
       setContrattoForm({
         
-        cig_rif: (titolo as any).cig_rif ?? "",
-        vincolo_attivo: !!(titolo as any).vincolo_attivo,
-        descrizione_polizza: (titolo as any).descrizione_polizza ?? "",
-        prodotto_nome: (titolo as any).prodotto_nome ?? "",
-        specialist: (titolo as any).specialist ?? "",
-        produttore_nome: (titolo as any).produttore_nome ?? "",
-        ufficio_id: (titolo as any).ufficio_id ?? null,
-        compagnia_id: (titolo as any).compagnia_id ?? null,
-        compagnia_rapporto_id: (titolo as any).compagnia_rapporto_id ?? null,
-        ramo_id: (titolo as any).ramo_id ?? null,
-        gruppo_ramo_id: ((titolo as any).ramo as any)?.gruppo_ramo_id ?? null,
-      } as any);
+        cig_rif: titolo.cig_rif ?? "",
+        vincolo_attivo: !!titolo.vincolo_attivo,
+        descrizione_polizza: titolo.descrizione_polizza ?? "",
+        prodotto_nome: titolo.prodotto_nome ?? "",
+        specialist: titolo.specialist ?? "",
+        produttore_nome: titolo.produttore_nome ?? "",
+        ufficio_id: titolo.ufficio_id ?? null,
+        compagnia_id: titolo.compagnia_id ?? null,
+        compagnia_rapporto_id: titolo.compagnia_rapporto_id ?? null,
+        ramo_id: titolo.ramo_id ?? null,
+        gruppo_ramo_id: titolo.ramo?.gruppo_ramo_id ?? null,
+      });
     }
     setEditingContratto(true);
   };
@@ -691,8 +691,8 @@ const TitoloDetail = () => {
         "ufficio_id", "compagnia_id", "compagnia_rapporto_id", "ramo_id",
       ];
       fields.forEach((f) => {
-        const oldV = (titolo as any)?.[f] ?? null;
-        const newV = (contrattoForm[f] as any) || null;
+        const oldV = titolo?.[f] ?? null;
+        const newV = contrattoForm[f] || null;
         if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
       });
 
@@ -701,7 +701,7 @@ const TitoloDetail = () => {
         throw new Error("Seleziona il Rapporto Agenzia (l'agenzia ha più rapporti attivi)");
       }
       const rapportoSel = (rapportiAgenziaEdit || []).find((r: any) => r.id === contrattoForm.compagnia_rapporto_id);
-      assertSameTitolo(id, (titolo as any)?.id, "saveContrattoMutation");
+      assertSameTitolo(id, titolo?.id, "saveContrattoMutation");
       const { error } = await supabase
         .from("titoli")
         .update({
@@ -717,7 +717,7 @@ const TitoloDetail = () => {
           compagnia_rapporto_id: contrattoForm.compagnia_rapporto_id || null,
           codice_rapporto: rapportoSel?.codice_rapporto || null,
           ramo_id: contrattoForm.ramo_id || null,
-        } as any)
+        })
         .eq("id", id!);
       if (error) throw error;
 
@@ -826,13 +826,13 @@ const TitoloDetail = () => {
         } else {
           newV = raw === "" || raw == null ? null : (numericFields.has(f as string) ? Number(raw) : raw);
         }
-        const oldV = (titolo as any)?.[f] ?? null;
+        const oldV = titolo?.[f] ?? null;
         if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
         payload[f] = newV;
       });
 
-      assertSameTitolo(id, (titolo as any)?.id, "savePeriodoMutation");
-      const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
+      assertSameTitolo(id, titolo?.id, "savePeriodoMutation");
+      const { error } = await supabase.from("titoli").update(payload).eq("id", id!);
       if (error) throw error;
 
       if (Object.keys(after).length > 0) {
@@ -949,7 +949,7 @@ const TitoloDetail = () => {
       // Validations
       const errs: string[] = [];
       numericFields.forEach((f) => {
-        const v = (importiForm as any)[f];
+        const v = importiForm[f];
         if (v !== "" && v != null) {
           const n = Number(v);
           if (isNaN(n)) errs.push(`${f}: valore non numerico`);
@@ -980,13 +980,13 @@ const TitoloDetail = () => {
         "valuta", "indicizzata", "rimborso",
       ] as const;
       allFields.forEach((f) => {
-        const raw = (importiForm as any)[f];
+        const raw = importiForm[f];
         let newV: any;
         if (typeof raw === "boolean") newV = raw;
         else if (raw === "" || raw == null) newV = null;
         else if ((numericFields as readonly string[]).includes(f)) newV = Number(raw);
         else newV = raw;
-        const oldV = (titolo as any)?.[f] ?? (typeof raw === "boolean" ? false : null);
+        const oldV = titolo?.[f] ?? (typeof raw === "boolean" ? false : null);
         if (oldV !== newV) { before[f] = oldV; after[f] = newV; }
         payload[f] = newV;
       });
@@ -1001,7 +1001,7 @@ const TitoloDetail = () => {
           (Number(nettoFirmaNew) || 0) + (Number(tasseFirmaNew) || 0) + (Number(addizFirmaNew) || 0);
         const currentLordo = payload.premio_lordo;
         if (currentLordo == null || Math.abs(Number(currentLordo) - computedLordo) > 0.01) {
-          const oldLordo = (titolo as any)?.premio_lordo ?? null;
+          const oldLordo = titolo?.premio_lordo ?? null;
           if (oldLordo !== computedLordo) {
             before.premio_lordo = oldLordo;
             after.premio_lordo = computedLordo;
@@ -1016,7 +1016,7 @@ const TitoloDetail = () => {
       // (cioè è rimasto uguale al valore in DB), propaghiamo il nuovo valore Firma anche alla Quietanza.
       // ATTENZIONE: la sync vale SOLO sulla polizza madre. Su una rata (quietanza) i campi Firma
       // sono lo storico della firma originale e non devono propagare nulla.
-      const isQuietanzaRow = isQuietanzaTitolo(titolo as any);
+      const isQuietanzaRow = isQuietanzaTitolotitolo;
       const syncPairs: Array<[string, string]> = isQuietanzaRow ? [] : [
         ["premio_netto", "premio_netto_quietanza"],
         ["tasse", "tasse_quietanza"],
@@ -1026,9 +1026,9 @@ const TitoloDetail = () => {
       ];
       let syncedQuietanza = false;
       syncPairs.forEach(([firmaKey, quietKey]) => {
-        const firmaOld = (titolo as any)?.[firmaKey] ?? null;
+        const firmaOld = titolo?.[firmaKey] ?? null;
         const firmaNew = payload[firmaKey];
-        const quietOld = (titolo as any)?.[quietKey] ?? null;
+        const quietOld = titolo?.[quietKey] ?? null;
         const quietNew = payload[quietKey];
         const firmaChanged = firmaOld !== firmaNew;
         const quietUntouched = quietOld === quietNew;
@@ -1044,8 +1044,8 @@ const TitoloDetail = () => {
       // (qui non c'è premio_lordo_quietanza nello schema, ma teniamo il flag per il toast)
       if (syncedQuietanza) autoFixes.push("Quietanza allineata alla Firma");
 
-      assertSameTitolo(id, (titolo as any)?.id, "saveImportiMutation");
-      const { error } = await supabase.from("titoli").update(payload as any).eq("id", id!);
+      assertSameTitolo(id, titolo?.id, "saveImportiMutation");
+      const { error } = await supabase.from("titoli").update(payload).eq("id", id!);
       if (error) throw error;
 
       if (Object.keys(after).length > 0) {
@@ -1172,7 +1172,7 @@ const TitoloDetail = () => {
   const [premiRows, setPremiRows] = useState<any[]>([]);
 
   const startEditPremi = () => {
-    const rows = (premiGaranzia as any[]).map((p) => ({
+    const rows = premiGaranzia.map((p) => ({
       id: p.id,
       garanzia: p.garanzia ?? "",
       capitale: p.capitale != null ? String(p.capitale) : "",
@@ -1241,7 +1241,7 @@ const TitoloDetail = () => {
           ordine: i,
         }));
       if (toUpsert.length) {
-        const { error } = await supabase.from("premi_garanzia_polizza").upsert(toUpsert as any);
+        const { error } = await supabase.from("premi_garanzia_polizza").upsert(toUpsert);
         if (error) throw error;
       }
 
@@ -1263,10 +1263,10 @@ const TitoloDetail = () => {
   });
 
   const changeStatoMutation = useMutation({
-    mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm }) => {
+    mutationFn: async (params: string | { nuovoStato: string; cassaData?: typeof cassaForm; conferimentoGestito?: boolean }) => {
       const nuovoStato = typeof params === "string" ? params : params.nuovoStato;
       const cassaData = typeof params === "string" ? undefined : params.cassaData;
-      const isConferimento = typeof params !== "string" && (params as any).conferimentoGestito;
+      const isConferimento = typeof params !== "string" && params.conferimentoGestito;
       const vecchioStato = titolo?.stato;
       const updatePayload: any = { stato: nuovoStato, updated_at: new Date().toISOString() };
       if (nuovoStato === "incassato" && cassaData) {
@@ -1323,7 +1323,7 @@ const TitoloDetail = () => {
           .limit(1)
           .maybeSingle();
         if (succ) {
-          quietanzaGenerata = { id: succ.id, data_decorrenza: (succ as any).durata_da, data_scadenza: (succ as any).data_scadenza };
+          quietanzaGenerata = { id: succ.id, data_decorrenza: succ.durata_da, data_scadenza: succ.data_scadenza };
         }
       }
       return { quietanzaGenerata };
@@ -1386,8 +1386,8 @@ const TitoloDetail = () => {
   });
 
   const updateDateMutation = useMutation({
-    mutationFn: async ({ field, value }: { field: string; value: string | null }) => {
-      const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() } as any).eq("id", id!);
+    mutationFn: async ({ field, value }: { field: "data_messa_cassa" | "data_pagamento" | "data_decorrenza_rinnovo"; value: string | null }) => {
+      const { error } = await supabase.from("titoli").update({ [field]: value || null, updated_at: new Date().toISOString() }).eq("id", id!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1400,7 +1400,7 @@ const TitoloDetail = () => {
   if (isLoading) return <p className="text-muted-foreground p-8">Caricamento...</p>;
   if (!titolo) return <p className="text-destructive p-8">Titolo non trovato</p>;
 
-  const t = titolo as any;
+  const t = titolo;
 
   // Polizza poliennale: durata > 13 mesi tra decorrenza e scadenza
   const isPoliennale = (() => {
@@ -1421,7 +1421,7 @@ const TitoloDetail = () => {
   // Catena polizza: usata per banner "scope" e pannello "Quietanze sorelle"
   const isQuietanzaCorrente = isQuietanzaTitolo(t);
   const catene = catenaTitoli && catenaTitoli.length > 0
-    ? groupTitoliByPolizza(catenaTitoli as any[])
+    ? groupTitoliByPolizza(catenaTitoli)
     : [];
   const catenaCorrente = catene.find((c) => (c.all || []).some((x) => x.id === t.id));
   const rataIndex = catenaCorrente
@@ -1486,7 +1486,7 @@ const TitoloDetail = () => {
                 className="text-orange-700 border-orange-400 hover:bg-orange-100"
                 onClick={async () => {
                   if (!confirm("Forzare l'attivazione di questo rinnovo senza attendere la messa a cassa della polizza precedente?")) return;
-                  const { error } = await (supabase.from("titoli") as any).update({ stato: "attivo", updated_at: new Date().toISOString() }).eq("id", id);
+                  const { error } = await supabase.from("titoli").update({ stato: "attivo", updated_at: new Date().toISOString() }).eq("id", id);
                   if (error) { toast.error("Errore: " + error.message); return; }
                   await logAttivita({ azione: "forza_attivazione_rinnovo", entita_tipo: "titolo", entita_id: id!, dettagli_json: { polizza_precedente: t.sostituisce_polizza } });
                   toast.success("Rinnovo attivato");
@@ -1534,7 +1534,7 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setEstinzioneOpen(true)}>
               <Ban className="w-4 h-4 mr-1" /> Estinzione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/appendici?polizza=${encodeURIComponent(t.numero_titolo || "")}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}&titoloId=${encodeURIComponent(t.id)}`)}>
               <FileText className="w-4 h-4 mr-1" /> Appendici
             </Button>
             <Button variant="outline" size="sm" disabled={["stornato","estinto","sostituito","annullato"].includes(t.stato)} title={["stornato","estinto","sostituito","annullato"].includes(t.stato) ? `Titolo in stato "${t.stato}": storno non disponibile` : undefined} onClick={() => setStornoOpen(true)}>
@@ -1543,12 +1543,12 @@ const TitoloDetail = () => {
             <Button variant="outline" size="sm" disabled={!t.regolazione} title={!t.regolazione ? "Polizza non regolabile: attiva il flag nella sezione Regolazione" : undefined} onClick={() => setRegolazioneOpen(true)}>
               <RefreshCw className="w-4 h-4 mr-1" /> Regolazione
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent((t.cliente_anagrafica as any)?.id || "")}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/portafoglio/doc-precontrattuale?titoloId=${encodeURIComponent(t.id)}&clienteId=${encodeURIComponent(t.cliente_anagrafica?.id || "")}`)}>
               <FileText className="w-4 h-4 mr-1" /> Precontrattuale
             </Button>
             <ImportPolizzaAiButton
               titoloId={t.id}
-              ramo={(t as any).ramo}
+              ramo={t.ramo}
               onImported={() => {
                 queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "firma"] });
                 queryClient.invalidateQueries({ queryKey: ["voci-rca", t.id, "quietanza"] });
@@ -1916,7 +1916,7 @@ const TitoloDetail = () => {
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
               disabled={!conferimentoAccettato || changeStatoMutation.isPending}
-              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: { ...conferimentoForm, dataPagamento: "", tipoPagamento: "", banca: "" }, conferimentoGestito: true } as any)}
+              onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: { ...conferimentoForm, dataPagamento: "", tipoPagamento: "", banca: "" }, conferimentoGestito: true })}
             >
               <Shield className="w-4 h-4 mr-1" /> Conferma Garantito
             </Button>
@@ -1997,15 +1997,15 @@ const TitoloDetail = () => {
         {!editingContratto ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
             <FieldRow label="Compagnia" value={
-              <span>{(t.compagnia_diretta as any)?.gruppi_compagnia?.descrizione || (t.compagnia_diretta as any)?.gruppo_compagnia || "—"}</span>
+              <span>{t.compagnia_diretta?.gruppi_compagnia?.descrizione || t.compagnia_diretta?.gruppo_compagnia || "—"}</span>
             } />
             <FieldRow label="Agenzia / Agenzia di rif." value={
-              <span>{(t.compagnia_diretta as any)?.codice || ""} - {(t.compagnia_diretta as any)?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
+              <span>{t.compagnia_diretta?.codice || ""} - {t.compagnia_diretta?.nome || t.prodotti?.compagnie?.nome || "—"}</span>
             } />
-            <FieldRow label="Codice Rapporto" value={fmt((t as any).codice_rapporto)} />
-            <FieldRow label="Ramo" value={fmt((t.ramo as any)?.gruppo_ramo?.descrizione)} />
-            <FieldRow label="Sottoramo" value={`${(t.ramo as any)?.codice || ""} ${(t.ramo as any)?.descrizione || "—"}`} />
-            <FieldRow label="Prodotto" value={fmt((t as any).prodotto_nome || t.prodotti?.nome_prodotto)} />
+            <FieldRow label="Codice Rapporto" value={fmt(t.codice_rapporto)} />
+            <FieldRow label="Ramo" value={fmt(t.ramo?.gruppo_ramo?.descrizione)} />
+            <FieldRow label="Sottoramo" value={`${t.ramo?.codice || ""} ${t.ramo?.descrizione || "—"}`} />
+            <FieldRow label="Prodotto" value={fmt(t.prodotto_nome || t.prodotti?.nome_prodotto)} />
             <FieldRow label="Specialist" value={fmt(t.specialist)} />
             
             <FieldRow label="Numero Polizza" value={fmt(t.numero_titolo)} />
@@ -2013,22 +2013,22 @@ const TitoloDetail = () => {
               <>
                 <div className="col-span-2 flex justify-between py-1">
                   <span className="text-xs text-muted-foreground">Cliente</span>
-                  <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${(t.cliente_anagrafica as any).id}`)}>
-                    {(t.cliente_anagrafica as any).tipo_cliente === "privato"
-                      ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
-                      : (t.cliente_anagrafica as any).ragione_sociale || "—"}
+                  <Button variant="link" className="h-auto p-0 text-sm" onClick={() => navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)}>
+                    {t.cliente_anagrafica.tipo_cliente === "privato"
+                      ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                      : t.cliente_anagrafica.ragione_sociale || "—"}
                     <ExternalLink className="w-3 h-3 ml-1" />
                   </Button>
                 </div>
-                <FieldRow label="Attività" value={fmt((t.cliente_anagrafica as any).attivita)} />
-                <FieldRow label="Gr. Finanziario" value={fmt((t.cliente_anagrafica as any).gruppi_finanziari?.nome)} />
-                <FieldRow label="Gr. Statistico" value={fmt((t.cliente_anagrafica as any).gruppo_statistico)} />
+                <FieldRow label="Attività" value={fmt(t.cliente_anagrafica.attivita)} />
+                <FieldRow label="Gr. Finanziario" value={fmt(t.cliente_anagrafica.gruppi_finanziari?.nome)} />
+                <FieldRow label="Gr. Statistico" value={fmt(t.cliente_anagrafica.gruppo_statistico)} />
               </>
             )}
-            <FieldRow label="Produttore" value={fmt((t as any).produttore_nome || (t.produttore ? `${(t.produttore as any).nome || ""} ${(t.produttore as any).cognome || ""}`.trim() : ""))} />
+            <FieldRow label="Produttore" value={fmt(t.produttore_nome || (t.produttore ? `${t.produttore.nome || ""} ${t.produttore.cognome || ""}`.trim() : ""))} />
             <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
             <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
-            <FieldRow label="Vincolo" value={(t as any).vincolo_attivo ? "Sì" : "No"} />
+            <FieldRow label="Vincolo" value={t.vincolo_attivo ? "Sì" : "No"} />
             {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
           </div>
         ) : (
@@ -2050,8 +2050,8 @@ const TitoloDetail = () => {
                 </Label>
                 {(rapportiAgenziaEdit || []).length === 1 ? (
                   <div className="h-9 px-2 flex items-center text-sm rounded-md border bg-muted/30">
-                    {(rapportiAgenziaEdit as any[])[0].codice_rapporto || "—"}
-                    {(rapportiAgenziaEdit as any[])[0].tipo_rapporto ? ` · ${(rapportiAgenziaEdit as any[])[0].tipo_rapporto}` : ""}
+                    {rapportiAgenziaEdit[0].codice_rapporto || "—"}
+                    {rapportiAgenziaEdit[0].tipo_rapporto ? ` · ${rapportiAgenziaEdit[0].tipo_rapporto}` : ""}
                   </div>
                 ) : (
                   <SearchableSelect
@@ -2059,7 +2059,7 @@ const TitoloDetail = () => {
                     value={contrattoForm.compagnia_rapporto_id || ""}
                     onValueChange={(v) => setContrattoForm((p) => ({ ...p, compagnia_rapporto_id: v || null }))}
                     placeholder="— Seleziona rapporto —"
-                    options={(rapportiAgenziaEdit as any[]).map((r) => ({
+                    options={rapportiAgenziaEdit.map((r) => ({
                       value: r.id,
                       label: r.codice_rapporto || "—",
                       description: r.tipo_rapporto || undefined,
@@ -2070,7 +2070,7 @@ const TitoloDetail = () => {
             )}
             <div className="space-y-1 col-span-2">
               <RamoSottoramoSelect
-                gruppoRamoId={(contrattoForm as any).gruppo_ramo_id || null}
+                gruppoRamoId={contrattoForm.gruppo_ramo_id || null}
                 ramoId={contrattoForm.ramo_id || null}
                 onChange={({ gruppoRamoId, ramoId }) =>
                   setContrattoForm((p: any) => ({ ...p, gruppo_ramo_id: gruppoRamoId, ramo_id: ramoId }))
@@ -2085,9 +2085,9 @@ const TitoloDetail = () => {
               <Label className="text-xs text-muted-foreground flex items-center gap-1">🔒 Cliente</Label>
               <div className="text-sm font-mono py-2">
                 {t.cliente_anagrafica
-                  ? ((t.cliente_anagrafica as any).tipo_cliente === "privato"
-                    ? `${(t.cliente_anagrafica as any).cognome || ""} ${(t.cliente_anagrafica as any).nome || ""}`.trim()
-                    : (t.cliente_anagrafica as any).ragione_sociale || "—")
+                  ? (t.cliente_anagrafica.tipo_cliente === "privato"
+                    ? `${t.cliente_anagrafica.cognome || ""} ${t.cliente_anagrafica.nome || ""}`.trim()
+                    : t.cliente_anagrafica.ragione_sociale || "—")
                   : "—"}
               </div>
             </div>
@@ -2189,7 +2189,7 @@ const TitoloDetail = () => {
             <FieldRow label="Durata Da" value={fmtDate(t.durata_da)} />
             <FieldRow label="Durata A" value={fmtDate(t.durata_a)} />
             <FieldRow label="Anni Durata" value={fmt(t.anni_durata)} />
-            <FieldRow label="Frazionamento" value={(t as any).frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata)} />
+            <FieldRow label="Frazionamento" value={t.frazionamento || derivaFrazionamentoDaRate(t.rate, t.anni_durata)} />
             <FieldRow label="Garanzia Da" value={fmtDate(t.garanzia_da)} />
             <FieldRow label="Garanzia A" value={fmtDate(t.garanzia_a)} />
             <FieldRow label="Data Competenza" value={fmtDate(t.data_competenza)} />
@@ -2221,7 +2221,7 @@ const TitoloDetail = () => {
                 <Label className="text-xs">{label}</Label>
                 <Input
                   type="date"
-                  value={(periodoForm as any)[field]?.slice(0, 10) || ""}
+                  value={periodoForm[field]?.slice(0, 10) || ""}
                   onChange={(e) => setPeriodoForm(p => {
                     const next: any = { ...p, [field]: e.target.value };
                     if (field === "garanzia_a" && e.target.value) {
@@ -2446,7 +2446,7 @@ const TitoloDetail = () => {
                     </div>
                   )}
                   {splitsForm.map((row, idx) => {
-                    const sel = (anagraficheComm as any[]).find(a => a.value === row.anagrafica_commerciale_id);
+                    const sel = anagraficheComm.find(a => a.value === row.anagrafica_commerciale_id);
                     const def = sel?.percentuale_base;
                     const isDup = row.anagrafica_commerciale_id && dupIds.has(row.anagrafica_commerciale_id);
                     return (
@@ -2457,7 +2457,7 @@ const TitoloDetail = () => {
                             options={anagraficheComm}
                             value={row.anagrafica_commerciale_id || ""}
                             onValueChange={(v) => {
-                              const a = (anagraficheComm as any[]).find(x => x.value === v);
+                              const a = anagraficheComm.find(x => x.value === v);
                               setSplitsForm(prev => prev.map((r, i) => i === idx ? {
                                 ...r,
                                 anagrafica_commerciale_id: v,
@@ -2502,7 +2502,7 @@ const TitoloDetail = () => {
                   <div className="col-span-12 md:col-span-7">
                     <Label className="text-[11px]">Account Executive</Label>
                     <SearchableSelect
-                      options={[{ value: "", label: "— Nessun AE —" }, ...(aeLookup as any[])]}
+                      options={[{ value: "", label: "— Nessun AE —" }, ...aeLookup]}
                       value={aeForm.ae_anagrafica_id || ""}
                       onValueChange={(v) => setAeForm(p => ({ ...p, ae_anagrafica_id: v || null }))}
                       placeholder="Seleziona Account Executive..."
@@ -2558,20 +2558,20 @@ const TitoloDetail = () => {
                       isAdmin: !!adminAnagraficaId && s.anagrafica_commerciale_id === adminAnagraficaId,
                     };
                   })
-                : ((t as any).anagrafica_commerciale_id ? [{
-                    anagrafica_commerciale_id: (t as any).anagrafica_commerciale_id,
+                : (t.anagrafica_commerciale_id ? [{
+                    anagrafica_commerciale_id: t.anagrafica_commerciale_id,
                     name: (() => {
-                      const a: any = (t as any).anagrafica_commerciale;
+                      const a: any = t.anagrafica_commerciale;
                       return a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : (t.produttore_nome || "—");
                     })(),
                     perc: t.percentuale_commerciale ?? 100,
-                    isAdmin: !!adminAnagraficaId && (t as any).anagrafica_commerciale_id === adminAnagraficaId,
+                    isAdmin: !!adminAnagraficaId && t.anagrafica_commerciale_id === adminAnagraficaId,
                   }] : []);
 
               const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
-              const aePercDisp = Number((t as any).percentuale_ae) || 0;
-              const aeIdDisp = (t as any).ae_anagrafica_id;
-              const aeNameDisp = (t as any).ae_nome || "—";
+              const aePercDisp = Number(t.percentuale_ae) || 0;
+              const aeIdDisp = t.ae_anagrafica_id;
+              const aeNameDisp = t.ae_nome || "—";
               const consulPerc = Math.max(0, Math.round((100 - sumPerc - aePercDisp) * 100) / 100);
               const hasAdminInList = effective.some(e => e.isAdmin);
 
@@ -2655,13 +2655,13 @@ const TitoloDetail = () => {
                 isAdmin: !!adminAnagraficaId && s.anagrafica_commerciale_id === adminAnagraficaId,
               };
             })
-          : ((t as any).anagrafica_commerciale_id ? [{
+          : (t.anagrafica_commerciale_id ? [{
               name: (() => {
-                const a: any = (t as any).anagrafica_commerciale;
+                const a: any = t.anagrafica_commerciale;
                 return a ? (a.ragione_sociale || `${a.cognome || ""} ${a.nome || ""}`.trim()) : (t.produttore_nome || "—");
               })(),
               perc: t.percentuale_commerciale ?? 100,
-              isAdmin: !!adminAnagraficaId && (t as any).anagrafica_commerciale_id === adminAnagraficaId,
+              isAdmin: !!adminAnagraficaId && t.anagrafica_commerciale_id === adminAnagraficaId,
             }] : []);
         const sumPerc = effective.reduce((a, s) => a + s.perc, 0);
         const consulPerc = Math.max(0, Math.round((100 - sumPerc) * 100) / 100);
@@ -2742,20 +2742,20 @@ const TitoloDetail = () => {
                 </div>
                 <div className="mt-2 pt-2 border-t border-teal-200 dark:border-teal-900">
                   <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_firma)} />
-                  <FieldRow label="Brokeraggio" value={fmtEuro((t as any).brokeraggio_firma)} />
+                  <FieldRow label="Brokeraggio" value={fmtEuro(t.brokeraggio_firma)} />
                   {renderSplitImporti("Split", sFirma, "teal")}
                 </div>
               </div>
               <div className="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 p-3">
                 <h4 className="text-xs font-bold uppercase mb-2 text-amber-800 dark:text-amber-200">Premio alla Quietanza</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro((t as any).premio_netto_quietanza)}</div></div>
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro((t as any).tasse_quietanza)}</div></div>
-                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro((Number((t as any).premio_netto_quietanza) || 0) + (Number((t as any).tasse_quietanza) || 0))}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Netto</div><div className="font-mono">{fmtEuro(t.premio_netto_quietanza)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Tasse</div><div className="font-mono">{fmtEuro(t.tasse_quietanza)}</div></div>
+                  <div><div className="text-[10px] text-muted-foreground uppercase">Lordo</div><div className="font-mono font-semibold">{fmtEuro((Number(t.premio_netto_quietanza) || 0) + (Number(t.tasse_quietanza) || 0))}</div></div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900">
                   <FieldRow label="Provvigioni" value={fmtEuro(t.provvigioni_quietanza)} />
-                  <FieldRow label="Brokeraggio" value={fmtEuro((t as any).brokeraggio_quietanza)} />
+                  <FieldRow label="Brokeraggio" value={fmtEuro(t.brokeraggio_quietanza)} />
                   {renderSplitImporti("Split", sQui, "amber")}
                 </div>
               </div>
@@ -2843,13 +2843,13 @@ const TitoloDetail = () => {
         <div className="mt-6 pt-4 border-t-2 border-dashed border-teal-200 dark:border-teal-900 space-y-4">
           <TitoloImportiPremiBlock
             titoloId={t.id}
-            gruppoRamoId={((t as any).ramo as any)?.gruppo_ramo_id || null}
-            ramoDescrizione={((t as any).ramo as any)?.descrizione || null}
+            gruppoRamoId={t.ramo?.gruppo_ramo_id || null}
+            ramoDescrizione={t.ramo?.descrizione || null}
             isLocked={isLocked}
-            addizionaliFirma={(t as any).addizionali}
-            addizionaliQuietanza={(t as any).addizionali_quietanza}
-            provvigioniFirma={(t as any).provvigioni_firma}
-            provvigioniQuietanza={(t as any).provvigioni_quietanza}
+            addizionaliFirma={t.addizionali}
+            addizionaliQuietanza={t.addizionali_quietanza}
+            provvigioniFirma={t.provvigioni_firma}
+            provvigioniQuietanza={t.provvigioni_quietanza}
           />
           {renderSplitImporti("Provvigioni alla Firma", sFirma, "teal")}
           {renderSplitImporti("Provvigioni Quietanza", sQui, "amber")}
@@ -2873,7 +2873,7 @@ const TitoloDetail = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(numeriStorici as any[]).map((r) => (
+              {numeriStorici.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="tabular-nums">{r.cambiato_il ? new Date(r.cambiato_il).toLocaleString("it-IT") : "—"}</TableCell>
                   <TableCell className="capitalize">{r.causale}</TableCell>
@@ -2913,7 +2913,7 @@ const TitoloDetail = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(riparto as any[]).map((r: any) => (
+            {riparto.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell>{r.compagnie?.nome || "—"}</TableCell>
                 <TableCell className="text-right font-mono">{r.quota_percentuale}%</TableCell>
@@ -2952,7 +2952,7 @@ const TitoloDetail = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(movimentiPolizza as any[]).map((m: any) => (
+              {movimentiPolizza.map((m: any) => (
                 <TableRow key={m.id}>
                   <TableCell className="text-xs">{fmtDate(m.data_movimento)}</TableCell>
                   <TableCell className="text-xs">{fmtDate(m.data_effetto)}</TableCell>
@@ -2980,11 +2980,11 @@ const TitoloDetail = () => {
       {/* === SEZIONE DATI VEICOLO / RCA AUTO ===
           Visibile solo se il ramo della polizza è di tipo Auto/Veicoli,
           oppure (caso legacy) se esiste già un record veicoli_polizza collegato. */}
-      {(isRamoAuto((t as any).ramo) || veicolo) && (
-      <SectionCollapsible title={isRamoNatante((t as any).ramo) ? "Dati Natante / Imbarcazione" : "Dati Veicolo (RCA Auto)"} icon={Car}>
+      {(isRamoAuto(t.ramo) || veicolo) && (
+      <SectionCollapsible title={isRamoNatante(t.ramo) ? "Dati Natante / Imbarcazione" : "Dati Veicolo (RCA Auto)"} icon={Car}>
         <div className="flex justify-between items-center mb-2 gap-2">
           <div>
-            {!isRamoAuto((t as any).ramo) && veicolo && (
+            {!isRamoAuto(t.ramo) && veicolo && (
               <Badge variant="outline" className="text-xs">Dati legacy — ramo non auto</Badge>
             )}
           </div>
@@ -3005,57 +3005,57 @@ const TitoloDetail = () => {
         </div>
 
         {!editingVeicolo ? (
-          (veicolo as any) ? (
+          veicolo ? (
             <div className="space-y-2">
               {/* 1. Identificazione veicolo */}
               <SubBlockTitle>Identificazione veicolo</SubBlockTitle>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                <FieldRow label="Settore" value={fmt((veicolo as any).settore)} />
-                <FieldRow label="Tipo" value={fmt((veicolo as any).tipo_veicolo)} />
-                <FieldRow label="Uso" value={fmt(rcaUsi.find((o: any) => o.value === (veicolo as any).uso)?.label)} />
-                <FieldRow label="Targa" value={fmt((veicolo as any).targa)} />
-                <FieldRow label="Marca" value={fmt((veicolo as any).marca)} />
-                <FieldRow label="Modello" value={fmt((veicolo as any).modello)} />
-                <FieldRow label="Versione" value={fmt((veicolo as any).versione)} />
-                <FieldRow label="Veicolo" value={fmt((veicolo as any).veicolo_descrizione)} />
-                <FieldRow label="Telaio" value={fmt((veicolo as any).telaio)} />
-                <FieldRow label="Immatricolazione" value={fmtDate((veicolo as any).data_immatricolazione)} />
-                <FieldRow label="Anno Acquisto" value={fmt((veicolo as any).anno_acquisto)} />
-                <FieldRow label="Prov. Circolazione" value={fmt((veicolo as any).provincia_circolazione)} />
+                <FieldRow label="Settore" value={fmt(veicolo.settore)} />
+                <FieldRow label="Tipo" value={fmt(veicolo.tipo_veicolo)} />
+                <FieldRow label="Uso" value={fmt(rcaUsi.find((o: any) => o.value === veicolo.uso)?.label)} />
+                <FieldRow label="Targa" value={fmt(veicolo.targa)} />
+                <FieldRow label="Marca" value={fmt(veicolo.marca)} />
+                <FieldRow label="Modello" value={fmt(veicolo.modello)} />
+                <FieldRow label="Versione" value={fmt(veicolo.versione)} />
+                <FieldRow label="Veicolo" value={fmt(veicolo.veicolo_descrizione)} />
+                <FieldRow label="Telaio" value={fmt(veicolo.telaio)} />
+                <FieldRow label="Immatricolazione" value={fmtDate(veicolo.data_immatricolazione)} />
+                <FieldRow label="Anno Acquisto" value={fmt(veicolo.anno_acquisto)} />
+                <FieldRow label="Prov. Circolazione" value={fmt(veicolo.provincia_circolazione)} />
               </div>
 
               {/* 2. Dati tecnici */}
               <SubBlockTitle>Dati tecnici</SubBlockTitle>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                <FieldRow label="CV" value={fmt((veicolo as any).cv)} />
-                <FieldRow label="KW" value={fmt((veicolo as any).kw)} />
-                <FieldRow label="CC" value={fmt((veicolo as any).cc)} />
-                <FieldRow label="Posti" value={fmt((veicolo as any).posti)} />
-                <FieldRow label="Peso Mot." value={fmt((veicolo as any).peso_motrice)} />
-                <FieldRow label="Peso Rim." value={fmt((veicolo as any).peso_rimorchio)} />
-                <FieldRow label="Peso Tot." value={fmt((veicolo as any).peso_totale)} />
-                <FieldRow label="Alimentazione" value={fmt((veicolo as any).tipo_alimentazione)} />
-                <FieldRow label="Tipologia Guida" value={fmt((veicolo as any).tipologia_guida)} />
+                <FieldRow label="CV" value={fmt(veicolo.cv)} />
+                <FieldRow label="KW" value={fmt(veicolo.kw)} />
+                <FieldRow label="CC" value={fmt(veicolo.cc)} />
+                <FieldRow label="Posti" value={fmt(veicolo.posti)} />
+                <FieldRow label="Peso Mot." value={fmt(veicolo.peso_motrice)} />
+                <FieldRow label="Peso Rim." value={fmt(veicolo.peso_rimorchio)} />
+                <FieldRow label="Peso Tot." value={fmt(veicolo.peso_totale)} />
+                <FieldRow label="Alimentazione" value={fmt(veicolo.tipo_alimentazione)} />
+                <FieldRow label="Tipologia Guida" value={fmt(veicolo.tipologia_guida)} />
               </div>
 
               {/* 3. Garanzie e massimali */}
               <SubBlockTitle>Garanzie e massimali</SubBlockTitle>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                <FieldRow label="Massimale 1" value={fmtEuro((veicolo as any).massimale_1)} />
-                <FieldRow label="Massimale 2" value={fmtEuro((veicolo as any).massimale_2)} />
-                <FieldRow label="Massimale 3" value={fmtEuro((veicolo as any).massimale_3)} />
-                <FieldRow label="Franchigia" value={fmtEuro((veicolo as any).franchigia)} />
-                <FieldRow label="Peius" value={fmtBool((veicolo as any).peius)} />
-                <FieldRow label="Temporanea" value={fmtBool((veicolo as any).temporanea)} />
-                <FieldRow label="Carico/Scarico" value={fmtBool((veicolo as any).carico_scarico)} />
-                <FieldRow label="Rimorchio" value={fmtBool((veicolo as any).rimorchio)} />
-                <FieldRow label="Competizione" value={fmtBool((veicolo as any).competizione)} />
+                <FieldRow label="Massimale 1" value={fmtEuro(veicolo.massimale_1)} />
+                <FieldRow label="Massimale 2" value={fmtEuro(veicolo.massimale_2)} />
+                <FieldRow label="Massimale 3" value={fmtEuro(veicolo.massimale_3)} />
+                <FieldRow label="Franchigia" value={fmtEuro(veicolo.franchigia)} />
+                <FieldRow label="Peius" value={fmtBool(veicolo.peius)} />
+                <FieldRow label="Temporanea" value={fmtBool(veicolo.temporanea)} />
+                <FieldRow label="Carico/Scarico" value={fmtBool(veicolo.carico_scarico)} />
+                <FieldRow label="Rimorchio" value={fmtBool(veicolo.rimorchio)} />
+                <FieldRow label="Competizione" value={fmtBool(veicolo.competizione)} />
               </div>
 
               {/* 4. Bonus / Malus */}
               <SubBlockTitle>Bonus / Malus</SubBlockTitle>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-                <FieldRow label="Classe B/M (CU)" value={fmt((veicolo as any).classe_bm)} />
+                <FieldRow label="Classe B/M (CU)" value={fmt(veicolo.classe_bm)} />
               </div>
             </div>
           ) : (
@@ -3124,19 +3124,19 @@ const TitoloDetail = () => {
       </SectionCollapsible>
       )}
 
-      {(conducente as any) && (
+      {conducente && (
         <SectionCollapsible title="Dati Conducente" icon={UserCheck}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
-            <FieldRow label="Nome" value={fmt((conducente as any).nome)} />
-            <FieldRow label="Cognome" value={fmt((conducente as any).cognome)} />
-            <FieldRow label="Indirizzo" value={fmt((conducente as any).indirizzo)} />
-            <FieldRow label="CAP" value={fmt((conducente as any).cap)} />
-            <FieldRow label="Città" value={fmt((conducente as any).citta)} />
-            <FieldRow label="Provincia" value={fmt((conducente as any).provincia)} />
-            <FieldRow label="Data Nascita" value={fmtDate((conducente as any).data_nascita)} />
-            <FieldRow label="Tipo Patente" value={fmt((conducente as any).tipo_patente)} />
-            <FieldRow label="Rilascio Patente" value={fmtDate((conducente as any).data_rilascio_patente)} />
-            {(conducente as any).note && <div className="col-span-full"><FieldRow label="Note" value={(conducente as any).note} /></div>}
+            <FieldRow label="Nome" value={fmt(conducente.nome)} />
+            <FieldRow label="Cognome" value={fmt(conducente.cognome)} />
+            <FieldRow label="Indirizzo" value={fmt(conducente.indirizzo)} />
+            <FieldRow label="CAP" value={fmt(conducente.cap)} />
+            <FieldRow label="Città" value={fmt(conducente.citta)} />
+            <FieldRow label="Provincia" value={fmt(conducente.provincia)} />
+            <FieldRow label="Data Nascita" value={fmtDate(conducente.data_nascita)} />
+            <FieldRow label="Tipo Patente" value={fmt(conducente.tipo_patente)} />
+            <FieldRow label="Rilascio Patente" value={fmtDate(conducente.data_rilascio_patente)} />
+            {conducente.note && <div className="col-span-full"><FieldRow label="Note" value={conducente.note} /></div>}
           </div>
         </SectionCollapsible>
       )}

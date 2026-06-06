@@ -352,7 +352,7 @@ export default function TemplatePage() {
   const { data: categorie = [] } = useQuery({
     queryKey: ["template_categorie"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("template_categorie" as any).select("*").order("nome");
+      const { data, error } = await supabase.from("template_categorie").select("*").order("nome");
       if (error) throw error;
       return (data || []) as unknown as Categoria[];
     },
@@ -361,7 +361,7 @@ export default function TemplatePage() {
   const { data: templates = [] } = useQuery({
     queryKey: ["template_email"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("template_email" as any).select("*").order("nome");
+      const { data, error } = await supabase.from("template_email").select("*").order("nome");
       if (error) throw error;
       return (data || []) as unknown as Template[];
     },
@@ -370,10 +370,10 @@ export default function TemplatePage() {
   const saveMut = useMutation({
     mutationFn: async (t: typeof form & { id?: string }) => {
       if (t.id) {
-        const { error } = await supabase.from("template_email" as any).update({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo } as any).eq("id", t.id);
+        const { error } = await supabase.from("template_email").update({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo } as any).eq("id", t.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("template_email" as any).insert({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo } as any);
+        const { error } = await supabase.from("template_email").insert({ nome: t.nome, oggetto: t.oggetto, corpo: t.corpo, categoria_id: t.categoria_id, attivo: t.attivo } as any);
         if (error) throw error;
       }
     },
@@ -383,7 +383,7 @@ export default function TemplatePage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("template_email" as any).delete().eq("id", id);
+      const { error } = await supabase.from("template_email").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["template_email"] }); toast.success("Template eliminato"); },
@@ -392,7 +392,7 @@ export default function TemplatePage() {
 
   const saveCatMut = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("template_categorie" as any).insert({ nome: newCatNome, descrizione: newCatDesc || null } as any);
+      const { error } = await supabase.from("template_categorie").insert({ nome: newCatNome, descrizione: newCatDesc || null } as any);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["template_categorie"] }); setCatDialogOpen(false); setNewCatNome(""); setNewCatDesc(""); toast.success("Categoria creata"); },
@@ -401,7 +401,7 @@ export default function TemplatePage() {
 
   const toggleMut = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { error } = await supabase.from("template_email" as any).update({ attivo } as any).eq("id", id);
+      const { error } = await supabase.from("template_email").update({ attivo } as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["template_email"] }),

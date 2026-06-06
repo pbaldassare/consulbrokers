@@ -60,8 +60,8 @@ const ClientePolizzaDetail = () => {
   if (!titolo) return <p className="text-muted-foreground">Polizza non trovata.</p>;
 
   const rows = [
-    { label: "Agenzia", value: (titolo.compagnie as any)?.nome, icon: Building2 },
-    { label: "Ramo", value: (titolo.rami as any)?.descrizione, icon: Shield },
+    { label: "Agenzia", value: titolo.compagnie?.nome, icon: Building2 },
+    { label: "Ramo", value: titolo.rami?.descrizione, icon: Shield },
     { label: "Decorrenza", value: fmtDate(titolo.durata_da), icon: Calendar },
     { label: "Scadenza", value: fmtDate(titolo.data_scadenza), icon: Calendar },
     { label: "Periodicità", value: titolo.periodicita, icon: Calendar },
@@ -84,7 +84,7 @@ const ClientePolizzaDetail = () => {
             <div>
               <p className="text-sm text-muted-foreground">Polizza</p>
               <h2 className="text-2xl font-bold text-foreground">{titolo.numero_titolo}</h2>
-              <p className="text-sm text-teal-700 font-medium mt-1">{(titolo.rami as any)?.descrizione ?? "—"}</p>
+              <p className="text-sm text-teal-700 font-medium mt-1">{titolo.rami?.descrizione ?? "—"}</p>
             </div>
             <Badge className={`text-sm px-4 py-1.5 ${statoBadge[titolo.stato] ?? "bg-muted"}`}>{titolo.stato?.toUpperCase()}</Badge>
           </div>

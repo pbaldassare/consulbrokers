@@ -71,13 +71,13 @@ const AgenzieInPagamentoPage = () => {
     queryKey: ["conti-bancari-generico"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("conti_bancari" as any)
+        .from("conti_bancari")
         .select("id, etichetta, iban, intestato_a, banca, bic, is_default")
         .eq("tipo", "generico")
         .eq("attivo", true)
         .order("is_default", { ascending: false })
         .order("etichetta");
-      return (data || []) as any[];
+      return (data || []);
     },
   });
 
@@ -86,12 +86,12 @@ const AgenzieInPagamentoPage = () => {
     queryKey: ["agenzie-in-pagamento"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("rimessa_premi" as any)
+        .from("rimessa_premi")
         .select("id, stato, totale_importi, data_messa_in_pagamento, iban_utilizzato, conto_bancario_mittente_id, note, flusso_xml_id, compagnia_id, compagnie(nome, iban, codice, intestato_a), rimessa_dettaglio(titolo_id, importo)")
         .in("stato", ["in_pagamento", "pronta"])
         .order("data_messa_in_pagamento", { ascending: false });
       if (error) throw error;
-      return (data || []) as any[];
+      return (data || []);
     },
   });
 
@@ -225,7 +225,7 @@ const AgenzieInPagamentoPage = () => {
       body: { action: "genera_xml_sepa", rimessa_ids: ids, conto_bancario_mittente_id: contoId, created_by: user?.id },
     });
     if (error) {
-      const detail = (error as any).context?.body || (error as any).message || "Errore di rete";
+      const detail = error.context?.body || error.message || "Errore di rete";
       throw new Error(`Generazione XML SEPA fallita: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`);
     }
     if (data?.error) throw new Error(`Generazione XML SEPA: ${data.error}`);
@@ -355,7 +355,7 @@ const AgenzieInPagamentoPage = () => {
       const { error: updDocErr } = await supabase
         .from("documenti")
         .update({ caricato_da: user?.id || null } as any)
-        .eq("id", (existing as any).id);
+        .eq("id", existing.id);
       if (updDocErr) throw new Error(`Archivio documenti: ${updDocErr.message}`);
     } else {
       const { error: docErr } = await supabase.from("documenti").insert({
@@ -389,7 +389,7 @@ const AgenzieInPagamentoPage = () => {
     const { data: res, error } = await supabase.functions.invoke("gestione-rimessa", {
       body: { action: "conferma_pagamento", rimessa_ids: ids, data_valuta: data, created_by: user?.id },
     });
-    if (error) throw new Error(`Conferma pagamento: ${(error as any).message || "errore"}`);
+    if (error) throw new Error(`Conferma pagamento: ${error.message || "errore"}`);
     if (res?.error) throw new Error(`Conferma pagamento: ${res.error}`);
     return res;
   };

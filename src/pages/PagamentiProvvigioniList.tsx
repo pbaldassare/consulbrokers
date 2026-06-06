@@ -59,7 +59,7 @@ const PagamentiProvvigioniList = () => {
 
   // Filtri + paginazione (sollevati al top per l'hook usePagination)
   const filteredDistinte = useMemo(() => {
-    return (distinte as any[]).filter((d: any) => {
+    return (distinte).filter((d: any) => {
       if (filterBeneficiario && d.pagato_a_user_id !== filterBeneficiario) return false;
       if (filterMetodo && d.metodo !== filterMetodo) return false;
       if (filterDa && d.created_at < filterDa) return false;

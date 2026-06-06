@@ -23,7 +23,7 @@ const ClienteUploadDoc = () => {
       .maybeSingle()
       .then(({ data }) => {
         setClienteId(data?.id ?? null);
-        setAreaType((data as any)?.area_riservata_tipo ?? null);
+        setAreaType(data?.area_riservata_tipo ?? null);
       });
   }, [user]);
 

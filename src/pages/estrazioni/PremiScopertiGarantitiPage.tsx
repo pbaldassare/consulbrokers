@@ -42,7 +42,7 @@ const PremiScopertiGarantitiPage = () => {
       }));
 
       if (filters.compagnia_id) {
-        results = results.filter((t: any) => (t.prodotti as any)?.compagnia_id === filters.compagnia_id);
+        results = results.filter((t: any) => t.prodotti?.compagnia_id === filters.compagnia_id);
       }
       return results;
     },

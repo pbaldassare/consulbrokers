@@ -399,8 +399,8 @@ export default function SinistriList() {
             {sinistri.map((s: any) => (
               <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/sinistri/${s.id}`)}>
                 <TableCell className="font-medium">{s.numero_sinistro || "—"}</TableCell>
-                <TableCell>{getClienteName((s as any).clienti)}</TableCell>
-                <TableCell>{(s as any).titoli?.numero_titolo || "—"}</TableCell>
+                <TableCell>{getClienteName(s.clienti)}</TableCell>
+                <TableCell>{s.titoli?.numero_titolo || "—"}</TableCell>
                 <TableCell className="capitalize">{s.tipo_sinistro?.replace(/_/g, " ") || "—"}</TableCell>
                 <TableCell>
                   <Badge className={statoBadge[s.stato]}>{s.stato.replace(/_/g, " ")}</Badge>

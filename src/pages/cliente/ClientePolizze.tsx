@@ -55,13 +55,13 @@ const ClientePolizze = () => {
 
   const ramiOptions = useMemo(() => {
     const set = new Map<string, string>();
-    titoli.forEach(t => { const r = (t.rami as any)?.descrizione; if (r) set.set(r, r); });
+    titoli.forEach(t => { const r = t.rami?.descrizione; if (r) set.set(r, r); });
     return [{ value: "", label: "Tutti i rami" }, ...Array.from(set.values()).sort().map(r => ({ value: r, label: r }))];
   }, [titoli]);
 
   const compagnieOptions = useMemo(() => {
     const set = new Map<string, string>();
-    titoli.forEach(t => { const c = (t.compagnie as any)?.nome; if (c) set.set(c, c); });
+    titoli.forEach(t => { const c = t.compagnie?.nome; if (c) set.set(c, c); });
     return [{ value: "", label: "Tutte le compagnie" }, ...Array.from(set.values()).sort().map(c => ({ value: c, label: c }))];
   }, [titoli]);
 
@@ -76,8 +76,8 @@ const ClientePolizze = () => {
   const filtered = useMemo(() => {
     return titoli.filter(t => {
       if (stato && t.stato !== stato) return false;
-      if (ramo && (t.rami as any)?.descrizione !== ramo) return false;
-      if (compagnia && (t.compagnie as any)?.nome !== compagnia) return false;
+      if (ramo && t.rami?.descrizione !== ramo) return false;
+      if (compagnia && t.compagnie?.nome !== compagnia) return false;
       if (scadDa && (!t.data_scadenza || new Date(t.data_scadenza) < scadDa)) return false;
       if (scadA && (!t.data_scadenza || new Date(t.data_scadenza) > scadA)) return false;
       if (search) {
@@ -98,9 +98,9 @@ const ClientePolizze = () => {
   const buildExportRows = () =>
     filtered.map(t => ({
       Stato: t.stato ?? "",
-      Compagnia: (t.compagnie as any)?.nome ?? "",
+      Compagnia: t.compagnie?.nome ?? "",
       Produttore: t.produttore_nome ?? "",
-      Prodotto: (t.rami as any)?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "",
+      Prodotto: t.rami?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "",
       "N° Polizza": t.numero_titolo ?? "",
       Targa: t.targa_telaio ?? "",
       CIG: t.cig_rif ?? "",
@@ -122,7 +122,7 @@ const ClientePolizze = () => {
     };
     const csv = [
       headers.join(";"),
-      ...rows.map(r => headers.map(h => escape((r as any)[h])).join(";"))
+      ...rows.map(r => headers.map(h => escape(r[h])).join(";"))
     ].join("\r\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -219,8 +219,8 @@ const ClientePolizze = () => {
               <TableBody>
                 {filtered.map((t, idx) => {
                   const giorni = t.data_scadenza ? differenceInDays(new Date(t.data_scadenza), today) : null;
-                  const compagnia = (t.compagnie as any)?.nome ?? "—";
-                  const prodotto = (t.rami as any)?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "—";
+                  const compagnia = t.compagnie?.nome ?? "—";
+                  const prodotto = t.rami?.descrizione ?? t.prodotto_nome ?? t.descrizione_polizza ?? "—";
                   const polizzaTarga = [t.numero_titolo, t.targa_telaio].filter(Boolean).join(" / ") || "N/D";
 
                   return (

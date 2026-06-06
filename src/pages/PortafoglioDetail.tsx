@@ -34,7 +34,7 @@ const PortafoglioDetail = () => {
     queryKey: ["portafoglio_incassi", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("portafoglio_incassi" as any)
+        .from("portafoglio_incassi")
         .select("*, uffici(nome_ufficio), profiles(nome, cognome)")
         .eq("id", id!)
         .single();
@@ -48,18 +48,18 @@ const PortafoglioDetail = () => {
     queryKey: ["portafoglio_eventi", id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("portafoglio_incassi_eventi" as any)
+        .from("portafoglio_incassi_eventi")
         .select("*")
         .eq("portafoglio_id", id!)
         .order("data_scadenza", { ascending: true });
-      return (data || []) as any[];
+      return (data || []);
     },
     enabled: !!id,
   });
 
   const updateStatoMutation = useMutation({
     mutationFn: async (nuovoStato: string) => {
-      const { error } = await supabase.from("portafoglio_incassi" as any).update({ stato: nuovoStato }).eq("id", id!);
+      const { error } = await supabase.from("portafoglio_incassi").update({ stato: nuovoStato }).eq("id", id!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -71,7 +71,7 @@ const PortafoglioDetail = () => {
 
   const createEventoMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.from("portafoglio_incassi_eventi" as any).insert([{
+      const { data, error } = await supabase.from("portafoglio_incassi_eventi").insert([{
         portafoglio_id: id,
         data_scadenza: eventoForm.data_scadenza,
         importo_atteso: parseFloat(eventoForm.importo_atteso),
@@ -105,7 +105,7 @@ const PortafoglioDetail = () => {
           esito: "atteso",
         });
       }
-      const { error } = await supabase.from("portafoglio_incassi_eventi" as any).insert(events);
+      const { error } = await supabase.from("portafoglio_incassi_eventi").insert(events);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -116,7 +116,7 @@ const PortafoglioDetail = () => {
 
   const updateEsitoMutation = useMutation({
     mutationFn: async ({ eventoId, esito }: { eventoId: string; esito: string }) => {
-      const { error } = await supabase.from("portafoglio_incassi_eventi" as any).update({ esito }).eq("id", eventoId);
+      const { error } = await supabase.from("portafoglio_incassi_eventi").update({ esito }).eq("id", eventoId);
       if (error) throw error;
       return { eventoId, esito };
     },
@@ -142,7 +142,7 @@ const PortafoglioDetail = () => {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">{portafoglio.descrizione}</h1>
           <p className="text-muted-foreground">
-            {(portafoglio.uffici as any)?.nome_ufficio || ""} · {portafoglio.periodicita?.replace("_", " ")}
+            {portafoglio.uffici?.nome_ufficio || ""} · {portafoglio.periodicita?.replace("_", " ")}
           </p>
         </div>
         <Select value={portafoglio.stato} onValueChange={(v) => updateStatoMutation.mutate(v)}>

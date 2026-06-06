@@ -136,7 +136,7 @@ export default function ContiBancariPage() {
     queryKey: ["conti_bancari_counts", soloAttivi],
     queryFn: async () => {
       const fetchCount = async (tipi: string[] | null) => {
-        let q = supabase.from("conti_bancari" as any).select("id", { count: "exact", head: true });
+        let q = supabase.from("conti_bancari").select("id", { count: "exact", head: true });
         if (soloAttivi) q = q.eq("attivo", true);
         if (tipi) q = q.in("tipo", tipi);
         const { count, error } = await q;
@@ -161,7 +161,7 @@ export default function ContiBancariPage() {
   const { data: result, isLoading } = useQuery({
     queryKey: ["conti_bancari_admin", categoria, search, page, soloAttivi],
     queryFn: async () => {
-      let q = supabase.from("conti_bancari" as any).select("*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti!conti_bancari_rapporto_id_fkey(id,codice_mandato,gruppo_compagnia:gruppi_compagnia(descrizione))", { count: "exact" });
+      let q = supabase.from("conti_bancari").select("*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti!conti_bancari_rapporto_id_fkey(id,codice_mandato,gruppo_compagnia:gruppi_compagnia(descrizione))", { count: "exact" });
       if (tipiCorrenti) q = q.in("tipo", tipiCorrenti);
       if (soloAttivi) q = q.eq("attivo", true);
       if (search) {
@@ -174,7 +174,7 @@ export default function ContiBancariPage() {
         .order("etichetta")
         .range(range.from, range.to);
       if (error) throw error;
-      return { rows: (data || []) as any[], total: count || 0 };
+      return { rows: (data || []), total: count || 0 };
     },
   });
 
@@ -184,7 +184,7 @@ export default function ContiBancariPage() {
   const { data: uffici = [] } = useQuery({
     queryKey: ["uffici_for_conti"],
     queryFn: async () => {
-      const { data } = await supabase.from("uffici" as any).select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
+      const { data } = await supabase.from("uffici").select("id, nome_ufficio").eq("attivo", true).order("nome_ufficio");
       return (data || []) as unknown as Array<{ id: string; nome_ufficio: string }>;
     },
   });
@@ -195,7 +195,7 @@ export default function ContiBancariPage() {
     enabled: isEntityTipo(form.tipo),
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnie" as any)
+        .from("compagnie")
         .select("id, nome, codice")
         .eq("tipo", form.tipo!)
         .eq("attiva", true)
@@ -210,12 +210,12 @@ export default function ContiBancariPage() {
     enabled: supportsRapporto(form.tipo) && !!form.compagnia_id,
     queryFn: async () => {
       const { data } = await supabase
-        .from("compagnia_rapporti" as any)
+        .from("compagnia_rapporti")
         .select("id, codice_mandato, attivo, gruppo_compagnia:gruppi_compagnia(descrizione)")
         .eq("compagnia_id", form.compagnia_id!)
         .eq("attivo", true)
         .order("codice_mandato");
-      return (data || []) as any[];
+      return (data || []);
     },
   });
 
@@ -240,13 +240,13 @@ export default function ContiBancariPage() {
         note: payload.note?.trim() || null,
       };
       if (data.is_default) {
-        await supabase.from("conti_bancari" as any).update({ is_default: false }).eq("tipo", data.tipo).eq("is_default", true);
+        await supabase.from("conti_bancari").update({ is_default: false }).eq("tipo", data.tipo).eq("is_default", true);
       }
       if (payload.id) {
-        const { error } = await supabase.from("conti_bancari" as any).update(data).eq("id", payload.id);
+        const { error } = await supabase.from("conti_bancari").update(data).eq("id", payload.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("conti_bancari" as any).insert(data);
+        const { error } = await supabase.from("conti_bancari").insert(data);
         if (error) throw error;
       }
     },
@@ -263,7 +263,7 @@ export default function ContiBancariPage() {
 
   const del = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("conti_bancari" as any).delete().eq("id", id);
+      const { error } = await supabase.from("conti_bancari").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -278,8 +278,8 @@ export default function ContiBancariPage() {
 
   const setAsDefault = useMutation({
     mutationFn: async (c: ContoBancario) => {
-      await supabase.from("conti_bancari" as any).update({ is_default: false }).eq("tipo", c.tipo).eq("is_default", true);
-      const { error } = await supabase.from("conti_bancari" as any).update({ is_default: true }).eq("id", c.id);
+      await supabase.from("conti_bancari").update({ is_default: false }).eq("tipo", c.tipo).eq("is_default", true);
+      const { error } = await supabase.from("conti_bancari").update({ is_default: true }).eq("id", c.id);
       if (error) throw error;
     },
     onSuccess: () => {

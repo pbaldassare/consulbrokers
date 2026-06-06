@@ -133,7 +133,7 @@ const ProvvigioniMaturatePage = () => {
       if (filters.tipoDestinatario) q = q.eq("tipo_destinatario", filters.tipoDestinatario);
       const { data } = await q.limit(5000);
       const buckets = new Map<string, number>();
-      for (const p of (data as any[]) || []) {
+      for (const p of (data) || []) {
         const d = p.titoli?.data_messa_cassa;
         if (!d) continue;
         const k = d.slice(0, 7);

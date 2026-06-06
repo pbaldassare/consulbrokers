@@ -249,8 +249,8 @@ const TrattativeList = () => {
     if (filtroSearch) {
       const search = filtroSearch.toLowerCase();
       const soggetto = getSoggettoName(t).toLowerCase();
-      const comp = ((t as any).compagnia_rel?.nome || t.compagnia || "").toLowerCase();
-      const bandoTitolo = ((t as any).bandi_collegati?.[0]?.titolo || "").toLowerCase();
+      const comp = (t.compagnia_rel?.nome || t.compagnia || "").toLowerCase();
+      const bandoTitolo = (t.bandi_collegati?.[0]?.titolo || "").toLowerCase();
       if (!soggetto.includes(search) && !comp.includes(search) && !bandoTitolo.includes(search)) return false;
     }
     return true;
@@ -466,8 +466,8 @@ const TrattativeList = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{getSoggettoName(t)}</TableCell>
-                  <TableCell className="text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{(t as any).ufficio?.nome_ufficio || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{t.compagnia_rel?.nome || t.compagnia || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{t.ufficio?.nome_ufficio || "—"}</TableCell>
                   <TableCell>{t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "—"}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center text-xs font-medium px-2.5 py-0.5 rounded-full text-white ${getStatoColor(t.stato)}`}>
@@ -475,9 +475,9 @@ const TrattativeList = () => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    {(t as any).bandi_collegati?.length > 0 ? (
+                    {t.bandi_collegati?.length > 0 ? (
                       <div className="flex flex-col gap-1">
-                        {(t as any).bandi_collegati.map((b: any) => {
+                        {t.bandi_collegati.map((b: any) => {
                           const label = b.titolo || b.scheda_id || "—";
                           const short = label.length > 60 ? label.slice(0, 57) + "…" : label;
                           return (

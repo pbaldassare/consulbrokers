@@ -410,7 +410,7 @@ const CruscottoGiornaliero = () => {
               {scadenzeFornitori.map((s: any) => (
                 <div key={s.id} className="flex items-center justify-between text-sm border-b pb-1">
                   <div className="truncate flex-1">
-                    <span className="font-medium">{(s.fornitori as any)?.nome || s.descrizione || "—"}</span>
+                    <span className="font-medium">{s.fornitori?.nome || s.descrizione || "—"}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs">{fmt(s.totale || 0)}</span>

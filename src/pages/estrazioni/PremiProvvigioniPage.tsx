@@ -40,7 +40,7 @@ const PremiProvvigioniPage = () => {
 
       let results = provvigioni || [];
       if (filters.compagnia_id) {
-        results = results.filter((p: any) => (p.titoli as any)?.prodotti?.compagnia_id === filters.compagnia_id);
+        results = results.filter((p: any) => p.titoli?.prodotti?.compagnia_id === filters.compagnia_id);
       }
       return results;
     },

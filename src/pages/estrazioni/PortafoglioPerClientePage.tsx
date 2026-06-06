@@ -40,7 +40,7 @@ const PortafoglioPerClientePage = () => {
 
       const grouped: Record<string, ClientePortafoglio> = {};
       for (const t of titoli || []) {
-        if (filters.compagnia_id && (t.prodotti as any)?.compagnia_id !== filters.compagnia_id) continue;
+        if (filters.compagnia_id && t.prodotti?.compagnia_id !== filters.compagnia_id) continue;
         const cli = t.clienti as any;
         if (!cli) continue;
         const key = cli.id;

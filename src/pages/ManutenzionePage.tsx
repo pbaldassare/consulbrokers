@@ -19,7 +19,7 @@ const ManutenzionePage = () => {
 
   const refreshKpi = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("refresh_cfo_kpi_mensili" as any);
+      const { error } = await supabase.rpc("refresh_cfo_kpi_mensili");
       if (error) throw error;
       await logAttivita({ azione: "refresh_kpi_manuale", entita_tipo: "manutenzione", entita_id: "00000000-0000-0000-0000-000000000000" });
     },
@@ -29,7 +29,7 @@ const ManutenzionePage = () => {
 
   const checkScadenze = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc("segna_eventi_sinistri_scaduti" as any);
+      const { data, error } = await supabase.rpc("segna_eventi_sinistri_scaduti");
       if (error) throw error;
       await logAttivita({ azione: "controllo_scadenze_sinistri", entita_tipo: "manutenzione", entita_id: "00000000-0000-0000-0000-000000000000", dettagli_json: data as any });
       return data;
@@ -40,7 +40,7 @@ const ManutenzionePage = () => {
 
   const archiviaNotifiche = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc("archivia_notifiche_vecchie" as any);
+      const { data, error } = await supabase.rpc("archivia_notifiche_vecchie");
       if (error) throw error;
       await logAttivita({ azione: "archiviazione_notifiche", entita_tipo: "manutenzione", entita_id: "00000000-0000-0000-0000-000000000000", dettagli_json: data as any });
       return data;
@@ -51,7 +51,7 @@ const ManutenzionePage = () => {
 
   const runQuality = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc("run_data_quality_checks" as any);
+      const { data, error } = await supabase.rpc("run_data_quality_checks");
       if (error) throw error;
       await logAttivita({ azione: "controllo_qualita_dati", entita_tipo: "manutenzione", entita_id: "00000000-0000-0000-0000-000000000000", dettagli_json: data as any });
       return data;

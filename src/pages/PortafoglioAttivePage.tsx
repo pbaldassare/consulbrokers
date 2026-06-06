@@ -42,7 +42,7 @@ const PortafoglioAttivePage = () => {
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-attive", search, filterRamoIds, page, today, escludiMeseCorrente, filtroTipo],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select(
+      let q = supabase.from("v_portafoglio_titoli").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, sostituisce_polizza",
         { count: "exact" }
       ).in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
@@ -70,7 +70,7 @@ const PortafoglioAttivePage = () => {
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-attive-totale", search, filterRamoIds, today, escludiMeseCorrente],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo")
+      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo")
         .in("stato", ["attivo", "sospeso"]).gte("garanzia_a", today);
       if (escludiMeseCorrente) {
         q = q.or(`data_scadenza.lt.${inizioMese},data_scadenza.gt.${fineMese},data_scadenza.is.null`);

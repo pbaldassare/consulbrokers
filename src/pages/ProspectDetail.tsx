@@ -275,7 +275,7 @@ const ProspectDetail = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {prospect.stato === "chiuso_vinto" && !(prospect as any).convertito_cliente_id && (
+          {prospect.stato === "chiuso_vinto" && !prospect.convertito_cliente_id && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button className="gap-2 bg-kpi-green-text hover:bg-kpi-green-text/90 text-white">
@@ -307,8 +307,8 @@ const ProspectDetail = () => {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {(prospect as any).convertito_cliente_id && (
-            <Button variant="outline" className="gap-2 text-kpi-green-text border-kpi-green-border" onClick={() => navigate(`/archivi/clienti/${(prospect as any).convertito_cliente_id}`)}>
+          {prospect.convertito_cliente_id && (
+            <Button variant="outline" className="gap-2 text-kpi-green-text border-kpi-green-border" onClick={() => navigate(`/archivi/clienti/${prospect.convertito_cliente_id}`)}>
               <ExternalLink className="w-4 h-4" />Vai al Cliente
             </Button>
           )}
@@ -334,8 +334,8 @@ const ProspectDetail = () => {
                 entityContext={prospect ? {
                   entityType: "prospect",
                   scopeHint: `${prospect.cognome ?? ""} ${prospect.nome ?? ""}`.trim() || "Prospect",
-                  expectedCF: (prospect as any).codice_fiscale ?? null,
-                  expectedPIVA: (prospect as any).partita_iva ?? null,
+                  expectedCF: prospect.codice_fiscale ?? null,
+                  expectedPIVA: prospect.partita_iva ?? null,
                 } : undefined}
                 onExtracted={async (data) => {
                   const updates: Record<string, unknown> = {};
@@ -367,7 +367,7 @@ const ProspectDetail = () => {
               <div className="flex items-center gap-2 text-sm">
                 <Users className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">
-                  Assegnato a: {(prospect as any).profiles ? `${(prospect as any).profiles.nome || ""} ${(prospect as any).profiles.cognome || ""}`.trim() : "—"}
+                  Assegnato a: {prospect.profiles ? `${prospect.profiles.nome || ""} ${prospect.profiles.cognome || ""}`.trim() : "—"}
                 </span>
               </div>
             </div>
@@ -424,8 +424,8 @@ const ProspectDetail = () => {
                 {trattative.map((t) => (
                   <div key={t.id} className="border border-border rounded-lg p-4 flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-foreground">{(t as any).ramo?.descrizione || t.prodotto || "—"}</p>
-                      <p className="text-sm text-muted-foreground">{(t as any).compagnia_rel?.nome || t.compagnia || "—"} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
+                      <p className="font-medium text-foreground">{t.ramo?.descrizione || t.prodotto || "—"}</p>
+                      <p className="text-sm text-muted-foreground">{t.compagnia_rel?.nome || t.compagnia || "—"} • {t.premio_previsto ? `€ ${Number(t.premio_previsto).toLocaleString("it-IT")}` : "Premio n.d."}</p>
                       {t.data_chiusura && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Chiusa il {format(new Date(t.data_chiusura), "dd/MM/yyyy")}

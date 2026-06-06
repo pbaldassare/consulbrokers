@@ -97,7 +97,7 @@ export default function StoricoGarePage() {
     queryKey: ["storico_gare_kpi"],
     queryFn: async () => {
       const { count: totale } = await supabase.from("storico_gare").select("id", { count: "exact", head: true });
-      const { count: scadenza } = await supabase.from("v_storico_gare" as any).select("id", { count: "exact", head: true }).eq("stato_mandato", "in_scadenza_12m");
+      const { count: scadenza } = await supabase.from("v_storico_gare").select("id", { count: "exact", head: true }).eq("stato_mandato", "in_scadenza_12m");
       return { totale: totale ?? 0, scadenza: scadenza ?? 0 };
     },
   });
@@ -125,13 +125,13 @@ export default function StoricoGarePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["storico_gare", page, ...filtersKey],
     queryFn: async () => {
-      let q = supabase.from("v_storico_gare" as any).select("*", { count: "exact" });
+      let q = supabase.from("v_storico_gare").select("*", { count: "exact" });
       q = applyFilters(q);
       q = q.order("anno_riferimento", { ascending: false }).order("data_consegna", { ascending: false, nullsFirst: false });
       q = q.range(range.from, range.to);
       const { data, error, count } = await q;
       if (error) throw error;
-      return { rows: (data as any[]) ?? [], total: count ?? 0 };
+      return { rows: (data) ?? [], total: count ?? 0 };
     },
   });
 
@@ -139,11 +139,11 @@ export default function StoricoGarePage() {
   const { data: chartData } = useQuery({
     queryKey: ["storico_gare_charts", ...filtersKey],
     queryFn: async () => {
-      let q = supabase.from("v_storico_gare" as any).select("anno_riferimento, broker_incumbent, categoria_ente").limit(10000);
+      let q = supabase.from("v_storico_gare").select("anno_riferimento, broker_incumbent, categoria_ente").limit(10000);
       q = applyFilters(q);
       const { data, error } = await q;
       if (error) throw error;
-      const rows = (data as any[]) ?? [];
+      const rows = (data) ?? [];
 
       // Trend per anno (ultimi 13 anni)
       const annoMap = new Map<number, number>();

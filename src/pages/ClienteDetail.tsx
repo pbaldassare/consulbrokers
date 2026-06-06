@@ -398,12 +398,12 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     queryKey: ["codici_commerciali", clienteId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("codici_commerciali_cliente" as any)
+        .from("codici_commerciali_cliente")
         .select("id, ruolo, profilo_id, anagrafica_id")
         .eq("cliente_id", clienteId)
         .in("ruolo", ["AE", "Produttore Sede"]);
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
@@ -423,14 +423,14 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
   const upsertMutation = useMutation({
     mutationFn: async ({ ruolo, anagrafica_id }: { ruolo: string; anagrafica_id: string | null }) => {
       if (!anagrafica_id) {
-        const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        const { error } = await supabase.from("codici_commerciali_cliente")
           .delete()
           .eq("cliente_id", clienteId)
           .eq("ruolo", ruolo);
         if (error) throw error;
         return;
       }
-      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+      const { error } = await supabase.from("codici_commerciali_cliente")
         .upsert(
           { cliente_id: clienteId, ruolo, anagrafica_id, profilo_id: null },
           { onConflict: "cliente_id,ruolo" },
@@ -448,7 +448,7 @@ function CodiciCommercialiSection({ clienteId }: { clienteId: string }) {
     codici.find((c: any) => c.ruolo === ruolo)?.anagrafica_id || "";
 
   const buildOptions = (tipo: string) =>
-    (anagraficheAll as any[])
+    anagraficheAll
       .filter((a) => a.tipo === tipo)
       .map((a) => ({
         value: a.id,
@@ -492,18 +492,18 @@ function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnl
     queryKey: ["nominativi_cliente", clienteId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("nominativi_cliente" as any)
+        .from("nominativi_cliente")
         .select("*")
         .eq("cliente_id", clienteId)
         .order("created_at");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
   });
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from("nominativi_cliente" as any) as any).insert({
+      const { error } = await supabase.from("nominativi_cliente").insert({
         cliente_id: clienteId,
         nome: nome || null,
         cognome: cognome || null,
@@ -523,7 +523,7 @@ function NominativiSection({ clienteId, readOnly }: { clienteId: string; readOnl
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("nominativi_cliente" as any) as any).delete().eq("id", id);
+      const { error } = await supabase.from("nominativi_cliente").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -848,7 +848,7 @@ function AreaRiservataHeaderButton({ cliente, onUpdate }: { cliente: any; onUpda
   const [dialogOpen, setDialogOpen] = useState(false);
   const [emailText, setEmailText] = useState("");
 
-  const currentTipo = (cliente as any).area_riservata_tipo || "nessuna";
+  const currentTipo = cliente.area_riservata_tipo || "nessuna";
   const isActive = currentTipo !== "nessuna";
   const clienteName = cliente.ragione_sociale || `${cliente.nome || ""} ${cliente.cognome || ""}`.trim() || "Cliente";
   const portalUrl = `${window.location.origin}/cliente`;
@@ -898,7 +898,7 @@ Consulbrokers S.r.l.`;
 
       const { error: updErr } = await supabase
         .from("clienti")
-        .update({ area_riservata_tipo: tipo } as any)
+        .update({ area_riservata_tipo: tipo })
         .eq("id", cliente.id);
       if (updErr) throw updErr;
 
@@ -929,7 +929,7 @@ Consulbrokers S.r.l.`;
     try {
       const { error } = await supabase
         .from("clienti")
-        .update({ area_riservata_tipo: "nessuna" } as any)
+        .update({ area_riservata_tipo: "nessuna" })
         .eq("id", cliente.id);
       if (error) throw error;
       toast.success("Area riservata disattivata");
@@ -1034,10 +1034,10 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
   const [deleting, setDeleting] = useState<string | null>(null);
 
   // Conteggi & totali
-  const allQuiet = useMemo(() => (polizze as any[]).filter((p) => !!p.sostituisce_polizza), [polizze]);
-  const allPol = useMemo(() => (polizze as any[]).filter((p) => !p.sostituisce_polizza), [polizze]);
+  const allQuiet = useMemo(() => polizze.filter((p) => !!p.sostituisce_polizza), [polizze]);
+  const allPol = useMemo(() => polizze.filter((p) => !p.sostituisce_polizza), [polizze]);
   const totPremio = useMemo(
-    () => (polizze as any[]).reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
+    () => polizze.reduce((s, p) => s + (Number(p.premio_lordo) || 0), 0),
     [polizze]
   );
 
@@ -1108,7 +1108,7 @@ function PolizzeClienteTable({ polizze, navigate }: { polizze: any[]; navigate: 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Tipo:</span>
-          <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
+          <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as "tutti" | "polizze" | "quietanze")}>
             <SelectTrigger className="h-8 w-[210px]">
               <SelectValue />
             </SelectTrigger>
@@ -1287,11 +1287,11 @@ export default function ClienteDetail() {
     queryKey: ["gruppi_finanziari"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("gruppi_finanziari" as any)
+        .from("gruppi_finanziari")
         .select("id, codice, nome, descrizione, tipo_soggetto")
         .eq("attivo", true)
         .order("codice");
-      return (data || []) as any[];
+      return data || [];
     },
   });
 
@@ -1302,7 +1302,7 @@ export default function ClienteDetail() {
         .from("uffici")
         .select("id, nome_ufficio, codice_ufficio, attivo")
         .order("nome_ufficio");
-      return (data || []) as any[];
+      return data || [];
     },
   });
 
@@ -1311,7 +1311,7 @@ export default function ClienteDetail() {
     queryKey: ["specialist_cliente", id],
     queryFn: async () => {
       if (!id) return null;
-      const { data } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+      const { data } = await supabase.from("codici_commerciali_cliente")
         .select("profilo_id")
         .eq("cliente_id", id)
         .eq("ruolo", "Backoffice")
@@ -1333,7 +1333,7 @@ export default function ClienteDetail() {
         .in("ruolo", ["produttore", "ufficio", "backoffice", "admin"])
         .eq("attivo", true)
         .order("cognome");
-      return (data || []) as any[];
+      return data || [];
     },
   });
 
@@ -1341,14 +1341,14 @@ export default function ClienteDetail() {
     mutationFn: async (profilo_id: string | null) => {
       if (!id) return;
       if (!profilo_id) {
-        const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        const { error } = await supabase.from("codici_commerciali_cliente")
           .delete()
           .eq("cliente_id", id)
           .eq("ruolo", "Backoffice");
         if (error) throw error;
         return;
       }
-      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+      const { error } = await supabase.from("codici_commerciali_cliente")
         .upsert(
           { cliente_id: id, ruolo: "Backoffice", profilo_id },
           { onConflict: "cliente_id,ruolo" }
@@ -1368,11 +1368,11 @@ export default function ClienteDetail() {
     queryKey: ["codici_commerciali", id],
     queryFn: async () => {
       if (!id) return [];
-      const { data } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+      const { data } = await supabase.from("codici_commerciali_cliente")
         .select("ruolo, anagrafica_id")
         .eq("cliente_id", id)
         .in("ruolo", ["AE", "Produttore Sede"]);
-      return (data || []) as any[];
+      return data || [];
     },
     enabled: !!id,
   });
@@ -1385,7 +1385,7 @@ export default function ClienteDetail() {
         .select("id, tipo, nome, cognome, ragione_sociale, sigla, codice")
         .in("tipo", ["account_executive", "corrispondente"])
         .eq("attivo", true);
-      return (data || []) as any[];
+      return data || [];
     },
   });
 
@@ -1393,14 +1393,14 @@ export default function ClienteDetail() {
     mutationFn: async ({ ruolo, anagrafica_id }: { ruolo: string; anagrafica_id: string | null }) => {
       if (!id) return;
       if (!anagrafica_id) {
-        const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+        const { error } = await supabase.from("codici_commerciali_cliente")
           .delete()
           .eq("cliente_id", id)
           .eq("ruolo", ruolo);
         if (error) throw error;
         return;
       }
-      const { error } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+      const { error } = await supabase.from("codici_commerciali_cliente")
         .upsert(
           { cliente_id: id, ruolo, anagrafica_id, profilo_id: null },
           { onConflict: "cliente_id,ruolo" }
@@ -1415,9 +1415,9 @@ export default function ClienteDetail() {
   });
 
   const aeAnagraficaId =
-    (codiciCommerciali as any[]).find((c) => c.ruolo === "AE")?.anagrafica_id || "";
+    codiciCommerciali.find((c) => c.ruolo === "AE")?.anagrafica_id || "";
   const produttoreAnagraficaId =
-    (codiciCommerciali as any[]).find((c) => c.ruolo === "Produttore Sede")?.anagrafica_id || "";
+    codiciCommerciali.find((c) => c.ruolo === "Produttore Sede")?.anagrafica_id || "";
 
   const buildAnagraficaLabel = (a: any) => {
     const person = `${a.cognome || ""} ${a.nome || ""}`.trim();
@@ -1432,7 +1432,7 @@ export default function ClienteDetail() {
 
   // aeOptions definito dopo `editFields` (lista AE globale)
 
-  const produttoreOptions = (anagraficheAEProd as any[])
+  const produttoreOptions = anagraficheAEProd
     .filter((a) => a.tipo === "corrispondente")
     .map((a) => ({ value: a.id, label: buildAnagraficaLabel(a) }))
     .sort((a, b) => a.label.localeCompare(b.label, "it"));
@@ -1449,7 +1449,7 @@ export default function ClienteDetail() {
     if (!cliente) return;
     const next: any = { ...cliente };
     // Auto-allinea tipo_cliente al tipo_soggetto del Gruppo Finanziario (anche per record legacy)
-    const gf = (gruppiFinanziari as any[]).find((g) => g.id === cliente.gruppo_finanziario_id);
+    const gf = gruppiFinanziari.find((g) => g.id === cliente.gruppo_finanziario_id);
     const ts = gf?.tipo_soggetto;
     if (ts && ["privato", "azienda", "ente"].includes(ts) && next.tipo_cliente !== ts) {
       next.tipo_cliente = ts;
@@ -1462,7 +1462,7 @@ export default function ClienteDetail() {
       const next = { ...prev, [field]: value };
       // Deriva tipo_cliente automaticamente dal tipo_soggetto del gruppo finanziario
       if (field === "gruppo_finanziario_id") {
-        const gf = (gruppiFinanziari as any[]).find((g) => g.id === value);
+        const gf = gruppiFinanziari.find((g) => g.id === value);
         const ts = gf?.tipo_soggetto;
         if (ts && ["privato", "azienda", "ente"].includes(ts) && next.tipo_cliente !== ts) {
           next.tipo_cliente = ts;
@@ -1485,7 +1485,7 @@ export default function ClienteDetail() {
       const {
         id: _id, created_at, updated_at, user_id, ...rest
       } = editFields;
-      const { error } = await supabase.from("clienti").update(rest as any).eq("id", id!);
+      const { error } = await supabase.from("clienti").update(rest).eq("id", id!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1624,9 +1624,9 @@ export default function ClienteDetail() {
   if (!cliente) return null;
 
   // Tipo cliente EFFETTIVO derivato live dal Gruppo Finanziario (governa l'intero layout anagrafica)
-  const _gfSelected = (gruppiFinanziari as any[]).find((g) => g.id === editFields.gruppo_finanziario_id);
+  const _gfSelected = gruppiFinanziari.find((g) => g.id === editFields.gruppo_finanziario_id);
   const effectiveTipoCliente: "privato" | "azienda" | "ente" =
-    ((_gfSelected?.tipo_soggetto as any) || editFields.tipo_cliente || cliente.tipo_cliente || "privato");
+    (_gfSelected?.tipo_soggetto || editFields.tipo_cliente || cliente.tipo_cliente || "privato");
   const tipoIsAuto = !!_gfSelected?.tipo_soggetto;
 
   const isPrivato = effectiveTipoCliente === "privato";
@@ -1864,8 +1864,8 @@ export default function ClienteDetail() {
           <TabsList className="flex-wrap">
             <TabsTrigger value="anagrafica"><User className="w-4 h-4 mr-1" />Anagrafica</TabsTrigger>
             {(() => {
-              const nQuiet = (polizze as any[]).filter((p) => !!p.sostituisce_polizza).length;
-              const nPol = (polizze as any[]).length - nQuiet;
+              const nQuiet = polizze.filter((p) => !!p.sostituisce_polizza).length;
+              const nPol = polizze.length - nQuiet;
               return (
                 <TabsTrigger value="polizze"><FileText className="w-4 h-4 mr-1" />Polizze ({nPol}) · Quietanze ({nQuiet})</TabsTrigger>
               );
@@ -1899,7 +1899,7 @@ export default function ClienteDetail() {
                   <NuovaPolizzaButton clienteId={id} label="Nuova Polizza" />
                 </div>
               ) : (
-                <PolizzeClienteTable polizze={polizze as any[]} navigate={navigate} />
+                <PolizzeClienteTable polizze={polizze} navigate={navigate} />
               )}
             </CardContent>
           </Card>
@@ -1984,7 +1984,7 @@ export default function ClienteDetail() {
             entitaTipo="cliente"
             entitaId={id!}
             extraEntities={[
-              { tipo: "titolo", ids: (polizze as any[]).map((p) => p.id) },
+              { tipo: "titolo", ids: polizze.map((p) => p.id) },
               { tipo: "sinistro", ids: relatedIds?.sinistri || [] },
               { tipo: "trattativa", ids: relatedIds?.trattative || [] },
             ]}
@@ -2149,7 +2149,7 @@ export default function ClienteDetail() {
                 <div>
                   <Label className="text-xs text-muted-foreground">Codice Cliente</Label>
                   <div className="font-mono text-sm py-2 px-3 rounded-md bg-muted border border-border">
-                    {(cliente as any)?.codice_cliente || "—"}
+                    {cliente?.codice_cliente || "—"}
                   </div>
                 </div>
                 <FieldInput label="Codice Ricerca" field="codice_ricerca" />

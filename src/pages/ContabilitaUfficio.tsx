@@ -65,7 +65,7 @@ const ContabilitaUfficio = () => {
       if (error) throw error;
 
       const map: Record<string, GruppoCompagnia> = {};
-      for (const t of (data || []) as any[]) {
+      for (const t of (data || [])) {
         const cId = t.compagnia_id || "sconosciuta";
         const cNome = t.compagnie?.nome || "Senza agenzia";
         if (!map[cId]) map[cId] = { nome: cNome, count: 0, premio_lordo: 0, provvigioni: 0, da_rimettere: 0, compagnia_id: cId, titoli: [] };

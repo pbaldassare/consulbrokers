@@ -55,13 +55,13 @@ const ClienteScadenze = () => {
 
   const ramiOptions = useMemo(() => {
     const set = new Map<string, string>();
-    withDays.forEach(p => { const r = (p.rami as any)?.descrizione; if (r) set.set(r, r); });
+    withDays.forEach(p => { const r = p.rami?.descrizione; if (r) set.set(r, r); });
     return [{ value: "", label: "Tutti i rami" }, ...Array.from(set.values()).sort().map(r => ({ value: r, label: r }))];
   }, [withDays]);
 
   const compagnieOptions = useMemo(() => {
     const set = new Map<string, string>();
-    withDays.forEach(p => { const c = (p.compagnie as any)?.nome; if (c) set.set(c, c); });
+    withDays.forEach(p => { const c = p.compagnie?.nome; if (c) set.set(c, c); });
     return [{ value: "", label: "Tutte le compagnie" }, ...Array.from(set.values()).sort().map(c => ({ value: c, label: c }))];
   }, [withDays]);
 
@@ -75,8 +75,8 @@ const ClienteScadenze = () => {
         if (dataDa && d < dataDa) return false;
         if (dataA && d > dataA) return false;
       }
-      if (ramo && (p.rami as any)?.descrizione !== ramo) return false;
-      if (compagnia && (p.compagnie as any)?.nome !== compagnia) return false;
+      if (ramo && p.rami?.descrizione !== ramo) return false;
+      if (compagnia && p.compagnie?.nome !== compagnia) return false;
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.numero_titolo ?? ""} ${p.targa_telaio ?? ""}`.toLowerCase();
@@ -188,8 +188,8 @@ const ClienteScadenze = () => {
                         {urgente && <Badge className="bg-red-100 text-red-800 text-xs">🔴 URGENTE</Badge>}
                         {!urgente && inScadenza && <Badge className="bg-orange-100 text-orange-800 text-xs">🟠 IN SCADENZA</Badge>}
                       </div>
-                      <p className="text-sm text-teal-700">{(p.rami as any)?.descrizione}</p>
-                      <p className="text-xs text-muted-foreground">{(p.compagnie as any)?.nome}</p>
+                      <p className="text-sm text-teal-700">{p.rami?.descrizione}</p>
+                      <p className="text-xs text-muted-foreground">{p.compagnie?.nome}</p>
                       <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
                         <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${barWidth}%` }} />
                       </div>

@@ -187,7 +187,7 @@ const AiAssistantPage = () => {
         },
       });
       if (error) {
-        const msg = (error as any).message ?? "Errore IA";
+        const msg = error.message ?? "Errore IA";
         toast.error(msg);
         setPendingMessages((prev) => prev.filter((m) => m !== userMsg));
         return;

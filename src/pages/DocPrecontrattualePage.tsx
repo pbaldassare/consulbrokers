@@ -202,7 +202,7 @@ const DocPrecontrattualePage = () => {
         : { data: null as any };
       const ufficio: any = ufficioRaw;
 
-      const { data: assegn } = await (supabase.from("codici_commerciali_cliente" as any) as any)
+      const { data: assegn } = await supabase.from("codici_commerciali_cliente")
         .select("profilo_id")
         .eq("cliente_id", clienteIdParam)
         .eq("ruolo", "Backoffice")

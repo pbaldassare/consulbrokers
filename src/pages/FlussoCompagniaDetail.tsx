@@ -28,7 +28,7 @@ const FlussoCompagniaDetail = () => {
     queryKey: ["flussi_compagnia", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("flussi_compagnia" as any)
+        .from("flussi_compagnia")
         .select("*, agenzie(nome), uffici(nome_ufficio), profiles(nome, cognome)")
         .eq("id", id!)
         .single();
@@ -68,7 +68,7 @@ const FlussoCompagniaDetail = () => {
       } else {
         payload = JSON.stringify({
           flusso_id: flusso.id,
-          compagnia: (flusso.compagnie as any)?.nome,
+          compagnia: flusso.compagnie?.nome,
           periodo: flusso.periodo,
           tipo: flusso.tipo_flusso,
           movimenti: movimenti || [],
@@ -81,7 +81,7 @@ const FlussoCompagniaDetail = () => {
       }
 
       const { error } = await supabase
-        .from("flussi_compagnia" as any)
+        .from("flussi_compagnia")
         .update({ payload_output: payload, stato: "pronto" })
         .eq("id", id!);
       if (error) throw error;
@@ -98,7 +98,7 @@ const FlussoCompagniaDetail = () => {
   const markSentMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from("flussi_compagnia" as any)
+        .from("flussi_compagnia")
         .update({ stato: "inviato" })
         .eq("id", id!);
       if (error) throw error;
@@ -113,7 +113,7 @@ const FlussoCompagniaDetail = () => {
   const markErrorMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from("flussi_compagnia" as any)
+        .from("flussi_compagnia")
         .update({ stato: "errore" })
         .eq("id", id!);
       if (error) throw error;
@@ -139,7 +139,7 @@ const FlussoCompagniaDetail = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `flusso_${flusso.periodo}_${(flusso.compagnie as any)?.nome || "agenzia"}.${ext}`;
+    a.download = `flusso_${flusso.periodo}_${flusso.compagnie?.nome || "agenzia"}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -153,10 +153,10 @@ const FlussoCompagniaDetail = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate("/flussi-agenzie")}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">
-            Flusso {flusso.tipo_flusso?.replace("_", " ")} — {(flusso.compagnie as any)?.nome}
+            Flusso {flusso.tipo_flusso?.replace("_", " ")} — {flusso.compagnie?.nome}
           </h1>
           <p className="text-muted-foreground">
-            Periodo: {flusso.periodo} · Ufficio: {(flusso.uffici as any)?.nome_ufficio} · Formato: {flusso.formato?.toUpperCase()}
+            Periodo: {flusso.periodo} · Ufficio: {flusso.uffici?.nome_ufficio} · Formato: {flusso.formato?.toUpperCase()}
           </p>
         </div>
         <Badge variant={statoBadge[flusso.stato] || "secondary"} className="capitalize text-sm px-3 py-1">{flusso.stato}</Badge>
@@ -165,11 +165,11 @@ const FlussoCompagniaDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="pt-6">
           <p className="text-xs text-muted-foreground">Agenzia</p>
-          <p className="text-lg font-semibold">{(flusso.compagnie as any)?.nome || "-"}</p>
+          <p className="text-lg font-semibold">{flusso.compagnie?.nome || "-"}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6">
           <p className="text-xs text-muted-foreground">Creato da</p>
-          <p className="text-lg font-semibold">{flusso.profiles ? `${(flusso.profiles as any).nome || ""} ${(flusso.profiles as any).cognome || ""}`.trim() : "-"}</p>
+          <p className="text-lg font-semibold">{flusso.profiles ? `${flusso.profiles.nome || ""} ${flusso.profiles.cognome || ""}`.trim() : "-"}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6">
           <p className="text-xs text-muted-foreground">Creato il</p>
@@ -254,7 +254,7 @@ function generateXML(flusso: any, movimenti: any[], titoli: any[]): string {
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<FlussoCompagnia>\n`;
   xml += `  <Intestazione>\n`;
-  xml += `    <Compagnia>${(flusso.compagnie as any)?.nome || ""}</Compagnia>\n`;
+  xml += `    <Compagnia>${flusso.compagnie?.nome || ""}</Compagnia>\n`;
   xml += `    <Periodo>${flusso.periodo}</Periodo>\n`;
   xml += `    <Tipo>${flusso.tipo_flusso}</Tipo>\n`;
   xml += `    <GeneratoIl>${new Date().toISOString()}</GeneratoIl>\n`;

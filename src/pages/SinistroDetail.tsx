@@ -139,8 +139,8 @@ export default function SinistroDetail() {
   const sinistroAiContext = {
     entityType: "sinistro" as const,
     scopeHint: `Sinistro ${sinistro.numero_sinistro ?? id} — ${clienteNome}`,
-    expectedCF: (sinistro.clienti as any)?.codice_fiscale ?? null,
-    expectedPIVA: (sinistro.clienti as any)?.partita_iva ?? null,
+    expectedCF: sinistro.clienti?.codice_fiscale ?? null,
+    expectedPIVA: sinistro.clienti?.partita_iva ?? null,
   };
 
   return (

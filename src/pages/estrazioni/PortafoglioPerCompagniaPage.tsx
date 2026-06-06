@@ -37,7 +37,7 @@ const PortafoglioPerCompagniaPage = () => {
 
       const grouped: Record<string, CompagniaPortafoglio> = {};
       for (const t of titoli || []) {
-        const comp = (t.prodotti as any)?.compagnie?.nome || "Sconosciuta";
+        const comp = t.prodotti?.compagnie?.nome || "Sconosciuta";
         if (!grouped[comp]) {
           grouped[comp] = { compagnia: comp, num_polizze: 0, totale_premi: 0, totale_incassato: 0 };
         }

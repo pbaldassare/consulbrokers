@@ -68,7 +68,7 @@ const ECClientePdfPage = () => {
     queryKey: ["ec-cli-pdf-sede", profile?.ufficio_id],
     enabled: !!profile?.ufficio_id,
     queryFn: async () => {
-      const { data } = await supabase.from("uffici" as any)
+      const { data } = await supabase.from("uffici")
         .select("nome_ufficio, indirizzo, cap, citta, provincia, email, telefono")
         .eq("id", profile!.ufficio_id!)
         .maybeSingle();

@@ -87,7 +87,7 @@ const PortafoglioCaricoPage = () => {
   const { data: result, isLoading } = useQuery({
     queryKey: ["portafoglio-carico", search, filtroStato, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select(
+      let q = supabase.from("v_portafoglio_titoli").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
         { count: "exact" }
       ).gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
@@ -106,13 +106,13 @@ const PortafoglioCaricoPage = () => {
     },
   });
 
-  const polizze = (result?.data || []) as any[];
+  const polizze = (result?.data || []);
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
     queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli" as any).select("premio_lordo, sostituisce_polizza")
+      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza")
         .gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
       if (search) {
         q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
@@ -121,7 +121,7 @@ const PortafoglioCaricoPage = () => {
       if (filtroStato === "attivo") q = q.eq("stato", "attivo");
       if (filtroStato === "incassato") q = q.eq("stato", "incassato");
       const { data } = await q;
-      const rows = (data || []) as any[];
+      const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
       const polizzeRows = rows.filter((r) => !r.sostituisce_polizza);
       const quietanzeRows = rows.filter((r) => !!r.sostituisce_polizza);
@@ -141,13 +141,13 @@ const PortafoglioCaricoPage = () => {
     queryKey: ["portafoglio-carico-pending", caricoStart, caricoEnd],
     queryFn: async () => {
       const { data } = await supabase
-        .from("v_portafoglio_titoli" as any)
+        .from("v_portafoglio_titoli")
         .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
         .gte("data_scadenza", caricoStart)
         .lte("data_scadenza", caricoEnd)
         .eq("stato", "in_attesa_rinnovo")
         .order("data_scadenza", { ascending: true });
-      return (data || []) as any[];
+      return (data || []);
     },
   });
   const pendingCount = pendingRinnovi?.length || 0;
@@ -162,7 +162,7 @@ const PortafoglioCaricoPage = () => {
     const today = todayStr();
     setLoadingIds(prev => new Set(prev).add(titoloId));
     try {
-      const { error } = await (supabase.from("titoli") as any).update({
+      const { error } = await supabase.from("titoli").update({
         stato: "incassato",
         data_incasso: today,
         data_messa_cassa: today,
@@ -236,7 +236,7 @@ const PortafoglioCaricoPage = () => {
     const today = todayStr();
     let ok = 0, ko = 0;
     for (const p of selectedAttive) {
-      const { error } = await (supabase.from("titoli") as any).update({
+      const { error } = await supabase.from("titoli").update({
         stato: "incassato",
         data_incasso: today,
         data_messa_cassa: today,

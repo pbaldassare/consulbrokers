@@ -175,14 +175,14 @@ const StoricoRimessePage = () => {
               const dettagli = dettagliMap?.[r.id] || [];
               const isParziale = Number(r.importo_pagato) < Number(r.totale_importi);
               const isAnnullata = r.stato === "annullata";
-              const conto = (r as any).conti_bancari;
+              const conto = r.conti_bancari;
               return (
                 <>
                   <TableRow key={r.id} className={cn("cursor-pointer", isAnnullata && "opacity-60")} onClick={() => toggleExpand(r.id)}>
                     <TableCell className="px-2">
                       {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     </TableCell>
-                    <TableCell className="font-medium">{(r as any).compagnie?.nome || "N/D"}</TableCell>
+                    <TableCell className="font-medium">{r.compagnie?.nome || "N/D"}</TableCell>
                     <TableCell>{r.data_pagamento_rimessa ? format(new Date(r.data_pagamento_rimessa), "dd/MM/yyyy") : "—"}</TableCell>
                     <TableCell className="text-xs">
                       {conto ? (
@@ -209,12 +209,12 @@ const StoricoRimessePage = () => {
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{r.note || "—"}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        {(r as any).pdf_url && (
+                        {r.pdf_url && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => window.open((r as any).pdf_url, "_blank")}
+                            onClick={() => window.open(r.pdf_url, "_blank")}
                             title="Scarica PDF"
                           >
                             <FileText className="h-4 w-4" />

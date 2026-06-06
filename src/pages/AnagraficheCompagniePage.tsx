@@ -124,7 +124,7 @@ const AnagraficheCompagniePage = () => {
   const { data: ufficiList = [] } = useQuery({
     queryKey: ["uffici_select"],
     queryFn: async () => {
-      const { data } = await supabase.from("uffici" as any).select("id, nome_ufficio, codice_ufficio").eq("attivo", true).order("nome_ufficio");
+      const { data } = await supabase.from("uffici").select("id, nome_ufficio, codice_ufficio").eq("attivo", true).order("nome_ufficio");
       return (data || []) as unknown as { id: string; nome_ufficio: string; codice_ufficio: string }[];
     },
   });
@@ -260,7 +260,7 @@ const AnagraficheCompagniePage = () => {
         intestatario_cc: form.intestatario_cc || null,
         updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from("anagrafiche_professionali").update(payload as any).eq("id", editingId);
+      const { error } = await supabase.from("anagrafiche_professionali").updatepayload.eq("id", editingId);
       if (error) throw error;
     },
     onSuccess: () => {
