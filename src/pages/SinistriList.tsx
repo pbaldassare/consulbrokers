@@ -57,7 +57,7 @@ export default function SinistriList() {
     queryKey: ["sinistri", filtroStato, filtroCompagnia, search, page],
     queryFn: async () => {
       let q = supabase.from("sinistri").select(
-        `*, agenzie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
+        `*, compagnie(nome), profiles!sinistri_responsabile_id_fkey(nome, cognome),
          clienti!sinistri_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente),
          titoli(numero_titolo)`,
         { count: "exact" }

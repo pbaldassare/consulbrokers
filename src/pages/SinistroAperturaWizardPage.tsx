@@ -127,7 +127,7 @@ export default function SinistroAperturaWizardPage() {
         });
       // fetch polizze for this client
       supabase.from('titoli')
-        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
+        .select(`id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
           prodotti(nome_prodotto, compagnie(id, nome)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)`)
         .eq('stato', 'attivo')
@@ -166,7 +166,7 @@ export default function SinistroAperturaWizardPage() {
       // Se c'è una polizza già selezionata nella bozza, carichiamo le sue info
       if (d.titolo_id) {
         supabase.from("titoli").select(`
-          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id,
+          id, numero_titolo, premio_lordo, stato, created_at, cliente_anagrafica_id, ufficio_id,
           prodotti(nome_prodotto, compagnie(id, nome)),
           clienti!titoli_cliente_anagrafica_id_fkey(cognome, nome, ragione_sociale, tipo_cliente)
         `).eq("id", d.titolo_id).maybeSingle().then(({ data }) => {
@@ -228,6 +228,7 @@ export default function SinistroAperturaWizardPage() {
           cliente_id,
           compagnia_id,
           ramo_id,
+          ufficio_id,
           clienti(nome, cognome, ragione_sociale),
           compagnie(nome),
           rami(nome)
@@ -329,6 +330,7 @@ export default function SinistroAperturaWizardPage() {
       // Recuperiamo la polizza e il cliente associato
       const compagniaId = selectedPolizzaData?.prodotti?.compagnie?.id || null;
       const clienteAnagraficaId = selectedPolizzaData?.cliente_anagrafica_id || null;
+      const ufficioId = selectedPolizzaData?.ufficio_id || null;
 
       // 1. Inserimento del sinistro in Supabase
       const payloadSinistro = {
@@ -336,6 +338,7 @@ export default function SinistroAperturaWizardPage() {
         titolo_id: values.titolo_id,
         cliente_anagrafica_id: clienteAnagraficaId,
         compagnia_id: compagniaId,
+        ufficio_id: ufficioId,
         tipo_sinistro: values.tipo_sinistro,
         descrizione: values.descrizione,
         luogo_sinistro: values.luogo_sinistro,
@@ -524,8 +527,37 @@ export default function SinistroAperturaWizardPage() {
                   searchValue={polizzaSearchText}
                   onSearchChange={(q) => {
                     setPolizzaSearchText(q);
-                    // Optionally trigger search with debounce
-                    // handleCercaPolizze();
+                    // Trigger live search
+                    if (q.trim()) {
+                      supabase
+                        .from("titoli")
+                        .select(`
+                          id,
+                          numero_titolo,
+                          stato,
+                          cliente_id,
+                          compagnia_id,
+                          ramo_id,
+                          ufficio_id,
+                          clienti(nome, cognome, ragione_sociale),
+                          compagnie(nome),
+                          rami(nome)
+                        `)
+                        .in("stato", ["attivo", "sospeso"])
+                        .ilike("numero_titolo", `%${q.trim()}%`)
+                        .range(0, 24)
+                        .then(({ data, error }) => {
+                          if (!error && data) {
+                            const results = (data || []).map((p: any) => ({
+                              ...p,
+                              clienteNome: p.clienti
+                                ? `${p.clienti.cognome || ""} ${p.clienti.nome || ""} ${p.clienti.ragione_sociale || ""}`.trim()
+                                : "Cliente non trovato",
+                            }));
+                            setPolizzeList(results);
+                          }
+                        });
+                    }
                   }}
                   clearable={true}
                   clearLabel="— Nessuna Polizza —"

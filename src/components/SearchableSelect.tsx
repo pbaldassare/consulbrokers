@@ -62,11 +62,13 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={!onSearchChange}>
+        <Command shouldFilter={true}>
           <CommandInput
             placeholder={searchPlaceholder}
-            value={onSearchChange ? (searchValue ?? "") : undefined}
-            onValueChange={onSearchChange}
+            value={searchValue}
+            onValueChange={(q) => {
+              if (onSearchChange) onSearchChange(q);
+            }}
           />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
