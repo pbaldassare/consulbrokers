@@ -5,8 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 const statoBadge: Record<string, string> = {
   aperto: "bg-blue-100 text-blue-800",
@@ -48,13 +46,6 @@ export default function SinistriClienteTab({ clienteId }: { clienteId: string })
 
   return (
     <div className="space-y-4">
-      {/* Button to open new sinistro with preselected cliente */}
-      <div className="flex justify-end mb-2">
-        <Button variant="default" onClick={() => navigate(`/sinistri/apertura?cliente_id=${clienteId}`)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Apri Sinistro
-        </Button>
-      </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Totale Sinistri</p><p className="text-2xl font-bold">{sinistri.length}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Aperti</p><p className="text-2xl font-bold text-orange-600">{aperti}</p></CardContent></Card>
