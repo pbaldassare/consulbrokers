@@ -7,56 +7,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface Attachment {
-  filename: string;
-  content: string; // base64
-}
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-interface EmailPayload {
-  to: string | string[];
-  subject: string;
-  html: string;
-  from?: string;
-  reply_to?: string;
-  cc?: string | string[];
-  bcc?: string | string[];
-  attachments?: Attachment[];
-  apply_branding?: boolean;
-  template_id?: string;
-}
+const attachmentSchema = z.object({
+  filename: z.string().min(1),
+  content: z.string().min(1),
+});
 
-function isStr(v: unknown) {
-  return typeof v === "string" && v.length > 0;
-}
-function isStrOrArr(v: unknown) {
-  return isStr(v) || (Array.isArray(v) && v.every((x) => typeof x === "string" && x.length > 0));
-}
+const stringOrArray = z.union([z.string().min(1), z.array(z.string().min(1))]);
 
-function validate(payload: any): { ok: true; data: EmailPayload } | { ok: false; error: string } {
-  if (!payload || typeof payload !== "object") return { ok: false, error: "Invalid body" };
-  const { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding, template_id } = payload;
-
-  if (!isStrOrArr(to)) return { ok: false, error: "`to` must be string or string[]" };
-  if (!isStr(subject)) return { ok: false, error: "`subject` is required" };
-  if (!isStr(html)) return { ok: false, error: "`html` is required" };
-  if (from !== undefined && !isStr(from)) return { ok: false, error: "`from` must be string" };
-  if (reply_to !== undefined && !isStr(reply_to)) return { ok: false, error: "`reply_to` must be string" };
-  if (cc !== undefined && !isStrOrArr(cc)) return { ok: false, error: "`cc` must be string or string[]" };
-  if (bcc !== undefined && !isStrOrArr(bcc)) return { ok: false, error: "`bcc` must be string or string[]" };
-  if (attachments !== undefined) {
-    if (!Array.isArray(attachments)) return { ok: false, error: "`attachments` must be an array" };
-    for (const a of attachments) {
-      if (!a || typeof a !== "object" || !isStr(a.filename) || !isStr(a.content)) {
-        return { ok: false, error: "each attachment needs { filename, content }" };
-      }
-    }
-  }
-
-  return {
-    ok: true,
-    data: { to, subject, html, from, reply_to, cc, bcc, attachments, apply_branding: !!apply_branding, template_id },
-  };
-}
+const emailPayloadSchema = z.object({
+  to: stringOrArray,
+  subject: z.string().min(1),
+  html: z.string().min(1),
+  from: z.string().min(1).optional(),
+  reply_to: z.string().min(1).optional(),
+  cc: stringOrArray.optional(),
+  bcc: stringOrArray.optional(),
+  attachments: z.array(attachmentSchema).optional(),
+  apply_branding: z.boolean().optional(),
+  template_id: z.string().optional(),
+});
 
 function escapeHtml(s: string): string {
   return s
@@ -131,9 +102,20 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => null);
-    const parsed = validate(body);
-    if (!parsed.ok) {
-      return new Response(JSON.stringify({ error: parsed.error }), {
+    if (!body) {
+      return new Response(JSON.stringify({ success: false, error: "Payload non valido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const parsed = emailPayloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Payload non valido",
+        details: parsed.error.flatten(),
+      }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

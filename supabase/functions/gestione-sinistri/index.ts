@@ -1,26 +1,74 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const payloadSchema = z.discriminatedUnion("azione", [
+  z.object({
+    azione: z.literal("crea"),
+    numero_sinistro: z.string().min(1),
+    titolo_id: z.string().uuid(),
+    cliente_id: z.string().uuid().nullable().optional(),
+    compagnia_id: z.string().uuid().nullable().optional(),
+    responsabile_id: z.string().uuid().nullable().optional(),
+    ufficio_id: z.string().uuid().nullable().optional(),
+    descrizione: z.string().optional(),
+    user_id: z.string().uuid().optional(),
+    cliente_anagrafica_id: z.string().uuid().nullable().optional(),
+    tipo_sinistro: z.string().optional(),
+    luogo_sinistro: z.string().optional(),
+    data_evento: z.string().optional(),
+  }),
+  z.object({
+    azione: z.literal("cambia_stato"),
+    sinistro_id: z.string().uuid(),
+    nuovo_stato: z.enum(['aperto', 'in_lavorazione', 'in_attesa_documenti', 'chiuso', 'respinto']),
+    user_id: z.string().uuid().optional(),
+  }),
+  z.object({
+    azione: z.literal("aggiorna_scaduti"),
+  })
+]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return new Response(JSON.stringify({ success: false, error: "Payload non valido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const parsed = payloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Payload non valido",
+        details: parsed.error.flatten(),
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { azione, ...params } = await req.json();
+    const { azione } = parsed.data;
 
     if (azione === "crea") {
       const {
         numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione, user_id,
         cliente_anagrafica_id, tipo_sinistro, luogo_sinistro, data_evento
-      } = params;
+      } = parsed.data;
 
       const { data: sinistro, error } = await supabase.from("sinistri").insert({
         numero_sinistro, titolo_id, cliente_id, compagnia_id, responsabile_id, ufficio_id, descrizione,
@@ -52,7 +100,7 @@ Deno.serve(async (req) => {
     }
 
     if (azione === "cambia_stato") {
-      const { sinistro_id, nuovo_stato, user_id } = params;
+      const { sinistro_id, nuovo_stato, user_id } = parsed.data;
 
       if (nuovo_stato === "chiuso") {
         const { data: checklistPending } = await supabase

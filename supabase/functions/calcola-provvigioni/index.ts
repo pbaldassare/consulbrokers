@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,14 +7,37 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const payloadSchema = z.object({
+  titolo_id: z.string().uuid("titolo_id deve essere un UUID valido"),
+});
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { titolo_id } = await req.json();
-    if (!titolo_id) throw new Error("titolo_id richiesto");
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return new Response(JSON.stringify({ success: false, error: "Payload non valido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const parsed = payloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Payload non valido",
+        details: parsed.error.flatten(),
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { titolo_id } = parsed.data;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,

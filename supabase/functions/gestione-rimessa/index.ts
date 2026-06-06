@@ -23,11 +23,81 @@ const xmlEscape = (s: string) =>
 const cleanIban = (s: string) => String(s ?? "").replace(/\s+/g, "").toUpperCase();
 const fmtAmt = (n: number) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
 
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+
+const payloadSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("metti_in_pagamento"),
+    compagnia_id: z.string().uuid(),
+    ufficio_id: z.string().uuid().nullable().optional(),
+    created_by: z.string().uuid().nullable().optional(),
+    data_da: z.string().optional(),
+    data_a: z.string().optional(),
+    titoli_ids: z.array(z.string().uuid()).optional(),
+    note: z.string().nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("assegna_mittente"),
+    rimessa_id: z.string().uuid(),
+    conto_bancario_mittente_id: z.string().uuid(),
+    iban_utilizzato: z.string().optional(),
+  }),
+  z.object({
+    action: z.literal("rimuovi_titolo"),
+    rimessa_id: z.string().uuid(),
+    titolo_id: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal("genera_xml_sepa"),
+    rimessa_ids: z.array(z.string().uuid()),
+    conto_bancario_mittente_id: z.string().uuid(),
+    execution_date: z.string().optional(),
+    created_by: z.string().uuid().nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("conferma_pagamento"),
+    rimessa_ids: z.array(z.string().uuid()).optional(),
+    rimessa_id: z.string().uuid().optional(),
+    data_valuta: z.string().optional(),
+    created_by: z.string().uuid().nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("crea"),
+    compagnia_id: z.string().uuid(),
+    ufficio_id: z.string().uuid().nullable().optional(),
+    created_by: z.string().uuid().nullable().optional(),
+    data_da: z.string().optional(),
+    data_a: z.string().optional(),
+    titoli_ids: z.array(z.string().uuid()).optional(),
+    importo_pagato: z.union([z.number(), z.string()]).optional(),
+    iban_utilizzato: z.string().nullable().optional(),
+    conto_bancario_mittente_id: z.string().uuid().nullable().optional(),
+    note: z.string().nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("annulla"),
+    rimessa_id: z.string().uuid(),
+    created_by: z.string().uuid().nullable().optional(),
+  })
+]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return json({ error: "Payload non valido" }, 400);
+    }
+
+    const parsed = payloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({
+        error: "Payload non valido",
+        details: parsed.error.flatten(),
+      }, 400);
+    }
+
     const {
       action,
       rimessa_id,
@@ -45,7 +115,7 @@ Deno.serve(async (req) => {
       conto_bancario_mittente_id,
       data_valuta,
       execution_date,
-    } = body;
+    } = parsed.data as any;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,

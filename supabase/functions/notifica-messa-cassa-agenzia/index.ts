@@ -32,20 +32,37 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+
+const payloadSchema = z.object({
+  titolo_id: z.string().uuid("titolo_id deve essere un UUID valido"),
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const titoloId = body?.titolo_id as string | undefined;
-    if (!titoloId) {
-      return new Response(JSON.stringify({ error: "titolo_id mancante" }), {
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return new Response(JSON.stringify({ success: false, error: "Payload non valido" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const parsed = payloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Payload non valido",
+        details: parsed.error.flatten(),
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { titolo_id: titoloId } = parsed.data;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
