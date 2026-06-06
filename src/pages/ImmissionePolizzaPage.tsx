@@ -666,7 +666,7 @@ const ImmissionePolizzaPage = () => {
       });
       return filtered.slice(0, 50);
     },
-    staleTime: 1000 * 30,
+    staleTime: 300000 * 30,
   });
 
   // Dettaglio cliente selezionato (per eredità ufficio)

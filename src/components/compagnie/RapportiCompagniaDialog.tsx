@@ -159,7 +159,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         .order("descrizione");
       return data || [];
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 
   const { data: gruppiRamo = [] } = useQuery({
@@ -172,7 +172,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         .order("descrizione");
       return data || [];
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 
   const { data: ramiCatalog = [] } = useQuery({
@@ -185,7 +185,7 @@ export default function RapportiCompagniaDialog({ open, onOpenChange, compagniaI
         .order("descrizione");
       return data || [];
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 
   // Tutti i rami abilitati per i rapporti di questa compagnia (per riepilogo in tabella)

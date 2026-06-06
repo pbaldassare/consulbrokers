@@ -153,7 +153,7 @@ export default function ContiBancariPage() {
       ]);
       return { consul, agenzie, broker, direzioni, plurimandatari, all };
     },
-    staleTime: 60_000,
+    staleTime: 300000,
   });
 
   const tipiCorrenti = CATEGORIE[categoria].tipi;

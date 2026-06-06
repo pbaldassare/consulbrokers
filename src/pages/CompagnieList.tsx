@@ -498,7 +498,7 @@ function CompagniaFormDialog({
         label: g.codice === PLURIMANDATARIO_CODE ? `⚠️ ${g.descrizione} (Fallback)` : g.descrizione,
       }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 
   // Carica il conto bancario dell'agenzia esistente (edit mode)
@@ -1392,7 +1392,7 @@ const CompagnieList = () => {
       });
       return map;
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 
   // Conteggio rapporti attivi per agenzia (RPC aggregata lato DB, evita limite 1000 righe)
@@ -1407,7 +1407,7 @@ const CompagnieList = () => {
       });
       return counts;
     },
-    staleTime: 1000 * 30,
+    staleTime: 300000 * 30,
   });
 
   const createMutation = useMutation({

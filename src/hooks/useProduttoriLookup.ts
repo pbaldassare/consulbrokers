@@ -30,6 +30,6 @@ export const useProduttoriLookup = () => {
       opts.sort((a, b) => a.label.localeCompare(b.label, "it"));
       return opts;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 300000 * 60 * 1000,
   });
 };

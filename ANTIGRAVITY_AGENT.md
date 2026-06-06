@@ -171,7 +171,7 @@ Add these automated email flows (beyond existing `messa a cassa`):
 - Add database indexes on high-frequency filter columns: `titoli.stato`, `titoli.data_scadenza`, `titoli.cliente_id`, `titoli.compagnia_id`, `sinistri.stato`, `sinistri.responsabile_id`
 - Ensure materialized views for dashboard KPIs are refreshed via cron edge function (daily + on-demand)
 - Add `EXPLAIN ANALYZE` comments in edge functions for queries > 100ms
-- Implement `staleTime: 5 * 60 * 1000` in TanStack Query for lookup tables (rami, compagnie, etc.) — these change rarely
+- Implement `staleTime: 300000 * 60 * 1000` in TanStack Query for lookup tables (rami, compagnie, etc.) — these change rarely
 
 ### 3.5 UX — Titoli Form (115 columns)
 **Problem**: The `titoli` form is very heavy with 115 columns.
@@ -242,7 +242,7 @@ Always use TanStack Query v5:
 const { data, isLoading, error } = useQuery({
   queryKey: ['titoli', filters],
   queryFn: () => fetchTitoli(filters),
-  staleTime: 60_000,
+  staleTime: 300000,
 })
 
 // ❌ Never use useEffect + useState for server data

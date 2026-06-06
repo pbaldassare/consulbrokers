@@ -47,6 +47,6 @@ export const useAccountExecutivesLookup = (_ufficioId?: string | null) => {
 
       return { options: opts, isFallback: false };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 300000 * 60 * 1000,
   });
 };

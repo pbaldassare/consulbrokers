@@ -19,7 +19,7 @@ export function useVehicleMakes() {
       if (error) throw error;
       return (data || []).map((m: any) => ({ value: m.nome, label: m.nome }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }
 
@@ -45,7 +45,7 @@ export function useVehicleModels(marcaNome: string) {
       return (data || []).map((m: any) => ({ value: m.nome, label: m.nome }));
     },
     enabled: !!marcaNome,
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }
 

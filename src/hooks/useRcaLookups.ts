@@ -17,6 +17,6 @@ export function useRcaUsi() {
         descrizione: r.descrizione as string,
       }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }

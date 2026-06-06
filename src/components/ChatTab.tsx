@@ -128,7 +128,7 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
       return { added: toAdd.length };
     },
     enabled: !!canaleId,
-    staleTime: 60_000,
+    staleTime: 300000,
   });
 
   // Roster: lista membri attuali del canale con profilo + ruolo logico
@@ -152,7 +152,7 @@ export default function ChatTab({ entitaTipo, entitaId }: ChatTabProps) {
       });
     },
     enabled: !!canaleId,
-    staleTime: 60_000,
+    staleTime: 300000,
   });
 
   const { data: messaggi } = useQuery({

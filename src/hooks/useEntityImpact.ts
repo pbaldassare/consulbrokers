@@ -50,6 +50,6 @@ export const useEntityImpact = (
       const total = results.reduce((sum, r) => sum + r.count, 0);
       return { items: results, totalBlocking, total };
     },
-    staleTime: 0,
+    staleTime: 300000,
   });
 };

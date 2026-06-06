@@ -49,7 +49,7 @@ export default function ContoBancarioSelect({
       if (error) throw error;
       return (data || []) as unknown as ContoBancario[];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 300000 * 60 * 5,
   });
 
   const options = conti.map((c) => ({

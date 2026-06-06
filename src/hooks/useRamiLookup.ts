@@ -33,7 +33,7 @@ export function useGruppiRamo() {
         descrizione: g.descrizione,
       }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }
 
@@ -55,7 +55,7 @@ export function useRamiAll() {
         escludi_provvigioni: !!r.escludi_provvigioni,
       }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }
 

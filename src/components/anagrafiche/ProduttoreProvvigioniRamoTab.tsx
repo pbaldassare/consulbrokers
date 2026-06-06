@@ -45,7 +45,7 @@ export default function ProduttoreProvvigioniRamoTab({ anagraficaId, defaults }:
       const { data } = await supabase.from("rami").select("codice, descrizione").eq("attivo", true).order("codice");
       return (data || []) as Ramo[];
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 
   const { data: existing = [] } = useQuery({

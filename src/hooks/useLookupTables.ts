@@ -20,7 +20,7 @@ function useLookup(table: string, orderField = "descrizione") {
         label: r.descrizione,
       }));
     },
-    staleTime: 1000 * 60 * 30, // 30 min cache
+    staleTime: 300000 * 60 * 30, // 30 min cache
   });
 }
 
@@ -38,7 +38,7 @@ function useLookupOrdered(table: string) {
         label: r.descrizione,
       }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }
 
@@ -64,6 +64,6 @@ export function useGruppiStatistici() {
         label: r.descrizione,
       }));
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 300000 * 60 * 30,
   });
 }
