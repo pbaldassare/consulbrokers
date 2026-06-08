@@ -24,6 +24,8 @@ import { LEVELS } from "@/lib/userLevels";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { ValidatedInput } from "@/components/ui/validated-input";
+import SediMultiSelect, { type SedeAssegnata } from "@/components/anagrafiche/SediMultiSelect";
+import { fetchSediProfilo, saveSediProfilo } from "@/lib/profiloSedi";
 
 interface SpecialistRow {
   id: string;
@@ -113,6 +115,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
+  const [sediForm, setSediForm] = useState<SedeAssegnata[]>([]);
+  const [sediCreate, setSediCreate] = useState<SedeAssegnata[]>([]);
 
   // --- Create new Specialist user ---
   const [createOpen, setCreateOpen] = useState(false);
@@ -164,7 +168,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessuno Specialist selezionato");
-      if (!form.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
+      if (sediForm.length === 0) throw new Error("Seleziona almeno una Sede");
+      const primaria = sediForm.find((s) => s.primaria) || sediForm[0];
       const payload: Record<string, unknown> = {
         cognome: form.cognome || null,
         nome: form.nome || null,
@@ -173,7 +178,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         fax: form.fax || null,
         codice_fiscale: form.codice_fiscale ? form.codice_fiscale.toUpperCase() : null,
         descrizione: form.descrizione || null,
-        ufficio_id: form.ufficio_id || null,
+        ufficio_id: primaria.ufficio_id,
         indirizzo: form.indirizzo || null,
         cap: form.cap || null,
         citta: form.citta || null,
@@ -195,16 +200,20 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       };
       const { error } = await supabase.from("profiles").update(payload as any).eq("id", editingId);
       if (error) throw error;
+      // salva sedi multiple
+      await saveSediProfilo(editingId, sediForm);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
       setDialogOpen(false);
       setEditingId(null);
       setForm(emptyForm);
+      setSediForm([]);
       toast.success("Specialist aggiornato");
     },
     onError: (e: Error) => toast.error(e.message || "Errore aggiornamento"),
   });
+
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
@@ -230,8 +239,10 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!newUser.cognome || !newUser.email) throw new Error("Cognome ed email sono obbligatori");
-      if (!newUser.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
+      if (sediCreate.length === 0) throw new Error("Seleziona almeno una Sede");
       if (!newUser.password || newUser.password.length < 6) throw new Error("Password minimo 6 caratteri");
+
+      const primaria = sediCreate.find((s) => s.primaria) || sediCreate[0];
 
       // Pre-check: email già usata in profiles?
       const emailNorm = newUser.email.trim().toLowerCase();
@@ -258,7 +269,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           codice_fiscale: newUser.codice_fiscale ? newUser.codice_fiscale.toUpperCase() : null,
           descrizione: newUser.descrizione || null,
           ruolo: "backoffice",
-          ufficio_id: newUser.ufficio_id,
+          ufficio_id: primaria.ufficio_id,
           codice_contabile: newUser.codice_contabile || null,
           indirizzo: newUser.indirizzo || null,
           cap: newUser.cap || null,
@@ -281,7 +292,12 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       if (res.error || (res.data as any)?.error) {
         throw new Error((res.data as any)?.error || res.error?.message || "Errore creazione");
       }
-      return (res.data as any)?.user_id as string;
+      const newId = (res.data as any)?.user_id as string;
+      // salva eventuali sedi aggiuntive
+      if (newId && sediCreate.length > 1) {
+        await saveSediProfilo(newId, sediCreate);
+      }
+      return newId;
     },
     onSuccess: (newId) => {
       queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
@@ -297,6 +313,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       });
       setCreateOpen(false);
       setNewUser(initialNewUser);
+      setSediCreate([]);
       // Apri subito edit per completare eventuali campi mancanti
       setTimeout(() => {
         if (newId) {
@@ -371,6 +388,12 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       note: item.note || "",
       attivo: item.attivo ?? true,
     });
+    // carica sedi multiple
+    fetchSediProfilo(item.id).then((rows) => {
+      if (rows.length > 0) setSediForm(rows);
+      else if (item.ufficio_id) setSediForm([{ ufficio_id: item.ufficio_id, primaria: true }]);
+      else setSediForm([]);
+    }).catch(() => setSediForm(item.ufficio_id ? [{ ufficio_id: item.ufficio_id, primaria: true }] : []));
     setDialogOpen(true);
   };
 
@@ -531,25 +554,16 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               <TabsContent value="dati" className="space-y-3 mt-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={form.codice_contabile} onChange={(e) => setForm({ ...form, codice_contabile: e.target.value })} /></div>
-                  <div>
-                    <Label>Sede <span className="text-destructive">*</span></Label>
-                    <Select value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
-                      <SelectContent>
-                        {uffici.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div><Label>Cognome *</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
                   <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-                  <div className="col-span-2"><Label>Descrizione</Label><Input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} /></div>
                   <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                  <div className="col-span-2"><Label>Descrizione</Label><Input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} /></div>
                   <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value.toUpperCase() })} /></div>
                   <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
                   <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
                 </div>
+                <SediMultiSelect value={sediForm} onChange={setSediForm} required />
+
                 <div className="flex items-center gap-2 pt-2">
                   <Switch checked={form.attivo} onCheckedChange={(v) => setForm({ ...form, attivo: v })} />
                   <Label>Attivo</Label>
@@ -647,21 +661,10 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               <TabsContent value="dati" className="space-y-3 mt-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={newUser.codice_contabile} onChange={(e) => setNewUser({ ...newUser, codice_contabile: e.target.value })} /></div>
-                  <div>
-                    <Label>Sede <span className="text-destructive">*</span></Label>
-                    <Select value={newUser.ufficio_id} onValueChange={(v) => setNewUser({ ...newUser, ufficio_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
-                      <SelectContent>
-                        {uffici.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
                   <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
-                  <div className="col-span-2"><Label>Descrizione</Label><Input value={newUser.descrizione} onChange={(e) => setNewUser({ ...newUser, descrizione: e.target.value })} /></div>
                   <div><Label>Email *</Label><ValidatedInput kind="email" value={newUser.email} onChange={(v) => setNewUser({ ...newUser, email: v })} type="email" required uppercase={false} /></div>
+                  <div className="col-span-2"><Label>Descrizione</Label><Input value={newUser.descrizione} onChange={(e) => setNewUser({ ...newUser, descrizione: e.target.value })} /></div>
                   <div><Label>Codice Fiscale</Label><ValidatedInput kind="cf" value={newUser.codice_fiscale} onChange={(v) => setNewUser({ ...newUser, codice_fiscale: v })} /></div>
                   <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
                   <div><Label>Fax</Label><Input value={newUser.fax} onChange={(e) => setNewUser({ ...newUser, fax: e.target.value })} /></div>
@@ -675,6 +678,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                     </div>
                   </div>
                 </div>
+                <SediMultiSelect value={sediCreate} onChange={setSediCreate} required />
+
               </TabsContent>
 
               <TabsContent value="indirizzo" className="space-y-3 mt-3">
