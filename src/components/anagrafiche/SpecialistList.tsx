@@ -239,8 +239,10 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!newUser.cognome || !newUser.email) throw new Error("Cognome ed email sono obbligatori");
-      if (!newUser.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
+      if (sediCreate.length === 0) throw new Error("Seleziona almeno una Sede");
       if (!newUser.password || newUser.password.length < 6) throw new Error("Password minimo 6 caratteri");
+
+      const primaria = sediCreate.find((s) => s.primaria) || sediCreate[0];
 
       // Pre-check: email già usata in profiles?
       const emailNorm = newUser.email.trim().toLowerCase();
@@ -267,7 +269,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
           codice_fiscale: newUser.codice_fiscale ? newUser.codice_fiscale.toUpperCase() : null,
           descrizione: newUser.descrizione || null,
           ruolo: "backoffice",
-          ufficio_id: newUser.ufficio_id,
+          ufficio_id: primaria.ufficio_id,
           codice_contabile: newUser.codice_contabile || null,
           indirizzo: newUser.indirizzo || null,
           cap: newUser.cap || null,
@@ -290,7 +292,12 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       if (res.error || (res.data as any)?.error) {
         throw new Error((res.data as any)?.error || res.error?.message || "Errore creazione");
       }
-      return (res.data as any)?.user_id as string;
+      const newId = (res.data as any)?.user_id as string;
+      // salva eventuali sedi aggiuntive
+      if (newId && sediCreate.length > 1) {
+        await saveSediProfilo(newId, sediCreate);
+      }
+      return newId;
     },
     onSuccess: (newId) => {
       queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
@@ -306,6 +313,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       });
       setCreateOpen(false);
       setNewUser(initialNewUser);
+      setSediCreate([]);
       // Apri subito edit per completare eventuali campi mancanti
       setTimeout(() => {
         if (newId) {
