@@ -1526,7 +1526,7 @@ const CompagnieList = () => {
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
             <span className="font-semibold">{compagnie.length}</span> agenzie ·{" "}
-            <span className="font-semibold">{Object.keysgruppiMap.length}</span> compagnie assicurative
+            <span className="font-semibold">{Object.keys(gruppiMap).length}</span> compagnie assicurative
           </p>
         </div>
         {activeTab === "anagrafica" && (

@@ -260,7 +260,7 @@ const AnagraficheCompagniePage = () => {
         intestatario_cc: form.intestatario_cc || null,
         updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from("anagrafiche_professionali").updatepayload.eq("id", editingId);
+      const { error } = await supabase.from("anagrafiche_professionali").update(payload).eq("id", editingId);
       if (error) throw error;
     },
     onSuccess: () => {

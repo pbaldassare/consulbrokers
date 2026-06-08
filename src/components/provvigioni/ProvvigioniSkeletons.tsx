@@ -45,7 +45,7 @@ export const BadgeSkeleton = ({ className = "" }: { className?: string }) => (
   <Skeleton className={`inline-block h-5 w-20 rounded-full ${className}`} />
 );
 
-type CellType = "text" | "num" | "badge" | "short";
+type CellType = "text" | "num" | "badge" | "short" | "checkbox";
 const cellClass = (t: CellType) => {
   switch (t) {
     case "num": return "h-4 w-16 ml-auto";
