@@ -1,4 +1,4 @@
-// Carico del Mese – v2 con checkbox, filtro stato, colorazione
+// Carico – v3: toggle Mese Corrente / Messe a Cassa / Tutte, default = mese corrente + arretrati non a cassa
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass } from "lucide-react";
@@ -33,11 +34,15 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialStato = (() => {
-    const s = searchParams.get("stato");
-    return s === "attivo" || s === "incassato" || s === "tutti" ? s : "tutti";
+  type Periodo = "mese_corrente" | "messe_cassa" | "tutte";
+  const initialPeriodo: Periodo = (() => {
+    const p = searchParams.get("periodo");
+    return p === "mese_corrente" || p === "messe_cassa" || p === "tutte" ? p : "mese_corrente";
   })();
-  const [filtroStato, setFiltroStato] = useState(initialStato);
+  // userTouched=false + filtroPeriodo="mese_corrente" → comportamento esteso (mese corrente + arretrati non a cassa)
+  const [filtroPeriodo, setFiltroPeriodo] = useState<Periodo>(initialPeriodo);
+  const [userTouched, setUserTouched] = useState<boolean>(!!searchParams.get("periodo"));
+  const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente";
   const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -74,7 +79,7 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
     if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
@@ -82,25 +87,40 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
-  const dateColumn = filtroStato === "incassato" ? "data_messa_cassa" : "data_scadenza";
+  const applyPeriodoFilter = (q: any) => {
+    if (filtroPeriodo === "messe_cassa") {
+      return q.eq("stato", "incassato").gte("data_messa_cassa", caricoStart).lte("data_messa_cassa", caricoEnd);
+    }
+    if (filtroPeriodo === "tutte") {
+      // Attive con scadenza ≤ fine mese (include arretrati) OR già messe a cassa nel mese
+      return q.in("stato", ["attivo", "incassato"])
+              .or(`and(stato.eq.attivo,data_scadenza.lte.${caricoEnd}),and(stato.eq.incassato,data_messa_cassa.gte.${caricoStart},data_messa_cassa.lte.${caricoEnd})`);
+    }
+    // mese_corrente: di default include arretrati non a cassa; dopo click utente solo mese stretto
+    if (isDefaultExtended) {
+      return q.eq("stato", "attivo").lte("data_scadenza", caricoEnd);
+    }
+    return q.eq("stato", "attivo").gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd);
+  };
+
+  const applySearch = (q: any) =>
+    search ? q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`) : q;
+
+  const orderField = filtroPeriodo === "messe_cassa" ? (sortField === "data_scadenza" ? "data_messa_cassa" : sortField) : sortField;
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroStato, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
+    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
         { count: "exact" }
-      ).gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
-
-      if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
-      }
-      if (filtroStato === "attivo") q = q.eq("stato", "attivo");
-      if (filtroStato === "incassato") q = q.eq("stato", "incassato");
+      );
+      q = applyPeriodoFilter(q);
+      q = applySearch(q);
       q = applyTipoFilter(q);
 
       const { data, count } = await q
-        .order(sortField, { ascending: sortDirection === "asc" })
+        .order(orderField, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
@@ -110,16 +130,11 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, caricoStart, caricoEnd],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza")
-        .gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
-      if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
-      }
-
-      if (filtroStato === "attivo") q = q.eq("stato", "attivo");
-      if (filtroStato === "incassato") q = q.eq("stato", "incassato");
+      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza");
+      q = applyPeriodoFilter(q);
+      q = applySearch(q);
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
@@ -329,12 +344,11 @@ const PortafoglioCaricoPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {filtroStato === "incassato" ? "Incassi del Mese" : filtroStato === "attivo" ? "Polizze da Mettere a Cassa" : "Carico del Mese"}
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground">Carico</h1>
           <p className="text-sm text-muted-foreground">
-            {filtroStato === "incassato" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
+            {filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
             <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
+            {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -498,22 +512,24 @@ const PortafoglioCaricoPage = () => {
             className="pl-9"
           />
         </div>
-        <Select value={filtroStato} onValueChange={(v) => {
-          setFiltroStato(v);
-          setPage(0);
-          const next = new URLSearchParams(searchParams);
-          if (v === "tutti") next.delete("stato"); else next.set("stato", v);
-          setSearchParams(next, { replace: true });
-        }}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Stato incasso" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Entrambe le opzioni</SelectItem>
-            <SelectItem value="attivo">Da mettere a cassa</SelectItem>
-            <SelectItem value="incassato">Messe a cassa</SelectItem>
-          </SelectContent>
-        </Select>
+        <ToggleGroup
+          type="single"
+          value={filtroPeriodo}
+          onValueChange={(v) => {
+            if (!v) return;
+            setFiltroPeriodo(v as Periodo);
+            setUserTouched(true);
+            setPage(0);
+            const next = new URLSearchParams(searchParams);
+            next.set("periodo", v);
+            setSearchParams(next, { replace: true });
+          }}
+          className="border rounded-md"
+        >
+          <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Mese Corrente</ToggleGroupItem>
+          <ToggleGroupItem value="messe_cassa" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Messe a Cassa</ToggleGroupItem>
+          <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
+        </ToggleGroup>
         <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Tipo" />

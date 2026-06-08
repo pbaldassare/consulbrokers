@@ -1,67 +1,86 @@
+# Pagina "Carico" (ex "Carico del Mese")
 
-# Multi-sede per Specialist e Account Executive
+## 1. Rinomina label
 
-## Obiettivo
-Permettere a uno **Specialist** (ruolo DB `backoffice`) e a un **Account Executive** di essere collegati a **più Sedi**. Su tutte le sedi collegate ottengono **lettura e scrittura piena** su clienti, titoli, sinistri, movimenti contabili. La **Sede primaria** resta unica e governa default (IBAN, log, intestazioni email).
+Sostituire ovunque "Carico del Mese" → "Carico" (route invariata `/portafoglio/carico`):
 
-## Modello dati
+- `src/components/AppSidebar.tsx` (voce menu Portafoglio)
+- `src/components/CommandPalette.tsx` (entry `go-carico`)
+- `src/hooks/useNavigationHistory.ts` (mappa breadcrumb — già "Carico" nello screenshot, verificare)
+- `src/pages/PortafoglioCaricoPage.tsx`: titolo H1 e sottotitolo
+- Riferimenti testuali dentro `SospensionePolizzaDialog.tsx` e `TitoloDetail.tsx` aggiornati al nuovo nome ("Carico").
 
-Nuova tabella ponte:
+Nessuna modifica al path della route né al nome del file pagina.
+
+## 2. Nuovo modello filtro periodo
+
+Stato locale aggiunto: `filtroPeriodo: "arretrati" | "mese_corrente" | "messe_cassa" | "tutte"`.
+
+Default all'apertura: `"arretrati"` = mese corrente + tutti i mesi precedenti **non ancora messe a cassa**.
+
+I 3 pulsanti toggle (group `ToggleGroup` o `Button` con stato `default`/`outline`) mostrati in alto, sopra le card contatore:
 
 ```text
-profilo_sedi
-├─ profilo_id  uuid  → profiles.id
-├─ ufficio_id  uuid  → uffici.id
-├─ primaria    bool  (max una per profilo)
-└─ PK (profilo_id, ufficio_id)
+[ Mese Corrente ]  [ Messe a Cassa ]  [ Tutte ]
 ```
 
-- `profiles.ufficio_id` resta come **sede primaria** (retro-compatibilità, default operativo).
-- Un trigger sincronizza: ogni `profiles.ufficio_id` non null genera una riga `profilo_sedi` con `primaria=true`; viceversa la riga `primaria=true` aggiorna `profiles.ufficio_id`.
-- Solo profili con `ruolo IN ('backoffice','account_executive')` possono avere righe multiple; un trigger rifiuta righe extra per gli altri ruoli (Sede, Resp. Sede, Produttore, Admin restano single-sede / globali).
+Mapping pulsante → comportamento dati:
 
-## Visibilità (RLS)
+- **Mese Corrente** (`mese_corrente`): `data_scadenza` nel mese corrente AND `stato = 'attivo'` (non a cassa).
+- **Messe a Cassa** (`messe_cassa`): `data_messa_cassa` non null nel mese corrente (mantiene la finestra mese corrente, come oggi quando `filtroStato=incassato`).
+- **Tutte** (`tutte`): unione di → polizze `stato='attivo'` con `data_scadenza <= fine mese corrente` (include arretrati) + polizze `stato='incassato'` con `data_messa_cassa` nel mese corrente.
 
-Nuova funzione SQL:
+Il **default `arretrati`** è il caso speciale equivalente a "Tutte" ma **senza le polizze già a cassa**: `stato='attivo'` con `data_scadenza <= fine mese corrente`. Lo rendiamo lo stato iniziale, ma non gli serve un quarto pulsante: appena l'utente clicca uno dei tre toggle, si passa a quella vista. Il pulsante visivamente "attivo" al primo render è **Mese Corrente** (perché di fatto il default è la versione estesa del mese corrente: stessi titoli del mese + arretrati non a cassa). 
 
-```sql
-get_my_ufficio_ids() → uuid[]
--- ritorna l'unione di profilo_sedi.ufficio_id per auth.uid()
--- fallback: [profiles.ufficio_id] se la ponte è vuota
+→ Decisione: il **toggle "Mese Corrente" risulta attivo** all'apertura, ma il comportamento dati è "arretrati + mese corrente non a cassa". Quando l'utente clicca di nuovo "Mese Corrente" il filtro si stringe al solo mese corrente. Per renderlo chiaro, sotto i pulsanti compare una piccola label: "Inclusi arretrati non a cassa" quando il filtro è in modalità default; sparisce dopo qualsiasi click utente.
+
+## 3. Query unificata
+
+Riscrittura della `useQuery(["portafoglio-carico", …])` per supportare i 4 casi:
+
+```ts
+const meseStart = startOfMonth(caricoDate);
+const meseEnd   = endOfMonth(caricoDate);
+
+switch (filtroPeriodo) {
+  case "arretrati":      // default
+    q = base.eq("stato","attivo").lte("data_scadenza", meseEnd);
+    break;
+  case "mese_corrente":
+    q = base.eq("stato","attivo")
+            .gte("data_scadenza", meseStart).lte("data_scadenza", meseEnd);
+    break;
+  case "messe_cassa":
+    q = base.eq("stato","incassato")
+            .gte("data_messa_cassa", meseStart).lte("data_messa_cassa", meseEnd);
+    break;
+  case "tutte":
+    // due query in parallelo + merge lato client, oppure RPC dedicata
+    break;
+}
 ```
 
-Aggiornare le policy `... own ...` su **clienti, titoli, sinistri, movimenti_contabili** **solo per i ruoli `backoffice` e `account_executive`**:
+Per il caso `tutte`, dato che combinare due range diversi su due colonne diverse in una sola query Supabase è scomodo, eseguire **due query in parallelo** (attive ≤ meseEnd; incassate nel mese) e fare merge client-side, ordinando per `data_scadenza` desc. La paginazione passa a client-side **solo per "tutte"** (volume contenuto: max poche centinaia di righe nel mese). Per gli altri tre filtri resta server-side come oggi.
 
-- vecchio: `ufficio_id = get_my_ufficio_id()`
-- nuovo:   `ufficio_id = ANY(get_my_ufficio_ids())`
+## 4. Contatori dinamici
 
-Le policy del ruolo `ufficio` (login Sede) **restano single-sede** (es. `segreteria@` Napoli continua a vedere solo Napoli). Admin invariato (`Admin all`).
+Le 4 card (Totale titoli / Polizze / Quietanze / In attesa rinnovo) vanno ricalcolate sui medesimi filtri della tabella:
 
-Stessa estensione su tabelle correlate che usano già `get_my_ufficio_id()` (es. `note_restituzione`, `appendici_polizza`, `titoli_*`, `provvigioni_generate`, ecc.): sostituire con `ANY(get_my_ufficio_ids())` nelle sole policy `backoffice`/`account_executive`.
+- Riscrivere `useQuery(["portafoglio-carico-totale", …])` aggiungendo `filtroPeriodo` alla key e applicando lo stesso `switch` per la finestra temporale e lo stato.
+- "In attesa rinnovo" (pendingRinnovi) resta legato al **mese corrente** sempre (è una metrica indipendente sui titoli `in_attesa_rinnovo` del mese), e non viene toccata dal toggle.
 
-## UI
+## 5. Persistenza URL
 
-**Anagrafiche Amministrative → Specialist** e **→ Account Executive**:
-- sostituire il select singolo "Sede" con un blocco **"Sedi collegate"**:
-  - lista di tutte le sedi attive con checkbox
-  - una sede marcata "★ Primaria" (radio); le altre "Secondarie"
-  - salva su `profilo_sedi` + aggiorna `profiles.ufficio_id` = primaria
-- in **Centro Utenti & Privilegi** (`UserPermissionsSheet` tab Anagrafica) mostrare l'elenco delle sedi collegate in sola lettura con badge "Primaria", con link alla pagina Anagrafiche Amministrative per la gestione.
+Rimuovere il vecchio param `?stato=`; introdurre `?periodo=arretrati|mese_corrente|messe_cassa|tutte`. Sincronizzazione bidirezionale (lettura iniziale + push su cambio toggle) per consentire deep-link.
 
-Nessuna modifica al filtro dati frontend: le query continuano a passare per RLS, quindi i record delle sedi secondarie compaiono automaticamente.
+## 6. Out of scope
 
-## Default operativi (invariati)
-- `logAttivita` → `profiles.ufficio_id` (primaria).
-- IBAN resolution chain → primaria (poi cliente → fallback Consulbrokers).
-- Email/intestazioni → primaria.
+- Nessuna modifica a `MessaCassaDialog`, navigazione mensile (chevron) e selezione multipla: continuano a operare sull'attuale `caricoDate`.
+- Nessuna modifica a `v_portafoglio_titoli` o trigger DB.
+- Storico Polizze e Polizze Attive invariati.
 
-## Migrazione dati esistenti
-Per ogni `profiles` con `ruolo IN ('backoffice','account_executive')` e `ufficio_id` non null, inserire una riga `profilo_sedi (profilo_id, ufficio_id, primaria=true)`. Nessun dato perso.
+## Note tecniche
 
-## Memoria progetto da aggiornare
-Aggiungere memoria `auth/multi-sede-specialist-ae` e aggiornare `auth/rbac-system` con la regola `get_my_ufficio_ids()` per backoffice/AE.
-
-## Out of scope
-- Resp. Sede e ruolo `ufficio` restano single-sede.
-- Nessuna modifica a Produttori, Corrispondenti, Cliente, Prospect.
-- Nessuna modifica a report/E-C esistenti: si limitano automaticamente al perimetro RLS dell'utente.
+- Aggiungere `ToggleGroup` (`@/components/ui/toggle-group` già presente in shadcn) con i 3 valori.
+- Eliminare il vecchio stato `filtroStato` e il selettore "Entrambe le opzioni" nello screenshot? **No**, restano i filtri `filtroTipo` (Polizze + Quietanze) e search invariati: convivono con il nuovo toggle.
+- Sottotitolo pagina diventa: "Mese di {Giugno 2026}" + chip "include arretrati non a cassa" nel caso default.
