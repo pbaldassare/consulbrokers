@@ -34,11 +34,15 @@ const PortafoglioCaricoPage = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialStato = (() => {
-    const s = searchParams.get("stato");
-    return s === "attivo" || s === "incassato" || s === "tutti" ? s : "tutti";
+  type Periodo = "mese_corrente" | "messe_cassa" | "tutte";
+  const initialPeriodo: Periodo = (() => {
+    const p = searchParams.get("periodo");
+    return p === "mese_corrente" || p === "messe_cassa" || p === "tutte" ? p : "mese_corrente";
   })();
-  const [filtroStato, setFiltroStato] = useState(initialStato);
+  // userTouched=false + filtroPeriodo="mese_corrente" → comportamento esteso (mese corrente + arretrati non a cassa)
+  const [filtroPeriodo, setFiltroPeriodo] = useState<Periodo>(initialPeriodo);
+  const [userTouched, setUserTouched] = useState<boolean>(!!searchParams.get("periodo"));
+  const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente";
   const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
   const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
