@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass } from "lucide-react";
