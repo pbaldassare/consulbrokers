@@ -680,7 +680,6 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                 </div>
                 <SediMultiSelect value={sediCreate} onChange={setSediCreate} required />
 
-                </div>
               </TabsContent>
 
               <TabsContent value="indirizzo" className="space-y-3 mt-3">
