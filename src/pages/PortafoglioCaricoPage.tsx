@@ -1,4 +1,4 @@
-// Carico del Mese – v2 con checkbox, filtro stato, colorazione
+// Carico – v3: toggle Mese Corrente / Messe a Cassa / Tutte, default = mese corrente + arretrati non a cassa
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
