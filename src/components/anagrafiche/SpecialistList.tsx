@@ -388,6 +388,12 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       note: item.note || "",
       attivo: item.attivo ?? true,
     });
+    // carica sedi multiple
+    fetchSediProfilo(item.id).then((rows) => {
+      if (rows.length > 0) setSediForm(rows);
+      else if (item.ufficio_id) setSediForm([{ ufficio_id: item.ufficio_id, primaria: true }]);
+      else setSediForm([]);
+    }).catch(() => setSediForm(item.ufficio_id ? [{ ufficio_id: item.ufficio_id, primaria: true }] : []));
     setDialogOpen(true);
   };
 
