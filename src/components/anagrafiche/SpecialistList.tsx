@@ -115,6 +115,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
+  const [sediForm, setSediForm] = useState<SedeAssegnata[]>([]);
+  const [sediCreate, setSediCreate] = useState<SedeAssegnata[]>([]);
 
   // --- Create new Specialist user ---
   const [createOpen, setCreateOpen] = useState(false);
