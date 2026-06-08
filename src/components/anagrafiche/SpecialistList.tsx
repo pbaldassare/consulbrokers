@@ -24,6 +24,8 @@ import { LEVELS } from "@/lib/userLevels";
 import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 import DeleteWithImpactDialog from "@/components/common/DeleteWithImpactDialog";
 import { ValidatedInput } from "@/components/ui/validated-input";
+import SediMultiSelect, { type SedeAssegnata } from "@/components/anagrafiche/SediMultiSelect";
+import { fetchSediProfilo, saveSediProfilo } from "@/lib/profiloSedi";
 
 interface SpecialistRow {
   id: string;
