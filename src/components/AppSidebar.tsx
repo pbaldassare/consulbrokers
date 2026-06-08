@@ -139,7 +139,7 @@ const sidebarEntries: SidebarEntry[] = [
         // { label: "Deduplica Clienti", path: "/archivi/clienti/deduplica", icon: Users, hideForRoles: ["ufficio","produttore","corrispondente","cliente","prospect"] }, // nascosta su richiesta
         
         { label: "Polizze Attive", path: "/portafoglio/attive", icon: Shield },
-        { label: "Carico del Mese", path: "/portafoglio/carico", icon: Clock },
+        { label: "Carico", path: "/portafoglio/carico", icon: Clock },
         { label: "Storico Polizze", path: "/portafoglio/storico", icon: Archive },
         
         { label: "Estrazioni e Stampe", path: "/portafoglio/estrazioni-stampe", icon: Printer, hideForRoles: ["ufficio"] },
