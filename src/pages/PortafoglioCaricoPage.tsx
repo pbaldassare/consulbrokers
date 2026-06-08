@@ -103,7 +103,7 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, dateDa, dateA, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
     if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
@@ -111,20 +111,33 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
+  const applyDateRange = (q: any, col: string) => {
+    if (dateDa) q = q.gte(col, dateDa);
+    if (dateA) q = q.lte(col, dateA);
+    return q;
+  };
+
   const applyPeriodoFilter = (q: any) => {
     if (filtroPeriodo === "messe_cassa") {
-      return q.eq("stato", "incassato").gte("data_messa_cassa", caricoStart).lte("data_messa_cassa", caricoEnd);
+      return applyDateRange(q.eq("stato", "incassato"), "data_messa_cassa");
     }
     if (filtroPeriodo === "tutte") {
-      // Attive con scadenza ≤ fine mese (include arretrati) OR già messe a cassa nel mese
-      return q.in("stato", ["attivo", "incassato"])
-              .or(`and(stato.eq.attivo,data_scadenza.lte.${caricoEnd}),and(stato.eq.incassato,data_messa_cassa.gte.${caricoStart},data_messa_cassa.lte.${caricoEnd})`);
+      const attiveCond = ["stato.eq.attivo"];
+      if (dateDa) attiveCond.push(`data_scadenza.gte.${dateDa}`);
+      if (dateA) attiveCond.push(`data_scadenza.lte.${dateA}`);
+      const incassateCond = ["stato.eq.incassato"];
+      if (dateDa) incassateCond.push(`data_messa_cassa.gte.${dateDa}`);
+      if (dateA) incassateCond.push(`data_messa_cassa.lte.${dateA}`);
+      return q.in("stato", ["attivo", "incassato"]).or(
+        `and(${attiveCond.join(",")}),and(${incassateCond.join(",")})`
+      );
     }
-    // mese_corrente: di default include arretrati non a cassa; dopo click utente solo mese stretto
+    // mese_corrente
     if (isDefaultExtended) {
-      return q.eq("stato", "attivo").lte("data_scadenza", caricoEnd);
+      // default esteso: tutte le attive (incluse arretrati), nessun bordo
+      return q.eq("stato", "attivo");
     }
-    return q.eq("stato", "attivo").gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd);
+    return applyDateRange(q.eq("stato", "attivo"), "data_scadenza");
   };
 
   const applySearch = (q: any) =>
@@ -133,7 +146,7 @@ const PortafoglioCaricoPage = () => {
   const orderField = filtroPeriodo === "messe_cassa" ? (sortField === "data_scadenza" ? "data_messa_cassa" : sortField) : sortField;
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
+    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
@@ -154,7 +167,7 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza");
       q = applyPeriodoFilter(q);
@@ -175,17 +188,16 @@ const PortafoglioCaricoPage = () => {
   });
   const totalePremio = totaleData?.totale ?? 0;
 
-  // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
+  // Rinnovi in attesa di messa a cassa della polizza precedente
   const { data: pendingRinnovi } = useQuery({
-    queryKey: ["portafoglio-carico-pending", caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-pending", dateDa, dateA],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("v_portafoglio_titoli")
         .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
-        .gte("data_scadenza", caricoStart)
-        .lte("data_scadenza", caricoEnd)
-        .eq("stato", "in_attesa_rinnovo")
-        .order("data_scadenza", { ascending: true });
+        .eq("stato", "in_attesa_rinnovo");
+      q = applyDateRange(q, "data_scadenza");
+      const { data } = await q.order("data_scadenza", { ascending: true });
       return (data || []);
     },
   });
