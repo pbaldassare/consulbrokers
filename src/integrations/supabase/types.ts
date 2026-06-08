@@ -5328,6 +5328,42 @@ export type Database = {
           },
         ]
       }
+      profilo_sedi: {
+        Row: {
+          created_at: string
+          primaria: boolean
+          profilo_id: string
+          ufficio_id: string
+        }
+        Insert: {
+          created_at?: string
+          primaria?: boolean
+          profilo_id: string
+          ufficio_id: string
+        }
+        Update: {
+          created_at?: string
+          primaria?: boolean
+          profilo_id?: string
+          ufficio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profilo_sedi_profilo_id_fkey"
+            columns: ["profilo_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profilo_sedi_ufficio_id_fkey"
+            columns: ["ufficio_id"]
+            isOneToOne: false
+            referencedRelation: "uffici"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospect: {
         Row: {
           assegnato_a: string | null
@@ -8821,6 +8857,7 @@ export type Database = {
       }
       get_my_cliente_ids: { Args: never; Returns: string[] }
       get_my_ufficio_id: { Args: never; Returns: string }
+      get_my_ufficio_ids: { Args: never; Returns: string[] }
       get_rapporti_counts_per_compagnia: {
         Args: never
         Returns: {
