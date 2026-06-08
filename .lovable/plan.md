@@ -1,27 +1,50 @@
-# Freccia indietro su Polizza/Quietanza
+# Perché segreteria@ (Napoli) vede TESTA MAURIZIO (Bergamo)
 
-## Problema
-In `TitoloDetail` la freccia "indietro" nell'header riporta sempre a **`/portafoglio/carico`** (Carico del Mese), sia per la polizza madre che per le quietanze figlie. Deve invece riportare alla **scheda Cliente** da cui la polizza è stata aperta.
+Il cliente è correttamente assegnato a `ufficio_id = Bergamo`, e il profilo di `segreteria@consulbrokers.it` è correttamente su `Napoli`. Il problema sta nelle RLS: nella migration di provisioning sono state create **due famiglie di policy** per il ruolo `ufficio`:
 
-## Modifica
-Un'unica riga in `src/pages/TitoloDetail.tsx` (riga 1444), dove viene passato `onBack` al componente `TitoloHeaderBar`:
+- `Ufficio select/update/delete own ...` → filtra per `ufficio_id = get_my_ufficio_id()` ✅
+- `Ufficio global select/update/delete ...` → permette tutto se `has_role(auth.uid(),'ufficio')` ❌
 
-```tsx
-<TitoloHeaderBar
-  t={t}
-  onBack={() =>
-    t.cliente_anagrafica?.id
-      ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`)
-      : navigate("/portafoglio/carico")
-  }
-/>
+In Postgres le policy permissive sono in **OR**: basta la seconda per vedere/modificare qualunque riga. Risultato: ogni responsabile sede vede l'intero database.
+
+Tabelle coinvolte: `clienti`, `titoli`, `sinistri`, `movimenti_contabili`.
+
+## Fix proposto (una sola migration)
+
+Per ciascuna delle 4 tabelle, **droppare** le policy `Ufficio global *` (SELECT, UPDATE, DELETE, INSERT-global) e tenere solo quelle `... own ...`, già scritte correttamente:
+
+- USING: `has_role(auth.uid(),'ufficio') AND ufficio_id = get_my_ufficio_id()`
+- WITH CHECK (insert/update): idem
+
+L'admin mantiene visibilità totale tramite la policy `Admin all ...` (già presente, basata su `has_role(... ,'admin')`).
+CFO / contabilità / produttore / cliente: invariati.
+
+## Effetti attesi
+
+- segreteria@ (Napoli) → vede solo clienti/titoli/sinistri/movimenti con `ufficio_id = Napoli`.
+- TESTA MAURIZIO (Bergamo) sparisce dalla lista Clienti di Napoli.
+- Admin principale: vede tutto come prima.
+- Nessuna modifica al codice frontend.
+
+## Verifica post-migration
+
+1. Re-login come `segreteria@consulbrokers.it` → `/archivi/clienti` non mostra più TESTA MAURIZIO.
+2. Login come admin → lista completa invariata.
+3. Spot-check su `/portafoglio/carico` e `/sinistri` per la stessa sede.
+
+## Dettagli tecnici
+
+Policy da droppare (12 totali):
+
+```
+clienti:               Ufficio global select|insert|update|delete clienti
+                       Ufficio select all clienti
+titoli:                Ufficio global insert|update|delete titoli
+                       Ufficio select all titoli
+sinistri:              Ufficio global insert|update|delete sinistri
+                       Ufficio select all sinistri
+movimenti_contabili:   Ufficio global insert|update|delete movimenti_contabili
+                       Ufficio select all movimenti
 ```
 
-## Comportamento risultante
-- Polizza con cliente collegato (caso standard, incluso lo screenshot "baldassare paolo") → torna a `/archivi/clienti/:id`.
-- Quietanza → stesso componente, stesso `cliente_anagrafica` ereditato → torna al cliente.
-- Polizza senza cliente collegato (edge case legacy) → fallback a `/portafoglio/carico` come oggi.
-
-## Fuori scope
-- Nessuna modifica al breadcrumb globale ("Torna a Clienti" / "Titoli > Dettaglio") che è gestito separatamente.
-- Nessuna modifica alla logica di navigazione di altre pagine (Sinistri, Trattative, ecc.).
+Le policy `Ufficio ... own ...` restano invariate e diventano le uniche attive per il ruolo `ufficio`.
