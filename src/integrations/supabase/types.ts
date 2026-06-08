@@ -8768,6 +8768,7 @@ export type Database = {
           count: number
         }[]
       }
+      current_ufficio_id: { Args: never; Returns: string }
       ensure_default_rapporto: {
         Args: { _compagnia_id: string }
         Returns: string
@@ -8839,6 +8840,7 @@ export type Database = {
         Args: { _canale_id: string; _user_id: string }
         Returns: boolean
       }
+      is_global_viewer: { Args: never; Returns: boolean }
       mark_canale_as_read: { Args: { _canale_id: string }; Returns: undefined }
       merge_cliente_atomico: {
         Args: { _legacy_id: string; _master_id: string }
