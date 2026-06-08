@@ -168,7 +168,8 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) throw new Error("Nessuno Specialist selezionato");
-      if (!form.ufficio_id) throw new Error("Sede obbligatoria: ogni Specialist deve essere collegato a una Sede");
+      if (sediForm.length === 0) throw new Error("Seleziona almeno una Sede");
+      const primaria = sediForm.find((s) => s.primaria) || sediForm[0];
       const payload: Record<string, unknown> = {
         cognome: form.cognome || null,
         nome: form.nome || null,
@@ -177,7 +178,7 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
         fax: form.fax || null,
         codice_fiscale: form.codice_fiscale ? form.codice_fiscale.toUpperCase() : null,
         descrizione: form.descrizione || null,
-        ufficio_id: form.ufficio_id || null,
+        ufficio_id: primaria.ufficio_id,
         indirizzo: form.indirizzo || null,
         cap: form.cap || null,
         citta: form.citta || null,
@@ -199,16 +200,20 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
       };
       const { error } = await supabase.from("profiles").update(payload as any).eq("id", editingId);
       if (error) throw error;
+      // salva sedi multiple
+      await saveSediProfilo(editingId, sediForm);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["specialist-profiles"] });
       setDialogOpen(false);
       setEditingId(null);
       setForm(emptyForm);
+      setSediForm([]);
       toast.success("Specialist aggiornato");
     },
     onError: (e: Error) => toast.error(e.message || "Errore aggiornamento"),
   });
+
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
