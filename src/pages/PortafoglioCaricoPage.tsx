@@ -537,7 +537,7 @@ const PortafoglioCaricoPage = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -545,6 +545,22 @@ const PortafoglioCaricoPage = () => {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Dal</span>
+          <Input
+            type="date"
+            value={dateDa}
+            onChange={(e) => { setDateDa(e.target.value); setPage(0); updateUrl({ dal: e.target.value || null }); }}
+            className="w-[150px]"
+          />
+          <span className="text-xs text-muted-foreground ml-1">Al</span>
+          <Input
+            type="date"
+            value={dateA}
+            onChange={(e) => { setDateA(e.target.value); setPage(0); updateUrl({ al: e.target.value || null }); }}
+            className="w-[150px]"
           />
         </div>
         <ToggleGroup
@@ -555,9 +571,7 @@ const PortafoglioCaricoPage = () => {
             setFiltroPeriodo(v as Periodo);
             setUserTouched(true);
             setPage(0);
-            const next = new URLSearchParams(searchParams);
-            next.set("periodo", v);
-            setSearchParams(next, { replace: true });
+            updateUrl({ periodo: v as Periodo });
           }}
           className="border rounded-md"
         >
@@ -575,6 +589,12 @@ const PortafoglioCaricoPage = () => {
             <SelectItem value="quietanze">Solo quietanze</SelectItem>
           </SelectContent>
         </Select>
+        {hasActiveFilters && (
+          <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Filtri
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
