@@ -50,7 +50,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: "new-sinistro", label: "Nuovo sinistro", icon: Plus, link: "/sinistri/apertura", keywords: "nuovo sinistro apri denuncia" },
   { id: "new-trattativa", label: "Nuova trattativa", icon: Plus, link: "/trattative?new=1", keywords: "nuova trattativa preventivo" },
   { id: "go-portafoglio", label: "Portafoglio Attive", icon: FileText, link: "/portafoglio/attive", keywords: "polizze attive portafoglio" },
-  { id: "go-carico", label: "Carico del Mese", icon: FileText, link: "/portafoglio/carico", keywords: "carico mese scadenze" },
+  { id: "go-carico", label: "Carico", icon: FileText, link: "/portafoglio/carico", keywords: "carico mese scadenze" },
   { id: "go-ec-clienti", label: "E/C Clienti", icon: Receipt, link: "/contabilita/ec-clienti", keywords: "estratto conto cliente contabilita" },
   { id: "go-ec-produttori", label: "E/C Produttori", icon: Receipt, link: "/contabilita/ec-produttori", keywords: "estratto conto produttore provvigioni" },
   { id: "go-provvigioni", label: "Provvigioni Maturate", icon: Banknote, link: "/portafoglio/provvigioni-maturate", keywords: "provvigioni maturate produttori" },
