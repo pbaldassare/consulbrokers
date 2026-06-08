@@ -226,7 +226,7 @@ const TitoloDetail = () => {
         .select("valore_json")
         .eq("chiave", "admin_anagrafica_id")
         .maybeSingle();
-      return ((data?.valore_json as { anagrafica_id?: string | null } | null)?.anagrafica_id ?? null) ?? null;
+      return (data?.valore_json as { anagrafica_id?: string | null } | null)?.anagrafica_id ?? null;
     },
   });
 
@@ -1016,7 +1016,7 @@ const TitoloDetail = () => {
       // (cioè è rimasto uguale al valore in DB), propaghiamo il nuovo valore Firma anche alla Quietanza.
       // ATTENZIONE: la sync vale SOLO sulla polizza madre. Su una rata (quietanza) i campi Firma
       // sono lo storico della firma originale e non devono propagare nulla.
-      const isQuietanzaRow = isQuietanzaTitolotitolo;
+      const isQuietanzaRow = isQuietanzaTitolo(titolo);
       const syncPairs: Array<[string, string]> = isQuietanzaRow ? [] : [
         ["premio_netto", "premio_netto_quietanza"],
         ["tasse", "tasse_quietanza"],
@@ -1404,8 +1404,8 @@ const TitoloDetail = () => {
 
   // Polizza poliennale: durata > 13 mesi tra decorrenza e scadenza
   const isPoliennale = (() => {
-    if (!t.data_decorrenza || !t.data_scadenza) return false;
-    const start = new Date(t.data_decorrenza);
+    if (!t.durata_da || !t.data_scadenza) return false;
+    const start = new Date(t.durata_da);
     const end = new Date(t.data_scadenza);
     const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
     return months > 13;

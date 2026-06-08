@@ -133,7 +133,7 @@ const NotaRestituzioneDetail = () => {
       const { error } = await supabase.from("note_restituzione_dettaglio").insert({
         nota_id: id!,
         titolo_id: selectedTitoloId,
-        prodotto_id: tit?.prodotti?.id || null,
+        prodotto_id: (tit?.prodotti as any)?.id || null,
       });
       if (error) throw error;
     },

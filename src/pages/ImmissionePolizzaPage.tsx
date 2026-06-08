@@ -205,7 +205,7 @@ const ImmissionePolizzaPage = () => {
     };
     const ramoIsAuto =
       !!m.polizzaAuto ||
-      (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String(m.ramo.codice || ""))) ||
+      (m.ramo?.gruppoRamoId && /^ZQ$/i.test(String((m.ramo as any).codice || ""))) ||
       !!(v && (v.targa || v.telaio || v.marca));
     if (ramoIsAuto) {
       setPolizzaAuto(true);
@@ -1366,7 +1366,7 @@ const ImmissionePolizzaPage = () => {
 
       const { data: newTitolo, error } = await supabase
         .from("titoli")
-        .insertpayload
+        .insert(payload)
         .select("id")
         .single();
       if (error) throw error;
@@ -1445,7 +1445,7 @@ const ImmissionePolizzaPage = () => {
         ...buildPremiInsert(premiQuietanzaRows, "quietanza"),
       ];
       if (premiPayload.length > 0) {
-        await supabase.from("premi_garanzia_polizza").insertpremiPayload;
+        await supabase.from("premi_garanzia_polizza").insert(premiPayload);
       }
 
 
