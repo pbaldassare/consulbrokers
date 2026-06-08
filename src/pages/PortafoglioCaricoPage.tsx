@@ -512,22 +512,24 @@ const PortafoglioCaricoPage = () => {
             className="pl-9"
           />
         </div>
-        <Select value={filtroStato} onValueChange={(v) => {
-          setFiltroStato(v);
-          setPage(0);
-          const next = new URLSearchParams(searchParams);
-          if (v === "tutti") next.delete("stato"); else next.set("stato", v);
-          setSearchParams(next, { replace: true });
-        }}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Stato incasso" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tutti">Entrambe le opzioni</SelectItem>
-            <SelectItem value="attivo">Da mettere a cassa</SelectItem>
-            <SelectItem value="incassato">Messe a cassa</SelectItem>
-          </SelectContent>
-        </Select>
+        <ToggleGroup
+          type="single"
+          value={filtroPeriodo}
+          onValueChange={(v) => {
+            if (!v) return;
+            setFiltroPeriodo(v as Periodo);
+            setUserTouched(true);
+            setPage(0);
+            const next = new URLSearchParams(searchParams);
+            next.set("periodo", v);
+            setSearchParams(next, { replace: true });
+          }}
+          className="border rounded-md"
+        >
+          <ToggleGroupItem value="mese_corrente" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Mese Corrente</ToggleGroupItem>
+          <ToggleGroupItem value="messe_cassa" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Messe a Cassa</ToggleGroupItem>
+          <ToggleGroupItem value="tutte" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Tutte</ToggleGroupItem>
+        </ToggleGroup>
         <Select value={filtroTipo} onValueChange={(v: any) => { setFiltroTipo(v); setPage(0); }}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Tipo" />
