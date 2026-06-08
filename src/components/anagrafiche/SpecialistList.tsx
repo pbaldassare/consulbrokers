@@ -554,25 +554,16 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               <TabsContent value="dati" className="space-y-3 mt-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={form.codice_contabile} onChange={(e) => setForm({ ...form, codice_contabile: e.target.value })} /></div>
-                  <div>
-                    <Label>Sede <span className="text-destructive">*</span></Label>
-                    <Select value={form.ufficio_id} onValueChange={(v) => setForm({ ...form, ufficio_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
-                      <SelectContent>
-                        {uffici.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div><Label>Cognome *</Label><Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
                   <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-                  <div className="col-span-2"><Label>Descrizione</Label><Input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} /></div>
                   <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                  <div className="col-span-2"><Label>Descrizione</Label><Input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} /></div>
                   <div><Label>Codice Fiscale</Label><Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value.toUpperCase() })} /></div>
                   <div><Label>Telefono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
                   <div><Label>Fax</Label><Input value={form.fax} onChange={(e) => setForm({ ...form, fax: e.target.value })} /></div>
                 </div>
+                <SediMultiSelect value={sediForm} onChange={setSediForm} required />
+
                 <div className="flex items-center gap-2 pt-2">
                   <Switch checked={form.attivo} onCheckedChange={(v) => setForm({ ...form, attivo: v })} />
                   <Label>Attivo</Label>
