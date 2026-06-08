@@ -661,21 +661,10 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
               <TabsContent value="dati" className="space-y-3 mt-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Codice contabile</Label><Input value={newUser.codice_contabile} onChange={(e) => setNewUser({ ...newUser, codice_contabile: e.target.value })} /></div>
-                  <div>
-                    <Label>Sede <span className="text-destructive">*</span></Label>
-                    <Select value={newUser.ufficio_id} onValueChange={(v) => setNewUser({ ...newUser, ufficio_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Seleziona sede..." /></SelectTrigger>
-                      <SelectContent>
-                        {uffici.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.codice_ufficio} — {u.nome_ufficio}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div><Label>Cognome *</Label><Input value={newUser.cognome} onChange={(e) => setNewUser({ ...newUser, cognome: e.target.value })} required /></div>
                   <div><Label>Nome</Label><Input value={newUser.nome} onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })} /></div>
-                  <div className="col-span-2"><Label>Descrizione</Label><Input value={newUser.descrizione} onChange={(e) => setNewUser({ ...newUser, descrizione: e.target.value })} /></div>
                   <div><Label>Email *</Label><ValidatedInput kind="email" value={newUser.email} onChange={(v) => setNewUser({ ...newUser, email: v })} type="email" required uppercase={false} /></div>
+                  <div className="col-span-2"><Label>Descrizione</Label><Input value={newUser.descrizione} onChange={(e) => setNewUser({ ...newUser, descrizione: e.target.value })} /></div>
                   <div><Label>Codice Fiscale</Label><ValidatedInput kind="cf" value={newUser.codice_fiscale} onChange={(v) => setNewUser({ ...newUser, codice_fiscale: v })} /></div>
                   <div><Label>Telefono</Label><Input value={newUser.telefono} onChange={(e) => setNewUser({ ...newUser, telefono: e.target.value })} /></div>
                   <div><Label>Fax</Label><Input value={newUser.fax} onChange={(e) => setNewUser({ ...newUser, fax: e.target.value })} /></div>
@@ -688,6 +677,9 @@ const SpecialistList = ({ editId, onEditConsumed }: SpecialistListProps = {}) =>
                       </Button>
                     </div>
                   </div>
+                </div>
+                <SediMultiSelect value={sediCreate} onChange={setSediCreate} required />
+
                 </div>
               </TabsContent>
 
