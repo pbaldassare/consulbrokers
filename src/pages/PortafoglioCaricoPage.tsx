@@ -344,12 +344,11 @@ const PortafoglioCaricoPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {filtroStato === "incassato" ? "Incassi del Mese" : filtroStato === "attivo" ? "Polizze da Mettere a Cassa" : "Carico del Mese"}
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground">Carico</h1>
           <p className="text-sm text-muted-foreground">
-            {filtroStato === "incassato" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
+            {filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
             <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
+            {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
