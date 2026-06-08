@@ -493,7 +493,7 @@ const PortafoglioCaricoPage = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa — scadenze {format(scadenzaDate, "MMMM yyyy", { locale: it })}
+              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa di messa a cassa
             </DialogTitle>
             <DialogDescription>
               Questi rinnovi diventeranno attivi automaticamente quando la polizza precedente verrà messa a cassa.
