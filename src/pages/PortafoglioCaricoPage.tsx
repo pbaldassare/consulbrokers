@@ -13,9 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Clock, Search, ChevronLeft, ChevronRight, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass } from "lucide-react";
+import { Clock, Search, Euro, Banknote, Undo2, ArrowUpDown, ArrowUp, ArrowDown, Hourglass, RotateCcw } from "lucide-react";
 
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import ServerPagination from "@/components/ServerPagination";
 import { toast } from "sonner";
@@ -39,12 +39,12 @@ const PortafoglioCaricoPage = () => {
     const p = searchParams.get("periodo");
     return p === "mese_corrente" || p === "messe_cassa" || p === "tutte" ? p : "mese_corrente";
   })();
-  // userTouched=false + filtroPeriodo="mese_corrente" → comportamento esteso (mese corrente + arretrati non a cassa)
   const [filtroPeriodo, setFiltroPeriodo] = useState<Periodo>(initialPeriodo);
   const [userTouched, setUserTouched] = useState<boolean>(!!searchParams.get("periodo"));
-  const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente";
+  const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
+  const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
+  const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
   const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
-  const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -52,10 +52,34 @@ const PortafoglioCaricoPage = () => {
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
-  // Carico del mese X = polizze con data_scadenza nel mese X stesso (mese corrente di navigazione)
-  const scadenzaDate = caricoDate;
-  const caricoStart = format(startOfMonth(scadenzaDate), "yyyy-MM-dd");
-  const caricoEnd = format(endOfMonth(scadenzaDate), "yyyy-MM-dd");
+  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "tutti";
+
+  const updateUrl = (next: { periodo?: Periodo | null; dal?: string | null; al?: string | null }) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next.periodo !== undefined) {
+      if (next.periodo) sp.set("periodo", next.periodo); else sp.delete("periodo");
+    }
+    if (next.dal !== undefined) {
+      if (next.dal) sp.set("dal", next.dal); else sp.delete("dal");
+    }
+    if (next.al !== undefined) {
+      if (next.al) sp.set("al", next.al); else sp.delete("al");
+    }
+    setSearchParams(sp, { replace: true });
+  };
+
+  const resetFilters = () => {
+    setDateDa("");
+    setDateA("");
+    setSearch("");
+    setFiltroPeriodo("mese_corrente");
+    setUserTouched(false);
+    setFiltroTipo("tutti");
+    setPage(0);
+    const sp = new URLSearchParams(searchParams);
+    sp.delete("periodo"); sp.delete("dal"); sp.delete("al");
+    setSearchParams(sp, { replace: true });
+  };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -79,7 +103,7 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, dateDa, dateA, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
     if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
@@ -87,20 +111,33 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
+  const applyDateRange = (q: any, col: string) => {
+    if (dateDa) q = q.gte(col, dateDa);
+    if (dateA) q = q.lte(col, dateA);
+    return q;
+  };
+
   const applyPeriodoFilter = (q: any) => {
     if (filtroPeriodo === "messe_cassa") {
-      return q.eq("stato", "incassato").gte("data_messa_cassa", caricoStart).lte("data_messa_cassa", caricoEnd);
+      return applyDateRange(q.eq("stato", "incassato"), "data_messa_cassa");
     }
     if (filtroPeriodo === "tutte") {
-      // Attive con scadenza ≤ fine mese (include arretrati) OR già messe a cassa nel mese
-      return q.in("stato", ["attivo", "incassato"])
-              .or(`and(stato.eq.attivo,data_scadenza.lte.${caricoEnd}),and(stato.eq.incassato,data_messa_cassa.gte.${caricoStart},data_messa_cassa.lte.${caricoEnd})`);
+      const attiveCond = ["stato.eq.attivo"];
+      if (dateDa) attiveCond.push(`data_scadenza.gte.${dateDa}`);
+      if (dateA) attiveCond.push(`data_scadenza.lte.${dateA}`);
+      const incassateCond = ["stato.eq.incassato"];
+      if (dateDa) incassateCond.push(`data_messa_cassa.gte.${dateDa}`);
+      if (dateA) incassateCond.push(`data_messa_cassa.lte.${dateA}`);
+      return q.in("stato", ["attivo", "incassato"]).or(
+        `and(${attiveCond.join(",")}),and(${incassateCond.join(",")})`
+      );
     }
-    // mese_corrente: di default include arretrati non a cassa; dopo click utente solo mese stretto
+    // mese_corrente
     if (isDefaultExtended) {
-      return q.eq("stato", "attivo").lte("data_scadenza", caricoEnd);
+      // default esteso: tutte le attive (incluse arretrati), nessun bordo
+      return q.eq("stato", "attivo");
     }
-    return q.eq("stato", "attivo").gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd);
+    return applyDateRange(q.eq("stato", "attivo"), "data_scadenza");
   };
 
   const applySearch = (q: any) =>
@@ -109,7 +146,7 @@ const PortafoglioCaricoPage = () => {
   const orderField = filtroPeriodo === "messe_cassa" ? (sortField === "data_scadenza" ? "data_messa_cassa" : sortField) : sortField;
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
+    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, dateDa, dateA, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
@@ -130,7 +167,7 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, dateDa, dateA],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza");
       q = applyPeriodoFilter(q);
@@ -151,17 +188,16 @@ const PortafoglioCaricoPage = () => {
   });
   const totalePremio = totaleData?.totale ?? 0;
 
-  // Rinnovi in attesa di messa a cassa della polizza precedente, per il mese corrente
+  // Rinnovi in attesa di messa a cassa della polizza precedente
   const { data: pendingRinnovi } = useQuery({
-    queryKey: ["portafoglio-carico-pending", caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-pending", dateDa, dateA],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("v_portafoglio_titoli")
         .select("id, numero_titolo, cliente_nome_display, compagnia_nome, data_scadenza, premio_lordo, sostituisce_polizza")
-        .gte("data_scadenza", caricoStart)
-        .lte("data_scadenza", caricoEnd)
-        .eq("stato", "in_attesa_rinnovo")
-        .order("data_scadenza", { ascending: true });
+        .eq("stato", "in_attesa_rinnovo");
+      q = applyDateRange(q, "data_scadenza");
+      const { data } = await q.order("data_scadenza", { ascending: true });
       return (data || []);
     },
   });
@@ -342,27 +378,26 @@ const PortafoglioCaricoPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Carico</h1>
-          <p className="text-sm text-muted-foreground">
-            {filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
-            <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
-            {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[140px] text-center capitalize">
-            {format(caricoDate, "MMMM yyyy", { locale: it })}
-          </span>
-          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Carico</h1>
+        <p className="text-sm text-muted-foreground">
+          {(() => {
+            const labelBase = filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa" : "Polizze in scadenza";
+            if (!dateDa && !dateA) {
+              return (
+                <>
+                  {filtroPeriodo === "messe_cassa" ? "Tutte le polizze messe a cassa" : "Tutte le polizze"}
+                  {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
+                </>
+              );
+            }
+            const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
+            const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+            if (da && a) return `${labelBase} dal ${da} al ${a}`;
+            if (da) return `${labelBase} dal ${da}`;
+            return `${labelBase} fino al ${a}`;
+          })()}
+        </p>
       </div>
 
       {/* Bulk action buttons */}
@@ -458,7 +493,7 @@ const PortafoglioCaricoPage = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa — scadenze {format(scadenzaDate, "MMMM yyyy", { locale: it })}
+              <Hourglass className="w-5 h-5 text-orange-600" /> Rinnovi in attesa di messa a cassa
             </DialogTitle>
             <DialogDescription>
               Questi rinnovi diventeranno attivi automaticamente quando la polizza precedente verrà messa a cassa.
@@ -502,7 +537,7 @@ const PortafoglioCaricoPage = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -510,6 +545,22 @@ const PortafoglioCaricoPage = () => {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Dal</span>
+          <Input
+            type="date"
+            value={dateDa}
+            onChange={(e) => { setDateDa(e.target.value); setPage(0); updateUrl({ dal: e.target.value || null }); }}
+            className="w-[150px]"
+          />
+          <span className="text-xs text-muted-foreground ml-1">Al</span>
+          <Input
+            type="date"
+            value={dateA}
+            onChange={(e) => { setDateA(e.target.value); setPage(0); updateUrl({ al: e.target.value || null }); }}
+            className="w-[150px]"
           />
         </div>
         <ToggleGroup
@@ -520,9 +571,7 @@ const PortafoglioCaricoPage = () => {
             setFiltroPeriodo(v as Periodo);
             setUserTouched(true);
             setPage(0);
-            const next = new URLSearchParams(searchParams);
-            next.set("periodo", v);
-            setSearchParams(next, { replace: true });
+            updateUrl({ periodo: v as Periodo });
           }}
           className="border rounded-md"
         >
@@ -540,6 +589,12 @@ const PortafoglioCaricoPage = () => {
             <SelectItem value="quietanze">Solo quietanze</SelectItem>
           </SelectContent>
         </Select>
+        {hasActiveFilters && (
+          <Button variant="outline" size="sm" onClick={resetFilters} className="gap-1">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Filtri
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
