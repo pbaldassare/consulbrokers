@@ -79,7 +79,7 @@ const PortafoglioCaricoPage = () => {
     );
   };
 
-  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroStato, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
+  const { page, setPage, pageSize, range } = useServerPagination(25, [search, filtroPeriodo, isDefaultExtended, filtroTipo, caricoStart, caricoEnd, sortField, sortDirection]);
 
   const applyTipoFilter = (q: any) => {
     if (filtroTipo === "polizze") return q.is("sostituisce_polizza", null);
@@ -87,25 +87,40 @@ const PortafoglioCaricoPage = () => {
     return q;
   };
 
-  const dateColumn = filtroStato === "incassato" ? "data_messa_cassa" : "data_scadenza";
+  const applyPeriodoFilter = (q: any) => {
+    if (filtroPeriodo === "messe_cassa") {
+      return q.eq("stato", "incassato").gte("data_messa_cassa", caricoStart).lte("data_messa_cassa", caricoEnd);
+    }
+    if (filtroPeriodo === "tutte") {
+      // Attive con scadenza ≤ fine mese (include arretrati) OR già messe a cassa nel mese
+      return q.in("stato", ["attivo", "incassato"])
+              .or(`and(stato.eq.attivo,data_scadenza.lte.${caricoEnd}),and(stato.eq.incassato,data_messa_cassa.gte.${caricoStart},data_messa_cassa.lte.${caricoEnd})`);
+    }
+    // mese_corrente: di default include arretrati non a cassa; dopo click utente solo mese stretto
+    if (isDefaultExtended) {
+      return q.eq("stato", "attivo").lte("data_scadenza", caricoEnd);
+    }
+    return q.eq("stato", "attivo").gte("data_scadenza", caricoStart).lte("data_scadenza", caricoEnd);
+  };
+
+  const applySearch = (q: any) =>
+    search ? q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`) : q;
+
+  const orderField = filtroPeriodo === "messe_cassa" ? (sortField === "data_scadenza" ? "data_messa_cassa" : sortField) : sortField;
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["portafoglio-carico", search, filtroStato, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
+    queryKey: ["portafoglio-carico", search, filtroPeriodo, isDefaultExtended, filtroTipo, page, caricoStart, caricoEnd, sortField, sortDirection],
     queryFn: async () => {
       let q = supabase.from("v_portafoglio_titoli").select(
         "id, numero_titolo, compagnia_nome, ramo_nome, cliente_nome_display, cliente_codice, stato, garanzia_da, garanzia_a, data_scadenza, premio_lordo, rate, ae_nome, specialist, produttore_nome, provvigioni_firma, provvigioni_quietanza, targa_telaio, compagnia_id, ramo_id, data_messa_cassa, data_pagamento, data_decorrenza_rinnovo, conferimento_gestito, fondi_ricevuti, sostituisce_polizza",
         { count: "exact" }
-      ).gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
-
-      if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
-      }
-      if (filtroStato === "attivo") q = q.eq("stato", "attivo");
-      if (filtroStato === "incassato") q = q.eq("stato", "incassato");
+      );
+      q = applyPeriodoFilter(q);
+      q = applySearch(q);
       q = applyTipoFilter(q);
 
       const { data, count } = await q
-        .order(sortField, { ascending: sortDirection === "asc" })
+        .order(orderField, { ascending: sortDirection === "asc" })
         .range(range.from, range.to);
       return { data: data || [], count: count || 0 };
     },
@@ -115,16 +130,11 @@ const PortafoglioCaricoPage = () => {
   const totalCount = result?.count || 0;
 
   const { data: totaleData } = useQuery({
-    queryKey: ["portafoglio-carico-totale", search, filtroStato, caricoStart, caricoEnd],
+    queryKey: ["portafoglio-carico-totale", search, filtroPeriodo, isDefaultExtended, caricoStart, caricoEnd],
     queryFn: async () => {
-      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza")
-        .gte(dateColumn, caricoStart).lte(dateColumn, caricoEnd).in("stato", ["attivo", "incassato"]);
-      if (search) {
-        q = q.or(`numero_titolo.ilike.%${search}%,cliente_nome_display.ilike.%${search}%,cliente_codice.ilike.%${search}%,targa_telaio.ilike.%${search}%`);
-      }
-
-      if (filtroStato === "attivo") q = q.eq("stato", "attivo");
-      if (filtroStato === "incassato") q = q.eq("stato", "incassato");
+      let q = supabase.from("v_portafoglio_titoli").select("premio_lordo, sostituisce_polizza");
+      q = applyPeriodoFilter(q);
+      q = applySearch(q);
       const { data } = await q;
       const rows = (data || []);
       const sumAll = rows.reduce((s, r) => s + (Number(r.premio_lordo) || 0), 0);
