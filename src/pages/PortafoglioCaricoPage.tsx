@@ -39,12 +39,12 @@ const PortafoglioCaricoPage = () => {
     const p = searchParams.get("periodo");
     return p === "mese_corrente" || p === "messe_cassa" || p === "tutte" ? p : "mese_corrente";
   })();
-  // userTouched=false + filtroPeriodo="mese_corrente" → comportamento esteso (mese corrente + arretrati non a cassa)
   const [filtroPeriodo, setFiltroPeriodo] = useState<Periodo>(initialPeriodo);
   const [userTouched, setUserTouched] = useState<boolean>(!!searchParams.get("periodo"));
-  const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente";
+  const [dateDa, setDateDa] = useState<string>(searchParams.get("dal") || "");
+  const [dateA, setDateA] = useState<string>(searchParams.get("al") || "");
+  const isDefaultExtended = !userTouched && filtroPeriodo === "mese_corrente" && !dateDa && !dateA;
   const [filtroTipo, setFiltroTipo] = useState<"tutti" | "polizze" | "quietanze">("tutti");
-  const [caricoDate, setCaricoDate] = useState(new Date());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -52,10 +52,34 @@ const PortafoglioCaricoPage = () => {
   const [cassaDialogOpen, setCassaDialogOpen] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
-  // Carico del mese X = polizze con data_scadenza nel mese X stesso (mese corrente di navigazione)
-  const scadenzaDate = caricoDate;
-  const caricoStart = format(startOfMonth(scadenzaDate), "yyyy-MM-dd");
-  const caricoEnd = format(endOfMonth(scadenzaDate), "yyyy-MM-dd");
+  const hasActiveFilters = !!dateDa || !!dateA || !!search || filtroPeriodo !== "mese_corrente" || userTouched || filtroTipo !== "tutti";
+
+  const updateUrl = (next: { periodo?: Periodo | null; dal?: string | null; al?: string | null }) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next.periodo !== undefined) {
+      if (next.periodo) sp.set("periodo", next.periodo); else sp.delete("periodo");
+    }
+    if (next.dal !== undefined) {
+      if (next.dal) sp.set("dal", next.dal); else sp.delete("dal");
+    }
+    if (next.al !== undefined) {
+      if (next.al) sp.set("al", next.al); else sp.delete("al");
+    }
+    setSearchParams(sp, { replace: true });
+  };
+
+  const resetFilters = () => {
+    setDateDa("");
+    setDateA("");
+    setSearch("");
+    setFiltroPeriodo("mese_corrente");
+    setUserTouched(false);
+    setFiltroTipo("tutti");
+    setPage(0);
+    const sp = new URLSearchParams(searchParams);
+    sp.delete("periodo"); sp.delete("dal"); sp.delete("al");
+    setSearchParams(sp, { replace: true });
+  };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
