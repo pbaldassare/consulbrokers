@@ -378,27 +378,26 @@ const PortafoglioCaricoPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Carico</h1>
-          <p className="text-sm text-muted-foreground">
-            {filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa a" : "Polizze in scadenza a"}{" "}
-            <span className="capitalize font-medium">{format(scadenzaDate, "MMMM yyyy", { locale: it })}</span>
-            {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => subMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[140px] text-center capitalize">
-            {format(caricoDate, "MMMM yyyy", { locale: it })}
-          </span>
-          <Button variant="outline" size="icon" onClick={() => { setCaricoDate(d => addMonths(d, 1)); setPage(0); setSelectedIds(new Set()); }}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Carico</h1>
+        <p className="text-sm text-muted-foreground">
+          {(() => {
+            const labelBase = filtroPeriodo === "messe_cassa" ? "Polizze messe a cassa" : "Polizze in scadenza";
+            if (!dateDa && !dateA) {
+              return (
+                <>
+                  {filtroPeriodo === "messe_cassa" ? "Tutte le polizze messe a cassa" : "Tutte le polizze"}
+                  {isDefaultExtended && <span className="ml-2 text-xs text-primary">· inclusi arretrati non a cassa</span>}
+                </>
+              );
+            }
+            const da = dateDa ? format(new Date(dateDa), "dd/MM/yyyy") : null;
+            const a = dateA ? format(new Date(dateA), "dd/MM/yyyy") : null;
+            if (da && a) return `${labelBase} dal ${da} al ${a}`;
+            if (da) return `${labelBase} dal ${da}`;
+            return `${labelBase} fino al ${a}`;
+          })()}
+        </p>
       </div>
 
       {/* Bulk action buttons */}
