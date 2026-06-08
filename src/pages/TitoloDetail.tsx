@@ -1441,7 +1441,7 @@ const TitoloDetail = () => {
   return (
     <div className="space-y-4 max-w-5xl">
       {/* Header — sticky sotto la topbar globale */}
-      <TitoloHeaderBar t={t} onBack={() => navigate("/portafoglio/carico")} />
+      <TitoloHeaderBar t={t} onBack={() => t.cliente_anagrafica?.id ? navigate(`/archivi/clienti/${t.cliente_anagrafica.id}`) : navigate("/portafoglio/carico")} />
 
 
       {/* Banner di blocco + banner scope quietanza */}
