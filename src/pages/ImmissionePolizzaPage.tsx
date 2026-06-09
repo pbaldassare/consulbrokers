@@ -1291,8 +1291,9 @@ const ImmissionePolizzaPage = () => {
         prodotto_nome: prodottoNome || null,
         cliente_anagrafica_id: selectedClienteId || null,
         
-        cig_rif: cigRif ? normalizeCig(cigRif) : null,
-        cig_temporaneo: cigTemporaneo,
+        // CIG solo per Enti: per Privati/Aziende lo forziamo a null per non lasciare residui se l'utente cambia cliente
+        cig_rif: tipoSoggetto === "ente" && cigRif ? normalizeCig(cigRif) : null,
+        cig_temporaneo: tipoSoggetto === "ente" ? cigTemporaneo : false,
         vincolo: vincolo || null,
         targa_telaio: targaTelaio || null,
         descrizione_polizza: descrizionePolizza || null,
@@ -1890,34 +1891,36 @@ const ImmissionePolizzaPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              CIG/Rif. {cigObbligatorio && <span className="text-destructive" title="Obbligatorio per Enti">*</span>}
-            </Label>
-            <Input
-              value={cigRif}
-              onChange={(e) => setCigRif(e.target.value.toUpperCase())}
-              maxLength={cigTemporaneo ? 40 : 10}
-              placeholder={cigTemporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
-              className={`h-8 text-xs font-mono ${((cigObbligatorio && !cigRif.trim()) || (cigRif.trim() && !cigValido)) ? "border-destructive focus-visible:ring-destructive" : ""}`}
-              title={cigObbligatorio ? "Obbligatorio per clienti di tipo Ente" : "Opzionale"}
-            />
-            <div className="flex items-center gap-2 mt-1">
-              <Checkbox
-                id="cig-temp"
-                checked={cigTemporaneo}
-                onCheckedChange={(v) => setCigTemporaneo(!!v)}
-              />
-              <Label htmlFor="cig-temp" className="text-[10px] cursor-pointer">
-                CIG temporaneo (formato libero)
+          {tipoSoggetto === "ente" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1">
+                CIG/Rif. <span className="text-destructive" title="Obbligatorio per Enti">*</span>
               </Label>
+              <Input
+                value={cigRif}
+                onChange={(e) => setCigRif(e.target.value.toUpperCase())}
+                maxLength={cigTemporaneo ? 40 : 10}
+                placeholder={cigTemporaneo ? "CIG temporaneo" : "10 caratteri alfanumerici"}
+                className={`h-8 text-xs font-mono ${((!cigRif.trim()) || (cigRif.trim() && !cigValido)) ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                title="Obbligatorio per clienti di tipo Ente"
+              />
+              <div className="flex items-center gap-2 mt-1">
+                <Checkbox
+                  id="cig-temp"
+                  checked={cigTemporaneo}
+                  onCheckedChange={(v) => setCigTemporaneo(!!v)}
+                />
+                <Label htmlFor="cig-temp" className="text-[10px] cursor-pointer">
+                  CIG temporaneo (formato libero)
+                </Label>
+              </div>
+              {!cigRif.trim() ? (
+                <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
+              ) : cigRif.trim() && !cigValido ? (
+                <p className="text-[10px] text-destructive mt-0.5">CIG: 10 caratteri alfanumerici</p>
+              ) : null}
             </div>
-            {cigObbligatorio && !cigRif.trim() ? (
-              <p className="text-[10px] text-destructive mt-0.5">Obbligatorio per Enti</p>
-            ) : cigRif.trim() && !cigValido ? (
-              <p className="text-[10px] text-destructive mt-0.5">CIG: 10 caratteri alfanumerici</p>
-            ) : null}
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs">Vincolo</Label>

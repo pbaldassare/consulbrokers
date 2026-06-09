@@ -154,7 +154,7 @@ const TitoloDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("titoli")
-        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
+        .select("*, prodotti(nome_prodotto, compagnie(nome)), uffici(nome_ufficio), produttore:profiles!titoli_produttore_id_fkey(nome, cognome, ruolo), cliente:profiles!titoli_cliente_id_fkey(nome, cognome), cliente_anagrafica:clienti!titoli_cliente_anagrafica_id_fkey(id, tipo_cliente, nome, cognome, ragione_sociale, attivita, gruppo_statistico, gruppo_finanziario_id, gruppi_finanziari(nome, tipo_soggetto)), compagnia_diretta:compagnie!titoli_compagnia_id_fkey(id, nome, codice, gruppo_compagnia, gruppi_compagnia:gruppo_compagnia_id(descrizione)), ramo:rami!titoli_ramo_id_fkey(id, codice, descrizione, aliquota_tasse_ramo, aliquota_tasse_ard, gruppo_ramo_id, gruppo_ramo:gruppi_ramo!rami_gruppo_ramo_id_fkey(id, codice, descrizione)), commerciale:profiles!titoli_commerciale_id_fkey(nome, cognome, ruolo), anagrafica_commerciale:anagrafiche_professionali!titoli_anagrafica_commerciale_id_fkey(id, ragione_sociale, nome, cognome)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -2027,7 +2027,9 @@ const TitoloDetail = () => {
             )}
             <FieldRow label="Produttore" value={fmt(t.produttore_nome || (t.produttore ? `${t.produttore.nome || ""} ${t.produttore.cognome || ""}`.trim() : ""))} />
             <FieldRow label="Ufficio" value={fmt(t.uffici?.nome_ufficio)} />
-            <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
+            {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
+              <FieldRow label="CIG/Rif." value={fmt(t.cig_rif)} />
+            )}
             <FieldRow label="Vincolo" value={t.vincolo_attivo ? "Sì" : "No"} />
             {t.descrizione_polizza && <div className="col-span-full"><FieldRow label="Descrizione" value={t.descrizione_polizza} /></div>}
           </div>
@@ -2134,14 +2136,16 @@ const TitoloDetail = () => {
               />
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">CIG/Rif.</Label>
-              <Input
-                value={contrattoForm.cig_rif}
-                onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value }))}
-                maxLength={100}
-              />
-            </div>
+            {(t.cliente_anagrafica?.gruppi_finanziari?.tipo_soggetto === "ente" || t.cliente_anagrafica?.tipo_cliente === "ente") && (
+              <div className="space-y-1">
+                <Label className="text-xs">CIG/Rif.</Label>
+                <Input
+                  value={contrattoForm.cig_rif}
+                  onChange={(e) => setContrattoForm(p => ({ ...p, cig_rif: e.target.value }))}
+                  maxLength={100}
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label className="text-xs">Vincolo</Label>
