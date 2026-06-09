@@ -1,12 +1,23 @@
-## Fix "Rendered more hooks" crash in ClienteDetail
+## Rapporti N:N duplicati nel dialog "Agenzie collegate"
 
-Causa: il `useEffect` di auto-CF è stato inserito **dopo** l'early return `if (!cliente) return null;` (riga 1627). Al primo render `cliente` è `undefined` → l'effect non viene mai registrato; quando i dati arrivano viene aggiunto un hook in più rispetto al render precedente → React crash.
+Causa: la tabella `compagnia_rapporti` contiene 17 righe in cui `compagnia_id` punta a un'agenzia che **appartiene già allo stesso `gruppo_compagnia_id` del rapporto**. Sono rapporti "auto-referenziali" verso la stessa Compagnia principale → vengono mostrati sia nella sezione "Agenzie principali (1:N)" sia nei "Rapporti aggiuntivi N:N". Per definizione, una plurimandataria è un'agenzia di un **altro** gruppo data in gestione.
 
-### Fix
-File: `src/pages/ClienteDetail.tsx`
-- Spostare il blocco `useEffect([ef.codice_fiscale, isPrivato, editMode])` (righe ~1680-1689) **prima** del `if (!cliente) return null;` (riga 1627). 
-- All'interno dell'effect aggiungere una guard `if (!cliente) return;` così resta inerte finché il cliente non è caricato.
-- `handleCFAutoFill` può restare dov'è (non è un hook), ma per evitare TDZ verrà richiamato dentro l'effect usando una ref/funzione locale equivalente: spostiamo `handleCFAutoFill` insieme all'effect sopra l'early return.
+### Pulizia dati
+Migrazione one-shot:
+```sql
+DELETE FROM public.compagnia_rapporti cr
+USING public.compagnie c
+WHERE c.id = cr.compagnia_id
+  AND c.gruppo_compagnia_id = cr.gruppo_compagnia_id;
+```
+(17 righe eliminate, incluse le 2 di GENERALI ITALIA mostrate.)
+
+### Prevenzione futura
+Trigger BEFORE INSERT/UPDATE su `compagnia_rapporti` che blocca l'inserimento se `compagnia.gruppo_compagnia_id = NEW.gruppo_compagnia_id`, con messaggio chiaro ("Un'agenzia non può avere un rapporto N:N con la propria Compagnia di appartenenza").
+
+### Guardia frontend (difesa in profondità)
+In `src/pages/CompagnieList.tsx` (query `rapporti-per-gruppo`, riga ~850) aggiungere un filtro post-fetch che esclude i record dove `compagnie.gruppo_compagnia_id === gruppoId`. Stesso filtro nella query di conteggio `compagnia_rapporti_counts` (riga ~1400) se conta queste righe.
 
 ### File toccati
-- `src/pages/ClienteDetail.tsx` — riordino di ~25 righe, nessuna modifica funzionale.
+- 1 migrazione SQL (DELETE + trigger)
+- `src/pages/CompagnieList.tsx` — filtro client su 2 query

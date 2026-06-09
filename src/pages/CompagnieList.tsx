@@ -853,12 +853,13 @@ function AgenzieCollegateDialog({
       if (!gruppoId) return [];
       const { data, error } = await supabase
         .from("compagnia_rapporti")
-        .select("id, codice_rapporto, tipo_rapporto, rami_abilitati, data_inizio, data_fine, attivo, percentuale_provvigione, compagnia_id, compagnie:compagnia_id(id, codice, nome, nome_sede)")
+        .select("id, codice_rapporto, tipo_rapporto, rami_abilitati, data_inizio, data_fine, attivo, percentuale_provvigione, compagnia_id, compagnie:compagnia_id(id, codice, nome, nome_sede, gruppo_compagnia_id)")
         .eq("gruppo_compagnia_id", gruppoId)
         .order("attivo", { ascending: false })
         .order("data_inizio", { ascending: false });
       if (error) throw error;
-      return data || [];
+      // Difesa in profondità: escludi rapporti che puntano ad agenzie dello stesso gruppo principale
+      return (data || []).filter((r: any) => r.compagnie?.gruppo_compagnia_id !== gruppoId);
     },
     enabled: !!gruppoId && open,
   });
