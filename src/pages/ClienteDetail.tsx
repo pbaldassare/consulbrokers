@@ -2157,6 +2157,7 @@ export default function ClienteDetail() {
                   { value: "sig", label: "Sig." }, { value: "sig.ra", label: "Sig.ra" },
                   { value: "dott", label: "Dott." }, { value: "dott.ssa", label: "Dott.ssa" },
                   { value: "ing", label: "Ing." }, { value: "avv", label: "Avv." },
+                  { value: "spett", label: "Spett.le" },
                 ]} />
                 <FieldSelect label="Stato" field="stato_cliente" options={[
                   { value: "attivo", label: "Attivo" }, { value: "sospeso", label: "Sospeso" }, { value: "non_operativo", label: "Non Operativo" },
