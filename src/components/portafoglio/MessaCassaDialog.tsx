@@ -9,13 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-
-const bancheItaliane = [
-  "Intesa Sanpaolo", "UniCredit", "BNL - BNP Paribas", "BPER Banca", "Banco BPM",
-  "Monte dei Paschi di Siena", "Crédit Agricole Italia", "Poste Italiane",
-  "Banca Mediolanum", "Banca Sella", "Fineco Bank", "CheBanca!", "ING Italia",
-  "Deutsche Bank Italia", "Banca Popolare di Sondrio", "Altro",
-];
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 interface TitoloMin {
   id: string;
