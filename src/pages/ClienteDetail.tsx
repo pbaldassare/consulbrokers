@@ -1477,11 +1477,14 @@ export default function ClienteDetail() {
       if (missing.length > 0) {
         throw new Error("Campi obbligatori mancanti: " + missing.map((m) => m.label).join(", "));
       }
-      assertFiscalValid([
-        { label: "Codice Fiscale", value: editFields.codice_fiscale, kind: "cf16" },
-        { label: "Partita IVA", value: editFields.partita_iva, kind: "piva" },
-        { label: "Codice Fiscale Azienda", value: editFields.codice_fiscale_azienda, kind: "cf-azienda" },
-      ]);
+      assertFiscalValid(
+        isPrivato
+          ? [{ label: "Codice Fiscale", value: editFields.codice_fiscale, kind: "cf16" }]
+          : [
+              { label: "Partita IVA", value: editFields.partita_iva, kind: "piva" },
+              { label: "Codice Fiscale Azienda", value: editFields.codice_fiscale_azienda, kind: "cf-azienda" },
+            ]
+      );
       const {
         id: _id, created_at, updated_at, user_id, ...rest
       } = editFields;
