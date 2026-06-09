@@ -150,13 +150,15 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           </div>
           {form.tipoPagamento === "bonifico" && (
             <div>
-              <Label className="text-xs">Banca</Label>
-              <Select value={form.banca} onValueChange={(v) => setForm(f => ({ ...f, banca: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
-                <SelectContent>
-                  {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Conto Consulbrokers</Label>
+              <ContoBancarioSelect
+                tipi={["generico"]}
+                value={form.banca || null}
+                onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
+                placeholder="Cerca conto..."
+                showPreview
+                className="mt-1"
+              />
             </div>
           )}
           {isMulti && (
