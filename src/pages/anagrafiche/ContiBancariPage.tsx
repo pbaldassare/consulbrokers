@@ -326,7 +326,7 @@ export default function ContiBancariPage() {
     ) : null;
 
   const formatRapportoLabel = (r: any) =>
-    `${r.gruppo_compagnia?.descrizione || "Compagnia"} · ${r.codice_mandato || "—"}`;
+    `${r.gruppo_compagnia?.descrizione || "Compagnia"} · ${r.codice_rapporto || "—"}`;
 
   return (
     <div className="space-y-6">
