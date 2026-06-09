@@ -9,13 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import { logAttivita } from "@/lib/logAttivita";
-
-const bancheItaliane = [
-  "Intesa Sanpaolo", "UniCredit", "BNL - BNP Paribas", "BPER Banca", "Banco BPM",
-  "Monte dei Paschi di Siena", "Crédit Agricole Italia", "Poste Italiane",
-  "Banca Mediolanum", "Banca Sella", "Fineco Bank", "CheBanca!", "ING Italia",
-  "Deutsche Bank Italia", "Banca Popolare di Sondrio", "Altro",
-];
+import ContoBancarioSelect from "@/components/anagrafiche/ContoBancarioSelect";
 
 interface TitoloMin {
   id: string;
@@ -72,8 +66,14 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         importo_incassato: t.premio_lordo ?? null,
         updated_at: new Date().toISOString(),
       };
+      let bancaLabel: string | null = null;
       if (form.tipoPagamento === "bonifico" && form.banca) {
-        payload.banca_pagamento = form.banca;
+        const { data: conto } = await (supabase.from("conti_bancari") as any)
+          .select("etichetta, banca, iban")
+          .eq("id", form.banca)
+          .maybeSingle();
+        bancaLabel = conto?.etichetta || conto?.banca || form.banca;
+        payload.banca_pagamento = bancaLabel;
       }
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) {
@@ -156,13 +156,15 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
           </div>
           {form.tipoPagamento === "bonifico" && (
             <div>
-              <Label className="text-xs">Banca</Label>
-              <Select value={form.banca} onValueChange={(v) => setForm(f => ({ ...f, banca: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Seleziona banca..." /></SelectTrigger>
-                <SelectContent>
-                  {bancheItaliane.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Conto Consulbrokers</Label>
+              <ContoBancarioSelect
+                tipi={["generico"]}
+                value={form.banca || null}
+                onChange={(id) => setForm(f => ({ ...f, banca: id || "" }))}
+                placeholder="Cerca conto..."
+                showPreview
+                className="mt-1"
+              />
             </div>
           )}
           {isMulti && (
