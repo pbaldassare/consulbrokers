@@ -161,7 +161,7 @@ export default function ContiBancariPage() {
   const { data: result, isLoading } = useQuery({
     queryKey: ["conti_bancari_admin", categoria, search, page, soloAttivi],
     queryFn: async () => {
-      let q = supabase.from("conti_bancari").select("*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti!conti_bancari_rapporto_id_fkey(id,codice_mandato,gruppo_compagnia:gruppi_compagnia(descrizione))", { count: "exact" });
+      let q = supabase.from("conti_bancari").select("*, compagnia:compagnie!conti_bancari_compagnia_id_fkey(id,nome,codice,tipo), rapporto:compagnia_rapporti!conti_bancari_rapporto_id_fkey(id,codice_rapporto,gruppo_compagnia:gruppi_compagnia(descrizione))", { count: "exact" });
       if (tipiCorrenti) q = q.in("tipo", tipiCorrenti);
       if (soloAttivi) q = q.eq("attivo", true);
       if (search) {
@@ -211,10 +211,10 @@ export default function ContiBancariPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnia_rapporti")
-        .select("id, codice_mandato, attivo, gruppo_compagnia:gruppi_compagnia(descrizione)")
+        .select("id, codice_rapporto, attivo, gruppo_compagnia:gruppi_compagnia(descrizione)")
         .eq("compagnia_id", form.compagnia_id!)
         .eq("attivo", true)
-        .order("codice_mandato");
+        .order("codice_rapporto");
       return (data || []);
     },
   });
@@ -326,7 +326,7 @@ export default function ContiBancariPage() {
     ) : null;
 
   const formatRapportoLabel = (r: any) =>
-    `${r.gruppo_compagnia?.descrizione || "Compagnia"} · ${r.codice_mandato || "—"}`;
+    `${r.gruppo_compagnia?.descrizione || "Compagnia"} · ${r.codice_rapporto || "—"}`;
 
   return (
     <div className="space-y-6">
