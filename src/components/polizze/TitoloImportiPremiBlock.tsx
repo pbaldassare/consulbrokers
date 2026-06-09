@@ -8,6 +8,13 @@ import {
   emptyGaranziaRow,
   type GaranziaRow,
 } from "./PremiGaranziaCardShell";
+import {
+  syncQuietanzaFromFirma,
+  markQuietanzaEdits,
+  mirrorAllFromFirma,
+  resetQuietanzaRow,
+  isQuietanzaSincronizzata,
+} from "./premiSync";
 
 /**
  * Sezione "Composizione Premio" (Firma + Quietanza) per TitoloDetail.
@@ -43,6 +50,7 @@ type DbPremio = {
   aliquota_tasse_pct: number | null;
   ssn: number | null;
   ordine: number | null;
+  quietanza_personalizzata: boolean | null;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -79,7 +87,7 @@ export function TitoloImportiPremiBlock({
     queryFn: async () => {
       const { data } = await supabase
         .from("premi_garanzia_polizza")
-        .select("id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, aliquota_tasse_pct, ssn, ordine")
+        .select("id, titolo_id, tipo_premio, garanzia, codice_garanzia, firma, rata, aliquota_tasse_pct, ssn, ordine, quietanza_personalizzata")
         .eq("titolo_id", titoloId)
         .order("ordine");
       return (data as DbPremio[]) || [];
@@ -116,6 +124,7 @@ export function TitoloImportiPremiBlock({
       aliquotaSsn,
       ssnAttivo,
       ssnManualOverride,
+      quietanzaPersonalizzata: p.tipo_premio === "quietanza" ? !!p.quietanza_personalizzata : undefined,
     };
   };
 
@@ -130,13 +139,20 @@ export function TitoloImportiPremiBlock({
     const qRaw = (premi as DbPremio[]).filter((p) => p.tipo_premio === "quietanza");
     const snap = JSON.stringify({
       f: fRaw.map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.firma, t: p.aliquota_tasse_pct, s: p.ssn })),
-      q: qRaw.map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.rata, t: p.aliquota_tasse_pct, s: p.ssn })),
+      q: qRaw.map((p) => ({ id: p.id, c: p.codice_garanzia, n: p.rata, t: p.aliquota_tasse_pct, s: p.ssn, pz: p.quietanza_personalizzata })),
       cat: catalogo.length,
     });
     if (snap === lastSnapRef.current) return;
     lastSnapRef.current = snap;
-    setFirmaRows(fRaw.length ? fRaw.map(toGaranziaRow) : [emptyGaranziaRow()]);
-    setQuietanzaRows(qRaw.length ? qRaw.map(toGaranziaRow) : [emptyGaranziaRow()]);
+    const firmaMapped = fRaw.length ? fRaw.map(toGaranziaRow) : [emptyGaranziaRow()];
+    // Se non esistono righe Quietanza salvate, parte come specchio della Firma.
+    const quietanzaMapped = qRaw.length
+      ? qRaw.map(toGaranziaRow)
+      : fRaw.length
+        ? mirrorAllFromFirma(firmaMapped)
+        : [emptyGaranziaRow()];
+    setFirmaRows(firmaMapped);
+    setQuietanzaRows(quietanzaMapped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [premi, catalogo]);
 
@@ -160,7 +176,7 @@ export function TitoloImportiPremiBlock({
       ordine: idx,
       aliquota_tasse_pct: r.aliquotaTasse || null,
       ssn: parseFloat(r.ssn || "0") || 0,
-      ...(tipo === "quietanza" ? { quietanza_personalizzata: true } : {}),
+      ...(tipo === "quietanza" ? { quietanza_personalizzata: !!r.quietanzaPersonalizzata } : {}),
     }));
 
     const { error: delErr } = await supabase
@@ -213,10 +229,38 @@ export function TitoloImportiPremiBlock({
   const onFirmaChange = (next: GaranziaRow[]) => {
     setFirmaRows(next);
     if (!isLocked) scheduleSave("firma", next);
+
+    // Sincronizzazione automatica Firma → Quietanza: le righe Quietanza non
+    // personalizzate rispecchiano la Firma in tempo reale.
+    const syncedQuietanza = syncQuietanzaFromFirma(next, quietanzaRows);
+    setQuietanzaRows(syncedQuietanza);
+    if (!isLocked && JSON.stringify(syncedQuietanza) !== JSON.stringify(quietanzaRows)) {
+      scheduleSave("quietanza", syncedQuietanza);
+    }
   };
+
   const onQuietanzaChange = (next: GaranziaRow[]) => {
-    setQuietanzaRows(next);
-    if (!isLocked) scheduleSave("quietanza", next);
+    // Ogni voce Quietanza modificata a mano diventa "personalizzata" e si
+    // scollega dalla sincronizzazione automatica con la Firma.
+    const marked = markQuietanzaEdits(quietanzaRows, next);
+    setQuietanzaRows(marked);
+    if (!isLocked) scheduleSave("quietanza", marked);
+  };
+
+  // Riallinea l'intera Quietanza alla Firma azzerando ogni personalizzazione.
+  const resyncAllFromFirma = () => {
+    if (isLocked) return;
+    const mirrored = mirrorAllFromFirma(firmaRows);
+    setQuietanzaRows(mirrored);
+    scheduleSave("quietanza", mirrored);
+  };
+
+  // Riallinea una singola voce Quietanza alla Firma corrispondente.
+  const resyncRowFromFirma = (idx: number) => {
+    if (isLocked) return;
+    const updated = resetQuietanzaRow(firmaRows, quietanzaRows, idx);
+    setQuietanzaRows(updated);
+    scheduleSave("quietanza", updated);
   };
 
   const onAddizionaliFirma = async (v: string) => {
@@ -267,21 +311,17 @@ export function TitoloImportiPremiBlock({
     ? ((Number(provvigioniQuietanza) / totNettoQui) * 100).toFixed(4)
     : "";
 
-  const sincronizzata =
-    quietanzaRows.length === firmaRows.length &&
-    quietanzaRows.every(
-      (r, i) =>
-        r.netto === firmaRows[i]?.netto &&
-        r.tasse === firmaRows[i]?.tasse &&
-        (r.codice || "") === (firmaRows[i]?.codice || ""),
-    );
+  // Specchio perfetto: nessuna riga Quietanza personalizzata.
+  const sincronizzata = isQuietanzaSincronizzata(quietanzaRows);
+  const personalizzati = quietanzaRows.map((r) => !!r.quietanzaPersonalizzata);
 
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
         ℹ️ Le voci di garanzia disponibili sono filtrate sul <strong>Gruppo Ramo</strong> della polizza
-        ({ramoDescrizione || "—"}). La <strong>Quietanza</strong> è inizialmente uno specchio della
-        <strong> Firma</strong>; ogni voce modificata a mano è considerata personalizzata.
+        ({ramoDescrizione || "—"}). La <strong>Quietanza</strong> si sincronizza <strong>automaticamente</strong> con
+        la <strong>Firma</strong>: ogni voce modificata a mano nella Quietanza diventa
+        <strong> personalizzata</strong> e smette di aggiornarsi (puoi riallinearla con “↻ Sincronizza da Firma”).
       </p>
 
       <PremiGaranziaCardShell
@@ -302,11 +342,10 @@ export function TitoloImportiPremiBlock({
             className="h-7 text-xs"
             disabled={isLocked}
             onClick={() => {
-              const copy = firmaRows.map((r) => ({ ...r }));
-              setQuietanzaRows(copy);
-              scheduleSave("quietanza", copy);
-              toast.success("Firma copiata in Quietanza");
+              resyncAllFromFirma();
+              toast.success("Quietanza riallineata alla Firma");
             }}
+            title="Riallinea l'intera Quietanza alla Firma, azzerando le personalizzazioni"
           >
             Copia in Quietanza
           </Button>
@@ -324,18 +363,17 @@ export function TitoloImportiPremiBlock({
         percentualeAgenzia={pctQui}
         onPercentualeAgenziaChange={onPercentualeAgenziaQuietanza}
         sincronizzata={sincronizzata}
+        personalizzati={personalizzati}
+        onResetRow={resyncRowFromFirma}
         headerExtra={
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-7 text-xs"
-            disabled={isLocked}
-            onClick={() => {
-              const copy = firmaRows.map((r) => ({ ...r }));
-              setQuietanzaRows(copy);
-              scheduleSave("quietanza", copy);
-            }}
+            disabled={isLocked || sincronizzata}
+            onClick={resyncAllFromFirma}
+            title="Riallinea tutte le voci alla Firma, azzerando le personalizzazioni"
           >
             Sincronizza da Firma
           </Button>
