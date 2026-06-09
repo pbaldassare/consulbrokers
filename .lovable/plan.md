@@ -1,15 +1,12 @@
-## Validazione fiscale per tipo cliente
+## Fix "Rendered more hooks" crash in ClienteDetail
 
-Bug: nel cliente Privato compare l'errore "Partita IVA: La P.IVA deve contenere solo cifre" perché il salvataggio valida **sempre** tutti i campi fiscali, anche quelli non pertinenti al tipo cliente (un Privato può avere un valore vecchio/sporco in `partita_iva` o `codice_fiscale_azienda`).
+Causa: il `useEffect` di auto-CF è stato inserito **dopo** l'early return `if (!cliente) return null;` (riga 1627). Al primo render `cliente` è `undefined` → l'effect non viene mai registrato; quando i dati arrivano viene aggiunto un hook in più rispetto al render precedente → React crash.
 
 ### Fix
-File: `src/pages/ClienteDetail.tsx` (riga ~1480, dentro `saveDetailsMutation`).
-
-Sostituire la chiamata `assertFiscalValid([...])` con una versione gated per tipologia:
-- Se **privato** → valida solo `codice_fiscale` (cf16).
-- Se **azienda/ente** → valida `partita_iva` (piva) e `codice_fiscale_azienda` (cf-azienda).
-
-Così nel Privato la P.IVA residua non blocca più il salvataggio; viceversa nei soggetti business resta protetta.
+File: `src/pages/ClienteDetail.tsx`
+- Spostare il blocco `useEffect([ef.codice_fiscale, isPrivato, editMode])` (righe ~1680-1689) **prima** del `if (!cliente) return null;` (riga 1627). 
+- All'interno dell'effect aggiungere una guard `if (!cliente) return;` così resta inerte finché il cliente non è caricato.
+- `handleCFAutoFill` può restare dov'è (non è un hook), ma per evitare TDZ verrà richiamato dentro l'effect usando una ref/funzione locale equivalente: spostiamo `handleCFAutoFill` insieme all'effect sopra l'early return.
 
 ### File toccati
-- `src/pages/ClienteDetail.tsx` — ~5 righe nel mutationFn
+- `src/pages/ClienteDetail.tsx` — riordino di ~25 righe, nessuna modifica funzionale.
