@@ -859,6 +859,7 @@ export function NuovoClienteDialog({ trigger, onCreated, controlledOpen, onOpenC
                           <SelectItem value="prof">Prof.</SelectItem>
                           <SelectItem value="rag">Rag.</SelectItem>
                           <SelectItem value="geom">Geom.</SelectItem>
+                          <SelectItem value="spett">Spett.le</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
