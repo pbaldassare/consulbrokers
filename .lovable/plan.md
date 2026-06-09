@@ -1,23 +1,15 @@
-## Fix di 3 bug
+## Auto-compilazione CF in ClienteDetail (anagrafica)
 
-### 1. Aggiungere "Spett.le" alla select Titolo
-- `src/pages/ClienteDetail.tsx` (riga 2156): aggiungere `{ value: "spett", label: "Spett.le" }` all'array opzioni `Titolo`.
-- `src/components/clienti/NuovoClienteDialog.tsx` (riga 853): aggiungere `<SelectItem value="spett">Spett.le</SelectItem>`.
+Oggi nella scheda cliente esiste solo il pulsante "Compila da CF". Lo replico come trigger **automatico** (stesso comportamento del modal "Nuovo Cliente"): appena il CF privato raggiunge 16 caratteri validi, vengono valorizzati `sesso`, `data_nascita`, `comune_nascita`, `provincia_nascita`, `luogo_nascita`.
 
-### 2. Stato cliente = "attivo" di default se ha almeno 1 polizza/quietanza
-Migrazione SQL una-tantum + futura coerenza:
-- Backfill: `UPDATE public.clienti SET stato_cliente = 'attivo' WHERE (stato_cliente IS NULL OR stato_cliente = '') AND EXISTS (SELECT 1 FROM public.titoli t WHERE t.cliente_id = clienti.id);`
-- Trigger DB su INSERT di `titoli`: se il cliente collegato ha `stato_cliente` NULL/vuoto, lo imposta a `'attivo'`. Così ogni nuova polizza/quietanza inserita garantisce lo stato.
+### Modifica
+File: `src/pages/ClienteDetail.tsx`
+- Aggiungere un `useEffect` che osserva `ef.codice_fiscale` quando `isPrivato && editMode`:
+  - Se lunghezza === 16 e `parseCF` restituisce un risultato valido e `lastAutoFilledCFRef.current !== cf`, chiama `handleCFAutoFill(cf)`.
+- `handleCFAutoFill` esiste già e fa anche `toast.info` la prima volta — viene riusato così com'è.
+- Il pulsante "Compila da CF" resta per chi vuole ri-forzare il refill manualmente.
 
-### 3. AddressAutocomplete: non riaprire suggerimenti su valore esistente
-In `src/components/AddressAutocomplete.tsx`:
-- Inizializzare `suppressPredictionsRef.current = true` (default suppress ON al mount).
-- Sbloccare i suggerimenti **solo** quando l'utente digita davvero nell'input (dentro `handleInputChange`, già presente — corretto).
-- Aggiungere `onFocus` che NON forza l'apertura se l'utente non sta digitando: rimuovere il `onFocus={() => predictions.length > 0 && setOpen(true)}` perché basta digitare per riaprire. Mantenere chiusura su blur.
-- Effetto: caricando una pagina con indirizzo già valorizzato (es. `Via Michelangelo, 71`) non comparirà la dropdown di indirizzi simili; comparirà solo quando l'utente clicca/cursore e modifica il testo.
+Effetto: digitando/incollando un CF in scheda cliente, data di nascita, sesso e luogo vengono ricavati subito, senza dover cliccare il bottone.
 
 ### File toccati
-- `src/pages/ClienteDetail.tsx` — 1 riga
-- `src/components/clienti/NuovoClienteDialog.tsx` — 1 riga
-- `src/components/AddressAutocomplete.tsx` — 2 piccole modifiche (init ref + rimozione apertura on focus)
-- 1 migrazione SQL (backfill + trigger su `titoli`)
+- `src/pages/ClienteDetail.tsx` — aggiunta di un `useEffect` (~5 righe)
