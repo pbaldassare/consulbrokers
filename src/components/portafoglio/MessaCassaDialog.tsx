@@ -66,8 +66,14 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
         importo_incassato: t.premio_lordo ?? null,
         updated_at: new Date().toISOString(),
       };
+      let bancaLabel: string | null = null;
       if (form.tipoPagamento === "bonifico" && form.banca) {
-        payload.banca_pagamento = form.banca;
+        const { data: conto } = await (supabase.from("conti_bancari") as any)
+          .select("etichetta, banca, iban")
+          .eq("id", form.banca)
+          .maybeSingle();
+        bancaLabel = conto?.etichetta || conto?.banca || form.banca;
+        payload.banca_pagamento = bancaLabel;
       }
       const { error } = await (supabase.from("titoli") as any).update(payload).eq("id", t.id);
       if (error) {
