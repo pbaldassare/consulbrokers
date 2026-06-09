@@ -211,10 +211,10 @@ export default function ContiBancariPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("compagnia_rapporti")
-        .select("id, codice_mandato, attivo, gruppo_compagnia:gruppi_compagnia(descrizione)")
+        .select("id, codice_rapporto, attivo, gruppo_compagnia:gruppi_compagnia(descrizione)")
         .eq("compagnia_id", form.compagnia_id!)
         .eq("attivo", true)
-        .order("codice_mandato");
+        .order("codice_rapporto");
       return (data || []);
     },
   });
