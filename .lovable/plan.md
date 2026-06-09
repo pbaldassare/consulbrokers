@@ -1,15 +1,15 @@
-## Auto-compilazione CF in ClienteDetail (anagrafica)
+## Validazione fiscale per tipo cliente
 
-Oggi nella scheda cliente esiste solo il pulsante "Compila da CF". Lo replico come trigger **automatico** (stesso comportamento del modal "Nuovo Cliente"): appena il CF privato raggiunge 16 caratteri validi, vengono valorizzati `sesso`, `data_nascita`, `comune_nascita`, `provincia_nascita`, `luogo_nascita`.
+Bug: nel cliente Privato compare l'errore "Partita IVA: La P.IVA deve contenere solo cifre" perché il salvataggio valida **sempre** tutti i campi fiscali, anche quelli non pertinenti al tipo cliente (un Privato può avere un valore vecchio/sporco in `partita_iva` o `codice_fiscale_azienda`).
 
-### Modifica
-File: `src/pages/ClienteDetail.tsx`
-- Aggiungere un `useEffect` che osserva `ef.codice_fiscale` quando `isPrivato && editMode`:
-  - Se lunghezza === 16 e `parseCF` restituisce un risultato valido e `lastAutoFilledCFRef.current !== cf`, chiama `handleCFAutoFill(cf)`.
-- `handleCFAutoFill` esiste già e fa anche `toast.info` la prima volta — viene riusato così com'è.
-- Il pulsante "Compila da CF" resta per chi vuole ri-forzare il refill manualmente.
+### Fix
+File: `src/pages/ClienteDetail.tsx` (riga ~1480, dentro `saveDetailsMutation`).
 
-Effetto: digitando/incollando un CF in scheda cliente, data di nascita, sesso e luogo vengono ricavati subito, senza dover cliccare il bottone.
+Sostituire la chiamata `assertFiscalValid([...])` con una versione gated per tipologia:
+- Se **privato** → valida solo `codice_fiscale` (cf16).
+- Se **azienda/ente** → valida `partita_iva` (piva) e `codice_fiscale_azienda` (cf-azienda).
+
+Così nel Privato la P.IVA residua non blocca più il salvataggio; viceversa nei soggetti business resta protetta.
 
 ### File toccati
-- `src/pages/ClienteDetail.tsx` — aggiunta di un `useEffect` (~5 righe)
+- `src/pages/ClienteDetail.tsx` — ~5 righe nel mutationFn
