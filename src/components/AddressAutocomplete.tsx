@@ -537,7 +537,7 @@ const AddressAutocomplete = ({
         id={id}
         value={value}
         onChange={(e) => handleInputChange(e.target.value)}
-        onFocus={() => predictions.length > 0 && setOpen(true)}
+        onFocus={() => { /* non riaprire automaticamente: l'utente deve digitare */ }}
         onBlur={() => {
           blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
         }}
