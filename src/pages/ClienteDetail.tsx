@@ -1738,7 +1738,7 @@ export default function ClienteDetail() {
         },
         { field: "forma_giuridica", label: "Forma Giuridica", ok: !!(ef.forma_giuridica || "").trim() },
         { field: "indirizzo_sede", label: "Indirizzo Sede", ok: !!(ef.indirizzo_sede || "").trim() },
-        ...(isEnte ? [{ field: "codice_cig", label: "Codice CIG", ok: !!(ef.codice_cig || "").trim() }] : []),
+        // Codice CIG non è più obbligatorio in anagrafica: si gestisce sulla singola polizza/quietanza.
       ];
 
   const missingRequired = requiredFieldsList.filter((r) => !r.ok);
@@ -2220,14 +2220,7 @@ export default function ClienteDetail() {
                     <FieldInput label="Città Sede" field="citta_sede" />
                     <FieldInput label="Provincia Sede" field="provincia_sede" />
                     <FieldInput label="CAP Sede" field="cap_sede" />
-                    {isEnte && (
-                      <FieldInput
-                        label="Codice CIG"
-                        field="codice_cig"
-                        required
-                        errorMessage="Codice CIG obbligatorio per Ente"
-                      />
-                    )}
+                    {/* Codice CIG rimosso dall'anagrafica: vive solo a livello di polizza/quietanza per clienti Ente. */}
                   </>
                 )}
                 <FieldInput
