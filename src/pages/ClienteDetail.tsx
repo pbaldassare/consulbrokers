@@ -1676,16 +1676,9 @@ export default function ClienteDetail() {
     lastAutoFilledCFRef.current = cf;
   };
 
-  // Auto-trigger: appena il CF privato è completo e valido, compila dati anagrafici
-  useEffect(() => {
-    if (!isPrivato || !editMode) return;
-    const cf = (ef.codice_fiscale || "").toUpperCase();
-    if (cf.length !== 16) return;
-    if (lastAutoFilledCFRef.current === cf) return;
-    if (!parseCF(cf)) return;
-    handleCFAutoFill(cf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ef.codice_fiscale, isPrivato, editMode]);
+  // NB: l'auto-CF è già triggerato dall'onChange dell'Input (vedi FieldInput)
+  // quando il valore raggiunge 16 caratteri. Niente useEffect qui per evitare
+  // di aggiungere hook dopo l'early return su `cliente`.
 
   // Coerenza CF (solo privati)
   const cfParsed = isPrivato && ef.codice_fiscale && ef.codice_fiscale.length === 16
