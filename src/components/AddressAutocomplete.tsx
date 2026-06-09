@@ -344,7 +344,7 @@ const AddressAutocomplete = ({
   const sessionTokenRef = useRef<GoogleAutocompleteSessionToken | undefined>();
   const requestIdRef = useRef(0);
   const blurTimeoutRef = useRef<number | null>(null);
-  const suppressPredictionsRef = useRef(false);
+  const suppressPredictionsRef = useRef(true);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [predictions, setPredictions] = useState<GoogleAutocompletePrediction[]>([]);
@@ -537,7 +537,7 @@ const AddressAutocomplete = ({
         id={id}
         value={value}
         onChange={(e) => handleInputChange(e.target.value)}
-        onFocus={() => predictions.length > 0 && setOpen(true)}
+        onFocus={() => { /* non riaprire automaticamente: l'utente deve digitare */ }}
         onBlur={() => {
           blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
         }}
