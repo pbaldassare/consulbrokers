@@ -30,6 +30,11 @@ export interface GaranziaRow {
   ssnManualOverride?: boolean;
   /** True se il sottoramo è "esente" (Contributo Forzoso, Oneri): tasse e provvigioni forzate a 0 */
   escludiProvvigioni?: boolean;
+  /**
+   * Solo per righe di tipo "quietanza": true se l'utente ha modificato a mano la
+   * riga, scollegandola dalla sincronizzazione automatica con la Firma.
+   */
+  quietanzaPersonalizzata?: boolean;
 }
 
 export const emptyGaranziaRow = (): GaranziaRow => ({
@@ -80,6 +85,13 @@ export interface PremiGaranziaCardShellProps {
   warningAuto?: string | null;
   /** Callback per riattivare auto dopo un override manuale */
   onResetAuto?: () => void;
+  /**
+   * Solo Quietanza: flag per riga che indica se la riga è personalizzata
+   * (scollegata dalla sincronizzazione automatica con la Firma).
+   */
+  personalizzati?: boolean[];
+  /** Solo Quietanza: riallinea la riga `idx` alla Firma (toglie la personalizzazione). */
+  onResetRow?: (idx: number) => void;
 }
 
 export function PremiGaranziaCardShell({
@@ -103,6 +115,8 @@ export function PremiGaranziaCardShell({
   fonteAuto,
   warningAuto,
   onResetAuto,
+  personalizzati,
+  onResetRow,
 }: PremiGaranziaCardShellProps) {
   const isQuietanza = tipoPremio === "quietanza";
   const [totFocus, setTotFocus] = useState(false);
@@ -296,24 +310,43 @@ export function PremiGaranziaCardShell({
                 return (
                   <TableRow key={idx} className={cn(zebra)}>
                     <TableCell className="py-2">
-                      <div className="flex items-center gap-3">
-                        <ShieldCheck className={cn("h-4 w-4 flex-shrink-0", isQuietanza ? "text-amber-700" : "text-teal-700")} />
-                        {gruppoRamoId ? (
-                          <SearchableSelect
-                            options={garanziaOptions}
-                            value={r.sottoramoId || ""}
-                            onValueChange={(v) => handleGaranziaSelect(idx, v)}
-                            placeholder={garanziaOptions.length ? "Seleziona sottoramo…" : "Caricamento…"}
-                            className="flex-1 min-w-[280px]"
-                          />
-                        ) : (
-                          <Input
-                            value={r.descrizione}
-                            onChange={(e) => updateRow(idx, { descrizione: e.target.value })}
-                            placeholder="Seleziona prima il Ramo"
-                            disabled
-                            className="h-8 text-xs flex-1 min-w-[200px]"
-                          />
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <ShieldCheck className={cn("h-4 w-4 flex-shrink-0", isQuietanza ? "text-amber-700" : "text-teal-700")} />
+                          {gruppoRamoId ? (
+                            <SearchableSelect
+                              options={garanziaOptions}
+                              value={r.sottoramoId || ""}
+                              onValueChange={(v) => handleGaranziaSelect(idx, v)}
+                              placeholder={garanziaOptions.length ? "Seleziona sottoramo…" : "Caricamento…"}
+                              className="flex-1 min-w-[280px]"
+                            />
+                          ) : (
+                            <Input
+                              value={r.descrizione}
+                              onChange={(e) => updateRow(idx, { descrizione: e.target.value })}
+                              placeholder="Seleziona prima il Ramo"
+                              disabled
+                              className="h-8 text-xs flex-1 min-w-[200px]"
+                            />
+                          )}
+                        </div>
+                        {isQuietanza && personalizzati?.[idx] && (
+                          <div className="flex items-center gap-1.5 pl-7">
+                            <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-800 dark:text-amber-200">
+                              Personalizzato
+                            </Badge>
+                            {onResetRow && (
+                              <button
+                                type="button"
+                                onClick={() => onResetRow(idx)}
+                                className="inline-flex items-center rounded-sm bg-muted hover:bg-muted/70 text-muted-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase gap-1"
+                                title="Riallinea questa voce alla Firma"
+                              >
+                                ↻ Sincronizza da Firma
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>
