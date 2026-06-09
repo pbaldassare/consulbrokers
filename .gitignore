@@ -27,4 +27,5 @@ dist-ssr
 playwright-report/
 test-results/
 supabase/.temp/
+tests/.auth/
 
