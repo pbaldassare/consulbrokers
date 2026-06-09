@@ -1,12 +1,23 @@
-# Fix: Conti Bancari non visibili
+## Fix di 3 bug
 
-## Causa
-La pagina `ContiBancariPage.tsx` referenzia `compagnia_rapporti.codice_mandato`, ma la colonna in DB si chiama `codice_rapporto`. PostgREST risponde 400 → tabella vuota anche se i contatori (HEAD count) mostrano i numeri corretti.
+### 1. Aggiungere "Spett.le" alla select Titolo
+- `src/pages/ClienteDetail.tsx` (riga 2156): aggiungere `{ value: "spett", label: "Spett.le" }` all'array opzioni `Titolo`.
+- `src/components/clienti/NuovoClienteDialog.tsx` (riga 853): aggiungere `<SelectItem value="spett">Spett.le</SelectItem>`.
 
-## Modifiche (`src/pages/anagrafiche/ContiBancariPage.tsx`)
+### 2. Stato cliente = "attivo" di default se ha almeno 1 polizza/quietanza
+Migrazione SQL una-tantum + futura coerenza:
+- Backfill: `UPDATE public.clienti SET stato_cliente = 'attivo' WHERE (stato_cliente IS NULL OR stato_cliente = '') AND EXISTS (SELECT 1 FROM public.titoli t WHERE t.cliente_id = clienti.id);`
+- Trigger DB su INSERT di `titoli`: se il cliente collegato ha `stato_cliente` NULL/vuoto, lo imposta a `'attivo'`. Così ogni nuova polizza/quietanza inserita garantisce lo stato.
 
-1. Riga 164 — query principale: nella select join `rapporto:compagnia_rapporti!...(id,codice_mandato,...)` → `codice_rapporto`.
-2. Righe 213-217 — query `rapportiForCompagnia`: `select("id, codice_mandato, ...")` → `codice_rapporto`, e `.order("codice_mandato")` → `.order("codice_rapporto")`.
-3. Riga 329 — `formatRapportoLabel`: `r.codice_mandato` → `r.codice_rapporto`.
+### 3. AddressAutocomplete: non riaprire suggerimenti su valore esistente
+In `src/components/AddressAutocomplete.tsx`:
+- Inizializzare `suppressPredictionsRef.current = true` (default suppress ON al mount).
+- Sbloccare i suggerimenti **solo** quando l'utente digita davvero nell'input (dentro `handleInputChange`, già presente — corretto).
+- Aggiungere `onFocus` che NON forza l'apertura se l'utente non sta digitando: rimuovere il `onFocus={() => predictions.length > 0 && setOpen(true)}` perché basta digitare per riaprire. Mantenere chiusura su blur.
+- Effetto: caricando una pagina con indirizzo già valorizzato (es. `Via Michelangelo, 71`) non comparirà la dropdown di indirizzi simili; comparirà solo quando l'utente clicca/cursore e modifica il testo.
 
-Nessuna altra modifica (UI, RLS, schema invariato).
+### File toccati
+- `src/pages/ClienteDetail.tsx` — 1 riga
+- `src/components/clienti/NuovoClienteDialog.tsx` — 1 riga
+- `src/components/AddressAutocomplete.tsx` — 2 piccole modifiche (init ref + rimozione apertura on focus)
+- 1 migrazione SQL (backfill + trigger su `titoli`)
