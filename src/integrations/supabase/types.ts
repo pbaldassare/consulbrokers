@@ -1282,6 +1282,126 @@ export type Database = {
           },
         ]
       }
+      cliente_anticipi: {
+        Row: {
+          cliente_id: string
+          conto_bancario_id: string | null
+          created_at: string
+          creato_da: string | null
+          data_anticipo: string
+          id: string
+          importo: number
+          importo_residuo: number
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          conto_bancario_id?: string | null
+          created_at?: string
+          creato_da?: string | null
+          data_anticipo?: string
+          id?: string
+          importo: number
+          importo_residuo?: number
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          conto_bancario_id?: string | null
+          created_at?: string
+          creato_da?: string | null
+          data_anticipo?: string
+          id?: string
+          importo?: number
+          importo_residuo?: number
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_anticipi_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clienti"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_conto_bancario_id_fkey"
+            columns: ["conto_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "conti_bancari"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_creato_da_fkey"
+            columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_anticipi_utilizzi: {
+        Row: {
+          anticipo_id: string
+          created_at: string
+          creato_da: string | null
+          data_utilizzo: string
+          id: string
+          importo_utilizzato: number
+          titolo_id: string
+        }
+        Insert: {
+          anticipo_id: string
+          created_at?: string
+          creato_da?: string | null
+          data_utilizzo?: string
+          id?: string
+          importo_utilizzato: number
+          titolo_id: string
+        }
+        Update: {
+          anticipo_id?: string
+          created_at?: string
+          creato_da?: string | null
+          data_utilizzo?: string
+          id?: string
+          importo_utilizzato?: number
+          titolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_anticipi_utilizzi_anticipo_id_fkey"
+            columns: ["anticipo_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_anticipi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_utilizzi_creato_da_fkey"
+            columns: ["creato_da"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_utilizzi_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "titoli"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_anticipi_utilizzi_titolo_id_fkey"
+            columns: ["titolo_id"]
+            isOneToOne: false
+            referencedRelation: "v_portafoglio_titoli"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clienti: {
         Row: {
           area_riservata_tipo: string

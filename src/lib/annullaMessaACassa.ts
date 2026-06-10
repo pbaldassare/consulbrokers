@@ -49,6 +49,11 @@ export async function annullaMessaACassa(titoloId: string): Promise<AnnullaResul
     .select("id");
   if (errDelMov) return { ok: false, error: errDelMov.message };
 
+  // 3b. Rilascia anticipi utilizzati per questo titolo (il trigger DB ripristina il residuo)
+  await (supabase.from("cliente_anticipi_utilizzi") as any)
+    .delete()
+    .eq("titolo_id", titoloId);
+
   // 4. Reset campi titolo
   const { error: errUpd } = await (supabase.from("titoli") as any)
     .update({
