@@ -159,6 +159,38 @@ const CruscottoGiornaliero = () => {
     },
   });
 
+  // Causali compensazione (per filtro)
+  const { data: causaliCompFiltro = [] } = useQuery({
+    queryKey: ["causali-compensazione-filtro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("causali_contabili") as any)
+        .select("id, codice, descrizione")
+        .eq("tipo_tabella", "compensazione_messa_cassa")
+        .order("codice");
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; codice: string; descrizione: string }>;
+    },
+  });
+
+  // Movimenti filtrati per il pannello in fondo (periodo + categoria + causale)
+  const { data: movFiltrati = [], isLoading: loadMovF, refetch: refetchMovF } = useQuery({
+    queryKey: ["cruscotto_mov_filtrati", uffId, filtroDataDa, filtroDataA, filtroCategoria, filtroCausaleId, causaliCompFiltro.length],
+    queryFn: async () => {
+      let q: any = supabase.from("movimenti_contabili").select("*")
+        .gte("data_movimento", filtroDataDa)
+        .lte("data_movimento", filtroDataA);
+      if (uffId) q = q.eq("ufficio_id", uffId);
+      if (filtroCategoria !== "__tutte__") q = q.eq("categoria", filtroCategoria);
+      if (filtroCategoria === "compensazione_titolo" && filtroCausaleId !== "__tutte__") {
+        const causale = causaliCompFiltro.find((c) => c.id === filtroCausaleId);
+        if (causale) q = q.ilike("descrizione", `${causale.codice}%`);
+      }
+      const { data, error } = await q.order("data_movimento", { ascending: false }).order("created_at", { ascending: false }).limit(500);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // --- CALCULATIONS ---
 
   const totEntrate = movOggi.filter(m => m.tipo === "entrata").reduce((s, m) => s + (m.importo || 0), 0);
