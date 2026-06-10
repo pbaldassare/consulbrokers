@@ -839,6 +839,7 @@ function AgenzieCollegateDialog({
         .from("compagnie")
         .select("id, codice, nome, nome_sede, comune, provincia, stato, attiva")
         .eq("gruppo_compagnia_id", gruppoId)
+        .eq("attiva", true)
         .order("nome");
       if (error) throw error;
       return data || [];
@@ -1062,7 +1063,8 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       const { data: countsData } = await supabase
         .from("compagnie")
         .select("gruppo_compagnia_id")
-        .not("gruppo_compagnia_id", "is", null);
+        .not("gruppo_compagnia_id", "is", null)
+        .eq("attiva", true);
 
       const counts1n: Record<string, number> = {};
       (countsData || []).forEach((row: any) => {
@@ -1481,7 +1483,15 @@ const CompagnieList = () => {
       const { error } = await supabase.from("compagnie").update({ attiva }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenzie"] }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["agenzie"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-madri-list"] });
+      queryClient.invalidateQueries({ queryKey: ["agenzie-collegate"] });
+      queryClient.invalidateQueries({ queryKey: ["rapporti-per-gruppo"] });
+      queryClient.invalidateQueries({ queryKey: ["rapporti-counts"] });
+      toast.success(vars.attiva ? "Agenzia attivata" : "Agenzia disattivata");
+    },
+    onError: (e: any) => toast.error(e?.message || "Errore aggiornamento stato"),
   });
 
   const deleteCompagniaMutation = useMutation({
@@ -1529,7 +1539,7 @@ const CompagnieList = () => {
           <h1 className="text-2xl font-bold text-foreground">Compagnie Assicurative / Agenzie</h1>
           <p className="text-muted-foreground">
             Gestione compagnie assicurative, agenzie e provvigioni —{" "}
-            <span className="font-semibold">{compagnie.length}</span> agenzie ·{" "}
+            <span className="font-semibold">{compagnie.filter((c: any) => c.attiva !== false).length}</span> agenzie ·{" "}
             <span className="font-semibold">{Object.keys(gruppiMap).length}</span> compagnie assicurative
           </p>
         </div>
@@ -1647,10 +1657,11 @@ const CompagnieList = () => {
                     {filteredAnagrafica.map((c: any) => {
                       const grp = c.gruppo_compagnia_id ? gruppiMap[c.gruppo_compagnia_id] : null;
                       const rc = rapportiCounts[c.id] || { tot: 0, attivi: 0 };
+                      const isAttiva = c.attiva !== false;
                       return (
                         <TableRow
                           key={c.id}
-                          className="cursor-pointer hover:bg-muted/50"
+                          className={`cursor-pointer hover:bg-muted/50 ${!isAttiva ? "opacity-60" : ""}`}
                           onClick={() => openEdit(c)}
                         >
                           <TableCell className="font-mono text-sm">{c.codice || "—"}</TableCell>
@@ -1669,8 +1680,8 @@ const CompagnieList = () => {
                           <TableCell>{grp?.descrizione || "—"}</TableCell>
                           <TableCell>{c.comune || "—"}</TableCell>
                           <TableCell>
-                            <Badge variant={c.stato === "Attivo" ? "default" : "secondary"}>
-                              {c.stato || (c.attiva ? "Attivo" : "Non Operativo")}
+                            <Badge variant={isAttiva ? "default" : "secondary"}>
+                              {isAttiva ? (c.stato || "Attivo") : "Non Operativo"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
