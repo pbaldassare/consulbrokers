@@ -122,6 +122,30 @@ const ECClientePdfPage = () => {
     },
   });
 
+  // Compensazioni applicate (può essere vuoto: solo polizze già messe a cassa le hanno)
+  const { data: compensazioniByTitolo = {} } = useQuery({
+    queryKey: ["ec-cli-pdf-compensazioni", (titoli || []).map((t: any) => t.id).join(",")],
+    enabled: (titoli || []).length > 0,
+    queryFn: async () => {
+      const ids = (titoli || []).map((t: any) => t.id);
+      const { data, error } = await (supabase.from("titoli_compensazioni") as any)
+        .select("titolo_id, causale_codice, causale_descrizione, segno, importo, note")
+        .in("titolo_id", ids);
+      if (error) throw error;
+      const map: Record<string, any[]> = {};
+      (data || []).forEach((c: any) => {
+        (map[c.titolo_id] = map[c.titolo_id] || []).push({
+          codice: c.causale_codice,
+          descrizione: c.causale_descrizione,
+          segno: c.segno,
+          importo: Number(c.importo),
+          note: c.note || undefined,
+        });
+      });
+      return map;
+    },
+  });
+
   const buildData = (): ECClienteData => {
     const righe: ECClienteRow[] = (titoli || []).map((t: any) => {
       const ramoR = t.rami;
@@ -136,9 +160,16 @@ const ECClientePdfPage = () => {
         compagnia: t.compagnie?.gruppi_compagnia?.descrizione || t.compagnie?.gruppo_compagnia || t.compagnie?.nome || "",
         effetto,
         premio: Number(t.premio_lordo) || 0,
+        compensazioni: compensazioniByTitolo[t.id] || undefined,
       };
     });
-    const totale = righe.reduce((s, r) => s + r.premio, 0);
+    // Totale dovuto = somma premi + Σ compensazioni segno '-' (aumentano dovuto) − Σ segno '+' (riducono dovuto)
+    const totale = righe.reduce((s, r) => {
+      const comp = r.compensazioni || [];
+      const plus = comp.filter((c) => c.segno === "+").reduce((a, c) => a + c.importo, 0);
+      const minus = comp.filter((c) => c.segno === "-").reduce((a, c) => a + c.importo, 0);
+      return s + r.premio + minus - plus;
+    }, 0);
 
     // Cliente
     const isAzienda = cliente?.tipo_cliente === "azienda" || cliente?.tipo_cliente === "ente" || !!cliente?.ragione_sociale;
