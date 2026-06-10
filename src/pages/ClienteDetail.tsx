@@ -41,7 +41,7 @@ import { useLookupZone, useLookupIndotti, useLookupAttivita, useLookupSettori, u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import AnticipiCard from "@/components/clienti/AnticipiCard";
+import AnticipiChip from "@/components/clienti/AnticipiChip";
 
 /* ===========================================================
  * Anagrafica form context + module-level field components
