@@ -195,10 +195,11 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
   const addCompFor = (titoloId: string, causaleId: string, suggestImporto?: number) => {
     const c = causaliComp.find((x) => x.id === causaleId);
     if (!c) return;
+    const tempId = crypto.randomUUID();
     setCompensazioniByTitolo((prev) => {
       const cur = prev[titoloId] || [];
       const row: CompensazioneRow = {
-        tempId: crypto.randomUUID(),
+        tempId,
         causale_id: c.id,
         causale_codice: c.codice,
         causale_descrizione: c.descrizione,
@@ -208,6 +209,7 @@ export const MessaCassaDialog = ({ open, onOpenChange, titoli, onSuccess }: Prop
       };
       return { ...prev, [titoloId]: [...cur, row] };
     });
+    setLastAddedCompId(tempId);
   };
 
   const updateCompFor = (titoloId: string, tempId: string, patch: Partial<CompensazioneRow>) => {
