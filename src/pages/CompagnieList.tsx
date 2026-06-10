@@ -1072,10 +1072,13 @@ function CompagnieMadriTab({ onOpenAgenzia }: { onOpenAgenzia?: (compagniaId: st
       });
 
       // Conteggio relazioni N:N attive (rapporti plurimandatari)
+      // Escludi i rapporti principali (is_principale=true) auto-creati dal trigger DB:
+      // sono già rappresentati nel conteggio 1:N via compagnie.gruppo_compagnia_id.
       const { data: rapportiData } = await supabase
         .from("compagnia_rapporti")
         .select("compagnia_id, gruppo_compagnia_id")
-        .eq("attivo", true);
+        .eq("attivo", true)
+        .eq("is_principale", false);
 
       const countsNn: Record<string, Set<string>> = {};
       (rapportiData || []).forEach((row: any) => {
