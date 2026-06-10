@@ -18,6 +18,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ArrowLeft, FileText, Percent, Clock, ExternalLink, ChevronDown, Calendar, Shield, DollarSign, RefreshCw, LayoutGrid, List, Users, ShieldCheck, StickyNote, Car, UserCheck, CheckSquare, Replace, Ban, ArrowRightLeft, XCircle, Download, Eye, Trash2, Pencil, Database, AlertTriangle, Info, User as UserIcon, Building2, Mail } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DocumentiTab from "@/components/DocumentiTab";
+import MessaCassaDialog from "@/components/portafoglio/MessaCassaDialog";
 import ChatTab from "@/components/ChatTab";
 import TimelineTab from "@/components/TimelineTab";
 import { toast } from "sonner";
@@ -1808,67 +1809,22 @@ const TitoloDetail = () => {
 
       {/* MESSA A CASSA — ora integrata nella card Operazioni sopra */}
 
-      {/* Dialog Conferma Messa a Cassa */}
-      <Dialog open={cassaDialogOpen} onOpenChange={setCassaDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Conferma Messa a Cassa</DialogTitle>
-            <DialogDescription>Polizza {t.numero_titolo || t.id.slice(0, 8)}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs">Data Messa a Cassa</Label>
-                <Input type="date" value={cassaForm.dataMessaCassa} onChange={(e) => setCassaForm(f => ({ ...f, dataMessaCassa: e.target.value }))} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Data Pagamento</Label>
-                <Input type="date" value={cassaForm.dataPagamento} onChange={(e) => setCassaForm(f => ({ ...f, dataPagamento: e.target.value }))} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Data Decorrenza Rinnovo</Label>
-                <Input type="date" value={cassaForm.dataDecorrenza} onChange={(e) => setCassaForm(f => ({ ...f, dataDecorrenza: e.target.value }))} className="mt-1" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Tipo Pagamento</Label>
-              <Select value={cassaForm.tipoPagamento} onValueChange={(v) => setCassaForm(f => ({ ...f, tipoPagamento: v, banca: "" }))}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="contanti">Contanti</SelectItem>
-                  <SelectItem value="pos">POS</SelectItem>
-                  <SelectItem value="bonifico">Bonifico</SelectItem>
-                  <SelectItem value="assegno">Assegno</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {cassaForm.tipoPagamento === "bonifico" && (
-              <div>
-                <Label className="text-xs">Conto Consulbrokers</Label>
-                <ContoBancarioSelect
-                  tipi={["generico", "incasso_clienti"]}
-                  value={cassaForm.banca || null}
-                  onChange={(id) => setCassaForm(f => ({ ...f, banca: id || "" }))}
-                  placeholder="Seleziona conto..."
-                  showPreview
-                  className="mt-1"
-                />
-              </div>
-            )}
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <p className="text-sm font-medium text-destructive">
-                ⚠️ Attenzione: questa operazione è irreversibile. Una volta confermata, non sarà possibile annullare l'incasso.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCassaDialogOpen(false)}>Annulla</Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white" disabled={changeStatoMutation.isPending || (cassaForm.tipoPagamento === "bonifico" && !cassaForm.banca)} onClick={() => changeStatoMutation.mutate({ nuovoStato: "incassato", cassaData: cassaForm })}>
-              <CheckSquare className="w-4 h-4 mr-1" /> Conferma Incasso
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog Conferma Messa a Cassa — unificato con anticipi e compensazioni */}
+      <MessaCassaDialog
+        open={cassaDialogOpen}
+        onOpenChange={setCassaDialogOpen}
+        titoli={[{
+          id: t.id,
+          numero_titolo: t.numero_titolo,
+          premio_lordo: t.premio_lordo,
+          cliente_anagrafica_id: t.cliente_anagrafica_id,
+          ufficio_id: t.ufficio_id,
+        }]}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["titolo", t.id] });
+          queryClient.invalidateQueries({ queryKey: ["titoli"] });
+        }}
+      />
 
       {/* Dialog Rinnovo Polizza */}
       
