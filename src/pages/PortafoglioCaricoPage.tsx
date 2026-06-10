@@ -627,6 +627,7 @@ const PortafoglioCaricoPage = () => {
                   <SortableHeader field="numero_titolo">N° Polizza</SortableHeader>
                   <TableHead>Tipo</TableHead>
                   <SortableHeader field="cliente_nome_display">Cliente</SortableHeader>
+                  <TableHead>Anticipo</TableHead>
                   <SortableHeader field="compagnia_nome">Agenzia</SortableHeader>
                   <SortableHeader field="ramo_nome">Ramo</SortableHeader>
                   <SortableHeader field="targa_telaio">Targa</SortableHeader>
